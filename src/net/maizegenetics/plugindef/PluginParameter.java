@@ -27,7 +27,7 @@ public class PluginParameter<T extends Comparable<T>> {
 
     public enum FILE_TYPE {
 
-        NA, IN, OUT
+        NA, IN_FILE, OUT_FILE, IN_DIR, OUT_DIR
     };
     private final FILE_TYPE myFileType;
 
@@ -182,12 +182,22 @@ public class PluginParameter<T extends Comparable<T>> {
         }
 
         public Builder<T> inFile() {
-            myFileType = FILE_TYPE.IN;
+            myFileType = FILE_TYPE.IN_FILE;
             return this;
         }
 
         public Builder<T> outFile() {
-            myFileType = FILE_TYPE.OUT;
+            myFileType = FILE_TYPE.OUT_FILE;
+            return this;
+        }
+
+        public Builder<T> inDir() {
+            myFileType = FILE_TYPE.IN_DIR;
+            return this;
+        }
+
+        public Builder<T> outDir() {
+            myFileType = FILE_TYPE.OUT_DIR;
             return this;
         }
 
