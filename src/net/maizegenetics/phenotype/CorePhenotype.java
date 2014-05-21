@@ -1,25 +1,53 @@
 package net.maizegenetics.phenotype;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeSet;
 
 import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.TaxaListBuilder;
+import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.TableReport;
 
 import com.google.common.collect.ArrayListMultimap;
 
 public class CorePhenotype implements TableReport, Phenotype {
-	private ArrayListMultimap<ATTRIBUTE_TYPE, PhenotypeAttribute> attributeMultimap;
-	private ArrayList<PhenotypeAttribute> myAttributeList;
-	private TaxaList myTaxaList;
-	private int numberOfAttributes;
-	private int numberOfObservations;
-	private String tableName;
+	private final ArrayListMultimap<ATTRIBUTE_TYPE, PhenotypeAttribute> attributeMultimap;
+	private final ArrayList<PhenotypeAttribute> myAttributeList;
+	private final ArrayList<ATTRIBUTE_TYPE> myAttributeTypes;
+	private final Map<PhenotypeAttribute, Integer> myAttributeIndex;
+	private final TaxaList myTaxaList;
+	private final int numberOfAttributes;
+	private final int numberOfObservations;
+	private final String tableName;
 	
 	CorePhenotype(String tableName, ArrayList<PhenotypeAttribute> attributes, ArrayList<ATTRIBUTE_TYPE> types) {
+		this.tableName = tableName;
 		myAttributeList = attributes;
+		myAttributeTypes = types;
 		numberOfAttributes = myAttributeList.size();
 		numberOfObservations = attributes.get(0).getSize();
+		
+		attributeMultimap = ArrayListMultimap.create();
+		myAttributeIndex = new HashMap<PhenotypeAttribute, Integer>();
+		
+		for (int i = 0; i < numberOfAttributes; i++) {
+			attributeMultimap.put(types.get(i), attributes.get(i));
+			myAttributeIndex.put(attributes.get(i), i);
+		}
+		
+		List<PhenotypeAttribute> attrs = attributeMultimap.get(ATTRIBUTE_TYPE.taxa);
+		if (attrs.size() == 1) {
+			TaxaAttribute taxaAttr = (TaxaAttribute) attrs.get(0);
+			TreeSet<Taxon> taxaset = new TreeSet<>();
+			Taxon[] taxa = (Taxon[]) taxaAttr.getValues();
+			for (Taxon taxon : taxa) taxaset.add(taxon);
+			TaxaListBuilder taxaBuilder = new TaxaListBuilder();
+			myTaxaList = taxaBuilder.addAll(taxaset).build();
+			
+		} else myTaxaList = null;
 	}
 	
 	@Override
@@ -32,6 +60,11 @@ public class CorePhenotype implements TableReport, Phenotype {
 		return myAttributeList.get(attrnum);
 	}
 	
+	@Override
+	public int getAttributeIndex(PhenotypeAttribute attr) {
+		return myAttributeIndex.get(attr);
+	}
+
 	@Override
 	public ArrayList<PhenotypeAttribute> getAttributeList() {
 		return new ArrayList<PhenotypeAttribute>(myAttributeList);
@@ -65,6 +98,29 @@ public class CorePhenotype implements TableReport, Phenotype {
 	@Override
 	public int getNumberOfObservations() {
 		return numberOfObservations;
+	}
+
+	@Override
+	public ATTRIBUTE_TYPE getAttributeType(int attrnum) {
+		return myAttributeTypes.get(attrnum);
+	}
+
+	@Override
+	public ATTRIBUTE_TYPE getAttributeType(PhenotypeAttribute attribute) {
+		return myAttributeTypes.get(getAttributeIndex(attribute));
+	}
+
+	@Override
+	public void setAttributeType(int attrnum, ATTRIBUTE_TYPE type) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void setAttributeType(PhenotypeAttribute attribute,
+			ATTRIBUTE_TYPE type) {
+		// TODO Auto-generated method stub
+		
 	}
 
 	// TableReport functions

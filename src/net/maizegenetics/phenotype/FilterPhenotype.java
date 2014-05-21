@@ -1,10 +1,12 @@
 package net.maizegenetics.phenotype;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.TaxaListUtils;
@@ -12,13 +14,13 @@ import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.TableReport;
 
 public class FilterPhenotype implements Phenotype, TableReport {
-	private CorePhenotype basePhenotype;
-	private boolean myIsTaxaFilter = false;
-	private boolean myIsAttributeFilter = false;
-	private int[] myTaxaRedirect = null;
-	private int[] myAttributeRedirect = null;
-	Map<ATTRIBUTE_TYPE, int[]> myAttributeTypeRedirect = null;
-	private String myTableTitle = "Filtered phenotype";
+	private final CorePhenotype basePhenotype;
+	private final boolean myIsTaxaFilter;
+	private final boolean myIsAttributeFilter;
+	private final int[] myTaxaRedirect;
+	private final int[] myAttributeRedirect;
+	private final Map<ATTRIBUTE_TYPE, int[]> myAttributeTypeRedirect;
+	private final String myTableTitle = "Filtered phenotype";
 	
 	private FilterPhenotype(CorePhenotype basePheno, ArrayList<PhenotypeAttribute> retainedAttributes, TaxaList taxaToRetain) {
 		basePhenotype = basePheno;
@@ -32,6 +34,9 @@ public class FilterPhenotype implements Phenotype, TableReport {
 			for (Taxon taxon : commonTaxa) {
 				myTaxaRedirect[tcount++] = basePhenotype.taxa().indexOf(taxon);
 			}
+		} else {
+			myIsTaxaFilter = false;
+			myTaxaRedirect = null;
 		}
 		
 		if (retainedAttributes != null) {
@@ -42,7 +47,15 @@ public class FilterPhenotype implements Phenotype, TableReport {
 			for (PhenotypeAttribute attr : retainedAttributes) {
 				myAttributeRedirect[acount++] = basePhenotype.getAttributeList().indexOf(attr);
 			}
+			myAttributeTypeRedirect = new HashMap<Phenotype.ATTRIBUTE_TYPE, int[]>();
+			//TODO assign values to myAttributeTypeRedirect
+		} else {
+			myIsAttributeFilter = false;
+			myAttributeRedirect = null;
+			myAttributeTypeRedirect = null;
 		}
+		
+		
 	}
 	
 	public static Phenotype getInstance(CorePhenotype basePheno, ArrayList<PhenotypeAttribute> retainedAttributes, TaxaList taxaToRetain) {
@@ -65,6 +78,37 @@ public class FilterPhenotype implements Phenotype, TableReport {
 		return new FilterPhenotype(basePheno, null, taxaBuilder.build());
 	}
 	
+
+	@Override
+	public int getAttributeIndex(PhenotypeAttribute attr) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public ATTRIBUTE_TYPE getAttributeType(int attrnum) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public ATTRIBUTE_TYPE getAttributeType(PhenotypeAttribute attribute) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void setAttributeType(int attrnum, ATTRIBUTE_TYPE type) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void setAttributeType(PhenotypeAttribute attribute,
+			ATTRIBUTE_TYPE type) {
+		// TODO Auto-generated method stub
+		
+	}
 
 	//methods to override ------------------------------------
 	@Override
