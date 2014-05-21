@@ -3,6 +3,7 @@ package net.maizegenetics.phenotype;
 import java.util.TreeSet;
 
 import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.OpenBitSet;
 
 import com.google.common.collect.ImmutableBiMap;
 
@@ -60,6 +61,30 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 	@Override
 	public Object getValues() {
 		return getValuesAsLabels();
+	}
+
+	@Override
+	public Object getSubsetOfValues(int[] obs) {
+		int n = obs.length;
+		String[] labels = new String[n];
+		ImmutableBiMap<Integer, String> reverseMap = labelBimap.inverse();
+		for (int i = 0; i < n; i++) {
+			labels[i] = reverseMap.get(obs[i]);
+		}
+		return labels;
+	}
+
+	@Override
+	public PhenotypeAttribute getSubset(int[] obs) {
+		int n = obs.length;
+		String[] labels = new String[n];
+		OpenBitSet subMissing = new OpenBitSet(n);
+		ImmutableBiMap<Integer, String> reverseMap = labelBimap.inverse();
+		for (int i = 0; i < n; i++) {
+			labels[i] = reverseMap.get(obs[i]);
+			if (missing.fastGet(i)) subMissing.fastSet(i);
+		}
+		return new CategoricalAttribute(name, labels, subMissing);
 	}
 
 	@Override

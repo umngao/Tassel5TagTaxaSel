@@ -112,15 +112,13 @@ public class CorePhenotype implements TableReport, Phenotype {
 
 	@Override
 	public void setAttributeType(int attrnum, ATTRIBUTE_TYPE type) {
-		// TODO Auto-generated method stub
-		
+		myAttributeTypes.set(attrnum, type);
 	}
 
 	@Override
 	public void setAttributeType(PhenotypeAttribute attribute,
 			ATTRIBUTE_TYPE type) {
-		// TODO Auto-generated method stub
-		
+		myAttributeTypes.set(getAttributeIndex(attribute), type);
 	}
 
 	// TableReport functions

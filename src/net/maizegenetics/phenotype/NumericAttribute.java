@@ -32,6 +32,18 @@ public class NumericAttribute implements PhenotypeAttribute {
 	}
 
 	@Override
+	public Object getSubsetOfValues(int[] obs) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public PhenotypeAttribute getSubset(int[] obs) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
 	public boolean isMissing(int obs) {
 		return missing.fastGet(obs);
 	}

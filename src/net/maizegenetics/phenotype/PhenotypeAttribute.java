@@ -17,6 +17,18 @@ public interface PhenotypeAttribute {
 	Object getValues();
 	
 	/**
+	 * @param obs	an array of observation numbers 
+	 * @return	the values of this attribute for the observations in obs in the same order
+	 */
+	Object getSubsetOfValues(int[] obs);
+	
+	/**
+	 * @param obs	an array of observation numbers
+	 * @return	an attribute equivalent to this one but with a subset of observations specified by obs
+	 */
+	PhenotypeAttribute getSubset(int[] obs);
+	
+	/**
 	 * @param obs	the observation number
 	 * @return	if the value of the observation is missing, true, otherwise false.
 	 */
