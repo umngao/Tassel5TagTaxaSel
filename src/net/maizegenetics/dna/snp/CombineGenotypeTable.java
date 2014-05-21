@@ -750,42 +750,51 @@ public class CombineGenotypeTable implements GenotypeTable {
 
     @Override
     public int numberOfTaxa() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return myTaxaList.size();
     }
 
     @Override
     public Chromosome chromosome(String name) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        for (Chromosome current: myChromosomesList) {
+            if (current.getName().equals(name)) {
+                return current;
+            }
+        }
+        return null;
     }
 
     @Override
     public String majorAlleleAsString(int site) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        int translate = translateSite(site);
+        return myAlignments[translate].majorAlleleAsString(site - mySiteOffsets[translate]);
     }
 
     @Override
     public String minorAlleleAsString(int site) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        int translate = translateSite(site);
+        return myAlignments[translate].minorAlleleAsString(site - mySiteOffsets[translate]);
     }
 
     @Override
     public TaxaList taxa() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return myTaxaList;
     }
 
     @Override
     public String taxaName(int index) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return myTaxaList.taxaName(index);
     }
 
     @Override
     public String diploidAsString(int site, byte value) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        int translate = translateSite(site);
+        return myAlignments[translate].diploidAsString(site - mySiteOffsets[translate], value);
     }
 
     @Override
     public int totalNonMissingForSite(int site) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        int translate = translateSite(site);
+        return myAlignments[translate].totalNonMissingForSite(site - mySiteOffsets[translate]);
     }
 
     @Override
