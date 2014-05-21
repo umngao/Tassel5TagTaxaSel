@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.maizegenetics.taxa.TaxaList;
-import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.util.TableReport;
 
 import com.google.common.collect.ArrayListMultimap;
@@ -12,25 +11,32 @@ import com.google.common.collect.ArrayListMultimap;
 public class Phenotype implements TableReport {
 	public enum ATTRIBUTE_TYPE {data, covariate, factor};
 	private ArrayListMultimap<ATTRIBUTE_TYPE, PhenotypeAttribute> attributeMultimap;
-	private ArrayList<PhenotypeAttribute> attributeList;
+	private ArrayList<PhenotypeAttribute> myAttributeList;
 	private TaxaList myTaxaList;
 	private int numberOfAttributes;
 	private int numberOfObservations;
-	private String tableName = "Phenotype";
+	private String tableName;
+	
+	Phenotype(String tableName, ArrayList<PhenotypeAttribute> attributes, ArrayList<ATTRIBUTE_TYPE> types) {
+		myAttributeList = attributes;
+		numberOfAttributes = myAttributeList.size();
+		numberOfObservations = attributes.get(0).getSize();
+		
+	}
 	
 	public Object getValue(int obs, int attrnum) {
-		return attributeList.get(attrnum).getValue(obs);
+		return myAttributeList.get(attrnum).getValue(obs);
 	}
 	
 	public PhenotypeAttribute getAttribute(int attrnum) {
-		return attributeList.get(attrnum);
+		return myAttributeList.get(attrnum);
 	}
 	
 	/**
 	 * @return	a shallow copy of the attribute list. 
 	 */
 	public ArrayList<PhenotypeAttribute> getAttributeList() {
-		return new ArrayList<PhenotypeAttribute>(attributeList);
+		return new ArrayList<PhenotypeAttribute>(myAttributeList);
 	}
 	
 	public PhenotypeAttribute getAttributeOfType(ATTRIBUTE_TYPE type, int attrnum) {
@@ -62,7 +68,7 @@ public class Phenotype implements TableReport {
 	public Object[] getTableColumnNames() {
 		String[] columnNames = new String[numberOfAttributes];
 		int count = 0;
-		for (PhenotypeAttribute attr : attributeList) {
+		for (PhenotypeAttribute attr : myAttributeList) {
 			columnNames[count++] = attr.getName();
 		}
 		return columnNames;
@@ -113,7 +119,7 @@ public class Phenotype implements TableReport {
 	@Override
 	public Object getValueAt(int row, int col) {
 		if (col == 0) return myTaxaList.get(row);
-		return attributeList.get(col - 1).getValue(row);
+		return myAttributeList.get(col - 1).getValue(row);
 	}
 	
 }
