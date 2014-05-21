@@ -226,7 +226,7 @@ abstract public class AbstractPlugin implements Plugin {
                 }
             }
 
-            if (current.fileType() == PluginParameter.FILE_TYPE.IN) {
+            if (current.fileType() == PluginParameter.FILE_TYPE.IN_FILE) {
                 String filename = current.value().toString();
                 if (!new File(filename).exists()) {
                     if (isInteractive()) {
@@ -239,7 +239,7 @@ abstract public class AbstractPlugin implements Plugin {
                 }
             }
 
-            if (current.fileType() == PluginParameter.FILE_TYPE.OUT) {
+            if (current.fileType() == PluginParameter.FILE_TYPE.OUT_FILE) {
                 String filename = current.value().toString();
                 String outFolder = Utils.getDirectory(filename);
                 File outDir = new File(outFolder);
