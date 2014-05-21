@@ -75,6 +75,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
 import net.maizegenetics.analysis.gbs.BinaryToTextPlugin;
+import net.maizegenetics.analysis.gbs.FastqToTagCountPlugin;
 
 /**
  * TASSELMainFrame
@@ -676,6 +677,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.setMnemonic(KeyEvent.VK_G);
 
         result.add(createMenuItem(new BinaryToTextPlugin(this, true)));
+        result.add(createMenuItem(new FastqToTagCountPlugin(this, true)));
 
         return result;
     }
