@@ -254,6 +254,21 @@ abstract public class AbstractPlugin implements Plugin {
                 }
             }
 
+            if ((current.fileType() == PluginParameter.FILE_TYPE.IN_DIR)
+                    || (current.fileType() == PluginParameter.FILE_TYPE.OUT_DIR)) {
+                String dirname = current.value().toString();
+                File directory = new File(dirname);
+                if (!directory.isDirectory()) {
+                    if (isInteractive()) {
+                        throw new IllegalStateException(current.guiName() + ": Directory: " + dirname + " doesn't exist.");
+                    } else {
+                        myLogger.error("-" + current.cmdLineName() + ": Directory: " + dirname + " doesn't exist\n");
+                        printUsage();
+                        System.exit(1);
+                    }
+                }
+            }
+
         }
 
     }
@@ -488,7 +503,7 @@ abstract public class AbstractPlugin implements Plugin {
                 parameterFields.put(current.cmdLineName(), check);
             } else {
                 final JTextField field;
-                if ((current.fileType() == PluginParameter.FILE_TYPE.IN) || (current.fileType() == PluginParameter.FILE_TYPE.OUT)) {
+                if (current.fileType() != PluginParameter.FILE_TYPE.NA) {
                     field = new JTextField(TEXT_FIELD_WIDTH - 8);
                 } else {
                     field = new JTextField(TEXT_FIELD_WIDTH);
@@ -514,10 +529,14 @@ abstract public class AbstractPlugin implements Plugin {
                     }
                 });
 
-                if (current.fileType() == PluginParameter.FILE_TYPE.IN) {
+                if (current.fileType() == PluginParameter.FILE_TYPE.IN_FILE) {
                     panel.add(getLine(current.guiName(), field, getOpenFile(dialog, field)));
-                } else if (current.fileType() == PluginParameter.FILE_TYPE.OUT) {
+                } else if (current.fileType() == PluginParameter.FILE_TYPE.OUT_FILE) {
                     panel.add(getLine(current.guiName(), field, getSaveFile(dialog, field)));
+                } else if (current.fileType() == PluginParameter.FILE_TYPE.IN_DIR) {
+                    panel.add(getLine(current.guiName(), field, getOpenDir(dialog, field)));
+                } else if (current.fileType() == PluginParameter.FILE_TYPE.OUT_DIR) {
+                    panel.add(getLine(current.guiName(), field, getSaveDir(dialog, field)));
                 } else {
                     panel.add(getLine(current.guiName(), field, null));
                 }
@@ -599,6 +618,52 @@ abstract public class AbstractPlugin implements Plugin {
                     File file = fileChooser.getSelectedFile();
                     textField.setText(file.getPath());
                     TasselPrefs.putSaveDir(fileChooser.getCurrentDirectory().getPath());
+                }
+            }
+
+        });
+
+        return result;
+    }
+
+    private JButton getOpenDir(final JDialog parent, final JTextField textField) {
+
+        final JFileChooser fileChooser = new JFileChooser(Utils.getDirectory(TasselPrefs.getOpenDir()));
+        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+
+        JButton result = new JButton("Browse");
+
+        result.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (fileChooser.showOpenDialog(parent) == JFileChooser.APPROVE_OPTION) {
+                    File file = fileChooser.getSelectedFile();
+                    textField.setText(file.getPath());
+                    TasselPrefs.putOpenDir(file.getPath());
+                }
+            }
+
+        });
+
+        return result;
+    }
+
+    private JButton getSaveDir(final JDialog parent, final JTextField textField) {
+
+        final JFileChooser fileChooser = new JFileChooser(Utils.getDirectory(TasselPrefs.getSaveDir()));
+        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+
+        JButton result = new JButton("Browse");
+
+        result.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (fileChooser.showOpenDialog(parent) == JFileChooser.APPROVE_OPTION) {
+                    File file = fileChooser.getSelectedFile();
+                    textField.setText(file.getPath());
+                    TasselPrefs.putSaveDir(file.getPath());
                 }
             }
 
