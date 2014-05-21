@@ -12,7 +12,6 @@ import net.maizegenetics.dna.tag.TagsByTaxaByte;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.PluginParameter;
-import net.maizegenetics.plugindef.Plugin;
 
 import org.apache.log4j.Logger;
 
@@ -65,7 +64,7 @@ public class BinaryToTextPlugin extends AbstractPlugin {
 
     }
 
-    public Plugin inputFile(String filename) {
+    public BinaryToTextPlugin inputFile(String filename) {
         setParameter(myInputFile.cmdLineName(), filename);
         return this;
     }
@@ -74,7 +73,7 @@ public class BinaryToTextPlugin extends AbstractPlugin {
         return myInputFile.value();
     }
 
-    public Plugin outputFile(String filename) {
+    public BinaryToTextPlugin outputFile(String filename) {
         setParameter(myOutputFile.cmdLineName(), filename);
         return this;
     }
@@ -83,7 +82,7 @@ public class BinaryToTextPlugin extends AbstractPlugin {
         return myOutputFile.value();
     }
 
-    public Plugin fileType(FILE_TYPES type) {
+    public BinaryToTextPlugin fileType(FILE_TYPES type) {
         setParameter(myFileType.cmdLineName(), type.toString());
         return this;
     }
