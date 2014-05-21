@@ -3,7 +3,7 @@ package net.maizegenetics.phenotype;
 import net.maizegenetics.util.BitSet;
 
 public interface PhenotypeAttribute {
-	
+
 	/**
 	 * @param obs	the observation number
 	 * @return	the value for this observation
