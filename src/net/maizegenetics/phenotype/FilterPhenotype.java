@@ -9,9 +9,10 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.TaxaListUtils;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.TableReport;
 
-public class FilterPhenotype extends Phenotype {
-	private Phenotype basePhenotype;
+public class FilterPhenotype implements Phenotype, TableReport {
+	private CorePhenotype basePhenotype;
 	private boolean myIsTaxaFilter = false;
 	private boolean myIsAttributeFilter = false;
 	private int[] myTaxaRedirect = null;
@@ -19,7 +20,7 @@ public class FilterPhenotype extends Phenotype {
 	Map<ATTRIBUTE_TYPE, int[]> myAttributeTypeRedirect = null;
 	private String myTableTitle = "Filtered phenotype";
 	
-	private FilterPhenotype(Phenotype basePheno, ArrayList<PhenotypeAttribute> retainedAttributes, TaxaList taxaToRetain) {
+	private FilterPhenotype(CorePhenotype basePheno, ArrayList<PhenotypeAttribute> retainedAttributes, TaxaList taxaToRetain) {
 		basePhenotype = basePheno;
 		
 		if (taxaToRetain != null) {
@@ -44,19 +45,19 @@ public class FilterPhenotype extends Phenotype {
 		}
 	}
 	
-	public static Phenotype getInstance(Phenotype basePheno, ArrayList<PhenotypeAttribute> retainedAttributes, TaxaList taxaToRetain) {
+	public static Phenotype getInstance(CorePhenotype basePheno, ArrayList<PhenotypeAttribute> retainedAttributes, TaxaList taxaToRetain) {
 		return new FilterPhenotype(basePheno, retainedAttributes, taxaToRetain);
 	}
 	
-	public static Phenotype getInstance(Phenotype basePheno, ArrayList<PhenotypeAttribute> retainedAttributes) {
+	public static Phenotype getInstance(CorePhenotype basePheno, ArrayList<PhenotypeAttribute> retainedAttributes) {
 		return new FilterPhenotype(basePheno, retainedAttributes, null);
 	}
 	
-	public static Phenotype getInstance(Phenotype basePheno, TaxaList retainedTaxa) {
+	public static Phenotype getInstance(CorePhenotype basePheno, TaxaList retainedTaxa) {
 		return new FilterPhenotype(basePheno, null, retainedTaxa);
 	}
 	
-	public static Phenotype getInstanceRemoveTaxa(Phenotype basePheno, TaxaList taxaToRemove) {
+	public static Phenotype getInstanceRemoveTaxa(CorePhenotype basePheno, TaxaList taxaToRemove) {
 		ArrayList<Taxon> keepList = new ArrayList<Taxon>(basePheno.taxa());
 		keepList.removeAll(taxaToRemove);
 		TaxaListBuilder taxaBuilder = new TaxaListBuilder();
@@ -81,7 +82,16 @@ public class FilterPhenotype extends Phenotype {
 	public PhenotypeAttribute getAttribute(int attrnum) {
 		if (myIsAttributeFilter) {
 			return basePhenotype.getAttribute(myAttributeRedirect[attrnum]);	
-		} else return super.getAttribute(attrnum);
+		} else return basePhenotype.getAttribute(attrnum);
+	}
+
+	@Override
+	public ArrayList<PhenotypeAttribute> getAttributeList() {
+		if (myIsAttributeFilter) {
+			ArrayList<PhenotypeAttribute> attrList = new ArrayList<PhenotypeAttribute>();
+			for (int attrnum : myAttributeRedirect) attrList.add(basePhenotype.getAttribute(myAttributeRedirect[attrnum]));
+			return attrList;	
+		} else return basePhenotype.getAttributeList();
 	}
 
 	@Override
@@ -97,7 +107,7 @@ public class FilterPhenotype extends Phenotype {
 	public List<PhenotypeAttribute> getAttributeListOfType(ATTRIBUTE_TYPE type) {
 		if (myIsAttributeFilter) {
 			ArrayList<PhenotypeAttribute> attrList = new ArrayList<PhenotypeAttribute>();
-			for (int attrnum : myAttributeTypeRedirect.get(type)) attrList.add(super.getAttribute(attrnum));
+			for (int attrnum : myAttributeTypeRedirect.get(type)) attrList.add(basePhenotype.getAttribute(attrnum));
 			return attrList;
 		} else {
 			return basePhenotype.getAttributeListOfType(type);
@@ -186,7 +196,7 @@ public class FilterPhenotype extends Phenotype {
 		int ncols = getColumnCount();
 		Object[] rowData = new Object[ncols];
 		for (int i = 0; i < ncols; i++) rowData[i] = getValueAt(row, i);
-		return super.getRow(row);
+		return basePhenotype.getRow(row);
 	}
 
 	@Override
@@ -215,7 +225,10 @@ public class FilterPhenotype extends Phenotype {
 			return basePhenotype.getValue(myTaxaRedirect[row], col - 1);
 		}
 	}
-	
-	
+
+	@Override
+	public int getElementCount() {
+		return getRowCount() * getColumnCount();
+	}
 
 }

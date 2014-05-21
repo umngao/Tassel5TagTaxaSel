@@ -1,5 +1,6 @@
 package net.maizegenetics.phenotype;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.TreeSet;
 
@@ -9,11 +10,13 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.OpenBitSet;
 
 public class TaxaAttribute implements PhenotypeAttribute {
-	TaxaList myTaxaList;
+	private final TaxaList myTaxaList;
 	private final int[] values;
 	private final ImmutableBiMap<Taxon, Integer> taxaBimap;
+	private final int numberOfValues;
 	
 	TaxaAttribute(List<Taxon> taxa) {
 		TreeSet<Taxon> taxaSet = new TreeSet<>();
@@ -25,9 +28,10 @@ public class TaxaAttribute implements PhenotypeAttribute {
 		for (Taxon taxon : taxaSet) bimapBuilder.put(taxon, count++);
 		taxaBimap = bimapBuilder.build();
 		
-		int n = taxa.size();
-		values = new int[n];
-		for (int i = 0; i < n; i++) values[i] = taxaBimap.get(taxa.get(i));
+		numberOfValues = taxa.size();
+		values = new int[numberOfValues];
+		for (int i = 0; i < numberOfValues; i++) values[i] = taxaBimap.get(taxa.get(i));
+		
 	}
 	
 	@Override
@@ -37,32 +41,29 @@ public class TaxaAttribute implements PhenotypeAttribute {
 
 	@Override
 	public Object getValues() {
-		// TODO Auto-generated method stub
-		return null;
+		Taxon[] taxa = new Taxon[numberOfValues];
+		for (int i = 0; i < numberOfValues; i++) taxa[i] = taxaBimap.inverse().get(i);
+		return taxa;
 	}
 
 	@Override
 	public boolean isMissing(int obs) {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
 	@Override
 	public BitSet getMissing() {
-		// TODO Auto-generated method stub
-		return null;
+		return new OpenBitSet(numberOfValues);
 	}
 
 	@Override
 	public String getName() {
-		// TODO Auto-generated method stub
-		return null;
+		return "Taxa";
 	}
 
 	@Override
 	public int getSize() {
-		// TODO Auto-generated method stub
-		return 0;
+		return numberOfValues;
 	}
 
 }
