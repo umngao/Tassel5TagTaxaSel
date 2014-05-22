@@ -1,5 +1,6 @@
 package net.maizegenetics.dna.map;
 
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.util.GeneralAnnotation;
 
 /**
@@ -43,31 +44,31 @@ public interface Position extends Comparable<Position>, GeneralAnnotation {
     float getGlobalSiteCoverage();
 
     /**Return the allele specified by alleleType, if unknown Alignment.Unknown is return*/
-    byte getAllele(Allele alleleType);
+    byte getAllele(WHICH_ALLELE alleleType);
 
 
-    /**
-     * Allele types recorded in an annotated position.  If unknown,
-     * Alignment.UNKNOWN_ALLELE is returned.
-     *
-     */
-    public enum Allele {  //The indices are used in effectively as map (EnumMap is not used as it requires 4X more memory)
-        //todo TAS-376 fuse with WhichAllele
-        /**Reference Allele*/
-        REF(0),
-        /**Major (most frequent) allele from the globally defined alignment*/
-        GLBMAJ(1),
-        /**Minor (second most frequent) allele from the globally defined alignment*/
-        GLBMIN(2),
-        /**Ancestral allele defined by evolutionary comparison*/
-        ANC(3),
-        /**High depth allele as defined from DNA sequencing analysis*/
-        HIDEP(4);
-        private final int index;
-        /**Count of the number of allele types*/
-        public final static int COUNT=Allele.values().length;
-        Allele(int index) {this.index=index;}
-        /**Sequential index that can be use for primitive arrays*/
-        public int index() {return index;}
-    }
+//    /**
+//     * Allele types recorded in an annotated position.  If unknown,
+//     * Alignment.UNKNOWN_ALLELE is returned.
+//     *
+//     */
+//    public enum Allele {  //The indices are used in effectively as map (EnumMap is not used as it requires 4X more memory)
+//        //todo TAS-376 fuse with WhichAllele
+//        /**Reference Allele*/
+//        REF(0),
+//        /**Major (most frequent) allele from the globally defined alignment*/
+//        GLBMAJ(1),
+//        /**Minor (second most frequent) allele from the globally defined alignment*/
+//        GLBMIN(2),
+//        /**Ancestral allele defined by evolutionary comparison*/
+//        ANC(3),
+//        /**High depth allele as defined from DNA sequencing analysis*/
+//        HIDEP(4);
+//        private final int index;
+//        /**Count of the number of allele types*/
+//        public final static int COUNT=Allele.values().length;
+//        Allele(int index) {this.index=index;}
+//        /**Sequential index that can be use for primitive arrays*/
+//        public int index() {return index;}
+//    }
 }

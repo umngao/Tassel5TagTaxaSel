@@ -14,6 +14,8 @@ import net.maizegenetics.util.Tassel5HDF5Constants;
 import java.util.*;
 import org.apache.log4j.Logger;
 
+import static net.maizegenetics.dna.WHICH_ALLELE.*;
+
 /**
  * A builder for creating immutable PositionList.  Can be used for either an in memory or HDF5 list.
  *
@@ -229,8 +231,8 @@ public class PositionListBuilder {
                 snpIDs[i]=gp.getSNPID();
                 locusIndicesArray[i] = locusToIndex.get(gp.getChromosome());
                 positions[i]=gp.getPosition();
-                refAlleles[i]=gp.getAllele(Position.Allele.REF);
-                ancAlleles[i]=gp.getAllele(Position.Allele.ANC);
+                refAlleles[i]=gp.getAllele(Reference);
+                ancAlleles[i]=gp.getAllele(Ancestral);
             }
             HDF5Utils.writeHDF5Block(Tassel5HDF5Constants.SNP_IDS,h5w,blockSize,block,snpIDs);
             HDF5Utils.writeHDF5Block(Tassel5HDF5Constants.CHROMOSOME_INDICES,h5w,blockSize,block,locusIndicesArray);

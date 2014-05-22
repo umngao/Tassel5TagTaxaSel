@@ -6,6 +6,7 @@ package net.maizegenetics.analysis.data;
 import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import org.apache.log4j.Logger;
@@ -192,11 +193,11 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
 //                // previous version only copied chr,pos,strand,CM,SNPID,isNucleotide,isIndel from oldPos
 //                .maf(oldPos.getGlobalMAF())
 //                .siteCoverage(oldPos.getGlobalSiteCoverage())
-//                .allele(Position.Allele.GLBMAJ, oldPos.getAllele(Position.Allele.GLBMAJ))
-//                .allele(Position.Allele.GLBMIN, oldPos.getAllele(Position.Allele.GLBMIN))
+//                .allele(Position.WHICH_ALLELE.GlobalMajor, oldPos.getAllele(Position.WHICH_ALLELE.GlobalMajor))
+//                .allele(Position.WHICH_ALLELE.GlobalMinor, oldPos.getAllele(Position.WHICH_ALLELE.GlobalMinor))
 //                .allele(Position.Allele.ANC, oldPos.getAllele(Position.Allele.ANC))
 //                .allele(Position.Allele.HIDEP, oldPos.getAllele(Position.Allele.HIDEP))
-                .allele(Position.Allele.REF, refAllele)
+                .allele(WHICH_ALLELE.Reference, refAllele)
                 .build();
             if (writePositions) writePosition(newPos, contextSeq);
             newPosListBuilder.add(newPos);
@@ -282,9 +283,9 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
             "\t"+pos.getChromosome().getChromosomeNumber()+
             "\t"+pos.getPosition()+
             "\t"+pos.getStrand()+
-            "\t"+pos.getAllele(Position.Allele.GLBMAJ)+
-            "\t"+pos.getAllele(Position.Allele.GLBMIN)+
-            "\t"+pos.getAllele(Position.Allele.REF)+
+            "\t"+pos.getAllele(WHICH_ALLELE.GlobalMajor)+
+            "\t"+pos.getAllele(WHICH_ALLELE.GlobalMinor)+
+            "\t"+pos.getAllele(WHICH_ALLELE.Reference)+
             "\t"+pos.getGlobalMAF()+
             "\t"+pos.getGlobalSiteCoverage()+
             "\t"+contextSeq

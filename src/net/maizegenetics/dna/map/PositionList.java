@@ -1,8 +1,8 @@
 package net.maizegenetics.dna.map;
 
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import java.util.List;
-import static net.maizegenetics.dna.map.Position.Allele;
 
 /**
  * List of positions in the genome. This type is used by every
@@ -19,7 +19,7 @@ public interface PositionList extends List<Position> {
      *
      * @return byte from 0-15
      */
-    public byte allele(Allele alleleType, int site);
+    public byte allele(WHICH_ALLELE alleleType, int site);
 
     /**
      * Returns reference sequence alleles in specified range.
@@ -30,14 +30,14 @@ public interface PositionList extends List<Position> {
      *
      * @return reference sequence of haploid allele values.
      */
-    public byte[] alleles(Allele alleleType, int startSite, int endSite);
+    public byte[] alleles(WHICH_ALLELE alleleType, int startSite, int endSite);
 
     /**
      * Returns sequence alleles. One haploid allele for each site.
      *
      * @return reference sequence of haploid allele values.
      */
-    public byte[] alleleForAllSites(Allele alleleType);
+    public byte[] alleleForAllSites(WHICH_ALLELE alleleType);
 
 //    /**
 //     * Return the (haploid) reference allele at given site.

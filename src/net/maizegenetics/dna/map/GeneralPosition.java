@@ -5,6 +5,7 @@
 package net.maizegenetics.dna.map;
 
 import com.google.common.collect.*;
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.util.GeneralAnnotationUtils;
@@ -16,7 +17,6 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-//import java.util.Objects;
 
 /**
  * Provide information on a site and its annotations.  This includes information
@@ -98,7 +98,7 @@ public final class GeneralPosition implements Position {
         //in an allele annotation objects
         private float myMAF = Float.NaN;
         private float mySiteCoverage = Float.NaN;
-        private byte[] myAlleles=new byte[Allele.COUNT];
+        private byte[] myAlleles=new byte[WHICH_ALLELE.COUNT];
         private long myAllelesAsLong;
         //in an general annotation object
         private ArrayList<Map.Entry<String, String>> myAnnotations=new ArrayList<>(0);
@@ -120,7 +120,7 @@ public final class GeneralPosition implements Position {
             isIndel=aCorePosition.isIndel();
             myMAF=aCorePosition.getGlobalMAF();
             mySiteCoverage=aCorePosition.getGlobalSiteCoverage();
-            for (Allele alleleType: Allele.values()) {
+            for (WHICH_ALLELE alleleType: WHICH_ALLELE.values()) {
                 myAlleles[alleleType.index()] = aCorePosition.getAllele(alleleType);
             }
             for (Map.Entry<String, String> entry : aCorePosition.getAllAnnotationEntries()) {
@@ -164,7 +164,7 @@ public final class GeneralPosition implements Position {
         /**Set site coverage annotation (default=Float.NaN)*/
         public Builder siteCoverage(float val) {mySiteCoverage = val; return this;}
         /**Set allele annotation by Allele type (default=Alignment.UNKNOWN_ALLELE)*/
-        public Builder allele(Allele aT, byte val) {myAlleles[aT.index()] = val; return this;}
+        public Builder allele(WHICH_ALLELE aT, byte val) {myAlleles[aT.index()] = val; return this;}
 
         /**Add non-standard annotation*/
         public Builder addAnno(String key, String value) {
@@ -190,7 +190,7 @@ public final class GeneralPosition implements Position {
 
         public GeneralPosition build() {
             for (int i = myAlleles.length-1; i >=0 ; i--) {
-                myAllelesAsLong=(myAllelesAsLong<<8)|myAlleles[i];
+                myAllelesAsLong=(myAllelesAsLong<<4)|myAlleles[i];
             }
             if (mySNPID != null) {
                 String defaultS=(new StringBuilder("S").append(myChromosome.getName()).append("_").append(myPosition)).toString();
@@ -263,7 +263,7 @@ public final class GeneralPosition implements Position {
             sb.append("\tVariants:").append(myVariantsAndAnno[0].getValue());
         }
         sb.append("\tMAF:").append(getGlobalMAF());
-        sb.append("\tRef:").append(NucleotideAlignmentConstants.getHaplotypeNucleotide(getAllele(Allele.REF)));
+        sb.append("\tRef:").append(NucleotideAlignmentConstants.getHaplotypeNucleotide(getAllele(WHICH_ALLELE.Reference)));
         return sb.toString();
     }
 
@@ -288,8 +288,8 @@ public final class GeneralPosition implements Position {
     }
 
     @Override
-    public byte getAllele(Allele alleleType) {
-        return (byte)((myAlleleValue>>(alleleType.index()*8))&0xF);
+    public byte getAllele(WHICH_ALLELE alleleType) {
+        return (byte)((myAlleleValue>>(alleleType.index()*4))&0xF);
     }
 
     @Override

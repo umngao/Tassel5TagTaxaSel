@@ -1,7 +1,7 @@
 package net.maizegenetics.dna.map;
 
 import com.google.common.collect.ArrayListMultimap;
-import net.maizegenetics.dna.map.Position.Allele;
+import net.maizegenetics.dna.WHICH_ALLELE;
 
 import java.nio.IntBuffer;
 import java.util.*;
@@ -35,7 +35,7 @@ final class PositionArrayList implements PositionList {
     PositionArrayList(ArrayList<Position> builderList, String genomeVersion) {
         this.genomeVersion=genomeVersion;
         this.numPositions=builderList.size();
-        alleles=new byte[Allele.COUNT][numPositions];
+        alleles=new byte[WHICH_ALLELE.COUNT][numPositions];
         ArrayListMultimap<Chromosome,Integer> pTS=ArrayListMultimap.create();
         mySiteList=new ArrayList<Position>(builderList.size());
         myChrOffPosTree=new TreeMap<Chromosome,ChrOffPos>();
@@ -48,7 +48,7 @@ final class PositionArrayList implements PositionList {
         Chromosome currChr=builderList.get(0).getChromosome();
         for (int i=0; i<builderList.size(); i++) {
             Position ap=builderList.get(i);
-            for (Allele allele : Allele.values()) {
+            for (WHICH_ALLELE allele : WHICH_ALLELE.values()) {
               alleles[allele.index()][i]=ap.getAllele(allele);
             }
             mySiteList.add(ap);
@@ -76,19 +76,19 @@ final class PositionArrayList implements PositionList {
     }
 
     @Override
-    public byte allele(Allele alleleType, int site) {
+    public byte allele(WHICH_ALLELE alleleType, int site) {
         return mySiteList.get(site).getAllele(alleleType);
     }
 
     @Override
-    public byte[] alleles(Allele alleleType, int startSite, int endSite) {
+    public byte[] alleles(WHICH_ALLELE alleleType, int startSite, int endSite) {
         byte[] result = new byte[endSite - startSite];
         System.arraycopy(alleles[alleleType.index()],startSite,result,0, result.length);
         return result;
     }
 
     @Override
-    public byte[] alleleForAllSites(Allele alleleType) {
+    public byte[] alleleForAllSites(WHICH_ALLELE alleleType) {
         return Arrays.copyOf(alleles[alleleType.index()],alleles[alleleType.index()].length);
     }
 

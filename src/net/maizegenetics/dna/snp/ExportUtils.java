@@ -6,6 +6,7 @@ package net.maizegenetics.dna.snp;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Multimap;
 import com.google.common.primitives.Ints;
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.Taxon;
@@ -230,7 +231,7 @@ public class ExportUtils {
 
             for (int site = 0; site < gt.numberOfSites(); site++) {
                 Position p=gt.positions().get(site);
-                byte refAllele=p.getAllele(Position.Allele.REF);
+                byte refAllele=p.getAllele(WHICH_ALLELE.Reference);
                 int[] sortedAlleles = gt.allelesSortedByFrequency(site)[0]; // which alleles are actually present among the genotypes
                 int indexOfRefAllele=Ints.indexOf(sortedAlleles,refAllele);
                 if(indexOfRefAllele<0) indexOfRefAllele=0;

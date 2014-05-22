@@ -137,17 +137,17 @@ public class CoreGenotypeTable implements GenotypeTable {
 
     @Override
     public byte referenceAllele(int site) {
-        return myPositionList.allele(Position.Allele.REF,site);
+        return myPositionList.allele(WHICH_ALLELE.Reference,site);
     }
 
     @Override
     public byte[] referenceAlleles(int startSite, int endSite) {
-        return myPositionList.alleles(Position.Allele.REF, startSite, endSite);
+        return myPositionList.alleles(WHICH_ALLELE.Reference, startSite, endSite);
     }
 
     @Override
     public byte[] referenceAlleleForAllSites() {
-        return myPositionList.alleleForAllSites(Position.Allele.REF);
+        return myPositionList.alleleForAllSites(WHICH_ALLELE.Reference);
     }
 
     @Override

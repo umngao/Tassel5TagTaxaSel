@@ -5,7 +5,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import net.maizegenetics.dna.WHICH_ALLELE;
-import net.maizegenetics.dna.map.Position.Allele;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.util.HDF5Utils;
 import net.maizegenetics.util.Tassel5HDF5Constants;
@@ -86,10 +85,10 @@ final class PositionHDF5List implements PositionList {
                 int pos=cop.position[site-cop.startSiteOff];
                 Position p=new GeneralPosition.Builder(chr,pos)
                         .snpName(snpIDs[i])
-                        .allele(Allele.GLBMAJ,afOrder[0][i])
-                        .allele(Allele.GLBMIN,afOrder[1][i])
-                        .allele(Allele.REF, ref[i])
-                        .allele(Allele.ANC, anc[i])
+                        .allele(WHICH_ALLELE.GlobalMajor,afOrder[0][i])
+                        .allele(WHICH_ALLELE.GlobalMinor,afOrder[1][i])
+                        .allele(WHICH_ALLELE.Reference, ref[i])
+                        .allele(WHICH_ALLELE.Ancestral, anc[i])
                         .maf(maf[i])
                         .siteCoverage(paf[i])
                         .build();
@@ -119,7 +118,7 @@ final class PositionHDF5List implements PositionList {
         }
         int[] variableSites = reader.readIntArray(Tassel5HDF5Constants.POSITIONS);
         this.numPositions=variableSites.length;
-        alleles=new byte[Allele.COUNT][];//only fully initialized if requested
+        alleles=new byte[WHICH_ALLELE.COUNT][];//only fully initialized if requested
         String[] lociStrings = reader.readStringArray(Tassel5HDF5Constants.CHROMOSOMES);
         ArrayList<Chromosome> chrs=new ArrayList<>();
         for (String ls : lociStrings) {
@@ -153,22 +152,22 @@ final class PositionHDF5List implements PositionList {
                 .build(annoPosLoader);
     }
 
-    private void loadAllele(Allele alleleType) {
+    private void loadAllele(WHICH_ALLELE alleleType) {
         if(alleles[alleleType.index()]==null) {
             switch (alleleType) {
-                case REF:
+                case Reference:
                     alleles[alleleType.index()]=HDF5Utils.getHDF5ReferenceAlleles(reader);
                     break;
-                case GLBMAJ:
+                case GlobalMajor:
                     alleles[alleleType.index()]=HDF5Utils.getHDF5Alleles(reader, WHICH_ALLELE.Major);
                     break;
-                case GLBMIN:
+                case GlobalMinor:
                     alleles[alleleType.index()]=HDF5Utils.getHDF5Alleles(reader, WHICH_ALLELE.Minor);
                     break;
-                case ANC:
+                case Ancestral:
                     alleles[alleleType.index()]=HDF5Utils.getHDF5AncestralAlleles(reader);
                     break;
-                case HIDEP:
+                case HighCoverage:
                     break;
             }
         }
@@ -176,7 +175,7 @@ final class PositionHDF5List implements PositionList {
     }
 
     @Override
-    public byte allele(Allele alleleType, int site) {
+    public byte allele(WHICH_ALLELE alleleType, int site) {
         try {
             return mySiteList.get(site).getAllele(alleleType);
         } catch (ExecutionException e) {
@@ -186,14 +185,14 @@ final class PositionHDF5List implements PositionList {
     }
 
     @Override
-    public byte[] alleles(Allele alleleType, int startSite, int endSite) {
+    public byte[] alleles(WHICH_ALLELE alleleType, int startSite, int endSite) {
         byte[] result = new byte[endSite - startSite];
         System.arraycopy(alleleForAllSites(alleleType),startSite,result,0, result.length);
         return result;
     }
 
     @Override
-    public byte[] alleleForAllSites(Allele alleleType) {
+    public byte[] alleleForAllSites(WHICH_ALLELE alleleType) {
         if(alleles[alleleType.index()]==null) {loadAllele(alleleType);}
         return alleles[alleleType.index()];
     }

@@ -2,6 +2,7 @@ package net.maizegenetics.dna.snp.io;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.SetMultimap;
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.*;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
@@ -400,7 +401,7 @@ class ProcessVCFBlock implements Runnable {
                 for (int i = 0, varInd=0; i < alleles.length; i++, varInd+=2) {
                     alleles[i]=NucleotideAlignmentConstants.getNucleotideAlleleByte(variants.charAt(varInd));
                 }
-                apb.allele(Position.Allele.REF, alleles[0]);
+                apb.allele(WHICH_ALLELE.Reference, alleles[0]);
                 for(String annoS: Splitter.on(";").split(input.substring(tabPos[hp.INFO_INDEX-1]+1, tabPos[hp.INFO_INDEX]))) {
                     apb.addAnno(annoS);
                 }

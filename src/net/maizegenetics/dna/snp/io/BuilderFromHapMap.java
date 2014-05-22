@@ -1,6 +1,7 @@
 package net.maizegenetics.dna.snp.io;
 
 import com.google.common.collect.SetMultimap;
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.GeneralPosition;
 import net.maizegenetics.dna.map.Position;
@@ -248,10 +249,10 @@ class ProcessHapMapBlock implements Runnable {
                         ;
                 try {
                     byte glbMajor = NucleotideAlignmentConstants.getNucleotideDiploidByte(variants.charAt(0));
-                    apb.allele(Position.Allele.GLBMAJ, glbMajor);
+                    apb.allele(WHICH_ALLELE.GlobalMajor, glbMajor);
                     if (variants.length() == 3) {
                         byte glbMinor = NucleotideAlignmentConstants.getNucleotideDiploidByte(variants.charAt(2));
-                        apb.allele(Position.Allele.GLBMIN, glbMinor);
+                        apb.allele(WHICH_ALLELE.GlobalMinor, glbMinor);
                     }
                 } catch (IllegalArgumentException e) {
                     //for the indels that cannot be converted correctly now
