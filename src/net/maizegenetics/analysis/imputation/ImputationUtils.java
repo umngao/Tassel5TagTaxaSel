@@ -1,15 +1,12 @@
 package net.maizegenetics.analysis.imputation;
 
-import net.maizegenetics.dna.snp.GenotypeTable.WHICH_ALLELE;
-import net.maizegenetics.dna.snp.GenotypeTableBuilder;
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.dna.snp.ImportUtils;
-import net.maizegenetics.taxa.IdGroupUtils;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
-import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
 
 import org.apache.log4j.Logger;

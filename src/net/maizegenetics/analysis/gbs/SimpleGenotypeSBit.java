@@ -4,6 +4,7 @@
  */
 package net.maizegenetics.analysis.gbs;
 import ch.systemsx.cisd.hdf5.*;
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.ImportUtils;
 import net.maizegenetics.util.OpenBitSet;
@@ -94,9 +95,9 @@ public class SimpleGenotypeSBit {
         long majorCount, minorCount;
         
         for (int i = 0; i < position.length; i++) {
-            het = new OpenBitSet(gt.allelePresenceForAllTaxa(i, GenotypeTable.WHICH_ALLELE.Major).getBits().clone());
-            bsMa = new OpenBitSet(gt.allelePresenceForAllTaxa(i, GenotypeTable.WHICH_ALLELE.Major).getBits());
-            bsMi = new OpenBitSet(gt.allelePresenceForAllTaxa(i, GenotypeTable.WHICH_ALLELE.Minor).getBits());
+            het = new OpenBitSet(gt.allelePresenceForAllTaxa(i, WHICH_ALLELE.Major).getBits().clone());
+            bsMa = new OpenBitSet(gt.allelePresenceForAllTaxa(i, WHICH_ALLELE.Major).getBits());
+            bsMi = new OpenBitSet(gt.allelePresenceForAllTaxa(i, WHICH_ALLELE.Minor).getBits());
             het.and(bsMi);
             bsMa.xor(het);
             bsMi.xor(het);

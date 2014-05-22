@@ -4,7 +4,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.cache.Weigher;
-import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.util.BitSet;
@@ -31,7 +31,7 @@ import java.util.concurrent.ExecutionException;
 public class DynamicBitStorage implements BitStorage {
 
     private GenotypeCallTable myGenotype;
-    private final GenotypeTable.WHICH_ALLELE myWhichAllele;
+    private final WHICH_ALLELE myWhichAllele;
     private byte[] myPrefAllele;
     private final int myTaxaCount;
     private final int mySiteCount;
@@ -154,7 +154,7 @@ public class DynamicBitStorage implements BitStorage {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
-    public DynamicBitStorage(GenotypeCallTable genotype, GenotypeTable.WHICH_ALLELE allele, byte[] prefAllele) {
+    public DynamicBitStorage(GenotypeCallTable genotype, WHICH_ALLELE allele, byte[] prefAllele) {
         myGenotype = genotype;
         myWhichAllele = allele;
         mySiteCount = myGenotype.numberOfSites();

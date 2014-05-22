@@ -20,8 +20,8 @@ import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.BitUtil;
 import net.maizegenetics.util.ProgressListener;
 
-import static net.maizegenetics.dna.snp.GenotypeTable.WHICH_ALLELE.Major;
-import static net.maizegenetics.dna.snp.GenotypeTable.WHICH_ALLELE.Minor;
+import static net.maizegenetics.dna.WHICH_ALLELE.Major;
+import static net.maizegenetics.dna.WHICH_ALLELE.Minor;
 
 /**
  * This class calculates an identity by state matrix. It is scaled so only

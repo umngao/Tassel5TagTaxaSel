@@ -4,6 +4,7 @@
  */
 package net.maizegenetics.analysis.imputation;
 
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
@@ -129,7 +130,7 @@ public class FILLINFindHaplotypesPlugin extends AbstractPlugin {
 
         propMissing=new double[inAlign.numberOfTaxa()];
         int startBlock=0;
-        int lastBlock=inAlign.allelePresenceForAllSites(0, GenotypeTable.WHICH_ALLELE.Major).getNumWords()-1;
+        int lastBlock=inAlign.allelePresenceForAllSites(0, WHICH_ALLELE.Major).getNumWords()-1;
         TreeMap<Integer,Integer> presentRanking=createPresentRankingForWindow(inAlign, startBlock, lastBlock, minSites, maxHetFreq);
         if(verboseOutput) System.out.printf("\tBlock %d Inbred and modest coverage:%d %n",startBlock,presentRanking.size());
         if(verboseOutput) System.out.printf("\tCurrent Site %d Current block %d EndBlock: %d %n",startSite, startBlock, lastBlock);
@@ -190,8 +191,8 @@ public class FILLINFindHaplotypesPlugin extends AbstractPlugin {
         int sites=64*(endBlock-startBlock+1);
         TreeMap<Integer,Integer> presentRanking=new TreeMap<Integer,Integer>(Collections.reverseOrder());
         for (int i = 0; i < inAlign.numberOfTaxa(); i++) {
-            long[] mj=inAlign.allelePresenceForSitesBlock(i, GenotypeTable.WHICH_ALLELE.Major, startBlock, endBlock);
-            long[] mn=inAlign.allelePresenceForSitesBlock(i, GenotypeTable.WHICH_ALLELE.Minor, startBlock, endBlock);
+            long[] mj=inAlign.allelePresenceForSitesBlock(i, WHICH_ALLELE.Major, startBlock, endBlock);
+            long[] mn=inAlign.allelePresenceForSitesBlock(i, WHICH_ALLELE.Minor, startBlock, endBlock);
             int totalSitesNotMissing = 0;
             int hetCnt=0;
             for (int j = 0; j < mj.length; j++) {
@@ -362,7 +363,7 @@ public class FILLINFindHaplotypesPlugin extends AbstractPlugin {
         return calls;
     }
     
-    public static ArrayList<Integer> maxMajorAllelesTaxa(GenotypeTable a, int numMaxTaxa, GenotypeTable.WHICH_ALLELE alleleNumber) {
+    public static ArrayList<Integer> maxMajorAllelesTaxa(GenotypeTable a, int numMaxTaxa, WHICH_ALLELE alleleNumber) {
         ArrayList<Integer> maxTaxa=new ArrayList<Integer>();
         OpenBitSet curMj=new OpenBitSet(a.numberOfSites());
         long maxMjCnt=curMj.cardinality();

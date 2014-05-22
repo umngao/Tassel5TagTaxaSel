@@ -3,6 +3,7 @@
  */
 package net.maizegenetics.dna.snp;
 
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.PositionListBuilder;

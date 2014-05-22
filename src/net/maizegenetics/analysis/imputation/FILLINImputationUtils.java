@@ -13,8 +13,8 @@ import java.util.Iterator;
 import java.util.Map;
 
 import static net.maizegenetics.dna.snp.GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
-import static net.maizegenetics.dna.snp.GenotypeTable.WHICH_ALLELE.Major;
-import static net.maizegenetics.dna.snp.GenotypeTable.WHICH_ALLELE.Minor;
+import static net.maizegenetics.dna.WHICH_ALLELE.Major;
+import static net.maizegenetics.dna.WHICH_ALLELE.Minor;
 import static net.maizegenetics.dna.snp.GenotypeTableUtils.isHeterozygous;
 
 /**

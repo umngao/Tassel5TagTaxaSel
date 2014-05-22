@@ -12,8 +12,8 @@ import net.maizegenetics.util.OpenBitSet;
 import java.io.File;
 import java.util.ArrayList;
 
-import static net.maizegenetics.dna.snp.GenotypeTable.WHICH_ALLELE.Major;
-import static net.maizegenetics.dna.snp.GenotypeTable.WHICH_ALLELE.Minor;
+import static net.maizegenetics.dna.WHICH_ALLELE.Major;
+import static net.maizegenetics.dna.WHICH_ALLELE.Minor;
 
 /**
  * Methods for loading the donor haplotype files and for arranging the bit states (Major versus Minor) if they differ between

@@ -7,7 +7,7 @@ import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.SetMultimap;
-import net.maizegenetics.dna.map.Position;
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.HapMapHDF5Constants;
 import net.maizegenetics.taxa.Taxon;
@@ -235,7 +235,7 @@ public final class HDF5Utils {
         writeHDF5EntireArray(callsPath, h5w, depth[0].length, Tassel5HDF5Constants.BLOCK_SIZE, depth);
     }
 
-    public static byte[] getHDF5Alleles(IHDF5Reader reader, GenotypeTable.WHICH_ALLELE allele) {
+    public static byte[] getHDF5Alleles(IHDF5Reader reader, WHICH_ALLELE allele) {
         return reader.readByteMatrixBlockWithOffset(Tassel5HDF5Constants.ALLELE_FREQ_ORD, 1, getHDF5PositionNumber(reader),
                 (long)allele.index(), 0)[0];
     }

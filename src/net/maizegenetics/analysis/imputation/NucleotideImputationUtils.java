@@ -4,7 +4,7 @@ import net.maizegenetics.analysis.clustering.Haplotype;
 import net.maizegenetics.analysis.clustering.HaplotypeCluster;
 import net.maizegenetics.analysis.clustering.HaplotypeClusterer;
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTable.WHICH_ALLELE;
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;

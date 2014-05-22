@@ -3,6 +3,7 @@
  */
 package net.maizegenetics.dna.snp;
 
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
@@ -141,7 +142,7 @@ public class CoreGenotypeTable implements GenotypeTable {
 
     @Override
     public byte[] referenceAlleles(int startSite, int endSite) {
-        return myPositionList.alleles(Position.Allele.REF,startSite, endSite);
+        return myPositionList.alleles(Position.Allele.REF, startSite, endSite);
     }
 
     @Override

@@ -22,8 +22,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static net.maizegenetics.dna.snp.GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
-import static net.maizegenetics.dna.snp.GenotypeTable.WHICH_ALLELE.Major;
-import static net.maizegenetics.dna.snp.GenotypeTable.WHICH_ALLELE.Minor;
+import static net.maizegenetics.dna.WHICH_ALLELE.Major;
+import static net.maizegenetics.dna.WHICH_ALLELE.Minor;
 import static net.maizegenetics.dna.snp.GenotypeTableUtils.isHeterozygous;
 import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.GAP_DIPLOID_ALLELE;
 

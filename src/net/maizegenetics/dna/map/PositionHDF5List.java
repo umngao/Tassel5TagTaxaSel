@@ -4,6 +4,7 @@ import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Position.Allele;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.util.HDF5Utils;
@@ -159,10 +160,10 @@ final class PositionHDF5List implements PositionList {
                     alleles[alleleType.index()]=HDF5Utils.getHDF5ReferenceAlleles(reader);
                     break;
                 case GLBMAJ:
-                    alleles[alleleType.index()]=HDF5Utils.getHDF5Alleles(reader, GenotypeTable.WHICH_ALLELE.Major);
+                    alleles[alleleType.index()]=HDF5Utils.getHDF5Alleles(reader, WHICH_ALLELE.Major);
                     break;
                 case GLBMIN:
-                    alleles[alleleType.index()]=HDF5Utils.getHDF5Alleles(reader, GenotypeTable.WHICH_ALLELE.Minor);
+                    alleles[alleleType.index()]=HDF5Utils.getHDF5Alleles(reader, WHICH_ALLELE.Minor);
                     break;
                 case ANC:
                     alleles[alleleType.index()]=HDF5Utils.getHDF5AncestralAlleles(reader);

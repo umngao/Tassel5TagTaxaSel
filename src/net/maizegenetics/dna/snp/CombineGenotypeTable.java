@@ -3,6 +3,7 @@
  */
 package net.maizegenetics.dna.snp;
 
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.bit.BitStorage;
 import net.maizegenetics.dna.snp.depth.AlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
