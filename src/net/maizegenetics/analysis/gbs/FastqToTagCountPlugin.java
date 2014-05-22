@@ -190,6 +190,60 @@ public class FastqToTagCountPlugin extends AbstractPlugin {
         }
     }
 
+    public FastqToTagCountPlugin inputDir(String value) {
+        myInputDir = new PluginParameter<>(myInputDir, value);
+        return this;
+    }
+
+    public String inputDir() {
+        return myInputDir.value();
+    }
+
+    public FastqToTagCountPlugin keyFile(String value) {
+        myKeyFile = new PluginParameter<>(myKeyFile, value);
+        return this;
+    }
+
+    public String keyFile() {
+        return myKeyFile.value();
+    }
+
+    public FastqToTagCountPlugin enzyme(String value) {
+        myEnzyme = new PluginParameter<>(myEnzyme, value);
+        return this;
+    }
+
+    public String enzyme() {
+        return myEnzyme.value();
+    }
+
+    public FastqToTagCountPlugin maxGoodReads(Integer value) {
+        myMaxGoodReads = new PluginParameter<>(myMaxGoodReads, value);
+        return this;
+    }
+
+    public Integer maxGoodReads() {
+        return myMaxGoodReads.value();
+    }
+
+    public FastqToTagCountPlugin minTagCount(Integer value) {
+        myMinTagCount = new PluginParameter<>(myMinTagCount, value);
+        return this;
+    }
+
+    public Integer minTagCount() {
+        return myMinTagCount.value();
+    }
+
+    public FastqToTagCountPlugin outputDir(String value) {
+        myOutputDir = new PluginParameter<>(myOutputDir, value);
+        return this;
+    }
+
+    public String outputDir() {
+        return myOutputDir.value();
+    }
+
     @Override
     public ImageIcon getIcon() {
         return null;
