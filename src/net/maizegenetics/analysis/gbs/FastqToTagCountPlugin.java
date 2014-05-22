@@ -4,9 +4,10 @@ import net.maizegenetics.dna.tag.TagCountMutable;
 import net.maizegenetics.dna.tag.TagsByTaxa.FilePacking;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.util.ArgsEngine;
+import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.util.Utils;
+
 import org.apache.log4j.Logger;
 
 import javax.swing.*;
@@ -25,97 +26,34 @@ import java.io.File;
 public class FastqToTagCountPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(FastqToTagCountPlugin.class);
-    private ArgsEngine myArgsEngine = null;
-    private String myInputDirName = null;
-    private String myKeyfile = null;
-    private String myEnzyme = null;
-    private int myMaxGoodReads = 300000000;
-    private int myMinCount = 1;
-    private String myOutputDir = null;
+
+    private PluginParameter<String> myInputDir = new PluginParameter.Builder<String>("i", null, String.class).guiName("Input Directory").required(true).inDir()
+            .description("Input directory containing FASTQ files in text or gzipped text.\n"
+                    + "     NOTE: Directory will be searched recursively and should\n"
+                    + "     be written WITHOUT a slash after its name.").build();
+    private PluginParameter<String> myKeyFile = new PluginParameter.Builder<String>("k", null, String.class).guiName("Key File").required(true).inFile()
+            .description("Key file listing barcodes distinguishing the samples").build();
+    private PluginParameter<String> myEnzyme = new PluginParameter.Builder<String>("e", null, String.class).guiName("Enzyme").required(true)
+            .description("Enzyme used to create the GBS library, if it differs from the one listed in the key file").build();
+    private PluginParameter<Integer> myMaxGoodReads = new PluginParameter.Builder<Integer>("s", 300000000, Integer.class).guiName("Max Good Reads")
+            .description("Max good reads per lane").build();
+    private PluginParameter<Integer> myMinTagCount = new PluginParameter.Builder<Integer>("c", 1, Integer.class).guiName("Min Tag Count")
+            .description("Minimum tag count").build();
+    private PluginParameter<String> myOutputDir = new PluginParameter.Builder<String>("o", null, String.class).guiName("Output Directory").required(true).outDir()
+            .description("Output directory to contain .cnt files (one per FASTQ file (one per FASTQ file)").build();
 
     public FastqToTagCountPlugin() {
         super(null, false);
     }
 
-    public FastqToTagCountPlugin(Frame parentFrame) {
-        super(parentFrame, false);
-    }
-
-    private void printUsage() {
-        myLogger.info(
-                "\n\nUsage is as follows:\n"
-                + " -i  Input directory containing FASTQ files in text or gzipped text.\n"
-                + "     NOTE: Directory will be searched recursively and should\n"
-                + "     be written WITHOUT a slash after its name.\n\n"
-                + " -k  Key file listing barcodes distinguishing the samples\n"
-                + " -e  Enzyme used to create the GBS library, if it differs from the one listed in the key file.\n"
-                + " -s  Max good reads per lane. (Optional. Default is 300,000,000).\n"
-                + " -c  Minimum tag count (default is 1).\n"
-                + " -o  Output directory to contain .cnt files (one per FASTQ file, defaults to input directory).\n\n");
-    }
-
-    public DataSet performFunction(DataSet input) {
-        File fastqDirectory = new File(myInputDirName);
-        if (!fastqDirectory.isDirectory()) {
-            printUsage();
-            throw new IllegalStateException("The input name you supplied is not a directory: " + myInputDirName);
-        }
-        countTags(myKeyfile, myEnzyme, myInputDirName, myOutputDir, myMaxGoodReads, myMinCount);
-        return null;
+    public FastqToTagCountPlugin(Frame parentFrame, boolean isInteractive) {
+        super(parentFrame, isInteractive);
     }
 
     @Override
-    public void setParameters(String[] args) {
-        if (args.length == 0) {
-            printUsage();
-            throw new IllegalArgumentException("\n\nPlease use the above arguments/options.\n\n");
-        }
-
-        if (myArgsEngine == null) {
-            myArgsEngine = new ArgsEngine();
-            myArgsEngine.add("-i", "--input-directory", true);
-            myArgsEngine.add("-k", "--key-file", true);
-            myArgsEngine.add("-e", "--enzyme", true);
-            myArgsEngine.add("-s", "--max-reads", true);
-            myArgsEngine.add("-c", "--min-count", true);
-            myArgsEngine.add("-o", "--output-file", true);
-            myArgsEngine.parse(args);
-        }
-
-        if (myArgsEngine.getBoolean("-i")) {
-            myInputDirName = myArgsEngine.getString("-i");
-        } else {
-            printUsage();
-            throw new IllegalArgumentException("Please specify the location of your FASTQ files.");
-        }
-
-        if (myArgsEngine.getBoolean("-k")) {
-            myKeyfile = myArgsEngine.getString("-k");
-        } else {
-            printUsage();
-            throw new IllegalArgumentException("Please specify a barcode key file.");
-        }
-
-        if (myArgsEngine.getBoolean("-e")) {
-            myEnzyme = myArgsEngine.getString("-e");
-        } else {
-            myLogger.warn("No enzyme specified.  Using enzyme listed in key file.");
-        }
-
-        if (myArgsEngine.getBoolean("-s")) {
-            myMaxGoodReads = Integer.parseInt(myArgsEngine.getString("-s"));
-        }
-
-        if (myArgsEngine.getBoolean("-c")) {
-            myMinCount = Integer.parseInt(myArgsEngine.getString("-c"));
-        }
-
-        if (myArgsEngine.getBoolean("-o")) {
-            myOutputDir = myArgsEngine.getString("-o");
-        } else {
-            myOutputDir = myInputDirName;
-        }
-
+    public DataSet processData(DataSet input) {
+        countTags(myKeyFile.value(), myEnzyme.value(), myInputDir.value(), myOutputDir.value(), myMaxGoodReads.value(), myMinTagCount.value());
+        return null;
     }
 
     /**
@@ -254,16 +192,16 @@ public class FastqToTagCountPlugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return null;
     }
 
     @Override
     public String getButtonName() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return "Fastq to Tag Count";
     }
 
     @Override
     public String getToolTipText() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return "Fastq to Tag Count";
     }
 }
