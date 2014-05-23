@@ -17,10 +17,10 @@ import java.io.IOException;
 import javax.swing.ImageIcon;
 
 import net.maizegenetics.dna.tag.AbstractTags;
-import net.maizegenetics.util.ArgsEngine;
 import net.maizegenetics.dna.BaseEncoder;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.DirectoryCrawler;
 
 import org.apache.log4j.Logger;
@@ -31,192 +31,137 @@ import org.apache.log4j.Logger;
  */
 public class MergeMultipleTagCountPlugin extends AbstractPlugin {
 
-    private static boolean textOutput = false; //Specifies text output format
-    private static long[][] ctags;  //array of current tags, [indexOfFile][indexOfTagLong], emptyLong=0, fileFinish=Long.MAX
-    private static int[] ctagCnt; //array of tag counts [indexOfFile]
-    private static byte[] ctagLength;  //array of tag length [indexOfFile]
-    private static int[] chunkTagSizes;  // array of number of tags in each file  [indexOfFile]
-//    private int[] ctagRemaining; //How many tags still remain to be read from each chunk file
-    private static int tagLengthInLong = 2;
-    private static int tagsRead = 0, outCnt = 0;
-    private static int rwOpen = 0;
-    private static DataInputStream[] rw;
-    private static DataOutputStream outStream;
-    private static ArgsEngine myArgsEngine = null;
-    static File inputDirectory = null;
-    static String[] inputFileNames = null;
-    static String outputFileName = null;
-    static int minCount = 0;
     private static final Logger myLogger = Logger.getLogger(MergeMultipleTagCountPlugin.class);
+
+    PluginParameter<String> myInputDir = new PluginParameter.Builder<String>("i", null, String.class).guiName("Input Directory").required(true).inDir()
+            .description("Input directory containing .cnt files.").build();
+    PluginParameter<String> myOutputFile = new PluginParameter.Builder<String>("o", null, String.class).guiName("Output File").required(true).outFile()
+            .description("Output file name.").build();
+    PluginParameter<Integer> myMinCount = new PluginParameter.Builder<Integer>("c", 1, Integer.class).guiName("Min Count")
+            .description("Minimum count of reads to be output.").build();
+    PluginParameter<Boolean> myIsTextOutput = new PluginParameter.Builder<Boolean>("t", false, Boolean.class).guiName("Text Output")
+            .description("Specifies that reads should be output in FASTQ text format.").build();
+
+    private long[][] myCtags;  //array of current tags, [indexOfFile][indexOfTagLong], emptyLong=0, fileFinish=Long.MAX
+    private int[] myCtagCnt; //array of tag counts [indexOfFile]
+    private byte[] myCtagLength;  //array of tag length [indexOfFile]
+    private int[] myChunkTagSizes;  // array of number of tags in each file  [indexOfFile]
+    private int myTagLengthInLong = 2;
+    private int myNumTagsRead = 0;
+    private int myOutCnt = 0;
+    private int myNumInputStreamsOpen = 0;
+    private DataInputStream[] myInputStreams;
+    private DataOutputStream myOutStream;
 
     public MergeMultipleTagCountPlugin() {
         super(null, false);
     }
 
-    public MergeMultipleTagCountPlugin(Frame parentFrame) {
-        super(parentFrame, false);
+    public MergeMultipleTagCountPlugin(Frame parentFrame, boolean isInteractive) {
+        super(parentFrame, isInteractive);
     }
 
     @Override
-    public void setParameters(String[] args) {
-        if (args.length == 0) {
-            printUsage();
-            throw new IllegalArgumentException("\n\nPlease use the above arguments/options.\n\n");
+    public DataSet processData(DataSet input) {
+        String[] inputFileNames = DirectoryCrawler.listFileNames(".*\\.cnt", inputDirectory());
+        if (inputFileNames == null || inputFileNames.length == 0) {
+            throw new IllegalArgumentException("Couldn't find any files ending in \".cnt\" in the directory you specified: " + inputDirectory());
         }
-
-        if (myArgsEngine == null) {
-            myArgsEngine = new ArgsEngine();
-            myArgsEngine.add("-i", "--input-directory", true);
-            myArgsEngine.add("-o", "--output_file", true);
-            myArgsEngine.add("-c", "--min-count", true);
-            myArgsEngine.add("-t", "--fastq");
+        myLogger.info("Merging the following .cnt files...");
+        for (String filename : inputFileNames) {
+            myLogger.info(filename);
         }
+        myLogger.info("...to \"" + outputFile() + "\".");
 
-        myArgsEngine.parse(args);
-        if (myArgsEngine.getBoolean("-o")) {
-            outputFileName = myArgsEngine.getString("-o");
-            if (new File(outputFileName).isDirectory()) {
-                printUsage();
-                throw new IllegalArgumentException("The output name you supplied is a directory, not a file.");
-            }
-        } else {
-            printUsage();
-            throw new IllegalArgumentException("Please specify an output file.");
-        }
-
-        if (myArgsEngine.getBoolean("-i")) {
-            inputDirectory = new File(myArgsEngine.getString("-i"));
-            if (!inputDirectory.isDirectory()) {
-                printUsage();
-                throw new IllegalArgumentException("The input name you supplied is not a directory.");
-            }
-            inputFileNames = DirectoryCrawler.listFileNames(".*\\.cnt", inputDirectory.getAbsolutePath());
-            if (inputFileNames == null || inputFileNames.length == 0) {
-                printUsage();
-                throw new IllegalArgumentException("Couldn't find any files ending in \".cnt\" in the directory you specified.");
-            }
-            myLogger.info("Merging the following .cnt files...");
-            for (String filename : inputFileNames) {
-                myLogger.info(filename);
-            }
-            myLogger.info("...to \"" + outputFileName + "\".");
-        } else {
-            printUsage();
-            throw new IllegalArgumentException("Please specify an input file.\n");
-
-        }
-        if (myArgsEngine.getBoolean("-t")) {
-            textOutput = true;
-        }
-
-        if (myArgsEngine.getBoolean("-c")) {
-            minCount = Integer.parseInt(myArgsEngine.getString("-c"));
-        } else {
-            minCount = 1;
-        }
-
-    }
-
-    private void printUsage() {
-        myLogger.info(
-                "\nUsage is as follows:\n"
-                + "-i  Input directory containing .cnt files\n"
-                + "-o  Output file name\n"
-                + "-c Minimum count of reads to be output (default 1)\n"
-                + "-t Specifies that reads should be output in FASTQ text format.");
-    }
-
-    @Override
-    public DataSet performFunction(DataSet input) {
-        mergeChunks(inputFileNames, inputDirectory, outputFileName, minCount);
+        mergeChunks(inputFileNames, outputFile(), minCount());
         return null;
     }
 
-    public static void mergeChunks(String[] chunkFileNames, File inputDirectory, String outputFileName, int minCount) {
-        rw = new DataInputStream[chunkFileNames.length];
-        chunkTagSizes = new int[rw.length];
-        ctagCnt = new int[rw.length];
-        ctagLength = new byte[rw.length];
-        rwOpen = rw.length;
+    public void mergeChunks(String[] chunkFileNames, String outputFileName, int minCount) {
+        myInputStreams = new DataInputStream[chunkFileNames.length];
+        myChunkTagSizes = new int[myInputStreams.length];
+        myCtagCnt = new int[myInputStreams.length];
+        myCtagLength = new byte[myInputStreams.length];
+        myNumInputStreamsOpen = myInputStreams.length;
         try {
-            for (int f = 0; f < rw.length; f++) {
+            for (int f = 0; f < myInputStreams.length; f++) {
                 String infile = chunkFileNames[f];
-                rw[f] = new DataInputStream(new BufferedInputStream(new FileInputStream(infile), 4000000));
-                chunkTagSizes[f] = rw[f].readInt();
-                tagLengthInLong = rw[f].readInt();
-                myLogger.info("Opened :" + infile + " tags=" + chunkTagSizes[f]);
+                myInputStreams[f] = new DataInputStream(new BufferedInputStream(new FileInputStream(infile), 4000000));
+                myChunkTagSizes[f] = myInputStreams[f].readInt();
+                myTagLengthInLong = myInputStreams[f].readInt();
+                myLogger.info("Opened :" + infile + " tags=" + myChunkTagSizes[f]);
             }
-            outStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFileName + ".fq"), 655360));
-            ctags = new long[rw.length][tagLengthInLong];
+            myOutStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFileName + ".fq"), 655360));
+            myCtags = new long[myInputStreams.length][myTagLengthInLong];
             outStack("B:");
             int t = 0;
-            while (rwOpen > 0) {
+            while (myNumInputStreamsOpen > 0) {
                 long[] minTag = updateCurrentTags();
                 //     myLogger.info(BaseEncoder.getSequenceFromLong(minTag));
                 //     outStack("U:"+t);
-                if (textOutput) {
+                if (textOutput()) {
                     writeFASTQ(minTag, minCount);
                 } else {
                     writeTags(minTag, minCount);
                 }
                 //     outStack("A:"+t);
                 if (t % 1000000 == 0) {
-                    System.out.printf("t=%d tagsRead=%d outCnt=%d rwOpen=%d %n", t, tagsRead, outCnt, rwOpen);
+                    System.out.printf("t=%d tagsRead=%d outCnt=%d rwOpen=%d %n", t, myNumTagsRead, myOutCnt, myNumInputStreamsOpen);
                     outStack("A:" + t);
                     myLogger.info(BaseEncoder.getSequenceFromLong(minTag));
                 }
                 t++;
             }
-            outStream.flush();
-            outStream.close();
+            myOutStream.flush();
+            myOutStream.close();
         } catch (Exception e) {
             myLogger.info("Catch in reading TagCount file e=" + e);
             e.printStackTrace();
         }
         //Binary files need a header
-        if (!textOutput) {
-            prependHeader(outputFileName, outCnt, tagLengthInLong);
+        if (!textOutput()) {
+            prependHeader(outputFileName, myOutCnt, myTagLengthInLong);
         }
     }
 
-    private static void outStack(String prefix) {
-        System.out.print(prefix + ":");
-        for (int f = 0; f < rw.length; f++) {
-            System.out.print(ctags[f][0] + ":");
+    private void outStack(String prefix) {
+        myLogger.info(prefix + ":");
+        for (int f = 0; f < myInputStreams.length; f++) {
+            myLogger.info(myCtags[f][0] + ":");
         }
         myLogger.info("");
     }
 
-    private static void writeTags(long[] writeTag, int minCount) {
+    private void writeTags(long[] writeTag, int minCount) {
         int count = 0;
         int tagLength = -1;
 
         //Loop through input buffers, compare current records, write smallest to output buffer
-        for (int f = 0; f < rw.length; f++) {
-            if (AbstractTags.compareTags(ctags[f], writeTag) == 0) {
-                count += ctagCnt[f];
-                tagLength = ctagLength[f];
-                for (int j = 0; j < tagLengthInLong; j++) {
-                    ctags[f][j] = 0;
+        for (int f = 0; f < myInputStreams.length; f++) {
+            if (AbstractTags.compareTags(myCtags[f], writeTag) == 0) {
+                count += myCtagCnt[f];
+                tagLength = myCtagLength[f];
+                for (int j = 0; j < myTagLengthInLong; j++) {
+                    myCtags[f][j] = 0;
                 }
             }
         }
         if (count >= minCount) {
-            outCnt++;
+            myOutCnt++;
         } else {
             return;
         }
         //write to file here.
         try {
             long test1;
-            for (int i = 0; i < tagLengthInLong; i++) {
+            for (int i = 0; i < myTagLengthInLong; i++) {
                 test1 = writeTag[i];
-                outStream.writeLong(test1);
+                myOutStream.writeLong(test1);
             }
             byte test2 = (byte) tagLength;
             int test3 = count;
-            outStream.writeByte(test2);
-            outStream.writeInt(test3);
+            myOutStream.writeByte(test2);
+            myOutStream.writeInt(test3);
             if (count == 0) {
                 myLogger.info("");
             }
@@ -226,36 +171,36 @@ public class MergeMultipleTagCountPlugin extends AbstractPlugin {
         }
     }
 
-    private static void writeFASTQ(long[] writeTag, int minCount) {
+    private void writeFASTQ(long[] writeTag, int minCount) {
         int count = 0;
         int tagLength = -1;
         String tagSequence = "";
 
         //Loop through input buffers, compare current records, write smallest to output buffer
-        for (int f = 0; f < rw.length; f++) {
-            if (AbstractTags.compareTags(ctags[f], writeTag) == 0) {
-                count += ctagCnt[f];
-                tagLength = ctagLength[f];
-                for (int j = 0; j < tagLengthInLong; j++) {
-                    ctags[f][j] = 0;
+        for (int f = 0; f < myInputStreams.length; f++) {
+            if (AbstractTags.compareTags(myCtags[f], writeTag) == 0) {
+                count += myCtagCnt[f];
+                tagLength = myCtagLength[f];
+                for (int j = 0; j < myTagLengthInLong; j++) {
+                    myCtags[f][j] = 0;
                 }
             }
         }
         if (count >= minCount) {
-            outCnt++;
+            myOutCnt++;
         } else {
             return;
         }
         //write to file here.
         try {
-            outStream.writeBytes("@length=" + tagLength + "count=" + count + "\n");   //Length & count header
+            myOutStream.writeBytes("@length=" + tagLength + "count=" + count + "\n");   //Length & count header
             tagSequence = BaseEncoder.getSequenceFromLong(writeTag);
             tagSequence = tagSequence.substring(0, tagLength);  //Remove any poly-A padding
-            outStream.writeBytes(tagSequence + "\n+\n");    //Sequence and "+" symbol
+            myOutStream.writeBytes(tagSequence + "\n+\n");    //Sequence and "+" symbol
             for (int i = 0; i < tagLength; i++) {
-                outStream.writeBytes("f");
+                myOutStream.writeBytes("f");
             }           //Bogus quality string
-            outStream.writeBytes("\n");
+            myOutStream.writeBytes("\n");
         } catch (IOException e) {
             myLogger.info("Catch in writing TagCount file e=" + e);
             e.printStackTrace();
@@ -266,7 +211,6 @@ public class MergeMultipleTagCountPlugin extends AbstractPlugin {
         myLogger.info("Adding header to " + fileName + ".");
         File inputFile = new File(fileName + ".fq");
         File outputFile = new File(fileName);
-        long[] testLong = new long[2];
         int tagsWritten = 0;
         try {
             DataInputStream input = new DataInputStream(new BufferedInputStream(new FileInputStream(inputFile), 4000000));
@@ -299,51 +243,87 @@ public class MergeMultipleTagCountPlugin extends AbstractPlugin {
 
     }
 
-    private static long[] updateCurrentTags() {
-        long[] minTag = new long[tagLengthInLong];
+    private long[] updateCurrentTags() {
+        long[] minTag = new long[myTagLengthInLong];
         minTag[0] = Long.MAX_VALUE;
-        for (int f = 0; f < rw.length; f++) {
-            if (ctags[f][0] == 0) {
+        for (int f = 0; f < myInputStreams.length; f++) {
+            if (myCtags[f][0] == 0) {
                 readNextTag(f);
             }
-            if (AbstractTags.compareTags(ctags[f], minTag) < 0) {
-                minTag = ctags[f].clone();
+            if (AbstractTags.compareTags(myCtags[f], minTag) < 0) {
+                minTag = myCtags[f].clone();
             }
         }
         return minTag;
     }
 
-    private static void readNextTag(int f) {
-        if (rw[f] == null) {
+    private void readNextTag(int f) {
+        if (myInputStreams[f] == null) {
             return;
         }
         try {
-            for (int j = 0; j < tagLengthInLong; j++) {
-                ctags[f][j] = rw[f].readLong();
+            for (int j = 0; j < myTagLengthInLong; j++) {
+                myCtags[f][j] = myInputStreams[f].readLong();
             }
-            ctagLength[f] = rw[f].readByte();
-            ctagCnt[f] = rw[f].readInt();
-            tagsRead++;
+            myCtagLength[f] = myInputStreams[f].readByte();
+            myCtagCnt[f] = myInputStreams[f].readInt();
+            myNumTagsRead++;
         } catch (IOException eof) {
             try {
                 myLogger.info("Finished reading file " + f + ".");
-                rw[f].close();
-                rw[f] = null;
-                for (int i = 0; i < tagLengthInLong; i++) {
+                myInputStreams[f].close();
+                myInputStreams[f] = null;
+                for (int i = 0; i < myTagLengthInLong; i++) {
 
-                    ctags[f][i] = Long.MAX_VALUE;
+                    myCtags[f][i] = Long.MAX_VALUE;
                 }
-                rwOpen--;
+                myNumInputStreamsOpen--;
             } catch (IOException eof2) {
                 myLogger.info("Catch closing" + eof2);
-                rw[f] = null;
+                myInputStreams[f] = null;
             }
         }
     }
 
+    public String inputDirectory() {
+        return myInputDir.value();
+    }
+
+    public MergeMultipleTagCountPlugin inputDirectory(String value) {
+        myInputDir = new PluginParameter<>(myInputDir, value);
+        return this;
+    }
+
+    public String outputFile() {
+        return myOutputFile.value();
+    }
+
+    public MergeMultipleTagCountPlugin outputFile(String value) {
+        myOutputFile = new PluginParameter<>(myOutputFile, value);
+        return this;
+    }
+
+    public Integer minCount() {
+        return myMinCount.value();
+    }
+
+    public MergeMultipleTagCountPlugin minCount(Integer value) {
+        myMinCount = new PluginParameter<>(myMinCount, value);
+        return this;
+    }
+
+    public Boolean textOutput() {
+        return myIsTextOutput.value();
+    }
+
+    public MergeMultipleTagCountPlugin textOutput(Boolean value) {
+        myIsTextOutput = new PluginParameter<>(myIsTextOutput, value);
+        return this;
+    }
+
     @Override
     public String getToolTipText() {
-        return null;
+        return "Merge Multiple Tag Count Files";
     }
 
     @Override
@@ -353,6 +333,6 @@ public class MergeMultipleTagCountPlugin extends AbstractPlugin {
 
     @Override
     public String getButtonName() {
-        return null;
+        return "Merge Multiple Tag Count Files";
     }
 }
