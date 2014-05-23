@@ -1,5 +1,7 @@
 package net.maizegenetics.phenotype;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.TreeSet;
 
 import net.maizegenetics.util.BitSet;
@@ -27,23 +29,27 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 		labelBimap = bimapBuilder.build();
 	}
 	
-	public int getIntegerValue(int obs) {
+	public int intValue(int obs) {
 		return values[obs];
 	}
 	
-	public int[] getIntegerValues() {
+	public int[] allIntValues() {
 		return values;
 	}
 	
-	String getAttrLabel(int index) {
+	public String getAttrLabel(int index) {
 		return labelBimap.inverse().get(index);
 	}
 	
-	int getIndexForAttrLabel(String label) {
+	public int indexForAttrLabel(String label) {
 		return labelBimap.get(label);
 	}
 
-	String[] getValuesAsLabels() {
+	public String label(int obs) {
+		return labelBimap.inverse().get(obs);
+	}
+	
+	public String[] allLabels() {
 		int n = values.length;
 		String[] labels = new String[n];
 		ImmutableBiMap<Integer, String> reverseMap = labelBimap.inverse();
@@ -53,29 +59,26 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 		return labels;
 	}
 	
+	public List<String> labelList() {
+		int n = labelBimap.size();
+		ArrayList<String> labelList = new ArrayList<>();
+		ImmutableBiMap<Integer, String> reverseMap = labelBimap.inverse();
+		for (int i = 0; i < n; i++) labelList.add(reverseMap.get(i));
+		return labelList;
+	}
+	
 	@Override
-	public Object getValue(int obs) {
+	public Object value(int obs) {
 		return labelBimap.inverse().get(values[obs]);
 	}
 
 	@Override
-	public Object getValues() {
-		return getValuesAsLabels();
+	public Object allValues() {
+		return allLabels();
 	}
 
 	@Override
-	public Object getSubsetOfValues(int[] obs) {
-		int n = obs.length;
-		String[] labels = new String[n];
-		ImmutableBiMap<Integer, String> reverseMap = labelBimap.inverse();
-		for (int i = 0; i < n; i++) {
-			labels[i] = reverseMap.get(obs[i]);
-		}
-		return labels;
-	}
-
-	@Override
-	public PhenotypeAttribute getSubset(int[] obs) {
+	public PhenotypeAttribute subset(int[] obs) {
 		int n = obs.length;
 		String[] labels = new String[n];
 		OpenBitSet subMissing = new OpenBitSet(n);
@@ -93,17 +96,17 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 	}
 
 	@Override
-	public BitSet getMissing() {
+	public BitSet missing() {
 		return missing;
 	}
 
 	@Override
-	public String getName() {
+	public String name() {
 		return name;
 	}
 
 	@Override
-	public int getSize() {
+	public int size() {
 		return values.length;
 	}
 

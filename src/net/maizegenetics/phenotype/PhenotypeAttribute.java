@@ -8,25 +8,19 @@ public interface PhenotypeAttribute {
 	 * @param obs	the observation number
 	 * @return	the value for this observation
 	 */
-	Object getValue(int obs);
+	Object value(int obs);
 	
 	/**
 	 * The return value will typically be a primitive array whose type depends on the sub class
 	 * @return	the values of this Attribute for all observations, in order by observation number
 	 */
-	Object getValues();
-	
-	/**
-	 * @param obs	an array of observation numbers 
-	 * @return	the values of this attribute for the observations in obs in the same order
-	 */
-	Object getSubsetOfValues(int[] obs);
+	Object allValues();
 	
 	/**
 	 * @param obs	an array of observation numbers
 	 * @return	an attribute equivalent to this one but with a subset of observations specified by obs
 	 */
-	PhenotypeAttribute getSubset(int[] obs);
+	PhenotypeAttribute subset(int[] obs);
 	
 	/**
 	 * @param obs	the observation number
@@ -37,15 +31,15 @@ public interface PhenotypeAttribute {
 	/**
 	 * @return an array whose elements are true for each missing observation, false for observations with valid values.
 	 */
-	BitSet getMissing();
+	BitSet missing();
 	
 	/**
 	 * @return	the name of this Attribute
 	 */
-	String getName();
+	String name();
 	
 	/**
 	 * @return	the number of observations in this Attribute
 	 */
-	int getSize();
+	int size();
 }

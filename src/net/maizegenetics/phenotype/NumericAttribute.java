@@ -1,6 +1,9 @@
 package net.maizegenetics.phenotype;
 
+
+
 import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.OpenBitSet;
 
 public class NumericAttribute implements PhenotypeAttribute {
 	private final String name;
@@ -22,25 +25,25 @@ public class NumericAttribute implements PhenotypeAttribute {
 	}
 	
 	@Override
-	public Object getValue(int obs) {
+	public Object value(int obs) {
 		return new Float(values[obs]);
 	}
 
 	@Override
-	public Object getValues() {
+	public Object allValues() {
 		return values;
 	}
 
 	@Override
-	public Object getSubsetOfValues(int[] obs) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public PhenotypeAttribute getSubset(int[] obs) {
-		// TODO Auto-generated method stub
-		return null;
+	public PhenotypeAttribute subset(int[] obs) {
+		int n = obs.length;
+		float[] valueSubset = new float[n];
+		OpenBitSet missingSubset = new OpenBitSet(n);
+		for (int i = 0; i < n; i++) {
+			valueSubset[i] = values[obs[i]];
+			if (missing.fastGet(obs[i])) missingSubset.fastSet(i);
+		}
+		return new NumericAttribute(name, valueSubset, missingSubset);
 	}
 
 	@Override
@@ -49,17 +52,17 @@ public class NumericAttribute implements PhenotypeAttribute {
 	}
 
 	@Override
-	public BitSet getMissing() {
+	public BitSet missing() {
 		return missing;
 	}
 
 	@Override
-	public String getName() {
+	public String name() {
 		return name;
 	}
 
 	@Override
-	public int getSize() {
+	public int size() {
 		return values.length;
 	}
 

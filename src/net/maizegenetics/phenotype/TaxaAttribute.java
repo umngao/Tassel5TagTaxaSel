@@ -22,30 +22,22 @@ public class TaxaAttribute implements PhenotypeAttribute {
 	}
 	
 	@Override
-	public Object getValue(int obs) {
+	public Object value(int obs) {
 		return taxaList.get(obs);
 	}
 
 	@Override
-	public Object getValues() {
+	public Object allValues() {
 		Taxon[] taxaArray = new Taxon[numberOfTaxa];
 		return taxaList.toArray(taxaArray);
 	}
 
 	@Override
-	public Object getSubsetOfValues(int[] obs) {
+	public PhenotypeAttribute subset(int[] obs) {
 		int n = obs.length;
-		Taxon[] taxaArray = new Taxon[n];
-		for (int i = 0; i < n;  i++) taxaArray[i] = taxaList.get(obs[i]);
-		return taxaArray;
-	}
-
-	@Override
-	public PhenotypeAttribute getSubset(int[] obs) {
-		int n = obs.length;
-		List<Taxon> subset = new ArrayList<Taxon>();
+		ArrayList<Taxon> subset = new ArrayList<Taxon>();
 		for (int i = 0; i < n; i++) subset.add(taxaList.get(obs[i]));
-		return null;
+		return new TaxaAttribute(subset);
 	}
 
 	@Override
@@ -54,17 +46,17 @@ public class TaxaAttribute implements PhenotypeAttribute {
 	}
 
 	@Override
-	public BitSet getMissing() {
+	public BitSet missing() {
 		return new OpenBitSet(numberOfTaxa);
 	}
 
 	@Override
-	public String getName() {
+	public String name() {
 		return "Taxa";
 	}
 
 	@Override
-	public int getSize() {
+	public int size() {
 		return numberOfTaxa;
 	}
 
