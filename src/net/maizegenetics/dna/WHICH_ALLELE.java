@@ -1,7 +1,5 @@
 package net.maizegenetics.dna;
 
-import net.maizegenetics.dna.snp.GenotypeTable;
-
 /**
  * This defines the possible alleles.
  */
