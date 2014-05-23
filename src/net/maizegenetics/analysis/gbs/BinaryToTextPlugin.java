@@ -64,17 +64,12 @@ public class BinaryToTextPlugin extends AbstractPlugin {
 
     }
 
-    public BinaryToTextPlugin inputFile(String filename) {
-        setParameter(myInputFile.cmdLineName(), filename);
-        return this;
-    }
-
     public String inputFile() {
         return myInputFile.value();
     }
 
-    public BinaryToTextPlugin outputFile(String filename) {
-        setParameter(myOutputFile.cmdLineName(), filename);
+    public BinaryToTextPlugin inputFile(String value) {
+        myInputFile = new PluginParameter<>(myInputFile, value);
         return this;
     }
 
@@ -82,13 +77,18 @@ public class BinaryToTextPlugin extends AbstractPlugin {
         return myOutputFile.value();
     }
 
-    public BinaryToTextPlugin fileType(FILE_TYPES type) {
-        setParameter(myFileType.cmdLineName(), type.toString());
+    public BinaryToTextPlugin outputFile(String value) {
+        myOutputFile = new PluginParameter<>(myOutputFile, value);
         return this;
     }
 
     public FILE_TYPES fileType() {
         return myFileType.value();
+    }
+
+    public BinaryToTextPlugin fileType(FILE_TYPES value) {
+        myFileType = new PluginParameter<>(myFileType, value);
+        return this;
     }
 
     @Override
