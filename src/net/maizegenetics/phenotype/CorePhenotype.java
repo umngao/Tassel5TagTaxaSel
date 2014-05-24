@@ -1,23 +1,47 @@
 package net.maizegenetics.phenotype;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.TreeSet;
+
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.primitives.Ints;
 
 import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.TaxaListBuilder;
+import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.TableReport;
 
+/**
+ * @author pbradbury
+ *
+ */
 public class CorePhenotype implements Phenotype, TableReport {
 	protected final List<PhenotypeAttribute> myAttributeList;
 	protected final List<ATTRIBUTE_TYPE> myAttributeTypeList;
+	protected final Multimap<ATTRIBUTE_TYPE, Integer> myAttributeTypeMap;
 	protected final int numberOfAttributes;
 	protected final int numberOfObservations;
 	protected final String name;
+	protected final TaxaAttribute myTaxaAttribute;
 	
-	public CorePhenotype() {
-		myAttributeList = null;
-		myAttributeTypeList = null;
-		numberOfAttributes = 0;
-		numberOfObservations = 0;
-		name = "Phenotype";
+	CorePhenotype(List<PhenotypeAttribute> attributes, List<ATTRIBUTE_TYPE> types, String name) {
+		myAttributeList = new ArrayList<PhenotypeAttribute>(attributes);
+		myAttributeTypeList = new ArrayList<ATTRIBUTE_TYPE>(types);
+		this.name = name;
+		myAttributeTypeMap = HashMultimap.create();
+		int typeCount = 0;
+		for (ATTRIBUTE_TYPE type:types) myAttributeTypeMap.put(type, typeCount++);
+		numberOfAttributes = attributes.size();
+		numberOfObservations = myAttributeList.get(0).size();
+		
+		Collection<Integer> taxaIndices = myAttributeTypeMap.get(ATTRIBUTE_TYPE.taxa);
+		if (taxaIndices.size() == 1) {
+			Integer Ndx = taxaIndices.iterator().next();
+			myTaxaAttribute = (TaxaAttribute) myAttributeList.get(Ndx);
+		} else myTaxaAttribute = null;
 	}
 	
 	//TableReport methods
@@ -89,68 +113,83 @@ public class CorePhenotype implements Phenotype, TableReport {
 	//Phenotype methods
 	
 	@Override
-	public Object getValue(int obs, int attrnum) {
+	public Object value(int obs, int attrnum) {
 		return myAttributeList.get(attrnum).value(obs);
+	}
+	
+	@Override
+	public boolean isMissing(int obs, int attrnum) {
+		return myAttributeList.get(attrnum).isMissing(obs);
 	}
 
 	@Override
-	public boolean isMissing(int obs, int attrnum) {
-		// TODO Auto-generated method stub
-		return false;
+	public PhenotypeAttribute attribute(int attrnum) {
+		return myAttributeList.get(attrnum);
 	}
 
 	@Override
 	public TaxaList taxa() {
-		// TODO Auto-generated method stub
+		int[] taxaIndices = attributeIndicesOfType(ATTRIBUTE_TYPE.taxa);
+		if (taxaIndices.length == 1) {
+			TaxaAttribute taxaAttr = (TaxaAttribute) myAttributeList.get(taxaIndices[0]);
+			TreeSet<Taxon> taxaSet = new TreeSet<>();
+			for (Taxon taxon : taxaAttr.allTaxa()) taxaSet.add(taxon);
+			return new TaxaListBuilder().addAll(taxaSet).build();
+		}
 		return null;
 	}
 
 	@Override
 	public int numberOfAttributes() {
-		// TODO Auto-generated method stub
-		return 0;
+		return numberOfAttributes;
 	}
 
 	@Override
 	public int numberOfAttributesOfType(ATTRIBUTE_TYPE type) {
-		// TODO Auto-generated method stub
-		return 0;
+		return attributeIndicesOfType(type).length;
 	}
 
 	@Override
 	public int[] attributeIndicesOfType(ATTRIBUTE_TYPE type) {
-		// TODO Auto-generated method stub
-		return null;
+		return Ints.toArray(myAttributeTypeMap.get(type));
 	}
 
 	@Override
 	public ATTRIBUTE_TYPE attributeType(int attrnum) {
-		// TODO Auto-generated method stub
-		return null;
+		return myAttributeTypeList.get(attrnum);
 	}
 
 	@Override
-	public void attributeType(int attrnum, ATTRIBUTE_TYPE type) {
-		// TODO Auto-generated method stub
-
+	public void setAttributeType(int attrnum, ATTRIBUTE_TYPE type) {
+		ATTRIBUTE_TYPE oldtype = myAttributeTypeList.get(attrnum);
+		myAttributeTypeList.set(attrnum, type);
+		myAttributeTypeMap.remove(oldtype, attrnum);
+		myAttributeTypeMap.put(type, attrnum);
 	}
 
 	@Override
 	public int numberOfObservations() {
-		// TODO Auto-generated method stub
-		return 0;
+		return numberOfObservations;
 	}
 
 	@Override
 	public String attributeName(int attrnum) {
-		// TODO Auto-generated method stub
-		return null;
+		return myAttributeList.get(attrnum).name();
 	}
 
 	@Override
 	public String name() {
-		// TODO Auto-generated method stub
-		return null;
+		return name;
+	}
+
+	@Override
+	public boolean hasTaxaAttribute() {
+		return myTaxaAttribute != null;
+	}
+
+	@Override
+	public TaxaAttribute taxaAttribute() {
+		return myTaxaAttribute;
 	}
 
 }

@@ -21,6 +21,14 @@ public class TaxaAttribute implements PhenotypeAttribute {
 		numberOfTaxa = taxa.size();
 	}
 	
+	public Taxon[] allTaxa() {
+		return taxaList.toArray(new Taxon[numberOfTaxa]);
+	}
+	
+	public Taxon taxon(int obs) {
+		return taxaList.get(obs);
+	}
+	
 	@Override
 	public Object value(int obs) {
 		return taxaList.get(obs);

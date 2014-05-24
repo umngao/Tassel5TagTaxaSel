@@ -20,13 +20,17 @@ public interface Phenotype {
 	 * @param attrnum	the index or column number of the attribute
 	 * @return	the attribute value for the observation
 	 */
-	public Object getValue(int obs, int attrnum);
+	public Object value(int obs, int attrnum);
 	
 	public boolean isMissing(int obs, int attrnum);
-
-	public TaxaList taxa();
+	
+	public PhenotypeAttribute attribute(int attrnum);
 
 	public int numberOfAttributes();
+	
+	public int numberOfObservations();
+
+	public TaxaList taxa();
 
 	public int numberOfAttributesOfType(ATTRIBUTE_TYPE type);
 	
@@ -34,12 +38,14 @@ public interface Phenotype {
 	
 	public ATTRIBUTE_TYPE attributeType(int attrnum);
 	
-	public void attributeType(int attrnum, ATTRIBUTE_TYPE type);
-	
-	public int numberOfObservations();
+	public void setAttributeType(int attrnum, ATTRIBUTE_TYPE type);
 	
 	public String attributeName(int attrnum);
 	
 	public String name();
+	
+	public boolean hasTaxaAttribute();
+	
+	public TaxaAttribute taxaAttribute();
 
 }
