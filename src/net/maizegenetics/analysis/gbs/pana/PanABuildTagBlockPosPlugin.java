@@ -43,7 +43,7 @@ public class PanABuildTagBlockPosPlugin extends AbstractPlugin {
                 + " -t  input TagsByTaxa(TBT) file, TagsByTaxaByteHDF5TagGroup format\n"
                 + " -p  input TOPM file\n"        
                 + " -v  TOPM version value. Binary file = 1; HDF5 file = 2\n"        
-                + " -o  output directory of sub TBTs\n");
+                + " -o  output tagBlockPosition file\n");
     }
 
     public DataSet performFunction(DataSet input) {

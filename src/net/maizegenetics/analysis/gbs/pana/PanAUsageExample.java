@@ -34,7 +34,7 @@ public class PanAUsageExample {
         //this.filterTagMapPlugin();
         
         
-        //this.readDigestPlugin();
+        this.readDigestPlugin();
         //this.mergeMultipleTagCountPlugin();
         //this.buildPivotTBTPlugin();
     }
@@ -45,7 +45,7 @@ public class PanAUsageExample {
         String recSeq = "GCTG";
         int customTagLength = 96;
         String outputDirS = "M:\\pipelineTest\\PanA\\tagCount\\";
-        String arguments = "-i " + rawSeqDirS + " -k " + keyFileS + " -s " + recSeq + " -l " + String.valueOf(customTagLength)+ " -o " + outputDirS;
+        String arguments = "-i " + rawSeqDirS + " -k " + keyFileS + " -s " + recSeq + " -l " + String.valueOf(customTagLength)+ " -f 0 -o " + outputDirS;
         String[] args = arguments.split(" ");
         PanAReadDigestPlugin rdp = new PanAReadDigestPlugin();
         rdp.setParameters(args);
@@ -152,7 +152,7 @@ public class PanAUsageExample {
         String tagGWASMapFileS = "M:\\pipelineTest\\PanA\\tagMap\\tagGWASMap.h5";
         String arguments = "-i " + mappingResultFileS + " -t " + tagCountFileS + " -o " + tagGWASMapFileS;
         String[] args = arguments.split(" ");
-        PanAMappingResultToTagGWASMapPlugin mrtg = new PanAMappingResultToTagGWASMapPlugin();
+        PanABuildTagGWASMapPlugin mrtg = new PanABuildTagGWASMapPlugin();
         mrtg.setParameters(args);
         mrtg.performFunction(null);
     }

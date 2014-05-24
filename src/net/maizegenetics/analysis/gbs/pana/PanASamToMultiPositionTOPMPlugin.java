@@ -42,7 +42,7 @@ public class PanASamToMultiPositionTOPMPlugin extends AbstractPlugin {
         logger.info(
                 "\n\nUsage is as follows:\n"
                 + " -i  bowtie2 alignemnt file in SAM format\n"
-                + " -t  tagGWASMap file\n"        
+                + " -t  TagGWASMap file\n"        
                 + " -o  output multiple position TOPM file\n");
     }
 

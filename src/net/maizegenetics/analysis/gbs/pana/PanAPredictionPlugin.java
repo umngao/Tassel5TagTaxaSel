@@ -42,7 +42,7 @@ public class PanAPredictionPlugin extends AbstractPlugin {
                 "\n\nUsage is as follows:\n"
                 + " -t  input tagMap (e.g. tagGWASMap) file\n"
                 + " -m  trained machine learning model\n"
-                + " -b  boxcox paremeter file\n"
+                + " -b  boxcox parameter file\n"
                 + " -w  path of weka library\n");
     }
 

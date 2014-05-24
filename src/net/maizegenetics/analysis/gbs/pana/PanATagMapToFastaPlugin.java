@@ -37,8 +37,8 @@ public class PanATagMapToFastaPlugin extends AbstractPlugin {
     private void printUsage() {
         logger.info(
                 "\n\nUsage is as follows:\n"
-                + " -i  tagMap(e.g. tagGWASMap) file\n"     
-                + " -o  output Fasta format sequence file of tagMap\n");
+                + " -i  tagMap(e.g. TagGWASMap) file\n"     
+                + " -o  output Fasta format sequence file of TagGWASMap\n");
     }
 
     public DataSet performFunction(DataSet input) {

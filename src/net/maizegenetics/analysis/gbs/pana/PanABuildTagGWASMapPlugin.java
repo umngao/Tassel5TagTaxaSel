@@ -17,21 +17,21 @@ import net.maizegenetics.dna.map.TagGWASMap;
  * 
  * @author Fei Lu
  */
-public class PanAMappingResultToTagGWASMapPlugin extends AbstractPlugin {
+public class PanABuildTagGWASMapPlugin extends AbstractPlugin {
 
     static long timePoint1;
     private ArgsEngine engine = null;
-    private Logger logger = Logger.getLogger(PanAMappingResultToTagGWASMapPlugin.class);
+    private Logger logger = Logger.getLogger(PanABuildTagGWASMapPlugin.class);
     
     String mappingResultFileS = null;
     String tagCountFileS = null;
     String tagGWASMapFileS = null;
 
-    public PanAMappingResultToTagGWASMapPlugin() {
+    public PanABuildTagGWASMapPlugin() {
         super(null, false);
     }
 
-    public PanAMappingResultToTagGWASMapPlugin(Frame parentFrame) {
+    public PanABuildTagGWASMapPlugin(Frame parentFrame) {
         super(parentFrame, false);
     }
 

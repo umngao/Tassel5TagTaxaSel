@@ -43,7 +43,7 @@ public class PanABuildTrainingSetPlugin extends AbstractPlugin {
                 + " -m  tagMap file\n"
                 + " -t  training data set file\n" 
                 + " -r  R path\n"
-                + " -b  boxcox paremeter file\n");
+                + " -b  boxcox parameter file\n");
     }
 
     @Override
