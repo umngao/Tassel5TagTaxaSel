@@ -20,7 +20,6 @@ import net.maizegenetics.dna.tag.GBSHDF5Constants;
 import net.maizegenetics.dna.tag.TagCounts;
 import net.maizegenetics.dna.tag.TagsByTaxa;
 import net.maizegenetics.dna.tag.TagsByTaxa.FilePacking;
-import net.maizegenetics.dna.tag.TagsHDF5;
 import net.maizegenetics.util.Tassel5HDF5Constants;
 
 /**

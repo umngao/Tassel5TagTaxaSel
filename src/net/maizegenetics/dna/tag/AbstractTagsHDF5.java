@@ -19,39 +19,58 @@ import net.maizegenetics.util.Tassel5HDF5Constants;
  * Basic implementations of HDF5 tags. This is designed to annotate tags with a bunch of attributes, to solve the memory issues
  * @author Fei Lu
  */
-public abstract class AbstractTagsHDF5 extends AbstractTags implements TagsHDF5 {
+public abstract class AbstractTagsHDF5 extends AbstractTags {
     protected IHDF5Writer h5 = null;
     protected int currentBlockIndex = -1;
     protected int currentIndex = -1;
     
-    @Override
+    /**
+     * Returns the size of HDF5 block
+     * @return 
+     */
     public int getBlockSize() {
         return Tassel5HDF5Constants.BLOCK_SIZE;
     }
 
-    @Override
+    /**
+     * Returns the number of block
+     * @return 
+     */
     public int getBlockNum() {
         int num = super.getTagCount()/this.getBlockSize();
         if (super.getTagCount()%this.getBlockSize() == 0) return num;
         else return num+1;
     }
 
-    @Override
+    /**
+     * Returns the block index based on the tag index in a full list
+     * @param tagIndex as the query tag index in the full list
+     * @return 
+     */
     public int getBlockIndex(int tagIndex) {
         return tagIndex/this.getBlockSize();
     }
 
-    @Override
+    /**
+     * Returns current block index
+     * @return 
+     */
     public int getCurrentBlockIndex() {
         return currentBlockIndex;
     }
 
-    @Override
+    /**
+     * Returns current index
+     * @return 
+     */
     public int getCurrentIndex() {
         return currentIndex;
     } 
 
-    @Override
+    /**
+     * Returns current index relative to current block
+     * @return 
+     */
     public int getCurrentIndexWithinBlock () {
         return this.getCurrentIndex()%this.getBlockSize();
     }
@@ -67,24 +86,40 @@ public abstract class AbstractTagsHDF5 extends AbstractTags implements TagsHDF5 
         tagLength = new byte[tagCount];
     }
     
-    @Override
+    /**
+     * Return boolean value if an index belongs to current block
+     * @param queryIndex
+     * @return 
+     */
     public boolean isInCurrentBlock(int queryIndex) {
         int queryBlockIndex = queryIndex/this.getBlockSize();
         if (queryBlockIndex == currentBlockIndex) return true;
         else return false;
     }
     
-    @Override
+    /**
+     * Returns default deflation level of boolean, byte, short, int, long, Enum
+     * See {@link net.maizegenetics.util.Tassel5HDF5Constants}
+     * @return 
+     */
     public HDF5IntStorageFeatures getIntStorageFeatures() {
         return Tassel5HDF5Constants.intDeflation;
     }
 
-    @Override
+    /**
+     * Returns default deflation level of String and Class
+     * See {@link net.maizegenetics.util.Tassel5HDF5Constants}
+     * @return 
+     */
     public HDF5GenericStorageFeatures getGenericStorageFeatures() {
         return Tassel5HDF5Constants.genDeflation;
     }
 
-    @Override
+    /**
+     * Returns default deflation level of float and double
+     * See {@link net.maizegenetics.util.Tassel5HDF5Constants}
+     * @return 
+     */
     public HDF5FloatStorageFeatures getFloatStorageFeatures() {
         return Tassel5HDF5Constants.floatDeflation;
     }
@@ -118,5 +153,45 @@ public abstract class AbstractTagsHDF5 extends AbstractTags implements TagsHDF5 
             e.printStackTrace();
             System.exit(1);
         }
+    }
+    
+    /**
+     * Initialize a HDF5 file
+     * @param hdf5FileS 
+     */
+    public void initializeHDF5 (String inputFileS) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+    
+    /**
+     * Read in HDF5 file
+     * @param hdf5FileS 
+     */
+    public void readHDF5 (String hdf5FileS) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+    
+    /**
+     * Populate a block in memory with default values, update current block index at the same time
+     * @param blockIndex
+     */
+    public void populateBlock(int blockIndex) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+    
+    /**
+     * Read in a block from HDF5 file
+     * @param blockIndex 
+     */
+    public void readBlock(int blockIndex) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+    
+    /**
+     * Write current block to HDF5 file
+     * @param blockIndex 
+     */
+    public void writeBlock(int blockIndex) {
+        throw new UnsupportedOperationException("Not supported yet.");
     }
 }
