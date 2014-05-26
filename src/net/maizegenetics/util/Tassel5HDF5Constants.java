@@ -83,6 +83,18 @@ public final class Tassel5HDF5Constants {
     public static final HDF5GenericStorageFeatures genDeflation = HDF5GenericStorageFeatures.createDeflation(2);
     public static final HDF5FloatStorageFeatures floatDeflation = HDF5FloatStorageFeatures.createDeflation(2);
 
+    //Tag Module
+    public static final String TAG_MODULE = "Tags";
+    public static final String TAG_ATTRIBUTES_PATH = TAG_MODULE + "/";
+    public static final String TAG_COUNT = "tagCount";
+    public static final String TAG_LENGTH_LONG = "tagLengthLong";
+    public static final String TAG_LOCKED = "locked";
+    public static final String TAGS = TAG_MODULE + "/Tags";
+    public static final String TAG_LENGTHS = TAG_MODULE + "/TagLength";
+    public static final String TAG_DIST = TAG_MODULE + "/TagDist";
+    public static final String TAG_DIST_CHUNK = "taxaDirection";
+
+
 
     private Tassel5HDF5Constants() {
         // do not instantiate

@@ -9,12 +9,11 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.SetMultimap;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.HapMapHDF5Constants;
+import net.maizegenetics.dna.tag.Tags;
+import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.Taxon;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 /**
  *
@@ -27,7 +26,7 @@ public final class HDF5Utils {
     }
 
     public static boolean isTASSEL4HDF5Format(IHDF5Reader reader) {
-        return reader.exists(HapMapHDF5Constants.LOCI);
+        return reader.exists(net.maizegenetics.dna.snp.HapMapHDF5Constants.LOCI);
     }
 
  //TAXA Module
@@ -44,6 +43,10 @@ public final class HDF5Utils {
         h5w.setBooleanAttribute(Tassel5HDF5Constants.TAXA_ATTRIBUTES_PATH,Tassel5HDF5Constants.TAXA_LOCKED,false);
     }
 
+    public static boolean doesTaxaModuleExist(IHDF5Reader reader) {
+        return reader.exists(Tassel5HDF5Constants.TAXA_MODULE);
+    }
+
     public static boolean doTaxonCallsExist(IHDF5Reader reader, String taxonName){
         return reader.exists(Tassel5HDF5Constants.getGenotypesCallsPath(taxonName));
     }
@@ -56,6 +59,12 @@ public final class HDF5Utils {
         return reader.getBooleanAttribute(Tassel5HDF5Constants.TAXA_ATTRIBUTES_PATH,Tassel5HDF5Constants.TAXA_LOCKED);
     }
 
+    /**
+     * Adds a taxon to the taxon module
+     * @param h5w
+     * @param taxon
+     * @return true if new add, false if already exists
+     */
     public static boolean addTaxon(IHDF5Writer h5w, Taxon taxon) {
         if(isTaxaLocked(h5w)==true) throw new UnsupportedOperationException("Trying to write to a locked HDF5 file");
         String path=Tassel5HDF5Constants.getTaxonPath(taxon.getName());
@@ -104,6 +113,10 @@ public final class HDF5Utils {
 
     public static void writeHDF5TaxaNumTaxa(IHDF5Writer h5w, int numTaxa) {
         h5w.setIntAttribute(Tassel5HDF5Constants.TAXA_ATTRIBUTES_PATH, Tassel5HDF5Constants.TAXA_NUM_TAXA, numTaxa);
+    }
+
+    public static int getHDF5TaxaNumTaxa(IHDF5Reader reader) {
+        return reader.getIntAttribute(Tassel5HDF5Constants.TAXA_ATTRIBUTES_PATH, Tassel5HDF5Constants.TAXA_NUM_TAXA);
     }
 
 
@@ -283,7 +296,127 @@ public final class HDF5Utils {
     }
 
 
+    //Tags Module
+    public static void createHDF5TagModule(IHDF5Writer h5w, int tagLengthInLong) {
+        if(h5w.exists(Tassel5HDF5Constants.TAG_MODULE)) throw new UnsupportedOperationException("Tag module already exists in HDF5 file");
+        h5w.createGroup(Tassel5HDF5Constants.TAG_MODULE);
+        h5w.setBooleanAttribute(Tassel5HDF5Constants.TAG_ATTRIBUTES_PATH,Tassel5HDF5Constants.TAG_LOCKED,false);
+        h5w.setIntAttribute(Tassel5HDF5Constants.TAG_ATTRIBUTES_PATH, Tassel5HDF5Constants.TAG_LENGTH_LONG, tagLengthInLong);
+        h5w.setIntAttribute(Tassel5HDF5Constants.TAG_ATTRIBUTES_PATH, Tassel5HDF5Constants.TAG_COUNT, 0);
+    }
 
+    public static boolean isHDF5TagLocked(IHDF5Reader reader) {
+        if (reader.exists(Tassel5HDF5Constants.TAG_ATTRIBUTES_PATH + "/" + Tassel5HDF5Constants.TAG_LOCKED) == false)
+            return false;
+        return reader.getBooleanAttribute(Tassel5HDF5Constants.TAG_ATTRIBUTES_PATH, Tassel5HDF5Constants.TAG_LOCKED);
+    }
+
+    public static int getHDF5TagCount(IHDF5Reader reader){
+        return reader.getIntAttribute(Tassel5HDF5Constants.TAG_ATTRIBUTES_PATH, Tassel5HDF5Constants.TAG_COUNT);
+    }
+
+    public static int getHDF5TagLengthInLong(IHDF5Reader reader){
+        return reader.getIntAttribute(Tassel5HDF5Constants.TAG_ATTRIBUTES_PATH, Tassel5HDF5Constants.TAG_LENGTH_LONG);
+    }
+
+    public static boolean doTagsExist(IHDF5Reader reader){
+        return reader.exists(Tassel5HDF5Constants.TAGS);
+    }
+
+    public static void writeHDF5Tags(IHDF5Writer h5w, Tags tags) {
+        if(doTagsExist(h5w)) throw new UnsupportedOperationException("Tags already exists in HDF5 file");
+        if(isHDF5TagLocked(h5w)==true) throw new UnsupportedOperationException("Trying to write to a locked HDF5 file");
+        int blockSize = Math.min(tags.getTagCount(), Tassel5HDF5Constants.BLOCK_SIZE);
+        h5w.createLongMatrix(Tassel5HDF5Constants.TAGS, tags.getTagSizeInLong(), tags.getTagCount(), tags.getTagSizeInLong(),
+                blockSize, Tassel5HDF5Constants.intDeflation);
+        h5w.createIntArray(Tassel5HDF5Constants.TAG_LENGTHS, tags.getTagCount(), blockSize,Tassel5HDF5Constants.intDeflation);
+        h5w.setIntAttribute(Tassel5HDF5Constants.TAG_ATTRIBUTES_PATH, Tassel5HDF5Constants.TAG_COUNT, tags.getTagCount());
+        int blocks = ((tags.getTagCount() - 1) / blockSize) + 1;
+        for (int block = 0; block < blocks; block++) {
+            int startPos = block * blockSize;
+            int length = Math.min(tags.getTagCount() - startPos, blockSize);
+            long[][] sval = new long[tags.getTagSizeInLong()][length];
+            int[] tLenBlock = new int[length];
+            for (int k = 0; k < length; k++) {
+                long[] tg=tags.getTag(startPos+k);
+                for (int j = 0; j < tg.length; j++) {
+                    sval[j][k]=tg[j];
+                }
+                tLenBlock[k]=tags.getTagLength(k);
+            }
+            writeHDF5Block(Tassel5HDF5Constants.TAGS, h5w, blockSize, block, sval);
+            writeHDF5Block(Tassel5HDF5Constants.TAG_LENGTHS, h5w, blockSize, block, tLenBlock);
+        }
+    }
+
+    public static long[][] getTags(IHDF5Reader reader) {
+        return reader.readLongMatrix(Tassel5HDF5Constants.TAGS);
+    }
+
+    public static int[] getTagLengths(IHDF5Reader reader) {
+        return reader.readIntArray(Tassel5HDF5Constants.TAG_LENGTHS);
+    }
+
+    public static void createHDF5TagByTaxaDist(IHDF5Writer h5w, boolean isTaxaDirection, TaxaList taxaList) {
+        if(h5w.exists(Tassel5HDF5Constants.TAG_DIST)) throw new UnsupportedOperationException("TagDist module already exists in HDF5 file");
+        if(isTaxaDirection) {
+            h5w.createByteMatrix(Tassel5HDF5Constants.TAG_DIST, 0, getHDF5TagCount(h5w),
+                    1, Math.min(getHDF5TagCount(h5w), Tassel5HDF5Constants.BLOCK_SIZE), Tassel5HDF5Constants.intDeflation);
+            h5w.setBooleanAttribute(Tassel5HDF5Constants.TAG_DIST,Tassel5HDF5Constants.TAG_DIST_CHUNK,true);
+        } else {
+            h5w.createByteMatrix(Tassel5HDF5Constants.TAG_DIST, taxaList.size(), getHDF5TagCount(h5w),
+                    taxaList.size(), 1, Tassel5HDF5Constants.intDeflation);
+            h5w.setBooleanAttribute(Tassel5HDF5Constants.TAG_DIST,Tassel5HDF5Constants.TAG_DIST_CHUNK,false);
+            for (int t = 0; t < taxaList.size(); t++) {
+                h5w.setStringAttribute(Tassel5HDF5Constants.TAG_DIST,"TN"+t,taxaList.taxaName(t));
+            }
+        }
+    }
+
+    public static int addTaxonTagDistribution(IHDF5Writer h5w, Taxon taxon, byte[] dist) {
+        if(!isTagsByTaxaInTaxaDirection(h5w)) throw new IllegalStateException("Chunking in wrong direction for adding taxa");
+        addTaxon(h5w,taxon);
+        int tbtTaxaNum=(int)h5w.getDataSetInformation(Tassel5HDF5Constants.TAG_DIST).getDimensions()[0];
+        //System.out.println(h5w.getDataSetInformation(Tassel5HDF5Constants.TAG_DIST).toString());
+        h5w.writeByteMatrixBlock(Tassel5HDF5Constants.TAG_DIST, new byte[][]{dist}, tbtTaxaNum, 0);
+        h5w.setStringAttribute(Tassel5HDF5Constants.TAG_DIST,"TN"+tbtTaxaNum,taxon.getName());
+        return tbtTaxaNum;
+    }
+
+    public static byte[] getTagDistForTaxon(IHDF5Reader reader, int taxonIndex) {
+        if(!isTagsByTaxaInTaxaDirection(reader)) throw new IllegalStateException("Chunking in wrong direction for reading taxa");
+        //getting read count and checking read direction may slow things.
+        return reader.readByteMatrixBlock(Tassel5HDF5Constants.TAG_DIST,1,getHDF5TagCount(reader),taxonIndex,0l)[0];
+    }
+
+    public static boolean doTagsByTaxaExist(IHDF5Reader reader){
+        return reader.exists(Tassel5HDF5Constants.TAG_DIST);
+    }
+
+    public static boolean isTagsByTaxaInTaxaDirection(IHDF5Reader reader){
+        return reader.getBooleanAttribute(Tassel5HDF5Constants.TAG_DIST, Tassel5HDF5Constants.TAG_DIST_CHUNK);
+    }
+
+    public static int getNumberOfTaxaInTBT(IHDF5Reader reader){
+        return (int)reader.getDataSetInformation(Tassel5HDF5Constants.TAG_DIST).getDimensions()[0];
+    }
+
+    public static Map<String, Integer> getTBTMapOfRowIndices(IHDF5Reader reader) {
+        int tbtTaxaNum=(int)reader.getDataSetInformation(Tassel5HDF5Constants.TAG_DIST).getDimensions()[0];
+        Map<String, Integer> taxaNameToRowIndex=new HashMap<>(tbtTaxaNum);
+        for (int t = 0; t < tbtTaxaNum; t++) {
+            taxaNameToRowIndex.put(reader.getStringAttribute(Tassel5HDF5Constants.TAG_DIST,"TN"+t),t);
+        }
+        return taxaNameToRowIndex;
+    }
+
+//    public static final String TAG_COUNT = "tagCount";
+//    public static final String TAG_LENGTH_LONG = "tagLengthLong";
+//    public static final String TAG_LOCKED = "locked";
+//    public static final String TAGS = TAG_MODULE + "/Tags";
+//    public static final String TAG_LENGTHS = TAG_MODULE + "/TagLength";
+//    public static final String TAG_DIST = TAG_MODULE + "/TagDist";
+//    public static final String TAG_DIST_CHUNK = "chunkDirection";
 
   //Writers for these should also be implemented, but there are some data scale issue that they are written in blocks.
     //see public PositionListBuilder(IHDF5Writer h5w, PositionList a)
@@ -306,7 +439,7 @@ public final class HDF5Utils {
         int blocks = ((objMaxLength - 1) / blockSize) + 1;
         for (int block = 0; block < blocks; block++) {
             int startPos = block * blockSize;
-            int length = ((objMaxLength - startPos) > blockSize) ? blockSize : objMaxLength - startPos;
+            int length = Math.min(objMaxLength - startPos, blockSize);
             if (val instanceof byte[][]) {
                 byte[][] oval = (byte[][]) val;
                 byte[][] sval = new byte[oval.length][length];
@@ -317,6 +450,13 @@ public final class HDF5Utils {
             } else if (val instanceof int[][]) {
                 int[][] oval = (int[][]) val;
                 int[][] sval = new int[oval.length][length];
+                for (int j = 0; j < oval.length; j++) {
+                    sval[j] = Arrays.copyOfRange(oval[j], startPos, startPos + length);
+                }
+                writeHDF5Block(objectPath, myWriter, blockSize, block, sval);
+            } else if (val instanceof long[][]) {
+                long[][] oval = (long[][]) val;
+                long[][] sval = new long[oval.length][length];
                 for (int j = 0; j < oval.length; j++) {
                     sval[j] = Arrays.copyOfRange(oval[j], startPos, startPos + length);
                 }
@@ -358,6 +498,9 @@ public final class HDF5Utils {
         } else if (val instanceof int[][]) {
             int[][] ival = (int[][]) val;
             myWriter.writeIntMatrixBlockWithOffset(objectPath, ival, ival.length, ival[0].length, 0l, (long) startPos);
+        } else if (val instanceof long[][]) {
+            long[][] lval = (long[][]) val;
+            myWriter.writeLongMatrixBlockWithOffset(objectPath, lval, lval.length, lval[0].length, 0l, (long) startPos);
         } else  if (val instanceof String[]) {
             String[] sval = (String[]) val;
             myWriter.writeStringArrayBlockWithOffset(objectPath, sval, sval.length, (long) startPos);

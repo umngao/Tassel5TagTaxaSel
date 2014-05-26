@@ -60,8 +60,11 @@ public abstract class AbstractTagsByTaxa extends AbstractTags implements TagsByT
 
     /**Truncates each taxon name to everything up to the first colon, and converts
      * all letters to lower case.  This causes tag counts from taxa with identical
-     * names to be merged. */
-    public void truncateTaxonNames() {
+     * names to be merged.
+     * @deprecated this needs to be fixed.  Colons are optional parts of names
+     * */
+    @Deprecated
+     public void truncateTaxonNames() {
         for (int i = 0; i < taxaNames.length; i++) {
             taxaNames[i] = taxaNames[i].substring(0, taxaNames[i].indexOf(":")).toLowerCase();
         }
@@ -200,53 +203,6 @@ public abstract class AbstractTagsByTaxa extends AbstractTags implements TagsByT
         System.out.println("Number of Haplotypes in file:" + hapsOutput);
     }
 
-    void readBitDistFile(File inFile) {
-        int hapsOutput = 0;
-        try {
-            DataInputStream rw = new DataInputStream(new BufferedInputStream(new FileInputStream(inFile), 4000000));
-            int tagNum = rw.readInt();
-//                    System.out.println(tagNum);
-            tagLengthInLong = rw.readInt();
-//                    System.out.println(tagLengthInLong);
-            taxaNum = rw.readInt();
-//                    System.out.println(taxaNum);
-            initMatrices(taxaNum, tagNum);
-            for (int t = 0; t < taxaNum; t++) {
-                taxaNames[t] = rw.readUTF();
-//                    System.out.println(taxaNames[t]);
-            }
-            int numberOfLongs = BitUtil.bits2words(taxaNum);
-            long[] distInLong = new long[numberOfLongs];
-            OpenBitSet obs;
-            for (int i = 0; i < tagNum; i++) {
-                for (int j = 0; j < tagLengthInLong; j++) {
-                    tags[j][i] = rw.readLong();
-                }
-                tagLength[i] = rw.readByte();
-                for (int j = 0; j < numberOfLongs; j++) {
-                    distInLong[j] = rw.readLong();
-                }
-                obs = new OpenBitSet(distInLong, taxaNum);
-                for (int t = 0; t < taxaNum; t++) {
-                    if (obs.fastGet(t)) {
-                        setReadCountForTagTaxon(i, t, 1);
-//                        System.out.print("1\t");
-                    } else {
-//                        System.out.print("0\t");
-                    }
-                }
-
-                hapsOutput++;
-            }
-            rw.close();
-        } catch (Exception e) {
-            System.out.println("Catch in reading input line " + hapsOutput + ": " + e);
-            e.printStackTrace();
-        }
-        System.out.println("Number of Taxa in file:" + taxaNum);
-        System.out.println("Number of Haplotypes in file:" + hapsOutput);
-    }
-
     public void writeDistFile(File outFile, FilePacking numberType, int minCount) {
         int hapsOutput = 0;
         int outReads = minCount > 0 ? readsWCountsGreaterThanMin(minCount) : getTagCount();
@@ -328,44 +284,6 @@ public abstract class AbstractTagsByTaxa extends AbstractTags implements TagsByT
                 hapsOutput++;
             }
 
-        } catch (Exception e) {
-            System.out.println("Catch in writeTextDistFile writing output file e=" + e);
-            e.printStackTrace();
-        }
-        return hapsOutput;
-    }
-
-    private int writeBitDistFile(DataOutputStream fw, int outReads, int minCount) {
-        int hapsOutput = 0;
-        OpenBitSet obs = new OpenBitSet(taxaNum);
-        try {
-            fw.writeInt(outReads);
-            fw.writeInt(tagLengthInLong);
-            fw.writeInt(taxaNum);
-            for (int t = 0; t < taxaNum; t++) {
-                fw.writeUTF(taxaNames[t]);
-            }
-
-            for (int i = 0; i < tags[0].length; i++) {
-                if (minCount > 0 && getReadCount(i) < minCount) {
-                    continue;  //Skip tags whose count is lower than a cutoff
-                }
-                for (int j = 0; j < tagLengthInLong; j++) {
-                    fw.writeLong(tags[j][i]);
-                }
-                fw.writeByte(tagLength[i]);
-                obs = new OpenBitSet(taxaNum);
-                for (int t = 0; t < taxaNum; t++) {
-                    if (getReadCountForTagTaxon(i, t) > 0) {
-                        obs.set(t);
-                    }
-                }
-                long[] obsInLong = obs.getBits();
-                for (int t = 0; t < obsInLong.length; t++) {
-                    fw.writeLong(obsInLong[t]);
-                }
-                hapsOutput++;
-            }
         } catch (Exception e) {
             System.out.println("Catch in writeTextDistFile writing output file e=" + e);
             e.printStackTrace();

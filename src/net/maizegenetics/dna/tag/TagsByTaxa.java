@@ -33,7 +33,9 @@ public interface TagsByTaxa extends Tags {
      * @param tagIndex
      * @param taxaIndex
      * @param addValue value to add to the current value
+     * @deprecated use a builder
      */
+    @Deprecated
     void addReadsToTagTaxon(int tagIndex, int taxaIndex, int addValue);
 
     /**
@@ -61,13 +63,16 @@ public interface TagsByTaxa extends Tags {
     /**
      * TODO: Jeff annotate this
      */
+    @Deprecated
     public void truncateTaxonNames();
 
 
     /**
      *
      * @param rowSetMethod
+     * @deprecated use a builder
      */
+    @Deprecated
     public void setMethodByRows(boolean rowSetMethod);
 
     /**
@@ -100,7 +105,9 @@ public interface TagsByTaxa extends Tags {
 
     /**
      * Returns an array of taxa names
+     * @deprecated get the taxa list
      */
+    @Deprecated
     String[] getTaxaNames();
 
     /**
@@ -115,7 +122,9 @@ public interface TagsByTaxa extends Tags {
      * @param tagIndex index of the tag
      * @param taxaIndex  index of the taxon
      * @param value  read depth
+     * @deprecated use a builder
      */
+    @Deprecated
     void setReadCountForTagTaxon(int tagIndex, int taxaIndex, int value);
 
     /**
@@ -124,17 +133,24 @@ public interface TagsByTaxa extends Tags {
      * @param outFile File for saving this object
      * @param fileType  Determine how to output the depth
      * @param minCount  Only tags greater than minCount are output
+     * @deprecated use a plugin
      */
+    @Deprecated
     void writeDistFile(File outFile, FilePacking fileType, int minCount);
 
-    /**Initializes the storage matrices for reading (unclear why in interface)*/
+    /**Initializes the storage matrices for reading (unclear why in interface)
+     * @deprecated use a builder
+     * */
+    @Deprecated
     void initMatrices(int taxaNum, int tagNum);
 
     /**
      * Add taxa to the TagsByTaxa matrix, they will all be set to distribution value of
      * zero.
      * @param addTaxaNames
+     * @deprecated use a builder
      */
+    @Deprecated
     void addTaxa(String[] addTaxaNames);
 
     /**In implementations that use a RandomAccessFile for storage, this clears the RAM buffer of any
