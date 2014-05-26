@@ -49,54 +49,37 @@ public class TableReportQQDataset extends DefaultTableXYDataset {
         myEndIndex = endIndex;
         myNumRows = myEndIndex - startIndex;
         myCountToDisplay = countToDisplay;
-//        myNumRows = countToDisplay + (myNumRows - countToDisplay)/20 + 1;
         setTableReport(table);
     }
 
     public int getItemCount(int parm1) {
         return theData.length;
-        //throw new java.lang.UnsupportedOperationException("Method getItemCount() not yet implemented.");
     }
 
     public Number getX(int series, int item) {
         Double x = new Double(theData[item][0]);
         return x;
-        //    throw new java.lang.UnsupportedOperationException("Method getXValue() not yet implemented.");
     }
 
     public int getSeriesCount() {
         return numberYAxes;
-        //throw new java.lang.UnsupportedOperationException("Method getSeriesCount() not yet implemented.");
     }
 
     public Number getY(int series, int item) {
         Double y = new Double(theData[item][1 + series]);
         return y;
-        //    throw new java.lang.UnsupportedOperationException("Method getYValue() not yet implemented.");
     }
 
     public String getSeriesName(int series) {
-        /**
-         * current
-         */
         return seriesNames[series];
-        //    throw new java.lang.UnsupportedOperationException("Method getSeriesName() not yet implemented.");
     }
 
     public String getSeriesKey(int series) {
-        /**
-         * current
-         */
         return seriesNames[series];
-        //    throw new java.lang.UnsupportedOperationException("Method getSeriesName() not yet implemented.");
     }
 
     public String getXName() {
-        /**
-         * current
-         */
         return xName;
-        //    throw new java.lang.UnsupportedOperationException("Method getSeriesName() not yet implemented.");
     }
 
     private void setPValueColumnIndex() {
@@ -164,16 +147,9 @@ public class TableReportQQDataset extends DefaultTableXYDataset {
     }
 
     private void setPositions(TableReport myTableReport) {
-//        if (myColumnNames[myPositionColumnIndex].equals("Locus_pos")) {
-//            for (int i = 0; i < myPositions.length; i++) {
-//                myPositions[i] = ((Integer)myTableReport.getValueAt(myStartIndex + i, myPositionColumnIndex)).intValue();
-//            }
-//        }
-//        else if (myColumnNames[myPositionColumnIndex].equals("Site")) {
         for (int i = 0; i < myPositions.length; i++) {
             myPositions[i] = Integer.valueOf((myTableReport.getValueAt(myStartIndex + i, myPositionColumnIndex)).toString());
         }
-//        }
     }
 
     private void setMarkers(TableReport myTableReport) {
@@ -266,7 +242,7 @@ public class TableReportQQDataset extends DefaultTableXYDataset {
         theData[0][0] = myLogExpectedPValues[0];
         theData[myNumRows - 1][0] = myLogExpectedPValues[myNumRows - 1];
         seriesNames = new String[1];
-        xName = "Expected -Log(P-Value)";
+        xName = "Expected -Log10(P-Value)";
         seriesNames[0] = myTrait;
     }
 }

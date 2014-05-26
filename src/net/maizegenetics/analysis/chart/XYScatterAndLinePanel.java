@@ -40,7 +40,6 @@ public class XYScatterAndLinePanel extends BasicChartPanel {
     public XYScatterAndLinePanel(QQDisplayPlugin plugin, TableReport table, int countToDisplay, ArrayList<Integer> tableIndices, int[] indices) {
         myQQDisplayPlugin = plugin;
         myTableReport = table;
-//        ArrayList<Integer> indexes = splitTable(table);
         datasets = new TableReportQQDataset[indices.length];
         for (int i = 0; i < datasets.length; i++) {
             datasets[i] = new TableReportQQDataset(table, tableIndices.get(indices[i] * 2).intValue(), tableIndices.get(indices[i] * 2 + 1).intValue(), countToDisplay);
@@ -82,7 +81,7 @@ public class XYScatterAndLinePanel extends BasicChartPanel {
         String y2Name = "Y2";
         if (dataset != null) {
             xName = dataset.getXName();
-            y1Name = "-Log(P-Value)";
+            y1Name = "-Log10(P-Value)";
             name = xName + " vs. " + y1Name;
             if (dataset.getSeriesCount() == 2) {
                 y2Name = dataset.getSeriesName(1);
@@ -121,7 +120,6 @@ public class XYScatterAndLinePanel extends BasicChartPanel {
     private void addSeries(XYPlot plot, XYDataset data, int index) {
         plot.setDataset(index, data);
         XYLineAndShapeRenderer renderer2 = new XYLineAndShapeRenderer();
-//        renderer2.setSeriesPaint(0);
         renderer2.setBaseShapesVisible(true);
         renderer2.setBaseLinesVisible(false);
         renderer2.setToolTipGenerator(new XYAndLineToolTipGenerator());

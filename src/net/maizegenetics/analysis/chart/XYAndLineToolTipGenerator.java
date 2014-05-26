@@ -15,9 +15,6 @@ import org.jfree.data.xy.XYDataset;
  */
 public class XYAndLineToolTipGenerator extends AbstractXYItemLabelGenerator implements XYToolTipGenerator {
 
-    public void XYAndLineToolTipGenerator() {
-    }
-
     @Override
     public String generateToolTip(XYDataset dataset, int series, int item) {
         TableReportQQDataset myDataset = (TableReportQQDataset) dataset;
@@ -28,7 +25,7 @@ public class XYAndLineToolTipGenerator extends AbstractXYItemLabelGenerator impl
         DecimalFormat df = new DecimalFormat("#0.000");
         StringBuilder sb = new StringBuilder("SNP ID: ");
         sb.append(markers[index]);
-        sb.append(", -Log(P-Value): ");
+        sb.append(", -Log10(P-Value): ");
         sb.append(df.format(myDataset.getYValue(series, item)));
         sb.append(", Expected: ");
         sb.append(df.format(myDataset.getXValue(series, item)));

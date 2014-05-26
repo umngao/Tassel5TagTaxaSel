@@ -1,8 +1,6 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * XYMultipleYToolTipGenerator
  */
-
 package net.maizegenetics.analysis.chart;
 
 import java.text.DecimalFormat;
@@ -16,12 +14,9 @@ import org.jfree.data.xy.XYDataset;
  */
 public class XYMultipleYToolTipGenerator extends AbstractXYItemLabelGenerator implements XYToolTipGenerator {
 
-    public void XYMultipleYToolTipGenerator() {
-
-    }
-
+    @Override
     public String generateToolTip(XYDataset dataset, int series, int item) {
-        TableReportManhattanDataset myDataset = (TableReportManhattanDataset)dataset;
+        TableReportManhattanDataset myDataset = (TableReportManhattanDataset) dataset;
         String[] markers = myDataset.getMarkers();
         String[] chroms = myDataset.getChroms();
         DecimalFormat df = new DecimalFormat("#0.000");
@@ -29,7 +24,7 @@ public class XYMultipleYToolTipGenerator extends AbstractXYItemLabelGenerator im
         sb.append(markers[item]);
         sb.append(", Chromosome: ");
         sb.append(chroms[item]);
-        sb.append(", -Log(P-Value): ");
+        sb.append(", -Log10(P-Value): ");
         sb.append(df.format(myDataset.getYValue(series, item)));
         sb.append(", Position: ");
         sb.append(myDataset.getXValue(series, item));

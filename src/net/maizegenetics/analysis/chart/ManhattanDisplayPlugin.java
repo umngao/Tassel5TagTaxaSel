@@ -130,7 +130,7 @@ public class ManhattanDisplayPlugin extends AbstractDisplayPlugin {
      */
     @Override
     public ImageIcon getIcon() {
-        URL imageURL = QQDisplayPlugin.class.getResource("/net/maizegenetics/analysis/images/ManhattanPlot.gif");
+        URL imageURL = ManhattanDisplayPlugin.class.getResource("/net/maizegenetics/analysis/images/ManhattanPlot.gif");
         if (imageURL == null) {
             return null;
         } else {
