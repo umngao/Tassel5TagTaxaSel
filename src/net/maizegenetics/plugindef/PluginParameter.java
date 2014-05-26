@@ -134,6 +134,14 @@ public class PluginParameter<T extends Comparable<T>> {
         return myFileType;
     }
 
+    public boolean isEmpty() {
+        if ((myValue == null) || (myValue.toString().trim().length() == 0)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     public static class Builder<T extends Comparable<T>> {
 
         private String myGuiName;
