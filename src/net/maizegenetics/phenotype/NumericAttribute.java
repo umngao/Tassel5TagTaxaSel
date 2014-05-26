@@ -2,6 +2,10 @@ package net.maizegenetics.phenotype;
 
 
 
+import java.util.ArrayList;
+import java.util.List;
+
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
 
@@ -9,6 +13,13 @@ public class NumericAttribute implements PhenotypeAttribute {
 	private final String name;
 	private final float[] values;
 	private final BitSet missing;
+	
+	private static final List<ATTRIBUTE_TYPE> myAllowedTypes;
+	static{
+		myAllowedTypes = new ArrayList<ATTRIBUTE_TYPE>();
+		myAllowedTypes.add(ATTRIBUTE_TYPE.data);
+		myAllowedTypes.add(ATTRIBUTE_TYPE.covariate);
+	}
 
 	public NumericAttribute(String name, float[] values, BitSet missing) {
 		this.name = name;
@@ -64,6 +75,16 @@ public class NumericAttribute implements PhenotypeAttribute {
 	@Override
 	public int size() {
 		return values.length;
+	}
+
+	@Override
+	public List<ATTRIBUTE_TYPE> getCompatibleTypes() {
+		return myAllowedTypes;
+	}
+
+	@Override
+	public boolean isTypeCompatible(ATTRIBUTE_TYPE type) {
+		return myAllowedTypes.contains(type);
 	}
 
 }

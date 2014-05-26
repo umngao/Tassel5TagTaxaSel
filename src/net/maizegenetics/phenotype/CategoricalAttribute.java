@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
 
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
 
@@ -15,6 +16,12 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 	private final int[] values;
 	private final ImmutableBiMap<String, Integer> labelBimap;
 	private final BitSet missing;
+	
+	private static final List<ATTRIBUTE_TYPE> myAllowedTypes;
+	static{
+		myAllowedTypes = new ArrayList<ATTRIBUTE_TYPE>();
+		myAllowedTypes.add(ATTRIBUTE_TYPE.factor);
+	}
 
 	public CategoricalAttribute(String name, String[] stringValues , BitSet missing) {
 		this.name = name;
@@ -108,6 +115,16 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 	@Override
 	public int size() {
 		return values.length;
+	}
+
+	@Override
+	public List<ATTRIBUTE_TYPE> getCompatibleTypes() {
+		return myAllowedTypes;
+	}
+
+	@Override
+	public boolean isTypeCompatible(ATTRIBUTE_TYPE type) {
+		return myAllowedTypes.contains(type);
 	}
 
 }

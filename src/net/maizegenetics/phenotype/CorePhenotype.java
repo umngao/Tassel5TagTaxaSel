@@ -2,7 +2,9 @@ package net.maizegenetics.phenotype;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeSet;
 
 import com.google.common.collect.HashMultimap;
@@ -192,4 +194,17 @@ public class CorePhenotype implements Phenotype, TableReport {
 		return myTaxaAttribute;
 	}
 
+	public static boolean areAttributeAndTypeListsCompatible(List<PhenotypeAttribute> attributes, List<ATTRIBUTE_TYPE> types) {
+		if (attributes.size() != types.size()) return false;
+		boolean compatible = true;
+		Iterator<ATTRIBUTE_TYPE> typeIter = types.iterator();
+		for (PhenotypeAttribute attr : attributes) {
+			ATTRIBUTE_TYPE myType = typeIter.next();
+			if (!attr.isTypeCompatible(myType)) {
+				compatible = false;
+				break;
+			}
+		}
+		return compatible;
+	}
 }

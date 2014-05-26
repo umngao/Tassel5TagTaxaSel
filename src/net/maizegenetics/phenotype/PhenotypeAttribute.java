@@ -1,5 +1,8 @@
 package net.maizegenetics.phenotype;
 
+import java.util.List;
+
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.util.BitSet;
 
 public interface PhenotypeAttribute {
@@ -42,4 +45,16 @@ public interface PhenotypeAttribute {
 	 * @return	the number of observations in this Attribute
 	 */
 	int size();
+	
+	/**
+	 * @return	a list of attribute types that are compatible with this attribute
+	 * For instance, a CategoricalAttribute can only have a type of factor while a NumericPhenotype can have a type of data or covariate.
+	 */
+	List<ATTRIBUTE_TYPE> getCompatibleTypes();
+	
+	/**
+	 * @param type	an attribute type
+	 * @return	true if type is compatible with this attribute
+	 */
+	boolean isTypeCompatible(ATTRIBUTE_TYPE type);
 }

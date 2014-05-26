@@ -22,30 +22,80 @@ public interface Phenotype {
 	 */
 	public Object value(int obs, int attrnum);
 	
+	/**
+	 * @param obs	an observation number
+	 * @param attrnum	the index or column number of the attribute
+	 * @return	true if the phenotype value of attrnum is missing for obs
+	 */
 	public boolean isMissing(int obs, int attrnum);
 	
+	/**
+	 * @param attrnum	the index or column number of the attribute
+	 * @return	the PhenotypeAttribute 
+	 */
 	public PhenotypeAttribute attribute(int attrnum);
 
+	/**
+	 * @return	the number of attributes or columns in the Phenotype
+	 */
 	public int numberOfAttributes();
 	
+	/**
+	 * @return	the number of observations or rows in this phenotype
+	 */
 	public int numberOfObservations();
 
+	/**
+	 * @return	the unique set of taxa in this Phenotype. 
+	 * Each taxon will be in the TaxaList only once though there may be more than one observation of the taxon in the Phenotype.
+	 */
 	public TaxaList taxa();
 
+	/**
+	 * @param type	an attribute type
+	 * @return	the number of attributes of this type
+	 */
 	public int numberOfAttributesOfType(ATTRIBUTE_TYPE type);
 	
+	/**
+	 * @param type	an attribute type
+	 * @return	an array of the indices of all the attributes of this type
+	 */
 	public int[] attributeIndicesOfType(ATTRIBUTE_TYPE type);
 	
+	/**
+	 * @param attrnum	the index or column number of an attribute
+	 * @return	the type of the attribute
+	 */
 	public ATTRIBUTE_TYPE attributeType(int attrnum);
 	
+	/**
+	 * @param attrnum	the index or column number of the attribute
+	 * @param type	the new attribute type
+	 * This method sets the attribute of an attribute, if type is compatible with the attribute. 
+	 * If the type is not compatible, then the attribute type will not be changed.
+	 */
 	public void setAttributeType(int attrnum, ATTRIBUTE_TYPE type);
 	
+	/**
+	 * @param attrnum	the index or column number of the attribute
+	 * @return	the name of the attribute
+	 */
 	public String attributeName(int attrnum);
 	
+	/**
+	 * @return	the name of this Phenotype
+	 */
 	public String name();
 	
+	/**
+	 * @return	true, if this Phenotype type has one and only one TaxaAttribute
+	 */
 	public boolean hasTaxaAttribute();
 	
+	/**
+	 * @return	this Phenotype's TaxaAttribute, which is the Taxa represented by the observations in this Phenotype
+	 */
 	public TaxaAttribute taxaAttribute();
 
 }

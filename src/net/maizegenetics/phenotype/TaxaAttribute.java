@@ -3,6 +3,7 @@ package net.maizegenetics.phenotype;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
@@ -15,6 +16,12 @@ public class TaxaAttribute implements PhenotypeAttribute {
 	private final ArrayList<Taxon> taxaList;
 	private final int numberOfTaxa;
 	
+	private static final List<ATTRIBUTE_TYPE> myAllowedTypes;
+	static{
+		myAllowedTypes = new ArrayList<ATTRIBUTE_TYPE>();
+		myAllowedTypes.add(ATTRIBUTE_TYPE.taxa);
+	}
+
 	TaxaAttribute(List<Taxon> taxa) {
 		if (taxa instanceof ArrayList) taxaList = (ArrayList<Taxon>) taxa;
 		else taxaList = new ArrayList<>(taxa);
@@ -66,6 +73,16 @@ public class TaxaAttribute implements PhenotypeAttribute {
 	@Override
 	public int size() {
 		return numberOfTaxa;
+	}
+
+	@Override
+	public List<ATTRIBUTE_TYPE> getCompatibleTypes() {
+		return myAllowedTypes;
+	}
+
+	@Override
+	public boolean isTypeCompatible(ATTRIBUTE_TYPE type) {
+		return myAllowedTypes.contains(type);
 	}
 
 }
