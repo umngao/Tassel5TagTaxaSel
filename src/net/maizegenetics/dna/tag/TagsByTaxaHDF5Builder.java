@@ -6,6 +6,7 @@ package net.maizegenetics.dna.tag;
 import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import ch.systemsx.cisd.hdf5.IHDF5WriterConfigurator;
+import com.google.common.collect.BiMap;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.HDF5Utils;
@@ -24,21 +25,27 @@ import java.util.*;
  */
 public class TagsByTaxaHDF5Builder {
 
-    private Chunking cnkDir;
+    private final Chunking cnkDir;
 
-    int tagCount = 0;
-    IHDF5Writer h5 = null;
-    Map<String, Integer> taxonNameToIndexMap;
+    private int tagCount = 0;
+    private final IHDF5Writer h5;
+    private final BiMap<String, Integer> taxonNameToIndexMap;
 
-
-
-    private int taxaNum = 0;
-    //public static
-
+    /**
+     * Create Tags by taxa module within a HDF5 file
+     * @param newHDF5file file name
+     * @param tags the list of tags to be use
+     * @return
+     */
     public static final TagsByTaxaHDF5Builder createTaxaIncremental(String newHDF5file, Tags tags) {
         return new TagsByTaxaHDF5Builder(newHDF5file, Chunking.Taxa,tags, null);
     }
 
+    /**
+     * Used to add taxa to an existing Tags by Taxa module
+     * @param existingHDF5file
+     * @return
+     */
     public static final TagsByTaxaHDF5Builder openTaxaIncremental(String existingHDF5file) {
         return new TagsByTaxaHDF5Builder(existingHDF5file,Chunking.Taxa,null,null);
     }
@@ -54,7 +61,7 @@ public class TagsByTaxaHDF5Builder {
     private TagsByTaxaHDF5Builder(String theHDF5file, TagsByTaxaHDF5.Chunking chunkDirection, Tags tags, TaxaList taxaList) {
         cnkDir=chunkDirection;
         h5 = HDF5Factory.configure(new File(theHDF5file))
-                .overwrite().useUTF8CharacterEncoding().writer();
+                .useUTF8CharacterEncoding().writer();
         if(tags==null) {
             if(!HDF5Utils.doTagsExist(h5)) throw new IllegalStateException("File :"+theHDF5file+" does not have the needed tags" +
                             " to build a TBT file.");
@@ -70,8 +77,6 @@ public class TagsByTaxaHDF5Builder {
             HDF5Utils.createHDF5TagByTaxaDist(h5,chunkDirection==Chunking.Taxa, taxaList);
         }
         taxonNameToIndexMap=HDF5Utils.getTBTMapOfRowIndices(h5);
-
-        //load existing taxaNames
     }
 
     public TagsByTaxaHDF5Builder addTag(long[] tag, byte[] dist) {
@@ -81,9 +86,9 @@ public class TagsByTaxaHDF5Builder {
         return this;
     }
 
-    public void build() {
+    public TagsByTaxa build() {
         h5.close();
-        //return HDF
+        return new TagsByTaxaHDF5(h5.getFile().getAbsolutePath());
     }
 
 

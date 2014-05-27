@@ -8,7 +8,7 @@ import cern.colt.function.IntComparator;
  * of tags).  The length of tag in good sequence is also tracked.
  * <p>
  * Tags are encoded in longs with a 2-bit encoding see the package description for details
- * {@link net.maizegenetics.gbs.tagdist}.
+ * {@link net.maizegenetics.dna.BaseEncoder}.
  * <p>
  * @author Ed Buckler
  */

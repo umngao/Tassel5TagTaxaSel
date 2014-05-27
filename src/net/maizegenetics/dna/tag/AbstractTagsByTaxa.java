@@ -22,7 +22,8 @@ import java.nio.channels.FileChannel;
 public abstract class AbstractTagsByTaxa extends AbstractTags implements TagsByTaxa {
 
     protected int taxaNum = 0;
-    protected String[] taxaNames;
+    @Deprecated
+    protected String[] taxaNames;  //todo only taxaList should be maintained
     protected TaxaList taxaList=null;
 
     @Override
@@ -50,12 +51,7 @@ public abstract class AbstractTagsByTaxa extends AbstractTags implements TagsByT
 
     @Override
     public int getIndexOfTaxaName(String taxon) {
-        for (int i = 0; i < taxaNames.length; i++) {
-            if (taxon.equals(taxaNames[i])) {
-                return i;
-            }
-        }
-        return -1;
+        return taxaList.indexOf(taxon);
     }
 
     /**Truncates each taxon name to everything up to the first colon, and converts

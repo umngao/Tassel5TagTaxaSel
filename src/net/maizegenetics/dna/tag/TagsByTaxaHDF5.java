@@ -8,10 +8,13 @@ import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.BiMap;
+import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.*;
 
 import java.util.*;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 /**
  * Tags by Taxa file based on the HDF5 data structure.  This version is optimized
@@ -24,28 +27,28 @@ public class TagsByTaxaHDF5 extends AbstractTagsByTaxa {
     public enum Chunking {
         Taxa, Tags
     }
-    private boolean inTaxaChunking;
+    private final boolean inTaxaChunking;
+    private final int tagCount;
+    private final IHDF5Reader reader;
+    private final BiMap<String, Integer> taxaNameIndexBiMap;
 
-    //Guava cache loader
-    //load upto 80000 tags or
 
-    static int chunkSize = 1 << 16;
-    int tagCount = 0;
-    int tagChunks = 0;
-    IHDF5Reader reader = null;
-    List<String> taxaDirList, taxaNameList;
-    Map<String, String> taxaNameDirTreeMap;
-
+    //todo TAS-203 this needs to be redone for chunks for taxa, as at 98M tags this will never get pivoted.
     private LoadingCache<Integer, byte[]> taxaCache=null;
 
     private CacheLoader<Integer, byte[]> taxaLoader = new CacheLoader<Integer, byte[]>() {
         public byte[] load(Integer key) {
-           return HDF5Utils.getTagDistForTaxon(reader,key); //HDF5Utils.
+           return HDF5Utils.getTagDistForTaxon(reader,key); //HDF5Utils
         }
     };
 
+    private LoadingCache<Integer, byte[]> tagCache=null;
 
-
+    private CacheLoader<Integer, byte[]> tagLoader = new CacheLoader<Integer, byte[]>() {
+        public byte[] load(Integer key) {
+            return HDF5Utils.getTaxaDistForTag(reader, key); //HDF5Utils
+        }
+    };
 
     public TagsByTaxaHDF5(String infile) {
         reader = HDF5Factory.openForReading(infile);
@@ -54,7 +57,8 @@ public class TagsByTaxaHDF5 extends AbstractTagsByTaxa {
         tagLengthInLong = HDF5Utils.getHDF5TagLengthInLong(reader);
         taxaNum = HDF5Utils.getNumberOfTaxaInTBT(reader);
         this.tags = HDF5Utils.getTags(reader);
-
+        taxaNameIndexBiMap=HDF5Utils.getTBTMapOfRowIndices(reader);
+        taxaList=HDF5Utils.getTaxaListInTBTOrder(reader);
         //todo need to make tag lengths an integer
         int[] tL=HDF5Utils.getTagLengths(reader);
         this.tagLength=new byte[tL.length];
@@ -62,13 +66,14 @@ public class TagsByTaxaHDF5 extends AbstractTagsByTaxa {
             tagLength[i]=(byte)tL[i];
         }
 
-
-
         if(inTaxaChunking) {
             taxaCache = CacheBuilder.newBuilder()
-//                    .maximumWeight(300_000_000)
-//                    .weigher(weighByLength)
+                    .maximumSize(1000)
                     .build(taxaLoader);
+        } else {
+            tagCache = CacheBuilder.newBuilder()
+                    .maximumSize(1000_000)
+                    .build(tagLoader);
         }
     }
 
@@ -77,13 +82,17 @@ public class TagsByTaxaHDF5 extends AbstractTagsByTaxa {
 
     @Override
     public int getIndexOfTaxaName(String taxon) {
-        int index = Collections.binarySearch(taxaNameList, taxon);
-        return index;
+        return taxaNameIndexBiMap.get(taxon);
     }
 
     @Override
     public int getReadCountForTagTaxon(int tagIndex, int taxaIndex) {
-        return getReadCountDistributionForTaxon(taxaIndex)[tagIndex];
+        if(inTaxaChunking) {
+            return getReadCountDistributionForTaxon(taxaIndex)[tagIndex];
+        } else {
+            return getTaxaReadCountsForTag(tagIndex)[taxaIndex];
+        }
+
     }
 
     public byte[] getReadCountDistributionForTaxon(int taxaIndex) {
@@ -93,7 +102,16 @@ public class TagsByTaxaHDF5 extends AbstractTagsByTaxa {
             e.printStackTrace();
             return null;
         }
+    }
 
+    @Override
+    public byte[] getTaxaReadCountsForTag(int tagIndex) {
+        try {
+            return tagCache.get(tagIndex);
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     @Override
@@ -128,12 +146,15 @@ public class TagsByTaxaHDF5 extends AbstractTagsByTaxa {
 
     @Override
     public String getTaxaName(int taxaIndex) {
-        return taxaNameList.get(taxaIndex);
+        return taxaNameIndexBiMap.inverse().get(taxaIndex);
     }
 
     @Override
     public String[] getTaxaNames() {
-        String[] array = taxaNameList.toArray(new String[taxaNameList.size()]);
-        return array;
+        String[] taxaNames=new String[taxaList.size()];
+        for (int i = 0; i < taxaList.numberOfTaxa(); i++) {
+            taxaNames[i]=taxaList.taxaName(i);
+        }
+        return taxaNames;
     }
 }

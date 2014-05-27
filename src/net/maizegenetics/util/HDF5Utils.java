@@ -6,11 +6,15 @@ import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.SetMultimap;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.tag.Tags;
 import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 
 import java.util.*;
@@ -389,6 +393,12 @@ public final class HDF5Utils {
         return reader.readByteMatrixBlock(Tassel5HDF5Constants.TAG_DIST,1,getHDF5TagCount(reader),taxonIndex,0l)[0];
     }
 
+    public static byte[] getTaxaDistForTag(IHDF5Reader reader, int tagIndex) {
+        if(isTagsByTaxaInTaxaDirection(reader)) throw new IllegalStateException("Chunking in wrong direction for reading tags");
+        //getting read count and checking read direction may slow things.
+        return reader.readByteMatrixBlock(Tassel5HDF5Constants.TAG_DIST,getNumberOfTaxaInTBT(reader),1,0,tagIndex)[0];
+    }
+
     public static boolean doTagsByTaxaExist(IHDF5Reader reader){
         return reader.exists(Tassel5HDF5Constants.TAG_DIST);
     }
@@ -401,29 +411,24 @@ public final class HDF5Utils {
         return (int)reader.getDataSetInformation(Tassel5HDF5Constants.TAG_DIST).getDimensions()[0];
     }
 
-    public static Map<String, Integer> getTBTMapOfRowIndices(IHDF5Reader reader) {
+    public static BiMap<String, Integer> getTBTMapOfRowIndices(IHDF5Reader reader) {
         int tbtTaxaNum=(int)reader.getDataSetInformation(Tassel5HDF5Constants.TAG_DIST).getDimensions()[0];
-        Map<String, Integer> taxaNameToRowIndex=new HashMap<>(tbtTaxaNum);
+        BiMap<String, Integer> taxaNameToRowIndex= HashBiMap.create(tbtTaxaNum);
         for (int t = 0; t < tbtTaxaNum; t++) {
-            taxaNameToRowIndex.put(reader.getStringAttribute(Tassel5HDF5Constants.TAG_DIST,"TN"+t),t);
+            taxaNameToRowIndex.put(reader.getStringAttribute(Tassel5HDF5Constants.TAG_DIST, "TN" + t), t);
         }
         return taxaNameToRowIndex;
     }
 
-//    public static final String TAG_COUNT = "tagCount";
-//    public static final String TAG_LENGTH_LONG = "tagLengthLong";
-//    public static final String TAG_LOCKED = "locked";
-//    public static final String TAGS = TAG_MODULE + "/Tags";
-//    public static final String TAG_LENGTHS = TAG_MODULE + "/TagLength";
-//    public static final String TAG_DIST = TAG_MODULE + "/TagDist";
-//    public static final String TAG_DIST_CHUNK = "chunkDirection";
+    public static TaxaList getTaxaListInTBTOrder(IHDF5Reader reader) {
+        int tbtTaxaNum=(int)reader.getDataSetInformation(Tassel5HDF5Constants.TAG_DIST).getDimensions()[0];
+        TaxaListBuilder tlb=new TaxaListBuilder();
+        for (int t = 0; t < tbtTaxaNum; t++) {
+            tlb.add(HDF5Utils.getTaxon(reader,reader.getStringAttribute(Tassel5HDF5Constants.TAG_DIST, "TN" + t)));
+        }
+        return tlb.build();
+    }
 
-  //Writers for these should also be implemented, but there are some data scale issue that they are written in blocks.
-    //see public PositionListBuilder(IHDF5Writer h5w, PositionList a)
-    //    Positions/Positions
-//    Positions/Chromosome
-//    Positions/ChromosomeIndices
-//    Positions/SnpIds
 
 
 
