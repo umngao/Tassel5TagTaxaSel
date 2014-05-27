@@ -70,6 +70,18 @@ abstract public class AbstractPlugin implements Plugin {
                 }
             }
 
+            try {
+                postProcessParameters();
+            } catch (Exception e) {
+                if (isInteractive()) {
+                    throw e;
+                } else {
+                    myLogger.error(e.getMessage());
+                    printUsage();
+                    System.exit(1);
+                }
+            }
+
             printParameterValues();
             checkParameters();
 
@@ -97,6 +109,10 @@ abstract public class AbstractPlugin implements Plugin {
             fireProgress(100);
         }
 
+    }
+
+    protected void postProcessParameters() {
+        // do nothing
     }
 
     @Override
