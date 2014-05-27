@@ -793,6 +793,8 @@ abstract public class AbstractPlugin implements Plugin {
         fireDataSetReturned(new PluginEvent(data));
     }
 
+    private static final List<String> myPrintedCitations = new ArrayList<>();
+
     /**
      * Returns progress of execution.
      *
@@ -810,13 +812,16 @@ abstract public class AbstractPlugin implements Plugin {
 
         DataSet ds = (DataSet) event.getSource();
         if (ds != null) {
-            List percentage = ds.getDataOfType(Integer.class);
+            List<Datum> percentage = ds.getDataOfType(Integer.class);
 
             if (percentage.size() > 0) {
-                Datum datum = (Datum) percentage.get(0);
+                Datum datum = percentage.get(0);
                 Integer percent = (Integer) datum.getData();
                 if (percent == 100) {
-                    myLogger.info(getClass().getName() + "  Citation: " + getCitation());
+                    if (!myPrintedCitations.contains(getCitation())) {
+                        myLogger.info(getClass().getName() + "  Citation: " + getCitation());
+                        myPrintedCitations.add(getCitation());
+                    }
                 }
             }
         }
