@@ -8,16 +8,15 @@ import java.awt.Frame;
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
 import javax.swing.ImageIcon;
 
-import net.maizegenetics.util.ArgsEngine;
 import net.maizegenetics.dna.BaseEncoder;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.Utils;
 
 import org.apache.log4j.Logger;
@@ -34,17 +33,21 @@ import org.apache.log4j.Logger;
 public class TagCountToFastqPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(TagCountToFastqPlugin.class);
-    private ArgsEngine myArgsEngine = null;
-    private String inFileName;
+
+    private PluginParameter<String> myInputFile = new PluginParameter.Builder<String>("i", null, String.class).guiName("Input File").required(true).inFile()
+            .description("Input binary tag count (*.cnt) file").build();
+    private PluginParameter<String> myOutputFile = new PluginParameter.Builder<String>("o", null, String.class).guiName("Output File").required(true).outFile()
+            .description("Output fastq file to use as input for BWA or bowtie2").build();
+    private PluginParameter<Integer> myMinCount = new PluginParameter.Builder<Integer>("c", 1, Integer.class).guiName("Min Count")
+            .description("Minimum count of reads for a tag to be output").build();
+
     private DataInputStream inStream;
-    private String outputFileName = null;
     private DataOutputStream outStream;
     private int nTags, tagLengthInLong;
     private long[] tag = new long[2]; // [indexOfTagLong], emptyLong=0, fileFinish=Long.MAX
     private int tagCount; // tag count
     private byte tagLength;
     private int tagsRead = 0;
-    private int minCount = 0;
 
     public TagCountToFastqPlugin() {
         super(null, false);
@@ -54,65 +57,23 @@ public class TagCountToFastqPlugin extends AbstractPlugin {
         super(parentFrame, false);
     }
 
-    private void printUsage() {
-        myLogger.info(
-                "\n\n\nThe options for the TagCountToFastqPlugin are:\n"
-                + "-i Input binary tag count (*.cnt) file\n"
-                + "-o Output fastq file to use as input for BWA or bowtie2\n"
-                + "-c Minimum count of reads for a tag to be output (default: 1)\n\n\n");
+    public TagCountToFastqPlugin(Frame parentFrame, boolean isInteractive) {
+        super(parentFrame, isInteractive);
     }
 
     @Override
-    public void setParameters(String[] args) {
-        if (args.length == 0) {
-            printUsage();
-            throw new IllegalArgumentException("\n\nPlease use the above arguments/options.\n\n");
-        }
-        if (myArgsEngine == null) {
-            myArgsEngine = new ArgsEngine();
-            myArgsEngine.add("-i", "--input_file", true);
-            myArgsEngine.add("-o", "--output_file", true);
-            myArgsEngine.add("-c", "--min_count", true);
-        }
-        myArgsEngine.parse(args);
-        if (myArgsEngine.getBoolean("-i")) {
-            inFileName = myArgsEngine.getString("-i");
-            File inFile = new File(inFileName);
-            if (!inFile.isFile()) {
-                printUsage();
-                throw new IllegalArgumentException("Problem opening the input file: " + myArgsEngine.getString("-i"));
-            }
-            inFile = null;
-        } else {
-            printUsage();
-            throw new IllegalArgumentException("Please specify an input file.\n");
-        }
-        if (myArgsEngine.getBoolean("-o")) {
-            outputFileName = myArgsEngine.getString("-o");
-        } else {
-            printUsage();
-            throw new IllegalArgumentException("Please specify an output file.");
-        }
-        if (myArgsEngine.getBoolean("-c")) {
-            minCount = Integer.parseInt(myArgsEngine.getString("-c"));
-        } else {
-            minCount = 1;
-        }
-    }
-
-    @Override
-    public DataSet performFunction(DataSet input) {
+    public DataSet processData(DataSet input) {
         try {
-            inStream = new DataInputStream(new BufferedInputStream(new FileInputStream(inFileName), 655360));
+            inStream = new DataInputStream(new BufferedInputStream(new FileInputStream(inputFile()), 655360));
             nTags = inStream.readInt();
             tagLengthInLong = inStream.readInt();
-            myLogger.info("Opened the input file: " + inFileName + "  nTags=" + nTags);
+            myLogger.info("Opened the input file: " + inputFile() + "  nTags=" + nTags);
             //outStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFileName), 655360));
-            outStream = Utils.getDataOutputStream(outputFileName, 655360);
+            outStream = Utils.getDataOutputStream(outputFile(), 655360);
             int tagsWritten = 0;
-            while (inStream.available()!=0) {
+            while (inStream.available() != 0) {
                 readNextTag();
-                if (tagCount >= minCount) {
+                if (tagCount >= minCount()) {
                     writeFASTQ();
                     tagsWritten++;
                 }
@@ -123,10 +84,10 @@ public class TagCountToFastqPlugin extends AbstractPlugin {
             }
             outStream.flush();
             outStream.close();
-            System.out.println("Finished converting binary tag count file to fastq."
+            myLogger.info("Finished converting binary tag count file to fastq."
                     + "\nTotal number of tags read: " + tagsRead
-                    + "\nTotal number of tags written: " + tagsWritten + " (above minCount of " + minCount + ")"
-                    + "\nOuput fastq file: " + outputFileName + "\n\n");
+                    + "\nTotal number of tags written: " + tagsWritten + " (above minCount of " + minCount() + ")"
+                    + "\nOuput fastq file: " + outputFile() + "\n\n");
         } catch (Exception e) {
             myLogger.info("Catch in reading TagCount file e=" + e);
             e.printStackTrace();
@@ -170,9 +131,36 @@ public class TagCountToFastqPlugin extends AbstractPlugin {
         }
     }
 
+    public String inputFile() {
+        return myInputFile.value();
+    }
+
+    public TagCountToFastqPlugin inputFile(String value) {
+        myInputFile = new PluginParameter<>(myInputFile, value);
+        return this;
+    }
+
+    public String outputFile() {
+        return myOutputFile.value();
+    }
+
+    public TagCountToFastqPlugin outputFile(String value) {
+        myOutputFile = new PluginParameter<>(myOutputFile, value);
+        return this;
+    }
+
+    public Integer minCount() {
+        return myMinCount.value();
+    }
+
+    public TagCountToFastqPlugin minCount(Integer value) {
+        myMinCount = new PluginParameter<>(myMinCount, value);
+        return this;
+    }
+
     @Override
     public String getToolTipText() {
-        return null;
+        return "Tag Count to Fastq";
     }
 
     @Override
@@ -182,6 +170,6 @@ public class TagCountToFastqPlugin extends AbstractPlugin {
 
     @Override
     public String getButtonName() {
-        return null;
+        return "Tag Count to Fastq";
     }
 }
