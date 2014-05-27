@@ -230,8 +230,7 @@ abstract public class AbstractPlugin implements Plugin {
         for (PluginParameter<?> current : getParameterInstances()) {
 
             if (current.required()) {
-                Object value = current.value();
-                if ((value == null) || (value.toString().trim().length() == 0)) {
+                if (current.isEmpty()) {
                     if (isInteractive()) {
                         throw new IllegalStateException(current.guiName() + " must be defined.");
                     } else {
@@ -243,44 +242,50 @@ abstract public class AbstractPlugin implements Plugin {
             }
 
             if (current.fileType() == PluginParameter.FILE_TYPE.IN_FILE) {
-                String filename = current.value().toString();
-                if (!new File(filename).exists()) {
-                    if (isInteractive()) {
-                        throw new IllegalStateException(current.guiName() + ": " + filename + " doesn't exist.");
-                    } else {
-                        myLogger.error("-" + current.cmdLineName() + ": " + filename + " doesn't exist\n");
-                        printUsage();
-                        System.exit(1);
+                if (!current.isEmpty()) {
+                    String filename = current.value().toString();
+                    if (!new File(filename).exists()) {
+                        if (isInteractive()) {
+                            throw new IllegalStateException(current.guiName() + ": " + filename + " doesn't exist.");
+                        } else {
+                            myLogger.error("-" + current.cmdLineName() + ": " + filename + " doesn't exist\n");
+                            printUsage();
+                            System.exit(1);
+                        }
                     }
                 }
             }
 
             if (current.fileType() == PluginParameter.FILE_TYPE.OUT_FILE) {
-                String filename = current.value().toString();
-                String outFolder = Utils.getDirectory(filename);
-                File outDir = new File(outFolder);
-                if (!outDir.isDirectory()) {
-                    if (isInteractive()) {
-                        throw new IllegalStateException(current.guiName() + ": Output Directory: " + outFolder + " doesn't exist.");
-                    } else {
-                        myLogger.error("-" + current.cmdLineName() + ": Output Directory: " + outFolder + " doesn't exist\n");
-                        printUsage();
-                        System.exit(1);
+                if (!current.isEmpty()) {
+                    String filename = current.value().toString();
+                    String outFolder = Utils.getDirectory(filename);
+                    File outDir = new File(outFolder);
+                    if (!outDir.isDirectory()) {
+                        if (isInteractive()) {
+                            throw new IllegalStateException(current.guiName() + ": Output Directory: " + outFolder + " doesn't exist.");
+                        } else {
+                            myLogger.error("-" + current.cmdLineName() + ": Output Directory: " + outFolder + " doesn't exist\n");
+                            printUsage();
+                            System.exit(1);
+                        }
                     }
                 }
             }
 
             if ((current.fileType() == PluginParameter.FILE_TYPE.IN_DIR)
                     || (current.fileType() == PluginParameter.FILE_TYPE.OUT_DIR)) {
-                String dirname = current.value().toString();
-                File directory = new File(dirname);
-                if (!directory.isDirectory()) {
-                    if (isInteractive()) {
-                        throw new IllegalStateException(current.guiName() + ": Directory: " + dirname + " doesn't exist.");
-                    } else {
-                        myLogger.error("-" + current.cmdLineName() + ": Directory: " + dirname + " doesn't exist\n");
-                        printUsage();
-                        System.exit(1);
+                if (!current.isEmpty()) {
+                    String dirname = current.value().toString();
+                    File directory = new File(dirname);
+                    if (!directory.isDirectory()) {
+                        if (isInteractive()) {
+                            throw new IllegalStateException(current.guiName() + ": Directory: " + dirname + " doesn't exist.");
+                        } else {
+                            myLogger.error("-" + current.cmdLineName() + ": Directory: " + dirname + " doesn't exist\n");
+                            printUsage();
+                            System.exit(1);
+                        }
                     }
                 }
             }
