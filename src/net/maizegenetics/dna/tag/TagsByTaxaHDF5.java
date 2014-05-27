@@ -9,19 +9,14 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.BiMap;
-import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.*;
 
-import java.util.*;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 /**
- * Tags by Taxa file based on the HDF5 data structure.  This version is optimized
- * for rapid access of tags within taxa (ie it buffers the tag counts within one
- * taxon).  It is good for adding, removing, and combining taxa
+ * Tags by Taxa file based on the HDF5 data structure.  It can work with HDF5 files with either chunk directions.
  * 
- * @author edbuckler
+ * @author Ed Buckler
  */
 public class TagsByTaxaHDF5 extends AbstractTagsByTaxa {
     public enum Chunking {
