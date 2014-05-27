@@ -1,17 +1,27 @@
 package net.maizegenetics.phenotype;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
+
+import org.apache.log4j.Logger;
 
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.OpenBitSet;
 
 /**
  * @author Peter Bradbury
  *
  */
 public class PhenotypeBuilder {
+	private Logger myLogger = Logger.getLogger(PhenotypeBuilder.class);
 	private enum SOURCE_TYPE{file, phenotype, list};
 	private SOURCE_TYPE source;
 	private String filename;
@@ -124,8 +134,82 @@ public class PhenotypeBuilder {
 	 * @return a new Phenotype built with the supplied parameters
 	 */
 	public Phenotype build() {
-		//TODO implement
+		if (source == SOURCE_TYPE.file) {
+			try {
+				BufferedReader br = new BufferedReader(new FileReader(filename));
+				String topline = br.readLine();
+				if (topline.toLowerCase().startsWith("<phenotype")) {
+					String name = new File(filename).getName();
+					if (name.endsWith(".txt")) name = name.substring(0, name.length() - 4);
+					Phenotype myPhenotype = importPhenotypeFile(br, name);
+					br.close();
+					return myPhenotype;
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 		return null;
+	}
+	
+	//private methods for importing phenotypes from different sources
+	private Phenotype importPhenotypeFile(BufferedReader phenotypeReader, String name) {
+		Pattern whiteSpace = Pattern.compile("\\s+");
+		ArrayList<PhenotypeAttribute> attributes = new ArrayList<>();
+		ArrayList<ATTRIBUTE_TYPE> types = new ArrayList<>();
+		
+		//assumes the first line has been read to determine that this is indeed a Phenotype file
+		try {
+			String[] typeString = whiteSpace.split(phenotypeReader.readLine());
+			String[] phenoNames = whiteSpace.split(phenotypeReader.readLine());
+			int nPheno = typeString.length;
+			ArrayList<String[]> stringData = new ArrayList<String[]>();
+			String inputStr;
+			while ((inputStr = phenotypeReader.readLine()) != null) {
+				stringData.add(whiteSpace.split(inputStr));
+			}
+			
+			int nObs = stringData.size();
+			for (int pheno = 0; pheno < nPheno; pheno++) {
+				if (typeString[pheno].toLowerCase().startsWith("cov") || typeString[pheno].toLowerCase().equals("dat")) {
+					float[] dataArray = new float[nObs];
+					OpenBitSet missing = new OpenBitSet(nObs);
+					int obsCount = 0;
+					for (String[] inputLine : stringData) {
+						try {
+							dataArray[obsCount] = Float.parseFloat(inputLine[pheno]);
+						} catch (NumberFormatException nfe) {
+							dataArray[obsCount] = Float.NaN;
+							missing.fastSet(pheno);
+						}
+						obsCount++;
+					}
+					attributes.add(new NumericAttribute(phenoNames[pheno], dataArray, missing));
+					if (typeString[pheno].toLowerCase().startsWith("cov")) types.add(ATTRIBUTE_TYPE.covariate);
+					else types.add(ATTRIBUTE_TYPE.data);
+				} else if (typeString[pheno].toLowerCase().startsWith("tax")) {
+					ArrayList<Taxon> taxa = new ArrayList<>();
+					for (String[] inputLine : stringData) {
+						taxa.add(new Taxon(inputLine[pheno]));
+					}
+					attributes.add(new TaxaAttribute(taxa));
+				} else if (typeString[pheno].toLowerCase().startsWith("fac")) {
+					String[] labelArray = new String[nObs];
+					int obsCount = 0;
+					for (String[] inputLine : stringData) {
+						labelArray[obsCount++] = inputLine[pheno];
+					}
+					attributes.add(new CategoricalAttribute(phenoNames[pheno], labelArray));
+					types.add(ATTRIBUTE_TYPE.factor);
+				}
+			}
+			
+		} catch (IOException e) {
+			myLogger.error("Error reading phenotype file.");
+			e.printStackTrace();
+		}
+		
+		return new CorePhenotype(attributes, types, name);
 	}
 	
 }
