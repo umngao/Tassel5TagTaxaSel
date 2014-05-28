@@ -27,11 +27,11 @@ public class NumericAttribute implements PhenotypeAttribute {
 		this.missing = missing;
 	}
 	
-	public float getFloatValue(int obs) {
+	public float floatValue(int obs) {
 		return values[obs];
 	}
 	
-	public float[] getFloatValues() {
+	public float[] floatValues() {
 		return values;
 	}
 	

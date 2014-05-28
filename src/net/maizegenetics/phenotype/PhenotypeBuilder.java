@@ -22,16 +22,18 @@ import net.maizegenetics.util.OpenBitSet;
  */
 public class PhenotypeBuilder {
 	private Logger myLogger = Logger.getLogger(PhenotypeBuilder.class);
-	private enum SOURCE_TYPE{file, phenotype, list};
+	private enum SOURCE_TYPE{file, phenotype, list, join};
 	private SOURCE_TYPE source;
 	private String filename;
 	private Phenotype basePhenotype;
+	private List<Phenotype> phenotypesToJoin;
 	private List<Taxon> taxaToKeep = null;
 	private List<Taxon> taxaToRemove = null;
 	private List<PhenotypeAttribute> attributeList = null;
 	private List<ATTRIBUTE_TYPE> attributeTypeList = null;
   	private int[] indexOfAttributesToKeep = null;
 	private HashMap<ATTRIBUTE_TYPE, Integer> attributeChangeMap = new HashMap<ATTRIBUTE_TYPE, Integer>();
+	private boolean isUnionJoin;
 	
 	public PhenotypeBuilder() {
 		
@@ -54,6 +56,20 @@ public class PhenotypeBuilder {
 	public PhenotypeBuilder fromPhenotype(Phenotype basePhenotype) {
 		this.basePhenotype = basePhenotype;
 		source = SOURCE_TYPE.phenotype;
+		return this;
+	}
+	
+	/**
+	 * @param phenotypes	a List of Phenotypes to be joined
+	 * @param union	true to perform a union join, false to perform an intersect join
+	 * @return	a Phenotype created by joining a list of Phenotypes
+	 * A union join returns a Phenotype containing any taxon present in at least one of the Phenotypes to be joined.
+	 * An intersect join returns a Phenotype containing only taxa present in all of the Phenotypes to be joined.
+	 */
+	public PhenotypeBuilder joinPhenotypes(List<Phenotype> phenotypes, boolean union) {
+		phenotypesToJoin = phenotypes;
+		isUnionJoin = union;
+		source = SOURCE_TYPE.join;
 		return this;
 	}
 	
@@ -152,7 +168,7 @@ public class PhenotypeBuilder {
 		return null;
 	}
 	
-	//private methods for importing phenotypes from different sources
+	//private methods  ------------------------------------------------------
 	private Phenotype importPhenotypeFile(BufferedReader phenotypeReader, String name) {
 		Pattern whiteSpace = Pattern.compile("\\s+");
 		ArrayList<PhenotypeAttribute> attributes = new ArrayList<>();
@@ -171,7 +187,7 @@ public class PhenotypeBuilder {
 			
 			int nObs = stringData.size();
 			for (int pheno = 0; pheno < nPheno; pheno++) {
-				if (typeString[pheno].toLowerCase().startsWith("cov") || typeString[pheno].toLowerCase().equals("dat")) {
+				if (typeString[pheno].toLowerCase().startsWith("cov") || typeString[pheno].toLowerCase().startsWith("dat")) {
 					float[] dataArray = new float[nObs];
 					OpenBitSet missing = new OpenBitSet(nObs);
 					int obsCount = 0;
@@ -180,7 +196,7 @@ public class PhenotypeBuilder {
 							dataArray[obsCount] = Float.parseFloat(inputLine[pheno]);
 						} catch (NumberFormatException nfe) {
 							dataArray[obsCount] = Float.NaN;
-							missing.fastSet(pheno);
+							missing.fastSet(obsCount);
 						}
 						obsCount++;
 					}
@@ -192,7 +208,8 @@ public class PhenotypeBuilder {
 					for (String[] inputLine : stringData) {
 						taxa.add(new Taxon(inputLine[pheno]));
 					}
-					attributes.add(new TaxaAttribute(taxa));
+					attributes.add(new TaxaAttribute(taxa, phenoNames[pheno]));
+					types.add(ATTRIBUTE_TYPE.taxa);
 				} else if (typeString[pheno].toLowerCase().startsWith("fac")) {
 					String[] labelArray = new String[nObs];
 					int obsCount = 0;

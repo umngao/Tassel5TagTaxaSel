@@ -40,7 +40,7 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 		labelBimap = bimapBuilder.build();
 		
 		for (int i = 0; i < n; i++) {
-			if (stringValues[i].endsWith(missingValue)) {
+			if (stringValues[i].equals(missingValue)) {
 				values[i] = -1;
 				missing.fastSet(i);
 			}
@@ -58,7 +58,7 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 		return values;
 	}
 	
-	public String getAttrLabel(int index) {
+	public String attributeLabelForIndex(int index) {
 		return labelBimap.inverse().get(index);
 	}
 	
@@ -67,7 +67,7 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 	}
 
 	public String label(int obs) {
-		return labelBimap.inverse().get(obs);
+		return labelBimap.inverse().get(values[obs]);
 	}
 	
 	public String[] allLabels() {
@@ -75,7 +75,7 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 		String[] labels = new String[n];
 		ImmutableBiMap<Integer, String> reverseMap = labelBimap.inverse();
 		for (int i = 0; i < n; i++) {
-			labels[i] = reverseMap.get(i);
+			labels[i] = reverseMap.get(values[i]);
 		}
 		return labels;
 	}
