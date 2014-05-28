@@ -483,7 +483,7 @@ public class TagAgainstAnchor {
         int step=1;
         double bionomialThreshold=0.2;
         int[] blockPosition;
-        int blockWindow=64;
+        int blockWindow=tbt.getTagSizeInLong()*BaseEncoder.chunkSize;
         
         /**
          * 

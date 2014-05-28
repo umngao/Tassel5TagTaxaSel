@@ -73,9 +73,9 @@ public class TagGWASMap extends AbstractTagsHDF5 {
             br = new BufferedReader (new FileReader(gwasMappingResultFileS), 65536);
             br.readLine();
             String[] tem;
-            int cnt = 0;
             for (int i = 0; i < this.getBlockNum(); i++) {
                 this.populateBlock(i);
+                int cnt = 0;
                 for (int j = 0; j < this.getBlockSize() && (i*this.getBlockSize()+j) < this.getTagCount(); j++) {
                     for (int k = 0; k < this.getTagSizeInLong(); k++)  {
                         t[k] = this.tags[k][cnt];
@@ -90,10 +90,10 @@ public class TagGWASMap extends AbstractTagsHDF5 {
                     int numSigChr = Integer.valueOf(tem[11]);
                     double lRatioSB = Double.valueOf(tem[12]);
                     if (lRatioSB == Double.POSITIVE_INFINITY) lRatioSB = 305; //305 is the max likelihood observed
-                    else if (lRatioSB == Double.NEGATIVE_INFINITY) lRatioSB = -305; //Double.NEGATIVE_INFINITY means P-value on the second best chr is also 0, which indicate strong population structure
+                    else if (lRatioSB == Double.NEGATIVE_INFINITY || lRatioSB == 0) lRatioSB = 0.0000001; //Double.NEGATIVE_INFINITY means P-value on the second best chr is also 0, which indicate strong population structure
                     double lRatioMB = Double.valueOf(tem[13]);
                     if (lRatioMB == Double.POSITIVE_INFINITY) lRatioMB = 305;
-                    else if (lRatioMB == Double.NEGATIVE_INFINITY) lRatioMB = -305;
+                    else if (lRatioMB == Double.NEGATIVE_INFINITY || lRatioMB == 0) lRatioMB = 0.0000001;
                     int numSiteOnBestChrThanSecondBest = Integer.valueOf(tem[14]);
                     int sigSiteStart = Integer.valueOf(tem[15]);
                     int sigSiteEnd = Integer.valueOf(tem[16]);

@@ -21,37 +21,35 @@ import net.maizegenetics.dna.tag.TagsByTaxa.FilePacking;
 import net.maizegenetics.dna.tag.UTagCountMutable;
 
 /** 
- * Digest Fastq/Qseq data with recognition sequence
+ * Generate Kmers from Fastq/Qseq data
  * Do not use underscore in taxa name in keyfile
  * @author Fei Lu
  */
-public class PanAReadDigestPlugin extends AbstractPlugin {
+public class PanAReadToKmerPlugin extends AbstractPlugin {
 
     static long timePoint1;
     private ArgsEngine engine = null;
-    private Logger logger = Logger.getLogger(PanAReadDigestPlugin.class);
+    private Logger logger = Logger.getLogger(PanAReadToKmerPlugin.class);
     
     String polyA = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
     
     //user definable parameters
     String rawSeqDirS = null;
     String keyFileS = null;
-    String recSeq = "GCTG";
     int customTagLength = 0;
     String outDirS = null;
     int inputFormatValue;
     
     //calculatable parameters
     int tagLengthInLong;
-    String reverseRecSeq = BaseEncoder.getReverseComplement(recSeq);
     String[] lanes = null;
     HashMap<String, String> laneTaxaMap = null;
 
-    public PanAReadDigestPlugin() {
+    public PanAReadToKmerPlugin() {
         super(null, false);
     }
 
-    public PanAReadDigestPlugin(Frame parentFrame) {
+    public PanAReadToKmerPlugin(Frame parentFrame) {
         super(parentFrame, false);
     }
 
@@ -61,11 +59,11 @@ public class PanAReadDigestPlugin extends AbstractPlugin {
                 + " -i  input directory of Fastq or Qseq files\n"
                 + " -f  input format value.  0 = Fastq. 1 = Qseq\n"
                 + " -k  key file which links Fastq/Qseq file with samples\n"
-                + " -s  recognition sequence for digestion. Default: GCTG\n" 
                 + " -l  customed tag length\n" 
                 + " -o  output directory of tag count files\n");
     }
 
+    @Override
     public DataSet performFunction(DataSet input) {
         this.getLaneTaxaInfo();
         if (this.inputFormatValue == 0) {
@@ -159,39 +157,23 @@ public class PanAReadDigestPlugin extends AbstractPlugin {
                 }
                 br.readLine();
                 br.readLine();
+                //int numKmersLine = actualLength-this.customTagLength+1;
+                int numKmersLine = 1;
                 
                 UTagCountMutable tcu = new UTagCountMutable(this.tagLengthInLong, 0);
-                int indexCut = actualLength-this.customTagLength+1;
-                int indexCutReverse = this.customTagLength-this.reverseRecSeq.length() - 1;
-                int polyALength = tagLengthInLong*BaseEncoder.chunkSize-this.customTagLength;
                 String tag = null;
-                String reverseTag = null;
+                long[] t;
                 long tagCnt = 0;
-                long reverseTagCnt = 0;
-                long totalSeq = 0;
                 while ((temp = br.readLine()) != null) {
                     temp = br.readLine();
-                    int index = temp.indexOf(this.recSeq);
-                    if (index > -1 && index < indexCut) {
-                        tag = temp.substring(index, index+this.customTagLength)+this.polyA.substring(0, polyALength);
+                    for (int j = 0; j < numKmersLine; j++) {
+                        tag = temp.substring(j, j+this.customTagLength);
                         if (!this.isBadSequence(tag)) {
-                            long[] t = BaseEncoder.getLongArrayFromSeq(tag);
+                            t = BaseEncoder.getLongArrayFromSeq(tag);
                             tcu.addReadCount(t, this.customTagLength, 1);
                             tagCnt++;
                         }
                     }
-                    index = temp.lastIndexOf(this.reverseRecSeq);
-                    if (index > -1 && index > indexCutReverse) {
-                        int startIndex = index+this.reverseRecSeq.length()-this.customTagLength;
-                        reverseTag = temp.substring(startIndex, this.customTagLength+startIndex);
-                        if (!this.isBadSequence(reverseTag)) {
-                            reverseTag = BaseEncoder.getReverseComplement(reverseTag)+this.polyA.substring(0, polyALength);
-                            long[] t = BaseEncoder.getLongArrayFromSeq(reverseTag);
-                            tcu.addReadCount(t, this.customTagLength, 1);
-                            reverseTagCnt++;
-                        }
-                    }
-                    totalSeq++;
                     br.readLine();
                     br.readLine();
                 }
@@ -199,8 +181,7 @@ public class PanAReadDigestPlugin extends AbstractPlugin {
                 tcu.toArray();
                 tcu.collapseCounts();
                 tcu.writeTagCountFile(outfileS, TagsByTaxa.FilePacking.Byte, 1);
-                System.out.println(String.valueOf(tagCnt) + " tags from positive strain. " + String.valueOf((double)tagCnt/totalSeq));
-                System.out.println(String.valueOf(reverseTagCnt) + " tags from reverse complementary strain. " + String.valueOf((double)reverseTagCnt/totalSeq));
+                System.out.println("Generated " + String.valueOf(tagCnt)+ " Kmers/tags from " + infile.getAbsolutePath());
                 System.out.println();
             }
             catch (Exception e)     {
@@ -236,46 +217,28 @@ public class PanAReadDigestPlugin extends AbstractPlugin {
                     System.out.println("Custom tag length is longer than actual sequence length in file. Programs stops");
                     System.exit(0);
                 }
+                //int numKmersLine = actualLength-this.customTagLength+1;
+                int numKmersLine = 1;
                 
                 UTagCountMutable tcu = new UTagCountMutable(this.tagLengthInLong, 0);
-                int indexCut = actualLength-this.customTagLength+1;
-                int indexCutReverse = this.customTagLength-this.reverseRecSeq.length() - 1;
-                int polyALength = tagLengthInLong*BaseEncoder.chunkSize-this.customTagLength;
                 String tag = null;
-                String reverseTag = null;
+                long[] t;
                 long tagCnt = 0;
-                long reverseTagCnt = 0;
-                long totalSeq = 0;
                 while ((temp = br.readLine()) != null) {
-                    tem = temp.split("\t");
-                    int index = tem[8].indexOf(this.recSeq);
-                    if (index > -1 && index < indexCut) {
-                        tag = temp.substring(index, index+this.customTagLength)+this.polyA.substring(0, polyALength);
+                    for (int j = 0; j < numKmersLine; j++) {
+                        tag = temp.substring(j, j+this.customTagLength);
                         if (!this.isBadSequence(tag)) {
-                            long[] t = BaseEncoder.getLongArrayFromSeq(tag);
+                            t = BaseEncoder.getLongArrayFromSeq(tag);
                             tcu.addReadCount(t, this.customTagLength, 1);
                             tagCnt++;
                         }
                     }
-                    index = temp.lastIndexOf(this.reverseRecSeq);
-                    if (index > -1 && index > indexCutReverse) {
-                        int startIndex = index+this.reverseRecSeq.length()-this.customTagLength;
-                        reverseTag = temp.substring(startIndex, this.customTagLength+startIndex);
-                        if (!this.isBadSequence(reverseTag)) {
-                            reverseTag = BaseEncoder.getReverseComplement(reverseTag)+this.polyA.substring(0, polyALength);
-                            long[] t = BaseEncoder.getLongArrayFromSeq(reverseTag);
-                            tcu.addReadCount(t, this.customTagLength, 1);
-                            reverseTagCnt++;
-                        }
-                    }
-                    totalSeq++;
                 }
                 br.close();
                 tcu.toArray();
                 tcu.collapseCounts();
                 tcu.writeTagCountFile(outfileS, TagsByTaxa.FilePacking.Byte, 1);
-                System.out.println(String.valueOf(tagCnt) + " tags from positive strain. " + String.valueOf((double)tagCnt/totalSeq));
-                System.out.println(String.valueOf(reverseTagCnt) + " tags from reverse complementary strain. " + String.valueOf((double)reverseTagCnt/totalSeq));
+                System.out.println("Generated " + String.valueOf(tagCnt)+ " Kmers/tags from " + infile.getAbsolutePath());
                 System.out.println();
             }
             catch (Exception e)     {
@@ -322,7 +285,6 @@ public class PanAReadDigestPlugin extends AbstractPlugin {
             engine.add("-i", "--input-DirS", true);
             engine.add("-f", "--input-format", true);
             engine.add("-k", "--key-file", true);
-            engine.add("-s", "--recognition-sequence", true);
             engine.add("-l", "--costum-tagLength", true);
             engine.add("-o", "--output-DirS", true);
             engine.parse(args);
@@ -354,11 +316,6 @@ public class PanAReadDigestPlugin extends AbstractPlugin {
         else {
             printUsage();
             throw new IllegalArgumentException("\n\nPlease use the above arguments/options.\n\n");
-        }
-        
-        if (engine.getBoolean("-s")) {
-            recSeq = engine.getString("-s").toUpperCase();
-            reverseRecSeq = BaseEncoder.getReverseComplement(recSeq);
         }
             
         if (engine.getBoolean("-l")) {
