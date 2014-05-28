@@ -15,6 +15,7 @@ import net.maizegenetics.util.OpenBitSet;
 public class TaxaAttribute implements PhenotypeAttribute {
 	private final ArrayList<Taxon> taxaList;
 	private final int numberOfTaxa;
+	private final String name;
 	
 	private static final List<ATTRIBUTE_TYPE> myAllowedTypes;
 	static{
@@ -22,10 +23,15 @@ public class TaxaAttribute implements PhenotypeAttribute {
 		myAllowedTypes.add(ATTRIBUTE_TYPE.taxa);
 	}
 
-	TaxaAttribute(List<Taxon> taxa) {
+	TaxaAttribute(List<Taxon> taxa, String name) {
+		this.name = name;
 		if (taxa instanceof ArrayList) taxaList = (ArrayList<Taxon>) taxa;
 		else taxaList = new ArrayList<>(taxa);
 		numberOfTaxa = taxa.size();
+	}
+	
+	TaxaAttribute(List<Taxon> taxa) {
+		this(taxa, "Taxa");
 	}
 	
 	public Taxon[] allTaxa() {
@@ -67,7 +73,7 @@ public class TaxaAttribute implements PhenotypeAttribute {
 
 	@Override
 	public String name() {
-		return "Taxa";
+		return name;
 	}
 
 	@Override

@@ -120,6 +120,20 @@ abstract public class AbstractPlugin implements Plugin {
         throw new UnsupportedOperationException();
     }
 
+    protected List<Field> getParameterFields() {
+
+        List<Field> result = new ArrayList<>();
+        Field[] fields = getClass().getDeclaredFields();
+        for (Field current : fields) {
+            if (current.getType().isAssignableFrom(PluginParameter.class)) {
+                current.setAccessible(true);
+                result.add(current);
+            }
+        }
+
+        return result;
+    }
+
     private List<PluginParameter<?>> getParameterInstances() {
 
         List<PluginParameter<?>> result = new ArrayList<>();
@@ -227,6 +241,21 @@ abstract public class AbstractPlugin implements Plugin {
      */
     private void checkParameters() {
 
+        List<String> cmdLineNames = new ArrayList<>();
+        for (PluginParameter<?> current : getParameterInstances()) {
+            if (cmdLineNames.contains(current.cmdLineName())) {
+                if (isInteractive()) {
+                    throw new IllegalStateException(current.cmdLineName() + " exist multiple times for this plugin.");
+                } else {
+                    myLogger.error("-" + current.cmdLineName() + " exist multiple times for this plugin.\n");
+                    printUsage();
+                    System.exit(1);
+                }
+            } else {
+                cmdLineNames.add(current.cmdLineName());
+            }
+        }
+
         for (PluginParameter<?> current : getParameterInstances()) {
 
             if (current.required()) {
@@ -313,6 +342,7 @@ abstract public class AbstractPlugin implements Plugin {
     }
 
     private void printUsage() {
+
         StringBuilder builder = new StringBuilder();
         builder.append("\nUsage:\n");
         builder.append(Utils.getBasename(getClass().getName())).append(" <options>\n");
@@ -355,7 +385,48 @@ abstract public class AbstractPlugin implements Plugin {
             }
             builder.append("\n");
         }
+
         myLogger.info(builder.toString());
+    }
+
+    private String getUsage() {
+
+        StringBuilder builder = new StringBuilder();
+        builder.append(Utils.getBasename(getClass().getName()));
+        builder.append("\n");
+        for (PluginParameter<?> current : getParameterInstances()) {
+            builder.append("\n");
+            builder.append(current.guiName());
+            builder.append(" : ");
+            builder.append(current.description());
+            if (current.range() != null) {
+                if (current.valueType().isEnum()) {
+                    builder.append(" [");
+                    Comparable[] values = current.valueType().getEnumConstants();
+                    for (int i = 0; i < values.length; i++) {
+                        if (i != 0) {
+                            builder.append(" ");
+                        }
+                        builder.append(values[i].toString());
+                    }
+                    builder.append("]");
+                } else {
+                    builder.append(" ");
+                    builder.append(current.range().toString());
+                }
+            }
+            if (current.defaultValue() != null) {
+                builder.append(" (Default: ");
+                builder.append(current.defaultValue());
+                builder.append(")");
+            }
+            if (current.required()) {
+                builder.append(" (required)");
+            }
+            builder.append("\n");
+        }
+
+        return builder.toString();
     }
 
     @Override
@@ -497,6 +568,7 @@ abstract public class AbstractPlugin implements Plugin {
 
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         for (final PluginParameter<?> current : getParameterInstances()) {
             if (current.valueType().isEnum()) {
@@ -577,6 +649,12 @@ abstract public class AbstractPlugin implements Plugin {
         dialog.getContentPane().add(pnlButtons, BorderLayout.SOUTH);
 
         dialog.pack();
+        JTextArea helpText = new JTextArea(getUsage());
+        helpText.setLineWrap(true);
+        helpText.setWrapStyleWord(true);
+        helpText.setMargin(new Insets(10, 10, 10, 10));
+        helpText.setEditable(false);
+        tabbedPane.add(new JPanel().add(new JScrollPane(helpText)), "Help");
         dialog.setResizable(false);
         dialog.setLocationRelativeTo(getParentFrame());
         dialog.setVisible(true);

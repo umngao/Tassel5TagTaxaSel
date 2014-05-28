@@ -13,9 +13,10 @@ import java.io.FileOutputStream;
 import javax.swing.ImageIcon;
 
 import net.maizegenetics.dna.map.TagsOnPhysicalMap;
-import net.maizegenetics.util.ArgsEngine;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.util.Utils;
 
 import org.apache.log4j.Logger;
 
@@ -30,39 +31,48 @@ public final class SAMConverterPlugin extends AbstractPlugin {
 
     boolean cleanCutSites = true;
     private static final Logger myLogger = Logger.getLogger(SAMConverterPlugin.class);
-    private static ArgsEngine myArgsEngine;
-    private static String inputFileName = null;
-    private static String outputFileName = null;
-    private boolean textFormat = false;
-    private int tagLengthInLong = 2;
+
+    private PluginParameter<String> myInputFile = new PluginParameter.Builder<String>("i", null, String.class).guiName("Input File").required(true).inFile()
+            .description("Name of input file in SAM text format").build();
+    private PluginParameter<String> myOutputFile = new PluginParameter.Builder<String>("o", null, String.class).guiName("Output File").required(true).outFile()
+            .description("Name of output file (Default: output.topm.bin)").build();
+    private PluginParameter<Integer> myTagLengthInNumLongs = new PluginParameter.Builder<Integer>("l", 2, Integer.class).guiName("Tag Length")
+            .description("tag length in integer multiples of 32 bases").build();
+    private PluginParameter<Boolean> myTextOutputFormat = new PluginParameter.Builder<Boolean>("t", false, Boolean.class).guiName("Text Output Format")
+            .description("Specifies text output format").build();
 
     public SAMConverterPlugin() {
         super(null, false);
     }
 
-    public SAMConverterPlugin(Frame parentFrame) {
-        super(parentFrame, false);
-    }
-
-    private void printUsage() {
-        myLogger.info(
-                "\n\nUsage is as follows:\n"
-                + "-i  Name of input file in SAM text format (required)\n"
-                + "-o  Name of output file (default output.topm.bin)\n"
-                + "-t  Specifies text output format\n"
-                + "-l  tag length in integer multiples of 32 bases (default=2)\n\n");
+    public SAMConverterPlugin(Frame parentFrame, boolean isInteractive) {
+        super(parentFrame, isInteractive);
     }
 
     @Override
-    public DataSet performFunction(DataSet input) {
+    protected void postProcessParameters() {
+        if ((outputFile() == null) || (outputFile().length() == 0)) {
+            if (inputFile() != null) {
+                outputFile(Utils.getDirectory(inputFile()) + File.separator + "output.topm.bin");
+            }
+        }
+        if (textOutputFormat()) {
+            if (outputFile() != null) {
+                outputFile(outputFile().replace(".bin", ".txt"));
+            }
+        }
+    }
+
+    @Override
+    public DataSet processData(DataSet input) {
         TagsOnPhysicalMap topm = new TagsOnPhysicalMap();
-        topm.readSAMFile(inputFileName, tagLengthInLong);
+        topm.readSAMFile(inputFile(), tagLength());
         topm.sort();
         try {
-            if (textFormat == true) {
-                topm.writeTextFile(new File(outputFileName));
+            if (textOutputFormat()) {
+                topm.writeTextFile(new File(outputFile()));
             } else {
-                topm.writeBinaryFile(new File(outputFileName));
+                topm.writeBinaryFile(new File(outputFile()));
             }
         } catch (Exception e) {
             System.out.println("Catch in writing binary topm file: " + e);
@@ -73,13 +83,13 @@ public final class SAMConverterPlugin extends AbstractPlugin {
 
     private void writeLogFile(TagsOnPhysicalMap topm) {
         try {
-            DataOutputStream report = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFileName + ".log"), 65536));
+            DataOutputStream report = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile() + ".log"), 65536));
             int[] aligned = topm.mappedTags();
             int unique = 0, multi = 1;  // the indices of aligned
             int unaligned = topm.getTagCount() - aligned[unique] - aligned[multi];
             report.writeBytes(
-                    "Input file: " + inputFileName + "\n"
-                    + "Output file: " + outputFileName + "\n"
+                    "Input file: " + inputFile() + "\n"
+                    + "Output file: " + outputFile() + "\n"
                     + "Total " + topm.getTagCount() + " tags\n\t"
                     + aligned[unique] + " were aligned to unique postions\n\t"
                     + aligned[multi] + " were aligned to multiple postions\n\t"
@@ -103,57 +113,54 @@ public final class SAMConverterPlugin extends AbstractPlugin {
         }
     }
 
-    @Override
-    public void setParameters(String[] args) {
-        if (args.length == 0) {
-            printUsage();
-            throw new IllegalArgumentException("\n\nPlease use the above arguments/options.\n\n");
-        }
-        if (myArgsEngine == null) {
-            myArgsEngine = new ArgsEngine();
-            myArgsEngine.add("-i", "--input-file", true);
-            myArgsEngine.add("-o", "--output-file", true);
-            myArgsEngine.add("-t", "--text-format");
-            myArgsEngine.add("-l", "--tag-length-in-mutiples-of-32-bases", true);
-        }
-        myArgsEngine.parse(args);
+    public String inputFile() {
+        return myInputFile.value();
+    }
 
-        if (myArgsEngine.getBoolean("-i")) {
-            File inputFile = new File(myArgsEngine.getString("-i"));
-            if (!inputFile.isFile()) {
-                printUsage();
-                throw new IllegalArgumentException("The input name you supplied is not a valid file.");
-            }
-            inputFileName = inputFile.getAbsolutePath();
-            outputFileName = inputFile.getParent() + File.pathSeparator + "output.topm.bin";
-        } else {
-            printUsage();
-            throw new IllegalArgumentException("Please supply an input file name.");
-        }
-        if (myArgsEngine.getBoolean("-t")) {
-            textFormat = true;
-            outputFileName = outputFileName.replace(".bin", ".txt");
-        }
-        if (myArgsEngine.getBoolean("-o")) {
-            outputFileName = myArgsEngine.getString("-o");
-        }
-        if (myArgsEngine.getBoolean("-l")) {
-            tagLengthInLong = Integer.parseInt(myArgsEngine.getString("-l"));
-        }
+    public SAMConverterPlugin inputFile(String value) {
+        myInputFile = new PluginParameter<>(myInputFile, value);
+        return this;
+    }
+
+    public String outputFile() {
+        return myOutputFile.value();
+    }
+
+    public SAMConverterPlugin outputFile(String value) {
+        myOutputFile = new PluginParameter<>(myOutputFile, value);
+        return this;
+    }
+
+    public boolean textOutputFormat() {
+        return myTextOutputFormat.value();
+    }
+
+    public SAMConverterPlugin textOutputFormat(boolean value) {
+        myTextOutputFormat = new PluginParameter<>(myTextOutputFormat, value);
+        return this;
+    }
+
+    public int tagLength() {
+        return myTagLengthInNumLongs.value();
+    }
+
+    public SAMConverterPlugin tagLength(int value) {
+        myTagLengthInNumLongs = new PluginParameter<>(myTagLengthInNumLongs, value);
+        return this;
     }
 
     @Override
     public ImageIcon getIcon() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return null;
     }
 
     @Override
     public String getButtonName() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return "SAM to TOPM Converter";
     }
 
     @Override
     public String getToolTipText() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return "SAM to TOPM Converter";
     }
 }

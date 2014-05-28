@@ -17,23 +17,37 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 	private final ImmutableBiMap<String, Integer> labelBimap;
 	private final BitSet missing;
 	
+	private static final String missingValue = "?";
 	private static final List<ATTRIBUTE_TYPE> myAllowedTypes;
 	static{
 		myAllowedTypes = new ArrayList<ATTRIBUTE_TYPE>();
 		myAllowedTypes.add(ATTRIBUTE_TYPE.factor);
 	}
-
-	public CategoricalAttribute(String name, String[] stringValues , BitSet missing) {
+	
+	public CategoricalAttribute(String name, String[] stringValues) {
 		this.name = name;
 		int n = stringValues.length;
-		this.missing = missing;
+		missing = new OpenBitSet(n);
 		values = new int[n];
+		
 		TreeSet<String> labelSet = new TreeSet<String>();
-		for (String label : stringValues) labelSet.add(label);
+		for (String label : stringValues) {
+			if (!label.endsWith(missingValue)) labelSet.add(label);
+		}
 		ImmutableBiMap.Builder<String, Integer> bimapBuilder = ImmutableBiMap.builder();
 		int count = 0;
 		for (String label : labelSet) bimapBuilder.put(label, count++);
 		labelBimap = bimapBuilder.build();
+		
+		for (int i = 0; i < n; i++) {
+			if (stringValues[i].equals(missingValue)) {
+				values[i] = -1;
+				missing.fastSet(i);
+			}
+			else {
+				values[i] = labelBimap.get(stringValues[i]);
+			}
+		}
 	}
 	
 	public int intValue(int obs) {
@@ -44,7 +58,7 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 		return values;
 	}
 	
-	public String getAttrLabel(int index) {
+	public String attributeLabelForIndex(int index) {
 		return labelBimap.inverse().get(index);
 	}
 	
@@ -53,7 +67,7 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 	}
 
 	public String label(int obs) {
-		return labelBimap.inverse().get(obs);
+		return labelBimap.inverse().get(values[obs]);
 	}
 	
 	public String[] allLabels() {
@@ -61,7 +75,7 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 		String[] labels = new String[n];
 		ImmutableBiMap<Integer, String> reverseMap = labelBimap.inverse();
 		for (int i = 0; i < n; i++) {
-			labels[i] = reverseMap.get(i);
+			labels[i] = reverseMap.get(values[i]);
 		}
 		return labels;
 	}
@@ -88,13 +102,13 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 	public PhenotypeAttribute subset(int[] obs) {
 		int n = obs.length;
 		String[] labels = new String[n];
-		OpenBitSet subMissing = new OpenBitSet(n);
 		ImmutableBiMap<Integer, String> reverseMap = labelBimap.inverse();
 		for (int i = 0; i < n; i++) {
 			labels[i] = reverseMap.get(obs[i]);
-			if (missing.fastGet(i)) subMissing.fastSet(i);
+			if (values[obs[i]] == -1) labels[i] = missingValue;
+			else labels[i] = reverseMap.get(values[obs[i]]);
 		}
-		return new CategoricalAttribute(name, labels, subMissing);
+		return new CategoricalAttribute(name, labels);
 	}
 
 	@Override
