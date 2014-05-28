@@ -11,6 +11,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.*;
 import java.util.logging.Level;
+import net.maizegenetics.dna.BaseEncoder;
 import net.maizegenetics.dna.map.TagGWASMap;
 
 /** 
@@ -28,6 +29,7 @@ public class PanABuildTrainingSetPlugin extends AbstractPlugin {
     String trainingSetFileS = null;
     String rPath = null;
     String boxcoxParemeterFileS = null;
+    int maxInstance = 30000;
 
     public PanABuildTrainingSetPlugin() {
         super(null, false);
@@ -41,7 +43,8 @@ public class PanABuildTrainingSetPlugin extends AbstractPlugin {
         logger.info(
                 "\n\nUsage is as follows:\n"
                 + " -m  tagMap file\n"
-                + " -t  training data set file\n" 
+                + " -t  training data set file\n"
+                + " -i  max number of instances\n"        
                 + " -r  R path\n"
                 + " -b  boxcox parameter file\n");
     }
@@ -81,6 +84,7 @@ public class PanABuildTrainingSetPlugin extends AbstractPlugin {
                 bw.newLine();
                 if (cnt%100000 == 0) System.out.println(String.valueOf(cnt+1)+" transformed instances are written");
                 cnt++;
+                if (cnt == this.maxInstance) break;
             }
             bw.flush();
             bw.close();
@@ -147,6 +151,7 @@ public class PanABuildTrainingSetPlugin extends AbstractPlugin {
                 bw.newLine();
                 if (cnt%100000 == 0) System.out.println(String.valueOf(cnt+1)+" instances are written");
                 cnt++;
+                if (cnt == this.maxInstance) break;
             }
             System.out.println(String.valueOf(cnt) + " instances in total");
             bw.flush();
@@ -170,6 +175,7 @@ public class PanABuildTrainingSetPlugin extends AbstractPlugin {
             engine = new ArgsEngine();
             engine.add("-m", "--tagMap-file", true);
             engine.add("-t", "--training-file", true);
+            engine.add("-i", "--max-instance", true);
             engine.add("-r", "--r-path", true);
             engine.add("-b", "--boxcox-dir", true);
             engine.parse(args);
@@ -190,6 +196,10 @@ public class PanABuildTrainingSetPlugin extends AbstractPlugin {
             printUsage();
             throw new IllegalArgumentException("\n\nPlease use the above arguments/options.\n\n");
         }
+        
+        if (engine.getBoolean("-i")) {
+            this.maxInstance = Integer.valueOf(engine.getString("-i"));
+        } 
         
         if (engine.getBoolean("-r")) {
             rPath = engine.getString("-r");

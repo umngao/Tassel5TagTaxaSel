@@ -112,7 +112,9 @@ public class TagGWASMapInfo {
     }
     
     private double getMinusLog10PValue () {
-        return -Math.log10(this.gwasPValue);
+        double value = -Math.log10(this.gwasPValue);
+        if (value == Double.POSITIVE_INFINITY) value = 308;
+        return value;
     }
     
     private int getAdjustedNumSigSiteBC () {
@@ -136,7 +138,9 @@ public class TagGWASMapInfo {
     
     private double getLog10GDist() {
         if (this.gChr == this.pChr) {
-            return Math.log10(Math.abs(this.gPos-this.pPos));
+            int value = Math.abs(this.gPos-this.pPos);
+            if (value < 2) value = 2;
+            return Math.log10(value);
         }
         else {
             return Math.log10(Integer.MAX_VALUE);

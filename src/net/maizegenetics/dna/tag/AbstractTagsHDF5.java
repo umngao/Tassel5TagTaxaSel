@@ -144,7 +144,7 @@ public abstract class AbstractTagsHDF5 extends AbstractTags {
                 t = this.getTag(i);
                 bw.write(BaseEncoder.getSequenceFromLong(t).substring(0, this.getTagLength(i)));
                 bw.newLine();
-                if (i%100000 == 1) System.out.println("output " + String.valueOf(i+1) + " tags to Fasta");
+                if (i%100000 == 0) System.out.println("output " + String.valueOf(i+1) + " tags to Fasta");
             }
             bw.flush();
             bw.close();

@@ -124,7 +124,7 @@ public class PanAPredictionPlugin extends AbstractPlugin {
             }
             bw.write("\n@data\n");
             int cnt = 0;
-            for (int i = 0; i < tgm.getTagCount(); i++) {
+            for (int i = 0; i < endIndex-startIndex; i++) {
                 bw.write(tgm.getTagGWASMapInfo(i+startIndex).getBoxcoxAttributesStr(lamdas, ","));
                 bw.newLine();
                 if (cnt%100000 == 0) System.out.println(String.valueOf(cnt+1)+" transformed instances are written");

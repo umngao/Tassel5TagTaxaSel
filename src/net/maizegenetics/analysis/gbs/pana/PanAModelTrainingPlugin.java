@@ -117,21 +117,26 @@ public class PanAModelTrainingPlugin extends AbstractPlugin {
         //String cmd = "java -Xms500m -Xmx5g -cp " + this.wekaPath.replace("\\", "/") + " weka.classifiers.rules.M5Rules -p 0 -t " + this.trainingSetFileS.replace("\\", "/") + " -d " + this.modelFileS.replace("\\", "/") + " > " + this.predictionFileS.replace("\\", "/");
         String cmd = "java -Xms500m -Xmx5g -cp " + this.wekaPath.replace("\\", "/") + " weka.classifiers.rules.M5Rules -p 0 -t " + this.trainingSetFileS.replace("\\", "/") + " -d " + this.modelFileS.replace("\\", "/");
         System.out.println(cmd);
+        System.out.println("\nStart model training");
+        System.out.println("Be patient. It takes a while...\n");
         Runtime rt = Runtime.getRuntime();
         rt.gc();
         Process p;
         try {
             p = rt.exec(cmd);
-            p.waitFor();
-            BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()), 65536);
+            //p.waitFor();
+            BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()), 655360);
             BufferedWriter bw = new BufferedWriter(new FileWriter(this.predictionFileS), 65536);
             bw.write("Instance\tAcutal\tPredicted\tError");
             bw.newLine();
             String temp;
             String[] tem;
-            for (int i = 0; i < 5; i++) br.readLine();
+            for (int i = 0; i < 5; i++) { 
+                System.out.println(br.readLine());
+            }
             int cnt = 0;
             while ((temp = br.readLine()) != null) {
+                System.out.println(temp);
                 if(temp.isEmpty()) continue;
                 tem = temp.trim().split("\\s+");
                 bw.write(String.valueOf(cnt)+"\t"+tem[1]+"\t"+tem[2]+"\t"+tem[3]);
