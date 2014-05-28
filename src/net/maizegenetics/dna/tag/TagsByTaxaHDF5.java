@@ -29,11 +29,11 @@ public class TagsByTaxaHDF5 extends AbstractTagsByTaxa {
 
 
     //todo TAS-203 this needs to be redone for chunks for taxa, as at 98M tags this will never get pivoted.
-    private LoadingCache<Integer, byte[]> taxaCache=null;
+    private LoadingCache<Long, byte[]> taxaCache=null;
 
-    private CacheLoader<Integer, byte[]> taxaLoader = new CacheLoader<Integer, byte[]>() {
-        public byte[] load(Integer key) {
-           return HDF5Utils.getTagDistForTaxon(reader,key); //HDF5Utils
+    private CacheLoader<Long, byte[]> taxaLoader = new CacheLoader<Long, byte[]>() {
+        public byte[] load(Long key) {
+           return HDF5Utils.getTagDistBlockForTaxon(reader, getTaxonFromKey(key), getTaxaBlockFromKey(key)); //HDF5Utils
         }
     };
 
@@ -67,12 +67,27 @@ public class TagsByTaxaHDF5 extends AbstractTagsByTaxa {
                     .build(taxaLoader);
         } else {
             tagCache = CacheBuilder.newBuilder()
-                    .maximumSize(1000_000)
+                    .maximumSize(100_000)
                     .build(tagLoader);
         }
     }
 
 
+    private long getTaxaCacheKey(int taxonIndex, int tagIndex) {
+        return ((long) taxonIndex << 32) | (long) (tagIndex/Tassel5HDF5Constants.BLOCK_SIZE);
+    }
+
+    private int getTaxonFromKey(long key) {
+        return (int) (key >>> 32);
+    }
+
+    private int getTaxaBlockFromKey(long key) {
+        return (int) ((key << 32) >>> 32);
+    }
+
+    private int getOffsetWithinBlock(int tagIndex) {
+        return tagIndex%Tassel5HDF5Constants.BLOCK_SIZE;
+    }
 
 
     @Override
@@ -83,19 +98,28 @@ public class TagsByTaxaHDF5 extends AbstractTagsByTaxa {
     @Override
     public int getReadCountForTagTaxon(int tagIndex, int taxaIndex) {
         if(inTaxaChunking) {
-            return getReadCountDistributionForTaxon(taxaIndex)[tagIndex];
+            return getReadForTaxon(taxaIndex,tagIndex);
         } else {
             return getTaxaReadCountsForTag(tagIndex)[taxaIndex];
         }
 
     }
 
-    public byte[] getReadCountDistributionForTaxon(int taxaIndex) {
+    public byte[] getReadCountDistributionForTaxon(int taxonIndex) {
+        byte[] readsCnts=new byte[tagCount];
+        for (int i = 0; i < readsCnts.length; i++) {
+            readsCnts[i]=getReadForTaxon(i,taxonIndex);
+        }
+        return readsCnts;
+    }
+
+
+    private byte getReadForTaxon(int tagIndex, int taxonIndex) {
         try {
-            return taxaCache.get(taxaIndex);
+            return taxaCache.get(getTaxaCacheKey(taxonIndex,tagIndex))[getOffsetWithinBlock(tagIndex)];
         } catch (ExecutionException e) {
             e.printStackTrace();
-            return null;
+            return -1;
         }
     }
 

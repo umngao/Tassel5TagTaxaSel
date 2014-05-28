@@ -387,10 +387,31 @@ public final class HDF5Utils {
         return tbtTaxaNum;
     }
 
+    /**
+     * Returns all tags count (in byte format - negatives are logs) for a single taxon.
+     * @param reader
+     * @param taxonIndex
+     * @return
+     */
     public static byte[] getTagDistForTaxon(IHDF5Reader reader, int taxonIndex) {
         if(!isTagsByTaxaInTaxaDirection(reader)) throw new IllegalStateException("Chunking in wrong direction for reading taxa");
         //getting read count and checking read direction may slow things.
         return reader.readByteMatrixBlock(Tassel5HDF5Constants.TAG_DIST,1,getHDF5TagCount(reader),taxonIndex,0l)[0];
+    }
+
+    /**
+     * Returns all tags count (in byte format - negatives are logs) for a single taxon for a tag block (1<<16 tags).
+     * If this is the last block it will be smaller than 1<<16
+     * @param reader
+     * @param taxonIndex
+     * @param tagBlock
+     * @return
+     */
+    public static byte[] getTagDistBlockForTaxon(IHDF5Reader reader, int taxonIndex, int tagBlock) {
+        if(!isTagsByTaxaInTaxaDirection(reader)) throw new IllegalStateException("Chunking in wrong direction for reading taxa");
+        //getting read count and checking read direction may slow things.
+        int length=Math.min(Tassel5HDF5Constants.BLOCK_SIZE,getHDF5TagCount(reader)-(tagBlock*Tassel5HDF5Constants.BLOCK_SIZE));
+        return reader.readByteMatrixBlock(Tassel5HDF5Constants.TAG_DIST,1,length,taxonIndex, tagBlock)[0];
     }
 
     public static byte[] getTaxaDistForTag(IHDF5Reader reader, int tagIndex) {
