@@ -241,6 +241,21 @@ abstract public class AbstractPlugin implements Plugin {
      */
     private void checkParameters() {
 
+        List<String> cmdLineNames = new ArrayList<>();
+        for (PluginParameter<?> current : getParameterInstances()) {
+            if (cmdLineNames.contains(current.cmdLineName())) {
+                if (isInteractive()) {
+                    throw new IllegalStateException(current.cmdLineName() + " exist multiple times for this plugin.");
+                } else {
+                    myLogger.error("-" + current.cmdLineName() + " exist multiple times for this plugin.\n");
+                    printUsage();
+                    System.exit(1);
+                }
+            } else {
+                cmdLineNames.add(current.cmdLineName());
+            }
+        }
+
         for (PluginParameter<?> current : getParameterInstances()) {
 
             if (current.required()) {
