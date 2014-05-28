@@ -21,11 +21,8 @@ import net.maizegenetics.dna.map.GeneralPosition;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.PositionListBuilder;
-import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
-import net.maizegenetics.dna.snp.ImportUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
-import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.HDF5Utils;
 import net.maizegenetics.util.Utils;
@@ -151,23 +148,26 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
         String message = populatePositionsWithRefAllele();
         if (message != null) return message;
         PositionList newPos = newPosListBuilder.build();
-        if (writePositions) {
-            String genomeVer = newPos.hasReference() ? newPos.genomeVersion() : "unkown";
-            System.out.println("\nNew genome version: "+genomeVer+"\n");
-        }
+        String genomeVer = newPos.hasReference() ? newPos.genomeVersion() : "unknown";
+        myLogger.info("\nGenome version: "+genomeVer+"\n");
         String outHDF5FileName = inHDF5FileName.replaceFirst("\\.h5$", "_withRef.h5");
         GenotypeTableBuilder newGenos = GenotypeTableBuilder.getTaxaIncremental(newPos, outHDF5FileName);
         IHDF5Reader h5Reader = HDF5Factory.open(inHDF5FileName);
         List<String> taxaNames = HDF5Utils.getAllTaxaNames(h5Reader);
+        int nTaxaWritten = 0;
         for (String taxonName : taxaNames) {
             Taxon taxon = HDF5Utils.getTaxon(h5Reader, taxonName);
             byte[] genos = HDF5Utils.getHDF5GenotypesCalls(h5Reader, taxonName);
             byte[][] depth = HDF5Utils.getHDF5GenotypesDepth(h5Reader, taxonName);
             newGenos.addTaxon(taxon, genos, depth);
+            ++nTaxaWritten;
+            if(nTaxaWritten % 100 == 0) {
+                myLogger.info("...finished writing genotypes and depth for "+nTaxaWritten+" taxa ");
+            }
         }
         newGenos.build();
-        System.out.println("\n\nFinished adding reference alleles to file:");
-        System.out.println("  "+outHDF5FileName+"\n\n");
+        myLogger.info("\n\nFinished adding reference alleles to file:");
+        myLogger.info("  "+outHDF5FileName+"\n\n");
         return null;
     }
     
@@ -178,8 +178,8 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
         newPosListBuilder = new PositionListBuilder();
         if (writePositions) {
             String genomeVer = oldPosList.hasReference() ? oldPosList.genomeVersion() : "unkown";
-            System.out.println("\ncurrent genome version: "+genomeVer+"\n");
-            System.out.println("SNPID\tchr\tpos\tstr\tmaj\tmin\tref\tmaf\tcov\tcontext");
+            myLogger.info("\ncurrent genome version: "+genomeVer+"\n");
+            myLogger.info("SNPID\tchr\tpos\tstr\tmaj\tmin\tref\tmaf\tcov\tcontext");
         }
         for (Position oldPos : oldPosList) {
             int chr = oldPos.getChromosome().getChromosomeNumber();
@@ -203,6 +203,7 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
             newPosListBuilder.add(newPos);
         }
         newPosListBuilder.genomeVersion(genomeVersion);
+        myLogger.info("Finished populating positions with RefAllele");
         return null;
     }
     
@@ -214,7 +215,7 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
             if (strand == -1) refAllele = NucleotideAlignmentConstants.getNucleotideComplement(refAllele);
             return refAllele;
         } else {
-            System.out.println("currPos:"+currPos);
+            myLogger.warn("currPos:"+currPos);
             return Byte.MIN_VALUE;
         }
     }
@@ -235,7 +236,7 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
                                 + "(>1, >2, >3, etc.) OR to 'chr' followed by an integer (>chr1, >chr2, >chr3, etc.)\n\n");
                         System.exit(1);
                     }
-                    if (!writePositions) myLogger.info("\nCurrently reading chromosome "+currChr+" from reference genome fasa file\n\n");
+                    if (!writePositions) myLogger.info("\nCurrently reading chromosome "+currChr+" from reference genome fasta file\n\n");
                 }
                 currPos = 0;
             }
@@ -278,7 +279,7 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
     }
     
     private void writePosition(Position pos, String contextSeq) {
-        System.out.println(
+        myLogger.info(
             pos.getSNPID()+
             "\t"+pos.getChromosome().getChromosomeNumber()+
             "\t"+pos.getPosition()+
