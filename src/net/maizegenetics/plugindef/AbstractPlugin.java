@@ -120,6 +120,20 @@ abstract public class AbstractPlugin implements Plugin {
         throw new UnsupportedOperationException();
     }
 
+    protected List<Field> getParameterFields() {
+
+        List<Field> result = new ArrayList<>();
+        Field[] fields = getClass().getDeclaredFields();
+        for (Field current : fields) {
+            if (current.getType().isAssignableFrom(PluginParameter.class)) {
+                current.setAccessible(true);
+                result.add(current);
+            }
+        }
+
+        return result;
+    }
+
     private List<PluginParameter<?>> getParameterInstances() {
 
         List<PluginParameter<?>> result = new ArrayList<>();
