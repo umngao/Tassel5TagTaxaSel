@@ -257,6 +257,16 @@ public class ParseBarcodeRead {
             initialCutSiteRemnant=new String[]{"TAC"};
             likelyReadEnd = new String[]{"GTAC","GTAAGATCGG"}; // full cut site (from partial digest or chimera) or common adapter start
             readEndCutSiteRemnantLength = 3;
+        } else if (enzyme.matches("(?i)nlaiii|(?i)nla3")) {
+            theEnzyme = "NlaIII"; // CATG^
+            initialCutSiteRemnant=new String[]{"CATG"};
+            likelyReadEnd = new String[]{"CATG","CATGAGAT"}; // full cut site (from partial digest or chimera) or common adapter start
+            readEndCutSiteRemnantLength = 4;
+        } else if(enzyme.matches("(?i)sph[i1]")){
+            theEnzyme = "SphI";  // GCATG^C
+            initialCutSiteRemnant=new String[]{"CATGC"};
+            likelyReadEnd = new String[]{"GCATGC","GCATGAGAT"}; // full cut site (from partial digest or chimera) or common adapter start
+            readEndCutSiteRemnantLength = 5;
         } else if (enzyme.matches("(?i)RBSTA")) {
             theEnzyme = "RBSTA";
             initialCutSiteRemnant = new String[]{"TA"};
@@ -283,10 +293,12 @@ public class ParseBarcodeRead {
                     +"  MseI"     +"\n"
                     +"  MspI"     +"\n"
                     +"  NdeI"     +"\n"
+                    +"  NlaIII"   +"\n"
                     +"  PasI"     +"\n"
                     +"  PstI"     +"\n"
                     +"  Sau3AI"   +"\n"
                     +"  SbfI"     +"\n"
+                    +"  SphI"     +"\n"
                     +"  RBSTA"    +"\n"
                     +"  RBSCG"    +"\n"
                     +"Or the following for two-enzyme digests:\n"
