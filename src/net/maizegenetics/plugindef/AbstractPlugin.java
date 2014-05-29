@@ -70,18 +70,7 @@ abstract public class AbstractPlugin implements Plugin {
                 }
             }
 
-            try {
-                postProcessParameters();
-            } catch (Exception e) {
-                if (isInteractive()) {
-                    throw e;
-                } else {
-                    myLogger.error(e.getMessage());
-                    printUsage();
-                    System.exit(1);
-                }
-            }
-
+            postProcessParameters();
             printParameterValues();
             checkParameters();
 
@@ -101,7 +90,8 @@ abstract public class AbstractPlugin implements Plugin {
                 DialogUtils.showError(str, getParentFrame());
             } else {
                 myLogger.error(e.getMessage());
-                e.printStackTrace();
+                printUsage();
+                System.exit(1);
             }
             return null;
 
@@ -344,6 +334,13 @@ abstract public class AbstractPlugin implements Plugin {
     private void printUsage() {
 
         StringBuilder builder = new StringBuilder();
+        String description = pluginDescription();
+        if (description != null) {
+            builder.append("\n");
+            builder.append(Utils.getBasename(getClass().getName())).append(" Description...\n");
+            builder.append(pluginDescription());
+            builder.append("\n");
+        }
         builder.append("\nUsage:\n");
         builder.append(Utils.getBasename(getClass().getName())).append(" <options>\n");
         for (PluginParameter<?> current : getParameterInstances()) {
@@ -394,6 +391,12 @@ abstract public class AbstractPlugin implements Plugin {
         StringBuilder builder = new StringBuilder();
         builder.append(Utils.getBasename(getClass().getName()));
         builder.append("\n");
+        String description = pluginDescription();
+        if (description != null) {
+            builder.append("\nDescription: ");
+            builder.append(pluginDescription());
+            builder.append("\n\n");
+        }
         for (PluginParameter<?> current : getParameterInstances()) {
             builder.append("\n");
             builder.append(current.guiName());
@@ -946,6 +949,11 @@ abstract public class AbstractPlugin implements Plugin {
     @Override
     public String getCitation() {
         return "Bradbury PJ, Zhang Z, Kroon DE, Casstevens TM, Ramdoss Y, Buckler ES. (2007) TASSEL: Software for association mapping of complex traits in diverse samples. Bioinformatics 23:2633-2635.";
+    }
+
+    @Override
+    public String pluginDescription() {
+        return null;
     }
 
     //

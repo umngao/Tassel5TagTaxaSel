@@ -185,4 +185,11 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
      * @return Citation
      */
     public String getCitation();
+    
+    /**
+     * Returns description of the plugin.
+     * 
+     * @return description
+     */
+    public String pluginDescription();
 }

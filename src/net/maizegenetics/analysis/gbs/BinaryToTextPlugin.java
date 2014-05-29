@@ -63,6 +63,11 @@ public class BinaryToTextPlugin extends AbstractPlugin {
         return null;
 
     }
+    
+    @Override
+    public String pluginDescription() {
+        return "Converts Binary GBS Files into Text format.";
+    }
 
     public String inputFile() {
         return myInputFile.value();
