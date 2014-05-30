@@ -3,13 +3,14 @@
  */
 package net.maizegenetics.analysis.gbs;
 
-import java.awt.Frame;
-import java.io.File;
-import javax.swing.ImageIcon;
-import net.maizegenetics.util.ArgsEngine;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.PluginParameter;
 import org.apache.log4j.Logger;
+
+import javax.swing.*;
+import java.awt.*;
+import java.io.File;
 
 /**
  *
@@ -17,12 +18,30 @@ import org.apache.log4j.Logger;
  */
 public class UTagCountToTagPairPlugin extends AbstractPlugin {
 
-    private ArgsEngine engine = null;
     private Logger logger = Logger.getLogger(UTagCountToTagPairPlugin.class);
-    private String parentDir = null;
-    private String infile, outfile;
-    private boolean useWorkDir = true;
-    private double etr = 0.03;
+
+    private PluginParameter<Double> errorTolerance
+            = new PluginParameter.Builder<>("errorTolerance", 0.03, Double.class)
+            .description("What fraction of errors to tolerate when filtering by UNEAK")
+            .required(false)
+            .guiName("Error tolerance")
+            .build();
+    private PluginParameter<String> infile
+            = new PluginParameter.Builder<>("inputFile", null, String.class)
+            .required(true)
+            .inFile()
+            .guiName("Input file")
+            .description("Input file of merged tag counts")
+            .build();
+    private PluginParameter<String> outfile
+            = new PluginParameter.Builder<>("outputFile", null, String.class)
+            .required(true)
+            .outFile()
+            .guiName("Output file")
+            .description("Output file of matched tag pairs")
+            .build();
+
+
 
     public UTagCountToTagPairPlugin() {
         super(null, false);
@@ -32,70 +51,69 @@ public class UTagCountToTagPairPlugin extends AbstractPlugin {
         super(parentFrame, false);
     }
 
-    private void printUsage() {
-        logger.info(
-                "\n\nUsage is as follows:\n"
-                + " -e  --error-tolerance-rate  Error tolerance rate in the network filter. (Default: " + etr + ")\n"
-                + " -i  --input                 Input file of merged tag counts (required)\n"
-                + " -o  --output                Output file of tag pairs (required)\n");
-    }
 
     @Override
-    public DataSet performFunction(DataSet input) {
+    public DataSet processData(DataSet input) {
         File pd;
         String mergedTagCountOfAllS, tagPairS;
-        mergedTagCountOfAllS = new File(infile).getAbsolutePath();
-        tagPairS = new File(outfile).getAbsolutePath();
-        UNetworkFilter unf = new UNetworkFilter(mergedTagCountOfAllS, etr, tagPairS);
+        mergedTagCountOfAllS = new File(inputFile()).getAbsolutePath();
+        tagPairS = new File(outputFile()).getAbsolutePath();
+        UNetworkFilter unf = new UNetworkFilter(mergedTagCountOfAllS, errorTolerance(), tagPairS);
         return null;
     }
 
     @Override
-    public void setParameters(String[] args) {
-        if (args.length == 0) {
-            printUsage();
-            throw new IllegalArgumentException("\n\nPlease use the above arguments/options.\n\n");
-        }
-        if (engine == null) {
-            engine = new ArgsEngine();
-            engine.add("-e", "--error-tolerance-rate ", true);
-            engine.add("-i", "--input", true);
-            engine.add("-o", "--output", true);
-            engine.parse(args);
-        }
+    public String pluginDescription(){
+        return "This plugin takes a set of merged tag counts from the TASSEL GBS pipeline and converts it into a set " +
+                "of tag pairs according to the UNEAK filter (see citation). This plugin is intended for GBS with organisms " +
+                "that lack a reference genome.";
+    }
 
-        //Check for input file
-        if (engine.getBoolean("-i")) {
-            infile = engine.getString("-i");
-        } else {
-            throw new IllegalArgumentException("\n\nMust supply input file name.\n\n");
-        }
+    @Override
+    public String getCitation(){
+        return "Lu F, Lipka AE, Elshire RJ, Glaubitz JC, Cherney JH, Casler MD, Buckler ES, Costich DE. (2013)"
+         + " Switchgrass genomic diversity, ploidy and evolution: novel insights from a network-based SNP discovery protocol. PLoS Genetics 9(1):e1003215.";
+    }
 
-        //Check for output file
-        if (engine.getBoolean("-o")) {
-            outfile = engine.getString("-o");
-        } else {
-            throw new IllegalArgumentException("\n\nMust supply output file name.\n\n");
-        }
+    public UTagCountToTagPairPlugin inputFile(String filename){
+        setParameter(infile.cmdLineName(), filename);
+        return this;
+    }
 
-        //Check for error tolerance
-        if (engine.getBoolean("-e")) {
-            etr = Double.parseDouble(engine.getString("-e"));
-        }
+    public UTagCountToTagPairPlugin outputFile(String filename){
+        setParameter(outfile.cmdLineName(), filename);
+        return this;
+    }
+
+    public UTagCountToTagPairPlugin errorTolerance(Double value){
+        setParameter(errorTolerance.cmdLineName(), value);
+        return this;
+    }
+
+    public String inputFile(){
+        return infile.value();
+    }
+
+    public String outputFile(){
+        return outfile.value();
+    }
+
+    public double errorTolerance(){
+        return errorTolerance.value();
     }
 
     @Override
     public ImageIcon getIcon() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return null;
     }
 
     @Override
     public String getButtonName() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return "Tag counts to tag pairs";
     }
 
     @Override
     public String getToolTipText() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return "Tag counts to tag pairs";
     }
 }
