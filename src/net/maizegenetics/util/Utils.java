@@ -371,13 +371,13 @@ public final class Utils {
             } else {
                 if (inSourceName.startsWith("http")) {
                     if (inSourceName.endsWith(".gz")) {
-                        return new BufferedReader(new InputStreamReader(new GZIPInputStream((new URL(inSourceName)).openStream())), bufSize);
+                        return new BufferedReader(new InputStreamReader(new GZIPInputStream((new URL(inSourceName)).openStream(), bufSize)), bufSize);
                     } else {
                         return new BufferedReader(new InputStreamReader((new URL(inSourceName)).openStream()), bufSize);
                     }
                 } else {
                     if (inSourceName.endsWith(".gz")) {
-                        return new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(inSourceName))), bufSize);
+                        return new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(inSourceName),bufSize)), bufSize);
                     } else {
                         return new BufferedReader(new InputStreamReader(new FileInputStream(inSourceName)), bufSize);
                     }
