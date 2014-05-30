@@ -18,7 +18,7 @@ import java.io.File;
  */
 public class UTagCountToTagPairPlugin extends AbstractPlugin {
 
-    private Logger logger = Logger.getLogger(UTagCountToTagPairPlugin.class);
+    private static final Logger logger = Logger.getLogger(UTagCountToTagPairPlugin.class);
 
     private PluginParameter<Double> errorTolerance
             = new PluginParameter.Builder<>("errorTolerance", 0.03, Double.class)
@@ -47,14 +47,13 @@ public class UTagCountToTagPairPlugin extends AbstractPlugin {
         super(null, false);
     }
 
-    public UTagCountToTagPairPlugin(Frame parentFrame) {
-        super(parentFrame, false);
+    public UTagCountToTagPairPlugin(Frame parentFrame, boolean isInteractive) {
+        super(parentFrame, isInteractive);
     }
 
 
     @Override
     public DataSet processData(DataSet input) {
-        File pd;
         String mergedTagCountOfAllS, tagPairS;
         mergedTagCountOfAllS = new File(inputFile()).getAbsolutePath();
         tagPairS = new File(outputFile()).getAbsolutePath();

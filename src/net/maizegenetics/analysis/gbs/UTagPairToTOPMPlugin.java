@@ -71,8 +71,8 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
         super(null, false);
     }
 
-    public UTagPairToTOPMPlugin(Frame parentFrame) {
-        super(parentFrame, false);
+    public UTagPairToTOPMPlugin(Frame parentFrame, boolean isInteractive) {
+        super(parentFrame, isInteractive);
     }
 
     @Override

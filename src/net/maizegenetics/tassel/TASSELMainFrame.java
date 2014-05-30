@@ -80,6 +80,8 @@ import net.maizegenetics.analysis.gbs.MergeMultipleTagCountPlugin;
 import net.maizegenetics.analysis.gbs.SAMConverterPlugin;
 import net.maizegenetics.analysis.gbs.SeqToTBTHDF5Plugin;
 import net.maizegenetics.analysis.gbs.TagCountToFastqPlugin;
+import net.maizegenetics.analysis.gbs.UTagCountToTagPairPlugin;
+import net.maizegenetics.analysis.gbs.UTagPairToTOPMPlugin;
 
 /**
  * TASSELMainFrame
@@ -242,6 +244,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         jMenuBar.add(getAnalysisMenu());
         jMenuBar.add(getResultsMenu());
         jMenuBar.add(getGBSMenu());
+        jMenuBar.add(getUNEAKMenu());
         jMenuBar.add(getHelpMenu());
 
         this.setJMenuBar(jMenuBar);
@@ -686,6 +689,17 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new TagCountToFastqPlugin(this, true)));
         result.add(createMenuItem(new SAMConverterPlugin(this, true)));
         result.add(createMenuItem(new SeqToTBTHDF5Plugin(this, true)));
+        return result;
+    }
+
+    private JMenu getUNEAKMenu() {
+
+        JMenu result = new JMenu("UNEAK");
+        result.setMnemonic(KeyEvent.VK_U);
+
+        result.add(createMenuItem(new UTagCountToTagPairPlugin(this, true)));
+        result.add(createMenuItem(new UTagPairToTOPMPlugin(this, true)));
+
         return result;
     }
 
