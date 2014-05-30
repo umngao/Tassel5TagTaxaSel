@@ -63,34 +63,77 @@ public class BinaryToTextPlugin extends AbstractPlugin {
         return null;
 
     }
-    
+
     @Override
     public String pluginDescription() {
         return "Converts Binary GBS Files into Text format.";
     }
 
+    // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(BinaryToTextPlugin.class);
+    // }
+    
+    /**
+     * Input File
+     *
+     * @return Input File
+     */
     public String inputFile() {
         return myInputFile.value();
     }
 
+    /**
+     * Set Input File. Input File
+     *
+     * @param value Input File
+     *
+     * @return this plugin
+     */
     public BinaryToTextPlugin inputFile(String value) {
         myInputFile = new PluginParameter<>(myInputFile, value);
         return this;
     }
 
+    /**
+     * Output File
+     *
+     * @return Output File
+     */
     public String outputFile() {
         return myOutputFile.value();
     }
 
+    /**
+     * Set Output File. Output File
+     *
+     * @param value Output File
+     *
+     * @return this plugin
+     */
     public BinaryToTextPlugin outputFile(String value) {
         myOutputFile = new PluginParameter<>(myOutputFile, value);
         return this;
     }
 
+    /**
+     * File Type
+     *
+     * @return File Type
+     */
     public FILE_TYPES fileType() {
         return myFileType.value();
     }
 
+    /**
+     * Set File Type. File Type
+     *
+     * @param value File Type
+     *
+     * @return this plugin
+     */
     public BinaryToTextPlugin fileType(FILE_TYPES value) {
         myFileType = new PluginParameter<>(myFileType, value);
         return this;
