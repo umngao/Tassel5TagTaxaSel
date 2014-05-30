@@ -78,6 +78,7 @@ import net.maizegenetics.analysis.gbs.BinaryToTextPlugin;
 import net.maizegenetics.analysis.gbs.FastqToTagCountPlugin;
 import net.maizegenetics.analysis.gbs.MergeMultipleTagCountPlugin;
 import net.maizegenetics.analysis.gbs.SAMConverterPlugin;
+import net.maizegenetics.analysis.gbs.SeqToTBTHDF5Plugin;
 import net.maizegenetics.analysis.gbs.TagCountToFastqPlugin;
 
 /**
@@ -684,6 +685,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new MergeMultipleTagCountPlugin(this, true)));
         result.add(createMenuItem(new TagCountToFastqPlugin(this, true)));
         result.add(createMenuItem(new SAMConverterPlugin(this, true)));
+        result.add(createMenuItem(new SeqToTBTHDF5Plugin(this, true)));
         return result;
     }
 

@@ -19,7 +19,6 @@ import net.maizegenetics.dna.tag.TagCounts;
 import net.maizegenetics.dna.tag.Tags;
 import net.maizegenetics.dna.tag.TagsByTaxa.FilePacking;
 import net.maizegenetics.dna.tag.TagsByTaxaByteHDF5TaxaGroups;
-import net.maizegenetics.util.ArgsEngine;
 import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.util.MultiMemberGZIPInputStream;
 import net.maizegenetics.plugindef.AbstractPlugin;
@@ -30,103 +29,83 @@ import java.awt.Frame;
 import java.util.HashMap;
 
 import javax.swing.ImageIcon;
+import net.maizegenetics.plugindef.PluginParameter;
 
 import org.apache.log4j.Logger;
 
 /**
- * This pipeline converts a series of fastq or qseq files to a single TagsByTaxa HDF5 file.
- * It requires a list of existing tags (Tags object), which may come from a TagCounts file or TOPM file.
+ * This pipeline converts a series of fastq or qseq files to a single TagsByTaxa
+ * HDF5 file. It requires a list of existing tags (Tags object), which may come
+ * from a TagCounts file or TOPM file.
  *
  * @author ed and james
  */
 public class SeqToTBTHDF5Plugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(SeqToTBTHDF5Plugin.class);
-    private ArgsEngine myArgsEngine = null;
+
+    private PluginParameter<String> myInputDir = new PluginParameter.Builder<String>("i", null, String.class).guiName("Input Directory").required(true).inDir()
+            .description("Input directory containing .fastq files").build();
+    private PluginParameter<String> myKeyFile = new PluginParameter.Builder<String>("k", null, String.class).guiName("Key File").required(true).inFile()
+            .description("Barcode key file").build();
+    private PluginParameter<String> myEnzyme = new PluginParameter.Builder<String>("e", null, String.class).guiName("Enzyme")
+            .description("Enzyme used to create the GBS library, if it differs from the one listed in the key file.").build();
+    private PluginParameter<String> myOutputFile = new PluginParameter.Builder<String>("o", null, String.class).guiName("Output File").required(true).outFile()
+            .description("Output HDF5 file").build();
+    private PluginParameter<Integer> myMaxGoodReads = new PluginParameter.Builder<Integer>("s", 500_000_000, Integer.class).guiName("Max Good Reads")
+            .description("Max good reads per lane.").build();
+    private PluginParameter<String> myLogFile = new PluginParameter.Builder<String>("L", null, String.class).guiName("Log File").required(true).outFile()
+            .description("Output log file").build();
+    private PluginParameter<String> myTagCountFile = new PluginParameter.Builder<String>("t", null, String.class).guiName("Tag Count File").inFile()
+            .description("Tag count file. (Only -t or -m allowed)").build();
+    private PluginParameter<String> myPhysicalMapFile = new PluginParameter.Builder<String>("m", null, String.class).guiName("Physical Map File").inFile()
+            .description("Physical map file containing alignments. (Only -t or -m allowed)").build();
+
     private String[] myFastqFileS = null;
-    private String myKeyFile = null;
-    private String myEnzyme = null;
-    private String myOutputTBTHDF5 = null;
-    private String myOutputLogFile = null;
     private Tags myMasterTags = null;
-    private static int maxGoodReads = 500000000; // maximum number of good barcoded reads expected in a fastq file
-    IntArrayList[] taxaReads;
-    int[] readsPerSample, mappedReadsPerSample;
-    int goodBarcodedReads = 0, allReads = 0, goodMatched = 0;
-    HashMap<String, Integer> taxaNameToIndices;
+    private IntArrayList[] myTaxaReads;
+    private int[] readsPerSample;
+    private int[] mappedReadsPerSample;
+    private int goodBarcodedReads = 0;
+    private int allReads = 0;
+    private int goodMatched = 0;
+    private HashMap<String, Integer> taxaNameToIndices;
 
     public SeqToTBTHDF5Plugin() {
         super(null, false);
     }
 
-    public SeqToTBTHDF5Plugin(Frame parentFrame) {
-        super(parentFrame, false);
+    public SeqToTBTHDF5Plugin(Frame parentFrame, boolean isInteractive) {
+        super(parentFrame, isInteractive);
     }
 
     @Override
-    public DataSet performFunction(DataSet input) {
-        File possibleFile = new File(myOutputTBTHDF5);
+    public DataSet processData(DataSet input) {
+        File possibleFile = new File(outputFile());
         if (possibleFile.exists() == false) {
-            TagsByTaxaByteHDF5TaxaGroups theTBT = new TagsByTaxaByteHDF5TaxaGroups(myMasterTags, myOutputTBTHDF5);
+            TagsByTaxaByteHDF5TaxaGroups theTBT = new TagsByTaxaByteHDF5TaxaGroups(myMasterTags, outputFile());
         }
-        matchTagsToTaxa(myFastqFileS, myKeyFile, myEnzyme, myMasterTags, myOutputTBTHDF5, myOutputLogFile);
+        matchTagsToTaxa(myFastqFileS, keyFile(), enzyme(), myMasterTags, outputFile(), logFile());
         return null;
     }
 
-    private void printUsage() {
-        myLogger.info(
-                "\nUsage is as follows:\n"
-                + "-i  Input directory containing .fastq files\n"
-                + "-k  Barcode key file\n"
-                + "-e  Enzyme used to create the GBS library, if it differs from the one listed in the key file.\n"
-                + "-o  Output HDF5 file\n"
-                + "-s  Max good reads per lane. (Optional. Default is 500,000,000).\n"
-                + "-L  Output log file \n"
-                + "One of either:\n"
-                + "    -t  Tag count file, OR A\n"
-                + "    -m  Physical map file containing alignments\n");
-    }
-
     @Override
-    public void setParameters(String[] args) {
-        if (args.length == 0) {
-            printUsage();
-            throw new IllegalArgumentException("\n\nPlease use the above arguments/options.\n\n");
-        }
+    public void postProcessParameters() {
 
-        if (myArgsEngine == null) {
-            myArgsEngine = new ArgsEngine();
-            myArgsEngine.add("-i", "--input-directory", true);
-            myArgsEngine.add("-k", "--key-file", true);
-            myArgsEngine.add("-e", "--enzyme", true);
-            myArgsEngine.add("-o", "--output-HDF5", true);
-            myArgsEngine.add("-L", "--outputlogfile", true);
-            myArgsEngine.add("-s", "--max-reads", true);
-            myArgsEngine.add("-t", "--tag-count", true);
-            myArgsEngine.add("-m", "--physical-map", true);
-        }
-        myArgsEngine.parse(args);
+        String inputDirectory = inputDirectory();
 
-        String tempDirectory = myArgsEngine.getString("-i");
-
-        if (myArgsEngine.getBoolean("-s")) {
-            maxGoodReads = Integer.parseInt(myArgsEngine.getString("-s"));
-        }
-
-        if (tempDirectory != null) {
-            File fastqDirectory = new File(tempDirectory);
+        if (inputDirectory != null) {
+            File fastqDirectory = new File(inputDirectory);
             if (!fastqDirectory.isDirectory()) {
-                printUsage();
-                throw new IllegalArgumentException("setParameters: The input name you supplied is not a directory: " + tempDirectory);
+                throw new IllegalArgumentException("setParameters: The input name you supplied is not a directory: " + inputDirectory);
             }
             myFastqFileS = DirectoryCrawler.listFileNames("(?i).*\\.fq$|.*\\.fq\\.gz$|.*\\.fastq$|.*_fastq\\.txt$|.*_fastq\\.gz$|.*_fastq\\.txt\\.gz$|.*_sequence\\.txt$|.*_sequence\\.txt\\.gz$|.*_qseq\\.txt$|.*_qseq\\.txt\\.gz$", fastqDirectory.getAbsolutePath());
             //    (?i) denotes case insensitive;                 \\. denotes escape . so it doesn't mean 'any char'
             // NOTE: If you add addtional file naming conventions here, you must also add them to the "outfile = new File(outFileS.replaceAll()" list below (near the bottom)
             if (myFastqFileS.length == 0 || myFastqFileS == null) {
-                printUsage();
                 throw new IllegalArgumentException(
                         "Couldn't find any files that end with \".fq\", \".fq.gz\", \".fastq\", \"_fastq.txt\", \"_fastq.gz\", \"_fastq.txt.gz\", \"_sequence.txt\", or \"_sequence.txt.gz\" in the supplied directory: "
-                        + tempDirectory);
+                        + inputDirectory);
             } else {
                 myLogger.info("FastqToTBTPlugin: setParameters: Using the following fastq files:");
                 for (String filename : myFastqFileS) {
@@ -134,61 +113,46 @@ public class SeqToTBTHDF5Plugin extends AbstractPlugin {
                 }
             }
         }
-        if (myArgsEngine.getBoolean("-k")) {
-            myKeyFile = myArgsEngine.getString("-k");
-        } else {
-            printUsage();
-            throw new IllegalArgumentException("Please specify a key file (option -k).");
-        }
-        if (myArgsEngine.getBoolean("-e")) {
-            myEnzyme = myArgsEngine.getString("-e");
-        } else {
+
+        if (enzyme() == null) {
             myLogger.warn("No enzyme specified.  Using enzyme listed in key file.");
         }
-        if (myArgsEngine.getBoolean("-o")) {
-            myOutputTBTHDF5 = myArgsEngine.getString("-o");
-        } else {
-            printUsage();
-            throw new IllegalArgumentException("Please specify an output directory (option -o).");
-        }
-        if (myArgsEngine.getBoolean("-L")) {
-            myOutputLogFile = myArgsEngine.getString("-L");
-        } else {
-            printUsage();
-            throw new IllegalArgumentException("Please specify a log file (option -L).");
-        }
-
 
         // Create Tags object from tag count file with option -t, or from TOPM file with option -m
-        if (myArgsEngine.getBoolean("-t")) {
-            if (myArgsEngine.getBoolean("-m")) {
-                printUsage();
+        if (tagCountFile() != null) {
+            if (physicalMapFile() != null) {
                 throw new IllegalArgumentException("Options -t and -m are mutually exclusive.");
             }
-            myMasterTags = new TagCounts(myArgsEngine.getString("-t"), FilePacking.Byte);
-        } else if (myArgsEngine.getBoolean("-m")) {
-            if (myArgsEngine.getBoolean("-t")) {
-                printUsage();
+            myMasterTags = new TagCounts(tagCountFile(), FilePacking.Byte);
+        } else if (physicalMapFile() != null) {
+            if (tagCountFile() != null) {
                 throw new IllegalArgumentException("Options -t and -m are mutually exclusive.");
             }
-            myMasterTags = new TagsOnPhysicalMap(myArgsEngine.getString("-m"), true);
+            myMasterTags = new TagsOnPhysicalMap(physicalMapFile(), true);
         } else {
-            printUsage();
             throw new IllegalArgumentException("Please specify a tagCounts file (-t) *OR* a TagsOnPhysicalMap file (-m)");
         }
     }
 
     /**
-     * Uses an existing Tags object to create one TagsByTaxa file for each fastq file in the input directory.
+     * Uses an existing Tags object to create one TagsByTaxa file for each fastq
+     * file in the input directory.
      *
-     * Output TBT files written to the outputDir, using fastq file names with extension changed to .tbt.bin (or .tbt.txt)
+     * Output TBT files written to the outputDir, using fastq file names with
+     * extension changed to .tbt.bin (or .tbt.txt)
      *
-     * @param fastqFileS      Array of fastq file names (Illumina-created files with raw read sequence, quality score, machine name, etc.)
-     * @param keyFileS       A key file (list of taxa by barcode, lane & flow cell, including plate maps)
-     * @param enzyme         The enzyme used to make the library (currently ApeKI or PstI)
-     * @param theMasterTags  A Tags object: list of tags to be included in the final TBT
-     * @param outputDir      String containing the path of the output directory to contain tags-by-taxa files
-     * @param minCount       The minimum number of times a tag must show up in a fastq file before it is included in the corresponding TBT file
+     * @param fastqFileS Array of fastq file names (Illumina-created files with
+     * raw read sequence, quality score, machine name, etc.)
+     * @param keyFileS A key file (list of taxa by barcode, lane & flow cell,
+     * including plate maps)
+     * @param enzyme The enzyme used to make the library (currently ApeKI or
+     * PstI)
+     * @param theMasterTags A Tags object: list of tags to be included in the
+     * final TBT
+     * @param outputDir String containing the path of the output directory to
+     * contain tags-by-taxa files
+     * @param minCount The minimum number of times a tag must show up in a fastq
+     * file before it is included in the corresponding TBT file
      */
     public void matchTagsToTaxa(String[] fastqFileS, String keyFileS, String enzyme, Tags theMasterTags, String outputTBT, String outputLog) {
         for (int laneNum = 0; laneNum < fastqFileS.length; laneNum++) {
@@ -213,14 +177,14 @@ public class SeqToTBTHDF5Plugin extends AbstractPlugin {
             }
             //Fill an array with taxon names.
             String[] taxaNames = new String[thePBR.getBarCodeCount()];
-            taxaReads = new IntArrayList[thePBR.getBarCodeCount()];
+            myTaxaReads = new IntArrayList[thePBR.getBarCodeCount()];
             mappedReadsPerSample = new int[thePBR.getBarCodeCount()];
             readsPerSample = new int[thePBR.getBarCodeCount()];
             taxaNameToIndices = new HashMap<String, Integer>();
 
             for (int i = 0; i < taxaNames.length; i++) {
                 taxaNames[i] = thePBR.getTheBarcodes(i).getTaxaName();
-                taxaReads[i] = new IntArrayList(200000000 / taxaNames.length);
+                myTaxaReads[i] = new IntArrayList(200000000 / taxaNames.length);
                 taxaNameToIndices.put(taxaNames[i], i);
             }
             int currLine = 0;
@@ -230,7 +194,7 @@ public class SeqToTBTHDF5Plugin extends AbstractPlugin {
             try {
                 BufferedReader br = getBufferedReader(fastqFileS[laneNum]);
                 String[] seqAndQual;
-                while (((seqAndQual = getNextSeq(br, isFastQ)) != null) && (goodBarcodedReads < maxGoodReads)) {
+                while (((seqAndQual = getNextSeq(br, isFastQ)) != null) && (goodBarcodedReads < maxGoodReads())) {
                     allReads++;
                     currLine++;
                     //After quality score is read, decode barcode using the current sequence & quality  score
@@ -243,7 +207,7 @@ public class SeqToTBTHDF5Plugin extends AbstractPlugin {
                         if (h > -1) {
                             goodMatched++;
                             mappedReadsPerSample[t]++;
-                            taxaReads[t].add(h);
+                            myTaxaReads[t].add(h);
                         }
                     }
                     if (allReads % 1000000 == 0) {
@@ -332,7 +296,7 @@ public class SeqToTBTHDF5Plugin extends AbstractPlugin {
         TagsByTaxaByteHDF5TaxaGroups theTBT = new TagsByTaxaByteHDF5TaxaGroups(outputTBT);
         for (String name : taxaNameToIndices.keySet()) {
             int t = taxaNameToIndices.get(name);
-            byte[] tagByteDist = getTagsDistribution(theTBT.getTagCount(), taxaReads[t]);
+            byte[] tagByteDist = getTagsDistribution(theTBT.getTagCount(), myTaxaReads[t]);
             theTBT.addTaxon(name, tagByteDist);
             System.out.printf("Taxon %s written to %s %n", name, outputTBT);
         }
@@ -412,7 +376,6 @@ public class SeqToTBTHDF5Plugin extends AbstractPlugin {
 
         //Create a new object to hold barcoded tags.  The constructor can optionally process a group of fastq
         //files.  A minimum quality score for inclusion of a read can also be provided.
-
         if (np.length == 3) {
             thePBR = new ParseBarcodeRead(keyFileS, enzyme, np[0], np[1]);
         } else if (np.length == 5) {
@@ -438,16 +401,193 @@ public class SeqToTBTHDF5Plugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return null;
     }
 
     @Override
     public String getButtonName() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return "Seq to TBT HDF5";
     }
 
     @Override
     public String getToolTipText() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return "Seq to TBT HDF5";
+    }
+
+    // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(SeqToTBTHDF5Plugin.class);
+    // }
+    /**
+     * Input directory containing .fastq files
+     *
+     * @return Input Directory
+     */
+    public String inputDirectory() {
+        return myInputDir.value();
+    }
+
+    /**
+     * Set Input Directory. Input directory containing .fastq files
+     *
+     * @param value Input Directory
+     *
+     * @return this plugin
+     */
+    public SeqToTBTHDF5Plugin inputDirectory(String value) {
+        myInputDir = new PluginParameter<>(myInputDir, value);
+        return this;
+    }
+
+    /**
+     * Barcode key file
+     *
+     * @return Key File
+     */
+    public String keyFile() {
+        return myKeyFile.value();
+    }
+
+    /**
+     * Set Key File. Barcode key file
+     *
+     * @param value Key File
+     *
+     * @return this plugin
+     */
+    public SeqToTBTHDF5Plugin keyFile(String value) {
+        myKeyFile = new PluginParameter<>(myKeyFile, value);
+        return this;
+    }
+
+    /**
+     * Enzyme used to create the GBS library, if it differs from the one listed
+     * in the key file.
+     *
+     * @return Enzyme
+     */
+    public String enzyme() {
+        return myEnzyme.value();
+    }
+
+    /**
+     * Set Enzyme. Enzyme used to create the GBS library, if it differs from the
+     * one listed in the key file.
+     *
+     * @param value Enzyme
+     *
+     * @return this plugin
+     */
+    public SeqToTBTHDF5Plugin enzyme(String value) {
+        myEnzyme = new PluginParameter<>(myEnzyme, value);
+        return this;
+    }
+
+    /**
+     * Output HDF5 file
+     *
+     * @return Output File
+     */
+    public String outputFile() {
+        return myOutputFile.value();
+    }
+
+    /**
+     * Set Output File. Output HDF5 file
+     *
+     * @param value Output File
+     *
+     * @return this plugin
+     */
+    public SeqToTBTHDF5Plugin outputFile(String value) {
+        myOutputFile = new PluginParameter<>(myOutputFile, value);
+        return this;
+    }
+
+    /**
+     * Max good reads per lane.
+     *
+     * @return Max Good Reads
+     */
+    public Integer maxGoodReads() {
+        return myMaxGoodReads.value();
+    }
+
+    /**
+     * Set Max Good Reads. Max good reads per lane.
+     *
+     * @param value Max Good Reads
+     *
+     * @return this plugin
+     */
+    public SeqToTBTHDF5Plugin maxGoodReads(Integer value) {
+        myMaxGoodReads = new PluginParameter<>(myMaxGoodReads, value);
+        return this;
+    }
+
+    /**
+     * Output log file
+     *
+     * @return Log File
+     */
+    public String logFile() {
+        return myLogFile.value();
+    }
+
+    /**
+     * Set Log File. Output log file
+     *
+     * @param value Log File
+     *
+     * @return this plugin
+     */
+    public SeqToTBTHDF5Plugin logFile(String value) {
+        myLogFile = new PluginParameter<>(myLogFile, value);
+        return this;
+    }
+
+    /**
+     * Tag count file. (Only -t or -m allowed)
+     *
+     * @return Tag Count File
+     */
+    public String tagCountFile() {
+        return myTagCountFile.value();
+    }
+
+    /**
+     * Set Tag Count File. Tag count file. (Only -t or -m allowed)
+     *
+     * @param value Tag Count File
+     *
+     * @return this plugin
+     */
+    public SeqToTBTHDF5Plugin tagCountFile(String value) {
+        myTagCountFile = new PluginParameter<>(myTagCountFile, value);
+        return this;
+    }
+
+    /**
+     * Physical map file containing alignments. (Only -t or -m allowed)
+     *
+     * @return Physical Map File
+     */
+    public String physicalMapFile() {
+        return myPhysicalMapFile.value();
+    }
+
+    /**
+     * Set Physical Map File. Physical map file containing alignments. (Only -t
+     * or -m allowed)
+     *
+     * @param value Physical Map File
+     *
+     * @return this plugin
+     */
+    public SeqToTBTHDF5Plugin physicalMapFile(String value) {
+        myPhysicalMapFile = new PluginParameter<>(myPhysicalMapFile, value);
+        return this;
     }
 }
