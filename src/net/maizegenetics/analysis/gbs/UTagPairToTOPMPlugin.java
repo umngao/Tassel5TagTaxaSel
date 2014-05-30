@@ -199,12 +199,12 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
 
     @Override
     public String getButtonName() {
-        return("Tag pairs to TOPM");
+        return("Tag Pairs to TOPM");
     }
 
     @Override
     public String getToolTipText() {
-        return("Tag pairs to TOPM");
+        return("Tag Pairs to TOPM");
     }
 }
 

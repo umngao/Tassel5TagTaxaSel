@@ -108,11 +108,11 @@ public class UTagCountToTagPairPlugin extends AbstractPlugin {
 
     @Override
     public String getButtonName() {
-        return "Tag counts to tag pairs";
+        return "Tag Counts to Tag Pairs";
     }
 
     @Override
     public String getToolTipText() {
-        return "Tag counts to tag pairs";
+        return "Tag Counts to Tag Pairs";
     }
 }

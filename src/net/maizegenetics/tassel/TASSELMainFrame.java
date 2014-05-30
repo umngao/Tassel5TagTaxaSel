@@ -244,7 +244,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         jMenuBar.add(getAnalysisMenu());
         jMenuBar.add(getResultsMenu());
         jMenuBar.add(getGBSMenu());
-        jMenuBar.add(getUNEAKMenu());
+        jMenuBar.add(Box.createHorizontalGlue());
         jMenuBar.add(getHelpMenu());
 
         this.setJMenuBar(jMenuBar);
@@ -517,18 +517,28 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         return createMenuItem(theTP, -1);
     }
 
+    private JMenuItem createMenuItem(Plugin theTP, boolean adjustForIcon) {
+        return createMenuItem(theTP, -1, adjustForIcon);
+    }
+
     private JMenuItem createMenuItem(Plugin theTP, int mnemonic) {
+        return createMenuItem(theTP, mnemonic, true);
+    }
+
+    private JMenuItem createMenuItem(Plugin theTP, int mnemonic, boolean adjustForIcon) {
         ImageIcon icon = theTP.getIcon();
         JMenuItem menuItem = new JMenuItem(theTP.getButtonName(), icon);
         if (mnemonic != -1) {
             menuItem.setMnemonic(mnemonic);
         }
-        int pixels = 30;
-        if (icon != null) {
-            pixels -= icon.getIconWidth();
-            pixels /= 2;
+        if (adjustForIcon) {
+            int pixels = 30;
+            if (icon != null) {
+                pixels -= icon.getIconWidth();
+                pixels /= 2;
+            }
+            menuItem.setIconTextGap(pixels);
         }
-        menuItem.setIconTextGap(pixels);
         menuItem.setBackground(Color.white);
         menuItem.setMargin(new Insets(2, 2, 2, 2));
         menuItem.setToolTipText(theTP.getToolTipText());
@@ -555,6 +565,20 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         menuItem.setBackground(Color.white);
         menuItem.setMargin(new Insets(2, 2, 2, 2));
         menuItem.addActionListener(action);
+        return menuItem;
+
+    }
+
+    private JMenuItem createMenuItem(String label, boolean adjustForIcon) {
+
+        JMenuItem menuItem = new JMenuItem(label);
+        if (adjustForIcon) {
+            int pixels = 30;
+            menuItem.setIconTextGap(pixels);
+        }
+        menuItem.setBackground(Color.white);
+        menuItem.setMargin(new Insets(2, 2, 2, 2));
+        menuItem.setEnabled(false);
         return menuItem;
 
     }
@@ -677,25 +701,39 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
         return fileMenu;
     }
-    
+
     private JMenu getGBSMenu() {
 
         JMenu result = new JMenu("GBS");
         result.setMnemonic(KeyEvent.VK_G);
 
-        result.add(createMenuItem(new BinaryToTextPlugin(this, true)));
-        result.add(createMenuItem(new FastqToTagCountPlugin(this, true)));
-        result.add(createMenuItem(new MergeMultipleTagCountPlugin(this, true)));
-        result.add(createMenuItem(new TagCountToFastqPlugin(this, true)));
-        result.add(createMenuItem(new SAMConverterPlugin(this, true)));
-        result.add(createMenuItem(new SeqToTBTHDF5Plugin(this, true)));
+        result.add(createMenuItem(new BinaryToTextPlugin(this, true), false));
+        result.add(createMenuItem(new FastqToTagCountPlugin(this, true), false));
+        result.add(createMenuItem(new MergeMultipleTagCountPlugin(this, true), false));
+        result.addSeparator();
+        result.add(getGBSReferenceMenu());
+        result.addSeparator();
+        result.add(getUNEAKMenu());
+        result.addSeparator();
+        result.add(createMenuItem(new SeqToTBTHDF5Plugin(this, true), false));
+
+        return result;
+    }
+
+    private JMenu getGBSReferenceMenu() {
+
+        JMenu result = new JMenu("Reference Genome");
+
+        result.add(createMenuItem(new TagCountToFastqPlugin(this, true), false));
+        result.add(createMenuItem("Align to Reference", false));
+        result.add(createMenuItem(new SAMConverterPlugin(this, true), false));
+
         return result;
     }
 
     private JMenu getUNEAKMenu() {
 
-        JMenu result = new JMenu("UNEAK");
-        result.setMnemonic(KeyEvent.VK_U);
+        JMenu result = new JMenu("UNEAK (No Reference)");
 
         result.add(createMenuItem(new UTagCountToTagPairPlugin(this, true)));
         result.add(createMenuItem(new UTagPairToTOPMPlugin(this, true)));

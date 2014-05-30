@@ -28,9 +28,9 @@ public class FastqToTagCountPlugin extends AbstractPlugin {
     private static final Logger myLogger = Logger.getLogger(FastqToTagCountPlugin.class);
 
     private PluginParameter<String> myInputDir = new PluginParameter.Builder<String>("i", null, String.class).guiName("Input Directory").required(true).inDir()
-            .description("Input directory containing FASTQ files in text or gzipped text.\n"
-                    + "     NOTE: Directory will be searched recursively and should\n"
-                    + "     be written WITHOUT a slash after its name.").build();
+            .description("Input directory containing FASTQ files in text or gzipped text. "
+                    + "NOTE: Directory will be searched recursively and should "
+                    + "be written WITHOUT a slash after its name.").build();
     private PluginParameter<String> myKeyFile = new PluginParameter.Builder<String>("k", null, String.class).guiName("Key File").required(true).inFile()
             .description("Key file listing barcodes distinguishing the samples").build();
     private PluginParameter<String> myEnzyme = new PluginParameter.Builder<String>("e", null, String.class).guiName("Enzyme").required(true)
