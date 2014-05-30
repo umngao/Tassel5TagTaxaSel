@@ -229,6 +229,7 @@ public class ExportUtils {
             }
             bw.newLine();
 
+            int noAlleles=0;
             for (int site = 0; site < gt.numberOfSites(); site++) {
                 Position p=gt.positions().get(site);
                 byte refAllele=p.getAllele(WHICH_ALLELE.Reference);
@@ -255,7 +256,8 @@ public class ExportUtils {
                 bw.write(gt.siteName(site)); // site name
                 bw.write(delimChar);
                 if (nAlleles == 0) {                                                  //used to be ==0
-                    System.out.println("A0:"+gt.chromosomeName(site)+":"+gt.chromosomalPosition(site));
+                    //System.out.println("A0:"+gt.chromosomeName(site)+":"+gt.chromosomalPosition(site));
+                    noAlleles++;
                     bw.write(".\t.\t.\tPASS\t.\tGT");
                     for (int taxa = 0; taxa < gt.numberOfTaxa(); taxa++) bw.write("\t./.");
                     bw.newLine();
@@ -331,6 +333,9 @@ public class ExportUtils {
 //                    }
                 }
                 bw.newLine();
+            }
+            if(noAlleles > 0){
+                myLogger.warn("Warning: " + noAlleles + " sites have no alleles.");
             }
             bw.flush();
             bw.close();
