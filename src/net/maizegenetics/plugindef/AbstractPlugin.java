@@ -594,10 +594,12 @@ abstract public class AbstractPlugin implements Plugin {
                 JPanel temp = new JPanel(new FlowLayout(FlowLayout.CENTER));
                 temp.add(new JLabel(current.guiName()));
                 temp.add(menu);
+                temp.setToolTipText(getToolTip(current));
                 panel.add(temp);
                 parameterFields.put(current.cmdLineName(), menu);
             } else if (current.valueType().isAssignableFrom(Boolean.class)) {
                 JCheckBox check = new JCheckBox(current.guiName());
+                check.setToolTipText(getToolTip(current));
                 if (current.value() == Boolean.TRUE) {
                     check.setSelected(true);
                 } else {
@@ -636,15 +638,15 @@ abstract public class AbstractPlugin implements Plugin {
                 });
 
                 if (current.fileType() == PluginParameter.FILE_TYPE.IN_FILE) {
-                    panel.add(getLine(current.guiName(), field, getOpenFile(dialog, field)));
+                    panel.add(getLine(current.guiName(), field, getOpenFile(dialog, field), getToolTip(current)));
                 } else if (current.fileType() == PluginParameter.FILE_TYPE.OUT_FILE) {
-                    panel.add(getLine(current.guiName(), field, getSaveFile(dialog, field)));
+                    panel.add(getLine(current.guiName(), field, getSaveFile(dialog, field), getToolTip(current)));
                 } else if (current.fileType() == PluginParameter.FILE_TYPE.IN_DIR) {
-                    panel.add(getLine(current.guiName(), field, getOpenDir(dialog, field)));
+                    panel.add(getLine(current.guiName(), field, getOpenDir(dialog, field), getToolTip(current)));
                 } else if (current.fileType() == PluginParameter.FILE_TYPE.OUT_DIR) {
-                    panel.add(getLine(current.guiName(), field, getSaveDir(dialog, field)));
+                    panel.add(getLine(current.guiName(), field, getSaveDir(dialog, field), getToolTip(current)));
                 } else {
-                    panel.add(getLine(current.guiName(), field, null));
+                    panel.add(getLine(current.guiName(), field, null, getToolTip(current)));
                 }
 
                 parameterFields.put(current.cmdLineName(), field);
@@ -675,9 +677,33 @@ abstract public class AbstractPlugin implements Plugin {
 
     }
 
-    private JPanel getLine(String label, JTextField ref, JButton button) {
+    private static final int DEFAULT_TOOL_TIP_LINE_LENGTH = 50;
+
+    private String getToolTip(PluginParameter<?> parameter) {
+        String description = parameter.description();
+        int count = 0;
+        StringBuilder builder = new StringBuilder();
+        builder.append("<html>");
+        for (int i = 0, n = description.length(); i < n; i++) {
+            count++;
+            if (description.charAt(i) == '\n') {
+                builder.append("<br>");
+                count = 0;
+            } else if ((count > DEFAULT_TOOL_TIP_LINE_LENGTH) && (description.charAt(i) == ' ')) {
+                builder.append("<br>");
+                count = 0;
+            } else {
+                builder.append(description.charAt(i));
+            }
+        }
+        builder.append("</html>");
+        return builder.toString();
+    }
+
+    private JPanel getLine(String label, JTextField ref, JButton button, String description) {
 
         JPanel result = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        result.setToolTipText(description);
 
         result.add(new JLabel(label));
         ref.setEditable(true);
