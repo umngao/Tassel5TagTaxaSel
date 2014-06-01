@@ -11,6 +11,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.TreeSet;
 import net.maizegenetics.dna.BaseEncoder;
@@ -87,6 +88,7 @@ public class PanAReadToKmerPlugin extends AbstractPlugin {
                 return name.toLowerCase().endsWith("cnt");
             }
         });
+        Arrays.sort(tcFiles);
         TreeSet<String> taxaNameSet = new TreeSet();
         for (int i = 0; i < tcFiles.length; i++) {
             String[] temp = tcFiles[i].getName().substring(0, tcFiles[i].getName().length()-4).split("_");

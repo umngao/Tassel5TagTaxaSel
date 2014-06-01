@@ -8,6 +8,7 @@ package net.maizegenetics.analysis.gbs.pana;
 
 
 import java.io.File;
+import java.util.Arrays;
 import net.maizegenetics.analysis.gbs.MergeMultipleTagCountPlugin;
 
 /**
@@ -125,6 +126,8 @@ public class PanAUsageExample {
         String tbpDirS = "M:\\pipelineTest\\PanA\\tbp\\subTBP\\";
         File[] tbts = new File (tbtDirS).listFiles();
         File[] tbps = new File (tbpDirS).listFiles();
+        Arrays.sort(tbts);
+        Arrays.sort(tbps);
         for (int i = 0; i < tbts.length; i++) {
             String arguments = "-g " + sBitGenotypeFileS + " -t " + tbts[i].getAbsolutePath() + " -b " + tbps[i].getAbsolutePath() + " -o " + outDirS + " -c max -s 1000 -cs 0 -ce 1";
             

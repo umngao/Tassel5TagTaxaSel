@@ -13,6 +13,7 @@ import org.apache.log4j.Logger;
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
+import java.util.Arrays;
 import net.maizegenetics.dna.tag.TagCounts;
 import net.maizegenetics.dna.tag.TagsByTaxa;
 import net.maizegenetics.dna.tag.TagsByTaxa.FilePacking;
@@ -61,6 +62,7 @@ public class PanABuildPivotTBTPlugin extends AbstractPlugin {
                 return name.toLowerCase().endsWith("cnt");
             }
         });
+        Arrays.sort(tcFiles);
         String[] taxaNames = new String[tcFiles.length];
         for (int i = 0; i < taxaNames.length; i++) {
             taxaNames[i] = tcFiles[i].getName().substring(0, tcFiles[i].getName().length()-4);

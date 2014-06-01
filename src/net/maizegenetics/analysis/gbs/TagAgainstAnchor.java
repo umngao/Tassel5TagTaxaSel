@@ -155,6 +155,7 @@ public class TagAgainstAnchor {
         }
         int tagNum = tbt.getTagCount();
         System.out.println("TBT has " + chunkNum + " chunks, mapping will start at chunk " + chunkStartIndex + ", end at chunk " + chunkEndIndex +"\n");
+        System.out.println("Creat output file at " + outfileS);
         try {
             BufferedWriter bw = new BufferedWriter (new FileWriter (outfileS), 65536);
             bw.write("TestTag	TestTagNum	BlastChr	BlastPos	refDiv	LDChr	LDSite	LDPos	BinomP	SigTests	TagTaxaCnt	ChrSig	LRatioB:2	LRatioB:M	SiteOnBestChrThanNextChr	MinSigPos	MaxSigPos");
@@ -692,6 +693,7 @@ public class TagAgainstAnchor {
             System.out.println("There is no marker need to be blocked for mapping tags");
             return;
         }
+        System.out.println("Start loading TBP from " + blockFileS);
         long lastTimePoint = System.nanoTime();
         TagBlockPosition tbp = new TagBlockPosition(blockFileS);
         if (tbp.getBlockPos().length != tbt.getTagCount()) {
@@ -708,6 +710,7 @@ public class TagAgainstAnchor {
      * @param tbtHDF5
      */
     private void loadTBT (String tbtHDF5) {
+        System.out.println("Start loading TBT from " + tbtHDF5);
         long lastTimePoint = this.getCurrentTimeNano();
         tbt = new TagsByTaxaByteHDF5TagGroups (tbtHDF5);
         System.out.println("Loading TBT HDF5 took " + String.valueOf(this.getTimeSpanSecond(lastTimePoint)) + " seconds");
@@ -722,7 +725,7 @@ public class TagAgainstAnchor {
      * @param hapMapHDF5
      */
     private void loadAnchorMap (String hapMapHDF5) {
-        System.out.println("Start loading anchor map");
+        System.out.println("Start loading anchor map from "+hapMapHDF5);
         long lastTimePoint = this.getCurrentTimeNano();
         anchor = new SimpleGenotypeSBit(hapMapHDF5);
         System.out.println("Loading anchor map (SimpleGenotypeSBit) HDF5 took " + String.valueOf(this.getTimeSpanSecond(lastTimePoint)) + " seconds");
