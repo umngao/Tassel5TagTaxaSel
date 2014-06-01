@@ -408,21 +408,15 @@ public class TagAgainstAnchor {
                 for (int j = 0; j < chromosomeNumber.length; j++) {
                     blockChromosome = new int[blockSize];
                     blockPosition = new int[blockSize];
-                    try {
-                        for (int k = 0; k < blockSize; k++) {
+                    for (int k = 0; k < blockSize; k++) {
                         if (blockChr[tagStartIndex+blockTagIndex[k]] != chromosomeNumber[j]) {
-                                blockChromosome[k] = Integer.MIN_VALUE;
-                                blockPosition[k] = Integer.MIN_VALUE;
-                            }
-                            else {
-                                blockChromosome[k] = blockChr[tagStartIndex+blockTagIndex[k]];
-                                blockPosition[k] = blockPos[tagStartIndex+blockTagIndex[k]];
-                            }
+                            blockChromosome[k] = Integer.MIN_VALUE;
+                            blockPosition[k] = Integer.MIN_VALUE;
                         }
-                    }
-                    catch (Exception e) {
-                         e.printStackTrace();
-                         System.out.println("alright");
+                        else {
+                            blockChromosome[k] = blockChr[tagStartIndex+blockTagIndex[k]];
+                            blockPosition[k] = blockPos[tagStartIndex+blockTagIndex[k]];
+                        }
                     }
                     scanOnChr[j] = new ScanChromosome(testTagDist, theResults, j, chrStartIndex[j], chrEndIndex[j], pThresh, 1, blockPosition);
                     scanOnChr[j].scan();
