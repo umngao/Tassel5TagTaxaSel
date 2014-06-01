@@ -207,8 +207,7 @@ public class TagAgainstAnchor {
                 lastTimePoint = this.getCurrentTimeNano();
                 for (int j = 0; j < actualThreadNum; j++) {
                     mts[j] = new Thread(jobs[j]);
-                    //mts[j].start();
-                    mts[j].run();
+                    mts[j].start();
                 }
                 for (int j = 0; j < actualThreadNum; j++) {
                     try {
