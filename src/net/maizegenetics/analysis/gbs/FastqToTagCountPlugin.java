@@ -141,13 +141,14 @@ public class FastqToTagCountPlugin extends AbstractPlugin {
 
                 int currLine = 0;
                 int allReads = 0;
+                long time=System.nanoTime();
                 goodBarcodedReads = 0;
                 String sequence = "";
                 String qualityScore = "";
                 String temp = br.readLine();
                 while ((temp != null) && goodBarcodedReads < maxGoodReads) {
                     currLine++;
-
+                    if(currLine%(1<<16)==0) System.out.printf("Tag processing rate %g ns/row %n",(System.nanoTime()-time)/currLine);
                     try {
                         //The quality score is every 4th line; the sequence is every 4th line starting from the 2nd.
                         if ((currLine + 2) % 4 == 0) {

@@ -29,13 +29,17 @@ public class ReadBarcodeResult {
     /**Sequence encoded in 2-bit long array*/
     long[] read;
     /**Taxon name implied by the barcode sequence*/
-    String taxonName;
+    private String taxonName;
+    /**Global taxon index*/
+    private int taxonIndex;
+
 
     //TODO this instantiation should also include the orginal unprocessedSequence, processedSequence, and paddedSequence - the the object encode it
-    public ReadBarcodeResult(long[] read, byte length, String taxon) {
+    public ReadBarcodeResult(long[] read, byte length, String taxon, int taxonIndex) {
         this.read = read;
         this.length = length;
         this.taxonName = taxon;
+        this.taxonIndex=taxonIndex;
     }
 
     public ReadBarcodeResult(String sequence) {
@@ -58,5 +62,9 @@ public class ReadBarcodeResult {
     /**Return taxon name implied by the barcode sequence*/
     public String getTaxonName() {
         return taxonName;
+    }
+
+    public int getTaxonIndex() {
+        return taxonIndex;
     }
 }

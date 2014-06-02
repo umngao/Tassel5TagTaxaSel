@@ -337,19 +337,16 @@ public class TagCounts extends AbstractTags {
         sort();//requires that the reads are sorted
         int collapsedRows = 0;
 
-
-        for (int i = 1; i
-                < this.getSize(); i++) {
+        //todo does not support tags longer than 2
+        for (int i = 1; i < this.getSize(); i++) {
             if ((tags[0][i - 1] == tags[0][i]) && (tags[1][i - 1] == tags[1][i])) {
                 readCount[i] += readCount[i - 1];
                 readCount[i - 1] = 0;
                 collapsedRows++;
 
             }
-
-
         }
-        System.out.println("Rows collapsed:" + collapsedRows);
+        System.out.println("Tag rows collapsed after sorting:" + collapsedRows);
 
 
     }

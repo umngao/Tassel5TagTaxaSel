@@ -1,13 +1,15 @@
 package net.maizegenetics.analysis.gbs;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+import net.maizegenetics.dna.BaseEncoder;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-
-import net.maizegenetics.dna.BaseEncoder;
 
 /**
  * Takes a key file and then sets up the methods to decode a read from the sequencer.
@@ -18,7 +20,7 @@ import net.maizegenetics.dna.BaseEncoder;
  * @author Ed Buckler, Jeff Glaubitz, and James Harriman
  *
  */
-public class ParseBarcodeRead {
+public class ParseBarcodeRead2 {
 
     private static int chunkSize = BaseEncoder.chunkSize;
     protected int maximumMismatchInBarcodeAndOverhang = 0;
@@ -31,6 +33,7 @@ public class ParseBarcodeRead {
     private Barcode[] theBarcodes;
     private long[] quickBarcodeList;
     private HashMap<Long, Integer> quickMap;
+    private BiMap<String, Integer> taxaNameToUniqueIndexMap;
 
     /**
      * Create the barcode parsing object
@@ -39,7 +42,7 @@ public class ParseBarcodeRead {
      * @param flowcell name of the flowcell to be processed
      * @param lane name of the lane to be processed
      */
-    public ParseBarcodeRead(String keyFile, String enzyme, String flowcell, String lane) {
+    public ParseBarcodeRead2(String keyFile, String enzyme, String flowcell, String lane) {
         if (enzyme != null) {
             chooseEnzyme(enzyme);
         } else {
@@ -62,7 +65,7 @@ public class ParseBarcodeRead {
     //TODO these should all be private static final globals, then just use this set which one is active.
     public static void chooseEnzyme(String enzyme) {
         // Check for case-insensitive (?i) match to a known enzyme
-        // The common adapter is: [readEndCutSiteRemnant]AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAG  
+        // The common adapter is: [readEndCutSiteRemnant]AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAG
         if (enzyme.matches("(?i)apek[i1]")) {
             theEnzyme = "ApeKI";
             initialCutSiteRemnant = new String[]{"CAGC", "CTGC"};
@@ -247,12 +250,12 @@ public class ParseBarcodeRead {
             initialCutSiteRemnant= new String[]{"AATTC"};
             likelyReadEnd = new String[]{"GAATTC","GAATTAGAT"}; // full cut site (from partial digest or chimera) or common adapter start
             readEndCutSiteRemnantLength = 5;
-        } else if(enzyme.matches("(?i)cviq[i1]")){  
+        } else if(enzyme.matches("(?i)cviq[i1]")){
             theEnzyme = "CviQI";  // CviQI and Csp6I are isoschizomers (same recognition seq and overhang)
             initialCutSiteRemnant=new String[]{"TAC"};
             likelyReadEnd = new String[]{"GTAC","GTAAGATCGG"}; // full cut site (from partial digest or chimera) or common adapter start
             readEndCutSiteRemnantLength = 3;
-        } else if(enzyme.matches("(?i)csp6[i1]")){  
+        } else if(enzyme.matches("(?i)csp6[i1]")){
             theEnzyme = "Csp6I";  // Csp6I and CviQI are isoschizomers (same recognition seq and overhang)
             initialCutSiteRemnant=new String[]{"TAC"};
             likelyReadEnd = new String[]{"GTAC","GTAAGATCGG"}; // full cut site (from partial digest or chimera) or common adapter start
@@ -359,7 +362,7 @@ public class ParseBarcodeRead {
     }
 
     /**
-     * Reads in an Illumina key file, creates a linear array of {@link Barcode} objects
+     * Reads in an Illumina key file, creates a linear array of {@link net.maizegenetics.analysis.gbs.Barcode} objects
      * representing the barcodes in the key file, then creates a hash map containing
      * indices from the linear array indexed by sequence.  The names of barcode objects
      * follow the pattern samplename:flowcell:lane:LibraryPrepID, since sample names alone are not unique.
@@ -367,13 +370,15 @@ public class ParseBarcodeRead {
      * @param keyFile Illumina key file.
      * @param flowcell Only barcodes from this flowcell will be added to the array.
      * @param lane Only barcodes from this lane will be added to the array.
-     * @return Number of barcodes in the array.  
+     * @return Number of barcodes in the array.
      */
     private int setupBarcodeFiles(File keyFile, String flowcell, String lane) {
         try {
             BufferedReader br = new BufferedReader(new FileReader(keyFile), 65536);
             ArrayList<Barcode> theBarcodesArrayList = new ArrayList<Barcode>();
             String temp;
+            taxaNameToUniqueIndexMap=HashBiMap.create();
+            int taxaIndex=0;
             while (((temp = br.readLine()) != null)) {
                 String[] s = temp.split("\\t");  //split by whitespace
                 Barcode theBC = null;
@@ -381,11 +386,21 @@ public class ParseBarcodeRead {
                     if (s.length < 8 || s[7] == null || s[7].trim().equals("")) {  // column H (LibraryPrepID) is required for TASSEL5
                         throw new IllegalArgumentException("Column H of the key file must contain a LibraryPrepID (integer or alphanumeric)");
                     } else {  // use the "libraryPrepID" or whatever is in column H of the key file
-                        theBC = new Barcode(s[2], initialCutSiteRemnant, s[3]+":"+s[0]+":"+s[1]+":"+ s[7],-1,flowcell,lane);
+                        //String taxaName=s[3]+":"+s[0]+":"+s[1]+":"+ s[7];
+                        String taxaName=s[3]+":"+ s[7];
+                        Integer currTaxon=taxaNameToUniqueIndexMap.get(taxaName);
+                        if(currTaxon==null) {
+                            taxaNameToUniqueIndexMap.put(taxaName,taxaIndex);
+                            currTaxon=taxaIndex;
+                            taxaIndex++;
+                        }
+                        theBC = new Barcode(s[2], initialCutSiteRemnant, taxaName,currTaxon,flowcell,lane);
+
                     }
                     theBarcodesArrayList.add(theBC);
                     System.out.println(theBC.barcodeS + " " + theBC.taxaName);
                 }
+
             }
             theBarcodes = new Barcode[theBarcodesArrayList.size()];
             theBarcodesArrayList.toArray(theBarcodes);
@@ -407,7 +422,7 @@ public class ParseBarcodeRead {
     }
 
     /**
-     * Returns the best barcode match for a given sequence.  
+     * Returns the best barcode match for a given sequence.
      * @param queryS query sequence to be tested against all barcodes
      * @param maxDivergence maximum divergence to permit
      * @return best barcode match (null if no good match)
@@ -471,6 +486,7 @@ public class ParseBarcodeRead {
      * @return returnValue A ReadBarcodeResult object containing the unprocessed
      * tag, Cut site position, Processed tag, and Poly-A padded tag.
      */
+    //TODO one idea to remove this after the master list is built
     public static ReadBarcodeResult removeSeqAfterSecondCutSite(String seq, byte maxLength) {
         //this looks for a second restriction site or the common adapter start, and then turns the remaining sequence to AAAA
         int cutSitePosition = 9999;
@@ -478,25 +494,25 @@ public class ParseBarcodeRead {
 
         //Look for cut sites, starting at a point past the length of the initial cut site remnant that all reads begin with
         String match = null;
-        for (String potentialCutSite : likelyReadEnd) {
-            int p = seq.indexOf(potentialCutSite, 1);
-            if ((p > 1) && (p < cutSitePosition)) {
-                cutSitePosition = p;
-                match = potentialCutSite;
-            }
-        }
-        if (theEnzyme.equalsIgnoreCase("ApeKI") && cutSitePosition == 2
-                && (match.equalsIgnoreCase("GCAGC") || match.equalsIgnoreCase("GCTGC"))) {  // overlapping ApeKI cut site: GCWGCWGC
-            seq = seq.substring(3, seq.length());  // trim off the initial GCW from GCWGCWGC
-            cutSitePosition = 9999;
-            returnValue.unprocessedSequence = seq;
-            for (String potentialCutSite : likelyReadEnd) {
-                int p = seq.indexOf(potentialCutSite, 1);
-                if ((p > 1) && (p < cutSitePosition)) {
-                    cutSitePosition = p;
-                }
-            }
-        }
+//        for (String potentialCutSite : likelyReadEnd) {
+//            int p = seq.indexOf(potentialCutSite, 1);
+//            if ((p > 1) && (p < cutSitePosition)) {
+//                cutSitePosition = p;
+//                match = potentialCutSite;
+//            }
+//        }
+//        if (theEnzyme.equalsIgnoreCase("ApeKI") && cutSitePosition == 2
+//                && (match.equalsIgnoreCase("GCAGC") || match.equalsIgnoreCase("GCTGC"))) {  // overlapping ApeKI cut site: GCWGCWGC
+//            seq = seq.substring(3, seq.length());  // trim off the initial GCW from GCWGCWGC
+//            cutSitePosition = 9999;
+//            returnValue.unprocessedSequence = seq;
+//            for (String potentialCutSite : likelyReadEnd) {
+//                int p = seq.indexOf(potentialCutSite, 1);
+//                if ((p > 1) && (p < cutSitePosition)) {
+//                    cutSitePosition = p;
+//                }
+//            }
+//        }
 
         if (cutSitePosition < maxLength) {  // Cut site found
             //Trim tag to sequence up to & including the cut site
@@ -527,7 +543,7 @@ public class ParseBarcodeRead {
     }
 
     /**
-     * Return a {@link ReadBarcodeResult} that captures the processed read and taxa
+     * Return a {@link net.maizegenetics.analysis.gbs.ReadBarcodeResult} that captures the processed read and taxa
      * inferred by the barcode
      * @param seqS DNA sequence from the sequencer
      * @param qualS quality score string from the sequencer
@@ -544,38 +560,46 @@ public class ParseBarcodeRead {
             if (firstBadBase < (maxBarcodeLength + 2 * chunkSize)) {
                 return null;
             }
-        }
-        int miss = -1;
-        if (fastq) {
-            miss = seqS.lastIndexOf('N', maxBarcodeLength + 2*chunkSize - 1);
         } else {
-            miss = seqS.lastIndexOf('.', maxBarcodeLength + 2*chunkSize - 1);
-        }
-        if (miss != -1) {
-            return null;  //bad sequence so skip
+            //either do a quality screen or throw out sequences with a bad data point
+            int miss = -1;
+            if (fastq) {
+                miss = seqS.lastIndexOf('N', maxBarcodeLength + 2 * chunkSize - 1);
+                if (miss > 0) {
+                    System.out.println(seqS);
+                    System.out.println(qualS);
+                }
+            } else {
+                miss = seqS.lastIndexOf('.', maxBarcodeLength + 2 * chunkSize - 1);
+            }
+            if (miss != -1) {
+                return null;  //bad sequence so skip
+            }
         }
         Barcode bestBarcode = findBestBarcode(seqS, maximumMismatchInBarcodeAndOverhang);
+        //Barcode bestBarcode = theBarcodes[0];
         if (bestBarcode == null) {
             return null;  //overhang missing so skip
         }
         String genomicSeq = seqS.substring(bestBarcode.barLength, seqS.length());
         ReadBarcodeResult tagProcessingResults = removeSeqAfterSecondCutSite(genomicSeq, (byte) (2 * chunkSize));
+       // ReadBarcodeResult tagProcessingResults = new ReadBarcodeResult(genomicSeq);
         String hap = tagProcessingResults.paddedSequence;  //this is slow 20% of total time.   Tag, cut site processed, padded with poly-A
 
         read = BaseEncoder.getLongArrayFromSeq(hap);
         int pos = tagProcessingResults.length;
-        //TODO this instantiation should also include the orginal unprocessedSequence, processedSequence, and paddedSequence - the the object encode it 
+        //TODO this instantiation should also include the original unprocessedSequence, processedSequence, and paddedSequence - the the object encode it
 
-        ReadBarcodeResult rbr = new ReadBarcodeResult(read, (byte) pos, bestBarcode.getTaxaName(),bestBarcode.taxaIndex);
+        ReadBarcodeResult rbr = new ReadBarcodeResult(read, (byte) pos, bestBarcode.getTaxaName(), bestBarcode.taxaIndex);
         return rbr;
     }
-    
+
    /**Returns the number of barcodes for the flowcell and lane*/
     public int getBarCodeCount() {
         return theBarcodes.length;
     }
 
-    /**Returns the {@link Barcode} for the flowcell and lane*/
+    /**Returns the {@link net.maizegenetics.analysis.gbs.Barcode} for the flowcell and lane*/
     public Barcode getTheBarcodes(int index) {
         return theBarcodes[index];
     }
@@ -587,6 +611,10 @@ public class ParseBarcodeRead {
             result[i] = getTheBarcodes(i).getTaxaName();
         }
         return result;
+    }
+
+    public BiMap<String,Integer> getTaxaNameToUniqueIndexMap() {
+        return taxaNameToUniqueIndexMap;
     }
 
 }
