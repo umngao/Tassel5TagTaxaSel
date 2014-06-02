@@ -107,11 +107,6 @@ public class HDF5SummaryPlugin extends AbstractPlugin {
         super(parentFrame, isInteractive);
     }
 
-    @Override
-    public DataSet performFunction (DataSet input){
-        DataSet x = processData(null);
-        return null;
-    }
 
     @Override
     public DataSet processData(DataSet input) {
