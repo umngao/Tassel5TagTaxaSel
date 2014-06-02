@@ -167,8 +167,12 @@ public class DiscoverySNPCallerPlugin extends AbstractPlugin {
         theTOPM = new TagsOnPhysicalMap(inputTOPMFile(), loadBinary);
 
         if (myLogFile.isEmpty()) {
-            String outFolder = outputTOPMFile().substring(0, outputTOPMFile().lastIndexOf(File.separator));
-            logFile(outFolder + File.separator + "TagLocusLog.txt");
+            try {
+                File outDir = (new File(outputTOPMFile())).getCanonicalFile().getParentFile();
+                logFile(outDir.getCanonicalPath() + File.separator + "TagLocusLog.txt");
+            } catch (IOException e) {
+                throw new IllegalArgumentException("Problem creating the tagLocusLog file. Program aborted: "+e);
+            }
         }
 
         if (!myPedigreeFile.isEmpty()) {
@@ -1271,7 +1275,7 @@ public class DiscoverySNPCallerPlugin extends AbstractPlugin {
 
 class CustomSNPLog {
 
-    private final BufferedWriter myWriter;
+    private BufferedWriter myWriter;
     private final String HEADER
             = "Chr" + "\t"
             + "TagLocusStartPos" + "\t"
@@ -1305,32 +1309,26 @@ class CustomSNPLog {
             + "passed?" + "\n";
 
     public CustomSNPLog(String locusLogFileName) {
-        if ((locusLogFileName == null) || (locusLogFileName.length() == 0)) {
-            myWriter = null;
-        } else {
-            String locusLogFileDir = locusLogFileName.substring(0, locusLogFileName.lastIndexOf(File.separator) + 1);
-            String snpLogFileName = locusLogFileDir + "CustomSNPLog.txt";
-            boolean exists = false;
-            File file = new File(snpLogFileName);
-            if (file.exists()) {
-                exists = true;
-            }
+        String locusLogFileDir;
+        try {
+            locusLogFileDir = (new File(locusLogFileName)).getCanonicalFile().getParent();
+            String snpLogFileName = locusLogFileDir + File.separator + "CustomSNPLog.txt";
             myWriter = Utils.getBufferedWriter(snpLogFileName, false);
-            if (!exists) {
-                try {
-                    myWriter.append(HEADER);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
+            myWriter.append(HEADER);
+        } catch (IOException e) {
+            System.out.println("\n\nERROR: problem creating custom SNP log file: " + e + "\n\n");
+            e.printStackTrace();
+            System.exit(1);
         }
     }
-
+    
     public void writeEntry(String entry) {
         try {
             myWriter.append(entry);
-        } catch (Exception e) {
+        } catch (IOException e) {
+            System.out.println("\n\nERROR: problem writing to custom SNP log file: " + e + "\n\n");
             e.printStackTrace();
+            System.exit(1);
         }
     }
 

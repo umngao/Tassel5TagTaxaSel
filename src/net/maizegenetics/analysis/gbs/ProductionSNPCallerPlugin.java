@@ -142,8 +142,11 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
             throw new IllegalStateException("TagsOnPhysicalMap file not available or is empty");
         }
 
-        myOutputDir = outputHDF5GenotypesFile().substring(0, outputHDF5GenotypesFile().lastIndexOf(File.separator));
-
+        try {
+            myOutputDir = (new File(outputHDF5GenotypesFile())).getCanonicalFile().getParent();
+        } catch (IOException e) {
+            throw new IllegalStateException("Problem resolving output directory:" + e);
+        }
     }
 
     @Override
@@ -450,7 +453,7 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
         System.gc();
         String message = "\nWorking on GBS raw sequence file: " + myRawSeqFileNames[fileNum];
         fastq = true;
-        if (myRawSeqFileNames[fileNum].substring(myRawSeqFileNames[fileNum].lastIndexOf(File.separator)).contains("qseq")) {
+        if (new File(myRawSeqFileNames[fileNum]).getName().contains("qseq")) {
             fastq = false;
         }
         if (fastq) {
@@ -671,7 +674,7 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
 
     private void writeReadsPerSampleReports() {
         myLogger.info("\nWriting ReadsPerSample log file...");
-        String outFileS = myOutputDir + keyFile().substring(keyFile().lastIndexOf(File.separator));
+        String outFileS = myOutputDir + File.separator + (new File(keyFile())).getName();
         outFileS = outFileS.replaceAll(".txt", "_ReadsPerSample.log");
         outFileS = outFileS.replaceAll("_key", "");
         try {
