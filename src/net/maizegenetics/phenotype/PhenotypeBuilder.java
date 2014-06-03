@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -15,6 +16,7 @@ import org.apache.log4j.Logger;
 
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
 
 /**
@@ -37,6 +39,7 @@ public class PhenotypeBuilder {
 	private boolean isUnionJoin;
 	private boolean isFilterable = false;
 	private String phenotypeName = "Phenotype";
+	
 	public PhenotypeBuilder() {
 		
 	}
@@ -192,7 +195,8 @@ public class PhenotypeBuilder {
 	public Phenotype build() {
 		if (source == SOURCE_TYPE.file) {
 			try {
-				BufferedReader br = new BufferedReader(new FileReader(filename));
+				File phenotypeFile = new File(filename);
+				BufferedReader br = new BufferedReader(new FileReader(phenotypeFile));
 				String topline = br.readLine();
 				if (phenotypeName.equals("Phenotype")) {
 					phenotypeName = new File(filename).getName();
@@ -200,9 +204,9 @@ public class PhenotypeBuilder {
 				}
 				Phenotype myPhenotype;
 				if (topline.toLowerCase().startsWith("<phenotype")) {
-					myPhenotype = importPhenotypeFile(br);
+					myPhenotype = importPhenotypeFile(phenotypeFile);
 				} else {
-					myPhenotype = importTraitFile(br, topline);
+					myPhenotype = importTraits(phenotypeFile);
 				}
 				br.close();
 				return myPhenotype;
@@ -226,68 +230,220 @@ public class PhenotypeBuilder {
 		throw new java.lang.IllegalStateException("Phenotype Builder error: applied a filter method to a non-filterable instance.");
 	}
 	
-	private Phenotype importPhenotypeFile(BufferedReader phenotypeReader) {
+	private Phenotype importPhenotypeFile(File phenotypeFile) throws IOException {
 		Pattern whiteSpace = Pattern.compile("\\s+");
 		ArrayList<PhenotypeAttribute> attributes = new ArrayList<>();
 		ArrayList<ATTRIBUTE_TYPE> types = new ArrayList<>();
-		
-		//assumes the first line has been read to determine that this is indeed a Phenotype file
-		try {
-			String[] typeString = whiteSpace.split(phenotypeReader.readLine());
-			String[] phenoNames = whiteSpace.split(phenotypeReader.readLine());
-			int nPheno = typeString.length;
-			ArrayList<String[]> stringData = new ArrayList<String[]>();
-			String inputStr;
-			while ((inputStr = phenotypeReader.readLine()) != null) {
-				stringData.add(whiteSpace.split(inputStr));
-			}
-			
-			int nObs = stringData.size();
-			for (int pheno = 0; pheno < nPheno; pheno++) {
-				if (typeString[pheno].toLowerCase().startsWith("cov") || typeString[pheno].toLowerCase().startsWith("dat")) {
-					float[] dataArray = new float[nObs];
-					OpenBitSet missing = new OpenBitSet(nObs);
-					int obsCount = 0;
-					for (String[] inputLine : stringData) {
-						try {
-							dataArray[obsCount] = Float.parseFloat(inputLine[pheno]);
-						} catch (NumberFormatException nfe) {
-							dataArray[obsCount] = Float.NaN;
-							missing.fastSet(obsCount);
-						}
-						obsCount++;
-					}
-					attributes.add(new NumericAttribute(phenoNames[pheno], dataArray, missing));
-					if (typeString[pheno].toLowerCase().startsWith("cov")) types.add(ATTRIBUTE_TYPE.covariate);
-					else types.add(ATTRIBUTE_TYPE.data);
-				} else if (typeString[pheno].toLowerCase().startsWith("tax")) {
-					ArrayList<Taxon> taxa = new ArrayList<>();
-					for (String[] inputLine : stringData) {
-						taxa.add(new Taxon(inputLine[pheno]));
-					}
-					attributes.add(new TaxaAttribute(taxa, phenoNames[pheno]));
-					types.add(ATTRIBUTE_TYPE.taxa);
-				} else if (typeString[pheno].toLowerCase().startsWith("fac")) {
-					String[] labelArray = new String[nObs];
-					int obsCount = 0;
-					for (String[] inputLine : stringData) {
-						labelArray[obsCount++] = inputLine[pheno];
-					}
-					attributes.add(new CategoricalAttribute(phenoNames[pheno], labelArray));
-					types.add(ATTRIBUTE_TYPE.factor);
-				}
-			}
-			
-		} catch (IOException e) {
-			myLogger.error("Error reading phenotype file.");
-			e.printStackTrace();
+
+		BufferedReader phenotypeReader = new BufferedReader(new FileReader(phenotypeFile));
+		phenotypeReader.readLine();  //assumes the first line has been read to determine that this is indeed a Phenotype file
+		String[] typeString = whiteSpace.split(phenotypeReader.readLine());
+		String[] phenoNames = whiteSpace.split(phenotypeReader.readLine());
+		int nPheno = typeString.length;
+		ArrayList<String[]> stringData = new ArrayList<String[]>();
+		String inputStr;
+		while ((inputStr = phenotypeReader.readLine()) != null) {
+			stringData.add(whiteSpace.split(inputStr));
 		}
-		
+
+		int nObs = stringData.size();
+		for (int pheno = 0; pheno < nPheno; pheno++) {
+			if (typeString[pheno].toLowerCase().startsWith("cov") || typeString[pheno].toLowerCase().startsWith("dat")) {
+				float[] dataArray = new float[nObs];
+				OpenBitSet missing = new OpenBitSet(nObs);
+				int obsCount = 0;
+				for (String[] inputLine : stringData) {
+					try {
+						dataArray[obsCount] = Float.parseFloat(inputLine[pheno]);
+					} catch (NumberFormatException nfe) {
+						dataArray[obsCount] = Float.NaN;
+						missing.fastSet(obsCount);
+					}
+					obsCount++;
+				}
+				attributes.add(new NumericAttribute(phenoNames[pheno], dataArray, missing));
+				if (typeString[pheno].toLowerCase().startsWith("cov")) types.add(ATTRIBUTE_TYPE.covariate);
+				else types.add(ATTRIBUTE_TYPE.data);
+			} else if (typeString[pheno].toLowerCase().startsWith("tax")) {
+				ArrayList<Taxon> taxa = new ArrayList<>();
+				for (String[] inputLine : stringData) {
+					taxa.add(new Taxon(inputLine[pheno]));
+				}
+				attributes.add(new TaxaAttribute(taxa, phenoNames[pheno]));
+				types.add(ATTRIBUTE_TYPE.taxa);
+			} else if (typeString[pheno].toLowerCase().startsWith("fac")) {
+				String[] labelArray = new String[nObs];
+				int obsCount = 0;
+				for (String[] inputLine : stringData) {
+					labelArray[obsCount++] = inputLine[pheno];
+				}
+				attributes.add(new CategoricalAttribute(phenoNames[pheno], labelArray));
+				types.add(ATTRIBUTE_TYPE.factor);
+			}
+		}
+		phenotypeReader.close();
+
 		return new CorePhenotype(attributes, types, phenotypeName);
 	}
 	
-	private Phenotype importTraitFile(BufferedReader phenotypeReader, String firstLine) {
-		//TODO implement
+	private Phenotype importTraits(File phenotypeFile) throws IOException {
+		BufferedReader phenotypeReader = new BufferedReader(new FileReader(phenotypeFile));
+
+		int numberOfDataLines = 0;
+		String inputline = phenotypeReader.readLine();
+		Map<String, ArrayList<String>> headerMap = new HashMap<String, ArrayList<String>>();
+		boolean isFactor = false;
+		boolean isCovariate = false;
+		boolean hasHeaders = false;
+		boolean isTrait = false;
+		String[] traitnames = new String[0];
+		while (inputline != null) {
+			inputline = inputline.trim();
+			if (inputline.length() > 1 && !inputline.startsWith("<") && !inputline.startsWith("#")) {
+				numberOfDataLines++;
+			} else if (inputline.toLowerCase().startsWith("<trai")) {
+				isTrait = true;
+				String[] splitLine = inputline.split("[<>\\s]+");
+				traitnames = Arrays.copyOfRange(splitLine, 2, splitLine.length);
+			} else if (inputline.toLowerCase().startsWith("<cov")) {
+				isCovariate = true;
+			} else if (inputline.toLowerCase().startsWith("<fac")) {
+				isFactor = true;
+			} else if (inputline.toLowerCase().startsWith("<head")) {
+				hasHeaders = true;
+				processHeader(inputline, headerMap);
+			}
+			
+			inputline = phenotypeReader.readLine();
+		}
+		phenotypeReader.close();
+		
+		if (hasHeaders) {
+			
+		} else if (isFactor) {
+			return processFactors(phenotypeFile, traitnames, numberOfDataLines);
+		} else if (isTrait) {
+			return processTraits(phenotypeFile, traitnames, numberOfDataLines, isCovariate);
+		}
+		throw new IllegalArgumentException("Unrecognized format for a phenotype.");
+	}
+	
+	private Phenotype processTraits(File phenotypeFile, String[] traitnames, int numberOfDataLines, boolean isCovariate) throws IOException {
+		int ntraits = traitnames.length;
+		int nattributes = ntraits + 1;
+		ArrayList<PhenotypeAttribute> attributes = new ArrayList<>(nattributes);
+		ArrayList<ATTRIBUTE_TYPE> types = new ArrayList<>(nattributes);
+		ArrayList<float[]> traitValues = new ArrayList<>(ntraits);
+		ArrayList<BitSet> missingList = new ArrayList<>(ntraits);
+		ArrayList<Taxon> taxaList = new ArrayList<>();
+		
+		types.add(ATTRIBUTE_TYPE.taxa);
+		ATTRIBUTE_TYPE myAttributeType;
+		if (isCovariate) myAttributeType = ATTRIBUTE_TYPE.covariate;
+		else myAttributeType = ATTRIBUTE_TYPE.data;
+		for (int i = 0; i < ntraits; i++) {
+			traitValues.add(new float[numberOfDataLines]);
+			missingList.add(new OpenBitSet(numberOfDataLines));
+			types.add(myAttributeType);
+		}
+		
+		BufferedReader phenotypeReader = new BufferedReader(new FileReader(phenotypeFile));
+		int dataCount = 0;
+		int lineCount = 1;
+		String inputline;
+		while ((inputline = phenotypeReader.readLine()) != null) {
+			inputline = inputline.trim();
+			if (inputline.length() > 1 && !inputline.startsWith("<") && !inputline.startsWith("#")) {
+				String[] values = inputline.split("\\s+");
+				if (values.length != ntraits + 1) {
+					String msg = String.format("Incorrect number of values in line %d of %s", lineCount, phenotypeFile.getName());
+					phenotypeReader.close();
+					throw new IllegalArgumentException(msg);
+				}
+				taxaList.add(new Taxon(values[0]));
+				for (int i = 0; i < ntraits; i++) {
+					float val;
+					try {
+						val = Float.parseFloat(values[i + 1]);
+					} catch (NumberFormatException e) {
+						val = Float.NaN;
+						missingList.get(i).fastSet(dataCount);
+					}
+					traitValues.get(i)[dataCount] = val;
+				}
+				dataCount++;
+			}
+			
+			lineCount++;
+		}
+		
+		phenotypeReader.close();
+		
+		attributes.add(new TaxaAttribute(taxaList));
+		for (int i = 0; i < ntraits; i++) attributes.add(new NumericAttribute(traitnames[i], traitValues.get(i), missingList.get(i)));
+		return new CorePhenotype(attributes, types, phenotypeName);
+	}
+	
+	private Phenotype processFactors(File phenotypeFile, String[] traitnames, int numberOfDataLines) throws IOException {
+		int ntraits = traitnames.length;
+		int nattributes = ntraits + 1;
+		ArrayList<PhenotypeAttribute> attributes = new ArrayList<>(nattributes);
+		ArrayList<ATTRIBUTE_TYPE> types = new ArrayList<>(nattributes);
+		ArrayList<String[]> traitValues = new ArrayList<>(ntraits);
+//		ArrayList<BitSet> missingList = new ArrayList<>(ntraits);
+		ArrayList<Taxon> taxaList = new ArrayList<>();
+		
+		types.add(ATTRIBUTE_TYPE.taxa);
+		ATTRIBUTE_TYPE myAttributeType = ATTRIBUTE_TYPE.factor;
+		for (int i = 0; i < ntraits; i++) {
+			traitValues.add(new String[numberOfDataLines]);
+//			missingList.add(new OpenBitSet(numberOfDataLines));
+			types.add(myAttributeType);
+		}
+		
+		BufferedReader phenotypeReader = new BufferedReader(new FileReader(phenotypeFile));
+		int dataCount = 0;
+		int lineCount = 1;
+		String inputline;
+		while ((inputline = phenotypeReader.readLine()) != null) {
+			inputline = inputline.trim();
+			if (inputline.length() > 1 && !inputline.startsWith("<") && !inputline.startsWith("#")) {
+				String[] values = inputline.split("\\s+");
+				if (values.length != ntraits + 1) {
+					String msg = String.format("Incorrect number of values in line %d of %s", lineCount, phenotypeFile.getName());
+					phenotypeReader.close();
+					throw new IllegalArgumentException(msg);
+				}
+				taxaList.add(new Taxon(values[0]));
+				for (int i = 0; i < ntraits; i++) {
+					traitValues.get(i)[dataCount] = values[i + 1];
+				}
+				dataCount++;
+			}
+			
+			lineCount++;
+		}
+		
+		phenotypeReader.close();
+		
+		attributes.add(new TaxaAttribute(taxaList));
+		for (int i = 0; i < ntraits; i++) attributes.add(new CategoricalAttribute(traitnames[i], traitValues.get(i)));
+		return new CorePhenotype(attributes, types, phenotypeName);
+	}
+	
+	private void processHeader(String headerLine, Map<String, ArrayList<String>> headerMap) {
+		String[] header = headerLine.split("[<>=\\s]+");
+		if ( header[1].toLowerCase().equals("header") && header[2].toLowerCase().equals("name")) {
+			String name = header[3];
+			ArrayList<String> values = new ArrayList<>();
+			for (int i = 4; i < header.length; i++) {
+				values.add(header[i]);
+			}
+			headerMap.put(name, values);
+		} else throw new IllegalArgumentException("Improperly formatted Header: " + headerLine);
+	}
+	
+	private Phenotype processTraitsAndFactors() {
 		return null;
 	}
 	
