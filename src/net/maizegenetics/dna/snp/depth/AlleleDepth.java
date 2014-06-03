@@ -26,16 +26,40 @@ public interface AlleleDepth {
      * @return array of counts
      */
     public int[] depthForAlleles(int taxon, int site);
-    
+
+    /**
+     * Returns allele depth for given taxon, site, and allele.
+     *
+     * @param taxon taxon
+     * @param site site
+     * @param allele allele
+     *
+     * @return allele depth
+     */
     public int depthForAllele(int taxon, int site, int allele);
-    
+
+    /**
+     * Returns allele depth for given taxon, site, and allele in byte format
+     * (negative values need to be decoded for real value).
+     *
+     * @param taxon taxon
+     * @param site site
+     * @param allele allele
+     *
+     * @return allele depth byte encoded.
+     */
     public byte depthForAlleleByte(int taxon, int site, int allele);
 
     /**
-     * Returns allele depths for all alleles and sites for a taxon in byte format (negative values are logs)
+     * Returns allele depths for all alleles and sites for a taxon in byte
+     * format (negative values need to be decoded for real value).
+     *
+     * @param taxon taxon
+     *
+     * @return allele depths byte encoded
      */
     public byte[][] depthAllSitesByte(int taxon);
-    
+
     /**
      * Returns total depth for given taxon and site.
      *

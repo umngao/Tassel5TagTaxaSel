@@ -78,12 +78,12 @@ public class HDF5SummaryPlugin extends AbstractPlugin {
             .guiName("Output site names")
             .build();
     private PluginParameter<Boolean> tagCount
-            = new PluginParameter.Builder<>("siteCount", false, Boolean.class)
+            = new PluginParameter.Builder<>("tagCount", false, Boolean.class)
             .description("Output number of sequence tags in file")
             .guiName("Output tag count")
             .build();
     private PluginParameter<Boolean> tagSeqs
-            = new PluginParameter.Builder<>("siteNames", false, Boolean.class)
+            = new PluginParameter.Builder<>("tagNames", false, Boolean.class)
             .description("Output sequence of all tags in file")
             .guiName("Output tag sequences")
             .build();
@@ -107,11 +107,6 @@ public class HDF5SummaryPlugin extends AbstractPlugin {
         super(parentFrame, isInteractive);
     }
 
-    @Override
-    public DataSet performFunction (DataSet input){
-        DataSet x = processData(null);
-        return null;
-    }
 
     @Override
     public DataSet processData(DataSet input) {

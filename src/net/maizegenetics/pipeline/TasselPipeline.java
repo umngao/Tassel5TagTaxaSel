@@ -52,7 +52,6 @@ import net.maizegenetics.util.ExceptionUtils;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
 
 import java.awt.*;
 import java.io.BufferedReader;
@@ -62,6 +61,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
 import net.maizegenetics.analysis.filter.FilterSubsetPlugin;
+import net.maizegenetics.util.LoggingUtils;
 
 /**
  *
@@ -85,13 +85,7 @@ public class TasselPipeline implements PluginListener {
 
         myMainFrame = frame;
 
-        java.util.Properties props = new java.util.Properties();
-        props.setProperty("log4j.logger.net.maizegenetics", "INFO, stdout");
-        props.setProperty("log4j.appender.stdout",
-                "org.apache.log4j.ConsoleAppender");
-        props.setProperty("log4j.appender.stdout.layout",
-                "org.apache.log4j.TTCCLayout");
-        PropertyConfigurator.configure(props);
+        LoggingUtils.setupLogging();
 
         try {
 
@@ -154,7 +148,7 @@ public class TasselPipeline implements PluginListener {
             new TasselPipeline(args, null);
         }
     }
-
+    
     public void parseArgs(String[] args) {
 
         if ((args.length >= 2) && (args[0].equalsIgnoreCase("-configFile"))) {

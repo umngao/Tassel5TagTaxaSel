@@ -8,17 +8,14 @@ import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.Utils;
 import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.plugindef.AbstractPlugin;
+import net.maizegenetics.util.LoggingUtils;
 
 import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
 
 import javax.swing.*;
 import java.awt.*;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
 
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -52,7 +49,6 @@ public class ProductionPipeline extends AbstractPlugin {
             .description("Archive directory where to move processed files").build();
 
     private String myOutputDirectory;
-    private PrintStream myPrintStreamToLog;
 
     public ProductionPipeline(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
@@ -95,9 +91,7 @@ public class ProductionPipeline extends AbstractPlugin {
 
             return null;
         } finally {
-            if (myPrintStreamToLog != null) {
-                myPrintStreamToLog.close();
-            }
+            LoggingUtils.closeLogfile();
         }
 
     }
@@ -117,23 +111,14 @@ public class ProductionPipeline extends AbstractPlugin {
 
         String todayDate = new SimpleDateFormat("yyyyMMdd").format(new Date());
         String logFileName = todayDate + "_" + "ProductionPipeline" + ".log";
+        logFileName = myOutputDirectory + "/" + logFileName;
 
-        File logFile = new File(myOutputDirectory + "/" + logFileName);
-        myLogger.info("Log File: " + logFile.getAbsolutePath());
-
-        java.util.Properties props = new java.util.Properties();
-        props.setProperty("log4j.logger.net.maizegenetics", "DEBUG, FILE");
-        props.setProperty("log4j.appender.FILE", "org.apache.log4j.FileAppender");
-        props.setProperty("log4j.appender.FILE.File", logFile.getAbsolutePath());
-        props.setProperty("log4j.appender.FILE.ImmediateFlush", "true");
-        props.setProperty("log4j.appender.FILE.Threshold", "debug");
-        props.setProperty("log4j.appender.FILE.Append", "true");
-        props.setProperty("log4j.appender.FILE.layout", "org.apache.log4j.TTCCLayout");
-        PropertyConfigurator.configure(props);
-
-        myPrintStreamToLog = new PrintStream(new ProductionPipelineOutputStream());
-        System.setOut(myPrintStreamToLog);
-        System.setErr(myPrintStreamToLog);
+        myLogger.info("Log File: " + logFileName);
+        try {
+            LoggingUtils.setupLogfile(logFileName);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("ProductionPipeline: setupLogfile: " + logFileName + " doesn't exist.");
+        }
 
     }
 
@@ -159,46 +144,4 @@ public class ProductionPipeline extends AbstractPlugin {
         return "Production Pipeline";
     }
 
-    private class ProductionPipelineOutputStream extends OutputStream {
-
-        private static final int DEFAULT_BUFFER_LENGTH = 2048;
-        private int bufferLength = DEFAULT_BUFFER_LENGTH;
-        private byte[] myBuffer;
-        private int myCounter;
-
-        public ProductionPipelineOutputStream() {
-            myBuffer = new byte[bufferLength];
-            myCounter = 0;
-        }
-
-        @Override
-        public void write(final int b) throws IOException {
-            if (b == 0) {
-                return;
-            }
-            if (myCounter == bufferLength) {
-                final int newBufferLength = bufferLength + DEFAULT_BUFFER_LENGTH;
-                final byte[] temp = new byte[newBufferLength];
-                System.arraycopy(myBuffer, 0, temp, 0, bufferLength);
-                myBuffer = temp;
-                bufferLength = newBufferLength;
-            }
-            myBuffer[myCounter] = (byte) b;
-            myCounter++;
-        }
-
-        @Override
-        public void flush() {
-            if (myCounter == 0) {
-                return;
-            }
-            myLogger.info(new String(myBuffer, 0, myCounter));
-            myCounter = 0;
-        }
-
-        @Override
-        public void close() {
-            flush();
-        }
-    }
 }

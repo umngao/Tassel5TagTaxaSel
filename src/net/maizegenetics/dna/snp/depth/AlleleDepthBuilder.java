@@ -3,7 +3,6 @@
  */
 package net.maizegenetics.dna.snp.depth;
 
-import ch.systemsx.cisd.hdf5.HDF5IntStorageFeatures;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
@@ -22,8 +21,6 @@ import java.util.List;
  */
 public class AlleleDepthBuilder {
 
-    private static final HDF5IntStorageFeatures HDF5_FEATURES = HDF5IntStorageFeatures.createDeflation(2);
-
     private List<SuperByteMatrix> myDepths = null;
     private final boolean myIsHDF5;
     private IHDF5Writer myHDF5Writer = null;
@@ -36,9 +33,6 @@ public class AlleleDepthBuilder {
         myHDF5Writer = writer;
         myMaxNumAlleles = maxNumAlleles;
         myNumSites = numSites;
-//        if (!myHDF5Writer.exists(Tassel5HDF5Constants.)) {
-//            myHDF5Writer.createGroup(HapMapHDF5Constants.DEPTH);
-//        }
     }
 
     private AlleleDepthBuilder(int numSites, int maxNumAlleles) {
@@ -70,8 +64,10 @@ public class AlleleDepthBuilder {
     }
 
     /**
-     * AlleleDepthBuilder is created and depths are stored in a HDF5 file.  setDepth methods are used to set the depths.
-     * Finish the building with build()
+     * AlleleDepthBuilder is created and depths are stored in a HDF5 file.
+     * setDepth methods are used to set the depths. Finish the building with
+     * build()
+     *
      * @param writer
      * @param numSites
      * @return
@@ -82,12 +78,15 @@ public class AlleleDepthBuilder {
 
     /**
      * AlleleDepth is returned for an immutable HDF5 file
+     *
      * @param reader
      * @return allele depths
      */
     public static AlleleDepth getExistingHDF5Instance(IHDF5Reader reader) {
         //TODO is this the right name for this
-        if(HDF5Utils.doesGenotypeDepthExist(reader)==false) return null;
+        if (HDF5Utils.doesGenotypeDepthExist(reader) == false) {
+            return null;
+        }
         return new HDF5AlleleDepth(reader);
     }
 
@@ -111,9 +110,9 @@ public class AlleleDepthBuilder {
     }
 
     /**
-     * Set depth for the all sites and alleles for a taxon simultaneously.
-     * Value will be translated using AlleleDepthUtil. First dimension of depths
-     * is number of alleles (6 for Nucleotide) and second dimension is sites.
+     * Set depth for the all sites and alleles for a taxon simultaneously. Value
+     * will be translated using AlleleDepthUtil. First dimension of depths is
+     * number of alleles (6 for Nucleotide) and second dimension is sites.
      *
      * @param taxon Index of taxon
      * @param depths array[sites][allele] of all values
@@ -141,11 +140,12 @@ public class AlleleDepthBuilder {
     }
 
     /**
-     * Set depth for the all sites and alleles for a taxon simultaneously.
-     * First dimension of depths
-     * is number of alleles (6 for Nucleotide) and second dimension is sites.
+     * Set depth for the all sites and alleles for a taxon simultaneously. First
+     * dimension of depths is number of alleles (6 for Nucleotide) and second
+     * dimension is sites.
      *
      * @param taxon Index of taxon
+     * @param siteOffset site offset
      * @param depths array[sites][allele] of all values
      *
      * @return builder
@@ -160,7 +160,7 @@ public class AlleleDepthBuilder {
         }
         for (int a = 0; a < myMaxNumAlleles; a++) {
             for (int s = 0; s < depths[0].length; s++) {
-                setDepth(taxon, s+siteOffset, (byte) a, depths[a][s]);
+                setDepth(taxon, s + siteOffset, (byte) a, depths[a][s]);
             }
         }
         return this;
@@ -235,8 +235,7 @@ public class AlleleDepthBuilder {
                 throw new IllegalStateException("AlleleDepthBuilder: addTaxon: Number of sites: " + depths[0].length + " should be: " + myNumSites);
             }
             synchronized (myHDF5Writer) {
-                //TAS-167 Ed tried to fix this - Terry needs to check with his unit tests once they are written
-                HDF5Utils.writeHDF5GenotypesDepth(myHDF5Writer,taxon.getName(),depths);
+                HDF5Utils.writeHDF5GenotypesDepth(myHDF5Writer, taxon.getName(), depths);
             }
             myNumTaxa++;
         } else {

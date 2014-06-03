@@ -17,14 +17,14 @@ public class FilterAlleleDepth extends AbstractAlleleDepth {
     private final AlleleDepth myBaseAlleleDepth;
 
     public FilterAlleleDepth(AlleleDepth baseAlleleDepth, FilterGenotypeTable filterGenotypeTable) {
-        super(filterGenotypeTable.maxNumAlleles(),filterGenotypeTable.numberOfTaxa(),filterGenotypeTable.numberOfSites());
-        myBaseAlleleDepth=baseAlleleDepth;
-        myFilterGenotypeTable=filterGenotypeTable;
+        super(filterGenotypeTable.maxNumAlleles(), filterGenotypeTable.numberOfTaxa(), filterGenotypeTable.numberOfSites());
+        myBaseAlleleDepth = baseAlleleDepth;
+        myFilterGenotypeTable = filterGenotypeTable;
     }
 
     @Override
     public byte depthForAlleleByte(int taxon, int site, int allele) {
         return myBaseAlleleDepth.depthForAlleleByte(myFilterGenotypeTable.translateTaxon(taxon),
-                myFilterGenotypeTable.translateSite(site),allele);
+                myFilterGenotypeTable.translateSite(site), allele);
     }
 }
