@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
@@ -45,18 +46,15 @@ public class PhenotypeBuilder {
 	}
 	
 	/**
-	 * @param basePhenotype	a base Phenotype to be filtered
-	 * @return	a builder that can be used to filter a Phenotype
-	 * Filtering means to generate a new Phenotype containing only a subset of the attributes and/or taxa of the original.
+	 * @param basePhenotype	the base Phenotype that will be filtered or copied
+	 * @return	a filterable PhenotypeBuilder
+	 * This is the only method that returns a filterable PhenotypeBuilder
 	 */
-	public static PhenotypeBuilder getFilterableInstance(Phenotype basePhenotype) {
-		return new PhenotypeBuilder(basePhenotype);
-	}
-	
-	private PhenotypeBuilder(Phenotype basePhenotype) {
+	public PhenotypeBuilder filterablePhenotypeBuilder(Phenotype basePhenotype) {
 		this.basePhenotype = basePhenotype;
 		source = SOURCE_TYPE.phenotype;
 		isFilterable = true;
+		return this;
 	}
 	
 	/**
@@ -227,7 +225,7 @@ public class PhenotypeBuilder {
 	
 	//private methods  ------------------------------------------------------
 	private void notFilterable() {
-		throw new java.lang.IllegalStateException("Phenotype Builder error: applied a filter method to a non-filterable instance.");
+		throw new java.lang.IllegalStateException("Phenotype Builder error: applied a filter method to a non-filterable builder.");
 	}
 	
 	private Phenotype importPhenotypeFile(File phenotypeFile) throws IOException {
@@ -291,7 +289,7 @@ public class PhenotypeBuilder {
 
 		int numberOfDataLines = 0;
 		String inputline = phenotypeReader.readLine();
-		Map<String, ArrayList<String>> headerMap = new HashMap<String, ArrayList<String>>();
+		ArrayList<String> headerLines = new ArrayList<>();
 		boolean isFactor = false;
 		boolean isCovariate = false;
 		boolean hasHeaders = false;
@@ -311,7 +309,7 @@ public class PhenotypeBuilder {
 				isFactor = true;
 			} else if (inputline.toLowerCase().startsWith("<head")) {
 				hasHeaders = true;
-				processHeader(inputline, headerMap);
+				headerLines.add(inputline);
 			}
 			
 			inputline = phenotypeReader.readLine();
@@ -319,7 +317,7 @@ public class PhenotypeBuilder {
 		phenotypeReader.close();
 		
 		if (hasHeaders) {
-			
+			processTraitsAndFactors(phenotypeFile, traitnames, numberOfDataLines, isCovariate, headerLines);
 		} else if (isFactor) {
 			return processFactors(phenotypeFile, traitnames, numberOfDataLines);
 		} else if (isTrait) {
@@ -390,14 +388,12 @@ public class PhenotypeBuilder {
 		ArrayList<PhenotypeAttribute> attributes = new ArrayList<>(nattributes);
 		ArrayList<ATTRIBUTE_TYPE> types = new ArrayList<>(nattributes);
 		ArrayList<String[]> traitValues = new ArrayList<>(ntraits);
-//		ArrayList<BitSet> missingList = new ArrayList<>(ntraits);
 		ArrayList<Taxon> taxaList = new ArrayList<>();
 		
 		types.add(ATTRIBUTE_TYPE.taxa);
 		ATTRIBUTE_TYPE myAttributeType = ATTRIBUTE_TYPE.factor;
 		for (int i = 0; i < ntraits; i++) {
 			traitValues.add(new String[numberOfDataLines]);
-//			missingList.add(new OpenBitSet(numberOfDataLines));
 			types.add(myAttributeType);
 		}
 		
@@ -443,8 +439,131 @@ public class PhenotypeBuilder {
 		} else throw new IllegalArgumentException("Improperly formatted Header: " + headerLine);
 	}
 	
-	private Phenotype processTraitsAndFactors() {
-		return null;
+	private Phenotype processTraitsAndFactors(File phenotypeFile, String[] traitnames, int numberOfDataLines, boolean isCovariate, ArrayList<String> headerList)
+	throws IOException {
+		TreeSet<String> traitSet = new TreeSet<>();
+		for (String trait : traitnames) traitSet.add(trait);
+		HashMap<String, Integer> traitMap = new HashMap<>();
+		int traitCount = 0;
+		for (String trait : traitSet) traitMap.put(trait, traitCount++);
+		
+		int ntraitnames = traitnames.length;
+		int ntraits = traitSet.size();
+		int nfactors = headerList.size();
+		String[] factorNames = new String[nfactors];
+		
+		//create set of composite headers and get factor names
+		String[] splitHeader = headerList.get(0).split("[<>=\\s]+");
+		factorNames[0] = splitHeader[3];
+		String[] factorValues = Arrays.copyOfRange(splitHeader, 4, splitHeader.length);
+		
+		for (int i = 1; i < nfactors; i++) {
+			splitHeader = headerList.get(i).split("[<>=\\s]+");
+			factorNames[i] = splitHeader[3].replace("|", ":");
+			for (int j = 0; j < factorValues.length; j++) {
+				factorValues[j] += "|" + splitHeader[j + 4].replace("|", ":");
+			}
+		}
+		
+		TreeSet<String> factorSet = new TreeSet<>();
+		for (String val:factorValues) factorSet.add(val);
+		int nCompositeFactors = factorSet.size();
+		HashMap<String,Integer> factorMap = new HashMap<>();
+		int factorCount = 0;
+		for (String factor : factorSet) factorMap.put(factor, factorCount++);
+		
+		//the length of each attribute array will be numberOfDataLines * number of composite headers
+		int ndata = numberOfDataLines * nCompositeFactors;
+
+		//create the factor arrays
+		ArrayList<String[]> factorAttributeArrays = new ArrayList<>(nfactors);
+		for (int i = 0; i < nfactors; i++) factorAttributeArrays.add(new String[ndata]);
+		int fromIndex = 0;
+		int toIndex = numberOfDataLines;
+		for (String factor : factorSet) {
+			String[] subFactor = factor.split("|");
+			for (int i = 0; i < nfactors; i++) {
+				Arrays.fill(factorAttributeArrays.get(i), fromIndex, toIndex, subFactor[i]);
+			}
+			fromIndex += numberOfDataLines;
+			toIndex += numberOfDataLines;
+		}
+		
+		//create the trait arrays and temporary taxa list
+		ArrayList<float[]> traitAttributeArrays = new ArrayList<>();
+		ArrayList<BitSet> missingList = new ArrayList<>();
+		ArrayList<Taxon> tempTaxa = new ArrayList<>();
+
+		for (int i = 0; i < ntraits; i++) {  //initialize the trait arrays to NaN
+			float[] traitArray = new float[ndata];
+			Arrays.fill(traitArray, Float.NaN);
+			traitAttributeArrays.add(traitArray);
+			missingList.add(new OpenBitSet(ndata));
+		}
+		
+		BufferedReader br = new BufferedReader(new FileReader(phenotypeFile));
+		int dataCount = 0;
+		int lineCount = 1;
+		String inputline;
+		while ((inputline = br.readLine()) != null) {
+			inputline = inputline.trim();
+			if (inputline.length() > 1 && !inputline.startsWith("<") && !inputline.startsWith("#")) {
+				String[] values = inputline.split("\\s+");
+				if (values.length != ntraitnames + 1) {
+					String msg = String.format("Incorrect number of values in line %d of %s", lineCount, phenotypeFile.getName());
+					br.close();
+					throw new IllegalArgumentException(msg);
+				}
+				tempTaxa.add(new Taxon(values[0]));
+				for (int i = 0; i < ntraitnames; i++) {
+					float val;
+					int traitnum = traitMap.get(traitnames[i]);
+					int factornum = factorMap.get(factorValues[i]);
+					int dataIndex = factornum * numberOfDataLines + dataCount;
+					try {
+						val = Float.parseFloat(values[i + 1]);
+					} catch (NumberFormatException e) {
+						val = Float.NaN;
+						missingList.get(traitnum).fastSet(dataIndex);
+					}
+					traitAttributeArrays.get(traitnum)[dataIndex] = val;
+				}
+				dataCount++;
+			}
+			
+			lineCount++;
+		}
+
+		br.close();
+		
+		//create the taxa list
+		ArrayList<Taxon> taxaList = new ArrayList<>(ndata);
+		for (int i = 0; i < nCompositeFactors; i++) taxaList.addAll(tempTaxa);
+
+		//create the taxa, factor, and trait attributes and types in that order
+		ATTRIBUTE_TYPE myAttributeType;
+		if (isCovariate) myAttributeType = ATTRIBUTE_TYPE.covariate;
+		else myAttributeType = ATTRIBUTE_TYPE.data;
+
+		ArrayList<PhenotypeAttribute> attributes = new ArrayList<>(nfactors + ntraits);
+		ArrayList<ATTRIBUTE_TYPE> types = new ArrayList<>(nfactors + ntraits);
+		
+		attributes.add(new TaxaAttribute(taxaList));
+		types.add(ATTRIBUTE_TYPE.taxa);
+		
+		for (int i = 0; i < nfactors; i++) {
+			attributes.add(new CategoricalAttribute(factorNames[i], factorAttributeArrays.get(i)));
+			types.add(ATTRIBUTE_TYPE.factor);
+		}
+		
+		traitCount = 0;
+		for (String trait : traitSet) {
+			attributes.add(new NumericAttribute(trait, traitAttributeArrays.get(traitCount), missingList.get(traitCount)));
+			types.add(myAttributeType);
+			traitCount++;
+		}
+		
+		return new CorePhenotype(attributes, types, phenotypeName);
 	}
 	
 	private Phenotype filterBasePhenotype() {
