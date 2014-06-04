@@ -35,7 +35,7 @@ public class ProductionPipeline extends AbstractPlugin {
         inputDirectory, keyFile, enzyme, productionTOPM, outputGenotypeFile, archiveDirectory
     };
 
-    protected PluginParameter<String> myInputDirectory = new PluginParameter.Builder<String>(PARAMETERS.inputDirectory, null, String.class).required(true).inFile()
+    protected PluginParameter<String> myInputDirectory = new PluginParameter.Builder<String>(PARAMETERS.inputDirectory, null, String.class).required(true).inDir()
             .description("Input directory containing fastq AND/OR qseq files").build();
     protected PluginParameter<String> myKeyFile = new PluginParameter.Builder<String>(PARAMETERS.keyFile, null, String.class).required(true).inFile()
             .description("Barcode Key File").build();
@@ -45,7 +45,7 @@ public class ProductionPipeline extends AbstractPlugin {
             .description("Physical map file containing tags and corresponding variants (production TOPM)").build();
     protected PluginParameter<String> myOutputGenotypeFile = new PluginParameter.Builder<String>(PARAMETERS.outputGenotypeFile, null, String.class).required(true).outFile()
             .description("Output (target) HDF5 genotypes file to add new genotypes to (new file created if it doesn't exist)").build();
-    protected PluginParameter<String> myArchiveDirectory = new PluginParameter.Builder<String>(PARAMETERS.archiveDirectory, null, String.class).required(true).outFile()
+    protected PluginParameter<String> myArchiveDirectory = new PluginParameter.Builder<String>(PARAMETERS.archiveDirectory, null, String.class).required(true).outDir()
             .description("Archive directory where to move processed files").build();
 
     private String myOutputDirectory;
@@ -55,13 +55,12 @@ public class ProductionPipeline extends AbstractPlugin {
     }
 
     @Override
-    public DataSet performFunction(DataSet input) {
+    public void postProcessParameters() {
         if (myOutputGenotypeFile.value() != null) {
             myOutputDirectory = Utils.getDirectory(myOutputGenotypeFile.value());
             setupLogfile();
         }
         myLogger.info(getTimeStamp());
-        return super.performFunction(input);
     }
 
     @Override
@@ -144,4 +143,139 @@ public class ProductionPipeline extends AbstractPlugin {
         return "Production Pipeline";
     }
 
+    // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(ProductionPipeline.class);
+    // }
+    /**
+     * Input directory containing fastq AND/OR qseq files
+     *
+     * @return Input Directory
+     */
+    public String inputDirectory() {
+        return myInputDirectory.value();
+    }
+
+    /**
+     * Set Input Directory. Input directory containing fastq AND/OR qseq files
+     *
+     * @param value Input Directory
+     *
+     * @return this plugin
+     */
+    public ProductionPipeline inputDirectory(String value) {
+        myInputDirectory = new PluginParameter<>(myInputDirectory, value);
+        return this;
+    }
+
+    /**
+     * Barcode Key File
+     *
+     * @return Key File
+     */
+    public String keyFile() {
+        return myKeyFile.value();
+    }
+
+    /**
+     * Set Key File. Barcode Key File
+     *
+     * @param value Key File
+     *
+     * @return this plugin
+     */
+    public ProductionPipeline keyFile(String value) {
+        myKeyFile = new PluginParameter<>(myKeyFile, value);
+        return this;
+    }
+
+    /**
+     * Enzyme used to create the GBS library
+     *
+     * @return Enzyme
+     */
+    public String enzyme() {
+        return myEnzyme.value();
+    }
+
+    /**
+     * Set Enzyme. Enzyme used to create the GBS library
+     *
+     * @param value Enzyme
+     *
+     * @return this plugin
+     */
+    public ProductionPipeline enzyme(String value) {
+        myEnzyme = new PluginParameter<>(myEnzyme, value);
+        return this;
+    }
+
+    /**
+     * Physical map file containing tags and corresponding variants (production
+     * TOPM)
+     *
+     * @return Production T O P M
+     */
+    public String productionTOPM() {
+        return myProductionTOPM.value();
+    }
+
+    /**
+     * Set Production T O P M. Physical map file containing tags and
+     * corresponding variants (production TOPM)
+     *
+     * @param value Production T O P M
+     *
+     * @return this plugin
+     */
+    public ProductionPipeline productionTOPM(String value) {
+        myProductionTOPM = new PluginParameter<>(myProductionTOPM, value);
+        return this;
+    }
+
+    /**
+     * Output (target) HDF5 genotypes file to add new genotypes to (new file
+     * created if it doesn't exist)
+     *
+     * @return Output Genotype File
+     */
+    public String outputGenotypeFile() {
+        return myOutputGenotypeFile.value();
+    }
+
+    /**
+     * Set Output Genotype File. Output (target) HDF5 genotypes file to add new
+     * genotypes to (new file created if it doesn't exist)
+     *
+     * @param value Output Genotype File
+     *
+     * @return this plugin
+     */
+    public ProductionPipeline outputGenotypeFile(String value) {
+        myOutputGenotypeFile = new PluginParameter<>(myOutputGenotypeFile, value);
+        return this;
+    }
+
+    /**
+     * Archive directory where to move processed files
+     *
+     * @return Archive Directory
+     */
+    public String archiveDirectory() {
+        return myArchiveDirectory.value();
+    }
+
+    /**
+     * Set Archive Directory. Archive directory where to move processed files
+     *
+     * @param value Archive Directory
+     *
+     * @return this plugin
+     */
+    public ProductionPipeline archiveDirectory(String value) {
+        myArchiveDirectory = new PluginParameter<>(myArchiveDirectory, value);
+        return this;
+    }
 }

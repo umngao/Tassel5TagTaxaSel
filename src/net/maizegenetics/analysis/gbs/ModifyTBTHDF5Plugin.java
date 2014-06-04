@@ -5,15 +5,8 @@ package net.maizegenetics.analysis.gbs;
 
 import cern.colt.list.IntArrayList;
 
-import net.maizegenetics.dna.map.TagsOnPhysicalMap;
-import net.maizegenetics.dna.tag.TagCounts;
-import net.maizegenetics.dna.tag.Tags;
-import net.maizegenetics.dna.tag.TagsByTaxa.FilePacking;
 import net.maizegenetics.dna.tag.TagsByTaxaByteHDF5TaxaGroups;
-import net.maizegenetics.dna.tag.TagsByTaxa;
-import net.maizegenetics.dna.tag.TagsByTaxaByte;
 import net.maizegenetics.dna.tag.TagsByTaxaByteHDF5TagGroups;
-import net.maizegenetics.util.ArgsEngine;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 
@@ -25,30 +18,30 @@ import java.util.HashMap;
 import java.util.TreeMap;
 
 import javax.swing.ImageIcon;
+import net.maizegenetics.plugindef.PluginParameter;
 
 import org.apache.log4j.Logger;
 
 /**
- *  This pipeline modifies TagsByTaxa HDF5 file with data organized by taxa.
- * It can:
- * 1.  Create an empty TBT.
- * 2.  Merge two TBT
- * 3.  Combined similarly named taxa
- * 4.  Pivot a taxa TBT to a tag TBT
+ * This pipeline modifies TagsByTaxa HDF5 file with data organized by taxa. It
+ * can: 1. Create an empty TBT. 2. Merge two TBT 3. Combined similarly named
+ * taxa 4. Pivot a taxa TBT to a tag TBT
  *
- * @author ed 
+ * @author ed
  */
 public class ModifyTBTHDF5Plugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(ModifyTBTHDF5Plugin.class);
-    private ArgsEngine myArgsEngine = null;
-    private String myAdditionalTBTHDF5 = null;
-    private String myTargetTBTHDF5 = null;
-    private String myOutputTransposeTagTBTHDF5 = null;
-//    private String myOutputLogFile = null;
-    private boolean combineTaxa = false;
-    private Tags myMasterTags = null;
-    private static int maxGoodReads = 500000000; // maximum number of good barcoded reads expected in a fastq file
+
+    private PluginParameter<String> myTargetTBT = new PluginParameter.Builder<>("o", null, String.class).guiName("Target TBT HDF5 File").required(true).inFile()
+            .description("Target TBT HDF5 (*tbt.h5) file to be modified. (Depending on the modification that you wish to make, choose only one of the only three parameters)").build();
+    private PluginParameter<String> myAdditionalTaxaFile = new PluginParameter.Builder<>("i", null, String.class).guiName("Addition Taxa File").inFile()
+            .description("TBT HDF5 (*tbt.h5) file containing additional taxa to be added to the target TBT HDF5 file").build();
+    private PluginParameter<String> myTransposeFile = new PluginParameter.Builder<>("p", null, String.class).guiName("Pivot TBT HDF5 File").outFile()
+            .description("Pivot (transpose) the target TBT HDF5 file into a tag-optimized orientation").build();
+    private PluginParameter<Boolean> myCombineTaxa = new PluginParameter.Builder<>("c", false, Boolean.class).guiName("Merge Taxa")
+            .description("Merge taxa in the target TBT HDF5 file with same LibraryPrepID").build();
+
     IntArrayList[] taxaReads;
     int[] readsPerSample, mappedReadsPerSample;
     int goodBarcodedReads = 0, allReads = 0, goodMatched = 0;
@@ -59,100 +52,43 @@ public class ModifyTBTHDF5Plugin extends AbstractPlugin {
         super(null, false);
     }
 
-    public ModifyTBTHDF5Plugin(Frame parentFrame) {
-        super(parentFrame, false);
+    public ModifyTBTHDF5Plugin(Frame parentFrame, boolean isInteractive) {
+        super(parentFrame, isInteractive);
     }
 
     @Override
-    public DataSet performFunction(DataSet input) {
-        if (myMasterTags != null) {
-            targetTBT = new TagsByTaxaByteHDF5TaxaGroups(myMasterTags, myTargetTBTHDF5);
-        } else {
-            targetTBT = new TagsByTaxaByteHDF5TaxaGroups(myTargetTBTHDF5);
+    protected void postProcessParameters() {
+        int count = 0;
+        if (!myAdditionalTaxaFile.isEmpty()) {
+            count++;
         }
-        if (myAdditionalTBTHDF5 != null) {
-            addAllTaxaToNewHDF5(myAdditionalTBTHDF5);
+        if (!myTransposeFile.isEmpty()) {
+            count++;
         }
-        if (combineTaxa) {
+        if (mergeTaxa()) {
+            count++;
+        }
+        if (count != 1) {
+            throw new IllegalArgumentException("ModifyTBTHDF5Plugin: must specify exactly one paramter (Addition Taxa File, Pivot TBT HDF5 File, or Merge Taxa)");
+        }
+    }
+
+    @Override
+    public DataSet processData(DataSet input) {
+        targetTBT = new TagsByTaxaByteHDF5TaxaGroups(targetTBTHDF5File());
+        if (additionTaxaFile() != null) {
+            addAllTaxaToNewHDF5(additionTaxaFile());
+        }
+        if (mergeTaxa()) {
             combineTaxaHDF5();
         }
-        if (myOutputTransposeTagTBTHDF5 != null) {
-            TagsByTaxaByteHDF5TagGroups tranTBT = new TagsByTaxaByteHDF5TagGroups(targetTBT, myOutputTransposeTagTBTHDF5);
+        if (pivotTBTHDF5File() != null) {
+            TagsByTaxaByteHDF5TagGroups tranTBT = new TagsByTaxaByteHDF5TagGroups(targetTBT, pivotTBTHDF5File());
         }
         targetTBT.getFileReadyForClosing();
         targetTBT = null;
         System.gc();
         return null;
-    }
-
-    private void printUsage() {
-        myLogger.info(
-                "\n\n\nThe ModifyTBTHDF5Plugin accepts the following arguments:\n"
-                + "-o  Target TBT HDF5 (*tbt.h5) file to be modified\n"
-                + "Depending on the modification that you wish to make, one of either:\n"
-                + "    -i  TBT HDF5 (*tbt.h5) file containing additional taxa to be added to the target TBT HDF5 file\n"
-                + "    -c  Merge taxa in the target TBT HDF5 file with same LibraryPrepID\n"
-                + "    -p  Pivot (transpose) the target TBT HDF5 file into a tag-optimized orientation\n"
-//                + "For creating an emptry TBT HDF4, one of either:\n"
-//                + "    -t  Tag count file, OR A\n"
-//                + "    -m  Physical map file containing alignments\n"
-//                + "-L  Output log file \n"
-                +"\n\n\n");
-    }
-
-    @Override
-    public void setParameters(String[] args) {
-        if (args.length == 0) {
-            printUsage();
-            throw new IllegalArgumentException("\n\nPlease use the above arguments/options.\n\n");
-        }
-
-        if (myArgsEngine == null) {
-            myArgsEngine = new ArgsEngine();
-            myArgsEngine.add("-i", "--addition-file", true);
-            myArgsEngine.add("-o", "--target-HDF5", true);
-//            myArgsEngine.add("-L", "--outputlogfile", true);
-            myArgsEngine.add("-c", "--combine-taxa", false);
-            myArgsEngine.add("-p", "--taghdf-file", true);
-//            myArgsEngine.add("-t", "--tagcount-file", true);
-//            myArgsEngine.add("-m", "--physical-map", true);
-        }
-        myArgsEngine.parse(args);
-        if (myArgsEngine.getBoolean("-o")) {
-            myTargetTBTHDF5 = myArgsEngine.getString("-o");
-        } else {
-            printUsage();
-            throw new IllegalArgumentException("Please specify an target file (option -o).");
-        }
-        if (myArgsEngine.getBoolean("-i")) {
-            myAdditionalTBTHDF5 = myArgsEngine.getString("-i");
-        }
-        if (myArgsEngine.getBoolean("-p")) {
-            myOutputTransposeTagTBTHDF5 = myArgsEngine.getString("-p");
-        }
-        if (myArgsEngine.getBoolean("-c")) {
-            combineTaxa = true;
-        }
-//        if (myArgsEngine.getBoolean("-L")) {
-//            myOutputLogFile = myArgsEngine.getString("-L");
-//        } else {
-//            printUsage();
-//            throw new IllegalArgumentException("Please specify a log file (option -L).");
-//        }
-//        // Create Tags object from tag count file with option -t, or from TOPM file with option -m
-//        if (myArgsEngine.getBoolean("-t")) {
-//            if (myArgsEngine.getBoolean("-m")) {
-//                printUsage();
-//                throw new IllegalArgumentException("Options -t and -m are mutually exclusive.");
-//            }
-//            myMasterTags = new TagCounts(myArgsEngine.getString("-t"), FilePacking.Bit);
-//        } else if (myArgsEngine.getBoolean("-m")) {
-//            if (myArgsEngine.getBoolean("-t")) {
-//                printUsage();
-//                throw new IllegalArgumentException("Options -t and -m are mutually exclusive.");
-//            }
-//            myMasterTags = new TagsOnPhysicalMap(myArgsEngine.getString("-m"), true);
-//        }
     }
 
     private boolean addAllTaxaToNewHDF5(String addTBTName) {
@@ -214,86 +150,55 @@ public class ModifyTBTHDF5Plugin extends AbstractPlugin {
         return s[0] + ":MRG:" + cnt + ":" + s[3];
     }
 
+    public String targetTBTHDF5File() {
+        return myTargetTBT.value();
+    }
+
+    public ModifyTBTHDF5Plugin targetTBTHDF5File(String value) {
+        myTargetTBT = new PluginParameter<>(myTargetTBT, value);
+        return this;
+    }
+
+    public String additionTaxaFile() {
+        return myAdditionalTaxaFile.value();
+    }
+
+    public ModifyTBTHDF5Plugin additionTaxaFile(String value) {
+        myAdditionalTaxaFile = new PluginParameter<>(myAdditionalTaxaFile, value);
+        return this;
+    }
+
+    public Boolean mergeTaxa() {
+        return myCombineTaxa.value();
+    }
+
+    public ModifyTBTHDF5Plugin mergeTaxa(Boolean value) {
+        myCombineTaxa = new PluginParameter<>(myCombineTaxa, value);
+        return this;
+    }
+
+    public String pivotTBTHDF5File() {
+        return myTransposeFile.value();
+    }
+
+    public ModifyTBTHDF5Plugin pivotTBTHDF5File(String value) {
+        myTransposeFile = new PluginParameter<>(myTransposeFile, value);
+        return this;
+    }
+
     @Override
     public ImageIcon getIcon() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return null;
     }
 
     @Override
     public String getButtonName() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return "Modify TBT HDF5";
     }
 
     @Override
     public String getToolTipText() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return "Modify TBT HDF5";
     }
 
-    public static void main(String[] args) {
-        String inTBTFile = "/Users/edbuckler/SolexaAnal/GBS/build20120110/tbt/434GFAAXX_s_3.tbt.byte";
-        TagsByTaxa inTBT = new TagsByTaxaByte(inTBTFile, FilePacking.Byte);
-//        TagsByTaxaByteHDF5TaxaGroups tHDF5 = new TagsByTaxaByteHDF5TaxaGroups(inTBT, "/Users/edbuckler/SolexaAnal/GBS/test/433s3.h5");
-//        Tags theTags=new TagCountMutable(inTBT, inTBT.getTagCount());
-//        TagsByTaxaByteHDF5TaxaGroups rHDF5 = new TagsByTaxaByteHDF5TaxaGroups(theTags, "/Users/edbuckler/SolexaAnal/GBS/test/r433s3.h5");
-//        for (int i=0; i<tHDF5.getTaxaCount(); i++) {
-//            byte[] d=tHDF5.getReadCountDistributionForTaxon(i);
-//            String newName=tHDF5.getTaxaName(i).replace(":3:", ":4:");
-//            rHDF5.addTaxon(newName, d);
-//        }
-//        tHDF5.getFileReadyForClosing();
-//        rHDF5.getFileReadyForClosing();
-//        
-//        args = new String[] {
-//            "-i", "/Users/edbuckler/SolexaAnal/GBS/test/r433s3.h5",
-//            "-o", "/Users/edbuckler/SolexaAnal/GBS/test/433s3.h5",
-//            "-L", "/Users/edbuckler/SolexaAnal/GBS/test/testFQSeqTBT.log",
-//            //"-c",
-//            "-p","/Users/edbuckler/SolexaAnal/GBS/test/t433s3.h5",
-//        };
-//
-//        ModifyTBTHDF5Plugin testClass = new ModifyTBTHDF5Plugin();
-//        testClass.setParameters(args);
-//        testClass.performFunction(null);
-//        
-//         rHDF5 = new TagsByTaxaByteHDF5TaxaGroups("/Users/edbuckler/SolexaAnal/GBS/test/433s3.h5");
-//         tHDF5 = new TagsByTaxaByteHDF5TaxaGroups("/Users/edbuckler/SolexaAnal/GBS/test/r433s3.h5");
-//
-//        for (int i=0; i<rHDF5.getTaxaCount(); i++) {
-//            byte[] di=rHDF5.getReadCountDistributionForTaxon(i);
-//            int sumi=0;
-//            for (byte b : di) {sumi+=b;}
-//            System.out.println(rHDF5.getTaxaName(i)+":"+sumi);
-//            for (int j = 0; j < tHDF5.getTaxaCount(); j++) {
-//                byte[] dj=tHDF5.getReadCountDistributionForTaxon(j);
-//                if(Arrays.equals(di, dj)) {
-//                    int sumj=0;
-//                    for (byte b : dj) {sumj+=b;}
-//                    System.out.println(rHDF5.getTaxaName(i)+":"+sumi+"="+tHDF5.getTaxaName(j)+":"+sumj);
-//                }
-//            }
-//        }
-        TagsByTaxaByteHDF5TagGroups transHDF5 = new TagsByTaxaByteHDF5TagGroups("/Users/edbuckler/SolexaAnal/GBS/test/t433s3.h5");
-        int same = 0, diff = 0, count = 0;
-        long time = System.currentTimeMillis();
-        int tags = 9;
-        for (int i = 0; i < 1000000; i += 11) {
-            int taxon = i % inTBT.getTaxaCount();
-            // taxon=15;
-            if (i % 550 == 0) {
-                tags = i % inTBT.getTagCount();
-            }
-
-            int newTaxonIndex = transHDF5.getIndexOfTaxaName(inTBT.getTaxaName(taxon));
-            if (inTBT.getReadCountForTagTaxon(tags, taxon) == transHDF5.getReadCountForTagTaxon(tags, newTaxonIndex)) {
-                same++;
-            } else {
-                diff++;
-            }
-            count++;
-        }
-        System.out.printf("Same %d Diff %d %n", same, diff);
-        long duration = System.currentTimeMillis() - time;
-        double rate = (double) duration / (double) count;
-        System.out.printf("Rate %g %n", rate);
-    }
 }
