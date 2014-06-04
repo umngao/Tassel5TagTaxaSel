@@ -62,7 +62,6 @@ import java.util.List;
 import java.util.Map;
 import net.maizegenetics.analysis.data.GenotypeSummaryPlugin;
 import net.maizegenetics.dna.map.TOPMInterface;
-import net.maizegenetics.dna.map.TOPMTableReport;
 
 import org.apache.batik.util.gui.MemoryMonitor;
 
@@ -211,6 +210,7 @@ public class DataTreePanel extends JPanel implements PluginListener {
     private void initSelectionListener() {
 
         myTreeSelectionListener = (new TreeSelectionListener() {
+            @Override
             public void valueChanged(TreeSelectionEvent e) {
                 try {
                     DefaultMutableTreeNode node = null;
