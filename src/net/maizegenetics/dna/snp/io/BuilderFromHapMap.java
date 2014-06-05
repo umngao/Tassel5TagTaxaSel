@@ -61,8 +61,16 @@ public class BuilderFromHapMap {
         return new BuilderFromHapMap(infile);
     }
 
+    public GenotypeTable buildAndSort(){
+        return this.buildEngine(true);
+    }
+
+    public GenotypeTable build(){
+        return this.buildEngine(false);
+    }
+
     //TODO provide options on caching to use, read only some sites, etc.
-    public GenotypeTable build() {
+    private GenotypeTable buildEngine(boolean fullSort) {
         long time=System.nanoTime();
         GenotypeTable result=null;
         try {
@@ -126,8 +134,17 @@ public class BuilderFromHapMap {
                 }
                 currentSite+=pb.getSiteNumber();
             }
+
+            //Check that result is in correct order. If not, either try to sort or just throw an error (determined by what was passed to fullSort)
             if (posBuild.validateOrdering()==false) {
-                throw new IllegalStateException("BuilderFromHapMap: Ordering incorrect HapMap must be ordered by position");
+                if(fullSort) {
+                    posBuild.sortPositions(gb);
+                    if (posBuild.validateOrdering()==false) {   //Double-check post-sort ordering. Should never happen, but just to be safe
+                        throw new IllegalStateException("BuilderFromHapMap: Ordering of HapMap failed.");
+                    }
+                }else{
+                    throw new IllegalStateException("BuilderFromHapMap: Ordering incorrect. HapMap must be ordered by position. Please first use SortGenotypeFilePlugin to correctly order the file.");
+                }
             }
             GenotypeCallTable g=gb.build();
             result=GenotypeTableBuilder.getInstance(g, posBuild.build(), taxaList);
