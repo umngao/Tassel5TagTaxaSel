@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 import org.apache.log4j.Logger;
 
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
+import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
@@ -31,15 +32,17 @@ public class PhenotypeBuilder {
 	private String filename;
 	private Phenotype basePhenotype;
 	private List<Phenotype> phenotypesToJoin;
-	private List<Taxon> taxaToKeep = null;
-	private List<Taxon> taxaToRemove = null;
-	private List<PhenotypeAttribute> attributeList = null;
-	private List<ATTRIBUTE_TYPE> attributeTypeList = null;
-  	private int[] indexOfAttributesToKeep = null;
-	private HashMap<ATTRIBUTE_TYPE, Integer> attributeChangeMap = new HashMap<ATTRIBUTE_TYPE, Integer>();
-	private boolean isUnionJoin;
+	private boolean isUnionJoin = false;
 	private boolean isFilterable = false;
 	private String phenotypeName = "Phenotype";
+	private List<PhenotypeAttribute> attributeList = null;
+	private List<ATTRIBUTE_TYPE> attributeTypeList = null;
+	
+	//filter criteria
+	private List<Taxon> taxaToKeep = null;
+	private List<Taxon> taxaToRemove = null;
+  	private int[] indexOfAttributesToKeep = null;
+	private HashMap<PhenotypeAttribute, ATTRIBUTE_TYPE> attributeChangeMap = new HashMap<PhenotypeAttribute, ATTRIBUTE_TYPE>();
 	
 	public PhenotypeBuilder() {
 		
@@ -50,9 +53,10 @@ public class PhenotypeBuilder {
 	 * @return	a filterable PhenotypeBuilder
 	 * This is the only method that returns a filterable PhenotypeBuilder
 	 */
-	public PhenotypeBuilder filterablePhenotypeBuilder(Phenotype basePhenotype) {
+	public PhenotypeBuilder filterPhenotype(Phenotype basePhenotype) {
 		this.basePhenotype = basePhenotype;
 		source = SOURCE_TYPE.phenotype;
+		phenotypeName = "filtered_" + basePhenotype.name();
 		isFilterable = true;
 		return this;
 	}
@@ -123,7 +127,8 @@ public class PhenotypeBuilder {
 	 */
 	public PhenotypeBuilder keepTaxa(List<Taxon> taxaToKeep) {
 		if (!isFilterable) notFilterable();
-		this.taxaToKeep = taxaToKeep; 
+		this.taxaToKeep = taxaToKeep;
+		taxaToRemove = null;
 		return this;
 	}
 	
@@ -136,6 +141,7 @@ public class PhenotypeBuilder {
 	public PhenotypeBuilder removeTaxa(List<Taxon> taxaToRemove)  {
 		if (!isFilterable) notFilterable();
 		this.taxaToRemove = taxaToRemove;
+		taxaToKeep = null;
 		return this;
 	}
 	
@@ -149,6 +155,7 @@ public class PhenotypeBuilder {
 	public PhenotypeBuilder keepAttributes(List<PhenotypeAttribute> attributesToKeep) {
 		if (!isFilterable) notFilterable();
 		attributeList = attributesToKeep;
+		indexOfAttributesToKeep = null;
 		return this;
 	}
 	
@@ -160,6 +167,7 @@ public class PhenotypeBuilder {
 	public PhenotypeBuilder keepAttributes(int[] indexOfAttributes) {
 		if (!isFilterable) notFilterable();
 		this.indexOfAttributesToKeep = indexOfAttributes;
+		attributeList = null;
 		return this;
 	}
 	
@@ -169,9 +177,9 @@ public class PhenotypeBuilder {
 	 * @return	a PhenotypeBuilder that will build a phenotype with the changed attribute type
 	 * This function can only be applied to a filterable instance.
 	 */
-	public PhenotypeBuilder changeAttributeType(int attributeIndex, ATTRIBUTE_TYPE type) {
+	public PhenotypeBuilder changeAttributeType(PhenotypeAttribute attribute, ATTRIBUTE_TYPE type) {
 		if (!isFilterable) notFilterable();
-		attributeChangeMap.put(type, attributeIndex );
+		attributeChangeMap.put(attribute, type);
 		return this;
 	}
 	
@@ -567,8 +575,60 @@ public class PhenotypeBuilder {
 	}
 	
 	private Phenotype filterBasePhenotype() {
-		//TODO implement
-		return null;
+		if (attributeList != null) {
+			if (attributeTypeList == null) {
+				attributeTypeList = new ArrayList<ATTRIBUTE_TYPE>();
+				for (PhenotypeAttribute attr:attributeList) {
+					attributeTypeList.add(basePhenotype.attributeType(basePhenotype.indexOfAttribute(attr)));
+				}
+			}
+			applyAttributeChangeMap();
+			basePhenotype = new CorePhenotype(attributeList, attributeTypeList, phenotypeName);
+			
+		} else if (indexOfAttributesToKeep != null) {
+			attributeList = new ArrayList<PhenotypeAttribute>();
+			attributeTypeList = new ArrayList<ATTRIBUTE_TYPE>();
+			for (int attrnum : indexOfAttributesToKeep) {
+				attributeList.add(basePhenotype.attribute(attrnum));
+			}
+			if (attributeTypeList == null || attributeTypeList.size() != attributeList.size()) {
+				for (int attrnum : indexOfAttributesToKeep) {
+					attributeTypeList.add(basePhenotype.attributeType(attrnum));
+				}
+			}
+			applyAttributeChangeMap();
+			basePhenotype = new CorePhenotype(attributeList, attributeTypeList, phenotypeName);
+			
+		} else if (attributeChangeMap != null) {
+			attributeList = basePhenotype.attributeListCopy();
+			attributeTypeList = basePhenotype.typeListCopy();
+			applyAttributeChangeMap();
+			basePhenotype = new CorePhenotype(attributeList, attributeTypeList, phenotypeName);
+		}
+
+		if (taxaToKeep != null) {
+			return new FilterPhenotype(basePhenotype, taxaToKeep, phenotypeName);
+		}
+		
+		if (taxaToRemove != null) {
+			TaxaList myTaxaList = basePhenotype.taxa();
+			Iterator<Taxon> taxaIter = myTaxaList.iterator();
+			while (taxaIter.hasNext()) {
+				if (taxaToRemove.contains(taxaIter.next())) taxaIter.remove();
+			}
+			return new FilterPhenotype(basePhenotype, myTaxaList, phenotypeName);
+		}
+
+		return basePhenotype;
+	}
+	
+	private void applyAttributeChangeMap() {
+		if (attributeChangeMap != null && attributeTypeList != null && attributeList != null) {
+			for (PhenotypeAttribute attr : attributeChangeMap.keySet()) {
+				int ndx = attributeList.indexOf(attr);
+				if (ndx > -1) attributeTypeList.set(ndx, attributeChangeMap.get(attr));
+			}
+		}
 	}
 	
 	private Phenotype createPhenotypeFromLists() {
