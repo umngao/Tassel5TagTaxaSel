@@ -162,6 +162,9 @@ public class DiscoverySNPCallerPlugin extends AbstractPlugin {
                 theTBT = new TagsByTaxaByteFileMap(inputTagsByTaxaFile());
             }
         }
+        if (theTBT == null) {
+            throw new IllegalArgumentException("DiscoverySNPCallerPlugin: postProcessParameters: Problem reading Tags by Taxa File: " + inputTagsByTaxaFile());
+        }
 
         boolean loadBinary = (inputTOPMFile().endsWith(".txt")) ? false : true;
         theTOPM = new TagsOnPhysicalMap(inputTOPMFile(), loadBinary);
