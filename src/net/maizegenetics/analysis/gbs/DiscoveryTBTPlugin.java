@@ -15,55 +15,96 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.BufferedReader;
 import java.io.File;
-import java.util.Arrays;
+import java.io.IOException;
+import java.nio.file.*;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
- * Derives a tagCount list for each fastq file in the input directory.
+ * Develops a discovery TBT file from a set of GBS sequence files.
  *
  * Keeps only good reads having a barcode and a cut site and no N's in the
  * useful part of the sequence. Trims off the barcodes and truncates sequences
  * that (1) have a second cut site, or (2) read into the common adapter.
  *
  */
-public class FastqToTagCountPlugin2 extends AbstractPlugin {
+public class DiscoveryTBTPlugin extends AbstractPlugin {
 
-    private static final Logger myLogger = Logger.getLogger(FastqToTagCountPlugin2.class);
+    private static final Logger myLogger = Logger.getLogger(DiscoveryTBTPlugin.class);
 
-    private PluginParameter<String> myInputDir = new PluginParameter.Builder<String>("i", null, String.class).guiName("Input Directory").required(true).inDir()
+    private PluginParameter<String> myInputDir = new PluginParameter.Builder<>("i", null, String.class).guiName("Input Directory").required(true).inDir()
             .description("Input directory containing FASTQ files in text or gzipped text.\n"
                     + "     NOTE: Directory will be searched recursively and should\n"
                     + "     be written WITHOUT a slash after its name.").build();
-    private PluginParameter<String> myKeyFile = new PluginParameter.Builder<String>("k", null, String.class).guiName("Key File").required(true).inFile()
+    private PluginParameter<String> myKeyFile = new PluginParameter.Builder<>("k", null, String.class).guiName("Key File").required(true).inFile()
             .description("Key file listing barcodes distinguishing the samples").build();
-    private PluginParameter<String> myEnzyme = new PluginParameter.Builder<String>("e", null, String.class).guiName("Enzyme").required(true)
+    private PluginParameter<String> myEnzyme = new PluginParameter.Builder<>("e", null, String.class).guiName("Enzyme").required(true)
             .description("Enzyme used to create the GBS library, if it differs from the one listed in the key file").build();
-    private PluginParameter<Integer> myMaxGoodReads = new PluginParameter.Builder<Integer>("s", 300000000, Integer.class).guiName("Max Good Reads")
-            .description("Max good reads per lane").build();
-    private PluginParameter<Integer> myMinTagCount = new PluginParameter.Builder<Integer>("c", 1, Integer.class).guiName("Min Tag Count")
+    private PluginParameter<Integer> myMinTagCount = new PluginParameter.Builder<>("c", 10, Integer.class).guiName("Min Tag Count")
             .description("Minimum tag count").build();
-    private PluginParameter<String> myOutputDir = new PluginParameter.Builder<String>("o", null, String.class).guiName("Output Directory").required(true).outDir()
+    private PluginParameter<String> myOutputDir = new PluginParameter.Builder<>("o", null, String.class).guiName("Output Directory").required(true).outDir()
             .description("Output directory to contain .cnt files (one per FASTQ file (one per FASTQ file)").build();
     private PluginParameter<Integer> myMinQualScore = new PluginParameter.Builder<>("mnQS", 0, Integer.class).guiName("Minimum quality score").required(false)
             .description("Minimum quality score within the barcode and read length to be accepted").build();
 
     private Map<Tag,TaxaDist> tagCntMap=new HashMap<>(200_000_000);
 
-    public FastqToTagCountPlugin2() {
+    public DiscoveryTBTPlugin() {
         super(null, false);
     }
 
-    public FastqToTagCountPlugin2(Frame parentFrame, boolean isInteractive) {
+    public DiscoveryTBTPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
 
     @Override
     public DataSet processData(DataSet input) {
+        try {
+            //Get the map of taxa indices from the key files
+            //Get the list of fastq files
+            Path p=Paths.get(myInputDir.value()).toAbsolutePath();
+            List<Path> inputSeqFiles=listFastQFiles(p);
+            //setup
+            int numThreads=Runtime.getRuntime().availableProcessors();
+            ExecutorService pool= Executors.newFixedThreadPool(numThreads-2);
+            for (Path inputSeqFile : inputSeqFiles) {
+                countTags(myKeyFile.value(), myEnzyme.value(), inputSeqFile);
+            }
 
-        countTags(myKeyFile.value(), myEnzyme.value(), myInputDir.value(), myOutputDir.value(), myMaxGoodReads.value(), myMinTagCount.value());
+        } catch(IOException e) {
+            e.printStackTrace();
+        }
         return null;
     }
+
+
+
+    List<Path> listFastQFiles(Path dir) throws IOException {
+        List<Path> result = new ArrayList<>();
+        try{DirectoryStream<Path> stream = Files.newDirectoryStream(dir,
+                "*"
+ //               "*{.fq,fq.gz,fastq,fastq.txt,fastq.gz,fastq.txt.gz,_sequence.txt,_sequence.txt.gz}"
+        );
+            for (Path entry: stream) {
+                result.add(entry);
+                System.out.println(entry.toString());
+                myLogger.info(entry.toString());
+            }
+        } catch (DirectoryIteratorException ex) {
+            // I/O error encountered during the iteration, the cause is an IOException
+            throw ex.getCause();
+        }
+        if(result.size()==0) {
+            myLogger.warn("Couldn't find any files that end with \".fq\", \".fq.gz\", \".fastq\", \"_fastq.txt\", \"_fastq.gz\", \"_fastq.txt.gz\", \"_sequence.txt\", or \"_sequence.txt.gz\" in the supplied directory.");
+        }
+        return result;
+    }
+
+
 
     /**
      * Derives a tagCount list for each fastq file in the fastqDirectory.
@@ -72,46 +113,40 @@ public class FastqToTagCountPlugin2 extends AbstractPlugin {
      * included).
      * @param enzyme The enzyme used to create the library (currently ApeKI or
      * PstI).
-     * @param fastqDirectory Directory containing the fastq files (will be
+     * @param fastqFile File containing the fastq files (will be
      * recursively searched).
-     * @param outputDir Directory to which the tagCounts files (one per fastq
-     * file) will be written.
-     * @param maxGoodReads The maximum number of barcoded reads expected in a
-     * fastq file
-     * @param minCount The minimum number of occurrences of a tag in a fastq
-     * file for it to be included in the output tagCounts file
      */
-    private void countTags(String keyFileS, String enzyme, String fastqDirectory, String outputDir, int maxGoodReads, int minCount) {
-        String[] countFileNames = null;
+    private void countTags(String keyFileS, String enzyme, Path fastqFile) {
+//        String[] countFileNames = null;
+//
+//        File inputDirectory = new File(fastqDirectory);
+//        System.out.println(inputDirectory.getAbsoluteFile().toString());
+//        File[] fastqFiles = DirectoryCrawler.listFiles("(?i).*\\.fq$|.*\\.fq\\.gz$|.*\\.fastq$|.*_fastq\\.txt$|.*_fastq\\.gz$|.*_fastq\\.txt\\.gz$|.*_sequence\\.txt$|.*_sequence\\.txt\\.gz$", inputDirectory.getAbsolutePath());
+//        //                                              (?i) denotes case insensitive;                 \\. denotes escape . so it doesn't mean 'any char' & escape the backslash
+//        if (fastqFiles.length == 0 || fastqFiles == null) {
+//            myLogger.warn("Couldn't find any files that end with \".fq\", \".fq.gz\", \".fastq\", \"_fastq.txt\", \"_fastq.gz\", \"_fastq.txt.gz\", \"_sequence.txt\", or \"_sequence.txt.gz\" in the supplied directory.");
+//            return;
+//        } else {
+//            myLogger.info("Using the following FASTQ files:");
+//            countFileNames = new String[fastqFiles.length];
+//            for (int i = 0; i < fastqFiles.length; i++) {
+//                countFileNames[i] = fastqFiles[i].getName().replaceAll("(?i)\\.fq$|\\.fq\\.gz$|\\.fastq$|_fastq\\.txt$|_fastq\\.gz$|_fastq\\.txt\\.gz$|_sequence\\.txt$|_sequence\\.txt\\.gz$", ".cnt");
+//                //                                                                  \\. escape . so it doesn't mean 'any char' & escape the backslash
+//                myLogger.info(fastqFiles[i].getAbsolutePath());
+//            }
+//        }
+//
+//        for (int laneNum = 0; laneNum < fastqFiles.length; laneNum++) {
+//            System.out.println("REading:"+outputDir + File.separator + countFileNames[laneNum]);
+//            File outputFile = new File(outputDir + File.separator + countFileNames[laneNum]);
+//            if (outputFile.isFile()) {
+//                myLogger.warn("An output file " + countFileNames[laneNum] + "\n"
+//                        + " already exists in the output directory for file " + fastqFiles[laneNum] + ".  Skipping.");
+//                continue;
+//            }
 
-        File inputDirectory = new File(fastqDirectory);
-        System.out.println(inputDirectory.getAbsoluteFile().toString());
-        File[] fastqFiles = DirectoryCrawler.listFiles("(?i).*\\.fq$|.*\\.fq\\.gz$|.*\\.fastq$|.*_fastq\\.txt$|.*_fastq\\.gz$|.*_fastq\\.txt\\.gz$|.*_sequence\\.txt$|.*_sequence\\.txt\\.gz$", inputDirectory.getAbsolutePath());
-        //                                              (?i) denotes case insensitive;                 \\. denotes escape . so it doesn't mean 'any char' & escape the backslash
-        if (fastqFiles.length == 0 || fastqFiles == null) {
-            myLogger.warn("Couldn't find any files that end with \".fq\", \".fq.gz\", \".fastq\", \"_fastq.txt\", \"_fastq.gz\", \"_fastq.txt.gz\", \"_sequence.txt\", or \"_sequence.txt.gz\" in the supplied directory.");
-            return;
-        } else {
-            myLogger.info("Using the following FASTQ files:");
-            countFileNames = new String[fastqFiles.length];
-            for (int i = 0; i < fastqFiles.length; i++) {
-                countFileNames[i] = fastqFiles[i].getName().replaceAll("(?i)\\.fq$|\\.fq\\.gz$|\\.fastq$|_fastq\\.txt$|_fastq\\.gz$|_fastq\\.txt\\.gz$|_sequence\\.txt$|_sequence\\.txt\\.gz$", ".cnt");
-                //                                                                  \\. escape . so it doesn't mean 'any char' & escape the backslash                
-                myLogger.info(fastqFiles[i].getAbsolutePath());
-            }
-        }
-
-        for (int laneNum = 0; laneNum < fastqFiles.length; laneNum++) {
-            System.out.println("REading:"+outputDir + File.separator + countFileNames[laneNum]);
-            File outputFile = new File(outputDir + File.separator + countFileNames[laneNum]);
-            if (outputFile.isFile()) {
-                myLogger.warn("An output file " + countFileNames[laneNum] + "\n"
-                        + " already exists in the output directory for file " + fastqFiles[laneNum] + ".  Skipping.");
-                continue;
-            }
-
-            myLogger.info("Reading FASTQ file: " + fastqFiles[laneNum]);
-            String[] filenameField = fastqFiles[laneNum].getName().split("_");
+            myLogger.info("Reading FASTQ file: " + fastqFile.toString());
+            String[] filenameField = fastqFile.getFileName().toString().split("_");
 
             //todo ParseBarcodeRead should be processing barcodes with trie
             ParseBarcodeRead2 thePBR;  // this reads the key file and store the expected barcodes for this lane
@@ -123,17 +158,17 @@ public class FastqToTagCountPlugin2 extends AbstractPlugin {
             else if (filenameField.length == 5) {
                 thePBR = new ParseBarcodeRead2(keyFileS, enzyme, filenameField[1], filenameField[3]);
             } else {
-                myLogger.error("Error in parsing file name: " + fastqFiles[laneNum]);
+                myLogger.error("Error in parsing file name: " + fastqFile.toString());
                 myLogger.error("   The filename does not contain either 3, 4, or 5 underscore-delimited values.");
                 myLogger.error("   Expect: flowcell_lane_fastq.txt.gz OR flowcell_s_lane_fastq.txt.gz OR code_flowcell_s_lane_fastq.txt.gz");
-                continue;
+                return;
             }
             BiMap<String, Integer> taxaNameToUniqueIndexMap=thePBR.getTaxaNameToUniqueIndexMap();  //This needs to be done once with master file
             int maxTaxaNumber=taxaNameToUniqueIndexMap.size();
             myLogger.info("Total barcodes found in lane:" + thePBR.getBarCodeCount());
             if (thePBR.getBarCodeCount() == 0) {
                 myLogger.warn("No barcodes found.  Skipping this flowcell lane.");
-                continue;
+                return;
             }
             String[] taxaNames = new String[thePBR.getBarCodeCount()];
             for (int i = 0; i < taxaNames.length; i++) {
@@ -143,7 +178,7 @@ public class FastqToTagCountPlugin2 extends AbstractPlugin {
             int goodBarcodedReads = 0;
             try {
                 //todo parallelize this multiple cores
-                BufferedReader br = Utils.getBufferedReader(fastqFiles[laneNum], 1<<22);
+                BufferedReader br = Utils.getBufferedReader(fastqFile.toString(), 1<<22);
                 int currLine = 0;
                 long time=System.nanoTime();
                 int allReads = 0;
@@ -151,7 +186,7 @@ public class FastqToTagCountPlugin2 extends AbstractPlugin {
                 String sequence = "";
                 String qualityScore = "";
                 String temp = br.readLine();
-                while ((temp != null) && goodBarcodedReads < maxGoodReads) {
+                while (temp != null) {
                     currLine++;
                     if(currLine%(1<<20)==0) {
                         System.out.printf("File line %d processing rate %d ns/line  %n",currLine, (System.nanoTime()-time)/currLine);
@@ -209,15 +244,15 @@ public class FastqToTagCountPlugin2 extends AbstractPlugin {
                 myLogger.error("Good Barcodes Read: " + goodBarcodedReads);
                 e.printStackTrace();
             }
-            myLogger.info("Finished reading " + (laneNum + 1) + " of " + fastqFiles.length + " sequence files.");
-        }
+            myLogger.info("Finished reading "+fastqFile.toString());
+
     }
 
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
     //
     // public static void main(String[] args) {
-    //     GeneratePluginCode.generate(FastqToTagCountPlugin2.class);
+    //     GeneratePluginCode.generate(DiscoveryTBTPlugin.class);
     // }
 
     /**
@@ -244,7 +279,7 @@ public class FastqToTagCountPlugin2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FastqToTagCountPlugin2 inputDirectory(String value) {
+    public DiscoveryTBTPlugin inputDirectory(String value) {
         myInputDir = new PluginParameter<>(myInputDir, value);
         return this;
     }
@@ -266,7 +301,7 @@ public class FastqToTagCountPlugin2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FastqToTagCountPlugin2 keyFile(String value) {
+    public DiscoveryTBTPlugin keyFile(String value) {
         myKeyFile = new PluginParameter<>(myKeyFile, value);
         return this;
     }
@@ -289,29 +324,8 @@ public class FastqToTagCountPlugin2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FastqToTagCountPlugin2 enzyme(String value) {
+    public DiscoveryTBTPlugin enzyme(String value) {
         myEnzyme = new PluginParameter<>(myEnzyme, value);
-        return this;
-    }
-
-    /**
-     * Max good reads per lane
-     *
-     * @return Max Good Reads
-     */
-    public Integer maxGoodReads() {
-        return myMaxGoodReads.value();
-    }
-
-    /**
-     * Set Max Good Reads. Max good reads per lane
-     *
-     * @param value Max Good Reads
-     *
-     * @return this plugin
-     */
-    public FastqToTagCountPlugin2 maxGoodReads(Integer value) {
-        myMaxGoodReads = new PluginParameter<>(myMaxGoodReads, value);
         return this;
     }
 
@@ -331,7 +345,7 @@ public class FastqToTagCountPlugin2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FastqToTagCountPlugin2 minTagCount(Integer value) {
+    public DiscoveryTBTPlugin minTagCount(Integer value) {
         myMinTagCount = new PluginParameter<>(myMinTagCount, value);
         return this;
     }
@@ -354,7 +368,7 @@ public class FastqToTagCountPlugin2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FastqToTagCountPlugin2 outputDirectory(String value) {
+    public DiscoveryTBTPlugin outputDirectory(String value) {
         myOutputDir = new PluginParameter<>(myOutputDir, value);
         return this;
     }
@@ -377,7 +391,7 @@ public class FastqToTagCountPlugin2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FastqToTagCountPlugin2 minimumQualityScore(Integer value) {
+    public DiscoveryTBTPlugin minimumQualityScore(Integer value) {
         myMinQualScore = new PluginParameter<>(myMinQualScore, value);
         return this;
     }
@@ -389,11 +403,11 @@ public class FastqToTagCountPlugin2 extends AbstractPlugin {
 
     @Override
     public String getButtonName() {
-        return "Fastq to Tag Count";
+        return "Discovery Tags By Taxa";
     }
 
     @Override
     public String getToolTipText() {
-        return "Fastq to Tag Count";
+        return "Discovery Tags By Taxa";
     }
 }

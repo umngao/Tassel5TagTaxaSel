@@ -23,7 +23,7 @@ import java.util.HashMap;
 public class ParseBarcodeRead2 {
 
     private static int chunkSize = BaseEncoder.chunkSize;
-    protected int maximumMismatchInBarcodeAndOverhang = 0;
+    private static final int maximumMismatchInBarcodeAndOverhang = 0;
     protected static String[] initialCutSiteRemnant = null;
     protected static int readEndCutSiteRemnantLength;
     static String nullS = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
