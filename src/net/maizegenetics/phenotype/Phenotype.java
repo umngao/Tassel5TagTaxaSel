@@ -36,6 +36,12 @@ public interface Phenotype {
 	public PhenotypeAttribute attribute(int attrnum);
 
 	/**
+	 * @param attribute	a PhenotypeAttribute
+	 * @return	the index of attribute in this Phenotype, -1 if the attribute is not contained in this Phenotype
+	 */
+	public int indexOfAttribute(PhenotypeAttribute attribute);
+	
+	/**
 	 * @return	the number of attributes or columns in the Phenotype
 	 */
 	public int numberOfAttributes();
@@ -71,14 +77,6 @@ public interface Phenotype {
 	
 	/**
 	 * @param attrnum	the index or column number of the attribute
-	 * @param type	the new attribute type
-	 * This method sets the attribute of an attribute, if type is compatible with the attribute. 
-	 * If the type is not compatible, then the attribute type will not be changed.
-	 */
-	public void setAttributeType(int attrnum, ATTRIBUTE_TYPE type);
-	
-	/**
-	 * @param attrnum	the index or column number of the attribute
 	 * @return	the name of the attribute
 	 */
 	public String attributeName(int attrnum);
@@ -97,5 +95,15 @@ public interface Phenotype {
 	 * @return	this Phenotype's TaxaAttribute, which is the Taxa represented by the observations in this Phenotype
 	 */
 	public TaxaAttribute taxaAttribute();
+	
+	/**
+	 * @return	a shallow copy of the attribute list for this Phenotype
+	 */
+	public List<PhenotypeAttribute> attributeListCopy();
+	
+	/**
+	 * @return	a shallow copy of the attribute type list for this Phenotype
+	 */
+	public List<ATTRIBUTE_TYPE> typeListCopy();
 
 }

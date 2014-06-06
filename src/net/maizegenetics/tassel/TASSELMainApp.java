@@ -24,8 +24,7 @@ import java.awt.*;
 import net.maizegenetics.pipeline.TasselPipeline;
 import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.util.ExceptionUtils;
-
-import org.apache.log4j.PropertyConfigurator;
+import net.maizegenetics.util.LoggingUtils;
 
 public class TASSELMainApp {
 
@@ -34,13 +33,7 @@ public class TASSELMainApp {
     //Construct the application
     public TASSELMainApp() {
 
-        java.util.Properties props = new java.util.Properties();
-        props.setProperty("log4j.logger.net.maizegenetics", "INFO, stdout");
-        props.setProperty("log4j.appender.stdout",
-                "org.apache.log4j.ConsoleAppender");
-        props.setProperty("log4j.appender.stdout.layout",
-                "org.apache.log4j.TTCCLayout");
-        PropertyConfigurator.configure(props);
+        LoggingUtils.setupLogging();
 
         try {
             UIManager.setLookAndFeel(new com.sun.java.swing.plaf.windows.WindowsLookAndFeel());

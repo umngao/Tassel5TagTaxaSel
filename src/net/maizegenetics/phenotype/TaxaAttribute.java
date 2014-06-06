@@ -38,6 +38,10 @@ public class TaxaAttribute implements PhenotypeAttribute {
 		return taxaList.toArray(new Taxon[numberOfTaxa]);
 	}
 	
+	public List<Taxon> allTaxaAsList() {
+		return new ArrayList<Taxon>(taxaList);
+	}
+	
 	public Taxon taxon(int obs) {
 		return taxaList.get(obs);
 	}

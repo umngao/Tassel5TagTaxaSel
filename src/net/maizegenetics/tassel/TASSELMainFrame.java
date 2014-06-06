@@ -75,8 +75,11 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
 import net.maizegenetics.analysis.gbs.BinaryToTextPlugin;
+import net.maizegenetics.analysis.gbs.DiscoverySNPCallerPlugin;
 import net.maizegenetics.analysis.gbs.FastqToTagCountPlugin;
 import net.maizegenetics.analysis.gbs.MergeMultipleTagCountPlugin;
+import net.maizegenetics.analysis.gbs.ModifyTBTHDF5Plugin;
+import net.maizegenetics.analysis.gbs.ProductionSNPCallerPlugin;
 import net.maizegenetics.analysis.gbs.SAMConverterPlugin;
 import net.maizegenetics.analysis.gbs.SeqToTBTHDF5Plugin;
 import net.maizegenetics.analysis.gbs.TagCountToFastqPlugin;
@@ -90,8 +93,8 @@ import net.maizegenetics.analysis.gbs.UTagPairToTOPMPlugin;
 public class TASSELMainFrame extends JFrame implements ActionListener {
 
     private static final Logger myLogger = Logger.getLogger(TASSELMainFrame.class);
-    public static final String version = "5.0.6";
-    public static final String versionDate = "May 15, 2014";
+    public static final String version = "5.0.7";
+    public static final String versionDate = "June 5, 2014";
     private DataTreePanel myDataTreePanel;
     private String tasselDataFile = "TasselDataFile";
     //a variable to control when the progress bar was last updated
@@ -716,6 +719,9 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(getUNEAKMenu());
         result.addSeparator();
         result.add(createMenuItem(new SeqToTBTHDF5Plugin(this, true), false));
+        result.add(createMenuItem(new ModifyTBTHDF5Plugin(this, true), false));
+        result.add(createMenuItem(new DiscoverySNPCallerPlugin(this, true), false));
+        result.add(createMenuItem(new ProductionSNPCallerPlugin(this, true), false));
 
         return result;
     }

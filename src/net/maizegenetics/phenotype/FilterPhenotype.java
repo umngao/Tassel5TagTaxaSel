@@ -3,9 +3,11 @@ package net.maizegenetics.phenotype;
 import java.util.List;
 import java.util.TreeSet;
 
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.primitives.Ints;
 
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
@@ -14,21 +16,25 @@ import net.maizegenetics.util.TableReport;
 public class FilterPhenotype implements Phenotype, TableReport {
 	private int[] myRowRedirect;
 	private int numberOfObservations;
-	private List<ATTRIBUTE_TYPE> attributeTypeList;
-	private Multimap<ATTRIBUTE_TYPE, Integer> attributeTypeMap;
 	private CorePhenotype basePhenotype;
 	private String name;
 	
 	FilterPhenotype(CorePhenotype basePheno, List<Taxon> taxaToKeep, String name) {
+		//TODO finish implementing taxaFilter
 		this.name = name;
 	}
 	
 	FilterPhenotype(FilterPhenotype basePheno, List<Taxon> taxaToKeep, String name) {
+		//TODO finish implementing
+		this.name = name;
+	}
+	
+	FilterPhenotype(Phenotype basePheno, List<Taxon> taxaToKeep, String name) {
+		//TODO finish implementing
 		this.name = name;
 	}
 	
 	//TableReport methods
-	
 	@Override
 	public Object[] getTableColumnNames() {
 		return basePhenotype.getTableColumnNames();
@@ -101,6 +107,21 @@ public class FilterPhenotype implements Phenotype, TableReport {
 	}
 
 	@Override
+	public int indexOfAttribute(PhenotypeAttribute attribute) {
+		return basePhenotype.indexOfAttribute(attribute);
+	}
+
+	@Override
+	public List<PhenotypeAttribute> attributeListCopy() {
+		return basePhenotype.attributeListCopy();
+	}
+
+	@Override
+	public List<ATTRIBUTE_TYPE> typeListCopy() {
+		return basePhenotype.typeListCopy();
+	}
+
+	@Override
 	public int numberOfAttributes() {
 		return basePhenotype.numberOfAttributes;
 	}
@@ -122,25 +143,18 @@ public class FilterPhenotype implements Phenotype, TableReport {
 
 	@Override
 	public int numberOfAttributesOfType(ATTRIBUTE_TYPE type) {
-		return attributeTypeMap.get(type).size();
+		return basePhenotype.numberOfAttributesOfType(type);
 	}
 
 	@Override
 	public int[] attributeIndicesOfType(ATTRIBUTE_TYPE type) {
-		return Ints.toArray(attributeTypeMap.get(type));
+		return basePhenotype.attributeIndicesOfType(type);
 	}
 
 	@Override
 	public ATTRIBUTE_TYPE attributeType(int attrnum) {
-		return attributeTypeList.get(attrnum);
-	}
-
-	@Override
-	public void setAttributeType(int attrnum, ATTRIBUTE_TYPE type) {
-		ATTRIBUTE_TYPE oldType = attributeTypeList.get(attrnum);
-		attributeTypeList.set(attrnum, type);
-		attributeTypeMap.remove(oldType, attrnum);
-		attributeTypeMap.put(type, attrnum);
+		return basePhenotype.attributeType(attrnum);
+		
 	}
 
 	@Override

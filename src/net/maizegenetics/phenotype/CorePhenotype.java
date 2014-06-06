@@ -11,6 +11,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.primitives.Ints;
 
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
@@ -130,6 +131,21 @@ public class CorePhenotype implements Phenotype, TableReport {
 	}
 
 	@Override
+	public int indexOfAttribute(PhenotypeAttribute attribute) {
+		return myAttributeList.indexOf(attribute);
+	}
+
+	@Override
+	public List<PhenotypeAttribute> attributeListCopy() {
+		return new ArrayList<PhenotypeAttribute>(myAttributeList);
+	}
+
+	@Override
+	public List<ATTRIBUTE_TYPE> typeListCopy() {
+		return new ArrayList<Phenotype.ATTRIBUTE_TYPE>(myAttributeTypeList);
+	}
+
+	@Override
 	public TaxaList taxa() {
 		int[] taxaIndices = attributeIndicesOfType(ATTRIBUTE_TYPE.taxa);
 		if (taxaIndices.length == 1) {
@@ -159,14 +175,6 @@ public class CorePhenotype implements Phenotype, TableReport {
 	@Override
 	public ATTRIBUTE_TYPE attributeType(int attrnum) {
 		return myAttributeTypeList.get(attrnum);
-	}
-
-	@Override
-	public void setAttributeType(int attrnum, ATTRIBUTE_TYPE type) {
-		ATTRIBUTE_TYPE oldtype = myAttributeTypeList.get(attrnum);
-		myAttributeTypeList.set(attrnum, type);
-		myAttributeTypeMap.remove(oldtype, attrnum);
-		myAttributeTypeMap.put(type, attrnum);
 	}
 
 	@Override

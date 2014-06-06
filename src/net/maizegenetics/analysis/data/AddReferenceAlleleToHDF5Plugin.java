@@ -10,7 +10,6 @@ import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import org.apache.log4j.Logger;
-import net.maizegenetics.util.ArgsEngine;
 
 import javax.swing.*;
 import java.awt.*;
@@ -25,8 +24,9 @@ import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.HDF5Utils;
-import net.maizegenetics.util.Utils;
 import java.util.List;
+import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.util.Utils;
 
 /**
  *
@@ -35,10 +35,31 @@ import java.util.List;
 public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(AddReferenceAlleleToHDF5Plugin.class);
-    private ArgsEngine myArgsEngine = null;
-    private String inHDF5FileName = null;
-    private String refGenomeFileStr = null;
-    private String genomeVersion = null;
+
+    private PluginParameter<String> myInputGenotypes = new PluginParameter.Builder<>("i", null, String.class)
+        .guiName("Input HDF5 Genotype File")
+        .required(true)
+        .inFile()
+        .description("Input HDF5 genotype (*.h5) file to be annotated with the reference allele")
+        .build();
+    private PluginParameter<String> myRefGenome = new PluginParameter.Builder<>("ref", null, String.class)
+        .guiName("Reference Genome File")
+        .required(true)
+        .inFile()
+        .description("Reference genome file in fasta format")
+        .build();
+    private PluginParameter<String> myRefGenomeVersion = new PluginParameter.Builder<>("ver", null, String.class)
+        .guiName("Reference Genome Version")
+        .required(true)
+        .description("Version of the reference genome")
+        .build();
+    private PluginParameter<String> myOutputGenotypes = new PluginParameter.Builder<>("o", null, String.class)
+        .guiName("Output HDF5 Genotype File")
+        .required(false)
+        .outFile()
+        .description("Output HDF5 genotype file annotated with the reference allele (Default: write to same folder as input, with '*.h5' replaced '*_withRef.h5')")
+        .build();
+    
     private BufferedReader refReader = null;
     private PositionListBuilder newPosListBuilder = null;
     private int currChr = Integer.MIN_VALUE;
@@ -50,89 +71,22 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
         super(null, false);
     }
 
-    public AddReferenceAlleleToHDF5Plugin(Frame parentFrame) {
-        super(parentFrame, false);
-    }
-
-    private void printUsage() {
-        myLogger.info(
-            "\n\n"
-            +"The options for the TASSEL5 AddReferenceAlleleToHDF5Plugin are as follows:\n"
-            +"  -i    Input HDF5 genotype (*.h5) file to be annotated with the reference allele.\n"
-            +"  -ref  Path to reference genome in fasta format.\n"
-            +"  -ver  Genome version.\n"
-            +"\n\n"
-        );
+    public AddReferenceAlleleToHDF5Plugin(Frame parentFrame, boolean isInteractive) {
+        super(parentFrame, isInteractive);
     }
 
     @Override
-    public void setParameters(String[] args) {
-        if (args == null || args.length == 0) {
-            printUsage();
-            try {Thread.sleep(500);} catch(InterruptedException e) {}
-            throw new IllegalArgumentException("\n\nPlease use the above arguments/options.\n\n");
+    public void postProcessParameters() {
+        if (myOutputGenotypes.isEmpty()) {
+            String outFile = (new File( inputHDF5GenotypeFile() )).getAbsolutePath().replaceFirst("\\.h5$", "_withRef.h5");
+            outputHDF5GenotypeFile(outFile);
         }
-        if (myArgsEngine == null) {
-            myArgsEngine = new ArgsEngine();
-            myArgsEngine.add("-i", "--input-file", true);
-            myArgsEngine.add("-ref", "--referenceGenome", true);
-            myArgsEngine.add("-ver", "--genome-version", true);
-        }
-        myArgsEngine.parse(args);
-        inHDF5FileName = myArgsEngine.getString("-i");
-        File inFile = null;
-        if (inHDF5FileName != null) {
-            inFile = new File(inHDF5FileName);
-            if (!inFile.exists()) {
-                printUsage();
-                try {Thread.sleep(500);} catch(InterruptedException e) {}
-                String errMessage = "\nThe input HDF5 genotype (*.h5) file name you supplied does not exist:\n"+inHDF5FileName+"\n\n";
-                myLogger.error(errMessage);
-                try {Thread.sleep(500);} catch(InterruptedException e) {}
-                throw new IllegalArgumentException(errMessage);
-            }
-        } else {
-            printUsage();
-            try {Thread.sleep(500);} catch(InterruptedException e) {}
-            String errMessage = "\nPlease specify an input HDF5 genotype (*.h5) file to be annotated with the reference allele (-i option)\n\n";
-            myLogger.error(errMessage);
-            try {Thread.sleep(500);} catch(InterruptedException e) {}
-            throw new IllegalArgumentException(errMessage);
-        }
-        if (myArgsEngine.getBoolean("-ref")) {
-            refGenomeFileStr = myArgsEngine.getString("-ref");
-            File refGenomeFile = new File(refGenomeFileStr);
-            if (!refGenomeFile.exists() || !refGenomeFile.isFile()) {
-                printUsage();
-                try {Thread.sleep(500);} catch(InterruptedException e) {}
-                String errMessage = "\nCan't find the reference genome fasta file specified by the -ref option:\n  "+refGenomeFileStr+"\n\n";
-                myLogger.error(errMessage);
-                try {Thread.sleep(500);} catch(InterruptedException e) {}
-                throw new IllegalArgumentException();
-            }
-            refReader = Utils.getBufferedReader(refGenomeFileStr);
-        } else {
-            printUsage();
-            try {Thread.sleep(500);} catch(InterruptedException e) {}
-            String errMessage = "\nPlease specify a reference genome fasta file (-ref option)\n\n";
-            myLogger.error(errMessage);
-            try {Thread.sleep(500);} catch(InterruptedException e) {}
-            throw new IllegalArgumentException(errMessage);
-        }
-        if (myArgsEngine.getBoolean("-ver")) {
-            genomeVersion = myArgsEngine.getString("-ver");
-        } else {
-            printUsage();
-            try {Thread.sleep(500);} catch(InterruptedException e) {}
-            String errMessage = "\nPlease specify the name of the reference genome version (e.g. -ver \"B73 RefGen_v2\")\n\n";
-            myLogger.error(errMessage);
-            try {Thread.sleep(500);} catch(InterruptedException e) {}
-            throw new IllegalArgumentException(errMessage);
-        }
+        refReader = Utils.getBufferedReader(referenceGenomeFile());
     }
 
+
     @Override
-    public DataSet performFunction(DataSet input) {
+    public DataSet processData(DataSet input) {
         String message = addRefAlleleToHDF5GenoTable();
         if(message != null) {
             myLogger.error(message);
@@ -150,9 +104,8 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
         PositionList newPos = newPosListBuilder.build();
         String genomeVer = newPos.hasReference() ? newPos.genomeVersion() : "unknown";
         myLogger.info("\nGenome version: "+genomeVer+"\n");
-        String outHDF5FileName = inHDF5FileName.replaceFirst("\\.h5$", "_withRef.h5");
-        GenotypeTableBuilder newGenos = GenotypeTableBuilder.getTaxaIncremental(newPos, outHDF5FileName);
-        IHDF5Reader h5Reader = HDF5Factory.open(inHDF5FileName);
+        GenotypeTableBuilder newGenos = GenotypeTableBuilder.getTaxaIncremental(newPos, outputHDF5GenotypeFile());
+        IHDF5Reader h5Reader = HDF5Factory.open(inputHDF5GenotypeFile());
         List<String> taxaNames = HDF5Utils.getAllTaxaNames(h5Reader);
         int nTaxaWritten = 0;
         for (String taxonName : taxaNames) {
@@ -167,12 +120,12 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
         }
         newGenos.build();
         myLogger.info("\n\nFinished adding reference alleles to file:");
-        myLogger.info("  "+outHDF5FileName+"\n\n");
+        myLogger.info("  "+outputHDF5GenotypeFile()+"\n\n");
         return null;
     }
     
     private String populatePositionsWithRefAllele() {
-        IHDF5Writer h5Writer = HDF5Factory.open(inHDF5FileName);
+        IHDF5Writer h5Writer = HDF5Factory.open(inputHDF5GenotypeFile());
         PositionList oldPosList = PositionListBuilder.getInstance(h5Writer);
 //        h5Writer.close();
         newPosListBuilder = new PositionListBuilder();
@@ -190,19 +143,12 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
                 return "\nCould not find position "+pos+" on chromosome "+chr+" in the reference genome fasta file.\n\n\n";
             }
             Position newPos = new GeneralPosition.Builder(oldPos) 
-//                // previous version only copied chr,pos,strand,CM,SNPID,isNucleotide,isIndel from oldPos
-//                .maf(oldPos.getGlobalMAF())
-//                .siteCoverage(oldPos.getGlobalSiteCoverage())
-//                .allele(Position.WHICH_ALLELE.GlobalMajor, oldPos.getAllele(Position.WHICH_ALLELE.GlobalMajor))
-//                .allele(Position.WHICH_ALLELE.GlobalMinor, oldPos.getAllele(Position.WHICH_ALLELE.GlobalMinor))
-//                .allele(Position.Allele.ANC, oldPos.getAllele(Position.Allele.ANC))
-//                .allele(Position.Allele.HIDEP, oldPos.getAllele(Position.Allele.HIDEP))
                 .allele(WHICH_ALLELE.Reference, refAllele)
                 .build();
             if (writePositions) writePosition(newPos, contextSeq);
             newPosListBuilder.add(newPos);
         }
-        newPosListBuilder.genomeVersion(genomeVersion);
+        newPosListBuilder.genomeVersion(referenceGenomeVersion());
         myLogger.info("Finished populating positions with RefAllele");
         return null;
     }
@@ -234,7 +180,7 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
                         myLogger.error("\n\nAddReferenceAlleleToHDF5Plugin detected a non-numeric chromosome name in the reference genome sequence fasta file: " + chrS
                                 + "\n\nPlease change the FASTA headers in your reference genome sequence to integers "
                                 + "(>1, >2, >3, etc.) OR to 'chr' followed by an integer (>chr1, >chr2, >chr3, etc.)\n\n");
-                        System.exit(1);
+                        throw new NumberFormatException("Problem reading reference genome file: non-numeric chromosome names");
                     }
                     if (!writePositions) myLogger.info("\nCurrently reading chromosome "+currChr+" from reference genome fasta file\n\n");
                 }
@@ -244,12 +190,12 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
             myLogger.error("Exception caught while reading the reference genome fasta file:\n  "+e+"\nLast line read:\n  "+temp);
             try {Thread.sleep(500);} catch(InterruptedException iE) {}
             e.printStackTrace();
-            System.exit(1);
+            throw new IllegalStateException("Problem reading reference genome file");
         }
         if (currChr != chr) {
             myLogger.error("\nCould not find chromosome "+chr+" in the reference genome fasta file.\nMake sure that the chromosomes are in numerical order in that file\n\n\n");
             try {Thread.sleep(500);} catch(InterruptedException iE) {}
-            System.exit(1);
+            throw new IllegalStateException("Problem reading reference genome file: Make sure that the chromosomes are in numerical order");
         }
     }
     
@@ -273,7 +219,7 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
             }
         } catch (IOException e) {
             myLogger.error("\n\nError reading reference genome file:\n  "+e+"\n\n");
-            System.exit(1);
+            throw new IllegalStateException("Problem reading reference genome file");
         }
         return currChar;
     }
@@ -295,12 +241,7 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-//        URL imageURL = SeparatePlugin.class.getResource("/net/maizegenetics/analysis/images/Merge.gif");
-//        if (imageURL == null) {
-            return null;
-//        } else {
-//            return new ImageIcon(imageURL);
-//        }
+        return null;
     }
 
     @Override
@@ -311,5 +252,105 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
     @Override
     public String getToolTipText() {
         return "Add reference allele to HDF5 genotypes";
+    }
+
+    // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(AddReferenceAlleleToHDF5Plugin.class);
+    // }
+
+    /**
+     * Input HDF5 genotype (*.h5) file to be annotated with
+     * the reference allele
+     *
+     * @return Input HDF5 Genotype File
+     */
+    public String inputHDF5GenotypeFile() {
+        return myInputGenotypes.value();
+    }
+
+    /**
+     * Set Input HDF5 Genotype File. Input HDF5 genotype (*.h5)
+     * file to be annotated with the reference allele
+     *
+     * @param value Input HDF5 Genotype File
+     *
+     * @return this plugin
+     */
+    public AddReferenceAlleleToHDF5Plugin inputHDF5GenotypeFile(String value) {
+        myInputGenotypes = new PluginParameter<>(myInputGenotypes, value);
+        return this;
+    }
+
+    /**
+     * Reference genome file in fasta format
+     *
+     * @return Reference Genome File
+     */
+    public String referenceGenomeFile() {
+        return myRefGenome.value();
+    }
+
+    /**
+     * Set Reference Genome File. Reference genome file in
+     * fasta format
+     *
+     * @param value Reference Genome File
+     *
+     * @return this plugin
+     */
+    public AddReferenceAlleleToHDF5Plugin referenceGenomeFile(String value) {
+        myRefGenome = new PluginParameter<>(myRefGenome, value);
+        return this;
+    }
+
+    /**
+     * Version of the reference genome
+     *
+     * @return Reference Genome Version
+     */
+    public String referenceGenomeVersion() {
+        return myRefGenomeVersion.value();
+    }
+
+    /**
+     * Set Reference Genome Version. Version of the reference
+     * genome
+     *
+     * @param value Reference Genome Version
+     *
+     * @return this plugin
+     */
+    public AddReferenceAlleleToHDF5Plugin referenceGenomeVersion(String value) {
+        myRefGenomeVersion = new PluginParameter<>(myRefGenomeVersion, value);
+        return this;
+    }
+
+    /**
+     * Output HDF5 genotype file annotated with the reference
+     * allele (Default: write to same folder as input, with
+     * '*.h5' replaced '*_withRef.h5')
+     *
+     * @return Output HDF5 Genotype File
+     */
+    public String outputHDF5GenotypeFile() {
+        return myOutputGenotypes.value();
+    }
+
+    /**
+     * Set Output HDF5 Genotype File. Output HDF5 genotype
+     * file annotated with the reference allele (Default:
+     * write to same folder as input, with '*.h5' replaced
+     * '*_withRef.h5')
+     *
+     * @param value Output HDF5 Genotype File
+     *
+     * @return this plugin
+     */
+    public AddReferenceAlleleToHDF5Plugin outputHDF5GenotypeFile(String value) {
+        myOutputGenotypes = new PluginParameter<>(myOutputGenotypes, value);
+        return this;
     }
 }
