@@ -50,6 +50,14 @@ public class GeneratePluginCode {
         System.out.println("    // }");
         System.out.println("");
 
+        System.out.println("    /**");
+        System.out.println("     * Convenience method to run plugin with one return object.");
+        System.out.println("     */");
+        System.out.println("    // TODO: Replace <Type> with specific type.");
+        System.out.println("    public <Type> runPlugin(DataSet input) {");
+        System.out.println("        return (<Type>) performFunction(input).getData(0).getData();");
+        System.out.println("    }\n");
+
         for (Field field : plugin.getParameterFields()) {
             PluginParameter<?> current = null;
             try {
