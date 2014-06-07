@@ -1,10 +1,13 @@
 package net.maizegenetics.util;
 
 import java.io.*;
+import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * Directory crawler that matches REGEX or Glob patterns.  Glob patterns are indicated by using the
+ * syntax:pattern approach that is used by PathMatcher.  So to use glob "glob:*.{hmp,hmp.gz}"
  * @author James Harriman
  * @author Terry Casstevens
  */
@@ -56,6 +59,21 @@ public class DirectoryCrawler {
         return listFiles(pattern, new File[]{inputFile});
     }
 
+    /**
+     * Return a list of file paths matching a specified pattern with the starting directory.  This uses the preferred
+     * nio Paths over the prior File approach.
+     * @param pattern either regex or glob pattern
+     * @param inputDirectory initial directory
+     * @return list of path matching the pattern
+     */
+    public static List<Path> listPaths(String pattern, Path inputDirectory) {
+        List<Path> result=new ArrayList<>();
+        for (File file : listFiles(pattern, new File[]{inputDirectory.toFile()})) {
+            result.add(file.toPath());
+        }
+        return result;
+    }
+
     public static File[] listFiles(String pattern) {
         return listFiles(pattern, new File[]{new File(DEFAULT_DIRECTORY)});
     }
@@ -73,6 +91,10 @@ public class DirectoryCrawler {
     }
 
     private static List<File> traverse(File file, String pattern) {
+        if(!(pattern.startsWith("glob:")||pattern.startsWith("regex:"))) {
+            pattern = "regex:" + pattern;
+        }
+        PathMatcher pm=FileSystems.getDefault().getPathMatcher(pattern);
         List<File> outputList = new ArrayList<File>();
         if (file.isDirectory()) {      // If file is a directory...
             String entries[] = file.list();         // Get a list of all the entries in the directory
@@ -82,11 +104,10 @@ public class DirectoryCrawler {
                     outputList.addAll(temp);
                 }
             }
-        } else {
-            if (file.getName().matches(pattern)) {
+        } else if(pm.matches(file.toPath().getFileName())) {
                 outputList.add(file);
             }
-        } //If file is a file, add to list
+         //If file is a file, add to list
         return outputList;
     }
 }
