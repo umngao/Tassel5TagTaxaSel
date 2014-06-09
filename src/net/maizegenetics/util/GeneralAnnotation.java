@@ -60,5 +60,13 @@ public interface GeneralAnnotation {
     //should we provide methods, to average the quantitative annotations, the first annotation
     //
 
+    /**
+     * Returns whether the entity contains the annotation with the specified value.  If either the annotation or the
+     * value is missing false is return
+     * @param annoName annotation key
+     * @param annoValue annotation value;
+     * @return
+     */
+    public boolean isAnnotatedWithValue(String annoName, String annoValue);
 
 }

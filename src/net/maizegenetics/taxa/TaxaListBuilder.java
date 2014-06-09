@@ -44,11 +44,29 @@ public class TaxaListBuilder {
 
     public TaxaListBuilder add(Taxon taxon) {
         if(tempLookup.containsKey(taxon)) {
-            //throw new IllegalStateException("Taxon ["+taxon.getName()+"] already exists in the list.  Duplicated taxa not allowed.");
-            taxon=new Taxon(taxon.getName()+"DUP");
+            throw new IllegalStateException("Taxon ["+taxon.getName()+"] already exists in the list.  Duplicated taxa not allowed.");
+            //taxon=new Taxon(taxon.getName()+"DUP");
         }
         myTaxaList.add(taxon);
-        tempLookup.put(taxon,myTaxaList.size());
+        tempLookup.put(taxon,myTaxaList.size()-1);
+        return this;
+    }
+
+    public TaxaListBuilder addOrMerge(Taxon taxon) {
+        if(tempLookup.containsKey(taxon)) {
+            int indexOfOrig=tempLookup.get(taxon);
+            Taxon orgTaxon=myTaxaList.get(indexOfOrig);
+            Taxon.Builder tb=new Taxon.Builder(orgTaxon);
+            for (Map.Entry<String, String> entry : taxon.getAllAnnotationEntries()) {
+                if(!orgTaxon.isAnnotatedWithValue(entry.getKey(),entry.getValue())) tb.addAnno(entry.getKey(),entry.getValue());
+            }
+            taxon=tb.build();
+            myTaxaList.set(indexOfOrig,taxon);
+            tempLookup.put(taxon, indexOfOrig);
+        } else {
+            myTaxaList.add(taxon);
+            tempLookup.put(taxon, myTaxaList.size()-1);
+        }
         return this;
     }
 

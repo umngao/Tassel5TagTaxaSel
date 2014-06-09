@@ -393,5 +393,10 @@ public final class GeneralPosition implements Position {
         }
         return result.build();
     }
+
+    @Override
+    public boolean isAnnotatedWithValue(String annoName, String annoValue) {
+        return GeneralAnnotationUtils.isAnnotatedWithValue(myVariantsAndAnno,annoName,annoValue);
+    }
     
 }

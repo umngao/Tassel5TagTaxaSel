@@ -77,4 +77,9 @@ public class AbstractAnnotation implements GeneralAnnotation {
         }
         return result.build();
     }
+
+    @Override
+    public boolean isAnnotatedWithValue(String annoName, String annoValue) {
+        return false;
+    }
 }
