@@ -3,6 +3,8 @@ package net.maizegenetics.analysis.gbs;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import net.maizegenetics.dna.BaseEncoder;
+import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.Taxon;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -37,19 +39,10 @@ public class ParseBarcodeRead2 {
 
     /**
      * Create the barcode parsing object
-     * @param keyFile file location for the keyfile
-     * @param enzyme name of the enzyme
-     * @param flowcell name of the flowcell to be processed
-     * @param lane name of the lane to be processed
      */
-    public ParseBarcodeRead2(String keyFile, String enzyme, String flowcell, String lane) {
-        if (enzyme != null) {
-            chooseEnzyme(enzyme);
-        } else {
-            chooseEnzyme(getKeyFileEnzyme(keyFile));
-        }
-
-        int totalBarcodes = setupBarcodeFiles(new File(keyFile), flowcell, lane);
+    public ParseBarcodeRead2(TaxaList taxaList, String theEnzyme, TaxaList masterTaxaList) {
+        chooseEnzyme(theEnzyme);
+        int totalBarcodes = setupBarcodeFiles(taxaList, masterTaxaList);
         System.out.println("Total barcodes found in lane:" + totalBarcodes);
     }
 
@@ -332,92 +325,36 @@ public class ParseBarcodeRead2 {
         System.out.println("Enzyme: " + theEnzyme);
     }
 
-    private String getKeyFileEnzyme(String keyFileName) {
-        String result = null;
-        try {
-            BufferedReader br = new BufferedReader(new FileReader(keyFileName), 65536);
-
-            String temp;
-            int currLine = 0;
-            while (((temp = br.readLine()) != null)) {
-                String[] s = temp.split("\\t");  //split by whitespace
-                if (currLine > 0) {
-                    String enzymeName;
-                    if (s.length < 9) {
-                        enzymeName = "";
-                    } else {
-                        enzymeName = s[8];
-                    }
-                    if (!enzymeName.equals("")) {
-                        result = enzymeName;
-                        break;
-                    }
-                }
-                currLine++;
-            }
-        } catch (Exception e) {
-            System.out.println("Couldn't open key file to read Enzyme: " + e);
-        }
-        return result;
-    }
-
     /**
      * Reads in an Illumina key file, creates a linear array of {@link net.maizegenetics.analysis.gbs.Barcode} objects
      * representing the barcodes in the key file, then creates a hash map containing
      * indices from the linear array indexed by sequence.  The names of barcode objects
      * follow the pattern samplename:flowcell:lane:LibraryPrepID, since sample names alone are not unique.
      *
-     * @param keyFile Illumina key file.
-     * @param flowcell Only barcodes from this flowcell will be added to the array.
-     * @param lane Only barcodes from this lane will be added to the array.
      * @return Number of barcodes in the array.
      */
-    private int setupBarcodeFiles(File keyFile, String flowcell, String lane) {
-        try {
-            BufferedReader br = new BufferedReader(new FileReader(keyFile), 65536);
-            ArrayList<Barcode> theBarcodesArrayList = new ArrayList<Barcode>();
-            String temp;
-            taxaNameToUniqueIndexMap=HashBiMap.create();
-            int taxaIndex=0;
-            while (((temp = br.readLine()) != null)) {
-                String[] s = temp.split("\\t");  //split by whitespace
-                Barcode theBC = null;
-                if (s[0].equals(flowcell) && s[1].equals(lane)) {
-                    if (s.length < 8 || s[7] == null || s[7].trim().equals("")) {  // column H (LibraryPrepID) is required for TASSEL5
-                        throw new IllegalArgumentException("Column H of the key file must contain a LibraryPrepID (integer or alphanumeric)");
-                    } else {  // use the "libraryPrepID" or whatever is in column H of the key file
-                        //String taxaName=s[3]+":"+s[0]+":"+s[1]+":"+ s[7];
-                        String taxaName=s[3]+":"+ s[7];
-                        Integer currTaxon=taxaNameToUniqueIndexMap.get(taxaName);
-                        if(currTaxon==null) {
-                            taxaNameToUniqueIndexMap.put(taxaName,taxaIndex);
-                            currTaxon=taxaIndex;
-                            taxaIndex++;
-                        }
-                        theBC = new Barcode(s[2], initialCutSiteRemnant, taxaName,currTaxon,flowcell,lane);
-
-                    }
-                    theBarcodesArrayList.add(theBC);
-                    System.out.println(theBC.barcodeS + " " + theBC.taxaName);
-                }
-
-            }
-            theBarcodes = new Barcode[theBarcodesArrayList.size()];
-            theBarcodesArrayList.toArray(theBarcodes);
-            Arrays.sort(theBarcodes);
-            int nBL = theBarcodes[0].barOverLong.length;
-            quickBarcodeList = new long[theBarcodes.length * nBL];
-            quickMap = new HashMap();
-            for (int i = 0; i < theBarcodes.length; i++) {
-                for (int j = 0; j < nBL; j++) {
-                    quickBarcodeList[i * nBL + j] = theBarcodes[i].barOverLong[j];
-                    quickMap.put(theBarcodes[i].barOverLong[j], i);
-                }
-            }
-            Arrays.sort(quickBarcodeList);
-        } catch (Exception e) {
-            System.out.println("Error with setupBarcodeFiles: " + e);
+    private int setupBarcodeFiles(TaxaList taxaList, TaxaList masterTaxaList) {
+        ArrayList<Barcode> theBarcodesArrayList = new ArrayList<Barcode>();
+        taxaNameToUniqueIndexMap=HashBiMap.create();
+        for (Taxon taxon : taxaList) {
+            int masterIndex=masterTaxaList.indexOf(taxon.getName());
+            Barcode theBC = new Barcode(taxon.getTextAnnotation("Barcode")[0], initialCutSiteRemnant, taxon.getName(),
+                    masterIndex,taxon.getTextAnnotation("Flowcell")[0],taxon.getTextAnnotation("Lane")[0]);
+            theBarcodesArrayList.add(theBC);
         }
+        theBarcodes = new Barcode[theBarcodesArrayList.size()];
+        theBarcodesArrayList.toArray(theBarcodes);
+        Arrays.sort(theBarcodes);
+        int nBL = theBarcodes[0].barOverLong.length;
+        quickBarcodeList = new long[theBarcodes.length * nBL];
+        quickMap = new HashMap();
+        for (int i = 0; i < theBarcodes.length; i++) {
+            for (int j = 0; j < nBL; j++) {
+                quickBarcodeList[i * nBL + j] = theBarcodes[i].barOverLong[j];
+                quickMap.put(theBarcodes[i].barOverLong[j], i);
+            }
+        }
+        Arrays.sort(quickBarcodeList);
         return theBarcodes.length;
     }
 
