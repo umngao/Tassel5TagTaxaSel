@@ -236,4 +236,9 @@ public class SuperByteMatrixMultiple implements SuperByteMatrix {
 
     }
 
+    @Override
+    public void arraycopy(int row, byte[] src, int startColumn) {
+        System.arraycopy(src, 0, myData[getFirstIndex(row)], getSecondIndex(row, startColumn), src.length);
+    }
+
 }
