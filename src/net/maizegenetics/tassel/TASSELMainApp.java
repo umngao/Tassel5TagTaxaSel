@@ -19,65 +19,54 @@
 package net.maizegenetics.tassel;
 
 import javax.swing.*;
-import java.awt.*;
 
 import net.maizegenetics.pipeline.TasselPipeline;
 import net.maizegenetics.prefs.TasselPrefs;
-import net.maizegenetics.util.ExceptionUtils;
 import net.maizegenetics.util.LoggingUtils;
+
+import org.apache.log4j.Logger;
 
 public class TASSELMainApp {
 
-    private final TASSELMainFrame frame;
+    private static final Logger myLogger = Logger.getLogger(TASSELMainApp.class);
 
-    //Construct the application
-    public TASSELMainApp() {
-
-        LoggingUtils.setupLogging();
-
-        try {
-            UIManager.setLookAndFeel(new com.sun.java.swing.plaf.windows.WindowsLookAndFeel());
-        } catch (Exception e) {
-        }
-
-        TasselPrefs.setPersistPreferences(true);
-
-        frame = new TASSELMainFrame();
-        frame.validate();
-
-        //Center the window
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        Dimension frameSize = frame.getSize();
-        if (frameSize.height > screenSize.height) {
-            frameSize.height = screenSize.height;
-        }
-        if (frameSize.width > screenSize.width) {
-            frameSize.width = screenSize.width;
-        }
-        frame.setLocation((screenSize.width - frameSize.width) / 2, (screenSize.height - frameSize.height) / 2);
-        frame.setVisible(true);
+    private TASSELMainApp() {
     }
 
-    public TASSELMainFrame getTASSELMainFrame() {
-        return frame;
-    }
-
-    //Main method
-    static public void main(String[] args) {
+    public static void main(String[] args) {
         try {
-            TASSELMainApp mainApp = new TASSELMainApp();
+
+            TasselPrefs.setPersistPreferences(true);
+            LoggingUtils.setupLogging();
+
+            try {
+                UIManager.setLookAndFeel(new com.sun.java.swing.plaf.windows.WindowsLookAndFeel());
+            } catch (UnsupportedLookAndFeelException e) {
+                myLogger.debug(e.getMessage(), e);
+            }
+
+            TASSELMainFrame frame = new TASSELMainFrame();
+            frame.validate();
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
+
             if (args.length > 0) {
-                new TasselPipeline(args, mainApp.getTASSELMainFrame());
+                new TasselPipeline(args, frame);
             }
-        } catch (Throwable e) {
-            String userMessage = "TASSEL has experienced an error.  "
-                    + ExceptionUtils.getExceptionCauses(e);
-            if (e instanceof java.lang.OutOfMemoryError) {
-                userMessage = "You have used up all of the memory allocated to the Java Virtual Machine.  "
-                        + "It is recommneded that you adjust your heap settings and possibly add more memory to the computer.  "
-                        + "Additionally, some operations are not recommended on a full dataset, i.e., select SNPs *before* determining LD";
-            }
-            JOptionPane.showMessageDialog(null, userMessage, "Fatal Error", JOptionPane.ERROR_MESSAGE);
+
+        } catch (OutOfMemoryError e) {
+            e.printStackTrace();
+            StringBuilder builder = new StringBuilder();
+            builder.append("Out of Memory: \n");
+            long heapMaxSize = Runtime.getRuntime().maxMemory() / 1048576l;
+            builder.append("Current Max Heap Size: ");
+            builder.append(heapMaxSize);
+            builder.append(" Mb\n");
+            builder.append("Use -Xmx option in start_tassel.pl or start_tassel.bat\n");
+            builder.append("to increase heap size.");
+            builder.append(" Included with tassel standalone zip.");
+            myLogger.error(builder.toString());
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
