@@ -403,6 +403,8 @@ public class FilterAlignmentPlugin extends AbstractPlugin {
 }
 
 class DataFilterAlignmentDialog extends JDialog {
+    
+    private static final Logger myLogger = Logger.getLogger(DataFilterAlignmentDialog.class);
 
     GenotypeTable theAlignment;
     GenotypeTable chromFilteredAlignment;
@@ -1044,7 +1046,7 @@ class DataFilterAlignmentDialog extends JDialog {
                 throw new IllegalArgumentException("Start Position Can't be Negative.");
             }
 
-            int startSite = theAlignment.siteOfPhysicalPosition(startPosFromField, null);
+            int startSite = theAlignment.siteOfPhysicalPosition(startPosFromField, theAlignment.chromosomes()[0]);
 
             if (startSite < 0) {
                 startSite = -(startSite + 1);
@@ -1058,6 +1060,7 @@ class DataFilterAlignmentDialog extends JDialog {
             startPos = theAlignment.chromosomalPosition(start);
             startTextField.setText(String.valueOf(start));
         } catch (Exception ee) {
+            myLogger.debug(ee.getMessage(), ee);
             StringBuilder builder = new StringBuilder();
             builder.append("\nProblem with Start Physical Position: ");
             builder.append(startPosTextField.getText().trim());
