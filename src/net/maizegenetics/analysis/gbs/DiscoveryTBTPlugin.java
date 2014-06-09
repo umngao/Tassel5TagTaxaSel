@@ -84,7 +84,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                 myLogger.warn("No files matching:"+inputFileGlob);
                 return null;
             }
-            TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(),sampleNameField,new HashMap<>(),true);
+            TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(),sampleNameField,new HashMap<String, String>(),true);
             //setup
             int numThreads=Runtime.getRuntime().availableProcessors();
             ExecutorService pool= Executors.newFixedThreadPool(numThreads-1);

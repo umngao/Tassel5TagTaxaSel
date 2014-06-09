@@ -217,7 +217,7 @@ public class TaxaListIOUtils {
      * @return TaxaList with annotations
      */
     public static TaxaList readTaxaAnnotationFile(String fileName, String taxaNameField) {
-        return readTaxaAnnotationFile(fileName,taxaNameField, new HashMap<>(),false);
+        return readTaxaAnnotationFile(fileName,taxaNameField, new HashMap<String, String>(),false);
     }
 
     /**
