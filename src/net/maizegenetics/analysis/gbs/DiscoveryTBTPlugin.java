@@ -24,6 +24,7 @@ import java.nio.file.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -55,7 +56,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
     private PluginParameter<Integer> myMinQualScore = new PluginParameter.Builder<>("mnQS", 0, Integer.class).guiName("Minimum quality score").required(false)
             .description("Minimum quality score within the barcode and read length to be accepted").build();
 
-    private Map<Tag,TaxaDistribution> tagCntMap=new HashMap<>(200_000_000);
+    private Map<Tag,TaxaDistribution> tagCntMap=new ConcurrentHashMap<>(20_000_000);
     private static final String inputFileGlob="glob:*{.fq,fq.gz,fastq,fastq.txt,fastq.gz,fastq.txt.gz,_sequence.txt,_sequence.txt.gz}";
     private static final int keyFileTaxaNameIndex=3;
     private static final int keyFilePrepIDIndex=7;
@@ -86,13 +87,13 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
             TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(),sampleNameField,new HashMap<>(),true);
             //setup
             int numThreads=Runtime.getRuntime().availableProcessors();
-            ExecutorService pool= Executors.newFixedThreadPool(numThreads-2);
+            ExecutorService pool= Executors.newFixedThreadPool(numThreads-1);
             for (Path inputSeqFile : inputSeqFiles) {
                 System.out.println("Using File:"+inputSeqFile.toString());
                 ProcessFastQFile pb=new ProcessFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),
                         minimumQualityScore(), tagCntMap);
-                     pb.run();
-                //pool.execute(pb);
+                //pb.run();
+                pool.execute(pb);
                 //countTags(myKeyFile.value(), myEnzyme.value(), inputSeqFile);\
                 System.out.println("tagCntMap.size()="+tagCntMap.size());
             }
@@ -310,9 +311,9 @@ class ProcessFastQFile implements Runnable {
     public void run() {
         TaxaList tl=getLaneAnnotatedTaxaList(keyPath, fastQPath);
         if(enzyme==null) enzyme=tl.get(0).getTextAnnotation(enzymeField)[0];
-        for (Taxon taxon : tl) {
-            System.out.println(taxon.toStringWithVCFAnnotation());
-        }
+//        for (Taxon taxon : tl) {
+//            System.out.println(taxon.toStringWithVCFAnnotation());
+//        }
         ParseBarcodeRead2 thePBR=new ParseBarcodeRead2(tl, enzyme, masterTaxaList);
         processFastQ(fastQPath,thePBR);
     }
