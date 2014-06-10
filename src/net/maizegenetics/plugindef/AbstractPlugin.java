@@ -645,16 +645,23 @@ abstract public class AbstractPlugin implements Plugin {
                     }
                 });
 
-                if (current.fileType() == PluginParameter.FILE_TYPE.IN_FILE) {
-                    panel.add(getLine(current.guiName(), field, getOpenFile(dialog, field), getToolTip(current)));
-                } else if (current.fileType() == PluginParameter.FILE_TYPE.OUT_FILE) {
-                    panel.add(getLine(current.guiName(), field, getSaveFile(dialog, field), getToolTip(current)));
-                } else if (current.fileType() == PluginParameter.FILE_TYPE.IN_DIR) {
-                    panel.add(getLine(current.guiName(), field, getOpenDir(dialog, field), getToolTip(current)));
-                } else if (current.fileType() == PluginParameter.FILE_TYPE.OUT_DIR) {
-                    panel.add(getLine(current.guiName(), field, getSaveDir(dialog, field), getToolTip(current)));
+                String label = null;
+                if (current.required()) {
+                    label = current.guiName() + "*";
                 } else {
-                    panel.add(getLine(current.guiName(), field, null, getToolTip(current)));
+                    label = current.guiName();
+                }
+
+                if (current.fileType() == PluginParameter.FILE_TYPE.IN_FILE) {
+                    panel.add(getLine(label, field, getOpenFile(dialog, field), getToolTip(current)));
+                } else if (current.fileType() == PluginParameter.FILE_TYPE.OUT_FILE) {
+                    panel.add(getLine(label, field, getSaveFile(dialog, field), getToolTip(current)));
+                } else if (current.fileType() == PluginParameter.FILE_TYPE.IN_DIR) {
+                    panel.add(getLine(label, field, getOpenDir(dialog, field), getToolTip(current)));
+                } else if (current.fileType() == PluginParameter.FILE_TYPE.OUT_DIR) {
+                    panel.add(getLine(label, field, getSaveDir(dialog, field), getToolTip(current)));
+                } else {
+                    panel.add(getLine(label, field, null, getToolTip(current)));
                 }
 
                 parameterFields.put(current.cmdLineName(), field);
