@@ -8,7 +8,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.SetMultimap;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTable;
@@ -33,7 +32,7 @@ public final class HDF5Utils {
         return reader.exists(net.maizegenetics.dna.snp.HapMapHDF5Constants.LOCI);
     }
 
- //TAXA Module
+     // TAXA Module
      public static void createHDF5TaxaModule(IHDF5Writer h5w) {
          h5w.createGroup(Tassel5HDF5Constants.TAXA_MODULE);
          h5w.setBooleanAttribute(Tassel5HDF5Constants.TAXA_ATTRIBUTES_PATH,Tassel5HDF5Constants.TAXA_LOCKED,false);
@@ -124,7 +123,7 @@ public final class HDF5Utils {
     }
 
 
- //GENOTYPE Module
+    // GENOTYPE Module
 
     public static int getHDF5GenotypeTaxaNumber(IHDF5Reader reader){
         return reader.getIntAttribute(Tassel5HDF5Constants.GENOTYPES_ATTRIBUTES_PATH,Tassel5HDF5Constants.GENOTYPES_NUM_TAXA);
@@ -256,11 +255,32 @@ public final class HDF5Utils {
         return reader.readByteMatrixBlockWithOffset(Tassel5HDF5Constants.ALLELE_FREQ_ORD, 1, getHDF5PositionNumber(reader),
                 (long)allele.index(), 0)[0];
     }
+    
+    
+    public static byte[] getHDF5GenotypeSiteScores(IHDF5Reader reader, String taxon, String siteScoreType) {
+        String path = Tassel5HDF5Constants.getGenotypesSiteScorePath(taxon, siteScoreType);
+        if(reader.exists(path)) {
+            return reader.readByteArray(path);
+        } else {
+            return null;
+        }
+    }
+    
+    public static void writeHDF5GenotypeSiteScores(IHDF5Writer writer, String taxon, String siteScoreType, byte[] values) {
+        String path = Tassel5HDF5Constants.getGenotypesSiteScorePath(taxon, siteScoreType);
+        if(writer.exists(path)) {
+            throw new IllegalStateException("HDF5Utils: writeHDF5GenotypeSiteScores: path already exists: " + path);
+        } else {
+            writer.createByteArray(path, values.length, Math.min(Tassel5HDF5Constants.BLOCK_SIZE,values.length), Tassel5HDF5Constants.intDeflation);
+        writeHDF5EntireArray(path, writer, values.length, Tassel5HDF5Constants.BLOCK_SIZE, values);
+        }
+    }
+    
 
 
 
-
-//    Positions/numSites
+    // Positions/numSites
+    
     public static int getHDF5PositionNumber(IHDF5Reader reader){
         return reader.getIntAttribute(Tassel5HDF5Constants.POSITION_ATTRIBUTES_PATH,Tassel5HDF5Constants.POSITION_NUM_SITES);
     }
@@ -300,7 +320,7 @@ public final class HDF5Utils {
     }
 
 
-    //Tags Module
+    // Tags Module
     public static void createHDF5TagModule(IHDF5Writer h5w, int tagLengthInLong) {
         if(h5w.exists(Tassel5HDF5Constants.TAG_MODULE)) throw new UnsupportedOperationException("Tag module already exists in HDF5 file");
         h5w.createGroup(Tassel5HDF5Constants.TAG_MODULE);
@@ -532,7 +552,5 @@ public final class HDF5Utils {
             myWriter.writeStringArrayBlockWithOffset(objectPath, sval, sval.length, (long) startPos);
         }
     }
-
-
 
 }
