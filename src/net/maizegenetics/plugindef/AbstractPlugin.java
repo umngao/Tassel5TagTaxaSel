@@ -70,6 +70,7 @@ abstract public class AbstractPlugin implements Plugin {
                 }
             }
 
+            checkRequiredParameters();
             postProcessParameters();
             printParameterValues();
             checkParameters();
@@ -83,14 +84,12 @@ abstract public class AbstractPlugin implements Plugin {
         } catch (Exception e) {
 
             if (isInteractive()) {
-                StringBuilder builder = new StringBuilder();
-                builder.append(e.getMessage());
-                builder.append("\n");
-                String str = builder.toString();
-                DialogUtils.showError(str, getParentFrame());
+                myLogger.debug(e.getMessage(), e);
+                DialogUtils.showError(e.getMessage() + "\n", getParentFrame());
             } else {
                 myLogger.error(e.getMessage());
                 printUsage();
+                myLogger.debug(e.getMessage(), e);
                 System.exit(1);
             }
             return null;
@@ -184,7 +183,7 @@ abstract public class AbstractPlugin implements Plugin {
                 return input == null ? null : outputClass.getConstructor(String.class).newInstance(input);
             }
         } catch (Exception nfe) {
-            throw new IllegalArgumentException("convert: Problem converting: " + input + " to " + outputClass.getName());
+            throw new IllegalArgumentException("Problem converting: " + input + " to " + outputClass.getName());
         }
     }
 
@@ -226,10 +225,7 @@ abstract public class AbstractPlugin implements Plugin {
 
     }
 
-    /**
-     * Verification checks of parameters.
-     */
-    private void checkParameters() {
+    private void checkRequiredParameters() {
 
         List<String> cmdLineNames = new ArrayList<>();
         for (PluginParameter<?> current : getParameterInstances()) {
@@ -244,9 +240,6 @@ abstract public class AbstractPlugin implements Plugin {
             } else {
                 cmdLineNames.add(current.cmdLineName());
             }
-        }
-
-        for (PluginParameter<?> current : getParameterInstances()) {
 
             if (current.required()) {
                 if (current.isEmpty()) {
@@ -259,6 +252,16 @@ abstract public class AbstractPlugin implements Plugin {
                     }
                 }
             }
+        }
+
+    }
+
+    /**
+     * Verification checks of parameters.
+     */
+    private void checkParameters() {
+
+        for (PluginParameter<?> current : getParameterInstances()) {
 
             if (current.fileType() == PluginParameter.FILE_TYPE.IN_FILE) {
                 if (!current.isEmpty()) {
@@ -495,7 +498,7 @@ abstract public class AbstractPlugin implements Plugin {
             return setParameter(key, (Comparable) convert(value, parameter.valueType()));
         } catch (Exception e) {
             if (isInteractive()) {
-                throw e;
+                throw new IllegalArgumentException(getParameterInstance(key).guiName() + ": " + e.getMessage());
             } else {
                 myLogger.error(key + ": " + e.getMessage());
                 printUsage();
@@ -528,6 +531,11 @@ abstract public class AbstractPlugin implements Plugin {
      */
     private <T extends Comparable<T>> boolean setParametersViaGUI() {
 
+        final List<PluginParameter<?>> parameterInstances = getParameterInstances();
+        if (parameterInstances.isEmpty()) {
+            return true;
+        }
+
         final JDialog dialog = new JDialog(getParentFrame(), null, true);
 
         final Map<String, JComponent> parameterFields = new HashMap<>();
@@ -541,7 +549,7 @@ abstract public class AbstractPlugin implements Plugin {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
-                    for (final PluginParameter<?> current : getParameterInstances()) {
+                    for (final PluginParameter<?> current : parameterInstances) {
                         JComponent component = parameterFields.get(current.cmdLineName());
                         if (component instanceof JTextField) {
                             String input = ((JTextField) component).getText().trim();
@@ -654,7 +662,7 @@ abstract public class AbstractPlugin implements Plugin {
         }
 
         JTabbedPane tabbedPane = new JTabbedPane();
-        tabbedPane.add(panel, getToolTipText());
+        tabbedPane.add(panel, getButtonName());
 
         JPanel pnlButtons = new JPanel();
         pnlButtons.setLayout(new FlowLayout());
