@@ -6,9 +6,7 @@ import net.maizegenetics.analysis.popgen.DonorHypoth;
 import net.maizegenetics.dna.map.DonorHaplotypes;
 import net.maizegenetics.dna.snp.*;
 import net.maizegenetics.dna.snp.io.ProjectionGenotypeIO;
-import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.util.ArgsEngine;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
 import org.apache.commons.lang.ArrayUtils;
@@ -20,12 +18,15 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import net.maizegenetics.analysis.gbs.BinaryToTextPlugin;
 
 import static net.maizegenetics.dna.snp.GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
 import static net.maizegenetics.dna.WHICH_ALLELE.Major;
 import static net.maizegenetics.dna.WHICH_ALLELE.Minor;
 import static net.maizegenetics.dna.snp.GenotypeTableUtils.isHeterozygous;
 import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.GAP_DIPLOID_ALLELE;
+import net.maizegenetics.plugindef.GeneratePluginCode;
+import net.maizegenetics.plugindef.PluginParameter;
 
 
 
@@ -66,42 +67,69 @@ import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.GAP_DIPLOID
  */
 //@Citation("Two papers: Viterbi from Bradbury, et al (in prep) Recombination patterns in maize\n"+
 //        "NearestNeighborSearch Swarts,...,Buckler (in prep) Imputation with large genotyping by sequencing data\n")
-public class FILLINImputationPlugin extends AbstractPlugin {
-    private String hmpFile;
-    private String donorFile;
-    private String outFileBase;
-    private boolean hybridNN=true;//if true, uses combination mode in focus block, else set don't impute (default is true)
-    private int minMinorCnt=20;
+public class FILLINImputationPlugin extends net.maizegenetics.plugindef.AbstractPlugin {
     private int minMajorRatioToMinorCnt=10;  //refinement of minMinorCnt to account for regions with all major
-    private int maxDonorHypotheses=20;  //number of hypotheses of record from an inbred or hybrid search of a focus block
-    private boolean isOutputProjection=false;
-
-    private double maximumInbredError=0.01;  //inbreds are tested first, if too much error hybrids are tested.
-    private double maxHybridErrorRate=0.003;
-    private int minTestSites=100;  //minimum number of compared sites to find a hit
-
+    //Plugin parameters
+    private PluginParameter<String> hmpFile= new PluginParameter.Builder<>("hmp",null,String.class).guiName("Target file").inFile().required(true)
+            .description("Input HapMap file of target genotypes to impute. Accepts all file types supported by TASSEL5").build();
+    private PluginParameter<String> donorFile= new PluginParameter.Builder<>("d",null,String.class).guiName("Donor file").inFile().required(true)
+            .description("Donor haplotype files from output of FILLINFindHaplotypesPlugin. Use .gX in the input filename to denote the substring .gc#s# found in donor files").build();
+    private PluginParameter<String> outFileBase= new PluginParameter.Builder<>("o",null,String.class).guiName("Output filename").outFile().required(true)
+            .description("Output file; hmp.txt.gz and .hmp.h5 accepted.").build();
+    
+    private PluginParameter<Integer> appoxSitesPerDonorGenotypeTable= new PluginParameter.Builder<>("hapSize",8000,Integer.class).guiName("Preferred haplotype size")
+            .description("Preferred haplotype block size in sites (use same as in FILLINFindHaplotypesPlugin)").build();
+    private PluginParameter<Double> hetThresh= new PluginParameter.Builder<>("hetThresh",0.01,Double.class).guiName("Heterozygosity threshold")
+            .description("Threshold per taxon heterozygosity for treating taxon as heterozygous (no Viterbi, het thresholds).").build();
+    private PluginParameter<Double> maximumInbredError= new PluginParameter.Builder<>("mxInbErr",0.01,Double.class).guiName("Max error to impute one donor")
+            .description("Maximum error rate for applying one haplotype to entire site window").build();
+    private PluginParameter<Double> maxHybridErrorRate= new PluginParameter.Builder<>("mxHybErr",0.003,Double.class).guiName("Max combined error to impute two donors")
+            .description("Maximum error rate for applying Viterbi with to haplotypes to entire site window").build();
+    private PluginParameter<Integer> minTestSites= new PluginParameter.Builder<>("mnTestSite",20,Integer.class).guiName("Min sites to test match")
+            .description("Minimum number of sites to test for IBS between haplotype and target in focus block").build();
+    private PluginParameter<Integer> minMinorCnt= new PluginParameter.Builder<>("minMnCnt",20,Integer.class).guiName("Min num of minor alleles to compare")
+            .description("Minimum number of informative minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major)").build();
+    private PluginParameter<Integer> maxDonorHypotheses= new PluginParameter.Builder<>("mxDonH",20,Integer.class).guiName("Max donor hypotheses")
+            .description("Maximum number of donor hypotheses to be explored").build();
+    
+        //if true, uses combination mode in focus block, else set don't impute (default is true)
+    private PluginParameter<Boolean> hybridNN= new PluginParameter.Builder<>("hybNN",true,Boolean.class).guiName("Combine two haplotypes as heterozygote")
+            .description("If true, uses combination mode in focus block, else does not impute").build();
+    private PluginParameter<Boolean> isOutputProjection= new PluginParameter.Builder<>("ProjA",false,Boolean.class).guiName("Output projection alignment")
+            .description("Create a projection alignment for high density markers").build();
+    private PluginParameter<Boolean> imputeDonorFile= new PluginParameter.Builder<>("impDonor",false,Boolean.class).guiName("Impute donor file")
+            .description("Impute the donor file itself").build();
+    private PluginParameter<Boolean> verboseOutput= new PluginParameter.Builder<>("verbose",true,Boolean.class).guiName("Express system out")
+            .description("Express system out").build();
+    
+            //for calculating accuracy
+    private PluginParameter<Boolean> accuracy= new PluginParameter.Builder<>("accuracy",true,Boolean.class).guiName("Calculate accuracy")
+            .description("Masks input file before imputation and calculates accuracy based on masked genotypes").build();
+    private PluginParameter<Double> propSitesMask= new PluginParameter.Builder<>("propSitesMask",0.01,Double.class).guiName("Proportion of genotypes to mask if no depth")
+            .description("Proportion of genotypes to mask for accuracy calculation if depth not available").build();
+    private PluginParameter<Integer> depthToMask= new PluginParameter.Builder<>("depthMask",9,Integer.class).guiName("Depth of genotypes to mask")
+            .description("Depth of genotypes to mask for accuracy calculation if depth information available").build();
+    private PluginParameter<Double> propDepthSitesMask= new PluginParameter.Builder<>("propDepthSitesMask",0.2,Double.class).guiName("Proportion of depth genotypes to mask")
+            .description("Proportion of genotypes of given depth to mask for accuracy calculation if depth available").build();
+    
+    //Additional variables
     private boolean twoWayViterbi= true;//if true, the viterbi runs in both directions (the longest path length wins, if inconsistencies)
-    private double minimumDonorDistance=maximumInbredError*5; //used to prevent Viterbi errors with too similar sequences
-    private double maxNonMedelian=maximumInbredError*5; //if used avoid Viterbi if too many sites are non-Mendelian
-    private int appoxSitesPerDonorGenotypeTable=8000;
+    private double minimumDonorDistance=maximumInbredError.value()*5; //used to prevent Viterbi errors with too similar sequences
+    private double maxNonMedelian=maximumInbredError.value()*5; //if used avoid Viterbi if too many sites are non-Mendelian
 
-    //options for focus blocks
-    private double maxHybridErrFocusHomo= .3333*maxHybridErrorRate;////max error rate for discrepacy between two haplotypes for the focus block. it's default is higher because calculating for fewer sites
-    private double maxInbredErrFocusHomo= .3*maximumInbredError;//.003;
-    private double maxSmashErrFocusHomo= maximumInbredError;//.01;
-    private double maxInbredErrFocusHet= .1*maximumInbredError;//.001;//the error rate for imputing one haplotype in focus block for a het taxon
-    private double maxSmashErrFocusHet= maximumInbredError;//.01;
-    private double hetThresh= 0.02;//threshold for whether a taxon is considered heterozygous
-
+        //options for focus blocks
+    private double maxHybridErrFocusHomo= .3333*maxHybridErrorRate.value();////max error rate for discrepacy between two haplotypes for the focus block. it's default is higher because calculating for fewer sites
+    private double maxInbredErrFocusHomo= .3*maximumInbredError.value();//.003;
+    private double maxSmashErrFocusHomo= maximumInbredError.value();//.01;
+    private double maxInbredErrFocusHet= .1*maximumInbredError.value();//.001;//the error rate for imputing one haplotype in focus block for a het taxon
+    private double maxSmashErrFocusHet= maximumInbredError.value();//.01;
 
     public static GenotypeTable unimpAlign;  //the unimputed alignment to be imputed, unphased
     private int testing=0;  //level of reporting to stdout
-    //major and minor alleles can be differ between the donor and unimp alignment
+        //major and minor alleles can be differ between the donor and unimp alignment
     private boolean isSwapMajorMinor=true;  //if swapped try to fix it
 
     private boolean resolveHetIfUndercalled=false;//if true, sets genotypes called to a het to a het, even if already a homozygote
-
-    private boolean verboseOutput=true;
 
     //initialize the transition matrix (T1)
     double[][] transition = new double[][] {
@@ -120,17 +148,38 @@ public class FILLINImputationPlugin extends AbstractPlugin {
                     {.2,.2,.6},
                     {.001,.001,.998}
     };
+    FILLINImputationAccuracy acc= null; //holds the accuracy information if accuracy flagged
 
 
-    private static ArgsEngine engine = new ArgsEngine();
     private static final Logger myLogger = Logger.getLogger(FILLINImputationPlugin.class);
 
+    @Override
+    protected void postProcessParameters() {
+        minimumDonorDistance=maximumInbredError.value()*5;
+        maxNonMedelian=maximumInbredError.value()*5; 
+        maxInbredErrFocusHomo= .3*maximumInbredError.value();//.003;
+        maxSmashErrFocusHomo= maximumInbredError.value();//.01;
+        maxInbredErrFocusHet= .1*maximumInbredError.value();//.001;//the error rate for imputing one haplotype in focus block for a het taxon
+        maxSmashErrFocusHet= maximumInbredError.value();//.01;
+        maxHybridErrFocusHomo= .3333*maxHybridErrorRate.value();
+    }
+    
     public FILLINImputationPlugin() {
         super(null, false);
     }
 
-    public FILLINImputationPlugin(Frame parentFrame) {
-        super(parentFrame, false);
+    public FILLINImputationPlugin(Frame parentFrame, boolean isInteractive) {
+        super(parentFrame, isInteractive);
+    }
+    
+    @Override
+    public String getCitation() {
+        return "Swarts K, Li H, Romero Navarro JA, Romay-Alvarez MC, Hearne S, Acharya C, "
+                + "Glaubitz JC, Mitchell S, Elshire RJ, Buckler ES, Bradbury PJ (2014) "
+                + "FSFHap (Full-Sib Family Haplotype Imputation) and FILLIN "
+                + "(Fast, Inbred Line Library ImputatioN) optimize genotypic imputation "
+                + "for low-coverage, next-generation sequence data in crop plants. "
+                + "Plant Genome (in review)";
     }
 
     /**
@@ -145,26 +194,29 @@ public class FILLINImputationPlugin extends AbstractPlugin {
      * @param isOutputProjection
      * @param imputeDonorFile
      */
-    public void runFILLINImputation(String donorFile, String unImpTargetFile, String exportFile, int minMinorCnt,
-                    int minTestSites, int minSitesPresent, double maxHybridErrorRate, boolean isOutputProjection, boolean imputeDonorFile) {
+    
+    @Override
+    public DataSet processData(DataSet input) {
         long time=System.currentTimeMillis();
-
-        this.minTestSites=minTestSites;
-        this.isOutputProjection=isOutputProjection;
-        unimpAlign=ImportUtils.readGuessFormat(unImpTargetFile);
-        GenotypeTable[] donorAlign=FILLINDonorGenotypeUtils.loadDonors(donorFile, unimpAlign, minTestSites,
-                verboseOutput,appoxSitesPerDonorGenotypeTable);
+        unimpAlign=ImportUtils.readGuessFormat(hmpFile.value());
+        if (accuracy.value()) {
+            acc= new FILLINImputationAccuracy(unimpAlign,propSitesMask.value(),depthToMask.value(), 
+                    propDepthSitesMask.value(),outFileBase.value(),verboseOutput.value());
+            unimpAlign= acc.initiateAccuracy();
+        }
+        GenotypeTable[] donorAlign=FILLINDonorGenotypeUtils.loadDonors(donorFile.value(), unimpAlign, minTestSites.value(),
+                verboseOutput.value(),appoxSitesPerDonorGenotypeTable.value());
         OpenBitSet[][] conflictMasks=FILLINDonorGenotypeUtils.createMaskForAlignmentConflicts(unimpAlign, donorAlign,
-                verboseOutput);
+                verboseOutput.value());
 
         System.out.printf("Unimputed taxa:%d sites:%d %n",unimpAlign.numberOfTaxa(),unimpAlign.numberOfSites());
-        System.out.println("Creating Export GenotypeTable:"+exportFile);
+        System.out.println("Creating Export GenotypeTable:"+outFileBase.value());
         Object mna;
-        if(isOutputProjection) {
-            mna=new ProjectionBuilder(ImportUtils.readGuessFormat(donorFile));
+        if(isOutputProjection.value()) {
+            mna=new ProjectionBuilder(ImportUtils.readGuessFormat(donorFile.value()));
         } else {
-            if(exportFile.contains(".h5")) {
-                mna= GenotypeTableBuilder.getTaxaIncremental(this.unimpAlign.positions(),exportFile);
+            if(outFileBase.value().contains(".h5")) {
+                mna= GenotypeTableBuilder.getTaxaIncremental(this.unimpAlign.positions(),outFileBase.value());
             }else {
                 mna= GenotypeTableBuilder.getTaxaIncremental(this.unimpAlign.positions());
             }
@@ -175,9 +227,9 @@ public class FILLINImputationPlugin extends AbstractPlugin {
         
         for (int taxon = 0; taxon < unimpAlign.numberOfTaxa(); taxon+=1) {
             int[] trackBlockNN= new int[5];//global variable to track number of focus blocks solved in NN search for system out; index 0 is inbred, 1 is viterbi, 2 is smash, 3 is not solved, 4 is total for all modes
-            ImputeOneTaxon theTaxon= (((double)unimpAlign.heterozygousCountForTaxon(taxon)/(double)unimpAlign.totalNonMissingForTaxon(taxon))<hetThresh)?
-                new ImputeOneTaxon(taxon, donorAlign, minSitesPresent, conflictMasks,imputeDonorFile, mna, trackBlockNN, maxInbredErrFocusHomo, maxHybridErrFocusHomo, maxSmashErrFocusHomo, true):
-                    new ImputeOneTaxon(taxon, donorAlign, minSitesPresent, conflictMasks,imputeDonorFile, mna, trackBlockNN, maxInbredErrFocusHet, 0, maxSmashErrFocusHet, false);
+            ImputeOneTaxon theTaxon= (((double)unimpAlign.heterozygousCountForTaxon(taxon)/(double)unimpAlign.totalNonMissingForTaxon(taxon))<hetThresh.value())?
+                new ImputeOneTaxon(taxon, donorAlign, minTestSites.value(), conflictMasks,imputeDonorFile.value(), mna, trackBlockNN, maxInbredErrFocusHomo, maxHybridErrFocusHomo, maxSmashErrFocusHomo, true):
+                    new ImputeOneTaxon(taxon, donorAlign, minTestSites.value(), conflictMasks,imputeDonorFile.value(), mna, trackBlockNN, maxInbredErrFocusHet, 0, maxSmashErrFocusHet, false);
             //        theTaxon.run(); //retained to provide a quick way to debug.  uncomment to help in debugging.
             pool.execute(theTaxon);
         }
@@ -191,23 +243,28 @@ public class FILLINImputationPlugin extends AbstractPlugin {
         }
         System.out.println("");
         StringBuilder s=new StringBuilder();
-        s.append(String.format("%s %s MinMinor:%d ", donorFile, unImpTargetFile, minMinorCnt));
+        s.append(String.format("%s %s MinMinor:%d ", donorFile, hmpFile.value(), minMinorCnt));
         System.out.println(s.toString());
         
         double runtime= (double)(System.currentTimeMillis()-time)/(double)1000;
-        if(isOutputProjection) {
-            ProjectionGenotypeIO.writeToFile(exportFile, ((ProjectionBuilder) mna).build());
+        if(isOutputProjection.value()) {
+            ProjectionGenotypeIO.writeToFile(outFileBase.value(), ((ProjectionBuilder) mna).build());
         } else {
             GenotypeTableBuilder ab=(GenotypeTableBuilder)mna;
             ab.sortTaxa();
             if(ab.isHDF5()) {
                 ab.build();
             } else {
-                ExportUtils.writeToHapmap(ab.build(), false, exportFile, '\t', null);
+                ExportUtils.writeToHapmap(ab.build(), false, outFileBase.value(), '\t', null);
             }
+            if (accuracy.value()) {
+                acc.calcAccuracy(((GenotypeTableBuilder)mna).sortTaxa().build(), runtime);
+            }
+
         }
         System.out.printf("%d %g %d %n",minMinorCnt, maximumInbredError, maxDonorHypotheses);
-        System.out.println("Time to read in files, impute target genotypes, and calculate accuracy: "+runtime+" seconds");
+        System.out.println("Runtime: "+runtime+" seconds");
+        return null;
     }
 
     private class ImputeOneTaxon implements Runnable{
@@ -249,7 +306,7 @@ public class FILLINImputationPlugin extends AbstractPlugin {
         public void run() {
             StringBuilder sb=new StringBuilder();
             String name=unimpAlign.taxaName(taxon);
-            ImputedTaxon impTaxon=new ImputedTaxon(taxon, unimpAlign.genotypeAllSites(taxon),isOutputProjection);
+            ImputedTaxon impTaxon=new ImputedTaxon(taxon, unimpAlign.genotypeAllSites(taxon),isOutputProjection.value());
             boolean het= (focusHybridErr==0)?true:false;
             int[] unkHets=FILLINImputationUtils.countUnknownAndHeterozygotes(impTaxon.getOrigGeno());
             sb.append(String.format("Imputing %d:%s AsHet:%b Mj:%d, Mn:%d Unk:%d Hets:%d... ", taxon,name,het,
@@ -274,24 +331,24 @@ public class FILLINImputationPlugin extends AbstractPlugin {
                 }
 
                 //Finds the best haplotype donors for each focus block within a donorGenotypeTable
-                DonorHypoth[][] regionHypthInbred=new DonorHypoth[blocks][maxDonorHypotheses];
+                DonorHypoth[][] regionHypthInbred=new DonorHypoth[blocks][maxDonorHypotheses.value()];
                 byte[][][] targetToDonorDistances=FILLINImputationUtils.calcAllelePresenceCountsBtwTargetAndDonors(maskedTargetBits,
                         donorAlign[da]);
                 for (int focusBlock = 0; focusBlock < blocks; focusBlock++) {
-                    int[] resultRange=FILLINImputationUtils.getBlockWithMinMinorCount(maskedTargetBits[0].getBits(), maskedTargetBits[1].getBits(), focusBlock, minMinorCnt, minMinorCnt*minMajorRatioToMinorCnt);
+                    int[] resultRange=FILLINImputationUtils.getBlockWithMinMinorCount(maskedTargetBits[0].getBits(), maskedTargetBits[1].getBits(), focusBlock, minMinorCnt.value(), minMinorCnt.value()*minMajorRatioToMinorCnt);
                     if(resultRange==null) continue; //no data in the focus Block
                     //search for the best inbred donors for a segment
                     regionHypthInbred[focusBlock]=FILLINImputationUtils.findHomozygousDonorHypoth(taxon, resultRange[0], resultRange[2],
-                            focusBlock, donorIndices, targetToDonorDistances, minTestSites, maxDonorHypotheses);
+                            focusBlock, donorIndices, targetToDonorDistances, minTestSites.value(), maxDonorHypotheses.value());
                 }
                 impTaxon.setSegmentSolved(false);
 
                 //tries to solve the entire donorAlign region by Virterbi
-                impTaxon=solveEntireDonorRegion(taxon, donorAlign[da], donorOffset, regionHypthInbred, impTaxon, maskedTargetBits, maxHybridErrorRate, targetToDonorDistances);
+                impTaxon=solveEntireDonorRegion(taxon, donorAlign[da], donorOffset, regionHypthInbred, impTaxon, maskedTargetBits, maxHybridErrorRate.value(), targetToDonorDistances);
                 if(impTaxon.isSegmentSolved()) {countFullLength++; continue;}
 
                 //resorts to solving block by block, first by inbred, then by viterbi, and then by hybrid
-                impTaxon=solveByBlockNearestNeighbor(impTaxon, taxon, donorAlign[da], donorOffset, regionHypthInbred, hybridNN, maskedTargetBits, minMinorCnt, focusInbredErr, focusHybridErr, focusSmashErr, donorIndices, trackBlockNN, hetsMiss);
+                impTaxon=solveByBlockNearestNeighbor(impTaxon, taxon, donorAlign[da], donorOffset, regionHypthInbred, hybridNN.value(), maskedTargetBits, minMinorCnt.value(), focusInbredErr, focusHybridErr, focusSmashErr, donorIndices, trackBlockNN, hetsMiss);
                 if(impTaxon.isSegmentSolved()) {countByFocus++;}
             }
             double totalFocus= (double)trackBlockNN[3]+(double)trackBlockNN[4];
@@ -302,12 +359,12 @@ public class FILLINImputationPlugin extends AbstractPlugin {
             sb.append(String.format("Unk:%d PropMissing:%g ", unk[0], (double) unk[0] / (double) impTaxon.getOrigGeno().length));
             sb.append(String.format("Het:%d PropHet:%g ", unk[1], (double)unk[1]/(double)impTaxon.getOrigGeno().length));
             sb.append(" BreakPoints:"+impTaxon.getBreakPoints().size());
-            if(!isOutputProjection) {
+            if(!isOutputProjection.value()) {
                 alignBuilder.addTaxon(unimpAlign.taxa().get(taxon), impTaxon.resolveGeno);
             } else {
                 projBuilder.addTaxon(unimpAlign.taxa().get(taxon),impTaxon.getBreakPoints());
             }
-            if(verboseOutput) System.out.println(sb.toString());
+            if(verboseOutput.value()) System.out.println(sb.toString());
         }
     }
 
@@ -338,22 +395,22 @@ public class FILLINImputationPlugin extends AbstractPlugin {
         //todo consider whether to use this approach
 //        int[] d=FILLINImputationUtils.mostFrequentDonorsAcrossFocusBlocks(regionHypoth, maxDonorHypotheses);
         //Alternative test is find best donors
-       int[] d=FILLINImputationUtils.bestDonorsAcrossEntireRegion(targetToDonorDistances, minTestSites,maxDonorHypotheses);
+       int[] d=FILLINImputationUtils.bestDonorsAcrossEntireRegion(targetToDonorDistances, minTestSites.value(),maxDonorHypotheses.value());
         int[] testList=FILLINImputationUtils.fillInc(0,donorAlign.numberOfTaxa()-1);
         int[] bestDonorList=Arrays.copyOfRange(d,0,Math.min(d.length,5));
         DonorHypoth[] bestDBasedOnBest=FILLINImputationUtils.findHeterozygousDonorHypoth(taxon, maskedTargetBits[0].getBits(),
-                maskedTargetBits[1].getBits(), 0, blocks-1, blocks/2, donorAlign, bestDonorList, testList, maxDonorHypotheses, minTestSites);
+                maskedTargetBits[1].getBits(), 0, blocks-1, blocks/2, donorAlign, bestDonorList, testList, maxDonorHypotheses.value(), minTestSites.value());
 
         //make all combinations of best donor and find the the pairs that minimize errors
         //with the true switch also will make inbreds
         DonorHypoth[] best2Dsearchdonors=FILLINImputationUtils.findHeterozygousDonorHypoth(taxon, maskedTargetBits[0].getBits(),
-                maskedTargetBits[1].getBits(), 0, blocks-1, blocks/2, donorAlign, d, d, maxDonorHypotheses, minTestSites);
-        DonorHypoth[] best2donors=FILLINImputationUtils.combineDonorHypothArrays(maxDonorHypotheses,bestDBasedOnBest,best2Dsearchdonors);
+                maskedTargetBits[1].getBits(), 0, blocks-1, blocks/2, donorAlign, d, d, maxDonorHypotheses.value(), minTestSites.value());
+        DonorHypoth[] best2donors=FILLINImputationUtils.combineDonorHypothArrays(maxDonorHypotheses.value(),bestDBasedOnBest,best2Dsearchdonors);
         if(testing==1) System.out.println(Arrays.toString(best2donors));
         ArrayList<DonorHypoth> goodDH=new ArrayList<DonorHypoth>();
         for (DonorHypoth dh : best2donors) {
             if(dh==null) continue;
-            if(dh.isInbred() && (dh.getErrorRate()<maximumInbredError)) {
+            if(dh.isInbred() && (dh.getErrorRate()<maximumInbredError.value())) {
                 goodDH.add(dh);
             } else if(dh.getErrorRate()<maxHybridErrorRate) {
                 dh=getStateBasedOnViterbi(dh, donorOffset, donorAlign, twoWayViterbi, transition);
@@ -395,7 +452,7 @@ public class FILLINImputationPlugin extends AbstractPlugin {
 //            DonorHypoth[] best2donors=getBestHybridDonors(targetTaxon, maskedTargetBits[0].getBits(resultRange[0], resultRange[2]),
 //                        maskedTargetBits[1].getBits(resultRange[0], resultRange[2]), resultRange[0], resultRange[2], focusBlock, donorAlign, d, d, true);
             DonorHypoth[] best2donors=FILLINImputationUtils.findHeterozygousDonorHypoth(targetTaxon, maskedTargetBits[0].getBits(resultRange[0], resultRange[2]),
-                    maskedTargetBits[1].getBits(resultRange[0], resultRange[2]), resultRange[0], resultRange[2], focusBlock, donorAlign, d, d, maxDonorHypotheses, minTestSites);
+                    maskedTargetBits[1].getBits(resultRange[0], resultRange[2]), resultRange[0], resultRange[2], focusBlock, donorAlign, d, d, (int)maxDonorHypotheses.value(), (int)minTestSites.value());
 
 
             if(best2donors[0]==null) {currBlocksSolved[3]++; continue; } //no good hybrid donors for the focus block
@@ -675,7 +732,7 @@ public class FILLINImputationPlugin extends AbstractPlugin {
             for (int i = 0; (i < theDH.length) && (donorEst==UNKNOWN_DIPLOID_ALLELE); i++) {
                 neighbor++;
                 if((theDH[i]==null)||(theDH[i].donor1Taxon<0)) continue;
-                if(theDH[i].getErrorRate()>this.maximumInbredError) continue;
+                if(theDH[i].getErrorRate()>this.maximumInbredError.value()) continue;
                 byte bD1=donorAlign.genotype(theDH[i].donor1Taxon, cs);
                 if(theDH[i].getPhaseForSite(cs)==0) {
                     donorEst=bD1;
@@ -733,111 +790,6 @@ public class FILLINImputationPlugin extends AbstractPlugin {
 
     }
 
-
-    @Override
-    public void setParameters(String[] args) {
-        if (args.length < 3) {
-            printUsage();
-            throw new IllegalArgumentException("\n\nPlease use the above arguments/options. -hmp, -o, -d required.\n\n");
-        }
-
-        engine.add("-hmp", "-hmpFile", true);
-        engine.add("-o", "--outFile", true);
-        engine.add("-d", "--donorH", true);
-        engine.add("-maskKeyFile", "--maskKeyFile", true);
-        engine.add("-propSitesMask", "--propSitesMask", true);
-        engine.add("-mxHet", "--hetThresh", true);
-        engine.add("-minMnCnt", "--minMnCnt", true);
-        engine.add("-mxInbErr", "--mxInbErr", true);
-        engine.add("-mxHybErr", "--mxHybErr", true);
-        engine.add("-hybNNOff", "--hybNNOff", true);
-        engine.add("-mxDonH", "--mxDonH", true);
-        engine.add("-mnTestSite", "--mnTestSite", true);
-        engine.add("-projA", "--projAlign", false);
-        engine.add("-hapSize", "--hapSize", true);
-        engine.add("-runChrMode", "--runChrMode", false);
-        engine.add("-nV", "--nonVerbose", false);
-        engine.parse(args);
-        hmpFile = engine.getString("-hmp");
-        outFileBase = engine.getString("-o");
-        donorFile = engine.getString("-d");
-        if(engine.getBoolean("-mxHet")) {
-            hetThresh = Double.parseDouble(engine.getString("-mxHet"));
-        }
-        if (engine.getBoolean("-mxInbErr")) {
-            maximumInbredError = Double.parseDouble(engine.getString("-mxInbErr"));
-        }
-        if (engine.getBoolean("-mxHybErr")) {
-            maxHybridErrorRate = Double.parseDouble(engine.getString("-mxHybErr"));
-        }
-        if (engine.getBoolean("-mxVitFocusErr")) {
-            maxHybridErrFocusHomo = Double.parseDouble(engine.getString("-mxVitFocusErr"));
-        }
-        if (engine.getBoolean("-mxInbFocusErr")) {
-            maxInbredErrFocusHomo = Double.parseDouble(engine.getString("-mxInbFocusErr"));
-        }
-        if (engine.getBoolean("-mxComFocusErr")) {
-            maxSmashErrFocusHomo = Double.parseDouble(engine.getString("-mxComFocusErr"));
-        }
-        if (engine.getBoolean("-mxInbFocusErrHet")) {
-            maxInbredErrFocusHet = Double.parseDouble(engine.getString("-mxInbFocusErrHet"));
-        }
-        if (engine.getBoolean("-mxComFocusErrHet")) {
-            maxSmashErrFocusHet = Double.parseDouble(engine.getString("-mxComFocusErrHet"));
-        }
-        if (engine.getBoolean("-minMnCnt")) {
-            minMinorCnt = Integer.parseInt(engine.getString("-minMnCnt"));
-        }
-        if (engine.getBoolean("-hybNNOff")) hybridNN=false;
-        if (engine.getBoolean("-mxDonH")) {
-            maxDonorHypotheses = Integer.parseInt(engine.getString("-mxDonH"));
-        }
-        if (engine.getBoolean("-mnTestSite")) {
-            minTestSites = Integer.parseInt(engine.getString("-mnTestSite"));
-        }
-        if (engine.getBoolean("-hapSize")) {
-            appoxSitesPerDonorGenotypeTable = Integer.parseInt(engine.getString("-hapSize"));
-        }
-        if (engine.getBoolean("-projA")) isOutputProjection=true;
-        if (engine.getBoolean("-nV")) verboseOutput=false;
-        maxHybridErrFocusHomo= .3333*maxHybridErrorRate;
-        maxInbredErrFocusHomo= .3*maximumInbredError;
-        maxSmashErrFocusHomo= maximumInbredError;
-        maxInbredErrFocusHet= .1*maximumInbredError;
-        maxSmashErrFocusHet= maximumInbredError;
-        minimumDonorDistance=maximumInbredError*5;
-        maxNonMedelian=maximumInbredError*5;
-    }
-
-
-
-    private void printUsage() {
-        myLogger.info(
-        "\n\n\nAvailable options for the FILLINImputationPlugin are as follows:\n"
-                + "-hmp   Input HapMap file of target genotypes to impute. Accepts all file types supported by TASSEL5\n"
-                + "-d    Donor haplotype files from output of FILLINFindHaplotypesPlugin. Use .gX in the input filename to denote the substring .gc#s# found in donor files\n"
-                + "-o     Output file; hmp.txt.gz and .hmp.h5 accepted. Required\n"
-                + "-mxHet   Threshold per taxon heterozygosity for treating taxon as heterozygous (no Viterbi, het thresholds). (default:"+hetThresh+"\n"
-                + "-minMnCnt    Minimum number of informative minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major)\n"
-                + "-mxInbErr    Maximum error rate for applying one haplotype to entire site window (default:"+maximumInbredError+"\n"
-                + "-mxHybErr    Maximum error rate for applying Viterbi with to haplotypes to entire site window (default:"+maxHybridErrorRate+"\n"
-                + "-hybNNOff    Whether to model two haplotypes as heterozygotic for focus blocks (default:"+hybridNN+")\n"
-                + "-mxDonH   Maximum number of donor hypotheses to be explored (default: "+maxDonorHypotheses+")\n"
-                + "-mnTestSite   Minimum number of sites to test for IBS between haplotype and target in focus block  (default:"+minTestSites+")\n"
-                + "-projA   Create a projection alignment for high density markers (default off)\n"
-                + "-hapSize    Preferred haplotype block size in sites when a single donor file is used (e.g. phased whole genome) \n"
-
-        );
-    }
-
-    @Override
-    public DataSet performFunction(DataSet input) {
-        runFILLINImputation(donorFile, hmpFile, outFileBase, minMinorCnt, minTestSites, 100, maxHybridErrorRate, isOutputProjection, false);
-        return null;
-    }
-
-
-
     @Override
     public ImageIcon getIcon() {
         return null;
@@ -845,12 +797,348 @@ public class FILLINImputationPlugin extends AbstractPlugin {
 
     @Override
     public String getButtonName() {
-        return "ImputeByFILLIN";
+        return "Impute By FILLIN";
     }
 
     @Override
     public String getToolTipText() {
-        return "Imputation that relies on a combination of HMM and Nearest Neighbor";
+        return "Imputation that relies on a combination of HMM and Nearest Neighbor using donors derived from FILLINFindHaplotypesPlugin";
+    }
+    
+    // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(FILLINImputationPlugin.class);
+    // }
+
+    /**
+     * Convenience method to run plugin with one return object.
+     */
+    public Boolean runPlugin(DataSet input) {
+        return (Boolean) performFunction(input).getData(0).getData();
+    }
+
+    /**
+     * Input HapMap file of target genotypes to impute. Accepts
+     * all file types supported by TASSEL5
+     *
+     * @return Target file
+     */
+    public String targetFile() {
+        return hmpFile.value();
+    }
+
+    /**
+     * Set Target file. Input HapMap file of target genotypes
+     * to impute. Accepts all file types supported by TASSEL5
+     *
+     * @param value Target file
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin targetFile(String value) {
+        hmpFile = new PluginParameter<>(hmpFile, value);
+        return this;
+    }
+
+    /**
+     * Donor haplotype files from output of FILLINFindHaplotypesPlugin.
+     * Use .gX in the input filename to denote the substring
+     * .gc#s# found in donor files
+     *
+     * @return Donor file
+     */
+    public String donorFile() {
+        return donorFile.value();
+    }
+
+    /**
+     * Set Donor file. Donor haplotype files from output of
+     * FILLINFindHaplotypesPlugin. Use .gX in the input filename
+     * to denote the substring .gc#s# found in donor files
+     *
+     * @param value Donor file
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin donorFile(String value) {
+        donorFile = new PluginParameter<>(donorFile, value);
+        return this;
+    }
+
+    /**
+     * Output file; hmp.txt.gz and .hmp.h5 accepted.
+     *
+     * @return Output filename
+     */
+    public String outputFilename() {
+        return outFileBase.value();
+    }
+
+    /**
+     * Set Output filename. Output file; hmp.txt.gz and .hmp.h5
+     * accepted.
+     *
+     * @param value Output filename
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin outputFilename(String value) {
+        outFileBase = new PluginParameter<>(outFileBase, value);
+        return this;
+    }
+
+    /**
+     * Preferred haplotype block size in sites (use same as
+     * in FILLINFindHaplotypesPlugin)
+     *
+     * @return Preferred haplotype size
+     */
+    public Integer preferredHaplotypeSize() {
+        return appoxSitesPerDonorGenotypeTable.value();
+    }
+
+    /**
+     * Set Preferred haplotype size. Preferred haplotype block
+     * size in sites (use same as in FILLINFindHaplotypesPlugin)
+     *
+     * @param value Preferred haplotype size
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin preferredHaplotypeSize(Integer value) {
+        appoxSitesPerDonorGenotypeTable = new PluginParameter<>(appoxSitesPerDonorGenotypeTable, value);
+        return this;
+    }
+
+    /**
+     * Threshold per taxon heterozygosity for treating taxon
+     * as heterozygous (no Viterbi, het thresholds).
+     *
+     * @return Heterozygosity threshold
+     */
+    public Double heterozygosityThreshold() {
+        return hetThresh.value();
+    }
+
+    /**
+     * Set Heterozygosity threshold. Threshold per taxon heterozygosity
+     * for treating taxon as heterozygous (no Viterbi, het
+     * thresholds).
+     *
+     * @param value Heterozygosity threshold
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin heterozygosityThreshold(Double value) {
+        hetThresh = new PluginParameter<>(hetThresh, value);
+        return this;
+    }
+
+    /**
+     * Maximum error rate for applying one haplotype to entire
+     * site window
+     *
+     * @return Max error to impute one donor
+     */
+    public Double maxErrorToImputeOneDonor() {
+        return maximumInbredError.value();
+    }
+
+    /**
+     * Set Max error to impute one donor. Maximum error rate
+     * for applying one haplotype to entire site window
+     *
+     * @param value Max error to impute one donor
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin maxErrorToImputeOneDonor(Double value) {
+        maximumInbredError = new PluginParameter<>(maximumInbredError, value);
+        return this;
+    }
+
+    /**
+     * Maximum error rate for applying Viterbi with to haplotypes
+     * to entire site window
+     *
+     * @return Max combined error to impute two donors
+     */
+    public Double maxCombinedErrorToImputeTwoDonors() {
+        return maxHybridErrorRate.value();
+    }
+
+    /**
+     * Set Max combined error to impute two donors. Maximum
+     * error rate for applying Viterbi with to haplotypes
+     * to entire site window
+     *
+     * @param value Max combined error to impute two donors
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin maxCombinedErrorToImputeTwoDonors(Double value) {
+        maxHybridErrorRate = new PluginParameter<>(maxHybridErrorRate, value);
+        return this;
+    }
+
+    /**
+     * Minimum number of sites to test for IBS between haplotype
+     * and target in focus block
+     *
+     * @return Min sites to test match
+     */
+    public Integer minSitesToTestMatch() {
+        return minTestSites.value();
+    }
+
+    /**
+     * Set Min sites to test match. Minimum number of sites
+     * to test for IBS between haplotype and target in focus
+     * block
+     *
+     * @param value Min sites to test match
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin minSitesToTestMatch(Integer value) {
+        minTestSites = new PluginParameter<>(minTestSites, value);
+        return this;
+    }
+
+    /**
+     * Minimum number of informative minor alleles in the
+     * search window (or 10X major)
+     *
+     * @return Min num of minor alleles to compare
+     */
+    public Integer minNumOfMinorAllelesToCompare() {
+        return minMinorCnt.value();
+    }
+
+    /**
+     * Set Min num of minor alleles to compare. Minimum number
+     * of informative minor alleles in the search window (or
+     * 10X major)
+     *
+     * @param value Min num of minor alleles to compare
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin minNumOfMinorAllelesToCompare(Integer value) {
+        minMinorCnt = new PluginParameter<>(minMinorCnt, value);
+        return this;
+    }
+
+    /**
+     * Maximum number of donor hypotheses to be explored
+     *
+     * @return Max donor hypotheses
+     */
+    public Integer maxDonorHypotheses() {
+        return maxDonorHypotheses.value();
+    }
+
+    /**
+     * Set Max donor hypotheses. Maximum number of donor hypotheses
+     * to be explored
+     *
+     * @param value Max donor hypotheses
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin maxDonorHypotheses(Integer value) {
+        maxDonorHypotheses = new PluginParameter<>(maxDonorHypotheses, value);
+        return this;
+    }
+
+    /**
+     * If true, uses combination mode in focus block, else
+     * does not impute
+     *
+     * @return Combine two haplotypes as heterozygote
+     */
+    public Boolean combineTwoHaplotypesAsHeterozygote() {
+        return hybridNN.value();
+    }
+
+    /**
+     * Set Combine two haplotypes as heterozygote. If true,
+     * uses combination mode in focus block, else does not
+     * impute
+     *
+     * @param value Combine two haplotypes as heterozygote
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin combineTwoHaplotypesAsHeterozygote(Boolean value) {
+        hybridNN = new PluginParameter<>(hybridNN, value);
+        return this;
+    }
+
+    /**
+     * Create a projection alignment for high density markers
+     *
+     * @return Output projection alignment
+     */
+    public Boolean outputProjectionAlignment() {
+        return isOutputProjection.value();
+    }
+
+    /**
+     * Set Output projection alignment. Create a projection
+     * alignment for high density markers
+     *
+     * @param value Output projection alignment
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin outputProjectionAlignment(Boolean value) {
+        isOutputProjection = new PluginParameter<>(isOutputProjection, value);
+        return this;
+    }
+
+    /**
+     * Impute the donor file itself
+     *
+     * @return Impute donor file
+     */
+    public Boolean imputeDonorFile() {
+        return imputeDonorFile.value();
+    }
+
+    /**
+     * Set Impute donor file. Impute the donor file itself
+     *
+     * @param value Impute donor file
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin imputeDonorFile(Boolean value) {
+        imputeDonorFile = new PluginParameter<>(imputeDonorFile, value);
+        return this;
+    }
+
+    /**
+     * False supresses system out
+     *
+     * @return False supresses system out
+     */
+    public Boolean falseSupressesSystemOut() {
+        return verboseOutput.value();
+    }
+
+    /**
+     * Set False supresses system out. False supresses system
+     * out
+     *
+     * @param value False supresses system out
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin falseSupressesSystemOut(Boolean value) {
+        verboseOutput = new PluginParameter<>(verboseOutput, value);
+        return this;
     }
 }
-
