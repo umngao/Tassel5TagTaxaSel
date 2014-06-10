@@ -532,14 +532,12 @@ public class CombineGenotypeTable implements GenotypeTable {
     }
 
     @Override
-    public SITE_SCORE_TYPE siteScoreType() {
-        SITE_SCORE_TYPE first = myAlignments[0].siteScoreType();
-        for (int i = 1; i < myAlignments.length; i++) {
-            if (first != myAlignments[i].siteScoreType()) {
-                return SITE_SCORE_TYPE.MixedScoreTypes;
-            }
+    public Set<GenotypeTable.SITE_SCORE_TYPE> siteScoreTypes() {
+        Set<GenotypeTable.SITE_SCORE_TYPE> result = new LinkedHashSet<>();
+        for (int i = 0; i < myAlignments.length; i++) {
+            result.addAll(myAlignments[i].siteScoreTypes());
         }
-        return first;
+        return result;
     }
 
     @Override
