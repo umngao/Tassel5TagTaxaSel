@@ -1,5 +1,7 @@
 package net.maizegenetics.dna.snp;
 
+import java.util.Set;
+
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.depth.AlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
@@ -41,7 +43,9 @@ public interface GenotypeTable {
 
     public static enum SITE_SCORE_TYPE {
 
-        None, MixedScoreTypes, QualityScore, ImputedProbablity, Dosage
+        None, MixedScoreTypes, QualityScore, ImputedProbablity, Dosage,
+        DepthA, DepthC, DepthG, DepthT, DepthGap, DepthInsertion,
+        ProbA, ProbC, ProbG, ProbT, ProbGap, ProbInsertion
     };
 
     /**
@@ -69,7 +73,6 @@ public interface GenotypeTable {
          */
         Reference
     };
-    ;
 
     /**
      * Returns the immutable Genotype matrix. Taxa and Positions are not part of
@@ -498,11 +501,11 @@ public interface GenotypeTable {
     public boolean hasSiteScores();
 
     /**
-     * Return what type of site scores this genotype table has.
+     * Return the site scores types.
      *
-     * @return site score type.
+     * @return site score types.
      */
-    public GenotypeTable.SITE_SCORE_TYPE siteScoreType();
+    public Set<GenotypeTable.SITE_SCORE_TYPE> siteScoreTypes();
 
     /**
      * Return size of indel at given site.
