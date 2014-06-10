@@ -34,6 +34,12 @@ public class SuperByteMatrixSingle implements SuperByteMatrix {
     public void set(int row, int column, byte value) {
         myData[getIndex(row, column)] = value;
     }
+    
+    @Override
+    public void arraycopy(int row, byte[] src, int startColumn) {
+        int start = getIndex(row, startColumn);
+        System.arraycopy(src, 0, myData, start, src.length);
+    }
 
     @Override
     public void setAll(byte value) {

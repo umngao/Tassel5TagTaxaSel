@@ -106,13 +106,10 @@ public class GenotypeCallTableBuilder {
     }
 
     public GenotypeCallTableBuilder setBaseRangeForTaxon(int taxon, int startSite, byte[] value) {
-        //TODO this needs an array copy method, startSite was eliminated
-        for (int i = 0; i < value.length; i++) {
-            myGenotype.set(taxon, i + startSite, value[i]);
-        }
+        myGenotype.arraycopy(taxon, value, startSite);
         return this;
     }
-
+    
     public GenotypeCallTableBuilder setBases(String[] data) {
 
         int numTaxa = data.length;

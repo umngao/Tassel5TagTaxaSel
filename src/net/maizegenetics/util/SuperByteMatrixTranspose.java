@@ -74,4 +74,11 @@ public class SuperByteMatrixTranspose implements SuperByteMatrix {
     public void reorderColumns(int[] newIndices) {
         myMatrix.reorderRows(newIndices);
     }
+
+    @Override
+    public void arraycopy(int row, byte[] src, int startColumn) {
+        for (int i = 0; i < src.length; i++) {
+            set(row, startColumn + i, src[i]);
+        }
+    }
 }

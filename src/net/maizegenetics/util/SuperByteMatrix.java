@@ -31,10 +31,19 @@ public interface SuperByteMatrix {
      * @param value value
      */
     public void set(int row, int column, byte value);
-    
+
+    /**
+     * Sets values at given row and starting column.
+     *
+     * @param row row
+     * @param src values
+     * @param startColumn start column
+     */
+    public void arraycopy(int row, byte[] src, int startColumn);
+
     /**
      * Sets value for all elements.
-     * 
+     *
      * @param value value
      */
     public void setAll(byte value);

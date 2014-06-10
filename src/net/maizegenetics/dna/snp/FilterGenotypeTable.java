@@ -827,12 +827,12 @@ public class FilterGenotypeTable implements GenotypeTable {
 
     @Override
     public String[][] alleleDefinitions() {
-        return alleleDefinitions();
+        return myGenotype.alleleDefinitions();
     }
 
     @Override
     public String[] alleleDefinitions(int site) {
-        return alleleDefinitions(site);
+        return myGenotype.alleleDefinitions(site);
     }
 
     @Override
