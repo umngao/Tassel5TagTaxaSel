@@ -18,7 +18,7 @@ public final class GeneralAnnotationUtils {
     private GeneralAnnotationUtils() {
     }
 
-    public static final Object[] getAnnotation(Map.Entry<String, String>[] myVariantsAndAnno, String annoName) {
+    public static Object[] getAnnotation(Map.Entry<String, String>[] myVariantsAndAnno, String annoName) {
         ArrayList<Object> result=new ArrayList<>(1);
         for (Map.Entry<String, String> me: myVariantsAndAnno) {
             if(me.getKey().equals(annoName)) result.add(me.getValue());
@@ -26,7 +26,7 @@ public final class GeneralAnnotationUtils {
         return result.toArray(EMPTYOBJ);
     }
 
-    public static final String[] getTextAnnotation(Map.Entry<String, String>[] myVariantsAndAnno, String annoName) {
+    public static String[] getTextAnnotation(Map.Entry<String, String>[] myVariantsAndAnno, String annoName) {
         ArrayList<String> result=new ArrayList<>(1);
         for (Map.Entry<String, String> me: myVariantsAndAnno) {
             if(me.getKey().equals(annoName)) result.add(me.getValue());
@@ -34,7 +34,7 @@ public final class GeneralAnnotationUtils {
         return result.toArray(EMPTYSTR);
     }
 
-    public static final double[] getQuantAnnotation(Map.Entry<String, String>[] myVariantsAndAnno, String annoName) {
+    public static double[] getQuantAnnotation(Map.Entry<String, String>[] myVariantsAndAnno, String annoName) {
         try{ArrayList<Double> result=new ArrayList<>(1);
             for (Map.Entry<String, String> me: myVariantsAndAnno) {
                 if(me.getKey().equals(annoName)) {
@@ -52,13 +52,20 @@ public final class GeneralAnnotationUtils {
         }
     }
 
-    public static final String getConsensusAnnotation(Map.Entry<String, String>[] myVariantsAndAnno, String annoName) {
+    public static String getConsensusAnnotation(Map.Entry<String, String>[] myVariantsAndAnno, String annoName) {
         return null;
         //  return myGA.getConsensusAnnotation(annoName);
     }
 
-    public static final double getAverageAnnotation(Map.Entry<String, String>[] myVariantsAndAnno, String annoName) {
+    public static double getAverageAnnotation(Map.Entry<String, String>[] myVariantsAndAnno, String annoName) {
         return -1;
         //   return myGA.getAverageAnnotation(annoName);
+    }
+
+    public static boolean isAnnotatedWithValue(Map.Entry<String, String>[] myVariantsAndAnno, String annoName, String annoValue) {
+        for (Map.Entry<String, String> me: myVariantsAndAnno) {
+            if(me.getKey().equals(annoName) && me.getValue().equals(annoValue)) return true;
+        }
+        return false;
     }
 }

@@ -87,8 +87,16 @@ public class BuilderFromVCF {
         return this;
     }
 
-    //TODO provide options on caching to use, read only some sites, etc.
+    public GenotypeTable buildAndSortInMemory() {
+        return buildEngine(true);
+    }
+
     public GenotypeTable build() {
+        return buildEngine(false);
+    }
+
+    //TODO provide options on caching to use, read only some sites, etc.
+    private GenotypeTable buildEngine(boolean fullSort) {
         long time=System.nanoTime();
         GenotypeTable result=null;
         int totalSites=-1;//unknown
@@ -150,7 +158,7 @@ public class BuilderFromVCF {
                 throw new IllegalStateException("BuilderFromHapMap: processing threads timed out.");
             }
             if(inMemory) {
-                result=completeInMemoryBuilding(pbs, taxaList, sitesRead, includeDepth);
+                result=completeInMemoryBuilding(pbs, taxaList, sitesRead, includeDepth, fullSort);
             } else {
                 gtbDiskBuild.build();
             }
@@ -187,7 +195,7 @@ public class BuilderFromVCF {
         return result;
     }
 
-    private static GenotypeTable completeInMemoryBuilding(ArrayList<ProcessVCFBlock> pbs, TaxaList taxaList, int numberOfSites, boolean includeDepth) {
+    private static GenotypeTable completeInMemoryBuilding(ArrayList<ProcessVCFBlock> pbs, TaxaList taxaList, int numberOfSites, boolean includeDepth, boolean fullSort) {
         int currentSite=0;
         PositionListBuilder posBuild=new PositionListBuilder();
         GenotypeCallTableBuilder gb=GenotypeCallTableBuilder.getUnphasedNucleotideGenotypeBuilder(taxaList.numberOfTaxa(), numberOfSites);
@@ -207,8 +215,17 @@ public class BuilderFromVCF {
             }
             currentSite+=pb.getSiteNumber();
         }
+
+        //Check that result is in correct order. If not, either try to sort or just throw an error (determined by what was passed to fullSort)
         if (posBuild.validateOrdering()==false) {
-            throw new IllegalStateException("BuilderFromHapMap: Ordering incorrect HapMap must be ordered by position");
+            if(fullSort) {
+                posBuild.sortPositions(gb);
+                if (posBuild.validateOrdering()==false) {   //Double-check post-sort ordering. Should never happen, but just to be safe
+                    throw new IllegalStateException("BuilderFromVCF: Ordering of VCF file held in memory failed.");
+                }
+            }else{
+                throw new IllegalStateException("BuilderFromVCF: Ordering incorrect. VCF file must be ordered by position. Please first use SortGenotypeFilePlugin to correctly order the file.");
+            }
         }
         GenotypeCallTable g=gb.build();
         if(includeDepth) {return GenotypeTableBuilder.getInstance(g, posBuild.build(), taxaList, null, db.build());}

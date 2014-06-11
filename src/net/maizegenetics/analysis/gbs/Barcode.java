@@ -27,6 +27,9 @@ public class Barcode implements Comparable<Barcode> {
     int barOverLength;
      /**Length of barcode*/
     int barLength;
+    /**Global index of taxa based on the key file (first time taxa encountered.*/
+    int taxaIndex;
+
 
     /**
      * Constructor creating a barcode
@@ -37,13 +40,14 @@ public class Barcode implements Comparable<Barcode> {
      * @param flowcell name of the flowcell
      * @param lane name of the lane
      */
-    public Barcode(String barcodeS, String[] overhangSunsort, String taxa, String flowcell, String lane) {
+    public Barcode(String barcodeS, String[] overhangSunsort, String taxa, int globalTaxaIndex, String flowcell, String lane) {
         this.barcodeS = barcodeS;
         Arrays.sort(overhangSunsort);
         this.overhangS = overhangSunsort;
         this.flowcell = flowcell;
         this.lane = lane;
         this.taxaName = taxa;
+        this.taxaIndex=globalTaxaIndex;
         barOverLong = new long[overhangS.length];
         for (int i = 0; i < overhangS.length; i++) {
             barOverLong[i] = BaseEncoder.getLongFromSeq(barcodeS + overhangS[i]);

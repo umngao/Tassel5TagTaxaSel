@@ -5,7 +5,6 @@ package net.maizegenetics.dna.snp;
 
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Chromosome;
-import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.bit.BitStorage;
 import net.maizegenetics.dna.snp.bit.DynamicBitStorage;
@@ -18,6 +17,7 @@ import org.apache.log4j.Logger;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Basic implementation of a {@link GenotypeTable}. Use the GenotypeTableBuilder
@@ -271,8 +271,8 @@ public class CoreGenotypeTable implements GenotypeTable {
     }
 
     @Override
-    public SITE_SCORE_TYPE siteScoreType() {
-        return mySiteScore.siteScoreType();
+    public Set<GenotypeTable.SITE_SCORE_TYPE> siteScoreTypes() {
+        return mySiteScore.siteScoreTypes();
     }
 
     @Override

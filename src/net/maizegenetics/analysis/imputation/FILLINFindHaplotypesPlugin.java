@@ -18,11 +18,9 @@ import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
-import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.util.*;
 import net.maizegenetics.util.BitSet;
-import org.apache.log4j.Logger;
 
 import javax.swing.*;
 import java.awt.*;
@@ -31,6 +29,8 @@ import java.io.IOException;
 import java.util.*;
 import java.util.List;
 import java.util.Map.Entry;
+import net.maizegenetics.plugindef.GeneratePluginCode;
+import net.maizegenetics.plugindef.PluginParameter;
 
 /**
  * Creates haplotypes by finding large IBS regions within GBS data.  Starts with the 
@@ -41,99 +41,120 @@ import java.util.Map.Entry;
  * @author Ed Buckler
  * @author Kelly Swarts
  */
-public class FILLINFindHaplotypesPlugin extends AbstractPlugin {
+public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.AbstractPlugin {
+    //Plugin parameters
+    private PluginParameter<String> hmpFile= new PluginParameter.Builder<>("hmp",null,String.class).guiName("Target file").inFile().required(true)
+            .description("Input HapMap file of target genotypes to impute or all genotypes available for target taxon. Accepts all file types supported by TASSEL5.").build();
+    private PluginParameter<String> outFileBase= new PluginParameter.Builder<>("o",null,String.class).guiName("Output filename").outFile().required(true)
+            .description("Output file; Use .gX in the output filename to denote the substring .gc#s# found in donor files, ie 'out.gX.hmp.txt'.").build();
+    private PluginParameter<String> errFile= new PluginParameter.Builder<>("oE",null,String.class).guiName("Optional error logfile").outFile().required(false)
+            .description("Optional file to record site by sites errors as the haplotypes are developed'.").build();
+    
+    private PluginParameter<Double> maxDistFromFounder= new PluginParameter.Builder<>("mxDiv",0.01,Double.class).guiName("Max divergence from founder")
+            .description("Maximum genetic divergence from founder haplotype to cluster sequences").build();
+    private PluginParameter<Double> maxHetFreq= new PluginParameter.Builder<>("mxHet",0.01,Double.class).guiName("Max heterozygosity of output haplotypes")
+            .description("Maximum heterozygosity of output haplotype. Heterozygosity results from clustering sequences that either have residual heterozygosity "
+                    + "or clustering sequences that do not share all minor alleles.").build();
+    private PluginParameter<Integer> minSitesForSectionComp= new PluginParameter.Builder<>("minSites",50,Integer.class).guiName("Min sites to cluster")
+            .description("The minimum number of sites present in two taxa to compare genetic distance to evaluate similarity for clustering").build();
+    private PluginParameter<Double> maxErrorInCreatingConsensus= new PluginParameter.Builder<>("mxErr",0.05,Double.class).guiName("Max combined error to impute two donors")
+            .description("The maximum genetic divergence allowable to cluster taxa").build();
+    private PluginParameter<Integer> appoxSitesPerHaplotype= new PluginParameter.Builder<>("hapSize",8192,Integer.class).guiName("Preferred haplotype size")
+            .description("Preferred haplotype block size in sites (minimum 64); will use the closest multiple of 64 at or below the supplied value").build();
+    private PluginParameter<Integer> minSitesPresentPerHap= new PluginParameter.Builder<>("minPres",500,Integer.class).guiName("Min sites to test match")
+            .description("Minimum number of present sites within input sequence to do the search").build();
+    private PluginParameter<Integer> maxHaplotypes= new PluginParameter.Builder<>("maxHap",3000,Integer.class).guiName("Max haplotypes per segment")
+            .description("Maximum number of haplotypes per segment").build();
+    private PluginParameter<Integer> minTaxaInGroup= new PluginParameter.Builder<>("minTaxa",2,Integer.class).guiName("Min taxa to generate a haplotype")
+            .description("Minimum number of taxa to generate a haplotype").build();
+    private PluginParameter<Double> maximumMissing= new PluginParameter.Builder<>("mxOutMiss",0.4,Double.class).guiName("Max frequency missing per haplotype")
+            .description("Maximum frequency of missing data in the output haplotype").build();
+    private PluginParameter<Boolean> verboseOutput= new PluginParameter.Builder<>("verbose",true,Boolean.class).guiName("Express system out")
+            .description("Express system out").build();
+    private PluginParameter<Boolean> extendedOutput= new PluginParameter.Builder<>("extOut",false,Boolean.class).guiName("Detailed system out on haplotypes")
+            .description("Details of taxa included in each haplotype to system out").build();
+    
+    //other parameters
     private int startDiv=-1, endDiv=-1;
-    private String hmpFile;
-    private String outFileBase;
-    private String errFile=null;
+
     private double minJointGapProb=0.01;
     private boolean callGaps=false;
-    private double maxDistFromFounder=0.01;
-    private int appoxSitesPerHaplotype=8192;
-    private int minSitesPresentPerHap=500;
     private boolean anonymous= false;
-    private boolean extendedOutput= false;
 
-    private double maximumMissing=0.4;
-    private int maxHaplotypes=3000;
-    private int minSitesForSectionComp=50;
-    private double maxHetFreq=0.01;
-    private double maxErrorInCreatingConsensus=0.05;
-    private int minTaxaInGroup=2;
-    
-    
     private double[] propMissing;
     private int[] siteErrors, siteCallCnt;
     private BitSet badMask=null;
-
-    
-    private static ArgsEngine engine = new ArgsEngine();
-    private static final Logger myLogger = Logger.getLogger(FILLINFindHaplotypesPlugin.class);
-    private boolean verboseOutput= true;
 
     public FILLINFindHaplotypesPlugin() {
         super(null, false);
     }
 
-    public FILLINFindHaplotypesPlugin(Frame parentFrame) {
-        super(parentFrame, false);
+    public  FILLINFindHaplotypesPlugin(Frame  parentFrame,  boolean  isInteractive)  {  
+              super(parentFrame,  isInteractive);
+    } 
+    
+    @Override
+    protected void postProcessParameters() {
+        try {
+            if (outFileBase.value().contains("gX")==false) throw new IOException();
+                    }
+        catch (Exception e) {
+            System.out.println("output file name must contain gX, eg outfile.gX.hmp.txt");
+        }
+        if (!outFileBase.value().contains(".hmp")) outputFilename(outFileBase.value()+".hmp.txt");
     }
     
-    /**
-     * Produces donor haplotypes that can be used for imputation.
-     * @param inFile Input DNA sequence alignment file name in either HapMap or HDF5
-     * @param exportFile
-     * @param errorExportFile
-     * @param maxDistance maximum distance between founder haplotype and other haplotype
-     * @param minSites
-     * @param appoxSitesPerHaplotype 
-     */
-    public void runFindMergeHaplotypes(String inFile, String exportFile,
-            String errorExportFile, double maxDistance, int minSites, int appoxSitesPerHaplotype) {
-
-        System.out.println("Reading: "+inFile);
-        GenotypeTable baseAlign=ImportUtils.readGuessFormat(inFile);
-        int[][] divisions=divideChromosome(baseAlign, appoxSitesPerHaplotype, verboseOutput);
+    @Override
+    public String getCitation() {
+        return "Swarts K, Li H, Romero Navarro JA, Romay-Alvarez MC, Hearne S, Acharya C, "
+                + "Glaubitz JC, Mitchell S, Elshire RJ, Buckler ES, Bradbury PJ (2014) "
+                + "FSFHap (Full-Sib Family Haplotype Imputation) and FILLIN "
+                + "(Fast, Inbred Line Library ImputatioN) optimize genotypic imputation "
+                + "for low-coverage, next-generation sequence data in crop plants. "
+                + "Plant Genome (in review)";
+    }
+    
+    public static void main(String[] args) {
+         GeneratePluginCode.generate(FILLINFindHaplotypesPlugin.class);
+     }
+    
+     public DataSet processData() {
+        System.out.println("Reading: "+hmpFile.value());
+        GenotypeTable baseAlign=ImportUtils.readGuessFormat(hmpFile.value());
+        int[][] divisions=divideChromosome(baseAlign, appoxSitesPerHaplotype.value(), verboseOutput.value());
         System.out.printf("In taxa:%d sites:%d %n",baseAlign.numberOfTaxa(),baseAlign.numberOfSites());
         siteErrors=new int[baseAlign.numberOfSites()];
         siteCallCnt=new int[baseAlign.numberOfSites()];
         if(startDiv==-1) startDiv=0;
         if(endDiv==-1) endDiv=divisions.length-1;
-        try {
-                if (exportFile.contains("gX")==false) throw new IOException();
-                        }
-            catch (Exception e) {
-                System.out.println("output file name must contain gX, eg outfile.gX.hmp.txt");
-            }
-        if (!exportFile.contains(".hmp")) exportFile= exportFile+".hmp.txt";
         for (int i = startDiv; i <=endDiv; i++) {
             GenotypeTable mna=createHaplotypeAlignment(divisions[i][0], divisions[i][1], baseAlign,
-             minSites,  maxDistance);
+             minSitesPresentPerHap.value(),  maxDistFromFounder.value());
             if (mna.taxa().isEmpty()) continue;
-            String newExport=exportFile.replace("sX.hmp", "s"+i+".hmp");
+            String newExport=outFileBase.value().replace("sX.hmp", "s"+i+".hmp");
             newExport=newExport.replace("gX", "gc"+mna.chromosomeName(0)+"s"+i);
             ExportUtils.writeToHapmap(mna, false, newExport, '\t', null);
-            if(errorExportFile!=null) exportBadSites(baseAlign, errorExportFile, 0.01);  
+            if(outFileBase.value()!=null) exportBadSites(baseAlign, outFileBase.value(), 0.01);  
             mna=null;
             System.gc();
         }
-        
-    }
+        return null;
+     }
     
     private GenotypeTable createHaplotypeAlignment(int startSite, int endSite, GenotypeTable baseAlign,
             int minSites, double maxDistance) {
         FilterGenotypeTable fa=FilterGenotypeTable.getInstance(baseAlign, startSite, endSite);
         GenotypeTable inAlign=GenotypeTableBuilder.getGenotypeCopyInstance(fa);
         int sites=inAlign.numberOfSites();
-        if(verboseOutput) System.out.printf("SubInAlign Locus:%s StartPos:%d taxa:%d sites:%d %n",inAlign.chromosome(0),
+        if(verboseOutput.value()) System.out.printf("SubInAlign Locus:%s StartPos:%d taxa:%d sites:%d %n",inAlign.chromosome(0),
                 inAlign.chromosomalPosition(0),inAlign.numberOfTaxa(),inAlign.numberOfSites());
 
         propMissing=new double[inAlign.numberOfTaxa()];
         int startBlock=0;
         int lastBlock=inAlign.allelePresenceForAllSites(0, WHICH_ALLELE.Major).getNumWords()-1;
-        TreeMap<Integer,Integer> presentRanking=createPresentRankingForWindow(inAlign, startBlock, lastBlock, minSites, maxHetFreq);
-        if(verboseOutput) System.out.printf("\tBlock %d Inbred and modest coverage:%d %n",startBlock,presentRanking.size());
-        if(verboseOutput) System.out.printf("\tCurrent Site %d Current block %d EndBlock: %d %n",startSite, startBlock, lastBlock);
+        TreeMap<Integer,Integer> presentRanking=createPresentRankingForWindow(inAlign, startBlock, lastBlock, minSites, maxHetFreq.value());
+        if(verboseOutput.value()) System.out.printf("\tBlock %d Inbred and modest coverage:%d %n",startBlock,presentRanking.size());
+        if(verboseOutput.value()) System.out.printf("\tCurrent Site %d Current block %d EndBlock: %d %n",startSite, startBlock, lastBlock);
         TreeMap<Integer,byte[][]> results=mergeWithinWindow(inAlign, presentRanking, startBlock, lastBlock, maxDistance, startSite);
         TaxaListBuilder tLB=new TaxaListBuilder();
         GenotypeCallTableBuilder gB=GenotypeCallTableBuilder.getInstance(results.size(),inAlign.numberOfSites());
@@ -263,7 +284,7 @@ public class FILLINFindHaplotypesPlugin extends AbstractPlugin {
             unmatched.remove(taxon1);
             for(int taxon2 : unmatched) {
                double[] dist=IBSDistanceMatrix.computeHetBitDistances(inAlign, 
-                       taxon1, taxon2, minSitesForSectionComp, firstBlock, lastBlock, badMask);
+                       taxon1, taxon2, minSitesForSectionComp.value(), firstBlock, lastBlock, badMask);
                if((!Double.isNaN(dist[0]))&&(dist[0]<maxDistance)) {
                    hits.add(taxon2);
                }
@@ -271,7 +292,7 @@ public class FILLINFindHaplotypesPlugin extends AbstractPlugin {
             byte[] calls=inAlign.genotypeRange(taxon1, startSite, endSite+1);//kls
             int[] unkCnt=countUnknown(calls);//kls
             double missingFreq=(double)unkCnt[0]/(double)inAlign.numberOfSites();//kls
-            if(((hits.size()+1)<this.minTaxaInGroup)&&missingFreq>maximumMissing) continue;//KLS changed this to not skip over taxa with no neighbors, but high coverage
+            if(((hits.size()+1)<this.minTaxaInGroup.value())&&missingFreq>maximumMissing.value()) continue;//KLS changed this to not skip over taxa with no neighbors, but high coverage
             if(hits.size()>0) {
                 ArrayList<String> mergeNames=new ArrayList<String>();
                 mergeNames.add(inIDG.taxaName(taxon1));
@@ -283,18 +304,18 @@ public class FILLINFindHaplotypesPlugin extends AbstractPlugin {
                     mergeNames.add(inIDG.taxaName(taxon2));
                 }
               //  System.out.println("");              
-                calls=consensusGameteCalls(inAlign, mergeNames, startSite, endSite, maxErrorInCreatingConsensus, siteOffsetForError);
+                calls=consensusGameteCalls(inAlign, mergeNames, startSite, endSite, maxErrorInCreatingConsensus.value(), siteOffsetForError);
             } else {
                 calls=inAlign.genotypeRange(taxon1, startSite, endSite+1);
             }
             unkCnt=countUnknown(calls);//kls
             missingFreq=(double)unkCnt[0]/(double)inAlign.numberOfSites();//kls
             double hetFreq=(double)unkCnt[1]/(double)(inAlign.numberOfSites()-unkCnt[0]);
-            if(((missingFreq<maximumMissing)&&(hetFreq<maxHetFreq)&&(hits.size()>=(this.minTaxaInGroup-1)))) {
+            if(((missingFreq<maximumMissing.value())&&(hetFreq<maxHetFreq.value())&&(hits.size()>=(this.minTaxaInGroup.value()-1)))) {
                 int index=(hits.size()*200000)+taxon1;
-                if(verboseOutput && !extendedOutput) System.out.printf("\t\tOutput %s plus %d missingF:%g hetF:%g index: %d %n",inIDG.taxaName(taxon1),
+                if(verboseOutput.value() && !extendedOutput.value()) System.out.printf("\t\tOutput %s plus %d missingF:%g hetF:%g index: %d %n",inIDG.taxaName(taxon1),
                         hits.size(), missingFreq, hetFreq, index);
-                if(extendedOutput) {
+                if(extendedOutput.value()) {
                     System.out.printf("\t\tChromosome: %s StartPos: %d EndPos: %d missingF:%g hetF:%g index: %d %n",inAlign.chromosomeName(startSite),
                             inAlign.physicalPositions()[startSite], inAlign.physicalPositions()[endSite], missingFreq, hetFreq, index);
                     System.out.println("\t\t\t"+inIDG.taxaName(taxon1));
@@ -306,7 +327,7 @@ public class FILLINFindHaplotypesPlugin extends AbstractPlugin {
                 callPlusNames[1]=newName.getBytes();
                 results.put(index, callPlusNames);
             }
-            if(results.size()>=maxHaplotypes) break;
+            if(results.size()>=maxHaplotypes.value()) break;
         }
         return results;
     }
@@ -397,106 +418,6 @@ public class FILLINFindHaplotypesPlugin extends AbstractPlugin {
         int[] result={cnt,cntHet};
         return result;
     }
-    
-        @Override
-    public void setParameters(String[] args) {
-        if (args.length == 0) {
-            printUsage();
-            throw new IllegalArgumentException("\n\nPlease use the above arguments/options.\n\n");
-        }
-
-        engine.add("-hmp", "-hmpFile", true);
-        engine.add("-o", "--outFile", true);
-        engine.add("-oE", "--outErrorFile", true);
-        engine.add("-mxDiv", "--mxDiv", true);
-        engine.add("-mxHet", "--mxHet", true);
-        engine.add("-minSites", "--minSites", true);
-        engine.add("-mxErr", "--mxErr", true);
-        engine.add("-hapSize", "--hapSize", true);
-        engine.add("-minPres", "--minPres", true);
-        engine.add("-maxHap", "--maxHap", true);
-        engine.add("-minTaxa", "--minTaxa", true);
-        engine.add("-maxOutMiss", "--maxOutMiss", true);
-        engine.add("-sD", "--startDivision", true);
-        engine.add("-eD", "--endDivision", true);
-        engine.add("-extOut", "--extOut", false);
-        engine.add("-anon", "--anon", false);
-        engine.add("-nV", "--nonVerbose",false);
-        engine.parse(args);
-        if (engine.getBoolean("-sD")) {
-            startDiv = Integer.parseInt(engine.getString("-sD"));
-        }
-        if (engine.getBoolean("-anon")) anonymous = true;
-        
-        if (engine.getBoolean("-eD")) {
-            endDiv = Integer.parseInt(engine.getString("-eD"));
-        }
-        hmpFile = engine.getString("-hmp");
-        outFileBase = engine.getString("-o");
-        errFile = engine.getString("-oE");
-        if (engine.getBoolean("-mxDiv")) {
-            maxDistFromFounder = Double.parseDouble(engine.getString("-mxDiv"));
-        }
-        if (engine.getBoolean("-mxHet")) {
-            maxHetFreq = Double.parseDouble(engine.getString("-mxHet"));
-        }
-        if (engine.getBoolean("-minSites")) {
-            minSitesForSectionComp = Integer.parseInt(engine.getString("-minSites"));
-        }
-        if (engine.getBoolean("-mxErr")) {
-            maxErrorInCreatingConsensus = Double.parseDouble(engine.getString("-mxErr"));
-        }
-        if (engine.getBoolean("-maxOutMiss")) {
-            maximumMissing = Double.parseDouble(engine.getString("-maxOutMiss"));
-        }
-        if (engine.getBoolean("-hapSize")) {
-            appoxSitesPerHaplotype = Integer.parseInt(engine.getString("-hapSize"));
-        }
-        if (engine.getBoolean("-minPres")) {
-            minSitesPresentPerHap = Integer.parseInt(engine.getString("-minPres"));
-        }
-        if (engine.getBoolean("-minTaxa")) {
-            minTaxaInGroup = Integer.parseInt(engine.getString("-minTaxa"));
-        }
-        if (engine.getBoolean("-maxHap")) {
-            maxHaplotypes = Integer.parseInt(engine.getString("-maxHap"));
-        }
-        if(engine.getBoolean("-extOut")) extendedOutput=true;
-        if(engine.getBoolean("-nV")) verboseOutput=false;
-    }
-
-
-
-    private void printUsage() {
-        myLogger.info(
-                "\n\n\nAvailable options for the FindMergeHaplotypesPlugin are as follows:\n"
-                + "-hmp   Input HapMap file (any Tassel5 supported format)\n"
-                + "-o     Output file(s) must include '.gX.' This will be replaced by .gc#s# in the output donor files\n"
-                + "-oE  Optional file to record site by sites errors as the haplotypes are developed\n"
-                + "-mxDiv    Maximum genetic divergence from founder haplotype to cluster sequences (default: "+maxDistFromFounder+")\n"
-                + "-mxHet    Maximum heterozygosity of output haplotype (default: "+maxHetFreq+")\n"
-                + "-minSites    The minimum number of sites present in two taxa to compare genetic distance to evaluate similarity for clustering (default: "+minSitesForSectionComp+")\n"
-                + "-mxErr   The maximum genetic divergence allowable to cluster taxa (default: "+maxErrorInCreatingConsensus+")\n"
-                + "-hapSize    Preferred haplotype block size in sites (minimum 64); will use the closest multiple of 64 at or below the supplied value (default: "+appoxSitesPerHaplotype+")\n"
-                + "-minPres    Minimum number of present sites within input sequence to do the search (default: "+minSitesPresentPerHap+")\n"
-                + "-maxHap    Maximum number of haplotypes per segment (default: "+maxHaplotypes+")\n"
-                + "-minTaxa Minimum number of taxa to generate a haplotype (default: "+minTaxaInGroup+")\n"
-                + "-maxOutMiss  Maximum frequency of missing data in the output haplotype (default: "+maximumMissing+")\n"
-                + "-anon  If flagged, haplotype seed will not be transferred to haplotype name (default: "+anonymous+")\n"
-                + "-extOut  If flagged, the taxon that go into each haplotype will be output as system out (default: "+extendedOutput+")\n"
-                + "-nV  If flagged, output will be supressed\n"
-                );
-    }
-
-   @Override
-    public DataSet performFunction(DataSet input) {
-       if(outFileBase.contains(".gX.")) {
-           runFindMergeHaplotypes(hmpFile, outFileBase, errFile, maxDistFromFounder, minSitesPresentPerHap, appoxSitesPerHaplotype);
-           return null;
-       }
-       System.err.println("Output file(s) must include '.gX.' in the name");
-       return null;
-    }
 
     @Override
     public ImageIcon getIcon() {
@@ -505,12 +426,354 @@ public class FILLINFindHaplotypesPlugin extends AbstractPlugin {
 
     @Override
     public String getButtonName() {
-        return "ExtractInbredHaplotypes";
+        return "Extract Inbred Haplotypes by FILLIN";
     }
 
     @Override
     public String getToolTipText() {
         return "Creates haplotype alignments based on long IBD regions of inbred lines";
     }
+    
+    // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(FILLINFindHaplotypesPlugin.class);
+    // }
 
+    /**
+     * Convenience method to run plugin with one return object.
+     */
+    public Boolean runPlugin(DataSet input) {
+        return (Boolean) performFunction(input).getData(0).getData();
+    }
+
+    /**
+     * Input HapMap file of target genotypes to impute or
+     * all genotypes available for target taxon. Accepts all
+     * file types supported by TASSEL5.
+     *
+     * @return Target file
+     */
+    public String targetFile() {
+        return hmpFile.value();
+    }
+
+    /**
+     * Set Target file. Input HapMap file of target genotypes
+     * to impute or all genotypes available for target taxon.
+     * Accepts all file types supported by TASSEL5.
+     *
+     * @param value Target file
+     *
+     * @return this plugin
+     */
+    public FILLINFindHaplotypesPlugin targetFile(String value) {
+        hmpFile = new PluginParameter<>(hmpFile, value);
+        return this;
+    }
+
+    /**
+     * Output file; Use .gX in the output filename to denote
+     * the substring .gc#s# found in donor files, ie 'out.gX.hmp.txt'.
+     *
+     * @return Output filename
+     */
+    public String outputFilename() {
+        return outFileBase.value();
+    }
+
+    /**
+     * Set Output filename. Output file; Use .gX in the output
+     * filename to denote the substring .gc#s# found in donor
+     * files, ie 'out.gX.hmp.txt'.
+     *
+     * @param value Output filename
+     *
+     * @return this plugin
+     */
+    public FILLINFindHaplotypesPlugin outputFilename(String value) {
+        outFileBase = new PluginParameter<>(outFileBase, value);
+        return this;
+    }
+
+    /**
+     * Optional file to record site by sites errors as the
+     * haplotypes are developed'.
+     *
+     * @return Optional error logfile
+     */
+    public String optionalErrorLogfile() {
+        return errFile.value();
+    }
+
+    /**
+     * Set Optional error logfile. Optional file to record
+     * site by sites errors as the haplotypes are developed'.
+     *
+     * @param value Optional error logfile
+     *
+     * @return this plugin
+     */
+    public FILLINFindHaplotypesPlugin optionalErrorLogfile(String value) {
+        errFile = new PluginParameter<>(errFile, value);
+        return this;
+    }
+
+    /**
+     * Maximum genetic divergence from founder haplotype to
+     * cluster sequences
+     *
+     * @return Max divergence from founder
+     */
+    public Double maxDivergenceFromFounder() {
+        return maxDistFromFounder.value();
+    }
+
+    /**
+     * Set Max divergence from founder. Maximum genetic divergence
+     * from founder haplotype to cluster sequences
+     *
+     * @param value Max divergence from founder
+     *
+     * @return this plugin
+     */
+    public FILLINFindHaplotypesPlugin maxDivergenceFromFounder(Double value) {
+        maxDistFromFounder = new PluginParameter<>(maxDistFromFounder, value);
+        return this;
+    }
+
+    /**
+     * Maximum heterozygosity of output haplotype. Heterozygosity
+     * results from clustering sequences that either have
+     * residual heterozygosity or clustering sequences that
+     * do not share all minor alleles.
+     *
+     * @return Max heterozygosity of output haplotypes
+     */
+    public Double maxHeterozygosityOfOutputHaplotypes() {
+        return maxHetFreq.value();
+    }
+
+    /**
+     * Set Max heterozygosity of output haplotypes. Maximum
+     * heterozygosity of output haplotype. Heterozygosity
+     * results from clustering sequences that either have
+     * residual heterozygosity or clustering sequences that
+     * do not share all minor alleles.
+     *
+     * @param value Max heterozygosity of output haplotypes
+     *
+     * @return this plugin
+     */
+    public FILLINFindHaplotypesPlugin maxHeterozygosityOfOutputHaplotypes(Double value) {
+        maxHetFreq = new PluginParameter<>(maxHetFreq, value);
+        return this;
+    }
+
+    /**
+     * The minimum number of sites present in two taxa to
+     * compare genetic distance to evaluate similarity for
+     * clustering
+     *
+     * @return Min sites to cluster
+     */
+    public Integer minSitesToCluster() {
+        return minSitesForSectionComp.value();
+    }
+
+    /**
+     * Set Min sites to cluster. The minimum number of sites
+     * present in two taxa to compare genetic distance to
+     * evaluate similarity for clustering
+     *
+     * @param value Min sites to cluster
+     *
+     * @return this plugin
+     */
+    public FILLINFindHaplotypesPlugin minSitesToCluster(Integer value) {
+        minSitesForSectionComp = new PluginParameter<>(minSitesForSectionComp, value);
+        return this;
+    }
+
+    /**
+     * The maximum genetic divergence allowable to cluster
+     * taxa
+     *
+     * @return Max combined error to impute two donors
+     */
+    public Double maxCombinedErrorToImputeTwoDonors() {
+        return maxErrorInCreatingConsensus.value();
+    }
+
+    /**
+     * Set Max combined error to impute two donors. The maximum
+     * genetic divergence allowable to cluster taxa
+     *
+     * @param value Max combined error to impute two donors
+     *
+     * @return this plugin
+     */
+    public FILLINFindHaplotypesPlugin maxCombinedErrorToImputeTwoDonors(Double value) {
+        maxErrorInCreatingConsensus = new PluginParameter<>(maxErrorInCreatingConsensus, value);
+        return this;
+    }
+
+    /**
+     * Preferred haplotype block size in sites (minimum 64);
+     * will use the closest multiple of 64 at or below the
+     * supplied value
+     *
+     * @return Preferred haplotype size
+     */
+    public Integer preferredHaplotypeSize() {
+        return appoxSitesPerHaplotype.value();
+    }
+
+    /**
+     * Set Preferred haplotype size. Preferred haplotype block
+     * size in sites (minimum 64); will use the closest multiple
+     * of 64 at or below the supplied value
+     *
+     * @param value Preferred haplotype size
+     *
+     * @return this plugin
+     */
+    public FILLINFindHaplotypesPlugin preferredHaplotypeSize(Integer value) {
+        appoxSitesPerHaplotype = new PluginParameter<>(appoxSitesPerHaplotype, value);
+        return this;
+    }
+
+    /**
+     * Minimum number of present sites within input sequence
+     * to do the search
+     *
+     * @return Min sites to test match
+     */
+    public Integer minSitesToTestMatch() {
+        return minSitesPresentPerHap.value();
+    }
+
+    /**
+     * Set Min sites to test match. Minimum number of present
+     * sites within input sequence to do the search
+     *
+     * @param value Min sites to test match
+     *
+     * @return this plugin
+     */
+    public FILLINFindHaplotypesPlugin minSitesToTestMatch(Integer value) {
+        minSitesPresentPerHap = new PluginParameter<>(minSitesPresentPerHap, value);
+        return this;
+    }
+
+    /**
+     * Maximum number of haplotypes per segment
+     *
+     * @return Max haplotypes per segment
+     */
+    public Integer maxHaplotypesPerSegment() {
+        return maxHaplotypes.value();
+    }
+
+    /**
+     * Set Max haplotypes per segment. Maximum number of haplotypes
+     * per segment
+     *
+     * @param value Max haplotypes per segment
+     *
+     * @return this plugin
+     */
+    public FILLINFindHaplotypesPlugin maxHaplotypesPerSegment(Integer value) {
+        maxHaplotypes = new PluginParameter<>(maxHaplotypes, value);
+        return this;
+    }
+
+    /**
+     * Minimum number of taxa to generate a haplotype
+     *
+     * @return Min taxa to generate a haplotype
+     */
+    public Integer minTaxaToGenerateAHaplotype() {
+        return minTaxaInGroup.value();
+    }
+
+    /**
+     * Set Min taxa to generate a haplotype. Minimum number
+     * of taxa to generate a haplotype
+     *
+     * @param value Min taxa to generate a haplotype
+     *
+     * @return this plugin
+     */
+    public FILLINFindHaplotypesPlugin minTaxaToGenerateAHaplotype(Integer value) {
+        minTaxaInGroup = new PluginParameter<>(minTaxaInGroup, value);
+        return this;
+    }
+
+    /**
+     * Maximum frequency of missing data in the output haplotype
+     *
+     * @return Max frequency missing per haplotype
+     */
+    public Double maxFrequencyMissingPerHaplotype() {
+        return maximumMissing.value();
+    }
+
+    /**
+     * Set Max frequency missing per haplotype. Maximum frequency
+     * of missing data in the output haplotype
+     *
+     * @param value Max frequency missing per haplotype
+     *
+     * @return this plugin
+     */
+    public FILLINFindHaplotypesPlugin maxFrequencyMissingPerHaplotype(Double value) {
+        maximumMissing = new PluginParameter<>(maximumMissing, value);
+        return this;
+    }
+
+    /**
+     * Express system out
+     *
+     * @return Express system out
+     */
+    public Boolean expressSystemOut() {
+        return verboseOutput.value();
+    }
+
+    /**
+     * Set Express system out. Express system out
+     *
+     * @param value Express system out
+     *
+     * @return this plugin
+     */
+    public FILLINFindHaplotypesPlugin expressSystemOut(Boolean value) {
+        verboseOutput = new PluginParameter<>(verboseOutput, value);
+        return this;
+    } 
+    
+    /**
+     * Details of taxa included in each haplotype to system
+     * out
+     *
+     * @return Detailed system out on haplotypes
+     */
+    public Boolean detailedSystemOutOnHaplotypes() {
+        return extendedOutput.value();
+    }
+
+    /**
+     * Set Detailed system out on haplotypes. Details of taxa
+     * included in each haplotype to system out
+     *
+     * @param value Detailed system out on haplotypes
+     *
+     * @return this plugin
+     */
+    public FILLINFindHaplotypesPlugin detailedSystemOutOnHaplotypes(Boolean value) {
+        extendedOutput = new PluginParameter<>(extendedOutput, value);
+        return this;
+    }
 }

@@ -5,9 +5,8 @@ import com.google.common.collect.*;
 import net.maizegenetics.util.Utils;
 
 import java.io.BufferedReader;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Set;
+import java.security.InvalidParameterException;
+import java.util.*;
 
 /**
  * Utilities for reading and writing IdGroup and PedigreeIdGroups.
@@ -99,6 +98,11 @@ public class TaxaListIOUtils {
         return tlb.build();
     }
 
+    /**
+     * Provides the set of all annotation key found in any of taxa
+     * @param baseTaxaList
+     * @return
+     */
     public static Set<String> allAnnotationKeys(TaxaList baseTaxaList) {
         ImmutableSet.Builder<String> keepers=new ImmutableSet.Builder<String>();
         for (Taxon taxon : baseTaxaList) {
@@ -121,6 +125,84 @@ public class TaxaListIOUtils {
      * Quantitative fields should be tagged with "#" sign, e.g. {@literal <#INBREEDF>}.  Multiple values are supported per key, and
      * additional values can be either described with an additional column or ";" to delimit values with the same key.
      * <p></p>
+     * Filters are a map of filters to be applied.  Key are the fields, and value are what are tested for equality.  Only taxa rows
+     * true for filters are retained.
+     * <p></p>
+     *{@literal <Name>	<GermType>	<Set>	<#InbreedF>	<Set>}<br></br>
+     *{@literal B73	Inbred	Goodman282	0.98    ISU;IBMFounder}<br></br>
+     *{@literal MO17	Inbred	Goodman282	0.98    UMC;IBMFounder}<br></br>
+     * <p></p>
+     * Produces:<br></br>
+     * {@literal B73<GermType=Inbred,Set=Goodman282,Set=ISU,Set=IBMFounder,f=0.98>}<br></br>
+     * {@literal MO17<GermType=Inbred,Set=Goodman282,Set=UMC,Set=IBMFounder,f=0.98>}<br></br>
+     * The standardized keys are described in the {@link net.maizegenetics.taxa.Taxon}, and these constant fields are all upper
+     * case.
+     * @param fileName with complete path
+     * @param taxaNameField field name with the taxon name
+     * @param filters Map of filter to determine which rows to retain as the file is processed.
+     * @return TaxaList with annotations
+     */
+    public static TaxaList readTaxaAnnotationFile(String fileName, String taxaNameField, Map<String,String> filters, boolean mergeSameNames) {
+        try {
+            BufferedReader fileIn = Utils.getBufferedReader(fileName, 1000000);
+            fileIn.mark(1<<16);
+            String line=fileIn.readLine();
+            TaxaListBuilder tlb=new TaxaListBuilder();
+            int indexOfName=0;
+            //parse headers
+            List<String> headers=new ArrayList<>();
+            List<Boolean> isQuant=new ArrayList<>();
+            if(line.contains(taxaNameField)) {
+                int i=0;
+                for(String header: line.split("\\t")) {
+                    if(header.equals(taxaNameField)) {indexOfName=i;}
+                    isQuant.add(header.startsWith("#"));
+                    headers.add(header.replace(">", "").replace("<", "").replace("#", ""));
+                    i++;
+                }
+            } else {
+               fileIn.reset();
+            }
+            //parse taxa rows
+            while((line=fileIn.readLine())!=null) {
+                String[] s=line.split("\\t");
+                Taxon.Builder anID=new Taxon.Builder(s[indexOfName]);
+                for (int i = 0; i < s.length; i++) {
+                    if(i==indexOfName) continue;
+                    String[] cs=s[i].split(";");
+                    for(String ta: cs) {
+                        if(ta==null || ta.isEmpty()) continue;
+                        if(isQuant.get(i)) {
+                            if(ta.equals("NA")) {anID.addAnno(headers.get(i), Double.NaN);}
+                            else {anID.addAnno(headers.get(i), Double.parseDouble(ta));}
+                        }
+                        else {anID.addAnno(headers.get(i), ta);}
+                    }
+                }
+                Taxon t=anID.build();
+                if(doesTaxonHaveAllAnnotations(t,filters)) {
+                    if(mergeSameNames) {
+                        tlb.addOrMerge(t);
+                    } else {
+                        tlb.add(t);  //this will throw an error if the taxon already exists
+                    }
+                }
+            }
+            return tlb.build();
+        } catch(Exception e) {
+            System.err.println("Error in Reading Annotated Taxon File:"+fileName);
+            e.printStackTrace();
+        }    
+        return null;
+    }
+
+    /**
+     * Returns an annotated TaxaList from a text annotation file in matrix format.  This is a tab delimited file.
+     * First row in the file with the field {@literal taxaNameField} is the header row.  {@literal taxaNameField} indicated the taxon
+     * name, all other fields are user defined.  The fields become the keys for the taxa annotation.
+     * Quantitative fields should be tagged with "#" sign, e.g. {@literal <#INBREEDF>}.  Multiple values are supported per key, and
+     * additional values can be either described with an additional column or ";" to delimit values with the same key.
+     * <p></p>
      *{@literal <Name>	<GermType>	<Set>	<#InbreedF>	<Set>}<br></br>
      *{@literal B73	Inbred	Goodman282	0.98    ISU;IBMFounder}<br></br>
      *{@literal MO17	Inbred	Goodman282	0.98    UMC;IBMFounder}<br></br>
@@ -135,62 +217,26 @@ public class TaxaListIOUtils {
      * @return TaxaList with annotations
      */
     public static TaxaList readTaxaAnnotationFile(String fileName, String taxaNameField) {
-        BufferedReader fileIn;
-        try {
-            fileIn = Utils.getBufferedReader(fileName, 1000000);
-            fileIn.mark(1<<16);
-            String line;
-            TaxaListBuilder tlb=new TaxaListBuilder();
-            line=fileIn.readLine();
-            int indexOfName=0;
-            String[] headers=null;
-            boolean[] isQuant=null;
-            if(line.contains(taxaNameField)) {
-                //parse headers
-                headers=line.split("\\t");
-                isQuant=new boolean[headers.length];
-                for (int i = 0; i < headers.length; i++) {
-                    if(headers[i].equals(taxaNameField)) {indexOfName=i; continue;}
-                    headers[i]=headers[i].replace(">", "");
-                    headers[i]=headers[i].replace("<", "");
-                    if(headers[i].startsWith("#")) {
-                        isQuant[i]=true;
-                        headers[i]=headers[i].replace("#", "");
-                    } else {
-                        isQuant[i]=false;
-                    }
-                    
-                }
-            } else {
-               fileIn.reset();
+        return readTaxaAnnotationFile(fileName,taxaNameField, new HashMap<String, String>(),false);
+    }
+
+    /**
+     * Tests whether a taxon has annotation values in the map
+     * @param taxon
+     * @param filters
+     * @return true if all present, false is otherwise
+     */
+    public static boolean doesTaxonHaveAllAnnotations(Taxon taxon, Map<String,String> filters) {
+        SetMultimap<String,String> taxonAnno=taxon.getAnnotationAsMap();
+        boolean keep=true;
+        for (Map.Entry<String,String> entry : filters.entrySet()) {
+            keep=false;
+            for (String s1 : taxonAnno.get(entry.getKey())) {
+                if(s1.equals(entry.getValue())) keep=true;
             }
-            while((line=fileIn.readLine())!=null) {
-                String[] s=line.split("\\t");
-                if(headers!=null) {
-                    Taxon.Builder anID=new Taxon.Builder(s[indexOfName]);
-                    for (int i = 0; i < s.length; i++) {
-                        if(i==indexOfName) continue;
-                        String[] cs=s[i].split(";");
-                        for(String ta: cs) {
-                            if(ta==null || ta.isEmpty()) continue;
-                            if(isQuant[i]) {
-                                if(ta.equals("NA")) {anID.addAnno(headers[i], Double.NaN);}
-                                else {anID.addAnno(headers[i], Double.parseDouble(ta));}
-                            }
-                            else {anID.addAnno(headers[i], ta);}
-                        }
-                    }
-                    tlb.add(anID.build());
-                } else {
-                    tlb.add(new Taxon(s[indexOfName]));
-                }
-            }
-            return tlb.build();
-        } catch(Exception e) {
-            System.err.println("Error in Reading Pedigree File:"+fileName);
-            e.printStackTrace();
-        }    
-        return null;
+            if(keep==false) break;
+        }
+        return keep;
     }
 
     /**

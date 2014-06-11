@@ -22,7 +22,6 @@ class TaxaArrayList implements TaxaList {
     private final ImmutableMap<String, Integer> myNameToIndex;
 
     TaxaArrayList(TaxaListBuilder builder) {
-
         List<Taxon> srcList = builder.getImmutableList();
         myTaxaList = new ArrayList<Taxon>(srcList.size());
         myNumTaxa = srcList.size();
@@ -30,11 +29,7 @@ class TaxaArrayList implements TaxaList {
         ImmutableMap.Builder<String, Integer> nToIBuilder=new ImmutableMap.Builder<>();
         for (Taxon Taxon : srcList) {
             myTaxaList.add(Taxon);
-//            if (myNameToIndex.containsKey(Taxon.getName())) {   //Todo move logic to TaxaListBuilder
-//                myLogger.warn("init: Taxa name is duplicated :" + Taxon.getName());
-//            }
             nToIBuilder.put(Taxon.getName(), index);
-
             index++;
         }
         myNameToIndex=nToIBuilder.build();

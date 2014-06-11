@@ -177,6 +177,11 @@ public class Taxon implements Serializable, Comparable<Taxon>, GeneralAnnotation
         return result.build();
     }
 
+    @Override
+    public boolean isAnnotatedWithValue(String annoName, String annoValue) {
+        return GeneralAnnotationUtils.isAnnotatedWithValue(myAnno, annoName, annoValue);
+    }
+
     /**
      * A builder for creating immutable Taxon instances.
      * <p> Example:

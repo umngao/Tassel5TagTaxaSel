@@ -13,14 +13,15 @@ import net.maizegenetics.dna.snp.depth.AlleleDepth;
 import net.maizegenetics.dna.snp.depth.FilterAlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
+import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
+
 import org.apache.log4j.Logger;
 
 import java.util.*;
-import net.maizegenetics.dna.map.Position;
 
 /**
  * Taxa and site filtering of GenotypeTables. The class essentially creates
@@ -801,8 +802,8 @@ public class FilterGenotypeTable implements GenotypeTable {
     }
 
     @Override
-    public SITE_SCORE_TYPE siteScoreType() {
-        return myBaseAlignment.siteScoreType();
+    public Set<GenotypeTable.SITE_SCORE_TYPE> siteScoreTypes() {
+        return myBaseAlignment.siteScoreTypes();
     }
 
     @Override
@@ -827,12 +828,12 @@ public class FilterGenotypeTable implements GenotypeTable {
 
     @Override
     public String[][] alleleDefinitions() {
-        return alleleDefinitions();
+        return myGenotype.alleleDefinitions();
     }
 
     @Override
     public String[] alleleDefinitions(int site) {
-        return alleleDefinitions(site);
+        return myGenotype.alleleDefinitions(site);
     }
 
     @Override

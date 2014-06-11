@@ -108,6 +108,11 @@ public class Chromosome implements Comparable<Chromosome>, GeneralAnnotation {
     }
 
     @Override
+    public boolean isAnnotatedWithValue(String annoName, String annoValue) {
+        return myGA.isAnnotatedWithValue(annoName,annoValue);
+    }
+
+    @Override
     public SetMultimap<String, String> getAnnotationAsMap() {
         ImmutableSetMultimap.Builder<String,String> result=new ImmutableSetMultimap.Builder<String,String>()
                 .orderKeysBy(Ordering.natural()).orderValuesBy(Ordering.natural());
