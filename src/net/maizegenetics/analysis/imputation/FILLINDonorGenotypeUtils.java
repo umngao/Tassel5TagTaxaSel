@@ -26,12 +26,14 @@ public class FILLINDonorGenotypeUtils {
     public static GenotypeTable[] loadDonors(String donorFile, GenotypeTable unimpAlign, int minTestSites,
                                              boolean verboseOutput, int appoxSitesPerDonorGenotypeTable) {
         try {
-            if (donorFile.contains(".gX")) {
+            boolean containsDonors= false;
+            for (File file:new File(donorFile).listFiles()) {if (file.getName().contains(".gc")) containsDonors= true;}
+            if (containsDonors) {
                 return loadDonors(donorFile, unimpAlign, minTestSites, verboseOutput);}
             else { return loadDonors(donorFile, appoxSitesPerDonorGenotypeTable, verboseOutput);}
         }
         catch (IllegalArgumentException e){
-            throw new IllegalArgumentException("Incorrect donor file supplied. Must contain '.gX' within the file name,\n" +
+            throw new IllegalArgumentException("Incorrect donor file directory supplied. Must contain files with '.gc' within the file name,\n" +
                     "and match a set of files output from FILLINFindHaplotypesPlugin()");
         }
 
@@ -39,13 +41,13 @@ public class FILLINDonorGenotypeUtils {
 
     public static GenotypeTable[] loadDonors(String donorFileRoot, GenotypeTable unimpAlign, int minTestSites, boolean verboseOutput){
         File theDF=new File(donorFileRoot);
-        String prefilter=theDF.getName().split(".gX.")[0]+".gc"; //grabs the left side of the file
-        String prefilterOld=theDF.getName().split("s\\+")[0]+"s"; //grabs the left side of the file
+//        String prefilter=theDF.getName().split(".gX.")[0]+".gc"; //grabs the left side of the file
+//        String prefilterOld=theDF.getName().split("s\\+")[0]+"s"; //grabs the left side of the file
         ArrayList<File> d=new ArrayList<File>();
-        for (File file : theDF.getParentFile().listFiles()) {
-            if(file.getName().equals(theDF.getName())) {d.add(file);}
-            if(file.getName().startsWith(prefilter)) {d.add(file);}
-            if(file.getName().startsWith(prefilterOld)) {d.add(file);}
+        for (File file : theDF.listFiles()) {
+            if(file.getName().contains(".gc")) {d.add(file);}
+//            if(file.getName().startsWith(prefilter)) {d.add(file);}
+//            if(file.getName().startsWith(prefilterOld)) {d.add(file);}
         }
         PositionList targetPositions= unimpAlign.positions();
         ArrayList<GenotypeTable> donorList=new ArrayList<>();

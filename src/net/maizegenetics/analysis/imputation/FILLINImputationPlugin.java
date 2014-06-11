@@ -18,14 +18,12 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import net.maizegenetics.analysis.gbs.BinaryToTextPlugin;
 
 import static net.maizegenetics.dna.snp.GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
 import static net.maizegenetics.dna.WHICH_ALLELE.Major;
 import static net.maizegenetics.dna.WHICH_ALLELE.Minor;
 import static net.maizegenetics.dna.snp.GenotypeTableUtils.isHeterozygous;
 import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.GAP_DIPLOID_ALLELE;
-import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 
 
@@ -72,8 +70,8 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     //Plugin parameters
     private PluginParameter<String> hmpFile= new PluginParameter.Builder<>("hmp",null,String.class).guiName("Target file").inFile().required(true)
             .description("Input HapMap file of target genotypes to impute. Accepts all file types supported by TASSEL5").build();
-    private PluginParameter<String> donorFile= new PluginParameter.Builder<>("d",null,String.class).guiName("Donor file").inFile().required(true)
-            .description("Donor haplotype files from output of FILLINFindHaplotypesPlugin. Use .gX in the input filename to denote the substring .gc#s# found in donor files").build();
+    private PluginParameter<String> donorFile= new PluginParameter.Builder<>("d",null,String.class).guiName("Donor Dir").inDir().required(true)
+            .description("Directory containing donor haplotype files from output of FILLINFindHaplotypesPlugin. All files with '.gc' in the filename will be read in, only those with matching sites are used").build();
     private PluginParameter<String> outFileBase= new PluginParameter.Builder<>("o",null,String.class).guiName("Output filename").outFile().required(true)
             .description("Output file; hmp.txt.gz and .hmp.h5 accepted.").build();
     
@@ -99,11 +97,11 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
             .description("Create a projection alignment for high density markers").build();
     private PluginParameter<Boolean> imputeDonorFile= new PluginParameter.Builder<>("impDonor",false,Boolean.class).guiName("Impute donor file")
             .description("Impute the donor file itself").build();
-    private PluginParameter<Boolean> verboseOutput= new PluginParameter.Builder<>("verbose",true,Boolean.class).guiName("Express system out")
-            .description("Express system out").build();
+    private PluginParameter<Boolean> nonverboseOutput= new PluginParameter.Builder<>("nV",false,Boolean.class).guiName("Supress system out")
+            .description("Supress system out").build();
     
             //for calculating accuracy
-    private PluginParameter<Boolean> accuracy= new PluginParameter.Builder<>("accuracy",true,Boolean.class).guiName("Calculate accuracy")
+    private PluginParameter<Boolean> accuracy= new PluginParameter.Builder<>("accuracy",false,Boolean.class).guiName("Calculate accuracy")
             .description("Masks input file before imputation and calculates accuracy based on masked genotypes").build();
     private PluginParameter<Double> propSitesMask= new PluginParameter.Builder<>("propSitesMask",0.01,Double.class).guiName("Proportion of genotypes to mask if no depth")
             .description("Proportion of genotypes to mask for accuracy calculation if depth not available").build();
@@ -113,6 +111,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
             .description("Proportion of genotypes of given depth to mask for accuracy calculation if depth available").build();
     
     //Additional variables
+    private boolean verboseOutput= true;
     private boolean twoWayViterbi= true;//if true, the viterbi runs in both directions (the longest path length wins, if inconsistencies)
     private double minimumDonorDistance=maximumInbredError.value()*5; //used to prevent Viterbi errors with too similar sequences
     private double maxNonMedelian=maximumInbredError.value()*5; //if used avoid Viterbi if too many sites are non-Mendelian
@@ -162,6 +161,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
         maxInbredErrFocusHet= .1*maximumInbredError.value();//.001;//the error rate for imputing one haplotype in focus block for a het taxon
         maxSmashErrFocusHet= maximumInbredError.value();//.01;
         maxHybridErrFocusHomo= .3333*maxHybridErrorRate.value();
+        if (nonverboseOutput.value()) verboseOutput= false;
     }
     
     public FILLINImputationPlugin() {
@@ -181,33 +181,20 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
                 + "for low-coverage, next-generation sequence data in crop plants. "
                 + "Plant Genome (in review)";
     }
-
-    /**
-     *
-     * @param donorFile should be phased haplotypes
-     * @param unImpTargetFile sites must match exactly with donor file
-     * @param exportFile output file of imputed sites
-     * @param minMinorCnt determines the size of the search window, low recombination 20-30, high recombination 10-15
-     * @param minTestSites
-     * @param minSitesPresent
-     * @param maxHybridErrorRate
-     * @param isOutputProjection
-     * @param imputeDonorFile
-     */
     
     @Override
     public DataSet processData(DataSet input) {
         long time=System.currentTimeMillis();
         unimpAlign=ImportUtils.readGuessFormat(hmpFile.value());
+        GenotypeTable[] donorAlign=FILLINDonorGenotypeUtils.loadDonors(donorFile.value(), unimpAlign, minTestSites.value(),
+                verboseOutput,appoxSitesPerDonorGenotypeTable.value());
         if (accuracy.value()) {
             acc= new FILLINImputationAccuracy(unimpAlign,propSitesMask.value(),depthToMask.value(), 
-                    propDepthSitesMask.value(),outFileBase.value(),verboseOutput.value());
+                    propDepthSitesMask.value(),outFileBase.value(),verboseOutput);
             unimpAlign= acc.initiateAccuracy();
         }
-        GenotypeTable[] donorAlign=FILLINDonorGenotypeUtils.loadDonors(donorFile.value(), unimpAlign, minTestSites.value(),
-                verboseOutput.value(),appoxSitesPerDonorGenotypeTable.value());
         OpenBitSet[][] conflictMasks=FILLINDonorGenotypeUtils.createMaskForAlignmentConflicts(unimpAlign, donorAlign,
-                verboseOutput.value());
+                verboseOutput);
 
         System.out.printf("Unimputed taxa:%d sites:%d %n",unimpAlign.numberOfTaxa(),unimpAlign.numberOfSites());
         System.out.println("Creating Export GenotypeTable:"+outFileBase.value());
@@ -243,7 +230,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
         }
         System.out.println("");
         StringBuilder s=new StringBuilder();
-        s.append(String.format("%s %s MinMinor:%d ", donorFile, hmpFile.value(), minMinorCnt));
+        s.append(String.format("%s %s MinMinor:%d ", donorFile.value(), hmpFile.value(), minMinorCnt.value()));
         System.out.println(s.toString());
         
         double runtime= (double)(System.currentTimeMillis()-time)/(double)1000;
@@ -258,11 +245,11 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
                 ExportUtils.writeToHapmap(ab.build(), false, outFileBase.value(), '\t', null);
             }
             if (accuracy.value()) {
-                acc.calcAccuracy(((GenotypeTableBuilder)mna).sortTaxa().build(), runtime);
+                acc.calcAccuracy(ImportUtils.readGuessFormat(outFileBase.value()), runtime);
             }
 
         }
-        System.out.printf("%d %g %d %n",minMinorCnt, maximumInbredError, maxDonorHypotheses);
+        System.out.printf("%d %g %d %n",minMinorCnt.value(), maximumInbredError.value(), maxDonorHypotheses.value());
         System.out.println("Runtime: "+runtime+" seconds");
         return null;
     }
@@ -364,7 +351,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
             } else {
                 projBuilder.addTaxon(unimpAlign.taxa().get(taxon),impTaxon.getBreakPoints());
             }
-            if(verboseOutput.value()) System.out.println(sb.toString());
+            if(verboseOutput) System.out.println(sb.toString());
         }
     }
 
@@ -1125,8 +1112,8 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
      *
      * @return False supresses system out
      */
-    public Boolean falseSupressesSystemOut() {
-        return verboseOutput.value();
+    public Boolean trueSupressesSystemOut() {
+        return nonverboseOutput.value();
     }
 
     /**
@@ -1138,7 +1125,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
      * @return this plugin
      */
     public FILLINImputationPlugin falseSupressesSystemOut(Boolean value) {
-        verboseOutput = new PluginParameter<>(verboseOutput, value);
+        nonverboseOutput = new PluginParameter<>(nonverboseOutput, value);
         return this;
     }
 }
