@@ -647,8 +647,9 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         JMenu result = new JMenu("Impute");
         result.setMnemonic(KeyEvent.VK_I);
 
-        result.add(createMenuItem(new FILLINImputationPlugin(this, true)));
         result.add(createMenuItem(new FILLINFindHaplotypesPlugin(this, true)));
+        result.add(createMenuItem(new FILLINImputationPlugin(this, true)));
+
         return result;
     }
 
