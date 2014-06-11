@@ -26,16 +26,15 @@ public final class Tassel5HDF5Constants {
     public static final String GENOTYPES_LOCKED = "locked";
     public static final String GENOTYPES_SCORE_TYPE = "scoreType";
     public static final String GENOTYPES_ALLELE_STATES = GENOTYPES_MODULE + "/AlleleStates";
-    public static final String GENO_DESC= GENOTYPES_MODULE + "/_Descriptors/";
-    public static final String ALLELE_CNT = GENO_DESC+"AlleleCnt";
-    public static final String MAF = GENO_DESC+"MAF";
-    public static final String SITECOV = GENO_DESC+"SiteCoverage";
-    public static final String ALLELE_FREQ_ORD = GENO_DESC+"AlleleFreqOrder";
-    public static final String TAXACOV = GENO_DESC+"TaxaCoverage";
-    public static final String TAXAHET = GENO_DESC+"TaxaHet";
+    public static final String GENO_DESC = GENOTYPES_MODULE + "/_Descriptors/";
+    public static final String ALLELE_CNT = GENO_DESC + "AlleleCnt";
+    public static final String MAF = GENO_DESC + "MAF";
+    public static final String SITECOV = GENO_DESC + "SiteCoverage";
+    public static final String ALLELE_FREQ_ORD = GENO_DESC + "AlleleFreqOrder";
+    public static final String TAXACOV = GENO_DESC + "TaxaCoverage";
+    public static final String TAXAHET = GENO_DESC + "TaxaHet";
 
-    public static final int BLOCK_SIZE=1<<16;
-
+    public static final int BLOCK_SIZE = 1 << 16;
 
     public static final String getGenotypesPedigreePath(String taxon) {
         return GENOTYPES_MODULE + "/" + taxon + "/pedigree";
@@ -45,12 +44,13 @@ public final class Tassel5HDF5Constants {
         return GENOTYPES_MODULE + "/" + taxon + "/calls";
     }
 
+    @Deprecated
     public static final String getGenotypesDepthPath(String taxon) {
         return GENOTYPES_MODULE + "/" + taxon + "/depth";
     }
 
-    public static final String getGenotypesScorePath(String taxon) {
-        return GENOTYPES_MODULE + "/" + taxon + "/score";
+    public static final String getGenotypesSiteScorePath(String taxon, String siteScoreType) {
+        return GENOTYPES_MODULE + "/" + taxon + "/" + siteScoreType;
     }
 
     //Taxa Module
@@ -58,8 +58,6 @@ public final class Tassel5HDF5Constants {
     public static final String TAXA_ATTRIBUTES_PATH = TAXA_MODULE + "/";
     public static final String TAXA_NUM_TAXA = "numTaxa";
     public static final String TAXA_LOCKED = "locked";
-
-
 
     public static final String getTaxonPath(String taxon) {
         return TAXA_MODULE + "/" + taxon;
@@ -93,8 +91,6 @@ public final class Tassel5HDF5Constants {
     public static final String TAG_LENGTHS = TAG_MODULE + "/TagLength";
     public static final String TAG_DIST = TAG_MODULE + "/TagDist";
     public static final String TAG_DIST_CHUNK = "taxaDirection";
-
-
 
     private Tassel5HDF5Constants() {
         // do not instantiate

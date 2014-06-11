@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.maizegenetics.dna.BaseEncoder;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Chromosome;
@@ -473,7 +474,7 @@ public class TOPMGenotypeTable implements GenotypeTable {
     }
 
     @Override
-    public SITE_SCORE_TYPE siteScoreType() {
+    public Set<GenotypeTable.SITE_SCORE_TYPE> siteScoreTypes() {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 

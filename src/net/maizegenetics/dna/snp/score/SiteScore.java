@@ -3,31 +3,52 @@
  */
 package net.maizegenetics.dna.snp.score;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.byte3d.Byte3D;
+import net.maizegenetics.dna.snp.byte2d.Byte2D;
 
 /**
- * In memory site scores class.
  *
  * @author Terry Casstevens
  */
 public class SiteScore {
 
-    private final GenotypeTable.SITE_SCORE_TYPE myScoreType;
-    private final Byte3D myValues;
+    private final Map<GenotypeTable.SITE_SCORE_TYPE, Byte2D> myValues = new HashMap<>();
+    private final GenotypeTable.SITE_SCORE_TYPE myOnlyScoreType;
+    private final int myNumTaxa;
+    private final int myNumSites;
 
-    SiteScore(Byte3D values, GenotypeTable.SITE_SCORE_TYPE scoreType) {
-        myScoreType = scoreType;
-        myValues = values;
+    SiteScore(Byte2D[] values) {
+        if (values.length == 0) {
+            throw new IllegalArgumentException("SiteScore: init: no values provided.");
+        }
+        int numTaxa = values[0].numTaxa();
+        int numSites = values[0].numSites();
+        for (int i = 0; i < values.length; i++) {
+            if ((numTaxa != values[i].numTaxa()) || (numSites != values[i].numSites())) {
+                throw new IllegalArgumentException("SiteScore: init: number of taxa or sites don't match for all values.");
+            }
+            myValues.put(values[i].siteScoreType(), values[i]);
+        }
+        myNumTaxa = numTaxa;
+        myNumSites = numSites;
+        if (values.length == 1) {
+            myOnlyScoreType = values[0].siteScoreType();
+        } else {
+            myOnlyScoreType = null;
+        }
     }
 
-    public float siteScore(int taxon, int site, int allele) {
-        return SiteScoreUtil.byteToFloatPercentage(myValues.valueForAllele(taxon, site, allele));
+    public float siteScore(int taxon, int site, GenotypeTable.SITE_SCORE_TYPE scoreType) {
+        return SiteScoreUtil.byteToFloatPercentage(myValues.get(scoreType).valueForAllele(taxon, site));
     }
 
     /**
-     * Returns the site score of the given sequence and site. Default is allele
-     * 0. Can be used with scores that only have one value per taxon and site.
+     * Returns the site score of the given taxon and site. Used if only one site
+     * score type represented by this instance.
      *
      * @param taxon taxon index
      * @param site site
@@ -35,7 +56,7 @@ public class SiteScore {
      * @return site score.
      */
     public float siteScore(int taxon, int site) {
-        return siteScore(taxon, site, 0);
+        return siteScore(taxon, site, myOnlyScoreType);
     }
 
     /**
@@ -49,30 +70,30 @@ public class SiteScore {
         float[][] result = new float[numTaxa()][numSites()];
         for (int t = 0; t < numTaxa(); t++) {
             for (int s = 0; s < numSites(); s++) {
-                result[t][s] = siteScore(t, s, 0);
+                result[t][s] = siteScore(t, s, myOnlyScoreType);
             }
         }
         return result;
     }
 
     /**
-     * Return what type of these site scores.
+     * Return the site scores types.
      *
-     * @return site score type.
+     * @return site score types.
      */
-    public GenotypeTable.SITE_SCORE_TYPE siteScoreType() {
-        return myScoreType;
+    public Set<GenotypeTable.SITE_SCORE_TYPE> siteScoreTypes() {
+        return myValues.keySet();
     }
 
     public int numTaxa() {
-        return myValues.numTaxa();
+        return myNumTaxa;
     }
 
     public int numSites() {
-        return myValues.numSites();
+        return myNumSites;
     }
 
     public int numAlleles() {
-        return myValues.numAlleles();
+        return myValues.size();
     }
 }
