@@ -2,6 +2,7 @@ package net.maizegenetics.phenotype;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ public class CorePhenotype implements Phenotype, TableReport {
 	protected final List<PhenotypeAttribute> myAttributeList;
 	protected final List<ATTRIBUTE_TYPE> myAttributeTypeList;
 	protected final Multimap<ATTRIBUTE_TYPE, Integer> myAttributeTypeMap;
+	protected final HashMap<String, Integer> myAttributeNameMap;
 	protected final int numberOfAttributes;
 	protected final int numberOfObservations;
 	protected final String name;
@@ -45,6 +47,10 @@ public class CorePhenotype implements Phenotype, TableReport {
 			Integer Ndx = taxaIndices.iterator().next();
 			myTaxaAttribute = (TaxaAttribute) myAttributeList.get(Ndx);
 		} else myTaxaAttribute = null;
+		
+		myAttributeNameMap = new HashMap<>();
+		int attrCount = 0;
+		for (PhenotypeAttribute attr : attributes) myAttributeNameMap.put(attr.name(), attrCount++);
 	}
 	
 	//TableReport methods
@@ -202,6 +208,11 @@ public class CorePhenotype implements Phenotype, TableReport {
 		return myTaxaAttribute;
 	}
 
+	@Override
+	public int attributeIndexForName(String name) {
+		return myAttributeNameMap.get(name);
+	}
+
 	public static boolean areAttributeAndTypeListsCompatible(List<PhenotypeAttribute> attributes, List<ATTRIBUTE_TYPE> types) {
 		if (attributes.size() != types.size()) return false;
 		boolean compatible = true;
@@ -215,4 +226,5 @@ public class CorePhenotype implements Phenotype, TableReport {
 		}
 		return compatible;
 	}
+	
 }

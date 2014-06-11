@@ -85,6 +85,7 @@ import net.maizegenetics.analysis.gbs.SeqToTBTHDF5Plugin;
 import net.maizegenetics.analysis.gbs.TagCountToFastqPlugin;
 import net.maizegenetics.analysis.gbs.UTagCountToTagPairPlugin;
 import net.maizegenetics.analysis.gbs.UTagPairToTOPMPlugin;
+import net.maizegenetics.analysis.imputation.FILLINFindHaplotypesPlugin;
 import net.maizegenetics.analysis.imputation.FILLINImputationPlugin;
 
 /**
@@ -619,6 +620,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new SeparatePlugin(this, true)));
         result.add(createMenuItem(new HetsToUnknownPlugin(this, true)));
         result.add(createMenuItem(new FILLINImputationPlugin(this, true)));
+        result.add(createMenuItem(new FILLINFindHaplotypesPlugin(this, true)));
         result.addSeparator();
 
         JMenuItem delete = new JMenuItem("Delete Dataset");

@@ -17,7 +17,7 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 	private final ImmutableBiMap<String, Integer> labelBimap;
 	private final BitSet missing;
 	
-	private static final String missingValue = "?";
+	public static final String missingValue = "?";
 	private static final List<ATTRIBUTE_TYPE> myAllowedTypes;
 	static{
 		myAllowedTypes = new ArrayList<ATTRIBUTE_TYPE>();
