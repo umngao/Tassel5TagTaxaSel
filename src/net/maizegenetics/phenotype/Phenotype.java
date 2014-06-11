@@ -106,4 +106,9 @@ public interface Phenotype {
 	 */
 	public List<ATTRIBUTE_TYPE> typeListCopy();
 
+	/**
+	 * @param name	the name of an attribute
+	 * @return	the index of the attribute with this name, -1 if there is no attribute with this name
+	 */
+	public int attributeIndexForName(String name);
 }

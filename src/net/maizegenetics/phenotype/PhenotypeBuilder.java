@@ -6,7 +6,10 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +20,7 @@ import org.apache.log4j.Logger;
 
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.TaxaListUtils;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
@@ -80,11 +84,28 @@ public class PhenotypeBuilder {
 	 */
 	public PhenotypeBuilder joinPhenotypes(List<Phenotype> phenotypes) {
 		phenotypesToJoin = phenotypes;
-		isUnionJoin = false;
 		source = SOURCE_TYPE.join;
+		StringBuilder sb = new StringBuilder();
+		for (Phenotype pheno : phenotypes) {
+			if (sb.length() > 0) sb.append(" + ");
+			sb.append(pheno.name());
+		}
+		phenotypeName = sb.toString();
 		return this;
 	}
 	
+	/**
+	 * @param pheno1	a Phenotype
+	 * @param pheno2	a second Phenotype to be merged with pheno1
+	 * @return	a Phenotype builder that will merge pheno1 and pheno2
+	 */
+	public PhenotypeBuilder joinPhenotypes(Phenotype pheno1, Phenotype pheno2) {
+		List<Phenotype> phenoList = new ArrayList<Phenotype>();
+		phenoList.add(pheno1);
+		phenoList.add(pheno2);
+		return joinPhenotypes(phenoList);
+	}
+
 	/**
 	 * @return	a builder that will perform an intersect join if given a list of Phenotypes to join
 	 */
@@ -645,6 +666,144 @@ public class PhenotypeBuilder {
 	
 	private Phenotype joinPhenotypes() {
 		//TODO implement
+		
+		//join types
+		//same attributes (including taxa) - just concatenate
+		
+		//different attributes (more complex) - merge, how? 
+		
+		
+		//step 1. determine category
+		
 		return null;
 	}
+	
+	private Phenotype concatenatePhenotypes() {
+		int nPheno = phenotypesToJoin.size();
+		if (nPheno < 2) throw new IllegalArgumentException("No phenotypes to join.");
+		attributeList = new ArrayList<PhenotypeAttribute>();
+		attributeTypeList = new ArrayList<Phenotype.ATTRIBUTE_TYPE>();
+		
+		//create a new TaxaAttribute
+		List<Taxon> jointTaxaList = new ArrayList<Taxon>();
+		String attrName = phenotypesToJoin.get(0).name();
+		for (Phenotype pheno : phenotypesToJoin) {
+			TaxaAttribute someTaxa = pheno.taxaAttribute();
+			if (someTaxa == null) throw new IllegalArgumentException(String.format("Phenotypes cannot be concatenated because %s has no taxa.", pheno.name()));
+			jointTaxaList.addAll(someTaxa.allTaxaAsList());
+		}
+		TaxaAttribute myTaxaAttribute = new TaxaAttribute(jointTaxaList, attrName);
+		attributeList.add(myTaxaAttribute);
+		attributeTypeList.add(ATTRIBUTE_TYPE.taxa);
+		
+		//make a list of attribute names (except for taxa) and find out how many total observations there will be
+		HashSet<String> attributeNameSet = new HashSet<>();
+		int totalNumberOfObs = 0;
+		for (Phenotype pheno : phenotypesToJoin) {
+			int nattr = pheno.numberOfAttributes();
+			totalNumberOfObs += pheno.numberOfObservations();
+			for (int i = 0; i < nattr; i++) {
+				if (pheno.attributeType(i) != ATTRIBUTE_TYPE.taxa) attributeNameSet.add(pheno.attributeName(i));
+			}
+		}
+		
+		//create a new attribute for each name. Throw an error if attributes of the same name are of incompatible types.
+		for (String attributeName : attributeNameSet) {
+			ATTRIBUTE_TYPE myType = null;
+			//take the type from the first phenotype with this name
+			for (Phenotype pheno : phenotypesToJoin) {
+				int attrIndex = pheno.attributeIndexForName(attributeName);
+				if (attrIndex > -1) {
+					myType = pheno.attributeType(attrIndex);
+					break;
+				}
+			}
+			
+			//create this attribute
+			if (myType == ATTRIBUTE_TYPE.factor) {
+				String[] values = new String[totalNumberOfObs];
+				int nPreviousObs = 0;
+				for (Phenotype pheno : phenotypesToJoin) {
+					int nObs = pheno.numberOfObservations();
+					int attrIndex = pheno.attributeIndexForName(attributeName);
+					if (attrIndex > -1) {
+						System.arraycopy((String[]) pheno.attribute(attrIndex).allValues(), 0, values, nPreviousObs, nObs);
+					} else {
+						Arrays.fill(values, nPreviousObs, nPreviousObs + nObs, CategoricalAttribute.missingValue);
+					}
+					nPreviousObs += nObs;
+				}
+				attributeList.add(new CategoricalAttribute(attributeName, values));
+				attributeTypeList.add(myType);
+			} else {
+				float[] values = new float[totalNumberOfObs];
+				BitSet missing = new OpenBitSet(totalNumberOfObs);
+				int nPreviousObs = 0;
+				for (Phenotype pheno : phenotypesToJoin) {
+					int nObs = pheno.numberOfObservations();
+					int attrIndex = pheno.attributeIndexForName(attributeName);
+					if (attrIndex > -1) {
+						PhenotypeAttribute thisAttribute = pheno.attribute(attrIndex);
+						System.arraycopy((float[]) thisAttribute.allValues(), 0, values, nPreviousObs, nObs);
+						for (int i = 0; i < nObs; i++) if (thisAttribute.isMissing(i)) missing.fastSet(nPreviousObs + i);
+					} else {
+						Arrays.fill(values, nPreviousObs, nPreviousObs + nObs, Float.NaN);
+						missing.set(nPreviousObs, nPreviousObs + nObs);
+					}
+					nPreviousObs += nObs;
+				}
+				attributeList.add(new NumericAttribute(attributeName, values, missing));
+				attributeTypeList.add(myType);
+			}
+		}
+		
+		sortAttributes();
+		
+		return new CorePhenotype(attributeList, attributeTypeList, phenotypeName);
+	}
+	
+	private Phenotype mergeTwoPhenotypes(Phenotype pheno1, Phenotype pheno2) {
+		//TODO implement
+		return null;
+	}
+	
+	private void sortAttributes() {
+		//sort attributes, taxa first, then factors, then covariates, then data. Sorted by name within type
+		int nAttr = attributeList.size();
+		ArrayList<Integer> index = new ArrayList<>();
+		for (int i = 0; i < nAttr; i++) index.add(i);
+		
+		Collections.sort(index, new Comparator<Integer>() {
+
+			@Override
+			public int compare(Integer o1, Integer o2) {
+				ATTRIBUTE_TYPE type1 = attributeTypeList.get(o1);
+				ATTRIBUTE_TYPE type2 = attributeTypeList.get(o2);
+				if (type1 == type2) {
+					return attributeList.get(o1).name().compareTo(attributeList.get(o2).name());
+				} else {
+					if (type1 == ATTRIBUTE_TYPE.taxa) return -1;
+					else if (type2 == ATTRIBUTE_TYPE.taxa) return 1;
+					else if (type1 == ATTRIBUTE_TYPE.factor) return -1;
+					else if (type2 == ATTRIBUTE_TYPE.factor) return 1;
+					else if (type1 == ATTRIBUTE_TYPE.covariate) return -1;
+					else if (type2 == ATTRIBUTE_TYPE.covariate) return 1;
+				}
+				return 0;
+			}
+			
+		});
+		
+		List<PhenotypeAttribute> unsortedAttributeList = attributeList;
+		List<ATTRIBUTE_TYPE> unsortedAttributeTypeList = attributeTypeList;
+		attributeList = new ArrayList<PhenotypeAttribute>();
+		attributeTypeList = new ArrayList<Phenotype.ATTRIBUTE_TYPE>();
+		for (Integer ndx : index) {
+			attributeList.add(unsortedAttributeList.get(ndx));
+			attributeTypeList.add(unsortedAttributeTypeList.get(ndx));
+		}
+		
+	}
+	
+	// static utility classes ------------------------------
 }
