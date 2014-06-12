@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -17,6 +18,9 @@ import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
+
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
@@ -38,6 +42,7 @@ public class PhenotypeBuilder {
 	private List<Phenotype> phenotypesToJoin;
 	private boolean isUnionJoin = false;
 	private boolean isFilterable = false;
+	private boolean isConcatenate = false;
 	private String phenotypeName = "Phenotype";
 	private List<PhenotypeAttribute> attributeList = null;
 	private List<ATTRIBUTE_TYPE> attributeTypeList = null;
@@ -119,6 +124,14 @@ public class PhenotypeBuilder {
 	 */
 	public PhenotypeBuilder union() {
 		isUnionJoin = true;
+		return this;
+	}
+	
+	/**
+	 * @return	a builder that will perform concatenate the phenotypes to be joined
+	 */
+	public PhenotypeBuilder concatenate() {
+		isConcatenate = true;
 		return this;
 	}
 	
@@ -665,17 +678,15 @@ public class PhenotypeBuilder {
 	}
 	
 	private Phenotype joinPhenotypes() {
-		//TODO implement
+		if (phenotypesToJoin.size() < 2) throw new IllegalArgumentException("No join will be made because joining phenotypes requires at least two phenotypes.");
+		if (isConcatenate) return concatenatePhenotypes();
 		
-		//join types
-		//same attributes (including taxa) - just concatenate
-		
-		//different attributes (more complex) - merge, how? 
-		
-		
-		//step 1. determine category
-		
-		return null;
+		Iterator<Phenotype> phenoIter = phenotypesToJoin.iterator();
+		Phenotype firstPhenotype = phenoIter.next();
+		Phenotype secondPhenotype = phenoIter.next();
+		Phenotype mergedPhenotype = mergeTwoPhenotypes(firstPhenotype, secondPhenotype);
+		while (phenoIter.hasNext()) mergedPhenotype = mergeTwoPhenotypes(mergedPhenotype, phenoIter.next());
+		return mergedPhenotype;
 	}
 	
 	private Phenotype concatenatePhenotypes() {
@@ -763,8 +774,184 @@ public class PhenotypeBuilder {
 	}
 	
 	private Phenotype mergeTwoPhenotypes(Phenotype pheno1, Phenotype pheno2) {
-		//TODO implement
-		return null;
+		
+		//build attribute name list for the new phenotype
+		TreeSet<String> attributeNameSet = new TreeSet<>();
+		
+		int nAttributes1 = pheno1.numberOfAttributes();
+		for (int a = 0; a < nAttributes1; a++) {
+			if (pheno1.attributeType(a) != ATTRIBUTE_TYPE.taxa) attributeNameSet.add(pheno1.attributeName(a));
+		}
+
+		int nAttributes2 = pheno2.numberOfAttributes();
+		for (int a = 0; a < nAttributes2; a++) {
+			if (pheno2.attributeType(a) != ATTRIBUTE_TYPE.taxa) attributeNameSet.add(pheno2.attributeName(a));
+		}
+		
+		ArrayList<String> attributeNameList = new ArrayList<>(attributeNameSet);
+		ArrayList<ATTRIBUTE_TYPE> typeList = new ArrayList<>();
+		
+		//create a type list for these attribute names
+		for (String name : attributeNameList) {
+			 int ndx = pheno1.attributeIndexForName(name);
+			 if (ndx > -1) typeList.add(pheno1.attributeType(ndx));
+			 else {
+				 typeList.add(pheno2.attributeType(pheno2.attributeIndexForName(name)));
+			 }
+		}
+		
+		//create a list of taxa to be included in the merged phenotype
+		TaxaList outTaxa;
+		if (isUnionJoin) outTaxa = TaxaListUtils.getAllTaxa(pheno1.taxa(), pheno2.taxa());
+		else outTaxa = TaxaListUtils.getCommonTaxa(pheno1.taxa(), pheno2.taxa());
+		
+		//for each phenotype create a Multimap with Taxon as key, obs number as value
+		Multimap<Taxon, Integer> pheno1ObservationMap = HashMultimap.create();
+		List<Taxon> pheno1Taxa = pheno1.taxaAttribute().allTaxaAsList();
+		int taxonCount = 0;
+		for (Taxon taxon:pheno1Taxa) pheno1ObservationMap.put(taxon, taxonCount++);
+		
+		Multimap<Taxon, Integer> pheno2ObservationMap = HashMultimap.create();
+		List<Taxon> pheno2Taxa = pheno2.taxaAttribute().allTaxaAsList();
+		taxonCount = 0;
+		for (Taxon taxon:pheno2Taxa) pheno2ObservationMap.put(taxon, taxonCount++);
+		
+		//create a list of new observations
+		//first find the factors (if any) in common
+		//for each factor in common record index in pheno1 and pheno2
+		ArrayList<String> mergeFactors = new ArrayList<String>();
+		ArrayList<int[]> mergeFactorIndex = new ArrayList<>();
+		int numberOfMergeFactors;
+		if (pheno1.numberOfAttributesOfType(ATTRIBUTE_TYPE.factor) == 0 || pheno2.numberOfAttributesOfType(ATTRIBUTE_TYPE.factor) == 0) numberOfMergeFactors = 0;
+		else {
+			int[] factorIndex = pheno1.attributeIndicesOfType(ATTRIBUTE_TYPE.factor);
+			for (int ndx1:factorIndex) {
+				String factorName = pheno1.attributeName(ndx1);
+				int ndx2 = pheno2.attributeIndexForName(factorName);
+				if (ndx2 > -1 && pheno2.attributeType(ndx2) == ATTRIBUTE_TYPE.factor) {
+					mergeFactors.add(factorName);
+					mergeFactorIndex.add(new int[]{ndx1, ndx2});
+				}
+			}
+		}
+		numberOfMergeFactors = mergeFactors.size();
+		
+		if (numberOfMergeFactors > 0) {
+			Collections.sort(mergeFactors);
+			for (String factorName : mergeFactors) {
+				mergeFactorIndex.add(new int[]{pheno1.attributeIndexForName(factorName), pheno2.attributeIndexForName(factorName)});
+			}
+		}
+		
+		//code for creating a list of new observations
+		ArrayList<int[]> mergeObservation = new ArrayList<>();
+		ArrayList<Taxon> listOfTaxaForObservations = new ArrayList<>();
+		for (Taxon taxon:outTaxa) {
+			Collection<Integer> pheno1obs = pheno1ObservationMap.get(taxon);
+			Collection<Integer> pheno2obs = pheno2ObservationMap.get(taxon);
+			boolean[] wasPheno2ObsUsed = new boolean[pheno2obs.size()];
+			Arrays.fill(wasPheno2ObsUsed, false);
+			for (Integer obs1 : pheno1obs) {
+				boolean wasPheno1ObsUsed = false;
+				int obs2Count = 0;
+				for (Integer obs2 : pheno2obs) {
+					boolean mergeTheseObs = true;
+					for (int[] ndx : mergeFactorIndex) {
+						if (pheno1.value(obs1, ndx[0]).equals(pheno2.value(obs1, ndx[1]))) mergeTheseObs = false;
+						break;
+					}
+					if (mergeTheseObs) {
+						wasPheno1ObsUsed = true;
+						wasPheno2ObsUsed[obs2Count] = true;
+						mergeObservation.add(new int[]{obs1, obs2});
+						listOfTaxaForObservations.add(taxon);
+					}
+					obs2Count++;
+				}
+				if (!wasPheno1ObsUsed) {
+					mergeObservation.add(new int[]{obs1, -1});
+					listOfTaxaForObservations.add(taxon);
+				}
+			}
+			int obs2Count = 0;
+			for (Integer obs2:pheno2obs) {
+				if (!wasPheno2ObsUsed[obs2Count++]) {
+					mergeObservation.add(new int[]{-1, obs2});
+					listOfTaxaForObservations.add(taxon);
+				}
+			}
+		}
+		
+		//create the new attribute and type lists. Add the taxa attribute to them.
+		TaxaAttribute newTaxaAttribute = new TaxaAttribute(listOfTaxaForObservations, pheno1.taxaAttribute().name());
+		ArrayList<PhenotypeAttribute> newAttributes = new ArrayList<>();
+		ArrayList<ATTRIBUTE_TYPE> newTypes = new ArrayList<>();
+		newAttributes.add(newTaxaAttribute);
+		newTypes.add(ATTRIBUTE_TYPE.taxa);
+		
+		//create and add the other attributes (in the name list) to the new attribute and type lists
+		int nAdd = attributeNameList.size();
+		int nObs = mergeObservation.size();
+		for (int i = 0; i < nAdd; i++) {
+			ATTRIBUTE_TYPE myType = typeList.get(i);
+			String attrName = attributeNameList.get(i);
+			
+			//the attrnum array stores the index of this attribute in pheno1 and pheno2
+			int[] attrnum = new int[]{pheno1.attributeIndexForName(attrName), pheno2.attributeIndexForName(attrName)};
+			
+			switch(myType) {
+			case data:
+			case covariate:
+				float[] myFloatData = new float[nObs];
+				BitSet myMissing = new OpenBitSet(nObs);
+				int obsCount = 0;
+				for (int[] ndx : mergeObservation) {
+					boolean pheno1HasNonmissingValue = attrnum[0] > -1 && ndx[0] > -1 & !pheno1.isMissing(ndx[0], attrnum[0]);
+					boolean pheno2HasNonmissingValue = attrnum[1] > -1 && ndx[1] > -1 & !pheno1.isMissing(ndx[1], attrnum[1]);
+					if (pheno1HasNonmissingValue && pheno2HasNonmissingValue) {
+						throw new IllegalArgumentException("Data sets will not be joined because both phenotypes have values for " + attrName);
+					} else if (pheno1HasNonmissingValue) {
+						myFloatData[obsCount] = (Float) pheno1.value(ndx[0], attrnum[0]);
+					} else if (pheno2HasNonmissingValue) {
+						myFloatData[obsCount] = (Float) pheno2.value(ndx[1], attrnum[1]);
+					} else {
+						myFloatData[obsCount] = Float.NaN;
+						myMissing.fastSet(obsCount);
+					}
+					obsCount++;
+				}
+				newAttributes.add(new NumericAttribute(attrName, myFloatData, myMissing));
+				newTypes.add(myType);
+				break;
+			case factor:
+				boolean isMergeAttribute;
+				if (mergeFactors.contains(attrName)) isMergeAttribute = true;
+				else isMergeAttribute = false;
+
+				String[] myStringData = new String[nObs];
+				obsCount = 0;
+				for (int[] ndx : mergeObservation) {
+					boolean pheno1HasNonmissingValue = attrnum[0] > -1 && ndx[0] > -1 & !pheno1.isMissing(ndx[0], attrnum[0]);
+					boolean pheno2HasNonmissingValue = attrnum[1] > -1 && ndx[1] > -1 & !pheno1.isMissing(ndx[1], attrnum[1]);
+					if (pheno1HasNonmissingValue && pheno2HasNonmissingValue) {
+						if (isMergeAttribute) myStringData[obsCount] = (String) pheno1.value(ndx[0], attrnum[0]);
+						else throw new IllegalArgumentException("Data sets will not be joined because both phenotypes have values for " + attrName);
+					} else if (pheno1HasNonmissingValue) {
+						myStringData[obsCount] = (String) pheno1.value(ndx[0], attrnum[0]);
+					} else if (pheno2HasNonmissingValue) {
+						myStringData[obsCount] = (String) pheno2.value(ndx[1], attrnum[1]);
+					} else {
+						myStringData[obsCount] = CategoricalAttribute.missingValue;
+					}
+					obsCount++;
+				}
+				newAttributes.add(new CategoricalAttribute(attrName, myStringData));
+				newTypes.add(myType);
+				break;
+			}
+		}
+		
+		return new CorePhenotype(newAttributes, newTypes, phenotypeName);
 	}
 	
 	private void sortAttributes() {
@@ -805,5 +992,4 @@ public class PhenotypeBuilder {
 		
 	}
 	
-	// static utility classes ------------------------------
 }
