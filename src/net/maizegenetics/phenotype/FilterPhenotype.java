@@ -177,4 +177,9 @@ public class FilterPhenotype implements Phenotype, TableReport {
 		return (TaxaAttribute) basePhenotype.taxaAttribute().subset(myRowRedirect);
 	}
 
+	@Override
+	public int attributeIndexForName(String name) {
+		return basePhenotype.attributeIndexForName(name);
+	}
+
 }
