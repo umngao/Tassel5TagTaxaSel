@@ -3,6 +3,7 @@
  */
 package net.maizegenetics.dna.snp.score;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -95,5 +96,9 @@ public class SiteScore {
 
     public int numAlleles() {
         return myValues.size();
+    }
+
+    Collection<Byte2D> byteStorage() {
+        return myValues.values();
     }
 }

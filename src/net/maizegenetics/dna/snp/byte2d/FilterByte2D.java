@@ -15,7 +15,7 @@ public class FilterByte2D extends AbstractByte2D {
     private final FilterGenotypeTable myFilterGenotypeTable;
     private final Byte2D myBase;
 
-    public FilterByte2D(Byte2D base, FilterGenotypeTable filterGenotypeTable) {
+    FilterByte2D(Byte2D base, FilterGenotypeTable filterGenotypeTable) {
         super(base.siteScoreType(), filterGenotypeTable.numberOfTaxa(), filterGenotypeTable.numberOfSites());
         myBase = base;
         myFilterGenotypeTable = filterGenotypeTable;
