@@ -1,5 +1,6 @@
 package net.maizegenetics.phenotype;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.TreeSet;
 
@@ -20,18 +21,43 @@ public class FilterPhenotype implements Phenotype, TableReport {
 	private String name;
 	
 	FilterPhenotype(CorePhenotype basePheno, List<Taxon> taxaToKeep, String name) {
-		//TODO finish implementing taxaFilter
+		this.basePhenotype = basePheno;
+		TaxaAttribute myTaxaAttribute = basePheno.taxaAttribute();
+		List<Taxon> baseTaxa = myTaxaAttribute.allTaxaAsList();
+		int numberOfBaseObservations = basePheno.numberOfObservations();
+		myRowRedirect = new int[numberOfBaseObservations];
+		int obsCount = 0;
+		int baseTaxonCount = 0;
+		for (Taxon baseTaxon:baseTaxa) {
+			if (taxaToKeep.contains(baseTaxon)) myRowRedirect[obsCount++] = baseTaxonCount;
+			baseTaxonCount++;		
+		}
+		myRowRedirect = Arrays.copyOf(myRowRedirect, obsCount);
+		numberOfObservations = obsCount;
 		this.name = name;
 	}
 	
 	FilterPhenotype(FilterPhenotype basePheno, List<Taxon> taxaToKeep, String name) {
-		//TODO finish implementing
+		int numberOfBaseObservations = basePheno.numberOfObservations();
+		TaxaAttribute myTaxaAttribute = basePheno.taxaAttribute();
+		myRowRedirect = new int[numberOfBaseObservations];
+		List<Taxon> baseTaxa = myTaxaAttribute.allTaxaAsList();
+		int obsCount = 0;
+		int baseTaxonCount = 0;
+		for (Taxon baseTaxon:baseTaxa) {
+			if (taxaToKeep.contains(baseTaxon)) myRowRedirect[obsCount++] = basePheno.myRowRedirect[baseTaxonCount];
+			baseTaxonCount++;		
+		}
+		myRowRedirect = Arrays.copyOf(myRowRedirect, obsCount);
+		this.basePhenotype = basePheno.basePhenotype;
+		numberOfObservations = obsCount;
 		this.name = name;
 	}
 	
-	FilterPhenotype(Phenotype basePheno, List<Taxon> taxaToKeep, String name) {
-		//TODO finish implementing
-		this.name = name;
+	static FilterPhenotype getInstance(Phenotype basePheno, List<Taxon> taxaToKeep, String name) {
+		if (basePheno instanceof CorePhenotype) return new FilterPhenotype((CorePhenotype) basePheno, taxaToKeep, name);
+		if (basePheno instanceof FilterPhenotype) return new FilterPhenotype((FilterPhenotype) basePheno, taxaToKeep, name);
+		else return null; 
 	}
 	
 	//TableReport methods

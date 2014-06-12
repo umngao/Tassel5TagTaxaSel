@@ -641,7 +641,7 @@ public class PhenotypeBuilder {
 		}
 
 		if (taxaToKeep != null) {
-			return new FilterPhenotype(basePhenotype, taxaToKeep, phenotypeName);
+			return FilterPhenotype.getInstance(basePhenotype, taxaToKeep, phenotypeName);
 		}
 		
 		if (taxaToRemove != null) {
@@ -650,7 +650,7 @@ public class PhenotypeBuilder {
 			while (taxaIter.hasNext()) {
 				if (taxaToRemove.contains(taxaIter.next())) taxaIter.remove();
 			}
-			return new FilterPhenotype(basePhenotype, myTaxaList, phenotypeName);
+			return FilterPhenotype.getInstance(basePhenotype, myTaxaList, phenotypeName);
 		}
 
 		return basePhenotype;
