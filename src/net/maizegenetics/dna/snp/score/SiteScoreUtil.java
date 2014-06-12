@@ -15,7 +15,7 @@ public class SiteScoreUtil {
     static {
         Arrays.fill(BYTE_TO_FLOAT, -1);
         for (int i = 0; i < 256; i++) {
-            BYTE_TO_FLOAT[i] = decode((byte) i);
+        	BYTE_TO_FLOAT[i] = decode(i);
         }
     }
 
@@ -65,8 +65,8 @@ public class SiteScoreUtil {
         return result;
     }
 
-    private static float decode(byte value) {
-        return value / 255;
+    private static float decode(int value) {
+        return value / 255f;
     }
 
 }
