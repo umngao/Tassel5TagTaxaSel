@@ -245,6 +245,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
         jMenuBar.add(getFileMenu());
         jMenuBar.add(getDataMenu());
+        jMenuBar.add(getImputeMenu());
         jMenuBar.add(getFiltersMenu());
         jMenuBar.add(getAnalysisMenu());
         jMenuBar.add(getResultsMenu());
@@ -619,8 +620,6 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new MergeGenotypeTablesPlugin(this, true)));
         result.add(createMenuItem(new SeparatePlugin(this, true)));
         result.add(createMenuItem(new HetsToUnknownPlugin(this, true)));
-        result.add(createMenuItem(new FILLINImputationPlugin(this, true)));
-        result.add(createMenuItem(new FILLINFindHaplotypesPlugin(this, true)));
         result.addSeparator();
 
         JMenuItem delete = new JMenuItem("Delete Dataset");
@@ -639,6 +638,17 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         }
         delete.setIconTextGap(6);
         result.add(delete);
+
+        return result;
+    }
+    
+    private JMenu getImputeMenu() {
+
+        JMenu result = new JMenu("Impute");
+        result.setMnemonic(KeyEvent.VK_I);
+
+        result.add(createMenuItem(new FILLINFindHaplotypesPlugin(this, true)));
+        result.add(createMenuItem(new FILLINImputationPlugin(this, true)));
 
         return result;
     }
