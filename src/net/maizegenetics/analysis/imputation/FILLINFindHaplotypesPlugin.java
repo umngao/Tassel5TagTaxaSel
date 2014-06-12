@@ -73,7 +73,7 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
             .description("Maximum number of haplotypes per segment").build();
     private PluginParameter<Integer> minTaxaInGroup= new PluginParameter.Builder<>("minTaxa",2,Integer.class).guiName("Min taxa to generate a haplotype")
             .description("Minimum number of taxa to generate a haplotype").build();
-    private PluginParameter<Double> maximumMissing= new PluginParameter.Builder<>("mxOutMiss",0.4,Double.class).guiName("Max frequency missing per haplotype")
+    private PluginParameter<Double> maximumMissing= new PluginParameter.Builder<>("maxOutMiss",0.4,Double.class).guiName("Max frequency missing per haplotype")
             .description("Maximum frequency of missing data in the output haplotype").build();
     private PluginParameter<Boolean> nonverboseOutput= new PluginParameter.Builder<>("nV",false,Boolean.class).guiName("Supress system out")
             .description("Supress system out").build();
