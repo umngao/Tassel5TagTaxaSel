@@ -205,6 +205,9 @@ abstract public class AbstractPlugin implements Plugin {
                     if ((i == args.length - 1) || (args[i + 1]).startsWith("-")) {
                         if (parameter.valueType().isAssignableFrom(Boolean.class)) {
                             setParameter(arg, Boolean.TRUE);
+                        } else if (Number.class.isAssignableFrom(parameter.valueType())) {
+                            setParameter(arg, args[i + 1]);
+                            i++;
                         } else {
                             myLogger.error("Parameter requires a value: " + args[i]);
                             printUsage();
