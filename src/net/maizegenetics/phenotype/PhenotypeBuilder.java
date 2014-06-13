@@ -19,6 +19,7 @@ import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
@@ -359,13 +360,13 @@ public class PhenotypeBuilder {
 		phenotypeReader.close();
 		
 		if (hasHeaders) {
-			processTraitsAndFactors(phenotypeFile, traitnames, numberOfDataLines, isCovariate, headerLines);
+			return processTraitsAndFactors(phenotypeFile, traitnames, numberOfDataLines, isCovariate, headerLines);
 		} else if (isFactor) {
 			return processFactors(phenotypeFile, traitnames, numberOfDataLines);
 		} else if (isTrait) {
 			return processTraits(phenotypeFile, traitnames, numberOfDataLines, isCovariate);
-		}
-		throw new IllegalArgumentException("Unrecognized format for a phenotype.");
+		} else throw new IllegalArgumentException("Unrecognized format for a phenotype.");
+		
 	}
 	
 	private Phenotype processTraits(File phenotypeFile, String[] traitnames, int numberOfDataLines, boolean isCovariate) throws IOException {
@@ -523,7 +524,7 @@ public class PhenotypeBuilder {
 		int fromIndex = 0;
 		int toIndex = numberOfDataLines;
 		for (String factor : factorSet) {
-			String[] subFactor = factor.split("|");
+			String[] subFactor = factor.split("\\|");
 			for (int i = 0; i < nfactors; i++) {
 				Arrays.fill(factorAttributeArrays.get(i), fromIndex, toIndex, subFactor[i]);
 			}
@@ -806,12 +807,12 @@ public class PhenotypeBuilder {
 		else outTaxa = TaxaListUtils.getCommonTaxa(pheno1.taxa(), pheno2.taxa());
 		
 		//for each phenotype create a Multimap with Taxon as key, obs number as value
-		Multimap<Taxon, Integer> pheno1ObservationMap = HashMultimap.create();
+		Multimap<Taxon, Integer> pheno1ObservationMap = ArrayListMultimap.create();
 		List<Taxon> pheno1Taxa = pheno1.taxaAttribute().allTaxaAsList();
 		int taxonCount = 0;
 		for (Taxon taxon:pheno1Taxa) pheno1ObservationMap.put(taxon, taxonCount++);
 		
-		Multimap<Taxon, Integer> pheno2ObservationMap = HashMultimap.create();
+		Multimap<Taxon, Integer> pheno2ObservationMap = ArrayListMultimap.create();
 		List<Taxon> pheno2Taxa = pheno2.taxaAttribute().allTaxaAsList();
 		taxonCount = 0;
 		for (Taxon taxon:pheno2Taxa) pheno2ObservationMap.put(taxon, taxonCount++);
@@ -857,7 +858,7 @@ public class PhenotypeBuilder {
 				for (Integer obs2 : pheno2obs) {
 					boolean mergeTheseObs = true;
 					for (int[] ndx : mergeFactorIndex) {
-						if (pheno1.value(obs1, ndx[0]).equals(pheno2.value(obs1, ndx[1]))) mergeTheseObs = false;
+						if (!pheno1.value(obs1, ndx[0]).equals(pheno2.value(obs2, ndx[1]))) mergeTheseObs = false;
 						break;
 					}
 					if (mergeTheseObs) {
@@ -906,8 +907,8 @@ public class PhenotypeBuilder {
 				BitSet myMissing = new OpenBitSet(nObs);
 				int obsCount = 0;
 				for (int[] ndx : mergeObservation) {
-					boolean pheno1HasNonmissingValue = attrnum[0] > -1 && ndx[0] > -1 & !pheno1.isMissing(ndx[0], attrnum[0]);
-					boolean pheno2HasNonmissingValue = attrnum[1] > -1 && ndx[1] > -1 & !pheno1.isMissing(ndx[1], attrnum[1]);
+					boolean pheno1HasNonmissingValue = attrnum[0] > -1 && ndx[0] > -1 && !pheno1.isMissing(ndx[0], attrnum[0]);
+					boolean pheno2HasNonmissingValue = attrnum[1] > -1 && ndx[1] > -1 && !pheno1.isMissing(ndx[1], attrnum[1]);
 					if (pheno1HasNonmissingValue && pheno2HasNonmissingValue) {
 						throw new IllegalArgumentException("Data sets will not be joined because both phenotypes have values for " + attrName);
 					} else if (pheno1HasNonmissingValue) {
@@ -931,8 +932,8 @@ public class PhenotypeBuilder {
 				String[] myStringData = new String[nObs];
 				obsCount = 0;
 				for (int[] ndx : mergeObservation) {
-					boolean pheno1HasNonmissingValue = attrnum[0] > -1 && ndx[0] > -1 & !pheno1.isMissing(ndx[0], attrnum[0]);
-					boolean pheno2HasNonmissingValue = attrnum[1] > -1 && ndx[1] > -1 & !pheno1.isMissing(ndx[1], attrnum[1]);
+					boolean pheno1HasNonmissingValue = attrnum[0] > -1 && ndx[0] > -1 && !pheno1.isMissing(ndx[0], attrnum[0]);
+					boolean pheno2HasNonmissingValue = attrnum[1] > -1 && ndx[1] > -1 && !pheno1.isMissing(ndx[1], attrnum[1]);
 					if (pheno1HasNonmissingValue && pheno2HasNonmissingValue) {
 						if (isMergeAttribute) myStringData[obsCount] = (String) pheno1.value(ndx[0], attrnum[0]);
 						else throw new IllegalArgumentException("Data sets will not be joined because both phenotypes have values for " + attrName);

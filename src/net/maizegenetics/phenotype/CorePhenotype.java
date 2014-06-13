@@ -210,7 +210,9 @@ public class CorePhenotype implements Phenotype, TableReport {
 
 	@Override
 	public int attributeIndexForName(String name) {
-		return myAttributeNameMap.get(name);
+		Integer Index = myAttributeNameMap.get(name);
+		if (Index == null) return -1;
+		return Index.intValue();
 	}
 
 	public static boolean areAttributeAndTypeListsCompatible(List<PhenotypeAttribute> attributes, List<ATTRIBUTE_TYPE> types) {
