@@ -4,33 +4,40 @@
  */
 package net.maizegenetics.analysis.imputation;
 
-import net.maizegenetics.dna.WHICH_ALLELE;
-import net.maizegenetics.dna.snp.GenotypeTableBuilder;
-import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTableUtils;
-import net.maizegenetics.dna.snp.FilterGenotypeTable;
-import net.maizegenetics.dna.snp.ExportUtils;
-import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
-import net.maizegenetics.dna.snp.ImportUtils;
-import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
+import net.maizegenetics.util.BitSet;
+
+import java.awt.*;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import javax.swing.ImageIcon;
 import net.maizegenetics.analysis.distance.IBSDistanceMatrix;
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Chromosome;
+import net.maizegenetics.dna.snp.ExportUtils;
+import net.maizegenetics.dna.snp.FilterGenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTableBuilder;
+import net.maizegenetics.dna.snp.GenotypeTableUtils;
+import net.maizegenetics.dna.snp.ImportUtils;
+import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
+import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
+import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
-import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.util.*;
-import net.maizegenetics.util.BitSet;
-
-import javax.swing.*;
-import java.awt.*;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.util.*;
-import java.util.List;
-import java.util.Map.Entry;
-import net.maizegenetics.plugindef.GeneratePluginCode;
-import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.util.BitUtil;
+import net.maizegenetics.util.ExceptionUtils;
+import net.maizegenetics.util.OpenBitSet;
+import net.maizegenetics.util.Utils;
 
 /**
  * Creates haplotypes by finding large IBS regions within GBS data.  Starts with the 
@@ -44,12 +51,11 @@ import net.maizegenetics.plugindef.PluginParameter;
 public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.AbstractPlugin {
     //Plugin parameters
     private PluginParameter<String> hmpFile= new PluginParameter.Builder<>("hmp",null,String.class).guiName("Target file").inFile().required(true)
-            .description("Input HapMap file of target genotypes to impute or all genotypes available for target taxon. Accepts all file types supported by TASSEL5.").build();
-    private PluginParameter<String> outFileBase= new PluginParameter.Builder<>("o",null,String.class).guiName("Output filename").outFile().required(true)
-            .description("Output file; Use .gX in the output filename to denote the substring .gc#s# found in donor files, ie 'out.gX.hmp.txt'.").build();
-    private PluginParameter<String> errFile= new PluginParameter.Builder<>("oE",null,String.class).guiName("Optional error logfile").outFile().required(false)
-            .description("Optional file to record site by sites errors as the haplotypes are developed'.").build();
-    
+            .description("Input genotypes to generate haplotypes from. Usually best to use all available samples from a species. Accepts all file types supported by TASSEL5.").build();
+    private PluginParameter<String> outFileBase= new PluginParameter.Builder<>("o",null,String.class).guiName("Donor dir/file basename").outDir().required(true)
+            .description("Output file directory name, or new directory path; "
+                    + "Directory will be created, if doesn't exist. Outfiles will be placed in the directory and given the same name and appended with the substring '.gc#s#.hmp.txt' to denote chromosome and section").build();
+
     private PluginParameter<Double> maxDistFromFounder= new PluginParameter.Builder<>("mxDiv",0.01,Double.class).guiName("Max divergence from founder")
             .description("Maximum genetic divergence from founder haplotype to cluster sequences").build();
     private PluginParameter<Double> maxHetFreq= new PluginParameter.Builder<>("mxHet",0.01,Double.class).guiName("Max heterozygosity of output haplotypes")
@@ -67,14 +73,15 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
             .description("Maximum number of haplotypes per segment").build();
     private PluginParameter<Integer> minTaxaInGroup= new PluginParameter.Builder<>("minTaxa",2,Integer.class).guiName("Min taxa to generate a haplotype")
             .description("Minimum number of taxa to generate a haplotype").build();
-    private PluginParameter<Double> maximumMissing= new PluginParameter.Builder<>("mxOutMiss",0.4,Double.class).guiName("Max frequency missing per haplotype")
+    private PluginParameter<Double> maximumMissing= new PluginParameter.Builder<>("maxOutMiss",0.4,Double.class).guiName("Max frequency missing per haplotype")
             .description("Maximum frequency of missing data in the output haplotype").build();
-    private PluginParameter<Boolean> verboseOutput= new PluginParameter.Builder<>("verbose",true,Boolean.class).guiName("Express system out")
-            .description("Express system out").build();
+    private PluginParameter<Boolean> nonverboseOutput= new PluginParameter.Builder<>("nV",false,Boolean.class).guiName("Supress system out")
+            .description("Supress system out").build();
     private PluginParameter<Boolean> extendedOutput= new PluginParameter.Builder<>("extOut",false,Boolean.class).guiName("Detailed system out on haplotypes")
             .description("Details of taxa included in each haplotype to system out").build();
     
     //other parameters
+    private boolean verboseOutput= true;
     private int startDiv=-1, endDiv=-1;
 
     private double minJointGapProb=0.01;
@@ -95,13 +102,34 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
     
     @Override
     protected void postProcessParameters() {
+        if (nonverboseOutput.value()) verboseOutput= false;
         try {
-            if (outFileBase.value().contains("gX")==false) throw new IOException();
-                    }
-        catch (Exception e) {
-            System.out.println("output file name must contain gX, eg outfile.gX.hmp.txt");
+//            if (new File(outFileBase.value()).isFile()) {
+//                if (outFileBase.value().contains(".gX")) outputFilename(outputFilename().substring(0, outputFilename().indexOf(".gX")));
+//                else throw new IOException();
+//                new File(outFileBase.value()).mkdir();
+//            }
+            if (new File(outFileBase.value()).exists()) {
+                if (!new File(outFileBase.value()).isDirectory()) throw new IOException();
+            }
+            else {
+                new File(outFileBase.value()).mkdir();
+                if (new File(outFileBase.value()).isFile()) {
+                    new File(outFileBase.value()).delete();
+                    throw new IOException();
+                }
+            }
         }
-        if (!outFileBase.value().contains(".hmp")) outputFilename(outFileBase.value()+".hmp.txt");
+        catch (Exception e) {
+            System.out.println("output directory must be an existing directory or new directory path");
+        }
+//        try {
+//            if (outFileBase.value().contains("gX")==false) throw new IOException();
+//                    }
+//        catch (Exception e) {
+//            System.out.println("output file name must contain gX, eg outfile.gX.hmp.txt");
+//        }
+//        if (!outFileBase.value().contains(".hmp")) outputFilename(outFileBase.value()+".hmp.txt");
     }
     
     @Override
@@ -114,14 +142,11 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
                 + "Plant Genome (in review)";
     }
     
-    public static void main(String[] args) {
-         GeneratePluginCode.generate(FILLINFindHaplotypesPlugin.class);
-     }
-    
-     public DataSet processData() {
+    @Override
+    public DataSet processData(DataSet input) {
         System.out.println("Reading: "+hmpFile.value());
         GenotypeTable baseAlign=ImportUtils.readGuessFormat(hmpFile.value());
-        int[][] divisions=divideChromosome(baseAlign, appoxSitesPerHaplotype.value(), verboseOutput.value());
+        int[][] divisions=divideChromosome(baseAlign, appoxSitesPerHaplotype.value(), verboseOutput);
         System.out.printf("In taxa:%d sites:%d %n",baseAlign.numberOfTaxa(),baseAlign.numberOfSites());
         siteErrors=new int[baseAlign.numberOfSites()];
         siteCallCnt=new int[baseAlign.numberOfSites()];
@@ -131,8 +156,9 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
             GenotypeTable mna=createHaplotypeAlignment(divisions[i][0], divisions[i][1], baseAlign,
              minSitesPresentPerHap.value(),  maxDistFromFounder.value());
             if (mna.taxa().isEmpty()) continue;
-            String newExport=outFileBase.value().replace("sX.hmp", "s"+i+".hmp");
-            newExport=newExport.replace("gX", "gc"+mna.chromosomeName(0)+"s"+i);
+//            String newExport=outFileBase.value().replace("sX.hmp", "s"+i+".hmp");
+//            newExport=newExport.replace("gX", "gc"+mna.chromosomeName(0)+"s"+i);
+            String newExport= outFileBase.value()+"/"+new File(outFileBase.value()).getName()+".gc"+mna.chromosomeName(0)+"s"+i+".hmp.txt";
             ExportUtils.writeToHapmap(mna, false, newExport, '\t', null);
             if(outFileBase.value()!=null) exportBadSites(baseAlign, outFileBase.value(), 0.01);  
             mna=null;
@@ -146,15 +172,15 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
         FilterGenotypeTable fa=FilterGenotypeTable.getInstance(baseAlign, startSite, endSite);
         GenotypeTable inAlign=GenotypeTableBuilder.getGenotypeCopyInstance(fa);
         int sites=inAlign.numberOfSites();
-        if(verboseOutput.value()) System.out.printf("SubInAlign Locus:%s StartPos:%d taxa:%d sites:%d %n",inAlign.chromosome(0),
+        if(verboseOutput) System.out.printf("SubInAlign Locus:%s StartPos:%d taxa:%d sites:%d %n",inAlign.chromosome(0),
                 inAlign.chromosomalPosition(0),inAlign.numberOfTaxa(),inAlign.numberOfSites());
 
         propMissing=new double[inAlign.numberOfTaxa()];
         int startBlock=0;
         int lastBlock=inAlign.allelePresenceForAllSites(0, WHICH_ALLELE.Major).getNumWords()-1;
         TreeMap<Integer,Integer> presentRanking=createPresentRankingForWindow(inAlign, startBlock, lastBlock, minSites, maxHetFreq.value());
-        if(verboseOutput.value()) System.out.printf("\tBlock %d Inbred and modest coverage:%d %n",startBlock,presentRanking.size());
-        if(verboseOutput.value()) System.out.printf("\tCurrent Site %d Current block %d EndBlock: %d %n",startSite, startBlock, lastBlock);
+        if(verboseOutput) System.out.printf("\tBlock %d Inbred and modest coverage:%d %n",startBlock,presentRanking.size());
+        if(verboseOutput) System.out.printf("\tCurrent Site %d Current block %d EndBlock: %d %n",startSite, startBlock, lastBlock);
         TreeMap<Integer,byte[][]> results=mergeWithinWindow(inAlign, presentRanking, startBlock, lastBlock, maxDistance, startSite);
         TaxaListBuilder tLB=new TaxaListBuilder();
         GenotypeCallTableBuilder gB=GenotypeCallTableBuilder.getInstance(results.size(),inAlign.numberOfSites());
@@ -313,7 +339,7 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
             double hetFreq=(double)unkCnt[1]/(double)(inAlign.numberOfSites()-unkCnt[0]);
             if(((missingFreq<maximumMissing.value())&&(hetFreq<maxHetFreq.value())&&(hits.size()>=(this.minTaxaInGroup.value()-1)))) {
                 int index=(hits.size()*200000)+taxon1;
-                if(verboseOutput.value() && !extendedOutput.value()) System.out.printf("\t\tOutput %s plus %d missingF:%g hetF:%g index: %d %n",inIDG.taxaName(taxon1),
+                if(verboseOutput && !extendedOutput.value()) System.out.printf("\t\tOutput %s plus %d missingF:%g hetF:%g index: %d %n",inIDG.taxaName(taxon1),
                         hits.size(), missingFreq, hetFreq, index);
                 if(extendedOutput.value()) {
                     System.out.printf("\t\tChromosome: %s StartPos: %d EndPos: %d missingF:%g hetF:%g index: %d %n",inAlign.chromosomeName(startSite),
@@ -494,29 +520,6 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
      */
     public FILLINFindHaplotypesPlugin outputFilename(String value) {
         outFileBase = new PluginParameter<>(outFileBase, value);
-        return this;
-    }
-
-    /**
-     * Optional file to record site by sites errors as the
-     * haplotypes are developed'.
-     *
-     * @return Optional error logfile
-     */
-    public String optionalErrorLogfile() {
-        return errFile.value();
-    }
-
-    /**
-     * Set Optional error logfile. Optional file to record
-     * site by sites errors as the haplotypes are developed'.
-     *
-     * @param value Optional error logfile
-     *
-     * @return this plugin
-     */
-    public FILLINFindHaplotypesPlugin optionalErrorLogfile(String value) {
-        errFile = new PluginParameter<>(errFile, value);
         return this;
     }
 
@@ -734,23 +737,23 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
     }
 
     /**
-     * Express system out
+     * Supress system out
      *
      * @return Express system out
      */
-    public Boolean expressSystemOut() {
-        return verboseOutput.value();
+    public Boolean supressSystemOut() {
+        return nonverboseOutput.value();
     }
 
     /**
-     * Set Express system out. Express system out
+     * Set Supress system out. Express system out
      *
      * @param value Express system out
      *
      * @return this plugin
      */
-    public FILLINFindHaplotypesPlugin expressSystemOut(Boolean value) {
-        verboseOutput = new PluginParameter<>(verboseOutput, value);
+    public FILLINFindHaplotypesPlugin supressSystemOut(Boolean value) {
+        nonverboseOutput = new PluginParameter<>(nonverboseOutput, value);
         return this;
     } 
     

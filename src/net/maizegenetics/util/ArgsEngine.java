@@ -114,8 +114,8 @@ public class ArgsEngine {
                 Option option = this.options.get(arg);
 
                 if (option.isValued()) {
-                    // This is the last arg or next arg is another option.
-                    if (i + 1 >= args.length || args[i + 1].startsWith("-")) {
+                    // This is the last arg.
+                    if (i + 1 >= args.length) {
                         throw new RuntimeException("Value required for option "
                                 + arg);
                     }

@@ -6,6 +6,7 @@ package net.maizegenetics.dna.snp.byte2d;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 
+import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.SuperByteMatrix;
@@ -47,6 +48,10 @@ public class Byte2DBuilder {
 
     public static Byte2DBuilder getInstance(IHDF5Writer writer, int numSites, GenotypeTable.SITE_SCORE_TYPE siteScoreType) {
         return new Byte2DBuilder(writer, numSites, siteScoreType);
+    }
+
+    public static FilterByte2D getFilteredInstance(Byte2D base, FilterGenotypeTable filterGenotypeTable) {
+        return new FilterByte2D(base, filterGenotypeTable);
     }
 
     /**

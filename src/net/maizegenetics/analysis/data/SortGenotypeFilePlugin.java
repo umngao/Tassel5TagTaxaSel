@@ -12,6 +12,7 @@ import net.maizegenetics.plugindef.PluginParameter;
 import javax.activation.UnsupportedDataTypeException;
 import javax.swing.*;
 import java.awt.*;
+import java.net.URL;
 
 /**
  * Created by jgw87 on 6/5/14.
@@ -91,17 +92,22 @@ public class SortGenotypeFilePlugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        return null;
+        URL imageURL = ExportPlugin.class.getResource("/net/maizegenetics/analysis/images/sort.gif");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
     }
 
     @Override
     public String getButtonName() {
-        return "Tag Counts to Tag Pairs";
+        return "Sort Genotype File";
     }
 
     @Override
     public String getToolTipText() {
-        return "Tag Counts to Tag Pairs";
+        return "Sort Genotype File";
     }
 
 
