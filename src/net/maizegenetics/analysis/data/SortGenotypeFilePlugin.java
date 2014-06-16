@@ -92,7 +92,7 @@ public class SortGenotypeFilePlugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        URL imageURL = ExportPlugin.class.getResource("/net/maizegenetics/analysis/images/sort.gif");
+        URL imageURL = SortGenotypeFilePlugin.class.getResource("/net/maizegenetics/analysis/images/sort.gif");
         if (imageURL == null) {
             return null;
         } else {
