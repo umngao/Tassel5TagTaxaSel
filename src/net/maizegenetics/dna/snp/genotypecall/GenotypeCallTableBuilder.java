@@ -11,6 +11,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.util.SuperByteMatrix;
 import net.maizegenetics.util.SuperByteMatrixBuilder;
@@ -139,6 +140,31 @@ public class GenotypeCallTableBuilder {
                     myDest.setBase(t, s, mySrc.genotype(t, s));
                 }
             }
+        }
+    }
+
+    public static GenotypeCallTableBuilder getHomozygousInstance(GenotypeCallTable genotype) {
+        if (genotype instanceof ByteGenotypeCallTable) {
+            SuperByteMatrix matrix = SuperByteMatrixBuilder.getInstanceCopy(((ByteGenotypeCallTable) genotype).myGenotype);
+            matrix.setHetsTo(GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
+            return new GenotypeCallTableBuilder(matrix).isPhased(genotype.isPhased()).alleleEncodings(genotype.alleleDefinitions());
+        } else {
+            int numTaxa = genotype.numberOfTaxa();
+            int numSites = genotype.numberOfSites();
+            GenotypeCallTableBuilder builder = GenotypeCallTableBuilder.getInstance(numTaxa, numSites).isPhased(genotype.isPhased()).alleleEncodings(genotype.alleleDefinitions());
+            for (int t = 0; t < numTaxa; t++) {
+
+                for (int s = 0; s < numSites; s++) {
+                    byte currGeno = genotype.genotype(t, s);
+                    if (GenotypeTableUtils.isHeterozygous(currGeno)) {
+                        builder.setBase(t, s, GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
+                    } else {
+                        builder.setBase(t, s, currGeno);
+                    }
+                }
+
+            }
+            return builder;
         }
     }
 

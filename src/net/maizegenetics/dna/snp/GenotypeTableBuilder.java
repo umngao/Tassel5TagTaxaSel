@@ -383,21 +383,7 @@ public class GenotypeTableBuilder {
     }
 
     public static GenotypeTable getHomozygousInstance(GenotypeTable alignment) {
-        int numTaxa = alignment.numberOfTaxa();
-        int numSites = alignment.numberOfSites();
-        GenotypeCallTableBuilder builder = GenotypeCallTableBuilder.getInstance(numTaxa, numSites);
-        //TODO this would be even faster to work through the SuperByteMatrix, as knowledge of site or taxa is not needed.
-        for (int t = 0; t < numTaxa; t++) {
-            for (int s = 0; s < numSites; s++) {
-                byte currGeno=alignment.genotype(t, s);
-                if(GenotypeTableUtils.isHeterozygous(currGeno)) {
-                    builder.setBase(t, s, GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
-                } else {
-                    builder.setBase(t, s, currGeno);
-                }
-            }
-
-        }
+        GenotypeCallTableBuilder builder = GenotypeCallTableBuilder.getHomozygousInstance(alignment.genotypeMatrix());
         return new CoreGenotypeTable(builder.build(), alignment.positions(), alignment.taxa());
     }
 

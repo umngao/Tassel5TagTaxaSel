@@ -112,4 +112,11 @@ public interface SuperByteMatrix {
      * @param newIndices new indices.
      */
     public void reorderColumns(int[] newIndices);
+
+    /**
+     * Changes all heterozygous values to give value.
+     *
+     * @param value value
+     */
+    public void setHetsTo(byte value);
 }

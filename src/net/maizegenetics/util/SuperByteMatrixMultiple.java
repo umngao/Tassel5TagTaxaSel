@@ -237,6 +237,17 @@ public class SuperByteMatrixMultiple implements SuperByteMatrix {
     }
 
     @Override
+    public void setHetsTo(byte value) {
+        for (byte[] current : myData) {
+            for (int i = 0; i < current.length; i++) {
+                if (((current[i] >>> 4) & 0xf) != (current[i] & 0xf)) {
+                    current[i] = value;
+                }
+            }
+        }
+    }
+
+    @Override
     public void arraycopy(int row, byte[] src, int startColumn) {
         System.arraycopy(src, 0, myData[getFirstIndex(row)], getSecondIndex(row, startColumn), src.length);
     }

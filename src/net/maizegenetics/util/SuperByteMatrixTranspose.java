@@ -29,7 +29,7 @@ public class SuperByteMatrixTranspose implements SuperByteMatrix {
     public void set(int row, int column, byte value) {
         myMatrix.set(column, row, value);
     }
-    
+
     @Override
     public void setAll(byte value) {
         myMatrix.setAll(value);
@@ -73,6 +73,11 @@ public class SuperByteMatrixTranspose implements SuperByteMatrix {
     @Override
     public void reorderColumns(int[] newIndices) {
         myMatrix.reorderRows(newIndices);
+    }
+
+    @Override
+    public void setHetsTo(byte value) {
+        myMatrix.setHetsTo(value);
     }
 
     @Override
