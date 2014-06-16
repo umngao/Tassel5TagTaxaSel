@@ -3,7 +3,6 @@
  */
 package net.maizegenetics.dna.snp;
 
-import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.bit.BitStorage;
 import net.maizegenetics.dna.snp.depth.AlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
@@ -12,12 +11,13 @@ import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListUtils;
 import net.maizegenetics.util.BitSet;
+import net.maizegenetics.dna.WHICH_ALLELE;
 
 import java.util.*;
 
 /**
  * Combines multiple GenotypeTables together.
- * 
+ *
  * @author Terry Casstevens
  */
 public class CombineGenotypeTable implements GenotypeTable {
@@ -84,10 +84,10 @@ public class CombineGenotypeTable implements GenotypeTable {
     /**
      * This factory method combines given genoTables. If only one genotypeTable,
      * then it is returned unchanged. If isUnion equals true, a union join of
-     * the Identifiers will be used to construct the combination. Any genotypeTable
-     * not containing one of the Identifiers will return unknown value for those
-     * locations. If isUnion equals false, a intersect join of the Identifiers
-     * will be used.
+     * the Identifiers will be used to construct the combination. Any
+     * genotypeTable not containing one of the Identifiers will return unknown
+     * value for those locations. If isUnion equals false, a intersect join of
+     * the Identifiers will be used.
      *
      * @param genoTables genoTables to combine
      * @param isUnion whether to union or intersect join
@@ -222,6 +222,15 @@ public class CombineGenotypeTable implements GenotypeTable {
 
     }
 
+    private int findGenotypeTableIndex(GenotypeTable genotypeTable) {
+        for (int i = 0; i < myAlignments.length; i++) {
+            if (genotypeTable == myAlignments[i]) {
+                return i;
+            }
+        }
+        throw new IllegalArgumentException("CombineAlignment: findGenotypeTableIndex: Genotype Table unknown.");
+    }
+
     @Override
     public boolean hasReference() {
 
@@ -247,7 +256,7 @@ public class CombineGenotypeTable implements GenotypeTable {
 
     @Override
     public int chromosomeSiteCount(Chromosome locus) {
-        return ((GenotypeTable) myChromosomes.get(locus)).chromosomeSiteCount(locus);
+        return myChromosomes.get(locus).chromosomeSiteCount(locus);
     }
 
     @Override
@@ -258,7 +267,7 @@ public class CombineGenotypeTable implements GenotypeTable {
 
     @Override
     public int siteOfPhysicalPosition(int physicalPosition, Chromosome locus) {
-        GenotypeTable align = ((GenotypeTable) myChromosomes.get(locus));
+        GenotypeTable align = myChromosomes.get(locus);
         int i = -1;
         for (int j = 0; j < myAlignments.length; j++) {
             if (myAlignments[j] == align) {
@@ -274,7 +283,7 @@ public class CombineGenotypeTable implements GenotypeTable {
 
     @Override
     public int siteOfPhysicalPosition(int physicalPosition, Chromosome locus, String snpName) {
-        GenotypeTable align = ((GenotypeTable) myChromosomes.get(locus));
+        GenotypeTable align = myChromosomes.get(locus);
         int i = -1;
         for (int j = 0; j < myAlignments.length; j++) {
             if (myAlignments[j] == align) {
@@ -415,11 +424,11 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public byte[] genotypeAllTaxa(int site) {
         byte[] result = new byte[numberOfTaxa()];
-        int offset=0;
+        int offset = 0;
         for (int i = 0; i < myAlignments.length; i++) {
             byte[] current = myAlignments[i].genotypeAllTaxa(site);
             System.arraycopy(current, 0, result, offset, current.length);
-            offset+=current.length;
+            offset += current.length;
         }
         return result;
     }
@@ -734,17 +743,52 @@ public class CombineGenotypeTable implements GenotypeTable {
 
     @Override
     public String genotypeAsStringRange(int taxon, int startSite, int endSite) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        int firstGenotype = translateSite(startSite);
+        int secondGenotype = translateSite(endSite);
+        if (firstGenotype == secondGenotype) {
+            return myAlignments[firstGenotype].genotypeAsStringRange(taxon, startSite - mySiteOffsets[firstGenotype], endSite - mySiteOffsets[firstGenotype]);
+        } else if (secondGenotype - firstGenotype == 1) {
+            StringBuilder builder = new StringBuilder();
+            builder.append(myAlignments[firstGenotype].genotypeAsStringRange(taxon, startSite - mySiteOffsets[firstGenotype], myAlignments[firstGenotype].numberOfSites()));
+            builder.append(";");
+            builder.append(myAlignments[secondGenotype].genotypeAsStringRange(taxon, 0, endSite - mySiteOffsets[secondGenotype]));
+            return builder.toString();
+        } else {
+            StringBuilder builder = new StringBuilder();
+            builder.append(myAlignments[firstGenotype].genotypeAsStringRange(taxon, startSite - mySiteOffsets[firstGenotype], myAlignments[firstGenotype].numberOfSites()));
+            for (int i = firstGenotype + 1; i < secondGenotype; i++) {
+                builder.append(";");
+                builder.append(myAlignments[i].genotypeAsStringRow(taxon));
+            }
+            builder.append(";");
+            builder.append(myAlignments[secondGenotype].genotypeAsStringRange(taxon, 0, endSite - mySiteOffsets[secondGenotype]));
+            return builder.toString();
+        }
     }
 
     @Override
     public String genotypeAsStringRow(int taxon) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        StringBuilder builder = new StringBuilder();
+        boolean first = true;
+        for (GenotypeTable current : myAlignments) {
+            if (first) {
+                first = false;
+            } else {
+                builder.append(";");
+            }
+            builder.append(current.genotypeAsStringRow(taxon));
+        }
+        return builder.toString();
     }
 
     @Override
     public int[] firstLastSiteOfChromosome(Chromosome chromosome) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        GenotypeTable genotypeTable = myChromosomes.get(chromosome);
+        int index = findGenotypeTableIndex(genotypeTable);
+        int[] result = genotypeTable.firstLastSiteOfChromosome(chromosome);
+        result[0] += myChromosomesOffsets[index];
+        result[1] += myChromosomesOffsets[index];
+        return result;
     }
 
     @Override
@@ -754,7 +798,7 @@ public class CombineGenotypeTable implements GenotypeTable {
 
     @Override
     public Chromosome chromosome(String name) {
-        for (Chromosome current: myChromosomesList) {
+        for (Chromosome current : myChromosomesList) {
             if (current.getName().equals(name)) {
                 return current;
             }
@@ -808,22 +852,40 @@ public class CombineGenotypeTable implements GenotypeTable {
 
     @Override
     public int totalGametesNonMissingForTaxon(int taxon) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        int result = 0;
+        for (GenotypeTable current : myAlignments) {
+            result += current.totalGametesNonMissingForTaxon(taxon);
+        }
+        return result;
     }
 
     @Override
     public int heterozygousCountForTaxon(int taxon) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        int result = 0;
+        for (GenotypeTable current : myAlignments) {
+            result += current.heterozygousCountForTaxon(taxon);
+        }
+        return result;
     }
 
     @Override
     public int totalNonMissingForTaxon(int taxon) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        int result = 0;
+        for (GenotypeTable current : myAlignments) {
+            result += current.totalNonMissingForTaxon(taxon);
+        }
+        return result;
     }
 
     @Override
     public boolean hasDepth() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        boolean result = true;
+        for (GenotypeTable current : myAlignments) {
+            if (!current.hasDepth()) {
+                result = false;
+            }
+        }
+        return result;
     }
 
     @Override
@@ -833,14 +895,15 @@ public class CombineGenotypeTable implements GenotypeTable {
 
     @Override
     public int[] depthForAlleles(int taxon, int site) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        int translate = translateSite(site);
+        return myAlignments[translate].depthForAlleles(taxon, site - mySiteOffsets[translate]);
     }
 
     @Override
     public BitStorage bitStorage(WHICH_ALLELE allele) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
-    
+
     @Override
     public PositionList positions() {
         throw new UnsupportedOperationException("Not supported yet.");
@@ -850,4 +913,5 @@ public class CombineGenotypeTable implements GenotypeTable {
     public GenotypeCallTable genotypeMatrix() {
         throw new UnsupportedOperationException("Not supported yet.");
     }
+
 }
