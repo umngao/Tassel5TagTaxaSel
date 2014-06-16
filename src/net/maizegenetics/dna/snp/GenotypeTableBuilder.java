@@ -402,39 +402,38 @@ public class GenotypeTableBuilder {
     }
 
     /**
-     * Returns a taxa optimized version of a filtered alignment.  Only needed in performance critical situations
-     * like imputation.
-     * @param alignment
+     * Returns a taxa optimized version of a filtered alignment. Only needed in
+     * performance critical situations like imputation.
+     *
+     * @param genotypeTable
      * @return alignment backed by a single SuperByteMatrix
      */
-    public static GenotypeTable getGenotypeCopyInstance(FilterGenotypeTable alignment) {
-        return copyGenotypeInstance(alignment);
+    public static GenotypeTable getGenotypeCopyInstance(FilterGenotypeTable genotypeTable) {
+        return copyGenotypeInstance(genotypeTable);
     }
 
     /**
-     * Returns a taxa optimized version of a combine alignment.  Only needed in performance critical situations
-     * like imputation.
-     * @param alignment
+     * Returns a taxa optimized version of a combine alignment. Only needed in
+     * performance critical situations like imputation.
+     *
+     * @param genotypeTable
      * @return alignment backed by a single SuperByteMatrix
      */
-    public static GenotypeTable getGenotypeCopyInstance(CombineGenotypeTable alignment) {
-        return copyGenotypeInstance(alignment);
+    public static GenotypeTable getGenotypeCopyInstance(CombineGenotypeTable genotypeTable) {
+        return copyGenotypeInstance(genotypeTable);
     }
 
     /**
-     * This is private as the method used by combine and filter alignment, as other data structures
-     * are immutable and optimized that is unneeded except for these alignment types.
-     * @param alignment
+     * This is private as the method used by combine and filter alignment, as
+     * other data structures are immutable and optimized that is unneeded except
+     * for these alignment types.
+     *
+     * @param genotypeTable
      * @return alignment backed by a single SuperByteMatrix
      */
-    private static GenotypeTable copyGenotypeInstance(GenotypeTable alignment) {
-        int numTaxa = alignment.numberOfTaxa();
-        int numSites = alignment.numberOfSites();
-        GenotypeCallTableBuilder builder = GenotypeCallTableBuilder.getInstance(numTaxa, numSites);
-        for (int t = 0; t < numTaxa; t++) {
-            for (int s = 0; s < numSites; s++) { builder.setBase(t, s, alignment.genotype(t, s));}
-        }
-        return new CoreGenotypeTable(builder.build(), alignment.positions(), alignment.taxa());
+    private static GenotypeTable copyGenotypeInstance(GenotypeTable genotypeTable) {
+        GenotypeCallTableBuilder builder = GenotypeCallTableBuilder.getInstanceCopy(genotypeTable.genotypeMatrix());
+        return new CoreGenotypeTable(builder.build(), genotypeTable.positions(), genotypeTable.taxa());
     }
 
     public GenotypeTableBuilder addSite(Position pos, byte[] genos) {
