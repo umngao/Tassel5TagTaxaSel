@@ -75,7 +75,7 @@ public class HetsToUnknownPlugin extends AbstractPlugin {
     }
 
     public ImageIcon getIcon() {
-        URL imageURL = UnionAlignmentPlugin.class.getResource("/net/maizegenetics/analysis/images/homozygous.gif");
+        URL imageURL = HetsToUnknownPlugin.class.getResource("/net/maizegenetics/analysis/images/homozygous.gif");
         if (imageURL == null) {
             return null;
         } else {
