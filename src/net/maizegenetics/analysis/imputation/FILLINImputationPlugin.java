@@ -77,7 +77,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     
     private PluginParameter<Integer> appoxSitesPerDonorGenotypeTable= new PluginParameter.Builder<>("hapSize",8000,Integer.class).guiName("Preferred haplotype size")
             .description("Preferred haplotype block size in sites (use same as in FILLINFindHaplotypesPlugin)").build();
-    private PluginParameter<Double> hetThresh= new PluginParameter.Builder<>("hetThresh",0.01,Double.class).guiName("Heterozygosity threshold")
+    private PluginParameter<Double> hetThresh= new PluginParameter.Builder<>("mxHet",0.01,Double.class).guiName("Heterozygosity threshold")
             .description("Threshold per taxon heterozygosity for treating taxon as heterozygous (no Viterbi, het thresholds).").build();
     private PluginParameter<Double> maximumInbredError= new PluginParameter.Builder<>("mxInbErr",0.01,Double.class).guiName("Max error to impute one donor")
             .description("Maximum error rate for applying one haplotype to entire site window").build();
