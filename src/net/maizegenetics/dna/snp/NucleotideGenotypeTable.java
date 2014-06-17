@@ -5,18 +5,18 @@ package net.maizegenetics.dna.snp;
 
 import net.maizegenetics.dna.snp.depth.AlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
-import net.maizegenetics.dna.snp.score.SiteScore;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.taxa.TaxaList;
 
 /**
  * GenotypeTable containing DNA nucleotide data.
+ *
  * @author Terry Casstevens
  */
 public class NucleotideGenotypeTable extends CoreGenotypeTable {
 
-    public NucleotideGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, SiteScore siteScore, AlleleDepth alleleDepth) {
-        super(genotype, positionList, taxaList, siteScore, alleleDepth);
+    public NucleotideGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth) {
+        super(genotype, positionList, taxaList, alleleDepth);
     }
 
     @Override

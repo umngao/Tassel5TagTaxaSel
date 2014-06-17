@@ -15,10 +15,10 @@ import net.maizegenetics.dna.snp.byte2d.Byte2D;
  *
  * @author Terry Casstevens
  */
-public class SiteScore {
+public abstract class SiteScore {
 
     private final Map<GenotypeTable.SITE_SCORE_TYPE, Byte2D> myValues = new HashMap<>();
-    private final GenotypeTable.SITE_SCORE_TYPE myOnlyScoreType;
+    protected final GenotypeTable.SITE_SCORE_TYPE myOnlyScoreType;
     private final int myNumTaxa;
     private final int myNumSites;
 
@@ -43,40 +43,6 @@ public class SiteScore {
         }
     }
 
-    public float siteScore(int taxon, int site, GenotypeTable.SITE_SCORE_TYPE scoreType) {
-        return SiteScoreUtil.byteToFloatPercentage(myValues.get(scoreType).valueForAllele(taxon, site));
-    }
-
-    /**
-     * Returns the site score of the given taxon and site. Used if only one site
-     * score type represented by this instance.
-     *
-     * @param taxon taxon index
-     * @param site site
-     *
-     * @return site score.
-     */
-    public float siteScore(int taxon, int site) {
-        return siteScore(taxon, site, myOnlyScoreType);
-    }
-
-    /**
-     * Returns the site scores (First dimension is taxa and second dimension is
-     * sites. Default is allele 0. Can be used with scores that only have one
-     * value per taxon and site.
-     *
-     * @return site scores.
-     */
-    public float[][] siteScores() {
-        float[][] result = new float[numTaxa()][numSites()];
-        for (int t = 0; t < numTaxa(); t++) {
-            for (int s = 0; s < numSites(); s++) {
-                result[t][s] = siteScore(t, s, myOnlyScoreType);
-            }
-        }
-        return result;
-    }
-
     /**
      * Return the site scores types.
      *
@@ -96,6 +62,10 @@ public class SiteScore {
 
     public int numAlleles() {
         return myValues.size();
+    }
+    
+    protected Byte2D byteStorage(GenotypeTable.SITE_SCORE_TYPE type) {
+        return myValues.get(type);
     }
 
     Collection<Byte2D> byteStorage() {

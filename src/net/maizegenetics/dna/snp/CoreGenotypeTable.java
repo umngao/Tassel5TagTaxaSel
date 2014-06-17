@@ -10,12 +10,14 @@ import net.maizegenetics.dna.snp.bit.BitStorage;
 import net.maizegenetics.dna.snp.bit.DynamicBitStorage;
 import net.maizegenetics.dna.snp.depth.AlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
-import net.maizegenetics.dna.snp.score.SiteScore;
+import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.BitSet;
+
 import org.apache.log4j.Logger;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,24 +37,23 @@ public class CoreGenotypeTable implements GenotypeTable {
     private final Map<WHICH_ALLELE, BitStorage> myBitStorage = new HashMap<>();
     private final PositionList myPositionList;
     private final TaxaList myTaxaList;
-    private final SiteScore mySiteScore;
+    private final AlleleProbability myAlleleProbability = null;
     private final AlleleDepth myAlleleDepth;
     private final int mySiteCount;
     private final int myTaxaCount;
 
-    CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, SiteScore siteScore, AlleleDepth alleleDepth) {
+    CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth) {
         //todo need check dimensions
         myGenotype = genotype;
         myPositionList = positionList;
         myTaxaList = taxaList;
-        mySiteScore = siteScore;
         myAlleleDepth = alleleDepth;
         mySiteCount = myPositionList.numberOfSites();
         myTaxaCount = myTaxaList.numberOfTaxa();
     }
 
     CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList) {
-        this(genotype, positionList, taxaList, null, null);
+        this(genotype, positionList, taxaList, null);
     }
 
     @Override
@@ -137,7 +138,7 @@ public class CoreGenotypeTable implements GenotypeTable {
 
     @Override
     public byte referenceAllele(int site) {
-        return myPositionList.allele(WHICH_ALLELE.Reference,site);
+        return myPositionList.allele(WHICH_ALLELE.Reference, site);
     }
 
     @Override
@@ -245,34 +246,14 @@ public class CoreGenotypeTable implements GenotypeTable {
         return myPositionList.chromosomesOffsets();
     }
 
-    @Override
-    public float siteScore(int taxon, int site) {
-        if (mySiteScore == null) {
-            throw new IllegalStateException("CoreAlignment: getSiteScore: This Alignment has no Site Scores.");
-        }
-        return mySiteScore.siteScore(taxon, site);
-    }
-
-    @Override
-    public float[][] siteScores() {
-        if (mySiteScore == null) {
-            throw new IllegalStateException("CoreAlignment: getSiteScores: This Alignment has no Site Scores.");
-        }
-        return mySiteScore.siteScores();
-    }
-
-    @Override
-    public boolean hasSiteScores() {
-        if (mySiteScore == null) {
-            return false;
-        } else {
-            return true;
-        }
-    }
 
     @Override
     public Set<GenotypeTable.SITE_SCORE_TYPE> siteScoreTypes() {
-        return mySiteScore.siteScoreTypes();
+        Set<GenotypeTable.SITE_SCORE_TYPE> result = new HashSet<>();
+        if (myAlleleProbability != null) {
+            result.addAll(myAlleleProbability.siteScoreTypes());
+        }
+        return result;
     }
 
     @Override
@@ -452,7 +433,7 @@ public class CoreGenotypeTable implements GenotypeTable {
 
     @Override
     public boolean hasDepth() {
-        return (myAlleleDepth!=null);
+        return (myAlleleDepth != null);
     }
 
     @Override
@@ -502,6 +483,16 @@ public class CoreGenotypeTable implements GenotypeTable {
 
         myBitStorage.put(allele, result);
         return result;
+    }
+
+    @Override
+    public AlleleProbability alleleProbability() {
+        return myAlleleProbability;
+    }
+
+    @Override
+    public float alleleProbability(int taxon, int site, SITE_SCORE_TYPE type) {
+        return myAlleleProbability.value(taxon, site, type);
     }
 
 }

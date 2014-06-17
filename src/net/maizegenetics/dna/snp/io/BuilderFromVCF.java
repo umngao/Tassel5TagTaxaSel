@@ -228,7 +228,7 @@ public class BuilderFromVCF {
             }
         }
         GenotypeCallTable g=gb.build();
-        if(includeDepth) {return GenotypeTableBuilder.getInstance(g, posBuild.build(), taxaList, null, db.build());}
+        if(includeDepth) {return GenotypeTableBuilder.getInstance(g, posBuild.build(), taxaList, db.build());}
         else {return GenotypeTableBuilder.getInstance(g, posBuild.build(), taxaList);}
 
     }

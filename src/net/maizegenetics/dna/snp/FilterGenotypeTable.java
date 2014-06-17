@@ -14,6 +14,8 @@ import net.maizegenetics.dna.snp.depth.FilterAlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.dna.map.Position;
+import net.maizegenetics.dna.snp.score.AlleleProbability;
+import net.maizegenetics.dna.snp.score.AlleleProbabilityBuilder;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
@@ -354,13 +356,13 @@ public class FilterGenotypeTable implements GenotypeTable {
         return getInstance(a, result);
 
     }
-    
+
     public static FilterGenotypeTable getInstance(GenotypeTable a, PositionList subPositionList) {
-        
+
         int[] temp = new int[subPositionList.size()];
         int count = 0;
         PositionList positionList = a.positions();
-        for (Position position: subPositionList) {
+        for (Position position : subPositionList) {
             int index = positionList.indexOf(position);
             if (index >= 0) {
                 temp[count++] = index;
@@ -375,7 +377,7 @@ public class FilterGenotypeTable implements GenotypeTable {
             System.arraycopy(temp, 0, result, 0, count);
         }
         return getInstance(a, result);
-        
+
     }
 
     public static FilterGenotypeTable getInstance(GenotypeTable a, String chromosome, int startPhysicalPos, int endPhysicalPos) {
@@ -600,31 +602,6 @@ public class FilterGenotypeTable implements GenotypeTable {
     }
 
     @Override
-    public float[][] siteScores() {
-
-        if (!myBaseAlignment.hasSiteScores()) {
-            return null;
-        }
-
-        int numSites = numberOfSites();
-        int numSeqs = numberOfTaxa();
-        float[][] result = new float[numSeqs][numSites];
-        for (int i = 0; i < numSites; i++) {
-            for (int j = 0; j < numSeqs; j++) {
-                int taxaIndex = translateTaxon(j);
-                if (taxaIndex == -1) {
-                    result[j][i] = -9;
-                } else {
-                    result[j][i] = myBaseAlignment.siteScore(taxaIndex, translateSite(i));
-                }
-            }
-        }
-
-        return result;
-
-    }
-
-    @Override
     public byte referenceAllele(int site) {
         return myBaseAlignment.referenceAllele(translateSite(site));
     }
@@ -784,21 +761,6 @@ public class FilterGenotypeTable implements GenotypeTable {
     @Override
     public int numberOfTaxa() {
         return myTaxaList.numberOfTaxa();
-    }
-
-    @Override
-    public float siteScore(int taxon, int site) {
-        int taxaIndex = translateTaxon(taxon);
-        if (taxaIndex == -1) {
-            return Float.NaN;
-        } else {
-            return myBaseAlignment.siteScore(taxaIndex, translateSite(site));
-        }
-    }
-
-    @Override
-    public boolean hasSiteScores() {
-        return myBaseAlignment.hasSiteScores();
     }
 
     @Override
@@ -1091,5 +1053,20 @@ public class FilterGenotypeTable implements GenotypeTable {
     @Override
     public GenotypeCallTable genotypeMatrix() {
         return myGenotype;
+    }
+
+    @Override
+    public AlleleProbability alleleProbability() {
+        return AlleleProbabilityBuilder.getFilteredInstance(myBaseAlignment.alleleProbability(), this);
+    }
+
+    @Override
+    public float alleleProbability(int taxon, int site, SITE_SCORE_TYPE type) {
+        int taxaIndex = translateTaxon(taxon);
+        if (taxaIndex == -1) {
+            return Float.NaN;
+        } else {
+            return myBaseAlignment.alleleProbability(taxaIndex, translateSite(site), type);
+        }
     }
 }

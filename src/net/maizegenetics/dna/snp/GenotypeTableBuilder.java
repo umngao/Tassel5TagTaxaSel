@@ -69,56 +69,57 @@ for (int i=0; i<existingGenotypeTable2.numberOfTaxa(); i++) {
  */
 public class GenotypeTableBuilder {
 
-    private GenotypeCallTable genotype=null;
-
     //Fields for incremental taxa
-    private PositionList positionList=null;
-    private TaxaListBuilder taxaListBuilder=null;
-    private ArrayList<byte[]> incGeno=null;
-    private ArrayList<byte[][]> incDepth=null;
-    private HashMap<Taxon,Integer> incTaxonIndex=null;
-    private boolean sortAlphabetically=false;
+    private PositionList positionList = null;
+    private TaxaListBuilder taxaListBuilder = null;
+    private ArrayList<byte[]> incGeno = null;
+    private ArrayList<byte[][]> incDepth = null;
+    private HashMap<Taxon, Integer> incTaxonIndex = null;
+    private boolean sortAlphabetically = false;
 
     //Fields for incremental sites
     private final TaxaList taxaList;
-    private PositionListBuilder posListBuilder=null;
-    private boolean isTaxaMerge=false; //if in taxa merge mode, this only works with TAXA_INC build type;//, GENO_EDIT}; //GENO_EDIT is not
-    private GenotypeMergeRule mergeRule=null;
-    private boolean isHDF5=false;
-    private IHDF5Writer writer=null;
+    private PositionListBuilder posListBuilder = null;
+    private boolean isTaxaMerge = false; //if in taxa merge mode, this only works with TAXA_INC build type;//, GENO_EDIT}; //GENO_EDIT is not
+    private GenotypeMergeRule mergeRule = null;
+    private boolean isHDF5 = false;
+    private IHDF5Writer writer = null;
     private BuildType myBuildType;
-    /*
-    Builder for in memory taxa incremental
+    
+    /**
+     * Builder for in memory taxa incremental
      */
     private GenotypeTableBuilder(PositionList positionList, GenotypeMergeRule mergeRule) {
-        this.positionList=positionList;
-        this.myBuildType=BuildType.TAXA_INC;
-        this.mergeRule=mergeRule;
-        if(mergeRule!=null) {
-            this.isTaxaMerge=true;
+        this.positionList = positionList;
+        this.myBuildType = BuildType.TAXA_INC;
+        this.mergeRule = mergeRule;
+        if (mergeRule != null) {
+            this.isTaxaMerge = true;
 
         }
-        incGeno=new ArrayList<>();
-        incDepth=new ArrayList<>();
-        incTaxonIndex=new HashMap<>();
-        taxaListBuilder=new TaxaListBuilder();
+        incGeno = new ArrayList<>();
+        incDepth = new ArrayList<>();
+        incTaxonIndex = new HashMap<>();
+        taxaListBuilder = new TaxaListBuilder();
         this.taxaList = null;
     }
 
-    /*
-        Builder for in memory site incremental
+    /**
+     * Builder for in memory site incremental
      */
     private GenotypeTableBuilder(TaxaList taxaList) {
-        this.taxaList=taxaList;
-        this.myBuildType=BuildType.SITE_INC;
-        incGeno=new ArrayList<>();
-        posListBuilder=new PositionListBuilder();
+        this.taxaList = taxaList;
+        this.myBuildType = BuildType.SITE_INC;
+        incGeno = new ArrayList<>();
+        posListBuilder = new PositionListBuilder();
     }
 
     /**
-     * Creates a new HDF5 file if positionList is not null.  Opens an existing HDF5 File if positionList is null.
-     * Merging is allowed depending on whether a mergeRule is included
-     * that can used with TaxaIncremental addition.
+     * Creates a new HDF5 file if positionList is not null. Opens an existing
+     * HDF5 File if positionList is null. Merging is allowed depending on
+     * whether a mergeRule is included that can used with TaxaIncremental
+     * addition.
+     *
      * @param hdf5File
      * @param positionList
      */
@@ -126,30 +127,32 @@ public class GenotypeTableBuilder {
         IHDF5WriterConfigurator config = HDF5Factory.configure(hdf5File);
         config.dontUseExtendableDataTypes();
         writer = config.writer();
-        if(HDF5Utils.doesGenotypeModuleExist(writer) && HDF5Utils.isHDF5GenotypeLocked(writer)) {
+        if (HDF5Utils.doesGenotypeModuleExist(writer) && HDF5Utils.isHDF5GenotypeLocked(writer)) {
             writer.close();
             throw new UnsupportedOperationException("This file is locked for genotypic additions");
         }
-        if(positionList!=null) {
-            this.positionList=new PositionListBuilder(writer,positionList).build();  //create a new position list
+        if (positionList != null) {
+            this.positionList = new PositionListBuilder(writer, positionList).build();  //create a new position list
             setupGenotypeTaxaInHDF5(writer);
         } else {
-            this.positionList=PositionListBuilder.getInstance(writer);
+            this.positionList = PositionListBuilder.getInstance(writer);
 
         }
-        this.mergeRule=mergeRule;
-        if(mergeRule!=null) {
-            this.isTaxaMerge=true;
+        this.mergeRule = mergeRule;
+        if (mergeRule != null) {
+            this.isTaxaMerge = true;
         }
-        this.myBuildType=BuildType.TAXA_INC;
-        isHDF5=true;
+        this.myBuildType = BuildType.TAXA_INC;
+        isHDF5 = true;
         this.taxaList = null;
     }
 
     /**
-     * Creates a new HDF5 file if positionList is not null.  Opens an existing HDF5 File if positionList is null.
-     * Merging is allowed depending on whether a mergeRule is included
-     * that can used with TaxaIncremental addition.
+     * Creates a new HDF5 file if positionList is not null. Opens an existing
+     * HDF5 File if positionList is null. Merging is allowed depending on
+     * whether a mergeRule is included that can used with TaxaIncremental
+     * addition.
+     *
      * @param hdf5File
      * @param taxaList
      */
@@ -157,17 +160,17 @@ public class GenotypeTableBuilder {
         IHDF5WriterConfigurator config = HDF5Factory.configure(hdf5File);
         config.dontUseExtendableDataTypes();
         writer = config.writer();
-        if(HDF5Utils.doesGenotypeModuleExist(writer) && HDF5Utils.isHDF5GenotypeLocked(writer)) {
+        if (HDF5Utils.doesGenotypeModuleExist(writer) && HDF5Utils.isHDF5GenotypeLocked(writer)) {
             writer.close();
             throw new UnsupportedOperationException("This file is locked for genotypic additions");
         }
-        this.taxaList=taxaList;
+        this.taxaList = taxaList;
         setupGenotypeTaxaInHDF5(writer);
-        posListBuilder=new PositionListBuilder(numberOfSites);
-        byte[] missingGenotypes=new byte[numberOfSites];
-        Arrays.fill(missingGenotypes,GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
+        posListBuilder = new PositionListBuilder(numberOfSites);
+        byte[] missingGenotypes = new byte[numberOfSites];
+        Arrays.fill(missingGenotypes, GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
         for (Taxon taxon : taxaList) {
-            HDF5Utils.addTaxon(writer,taxon);
+            HDF5Utils.addTaxon(writer, taxon);
             HDF5Utils.writeHDF5GenotypesCalls(writer, taxon.getName(), missingGenotypes);
         }
 
@@ -184,49 +187,53 @@ public class GenotypeTableBuilder {
 //            this.positionList=PositionListBuilder.getInstance(writer);
 //
 //        }
-
-        this.myBuildType=BuildType.SITE_INC;
-        isHDF5=true;
+        this.myBuildType = BuildType.SITE_INC;
+        isHDF5 = true;
 
     }
 
     /**
-     * Creates an in memory builder for addition by taxon.  Each taxon can only be added once,
-     * i.e. merging is not possible
+     * Creates an in memory builder for addition by taxon. Each taxon can only
+     * be added once, i.e. merging is not possible
+     *
      * @param positionList The positions used for the builder
      * @return
      */
     public static GenotypeTableBuilder getTaxaIncremental(PositionList positionList) {
-        return new GenotypeTableBuilder(positionList,(GenotypeMergeRule)null);
+        return new GenotypeTableBuilder(positionList, (GenotypeMergeRule) null);
     }
 
     /**
-     * Creates an in memory builder for addition by taxon, which permits the merging of taxa.
+     * Creates an in memory builder for addition by taxon, which permits the
+     * merging of taxa.
+     *
      * @param positionList The positions used for the builder
      * @param mergeRule rules for merging identically named taxa
      * @return
      */
     public static GenotypeTableBuilder getTaxaIncremental(PositionList positionList, GenotypeMergeRule mergeRule) {
-        return new GenotypeTableBuilder(positionList,(GenotypeMergeRule)mergeRule);
+        return new GenotypeTableBuilder(positionList, mergeRule);
     }
 
     /**
-     * Creates a builder initialized with the Genotypes in a existing GenotypeTable.  The position list and initial taxa list is
-     * derived from the positions, taxa, and genotypes already in the GenotypeTable.  The initial GenotypeTable is
-     * not changed as it is immutable.
+     * Creates a builder initialized with the Genotypes in a existing
+     * GenotypeTable. The position list and initial taxa list is derived from
+     * the positions, taxa, and genotypes already in the GenotypeTable. The
+     * initial GenotypeTable is not changed as it is immutable.
+     *
      * @param genotypeTable input genotype table
      * @param mergeRule rules for merging identically named taxa
      * @return
      */
     public static GenotypeTableBuilder getTaxaIncremental(GenotypeTable genotypeTable, GenotypeMergeRule mergeRule) {
-        PositionList positionList=genotypeTable.positions();
-        GenotypeTableBuilder gtb= new GenotypeTableBuilder(positionList, mergeRule);
-        boolean hasDepth=genotypeTable.hasDepth();
-        for (int i=0; i<genotypeTable.numberOfTaxa(); i++) {
-            if(hasDepth) {
-                gtb.addTaxon(genotypeTable.taxa().get(i),genotypeTable.genotypeAllSites(i), genotypeTable.depth().depthAllSitesByte(i));
+        PositionList positionList = genotypeTable.positions();
+        GenotypeTableBuilder gtb = new GenotypeTableBuilder(positionList, mergeRule);
+        boolean hasDepth = genotypeTable.hasDepth();
+        for (int i = 0; i < genotypeTable.numberOfTaxa(); i++) {
+            if (hasDepth) {
+                gtb.addTaxon(genotypeTable.taxa().get(i), genotypeTable.genotypeAllSites(i), genotypeTable.depth().depthAllSitesByte(i));
             } else {
-                gtb.addTaxon(genotypeTable.taxa().get(i),genotypeTable.genotypeAllSites(i));
+                gtb.addTaxon(genotypeTable.taxa().get(i), genotypeTable.genotypeAllSites(i));
             }
         }
         return gtb;
@@ -234,8 +241,9 @@ public class GenotypeTableBuilder {
 
     /**
      * Create a new taxa incremental HDF5 GenotypeTableBuilder
+     *
      * @param positionList the defined list of positions
-     * @param newHDF5File  hdf5 file to be created
+     * @param newHDF5File hdf5 file to be created
      * @return the builder to add taxa to
      */
     public static GenotypeTableBuilder getTaxaIncremental(PositionList positionList, String newHDF5File) {
@@ -243,8 +251,9 @@ public class GenotypeTableBuilder {
     }
 
     /**
-     * Merges taxa to an existing HDF5 file.  The position list is derived from the positions already in the
-     * existing HDF5 file.
+     * Merges taxa to an existing HDF5 file. The position list is derived from
+     * the positions already in the existing HDF5 file.
+     *
      * @param existingHDFFile
      * @param mergeRule
      * @return builder to merge taxa with
@@ -254,11 +263,13 @@ public class GenotypeTableBuilder {
     }
 
     /**
-     * Creates a new taxa incremental HDF5 GenotypeTableBuilder to which replicate taxa can be added
+     * Creates a new taxa incremental HDF5 GenotypeTableBuilder to which
+     * replicate taxa can be added
+     *
      * @param newHDFFile
      * @param positionList
      * @param mergeRule
-     * @return 
+     * @return
      */
     public static GenotypeTableBuilder getTaxaIncrementalWithMerging(String newHDFFile, PositionList positionList, GenotypeMergeRule mergeRule) {
         return new GenotypeTableBuilder(newHDFFile, positionList, mergeRule);
@@ -266,6 +277,7 @@ public class GenotypeTableBuilder {
 
     /**
      * Build an alignment site by site in memory
+     *
      * @param taxaList
      * @return builder to add sites to
      */
@@ -273,29 +285,34 @@ public class GenotypeTableBuilder {
         return new GenotypeTableBuilder(taxaList);
     }
 
-
     /**
-     * Build an GenotypeTable by site block (1<<16 sites).  Number of positions (sites) must be known from the beginning.  Positions
+     * Build an GenotypeTable by site block (1<<16 sites).  Number of positions
+     * (sites) must be known from the beginning.  Positions
      * and genotypes must be added by block
+     * 
      * @param taxaList
+     * @param numberOfPositions
+     * @param newHDF5File
+     * 
      * @return builder to add site blocks to
      */
     public static GenotypeTableBuilder getSiteIncremental(TaxaList taxaList, int numberOfPositions, String newHDF5File) {
         return new GenotypeTableBuilder(newHDF5File, taxaList, numberOfPositions);
     }
 
-    public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, SiteScore siteScore, AlleleDepth alleleDepth) {
+    public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth) {
         if (genotype.numberOfSites() != positionList.numberOfSites()) {
             throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of sites in genotype: " + genotype.numberOfSites() + " doesn't equal number of sites in position list: " + positionList.numberOfSites());
         }
         if (genotype.numberOfTaxa() != taxaList.numberOfTaxa()) {
             throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + genotype.numberOfTaxa() + " doesn't equal number of taxa in taaxa list: " + taxaList.numberOfTaxa());
         }
-        return new CoreGenotypeTable(genotype, positionList, taxaList, siteScore, alleleDepth);
+        return new CoreGenotypeTable(genotype, positionList, taxaList, alleleDepth);
     }
 
     /**
      * Standard approach for creating a new Alignment
+     *
      * @param genotype
      * @param positionList
      * @param taxaList
@@ -312,7 +329,9 @@ public class GenotypeTableBuilder {
     }
 
     /**
-     * Creates a new HDF5 file alignment based on existing Genotype, PositionList, and TaxaList.
+     * Creates a new HDF5 file alignment based on existing Genotype,
+     * PositionList, and TaxaList.
+     *
      * @param genotype
      * @param positionList
      * @param taxaList
@@ -326,15 +345,16 @@ public class GenotypeTableBuilder {
         if (genotype.numberOfTaxa() != taxaList.numberOfTaxa()) {
             throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + genotype.numberOfTaxa() + " doesn't equal number of taxa in taaxa list: " + taxaList.numberOfTaxa());
         }
-        GenotypeTableBuilder aB=GenotypeTableBuilder.getTaxaIncremental(positionList,hdf5File);
-        for (int i=0; i<taxaList.numberOfTaxa(); i++) {
-            aB.addTaxon(taxaList.get(i),genotype.genotypeAllSites(i));
+        GenotypeTableBuilder aB = GenotypeTableBuilder.getTaxaIncremental(positionList, hdf5File);
+        for (int i = 0; i < taxaList.numberOfTaxa(); i++) {
+            aB.addTaxon(taxaList.get(i), genotype.genotypeAllSites(i));
         }
         return aB.build();
     }
 
     /**
      * Creates a new HDF5 file alignment based on an existing alignment.
+     *
      * @param a existing alignment
      * @param hdf5File name of the file
      * @return alignment backed by new HDF5 file
@@ -344,12 +364,12 @@ public class GenotypeTableBuilder {
     }
 
     public static GenotypeTable getInstance(String hdf5File) {
-        IHDF5Reader reader=HDF5Factory.openForReading(hdf5File);
-        TaxaList tL=new TaxaListBuilder().buildFromHDF5Genotypes(reader);
-        PositionList pL=PositionListBuilder.getInstance(reader);
-        GenotypeCallTable geno=GenotypeCallTableBuilder.buildHDF5(reader);
-        AlleleDepth depth=AlleleDepthBuilder.getExistingHDF5Instance(reader);
-        return GenotypeTableBuilder.getInstance(geno, pL, tL,null,depth);
+        IHDF5Reader reader = HDF5Factory.openForReading(hdf5File);
+        TaxaList tL = new TaxaListBuilder().buildFromHDF5Genotypes(reader);
+        PositionList pL = PositionListBuilder.getInstance(reader);
+        GenotypeCallTable geno = GenotypeCallTableBuilder.buildHDF5(reader);
+        AlleleDepth depth = AlleleDepthBuilder.getExistingHDF5Instance(reader);
+        return GenotypeTableBuilder.getInstance(geno, pL, tL, depth);
     }
 
     public static GenotypeTable getInstanceOnlyMajorMinor(GenotypeTable alignment) {
@@ -423,8 +443,12 @@ public class GenotypeTableBuilder {
     }
 
     public GenotypeTableBuilder addSite(Position pos, byte[] genos) {
-        if((myBuildType!=BuildType.SITE_INC)||isHDF5) throw new IllegalArgumentException("addSite only be used with AlignmentBuilder.getSiteIncremental and without HDF5");
-        if(genos.length!=taxaList.numberOfTaxa()) throw new IndexOutOfBoundsException("Number of taxa and genotypes do not agree");
+        if ((myBuildType != BuildType.SITE_INC) || isHDF5) {
+            throw new IllegalArgumentException("addSite only be used with AlignmentBuilder.getSiteIncremental and without HDF5");
+        }
+        if (genos.length != taxaList.numberOfTaxa()) {
+            throw new IndexOutOfBoundsException("Number of taxa and genotypes do not agree");
+        }
         synchronized (taxaList) {
             posListBuilder.add(pos);
             incGeno.add(genos);
@@ -433,24 +457,31 @@ public class GenotypeTableBuilder {
     }
 
     /**
-     * Add TasselHDF5 Block of positions (generally 1<<16 positions).
-     * @note
-     * This is synchronized, which certainly slows things
-     * down but it is needed to prevent the same taxa dataset from being accessed at once.  This can probably be rethought
-     * with parallelization at this stage across datasets
+     * Add TasselHDF5 Block of positions (generally 1<<16 positions). @note
+     *
+     * This is synchronized, which certainly slows things down but it is needed
+     * to prevent the same taxa dataset from being accessed at once. This can
+     * probably be rethought with parallelization at this stage across datasets
      * @param startSite start site for positioning blocks correction
      * @param blkPositionList
-     * @param blockGenotypes array of genotypes [taxonIndex][siteIndex]  true site=startSite+siteIndex
+     * @param blockGenotypes array of genotypes [taxonIndex][siteIndex] true
+     * site=startSite+siteIndex
      * @param blockDepths
      */
     public synchronized void addSiteBlock(int startSite, PositionList blkPositionList, byte[][] blockGenotypes, byte[][][] blockDepths) {
-        if((myBuildType!=BuildType.SITE_INC)||(isHDF5==false)) throw new IllegalArgumentException("addSite only be used with AlignmentBuilder.getSiteIncremental and with HDF5");
-        if(blockGenotypes.length!=taxaList.numberOfTaxa()) throw new IndexOutOfBoundsException("Number of taxa and genotypes do not agree");
-        int s=startSite;
-        System.out.println("startSite = ["+startSite+"], blkPositionList = ["+blkPositionList.size()+"], blockGenotypes = ["+blockGenotypes.length+"], blockDepths = ["+blockDepths+"]");
-        for (Position position : blkPositionList) {posListBuilder.set(s++,position);}
-        for (int t=0; t<taxaList.numberOfTaxa(); t++) {
-            HDF5Utils.replaceHDF5GenotypesCalls(writer,taxaList.taxaName(t),startSite,blockGenotypes[t]);
+        if ((myBuildType != BuildType.SITE_INC) || (isHDF5 == false)) {
+            throw new IllegalArgumentException("addSite only be used with AlignmentBuilder.getSiteIncremental and with HDF5");
+        }
+        if (blockGenotypes.length != taxaList.numberOfTaxa()) {
+            throw new IndexOutOfBoundsException("Number of taxa and genotypes do not agree");
+        }
+        int s = startSite;
+        System.out.println("startSite = [" + startSite + "], blkPositionList = [" + blkPositionList.size() + "], blockGenotypes = [" + blockGenotypes.length + "], blockDepths = [" + blockDepths + "]");
+        for (Position position : blkPositionList) {
+            posListBuilder.set(s++, position);
+        }
+        for (int t = 0; t < taxaList.numberOfTaxa(); t++) {
+            HDF5Utils.replaceHDF5GenotypesCalls(writer, taxaList.taxaName(t), startSite, blockGenotypes[t]);
         }
     }
 
@@ -459,93 +490,97 @@ public class GenotypeTableBuilder {
     }
 
     public GenotypeTableBuilder addTaxon(Taxon taxon, byte[] genos, byte[][] depth) {
-        if(myBuildType!=BuildType.TAXA_INC) throw new IllegalArgumentException("addTaxon only be used with AlignmentBuilder.getTaxaIncremental");
-        if(genos.length!=positionList.numberOfSites()) throw new IndexOutOfBoundsException("Number of sites and genotypes do not agree");
-        if(isHDF5) {
-            if(isTaxaMerge && HDF5Utils.doTaxonCallsExist(writer,taxon)) {
-                mergeTaxonInHDF5(writer,taxon,genos,depth);
+        if (myBuildType != BuildType.TAXA_INC) {
+            throw new IllegalArgumentException("addTaxon only be used with AlignmentBuilder.getTaxaIncremental");
+        }
+        if (genos.length != positionList.numberOfSites()) {
+            throw new IndexOutOfBoundsException("Number of sites and genotypes do not agree");
+        }
+        if (isHDF5) {
+            if (isTaxaMerge && HDF5Utils.doTaxonCallsExist(writer, taxon)) {
+                mergeTaxonInHDF5(writer, taxon, genos, depth);
             } else {
                 addTaxon(writer, taxon, genos, depth);
             }
         } else {
             synchronized (taxaListBuilder) {
-                if(isTaxaMerge && incTaxonIndex.containsKey(taxon)) {
-                    mergeTaxonInMemory(taxon,genos,depth);
-                }  else {
+                if (isTaxaMerge && incTaxonIndex.containsKey(taxon)) {
+                    mergeTaxonInMemory(taxon, genos, depth);
+                } else {
                     taxaListBuilder.add(taxon);
                     incGeno.add(genos);
                     incDepth.add(depth);
-                    incTaxonIndex.put(taxon,incGeno.size()-1);
+                    incTaxonIndex.put(taxon, incGeno.size() - 1);
                 }
             }
         }
 
         return this;
     }
-    
+
     public GenotypeTableBuilder addTaxon(Taxon taxon, int[][] depths, byte[] genos) {  // reversed signature so it does clash with above statement: "return addTaxon(taxon, genos, null);"
         byte[][] byteDepths = AlleleDepthUtil.depthIntToByte(depths);
         return addTaxon(taxon, genos, byteDepths);
     }
 
     private void mergeTaxonInMemory(Taxon taxon, byte[] genos, byte[][] depth) {
-        int taxonIndex=incTaxonIndex.get(taxon);
-        byte[] combGenos=new byte[genos.length];
-        if(depth!=null) {
-            byte[][] existingDepth=incDepth.get(taxonIndex);
-//            System.out.println("ExistingDepth");
-//            System.out.println(Arrays.deepToString(existingDepth));
-//            System.out.println(Arrays.deepToString(depth));
-            byte[][] combDepth=new byte[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][genos.length];
-            byte[] currDepths=new byte[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES];
-            for (int site=0; site<combDepth[0].length; site++) {
-                for (int allele=0; allele<combDepth.length; allele++) {
-                    currDepths[allele]=combDepth[allele][site]=AlleleDepthUtil.addByteDepths(depth[allele][site],existingDepth[allele][site]);
+        int taxonIndex = incTaxonIndex.get(taxon);
+        byte[] combGenos = new byte[genos.length];
+        if (depth != null) {
+            byte[][] existingDepth = incDepth.get(taxonIndex);
+            byte[][] combDepth = new byte[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][genos.length];
+            byte[] currDepths = new byte[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES];
+            for (int site = 0; site < combDepth[0].length; site++) {
+                for (int allele = 0; allele < combDepth.length; allele++) {
+                    currDepths[allele] = combDepth[allele][site] = AlleleDepthUtil.addByteDepths(depth[allele][site], existingDepth[allele][site]);
                 }
-                combGenos[site]=mergeRule.callBasedOnDepth(currDepths);
+                combGenos[site] = mergeRule.callBasedOnDepth(currDepths);
             }
-            incGeno.set(taxonIndex,combGenos);
-            incDepth.set(taxonIndex,combDepth);
+            incGeno.set(taxonIndex, combGenos);
+            incDepth.set(taxonIndex, combDepth);
         } else {
-            byte[] existingGenos=incGeno.get(taxonIndex);
-            for (int site=0; site<combGenos.length; site++) {
-                combGenos[site]=mergeRule.mergeCalls(genos[site],existingGenos[site]);
+            byte[] existingGenos = incGeno.get(taxonIndex);
+            for (int site = 0; site < combGenos.length; site++) {
+                combGenos[site] = mergeRule.mergeCalls(genos[site], existingGenos[site]);
             }
-            incGeno.set(taxonIndex,combGenos);
+            incGeno.set(taxonIndex, combGenos);
         }
     }
 
     public boolean isHDF5() {
-       return isHDF5;
+        return isHDF5;
     }
 
-    /*
-    Set the builder so that when built it will sort the taxa
+    /**
+     * Set the builder so that when built it will sort the taxa
      */
     public GenotypeTableBuilder sortTaxa() {
-        if(myBuildType!=BuildType.TAXA_INC) throw new IllegalArgumentException("sortTaxa can only be used with AlignmentBuilder.getTaxaIncremental");
-        sortAlphabetically=true;
+        if (myBuildType != BuildType.TAXA_INC) {
+            throw new IllegalArgumentException("sortTaxa can only be used with AlignmentBuilder.getTaxaIncremental");
+        }
+        sortAlphabetically = true;
         return this;
     }
 
     /**
-     * Finishes building the GenotypeTable.  For HDF5 files it locks the taxa and genotype modules so that cannot be
-     * modified again.
+     * Finishes building the GenotypeTable. For HDF5 files it locks the taxa and
+     * genotype modules so that cannot be modified again.
+     *
      * @return a genotype table
      */
-    public GenotypeTable build(){
-        if(isHDF5) {
+    public GenotypeTable build() {
+        if (isHDF5) {
             switch (myBuildType) {
                 case TAXA_INC: {
-                   break;
+                    break;
                 }
                 case SITE_INC: {
                     //copy the in memory position list to the HDF5 file
-                    this.positionList=new PositionListBuilder(writer,posListBuilder.build()).build();
+                    this.positionList = new PositionListBuilder(writer, posListBuilder.build()).build();
                     break;
                 }
             }
-            String name=writer.getFile().getAbsolutePath();
+            String name = writer.getFile().getAbsolutePath();
             annotateHDF5File(writer);
             HDF5Utils.lockHDF5GenotypeModule(writer);
             HDF5Utils.lockHDF5TaxaModule(writer);
@@ -554,29 +589,31 @@ public class GenotypeTableBuilder {
         }
         switch (myBuildType) {
             case TAXA_INC: {
-                TaxaList tl=(sortAlphabetically)?taxaListBuilder.sortTaxaAlphabetically().build():taxaListBuilder.build();
-                GenotypeCallTableBuilder gB=GenotypeCallTableBuilder.getInstance(tl.numberOfTaxa(),positionList.numberOfSites());
-                boolean hasDepth=(incDepth.size()==tl.numberOfTaxa() && incDepth.get(0)!=null);
-                AlleleDepthBuilder adb=null;
-                if(hasDepth) {adb=AlleleDepthBuilder.getNucleotideInstance(tl.numberOfTaxa(),positionList.numberOfSites());}
-                for (int i=0; i<incGeno.size(); i++) {
+                TaxaList tl = (sortAlphabetically) ? taxaListBuilder.sortTaxaAlphabetically().build() : taxaListBuilder.build();
+                GenotypeCallTableBuilder gB = GenotypeCallTableBuilder.getInstance(tl.numberOfTaxa(), positionList.numberOfSites());
+                boolean hasDepth = (incDepth.size() == tl.numberOfTaxa() && incDepth.get(0) != null);
+                AlleleDepthBuilder adb = null;
+                if (hasDepth) {
+                    adb = AlleleDepthBuilder.getNucleotideInstance(tl.numberOfTaxa(), positionList.numberOfSites());
+                }
+                for (int i = 0; i < incGeno.size(); i++) {
                     gB.setBaseRangeForTaxon(i, 0, incGeno.get(incTaxonIndex.get(tl.get(i))));
-                    if(hasDepth) {
-                        adb.setDepth(i,incDepth.get(incTaxonIndex.get(tl.get(i))));
+                    if (hasDepth) {
+                        adb.setDepth(i, incDepth.get(incTaxonIndex.get(tl.get(i))));
                     }
                 }
-                AlleleDepth ad=(hasDepth)?adb.build():null;
-                return new CoreGenotypeTable(gB.build(), positionList, tl,null,ad);
+                AlleleDepth ad = (hasDepth) ? adb.build() : null;
+                return new CoreGenotypeTable(gB.build(), positionList, tl, ad);
             }
             case SITE_INC: {
-                GenotypeCallTableBuilder gB=GenotypeCallTableBuilder.getInstance(taxaList.numberOfTaxa(),posListBuilder.size());
-                for (int s=0; s<posListBuilder.size(); s++) {
-                    byte[] b=incGeno.get(s);
-                    for (int t=0; t<b.length; t++) {
-                        gB.setBase(t,s,b[t]);
+                GenotypeCallTableBuilder gB = GenotypeCallTableBuilder.getInstance(taxaList.numberOfTaxa(), posListBuilder.size());
+                for (int s = 0; s < posListBuilder.size(); s++) {
+                    byte[] b = incGeno.get(s);
+                    for (int t = 0; t < b.length; t++) {
+                        gB.setBase(t, s, b[t]);
                     }
                 }
-                PositionList pl=posListBuilder.build(gB);
+                PositionList pl = posListBuilder.build(gB);
                 return new CoreGenotypeTable(gB.build(), pl, taxaList);
             }
         }
@@ -584,39 +621,47 @@ public class GenotypeTableBuilder {
     }
 
     /**
-     * Used to close an HDF5 GenotypeTableBuilder, when it will be reopened later and appended.  This file cannot be
-     * used for other purposes in this unfinished state.
+     * Used to close an HDF5 GenotypeTableBuilder, when it will be reopened
+     * later and appended. This file cannot be used for other purposes in this
+     * unfinished state.
      */
-    public void closeUnfinished(){
-        if(isHDF5==false) throw new UnsupportedOperationException("Only a HDF5 GenotypeTableBuilder can be closed");
-        taxaListBuilder=null;
+    public void closeUnfinished() {
+        if (isHDF5 == false) {
+            throw new UnsupportedOperationException("Only a HDF5 GenotypeTableBuilder can be closed");
+        }
+        taxaListBuilder = null;
         writer.close();
     }
 
-    /*
-    HDF5 Alignment section.
+    /**
+     * HDF5 Alignment section.
      */
-
     private synchronized void setupGenotypeTaxaInHDF5(IHDF5Writer writer) {
         HDF5Utils.createHDF5TaxaModule(writer);
         HDF5Utils.createHDF5GenotypeModule(writer);
-        HDF5Utils.writeHDF5GenotypesMaxNumAlleles(writer,NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES);
-        HDF5Utils.writeHDF5GenotypesRetainRareAlleles(writer,false);
-        HDF5Utils.writeHDF5GenotypesNumTaxa(writer,0);
-        HDF5Utils.writeHDF5GenotypesAlleleStates(writer,NucleotideAlignmentConstants.NUCLEOTIDE_ALLELES);
+        HDF5Utils.writeHDF5GenotypesMaxNumAlleles(writer, NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES);
+        HDF5Utils.writeHDF5GenotypesRetainRareAlleles(writer, false);
+        HDF5Utils.writeHDF5GenotypesNumTaxa(writer, 0);
+        HDF5Utils.writeHDF5GenotypesAlleleStates(writer, NucleotideAlignmentConstants.NUCLEOTIDE_ALLELES);
     }
 
     /**
      * Code needed to add a Taxon to HDF5
      */
     private synchronized void addTaxon(IHDF5Writer myWriter, Taxon id, byte[] genotype, byte[][] depth) {
-        boolean goodAdd=HDF5Utils.addTaxon(myWriter,id);
-        if(goodAdd==false) throw new IllegalStateException("Taxon ["+id.getName()+"] already exists in the HDF5 file.  Duplicated taxa not allowed.");
-        HDF5Utils.writeHDF5GenotypesCalls(myWriter,id.getName(),genotype);
-        if(depth!=null) {
-            if(depth.length!=6) throw new IllegalStateException("Just set A, C, G, T, -, + all at once");
-            if(depth[0].length!=positionList.numberOfSites()) throw new IllegalStateException("Setting all depth in addTaxon.  Wrong number of sites");
-            HDF5Utils.writeHDF5GenotypesDepth(myWriter,id.getName(),depth);
+        boolean goodAdd = HDF5Utils.addTaxon(myWriter, id);
+        if (goodAdd == false) {
+            throw new IllegalStateException("Taxon [" + id.getName() + "] already exists in the HDF5 file.  Duplicated taxa not allowed.");
+        }
+        HDF5Utils.writeHDF5GenotypesCalls(myWriter, id.getName(), genotype);
+        if (depth != null) {
+            if (depth.length != 6) {
+                throw new IllegalStateException("Just set A, C, G, T, -, + all at once");
+            }
+            if (depth[0].length != positionList.numberOfSites()) {
+                throw new IllegalStateException("Setting all depth in addTaxon.  Wrong number of sites");
+            }
+            HDF5Utils.writeHDF5GenotypesDepth(myWriter, id.getName(), depth);
         }
     }
 
@@ -625,121 +670,147 @@ public class GenotypeTableBuilder {
         String[] newFlowCellLanes = id.getTextAnnotation("Flowcell_Lane");
         if (newFlowCellLanes.length > 0) {
             for (String existingFL : existingFlowCellLanes) {
-                if (existingFL.equals(newFlowCellLanes[0])) 
-                    throw new IllegalStateException("mergeTaxonInHDF5: Reads from flowcell_lane "+id.getTextAnnotation("Flowcell_Lane")[0]
-                            +" previously added to taxon "+id.getName());
+                if (existingFL.equals(newFlowCellLanes[0])) {
+                    throw new IllegalStateException("mergeTaxonInHDF5: Reads from flowcell_lane " + id.getTextAnnotation("Flowcell_Lane")[0]
+                            + " previously added to taxon " + id.getName());
+                }
             }
-            Taxon modifiedTaxon = new Taxon.Builder(HDF5Utils.getTaxon(writer, id.getName())).addAnno("Flowcell_Lane",newFlowCellLanes[0]).build();
+            Taxon modifiedTaxon = new Taxon.Builder(HDF5Utils.getTaxon(writer, id.getName())).addAnno("Flowcell_Lane", newFlowCellLanes[0]).build();
             HDF5Utils.replaceTaxonAnnotations(myWriter, modifiedTaxon);
         }
-        byte[] combGenos=new byte[genotype.length];
-        if(depth!=null) {
-            byte[][] existingDepth=HDF5Utils.getHDF5GenotypesDepth(myWriter,id.getName());
+        byte[] combGenos = new byte[genotype.length];
+        if (depth != null) {
+            byte[][] existingDepth = HDF5Utils.getHDF5GenotypesDepth(myWriter, id.getName());
             if (existingDepth == null) {
                 throw new IllegalStateException("mergeTaxonInHDF5: Trying to merge genotypes with and without depth.");
             }
-            byte[][] combDepth=new byte[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][genotype.length];
-            byte[] currDepths=new byte[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES];
-            for (int site=0; site<combDepth[0].length; site++) {
-                for (int allele=0; allele<combDepth.length; allele++) {
-                    currDepths[allele]=combDepth[allele][site]=AlleleDepthUtil.addByteDepths(depth[allele][site],existingDepth[allele][site]);
+            byte[][] combDepth = new byte[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][genotype.length];
+            byte[] currDepths = new byte[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES];
+            for (int site = 0; site < combDepth[0].length; site++) {
+                for (int allele = 0; allele < combDepth.length; allele++) {
+                    currDepths[allele] = combDepth[allele][site] = AlleleDepthUtil.addByteDepths(depth[allele][site], existingDepth[allele][site]);
                 }
-                combGenos[site]=mergeRule.callBasedOnDepth(currDepths);
+                combGenos[site] = mergeRule.callBasedOnDepth(currDepths);
             }
-            HDF5Utils.replaceHDF5GenotypesCalls(myWriter,id.getName(),combGenos);
-            HDF5Utils.replaceHDF5GenotypesDepth(myWriter,id.getName(),combDepth);
+            HDF5Utils.replaceHDF5GenotypesCalls(myWriter, id.getName(), combGenos);
+            HDF5Utils.replaceHDF5GenotypesDepth(myWriter, id.getName(), combDepth);
         } else {
-            byte[] existingGenos=HDF5Utils.getHDF5GenotypesCalls(myWriter,id.getName());
-            for (int site=0; site<combGenos.length; site++) {
-                combGenos[site]=mergeRule.mergeCalls(genotype[site],existingGenos[site]);
+            byte[] existingGenos = HDF5Utils.getHDF5GenotypesCalls(myWriter, id.getName());
+            for (int site = 0; site < combGenos.length; site++) {
+                combGenos[site] = mergeRule.mergeCalls(genotype[site], existingGenos[site]);
             }
-            HDF5Utils.replaceHDF5GenotypesCalls(myWriter,id.getName(),combGenos);
+            HDF5Utils.replaceHDF5GenotypesCalls(myWriter, id.getName(), combGenos);
         }
     }
 
     /**
-     * Annotates the HDF5 Genotype file with allele frequency information.  Can only be called on unlocked HDF5 files.
-     * Currently, placed in the GenotypeTableBuilder as it still above genotypes, taxa, and sites.
+     * Annotates the HDF5 Genotype file with allele frequency information. Can
+     * only be called on unlocked HDF5 files. Currently, placed in the
+     * GenotypeTableBuilder as it still above genotypes, taxa, and sites.
+     *
      * @param writer
      */
     public static void annotateHDF5File(IHDF5Writer writer) {
-       // int hdf5GenoBlock=writer.getIntAttribute(Tassel5HDF5Constants.DEFAULT_ATTRIBUTES_PATH, Tassel5HDF5Constants.BLOCK_SIZE);
-        if(HDF5Utils.isHDF5GenotypeLocked(writer)) throw new UnsupportedOperationException("This is a locked HDF5 file");
-        int hdf5GenoBlock=Tassel5HDF5Constants.BLOCK_SIZE;
-        int sites=writer.getIntAttribute(Tassel5HDF5Constants.POSITION_ATTRIBUTES_PATH, Tassel5HDF5Constants.POSITION_NUM_SITES);
-        TaxaList tL=new TaxaListBuilder().buildFromHDF5Genotypes(writer);
-        int taxa=tL.numberOfTaxa();
-        writer.setIntAttribute(Tassel5HDF5Constants.GENOTYPES_ATTRIBUTES_PATH, Tassel5HDF5Constants.GENOTYPES_NUM_TAXA,taxa);
-        int[][] af=new int[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][sites];
-        byte[][] afOrder=new byte[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][sites];
-        float[] coverage=new float[taxa];
-        float[] hets=new float[taxa];
+        // int hdf5GenoBlock=writer.getIntAttribute(Tassel5HDF5Constants.DEFAULT_ATTRIBUTES_PATH, Tassel5HDF5Constants.BLOCK_SIZE);
+        if (HDF5Utils.isHDF5GenotypeLocked(writer)) {
+            throw new UnsupportedOperationException("This is a locked HDF5 file");
+        }
+        int hdf5GenoBlock = Tassel5HDF5Constants.BLOCK_SIZE;
+        int sites = writer.getIntAttribute(Tassel5HDF5Constants.POSITION_ATTRIBUTES_PATH, Tassel5HDF5Constants.POSITION_NUM_SITES);
+        TaxaList tL = new TaxaListBuilder().buildFromHDF5Genotypes(writer);
+        int taxa = tL.numberOfTaxa();
+        writer.setIntAttribute(Tassel5HDF5Constants.GENOTYPES_ATTRIBUTES_PATH, Tassel5HDF5Constants.GENOTYPES_NUM_TAXA, taxa);
+        int[][] af = new int[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][sites];
+        byte[][] afOrder = new byte[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][sites];
+        float[] coverage = new float[taxa];
+        float[] hets = new float[taxa];
         for (int taxon = 0; taxon < taxa; taxon++) {
             String basesPath = Tassel5HDF5Constants.getGenotypesCallsPath(tL.taxaName(taxon));
-            byte[] genotype=writer.readByteArray(basesPath);
-            int covSum=0;  //coverage of the taxon
-            int hetSum=0;
+            byte[] genotype = writer.readByteArray(basesPath);
+            int covSum = 0;  //coverage of the taxon
+            int hetSum = 0;
             for (int s = 0; s < sites; s++) {
                 byte[] b = GenotypeTableUtils.getDiploidValues(genotype[s]);
-                if(b[0]<6) af[b[0]][s]++;
-                if(b[1]<6) af[b[1]][s]++;
-                if(GenotypeTableUtils.isHeterozygous(genotype[s])) hetSum++;
-                if(genotype[s]!=GenotypeTable.UNKNOWN_DIPLOID_ALLELE) covSum++;
+                if (b[0] < 6) {
+                    af[b[0]][s]++;
+                }
+                if (b[1] < 6) {
+                    af[b[1]][s]++;
+                }
+                if (GenotypeTableUtils.isHeterozygous(genotype[s])) {
+                    hetSum++;
+                }
+                if (genotype[s] != GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+                    covSum++;
+                }
             }
-            coverage[taxon]=(float)covSum/(float)sites;
-            hets[taxon]=(float)hetSum/(float)covSum;
+            coverage[taxon] = (float) covSum / (float) sites;
+            hets[taxon] = (float) hetSum / (float) covSum;
         }
-        float[] maf=new float[sites];
-        float[] paf=new float[sites];
-        int baseMask=0xF;
+        float[] maf = new float[sites];
+        float[] paf = new float[sites];
+        int baseMask = 0xF;
         for (int s = 0; s < sites; s++) {
-            int sum=0;
-            int[] cntAndAllele=new int[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES];
+            int sum = 0;
+            int[] cntAndAllele = new int[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES];
             for (byte i = 0; i < 6; i++) {
-                cntAndAllele[i]=(af[i][s]<<4)|(5-i);  //size | allele (the 5-i is to get the sort right, so if case of ties A is first)
-                sum+=af[i][s];
+                cntAndAllele[i] = (af[i][s] << 4) | (5 - i);  //size | allele (the 5-i is to get the sort right, so if case of ties A is first)
+                sum += af[i][s];
             }
             Arrays.sort(cntAndAllele);  //ascending quick sort, there are faster ways
             //http://stackoverflow.com/questions/2786899/fastest-sort-of-fixed-length-6-int-array
             for (byte i = 0; i < 6; i++) {
-                afOrder[5-i][s]=(cntAndAllele[i]>0xF)?((byte)(5-(baseMask&cntAndAllele[i]))):GenotypeTable.UNKNOWN_ALLELE;
+                afOrder[5 - i][s] = (cntAndAllele[i] > 0xF) ? ((byte) (5 - (baseMask & cntAndAllele[i]))) : GenotypeTable.UNKNOWN_ALLELE;
             }
-            if(afOrder[1][s]!=GenotypeTable.UNKNOWN_ALLELE) maf[s]=(float)af[afOrder[1][s]][s]/(float)sum;
-            paf[s]=(float)sum/(float)(2*taxa);
+            if (afOrder[1][s] != GenotypeTable.UNKNOWN_ALLELE) {
+                maf[s] = (float) af[afOrder[1][s]][s] / (float) sum;
+            }
+            paf[s] = (float) sum / (float) (2 * taxa);
         }
         writer.createGroup(Tassel5HDF5Constants.GENO_DESC);
-        int chunk=(sites<hdf5GenoBlock)?sites:hdf5GenoBlock;
+        int chunk = (sites < hdf5GenoBlock) ? sites : hdf5GenoBlock;
         writer.createIntMatrix(Tassel5HDF5Constants.ALLELE_CNT, 6, sites, 1, chunk, Tassel5HDF5Constants.intDeflation);
         writer.createByteMatrix(Tassel5HDF5Constants.ALLELE_FREQ_ORD, 6, sites, 1, chunk, Tassel5HDF5Constants.intDeflation);
         writer.createFloatArray(Tassel5HDF5Constants.MAF, sites, chunk, Tassel5HDF5Constants.floatDeflation);
         writer.createFloatArray(Tassel5HDF5Constants.SITECOV, sites, chunk, Tassel5HDF5Constants.floatDeflation);
-      //  writer.createGroup(Tassel5HDF5Constants.TAXA_DESC);
-        chunk=(tL.numberOfTaxa()<hdf5GenoBlock)?tL.numberOfTaxa():hdf5GenoBlock;
+        //  writer.createGroup(Tassel5HDF5Constants.TAXA_DESC);
+        chunk = (tL.numberOfTaxa() < hdf5GenoBlock) ? tL.numberOfTaxa() : hdf5GenoBlock;
         writer.createFloatArray(Tassel5HDF5Constants.TAXACOV, tL.numberOfTaxa(), chunk, Tassel5HDF5Constants.floatDeflation);
         writer.createFloatArray(Tassel5HDF5Constants.TAXAHET, tL.numberOfTaxa(), chunk, Tassel5HDF5Constants.floatDeflation);
-        if(af[0].length>0) HDF5Utils.writeHDF5EntireArray(Tassel5HDF5Constants.ALLELE_CNT, writer, af[0].length, 1<<16, af);
-        if(afOrder[0].length>0) HDF5Utils.writeHDF5EntireArray(Tassel5HDF5Constants.ALLELE_FREQ_ORD, writer, afOrder[0].length, 1<<16, afOrder);
-        if(maf.length>0) HDF5Utils.writeHDF5EntireArray(Tassel5HDF5Constants.MAF, writer, maf.length, 1<<16, maf);
-        if(paf.length>0) HDF5Utils.writeHDF5EntireArray(Tassel5HDF5Constants.SITECOV, writer, paf.length, 1<<16, paf);
+        if (af[0].length > 0) {
+            HDF5Utils.writeHDF5EntireArray(Tassel5HDF5Constants.ALLELE_CNT, writer, af[0].length, 1 << 16, af);
+        }
+        if (afOrder[0].length > 0) {
+            HDF5Utils.writeHDF5EntireArray(Tassel5HDF5Constants.ALLELE_FREQ_ORD, writer, afOrder[0].length, 1 << 16, afOrder);
+        }
+        if (maf.length > 0) {
+            HDF5Utils.writeHDF5EntireArray(Tassel5HDF5Constants.MAF, writer, maf.length, 1 << 16, maf);
+        }
+        if (paf.length > 0) {
+            HDF5Utils.writeHDF5EntireArray(Tassel5HDF5Constants.SITECOV, writer, paf.length, 1 << 16, paf);
+        }
 
-        if(coverage.length>0) HDF5Utils.writeHDF5EntireArray(Tassel5HDF5Constants.TAXACOV, writer, coverage.length, 1<<16, coverage);
-        if(hets.length>0) {
-            System.out.println("Number of taxa in HDF5 file:"+hets.length);
-            HDF5Utils.writeHDF5EntireArray(Tassel5HDF5Constants.TAXAHET, writer, hets.length, 1<<16, hets);
+        if (coverage.length > 0) {
+            HDF5Utils.writeHDF5EntireArray(Tassel5HDF5Constants.TAXACOV, writer, coverage.length, 1 << 16, coverage);
+        }
+        if (hets.length > 0) {
+            System.out.println("Number of taxa in HDF5 file:" + hets.length);
+            HDF5Utils.writeHDF5EntireArray(Tassel5HDF5Constants.TAXAHET, writer, hets.length, 1 << 16, hets);
         }
     }
-    
+
     /**
-     * Annotates the HDF5 Genotype file with the reference allele and reference genome version.
-     * Can only be called on unlocked HDF5 files. 
+     * Annotates the HDF5 Genotype file with the reference allele and reference
+     * genome version. Can only be called on unlocked HDF5 files.
+     *
      * @param writer
-     * @param refAlleles 
+     * @param refAlleles
      */
     public static void annotateHDF5FileWithRefAllele(IHDF5Writer writer, byte[] refAlleles) {
-        ;
     }
 
+    private static enum BuildType {
 
-
-    private enum BuildType{TAXA_INC, SITE_INC}
+        TAXA_INC, SITE_INC
+    }
 }

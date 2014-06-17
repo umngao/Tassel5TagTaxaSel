@@ -12,6 +12,7 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListUtils;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.dna.WHICH_ALLELE;
+import net.maizegenetics.dna.snp.score.AlleleProbability;
 
 import java.util.*;
 
@@ -315,45 +316,6 @@ public class CombineGenotypeTable implements GenotypeTable {
         } else {
             return myChromosomesList.length;
         }
-    }
-
-    @Override
-    public float[][] siteScores() {
-
-        if (!hasSiteScores()) {
-            return null;
-        }
-
-        int numSeqs = numberOfTaxa();
-        float[][] result = new float[numSeqs][numberOfSites()];
-        for (int a = 0, n = myAlignments.length; a < n; a++) {
-            if (myAlignments[a].hasSiteScores()) {
-                for (int s = 0, m = myAlignments[a].numberOfSites(); s < m; s++) {
-                    for (int t = 0; t < numSeqs; t++) {
-                        result[t][mySiteOffsets[a] + s] = myAlignments[a].siteScore(t, s);
-                    }
-                }
-            }
-        }
-
-        return result;
-
-    }
-
-    @Override
-    public float siteScore(int taxon, int site) {
-        int translate = translateSite(site);
-        return myAlignments[translate].siteScore(taxon, site - mySiteOffsets[translate]);
-    }
-
-    @Override
-    public boolean hasSiteScores() {
-        for (GenotypeTable align : myAlignments) {
-            if (align.hasSiteScores()) {
-                return true;
-            }
-        }
-        return false;
     }
 
     @Override
@@ -912,6 +874,17 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public GenotypeCallTable genotypeMatrix() {
         throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public AlleleProbability alleleProbability() {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public float alleleProbability(int taxon, int site, SITE_SCORE_TYPE type) {
+        int translate = translateSite(site);
+        return myAlignments[translate].alleleProbability(taxon, site - mySiteOffsets[translate], type);
     }
 
 }
