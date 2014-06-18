@@ -1,48 +1,76 @@
 package net.maizegenetics.phenotype;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.TableReport;
 
+/**
+ * This class holds phenotypes and genotypes for a set of Taxa. 
+ * @author Peter Bradbury
+ * 
+ */
 public class GenotypePhenotype implements TableReport {
 	private final GenotypeTable myGenotype;
 	private final Phenotype myPhenotype;
 	private final String name;
 	
+	/**
+	 * @param theGenotype	a GenotypeTable
+	 * @param thePhenotype	a Phenotype
+	 * @param name	the name that will be displayed for this in the GUI
+	 */
 	GenotypePhenotype(GenotypeTable theGenotype, Phenotype thePhenotype, String name) {
 		myGenotype = theGenotype;
 		myPhenotype = thePhenotype;
 		this.name = name;
 	}
 	
+	/**
+	 * @return the GenotypeTable used by this object
+	 */
 	public GenotypeTable genotypeTable() {
 		return myGenotype;
 	}
 	
+	/**
+	 * @return	the Phenotype used by this object
+	 */
 	public Phenotype phenotype() {
 		return myPhenotype;
 	}
 
+	/**
+	 * @return	true if genotypes are discrete (nucleotides), false if the genotypes are numeric
+	 * The GenotypeTable backing this object may hold both types of data. The boolean indicates which is to be used in an analysis.
+	 */
 	public boolean areGenotypeValuesDiscrete() {
 		//TODO implement
 		return true;
 	}
 	
-	public String[] getStringGenotype() {
+	/**
+	 * @param site	the site in the GenotypeTable
+	 * @return	the genotypes corresponding to every row of the phenotype table as String values
+	 */
+	public String[] getStringGenotype(int site) {
 		//TODO implement
 		return null;
 	}
 	
-	public String[] getStringGenotype(boolean[] notMissing) {
+	/**
+	 * @param site	the site in the GenotypeTable
+	 * @return	the genotypes corresponding to every row of the phenotype table as double values
+	 */
+	public double[] getNumericGenotype(int site) {
 		//TODO implement
 		return null;
 	}
-	
-	public double[] getNumericGenotype() {
-		//TODO implement
-		return null;
-	}
-	
-	public double[] getNumericGenotype(boolean[] notMissing) {
+
+	/**
+	 * @param site	the site in the GenotypeTable
+	 * @return	a BitSet indicating which rows in the phenotype table have missing values for this site
+	 */
+	public BitSet missing(int site) {
 		//TODO implement
 		return null;
 	}
