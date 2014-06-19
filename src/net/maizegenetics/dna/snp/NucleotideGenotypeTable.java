@@ -6,6 +6,7 @@ package net.maizegenetics.dna.snp;
 import net.maizegenetics.dna.snp.depth.AlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.taxa.TaxaList;
 
 /**
@@ -15,8 +16,8 @@ import net.maizegenetics.taxa.TaxaList;
  */
 public class NucleotideGenotypeTable extends CoreGenotypeTable {
 
-    public NucleotideGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth) {
-        super(genotype, positionList, taxaList, alleleDepth);
+    public NucleotideGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability) {
+        super(genotype, positionList, taxaList, alleleDepth, alleleProbability);
     }
 
     @Override
