@@ -5,6 +5,7 @@ import java.util.List;
 
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.TableReport;
 
 /**
  * Phenotype represents phenotype data as a two dimensional matrix. Rows are observations. Columns are attributes.
@@ -12,7 +13,7 @@ import net.maizegenetics.util.BitSet;
  * @author pbradbury
  *
  */
-public interface Phenotype {
+public interface Phenotype  extends TableReport {
 	public enum ATTRIBUTE_TYPE {data, covariate, factor, taxa};
 
 	/**
