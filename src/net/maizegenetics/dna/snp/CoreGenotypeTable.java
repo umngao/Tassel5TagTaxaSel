@@ -37,23 +37,29 @@ public class CoreGenotypeTable implements GenotypeTable {
     private final Map<WHICH_ALLELE, BitStorage> myBitStorage = new HashMap<>();
     private final PositionList myPositionList;
     private final TaxaList myTaxaList;
-    private final AlleleProbability myAlleleProbability = null;
+    private final AlleleProbability myAlleleProbability;
     private final AlleleDepth myAlleleDepth;
     private final int mySiteCount;
     private final int myTaxaCount;
 
-    CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth) {
-        //todo need check dimensions
+    CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability) {
+        if (genotype.numberOfTaxa() != taxaList.numberOfTaxa()) {
+            throw new IllegalArgumentException("CoreGenotypeTable: init: genotype number of taxa: " + genotype.numberOfTaxa() + " doesn't match taxa list: " + taxaList.numberOfTaxa());
+        }
+        if (genotype.numberOfSites() != positionList.numberOfSites()) {
+            throw new IllegalArgumentException("CoreGenotypeTable: init: genotype number of sites: " + genotype.numberOfSites() + " doesn't match position list: " + positionList.numberOfSites());
+        }
         myGenotype = genotype;
         myPositionList = positionList;
         myTaxaList = taxaList;
         myAlleleDepth = alleleDepth;
+        myAlleleProbability = alleleProbability;
         mySiteCount = myPositionList.numberOfSites();
         myTaxaCount = myTaxaList.numberOfTaxa();
     }
 
     CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList) {
-        this(genotype, positionList, taxaList, null);
+        this(genotype, positionList, taxaList, null, null);
     }
 
     @Override
@@ -245,7 +251,6 @@ public class CoreGenotypeTable implements GenotypeTable {
     public int[] chromosomesOffsets() {
         return myPositionList.chromosomesOffsets();
     }
-
 
     @Override
     public Set<GenotypeTable.SITE_SCORE_TYPE> siteScoreTypes() {
