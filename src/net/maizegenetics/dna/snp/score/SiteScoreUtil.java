@@ -69,4 +69,21 @@ public class SiteScoreUtil {
         return value / 255f;
     }
 
+    // int to byte (no translation i.e. Dosage)
+    public static byte intToByte(int value) {
+        if ((value < 0) || (value > 127)) {
+            throw new IllegalArgumentException("SiteScoreUtil: intToByte: value must be between 0 and 127");
+        }
+
+        return (byte) value;
+    }
+
+    public static byte[] intToByte(int[] values) {
+        byte[] result = new byte[values.length];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = intToByte(values[i]);
+        }
+        return result;
+    }
+
 }

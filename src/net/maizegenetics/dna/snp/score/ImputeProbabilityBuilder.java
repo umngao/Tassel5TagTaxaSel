@@ -44,7 +44,7 @@ public class ImputeProbabilityBuilder {
         return new ImputeProbability(resultStorage);
     }
 
-    public ImputeProbabilityBuilder addTaxon(int taxon, float[] values, GenotypeTable.SITE_SCORE_TYPE type) {
+    public ImputeProbabilityBuilder addTaxon(int taxon, float[] values) {
         if (myNumSites != values.length) {
             throw new IllegalArgumentException("ImputeProbabilityBuilder: addTaxon: number of values: " + values.length + " doesn't equal number of sites: " + myNumSites);
         }
