@@ -17,6 +17,7 @@ import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeMergeRule;
 import net.maizegenetics.dna.snp.score.AlleleProbabilityBuilder;
+import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
@@ -310,32 +311,51 @@ public class GenotypeTableBuilder {
         return new GenotypeTableBuilder(newHDF5File, taxaList, numberOfPositions);
     }
 
-    public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth) {
-        if (genotype.numberOfSites() != positionList.numberOfSites()) {
-            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of sites in genotype: " + genotype.numberOfSites() + " doesn't equal number of sites in position list: " + positionList.numberOfSites());
-        }
-        if (genotype.numberOfTaxa() != taxaList.numberOfTaxa()) {
-            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + genotype.numberOfTaxa() + " doesn't equal number of taxa in taaxa list: " + taxaList.numberOfTaxa());
-        }
-        return new CoreGenotypeTable(genotype, positionList, taxaList, alleleDepth, null);
-    }
-
     /**
      * Standard approach for creating a new Alignment
      *
      * @param genotype
      * @param positionList
      * @param taxaList
-     * @return new alignment
+     * @param alleleDepth
+     * @param alleleProbability
+     *
+     * @return new genotype table
      */
+    public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability) {
+        int numTaxa = genotype.numberOfTaxa();
+        int numSites = genotype.numberOfSites();
+
+        if (positionList == null) {
+            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: position list is required.");
+        } else if (numSites != positionList.numberOfSites()) {
+            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of sites in genotype: " + numSites + " doesn't equal number of sites in position list: " + positionList.numberOfSites());
+        }
+
+        if (taxaList == null) {
+            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: taxa list is required.");
+        } else if (numTaxa != taxaList.numberOfTaxa()) {
+            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + numTaxa + " doesn't equal number of taxa in taxa list: " + taxaList.numberOfTaxa());
+        }
+
+        if (alleleProbability != null) {
+            if (numSites != alleleProbability.numSites()) {
+                throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of sites in genotype: " + numSites + " doesn't equal number of sites in allele probability: " + alleleProbability.numSites());
+            }
+            if (numTaxa != alleleProbability.numTaxa()) {
+                throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + numTaxa + " doesn't equal number of taxa in allele probability: " + alleleProbability.numTaxa());
+            }
+        }
+
+        return new CoreGenotypeTable(genotype, positionList, taxaList, alleleDepth, alleleProbability);
+    }
+
+    public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth) {
+        return getInstance(genotype, positionList, taxaList, alleleDepth, null);
+    }
+
     public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList) {
-        if (genotype.numberOfSites() != positionList.numberOfSites()) {
-            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of sites in genotype: " + genotype.numberOfSites() + " doesn't equal number of sites in position list: " + positionList.numberOfSites());
-        }
-        if (genotype.numberOfTaxa() != taxaList.numberOfTaxa()) {
-            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + genotype.numberOfTaxa() + " doesn't equal number of taxa in taaxa list: " + taxaList.numberOfTaxa());
-        }
-        return new CoreGenotypeTable(genotype, positionList, taxaList);
+        return getInstance(genotype, positionList, taxaList, null, null);
     }
 
     /**
@@ -619,7 +639,11 @@ public class GenotypeTableBuilder {
                     }
                 }
                 AlleleDepth ad = (hasDepth) ? adb.build() : null;
-                return new CoreGenotypeTable(gB.build(), positionList, tl, ad, myAlleleProbabilityBuilder.build());
+                AlleleProbability alleleProbability = null;
+                if (myAlleleProbabilityBuilder != null) {
+                    alleleProbability = myAlleleProbabilityBuilder.build();
+                }
+                return getInstance(gB.build(), positionList, tl, ad, alleleProbability);
             }
             case SITE_INC: {
                 GenotypeCallTableBuilder gB = GenotypeCallTableBuilder.getInstance(taxaList.numberOfTaxa(), posListBuilder.size());
@@ -630,7 +654,7 @@ public class GenotypeTableBuilder {
                     }
                 }
                 PositionList pl = posListBuilder.build(gB);
-                return new CoreGenotypeTable(gB.build(), pl, taxaList);
+                return getInstance(gB.build(), pl, taxaList);
             }
         }
         return null;
