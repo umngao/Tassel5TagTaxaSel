@@ -44,11 +44,11 @@ public class DosageBuilder {
         return new Dosage(resultStorage);
     }
 
-    public DosageBuilder addTaxon(int taxon, int[] values) {
+    public DosageBuilder addTaxon(int taxon, byte[] values) {
         if (myNumSites != values.length) {
             throw new IllegalArgumentException("DosageBuilder: addTaxon: number of values: " + values.length + " doesn't equal number of sites: " + myNumSites);
         }
-        myBuilder.addTaxon(taxon, SiteScoreUtil.intToByte(values));
+        myBuilder.addTaxon(taxon, values);
         return this;
     }
 

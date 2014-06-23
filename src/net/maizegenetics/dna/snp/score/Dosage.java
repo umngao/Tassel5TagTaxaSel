@@ -18,7 +18,7 @@ public class Dosage extends SiteScore {
         myStorage = value;
     }
 
-    public int value(int taxon, int site) {
+    public byte value(int taxon, int site) {
         return myStorage.valueForAllele(taxon, site);
     }
 
