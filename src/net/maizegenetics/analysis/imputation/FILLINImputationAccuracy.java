@@ -25,7 +25,6 @@ import static net.maizegenetics.dna.snp.GenotypeTableUtils.isHeterozygous;
 import net.maizegenetics.dna.snp.ImportUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.GAP_DIPLOID_ALLELE;
-import net.maizegenetics.dna.snp.NucleotideGenotypeTable;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import org.apache.commons.lang.ArrayUtils;
 
@@ -140,14 +139,14 @@ public class FILLINImputationAccuracy {
                 int taxaCnt= 0;
                 mask.setBaseRangeForTaxon(taxon, 0, this.unimp.genotypeAllSites(taxon));
                 for (int site = 0; site < this.unimp.numberOfSites(); site++) {
-                    if (GenotypeTableUtils.isEqual(NucleotideGenotypeTable.UNKNOWN_DIPLOID_ALLELE, this.unimp.genotype(taxon, site))) continue;
+                    if (GenotypeTableUtils.isEqual(GenotypeTable.UNKNOWN_DIPLOID_ALLELE, this.unimp.genotype(taxon, site))) continue;
                     int[] currD= this.unimp.depthForAlleles(taxon, site);
                     if (currD[0]+currD[1]!=this.depthToMask) continue;
                     if (Math.random()>this.propDepthSitesToMask) continue;
                     else if ((this.unimp.isHeterozygous(taxon, site)==false) ||
                                 (depthToMask > 3 && currD[0] > 1 && currD[1] > 1)|| 
                                 (depthToMask < 4)) {
-                        mask.setBase(taxon, site, NucleotideGenotypeTable.UNKNOWN_DIPLOID_ALLELE); key.setBase(taxon, site, this.unimp.genotype(taxon, site)); taxaCnt++;
+                        mask.setBase(taxon, site, GenotypeTable.UNKNOWN_DIPLOID_ALLELE); key.setBase(taxon, site, this.unimp.genotype(taxon, site)); taxaCnt++;
                     }
                 }
                 if (this.verboseOutput) System.out.println(taxaCnt+" sites masked for "+this.unimp.taxaName(taxon)); cnt+= taxaCnt;
@@ -172,8 +171,8 @@ public class FILLINImputationAccuracy {
                 int taxaCnt= 0;
                 mask.setBaseRangeForTaxon(taxon, 0, this.unimp.genotypeAllSites(taxon));
                 for (int site = 0; site < this.unimp.numberOfSites(); site++) {
-                    if (Math.random()<this.propSitesMask && GenotypeTableUtils.isEqual(NucleotideGenotypeTable.UNKNOWN_DIPLOID_ALLELE, this.unimp.genotype(taxon, site))==false) {
-                        mask.setBase(taxon, site, NucleotideGenotypeTable.UNKNOWN_DIPLOID_ALLELE); key.setBase(taxon, site, this.unimp.genotype(taxon, site)); taxaCnt++;
+                    if (Math.random()<this.propSitesMask && GenotypeTableUtils.isEqual(GenotypeTable.UNKNOWN_DIPLOID_ALLELE, this.unimp.genotype(taxon, site))==false) {
+                        mask.setBase(taxon, site, GenotypeTable.UNKNOWN_DIPLOID_ALLELE); key.setBase(taxon, site, this.unimp.genotype(taxon, site)); taxaCnt++;
                     }
                 }
                 cnt+= taxaCnt;

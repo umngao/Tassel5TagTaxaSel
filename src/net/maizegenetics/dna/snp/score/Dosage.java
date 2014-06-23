@@ -1,5 +1,5 @@
 /*
- *  ImputeProbability
+ *  Dosage
  */
 package net.maizegenetics.dna.snp.score;
 
@@ -9,17 +9,17 @@ import net.maizegenetics.dna.snp.byte2d.Byte2D;
  *
  * @author Terry Casstevens
  */
-public class ImputeProbability extends SiteScore {
+public class Dosage extends SiteScore {
 
     private final Byte2D myStorage;
 
-    ImputeProbability(Byte2D value) {
+    Dosage(Byte2D value) {
         super(new Byte2D[]{value});
         myStorage = value;
     }
 
-    public float value(int taxon, int site) {
-        return SiteScoreUtil.byteToFloatPercentage(myStorage.valueForAllele(taxon, site));
+    public int value(int taxon, int site) {
+        return myStorage.valueForAllele(taxon, site);
     }
 
 }

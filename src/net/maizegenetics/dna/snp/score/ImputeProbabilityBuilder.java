@@ -19,13 +19,16 @@ import net.maizegenetics.taxa.TaxaList;
 public class ImputeProbabilityBuilder {
 
     private Byte2DBuilder myBuilder;
+    private final int myNumSites;
 
     private ImputeProbabilityBuilder(int numTaxa, int numSites, TaxaList taxaList) {
         myBuilder = Byte2DBuilder.getInstance(numTaxa, numSites, GenotypeTable.SITE_SCORE_TYPE.ImputedProbablity, taxaList);
+        myNumSites = numSites;
     }
 
     private ImputeProbabilityBuilder(IHDF5Writer writer, int numTaxa, int numSites, TaxaList taxaList) {
         myBuilder = Byte2DBuilder.getInstance(writer, numSites, GenotypeTable.SITE_SCORE_TYPE.ImputedProbablity, taxaList);
+        myNumSites = numSites;
     }
 
     public static ImputeProbabilityBuilder getInstance(IHDF5Writer writer, int numTaxa, int numSites, TaxaList taxaList) {
@@ -41,8 +44,11 @@ public class ImputeProbabilityBuilder {
         return new ImputeProbability(resultStorage);
     }
 
-    public ImputeProbabilityBuilder addTaxon(int taxon, byte[] values, GenotypeTable.SITE_SCORE_TYPE type) {
-        myBuilder.addTaxon(taxon, values);
+    public ImputeProbabilityBuilder addTaxon(int taxon, float[] values) {
+        if (myNumSites != values.length) {
+            throw new IllegalArgumentException("ImputeProbabilityBuilder: addTaxon: number of values: " + values.length + " doesn't equal number of sites: " + myNumSites);
+        }
+        myBuilder.addTaxon(taxon, SiteScoreUtil.floatToBytePercentage(values));
         return this;
     }
 
