@@ -38,6 +38,7 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 	private boolean useClusterAlgorithm = false;
 	private boolean checkSubPops = false;
 	private boolean useHets = true;
+	private double maxHetDev = 5;
 	private ArrayList<PopulationData> familyList = null;
 	
 	public CallParentAllelesPlugin(Frame parentFrame) {
@@ -86,6 +87,11 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 				myLogger.info("family alignment created");
 				if (useClusterAlgorithm)  {
 					BiparentalHaplotypeFinder hapFinder = new BiparentalHaplotypeFinder(family);
+					hapFinder.maxHetDeviation = maxHetDev;
+					hapFinder.minR2 = minRforSnps;
+					hapFinder.minMaf = minMinorAlleleFrequency;
+					hapFinder.minCoverage = 1 - maxMissing;
+					hapFinder.window = windowSize;
 					hapFinder.assignHaplotyes();
 					hapFinder.convertGenotypesToParentCalls();
 				}
@@ -132,6 +138,9 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 			}
 			else if (args[i].equals("-f") || args[i].equalsIgnoreCase("-minMaf")) {
 				minMinorAlleleFrequency = Double.parseDouble(args[++i]);
+			}
+			else if (args[i].equals("-d") || args[i].equalsIgnoreCase("-maxHetDev")) {
+				maxHetDev = Double.parseDouble(args[++i]);
 			}
 			else if (args[i].equals("-b") || args[i].equalsIgnoreCase("-bc1")) {
 				String param = args[++i];
@@ -231,6 +240,7 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 		usage.append("-r or -minR : minimum R used to filter SNPs on LD (default = 0.2, use 0 for no ld filter)\n");
 		usage.append("-m or -maxMissing : maximum proportion of missing data allowed for a SNP (default = 0.9)\n");
 		usage.append("-f or -minMaf : minimum minor allele frequency used to filter SNPs. If negative, filters on expected segregation ratio from parental contribution (default = -1)\n");
+		usage.append("-d or -maxHetDev : filter sites on maximum heterozygosity, max heterozygosity = maxHetDev * sd of percent het + mean percent het (default = 5)\n");
 		usage.append("-b or -bc1 : use BC1 specific filter (default = true)\n");
 		usage.append("-n or -bcn : use multipe backcross specific filter (default = false)\n");
 		usage.append("-logfile : the name of a file to which all logged messages will be printed.\n");
