@@ -84,7 +84,12 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 				}
 				
 				myLogger.info("family alignment created");
-				if (useClusterAlgorithm)  NucleotideImputationUtils.callParentAllelesUsingClusters(family, maxMissing, minMinorAlleleFrequency, windowSize, checkSubPops);
+				if (useClusterAlgorithm)  {
+					BiparentalHaplotypeFinder hapFinder = new BiparentalHaplotypeFinder(family);
+					hapFinder.assignHaplotyes();
+					hapFinder.convertGenotypesToParentCalls();
+				}
+//				if (useClusterAlgorithm)  NucleotideImputationUtils.callParentAllelesUsingClusters(family, maxMissing, minMinorAlleleFrequency, windowSize, checkSubPops);
 				else if (useBCFilter && (family.contribution1 == 0.75 || family.contribution1 == 0.25)) NucleotideImputationUtils.callParentAllelesByWindowForBackcrosses(family, maxMissing, minMinorAlleleFrequency, windowSize, minRforSnps);
 				else if (useMultipleBCFilter) NucleotideImputationUtils.callParentAllelesByWindowForMultipleBC(family, maxMissing, 1, windowSize);
 				else NucleotideImputationUtils.callParentAllelesByWindow(family, maxMissing, minMinorAlleleFrequency, windowSize, minRforSnps);
