@@ -23,6 +23,7 @@ import net.maizegenetics.taxa.TaxaList;
 public class AlleleProbabilityBuilder {
 
     private final Map<GenotypeTable.SITE_SCORE_TYPE, Byte2DBuilder> myBuilders = new LinkedHashMap<>();
+    private final int myNumSites;
 
     private static final GenotypeTable.SITE_SCORE_TYPE[] ALLELE_PROBABILITY_TYPES = new GenotypeTable.SITE_SCORE_TYPE[]{
         GenotypeTable.SITE_SCORE_TYPE.ProbA, GenotypeTable.SITE_SCORE_TYPE.ProbC,
@@ -33,12 +34,14 @@ public class AlleleProbabilityBuilder {
         for (int i = 0; i < ALLELE_PROBABILITY_TYPES.length; i++) {
             myBuilders.put(ALLELE_PROBABILITY_TYPES[i], Byte2DBuilder.getInstance(numTaxa, numSites, ALLELE_PROBABILITY_TYPES[i], taxaList));
         }
+        myNumSites = numSites;
     }
 
     private AlleleProbabilityBuilder(IHDF5Writer writer, int numTaxa, int numSites, TaxaList taxaList) {
         for (int i = 0; i < ALLELE_PROBABILITY_TYPES.length; i++) {
             myBuilders.put(ALLELE_PROBABILITY_TYPES[i], Byte2DBuilder.getInstance(writer, numSites, ALLELE_PROBABILITY_TYPES[i], taxaList));
         }
+        myNumSites = numSites;
     }
 
     public static AlleleProbabilityBuilder getInstance(IHDF5Writer writer, int numTaxa, int numSites, TaxaList taxaList) {
@@ -61,6 +64,15 @@ public class AlleleProbabilityBuilder {
 
     public AlleleProbabilityBuilder addTaxon(int taxon, byte[] values, GenotypeTable.SITE_SCORE_TYPE type) {
         myBuilders.get(type).addTaxon(taxon, values);
+        return this;
+    }
+
+    public AlleleProbabilityBuilder addTaxon(int taxon, float[] values, GenotypeTable.SITE_SCORE_TYPE type) {
+        if (myNumSites != values.length) {
+            throw new IllegalArgumentException("AlleleProbabilityBuilder: addTaxon: number of values: " + values.length + " doesn't equal number of sites: " + myNumSites);
+        }
+        byte[] result = SiteScoreUtil.floatToBytePercentage(values);
+        myBuilders.get(type).addTaxon(taxon, result);
         return this;
     }
 

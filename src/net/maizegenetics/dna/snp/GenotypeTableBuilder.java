@@ -16,7 +16,8 @@ import net.maizegenetics.dna.snp.depth.AlleleDepthUtil;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeMergeRule;
-import net.maizegenetics.dna.snp.score.SiteScore;
+import net.maizegenetics.dna.snp.score.AlleleProbabilityBuilder;
+import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
@@ -28,16 +29,21 @@ import java.util.Arrays;
 import java.util.HashMap;
 
 /**
- * Builder for GenotypeTables.  New genotypeTables are built from a minimum of TaxaList, PositionList, and
- * GenotypeCallTable.  Depth and Scores are optional features of GenotypeTables.
- * <p></p>
- If you know the taxa,position, and genotypes are known from the beginning use:
- GenotypeTable a=GenotypeTableBuilder.getInstance(genotype, positionList, taxaList);
-
- In many situations only GenotypeTables are built incrementally, either by Taxa or Site.
- <p></p>
- For taxa building:
- <pre>
+ * Builder for GenotypeTables. New genotypeTables are built from a minimum of
+ * TaxaList, PositionList, and GenotypeCallTable. Depth and Scores are optional
+ * features of GenotypeTables.
+ * <p>
+ * </p>
+ * If you know the taxa,position, and genotypes are known from the beginning
+ * use: GenotypeTable a=GenotypeTableBuilder.getInstance(genotype, positionList,
+ * taxaList);
+ *
+ * In many situations only GenotypeTables are built incrementally, either by
+ * Taxa or Site.
+ * <p>
+ * </p>
+ * For taxa building:
+ * <pre>
  *{@code
  *    GenotypeTableBuilder gtb=GenotypeTableBuilder.getTaxaIncremental(gbs.positions(),outFile);
  *    for (int i=0; i<hm2.numberOfTaxa(); i++) {
@@ -47,22 +53,26 @@ import java.util.HashMap;
  *        }
  *    GenotypeTable gt=gtb.build();
  *}
- </pre>
- <p></p>
- In many cases, genotype want to add taxa to an existing genotypeTable.  Direct addition is not possible, as GenotypeTables
- are immutable, but the GenotypeTableBuilder.getTaxaIncremental provides a strategy for creating and merging taxa together.
- Key to the process is that GenotypeMergeRule defines how the taxa with identical names will be merged.<br></br>
- Merging is possible with HDF5 files, but only if the closeUnfinished() method was used with the previous building.
- <pre>{@code
-GenotypeTable existingGenotypeTable1, existingGenotypeTable2;
-GenotypeTableBuilder gtb=GenotypeTableBuilder.getTaxaIncremental(existingGenotypeTable1,
-    new BasicGenotypeMergeRule(0.01));
-for (int i=0; i<existingGenotypeTable2.numberOfTaxa(); i++) {
-    gtb.addTaxon(existingGenotypeTable2.taxa().get(i), existingGenotypeTable2.genotypeAllSites(i)
-        existingGenotypeTable2.depth().depthAllSitesByte(i));
-}
- }</pre>
-
+ * </pre>
+ * <p>
+ * </p>
+ * In many cases, genotype want to add taxa to an existing genotypeTable. Direct
+ * addition is not possible, as GenotypeTables are immutable, but the
+ * GenotypeTableBuilder.getTaxaIncremental provides a strategy for creating and
+ * merging taxa together. Key to the process is that GenotypeMergeRule defines
+ * how the taxa with identical names will be merged.<br></br>
+ * Merging is possible with HDF5 files, but only if the closeUnfinished() method
+ * was used with the previous building.
+ * <pre>{@code
+ * GenotypeTable existingGenotypeTable1, existingGenotypeTable2;
+ * GenotypeTableBuilder gtb=GenotypeTableBuilder.getTaxaIncremental(existingGenotypeTable1,
+ * new BasicGenotypeMergeRule(0.01));
+ * for (int i=0; i<existingGenotypeTable2.numberOfTaxa(); i++) {
+ * gtb.addTaxon(existingGenotypeTable2.taxa().get(i), existingGenotypeTable2.genotypeAllSites(i)
+ * existingGenotypeTable2.depth().depthAllSitesByte(i));
+ * }
+ * }</pre>
+ *
  *
  * @author Terry Casstevens
  * @author Ed Buckler
@@ -74,6 +84,7 @@ public class GenotypeTableBuilder {
     private TaxaListBuilder taxaListBuilder = null;
     private ArrayList<byte[]> incGeno = null;
     private ArrayList<byte[][]> incDepth = null;
+    private AlleleProbabilityBuilder myAlleleProbabilityBuilder = null;
     private HashMap<Taxon, Integer> incTaxonIndex = null;
     private boolean sortAlphabetically = false;
 
@@ -85,7 +96,7 @@ public class GenotypeTableBuilder {
     private boolean isHDF5 = false;
     private IHDF5Writer writer = null;
     private BuildType myBuildType;
-    
+
     /**
      * Builder for in memory taxa incremental
      */
@@ -286,28 +297,18 @@ public class GenotypeTableBuilder {
     }
 
     /**
-     * Build an GenotypeTable by site block (1<<16 sites).  Number of positions
-     * (sites) must be known from the beginning.  Positions
-     * and genotypes must be added by block
-     * 
+     * Build an GenotypeTable by site block (1<<16 sites). Number of positions
+     * (sites) must be known from the beginning. Positions and genotypes must be
+     * added by block
+     *
      * @param taxaList
      * @param numberOfPositions
      * @param newHDF5File
-     * 
+     *
      * @return builder to add site blocks to
      */
     public static GenotypeTableBuilder getSiteIncremental(TaxaList taxaList, int numberOfPositions, String newHDF5File) {
         return new GenotypeTableBuilder(newHDF5File, taxaList, numberOfPositions);
-    }
-
-    public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth) {
-        if (genotype.numberOfSites() != positionList.numberOfSites()) {
-            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of sites in genotype: " + genotype.numberOfSites() + " doesn't equal number of sites in position list: " + positionList.numberOfSites());
-        }
-        if (genotype.numberOfTaxa() != taxaList.numberOfTaxa()) {
-            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + genotype.numberOfTaxa() + " doesn't equal number of taxa in taaxa list: " + taxaList.numberOfTaxa());
-        }
-        return new CoreGenotypeTable(genotype, positionList, taxaList, alleleDepth);
     }
 
     /**
@@ -316,16 +317,45 @@ public class GenotypeTableBuilder {
      * @param genotype
      * @param positionList
      * @param taxaList
-     * @return new alignment
+     * @param alleleDepth
+     * @param alleleProbability
+     *
+     * @return new genotype table
      */
+    public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability) {
+        int numTaxa = genotype.numberOfTaxa();
+        int numSites = genotype.numberOfSites();
+
+        if (positionList == null) {
+            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: position list is required.");
+        } else if (numSites != positionList.numberOfSites()) {
+            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of sites in genotype: " + numSites + " doesn't equal number of sites in position list: " + positionList.numberOfSites());
+        }
+
+        if (taxaList == null) {
+            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: taxa list is required.");
+        } else if (numTaxa != taxaList.numberOfTaxa()) {
+            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + numTaxa + " doesn't equal number of taxa in taxa list: " + taxaList.numberOfTaxa());
+        }
+
+        if (alleleProbability != null) {
+            if (numSites != alleleProbability.numSites()) {
+                throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of sites in genotype: " + numSites + " doesn't equal number of sites in allele probability: " + alleleProbability.numSites());
+            }
+            if (numTaxa != alleleProbability.numTaxa()) {
+                throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + numTaxa + " doesn't equal number of taxa in allele probability: " + alleleProbability.numTaxa());
+            }
+        }
+
+        return new CoreGenotypeTable(genotype, positionList, taxaList, alleleDepth, alleleProbability);
+    }
+
+    public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth) {
+        return getInstance(genotype, positionList, taxaList, alleleDepth, null);
+    }
+
     public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList) {
-        if (genotype.numberOfSites() != positionList.numberOfSites()) {
-            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of sites in genotype: " + genotype.numberOfSites() + " doesn't equal number of sites in position list: " + positionList.numberOfSites());
-        }
-        if (genotype.numberOfTaxa() != taxaList.numberOfTaxa()) {
-            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + genotype.numberOfTaxa() + " doesn't equal number of taxa in taaxa list: " + taxaList.numberOfTaxa());
-        }
-        return new CoreGenotypeTable(genotype, positionList, taxaList);
+        return getInstance(genotype, positionList, taxaList, null, null);
     }
 
     /**
@@ -442,6 +472,11 @@ public class GenotypeTableBuilder {
         return new CoreGenotypeTable(builder.build(), genotypeTable.positions(), genotypeTable.taxa());
     }
 
+    public GenotypeTableBuilder addAlleleProbability(AlleleProbabilityBuilder alleleProbabilityBuilder) {
+        myAlleleProbabilityBuilder = alleleProbabilityBuilder;
+        return this;
+    }
+
     public GenotypeTableBuilder addSite(Position pos, byte[] genos) {
         if ((myBuildType != BuildType.SITE_INC) || isHDF5) {
             throw new IllegalArgumentException("addSite only be used with AlignmentBuilder.getSiteIncremental and without HDF5");
@@ -462,9 +497,10 @@ public class GenotypeTableBuilder {
      * This is synchronized, which certainly slows things down but it is needed
      * to prevent the same taxa dataset from being accessed at once. This can
      * probably be rethought with parallelization at this stage across datasets
+     *
      * @param startSite start site for positioning blocks correction
      * @param blkPositionList
-     * @param blockGenotypes array of genotypes [taxonIndex][siteIndex] true
+     * @param blockGenotypes array of genotypes[taxonIndex][siteIndex] true
      * site=startSite+siteIndex
      * @param blockDepths
      */
@@ -603,7 +639,11 @@ public class GenotypeTableBuilder {
                     }
                 }
                 AlleleDepth ad = (hasDepth) ? adb.build() : null;
-                return new CoreGenotypeTable(gB.build(), positionList, tl, ad);
+                AlleleProbability alleleProbability = null;
+                if (myAlleleProbabilityBuilder != null) {
+                    alleleProbability = myAlleleProbabilityBuilder.build();
+                }
+                return getInstance(gB.build(), positionList, tl, ad, alleleProbability);
             }
             case SITE_INC: {
                 GenotypeCallTableBuilder gB = GenotypeCallTableBuilder.getInstance(taxaList.numberOfTaxa(), posListBuilder.size());
@@ -614,7 +654,7 @@ public class GenotypeTableBuilder {
                     }
                 }
                 PositionList pl = posListBuilder.build(gB);
-                return new CoreGenotypeTable(gB.build(), pl, taxaList);
+                return getInstance(gB.build(), pl, taxaList);
             }
         }
         return null;
