@@ -23,6 +23,15 @@ class NucleotideGenotypeCallTable extends ByteGenotypeCallTable {
     }
 
     @Override
+    public String genotypeAsStringRange(int taxon, int startSite, int endSite) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = startSite; i < endSite; i++) {
+            builder.append(genotypeAsString(taxon, i));
+        }
+        return builder.toString();
+    }
+
+    @Override
     public String diploidAsString(int site, byte value) {
         return NucleotideAlignmentConstants.getNucleotideIUPAC(value);
     }

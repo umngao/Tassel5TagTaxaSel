@@ -13,12 +13,18 @@ import java.io.FileOutputStream;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.InputMismatchException;
+import java.util.Random;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import static net.maizegenetics.dna.snp.GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
-import net.maizegenetics.dna.snp.NucleotideGenotypeTable;
+import static net.maizegenetics.dna.snp.GenotypeTableUtils.isHeterozygous;
+import net.maizegenetics.dna.snp.ImportUtils;
+import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
+import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.GAP_DIPLOID_ALLELE;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import org.apache.commons.lang.ArrayUtils;
 
@@ -133,14 +139,14 @@ public class FILLINImputationAccuracy {
                 int taxaCnt= 0;
                 mask.setBaseRangeForTaxon(taxon, 0, this.unimp.genotypeAllSites(taxon));
                 for (int site = 0; site < this.unimp.numberOfSites(); site++) {
-                    if (GenotypeTableUtils.isEqual(NucleotideGenotypeTable.UNKNOWN_DIPLOID_ALLELE, this.unimp.genotype(taxon, site))) continue;
+                    if (GenotypeTableUtils.isEqual(GenotypeTable.UNKNOWN_DIPLOID_ALLELE, this.unimp.genotype(taxon, site))) continue;
                     int[] currD= this.unimp.depthForAlleles(taxon, site);
                     if (currD[0]+currD[1]!=this.depthToMask) continue;
                     if (Math.random()>this.propDepthSitesToMask) continue;
                     else if ((this.unimp.isHeterozygous(taxon, site)==false) ||
                                 (depthToMask > 3 && currD[0] > 1 && currD[1] > 1)|| 
                                 (depthToMask < 4)) {
-                        mask.setBase(taxon, site, NucleotideGenotypeTable.UNKNOWN_DIPLOID_ALLELE); key.setBase(taxon, site, this.unimp.genotype(taxon, site)); taxaCnt++;
+                        mask.setBase(taxon, site, GenotypeTable.UNKNOWN_DIPLOID_ALLELE); key.setBase(taxon, site, this.unimp.genotype(taxon, site)); taxaCnt++;
                     }
                 }
                 if (this.verboseOutput) System.out.println(taxaCnt+" sites masked for "+this.unimp.taxaName(taxon)); cnt+= taxaCnt;
@@ -165,8 +171,8 @@ public class FILLINImputationAccuracy {
                 int taxaCnt= 0;
                 mask.setBaseRangeForTaxon(taxon, 0, this.unimp.genotypeAllSites(taxon));
                 for (int site = 0; site < this.unimp.numberOfSites(); site++) {
-                    if (Math.random()<this.propSitesMask && GenotypeTableUtils.isEqual(NucleotideGenotypeTable.UNKNOWN_DIPLOID_ALLELE, this.unimp.genotype(taxon, site))==false) {
-                        mask.setBase(taxon, site, NucleotideGenotypeTable.UNKNOWN_DIPLOID_ALLELE); key.setBase(taxon, site, this.unimp.genotype(taxon, site)); taxaCnt++;
+                    if (Math.random()<this.propSitesMask && GenotypeTableUtils.isEqual(GenotypeTable.UNKNOWN_DIPLOID_ALLELE, this.unimp.genotype(taxon, site))==false) {
+                        mask.setBase(taxon, site, GenotypeTable.UNKNOWN_DIPLOID_ALLELE); key.setBase(taxon, site, this.unimp.genotype(taxon, site)); taxaCnt++;
                     }
                 }
                 cnt+= taxaCnt;
@@ -378,5 +384,116 @@ public class FILLINImputationAccuracy {
             if (this.MAFClass!=null) accuracyMAFOut();
             return pearsonR2(this.all);
         }
+        
+     /**
+     * Legacy approach for measuring accuracy, but need to maintain some tests.
+     * @deprecated
+     */
+    @Deprecated
+    public static int[] compareAlignment(String origFile, String maskFile, String impFile, boolean noMask) {
+        boolean taxaOut=false;
+        GenotypeTable oA=ImportUtils.readGuessFormat(origFile);
+        System.out.printf("Orig taxa:%d sites:%d %n",oA.numberOfTaxa(),oA.numberOfSites());
+        GenotypeTable mA=null;
+        if(noMask==false) {mA=ImportUtils.readGuessFormat(maskFile);
+            System.out.printf("Mask taxa:%d sites:%d %n",mA.numberOfTaxa(),mA.numberOfSites());
+        }
+        GenotypeTable iA=ImportUtils.readGuessFormat(impFile);
+        System.out.printf("Imp taxa:%d sites:%d %n",iA.numberOfTaxa(),iA.numberOfSites());
+        int correct=0;
+        int errors=0;
+        int unimp=0;
+        int hets=0;
+        int gaps=0;
+        for (int t = 0; t < iA.numberOfTaxa(); t++) {
+            int e=0,c=0,u=0,h=0;
+            int oATaxa=oA.taxa().indexOf(iA.taxaName(t));
+            for (int s = 0; s < iA.numberOfSites(); s++) {
+                if(noMask||(oA.genotype(oATaxa, s)!=mA.genotype(t, s))) {
+                    byte ib=iA.genotype(t, s);
+                    byte ob=oA.genotype(oATaxa, s);
+                    if((ib==UNKNOWN_DIPLOID_ALLELE)||(ob==UNKNOWN_DIPLOID_ALLELE)) {unimp++; u++;}
+                    else if(ib==GAP_DIPLOID_ALLELE) {gaps++;}
+                    else if(ib==ob) {
+                        correct++;
+                        c++;
+                    } else {
+                        if(isHeterozygous(ob)||isHeterozygous(ib)) {hets++; h++;}
+                        else {errors++;
+                            e++;
+//                            if(t==0) System.out.printf("%d %d %s %s %n",t,s,oA.getBaseAsString(oATaxa, s), iA.getBaseAsString(t, s));
+                        }
+                    }
+                }
+            }
+            if(taxaOut) System.out.printf("%s %d %d %d %d %n",iA.taxaName(t),u,h,c,e);
+        }
+        System.out.println("MFile\tIFile\tGap\tUnimp\tUnimpHets\tCorrect\tErrors");
+        System.out.printf("%s\t%s\t%d\t%d\t%d\t%d\t%d%n",maskFile, impFile, gaps, unimp,hets,correct,errors);
+        return new int[]{gaps, unimp,hets,correct,errors};
+    }
+
+    /**
+     * Calculates proportion imputed, homozygous proportion right, heterozygous proportion right
+     * @param impGT
+     * @param keyGT
+     * @return
+     * @deprecated a similar method is need in the core part of accuracy.
+     */
+    @Deprecated
+    public static double[] compareAlignment(GenotypeTable impGT, GenotypeTable keyGT, String taxaPrefix) {
+        int hetKeys=0, hetCompared=0, hetRight=0;
+        int homoKeys=0, homoCompared=0, homoRight=0;
+        //if(impGT.numberOfTaxa()!=keyGT.numberOfTaxa()) throw new InputMismatchException("Number of Taxa do not match");
+        if(impGT.numberOfSites()!=keyGT.numberOfSites()) throw new InputMismatchException("Number of Sites do not match");
+        Random r=new Random();
+        for (int t=0; t<impGT.numberOfTaxa(); t++) {
+            if(taxaPrefix!=null && !impGT.taxaName(t).startsWith(taxaPrefix)) continue;
+            int tCompStart=homoCompared;
+            int tHomoRightStart=homoRight;
+            int key_t=keyGT.taxa().indexOf(impGT.taxaName(t));
+            if(key_t<0) continue;
+            //key_t=r.nextInt(impGT.numberOfTaxa());
+            //System.out.print(impGT.taxaName(t)+"\t"+keyGT.taxaName(t));
+            boolean report=impGT.taxaName(t).startsWith("XZ009E0126");
+            for (int s=0; s<impGT.numberOfSites(); s++) {
+                byte keyB=keyGT.genotype(key_t,s);
+                if(keyB==UNKNOWN_DIPLOID_ALLELE) continue;
+                byte impB=impGT.genotype(t,s);
+                if(isHeterozygous(keyB)) {
+                    hetKeys++;
+                    if(impB!=UNKNOWN_DIPLOID_ALLELE) {
+                        hetCompared++;
+                        if(keyB==impB) hetRight++;
+                    }
+                }   else {
+                    homoKeys++;
+                    if(impB!=UNKNOWN_DIPLOID_ALLELE) {
+                        homoCompared++;
+                        if(keyB==impB) homoRight++;
+                        if(report) {
+                            if(keyB!=impB) {System.out.print("Wrong\t");} else {System.out.print("Right\t");}
+                            System.out.printf("%s %d %s %s %n",
+                                impGT.chromosome(s).getName(),
+                                impGT.chromosomalPosition(s),
+                                NucleotideAlignmentConstants.getNucleotideIUPAC(keyB),
+                                NucleotideAlignmentConstants.getNucleotideIUPAC(impB));
+
+                        }
+//                        if(keyB!=impB) System.out.printf("Wrong: %s %s %n",
+//                                NucleotideAlignmentConstants.getNucleotideIUPAC(keyB),
+//                                NucleotideAlignmentConstants.getNucleotideIUPAC(impB));
+                    }
+                }
+            }
+            //System.out.println("\t"+(homoCompared-tCompStart)+"\t"+(homoRight-tHomoRightStart));
+        }
+        double totalKey=hetKeys+homoKeys;
+        double propImp=(double)(hetCompared+homoCompared)/totalKey;
+        double homoRightProp=(double)homoRight/(double)homoCompared;
+        double hetRightProp=(double)hetRight/(double)hetCompared;
+        return new double[]{propImp,homoRightProp,hetRightProp};
+    }
+
           
 }

@@ -168,10 +168,10 @@ public class FilterGenotypeTableBuilder {
         if ((mySitesToKeep != null) && (mySitesToKeep.length != 0)) {
             count++;
         }
-        if ((mySiteNamesToKeep != null) && (mySiteNamesToKeep.size() != 0)) {
+        if ((mySiteNamesToKeep != null) && (!mySiteNamesToKeep.isEmpty())) {
             count++;
         }
-        if ((mySiteNamesToRemove != null) && (mySiteNamesToRemove.size() != 0)) {
+        if ((mySiteNamesToRemove != null) && (!mySiteNamesToRemove.isEmpty())) {
             count++;
         }
 
@@ -181,9 +181,9 @@ public class FilterGenotypeTableBuilder {
 
         if (((mySitesToKeep != null) && (mySitesToKeep.length != 0))) {
             result = FilterGenotypeTable.getInstance(result, mySitesToKeep);
-        } else if (((mySiteNamesToKeep != null) && (mySiteNamesToKeep.size() != 0))) {
+        } else if (((mySiteNamesToKeep != null) && (!mySiteNamesToKeep.isEmpty()))) {
             result = FilterGenotypeTable.getInstance(result, mySiteNamesToKeep);
-        } else if (((mySiteNamesToRemove != null) && (mySiteNamesToRemove.size() != 0))) {
+        } else if (((mySiteNamesToRemove != null) && (!mySiteNamesToRemove.isEmpty()))) {
             result = FilterGenotypeTable.getInstanceRemoveSiteNames(result, mySiteNamesToRemove);
         }
 

@@ -5,7 +5,13 @@ package net.maizegenetics.dna.snp.genotypecall;
 
 import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.util.SuperByteMatrix;
 import net.maizegenetics.util.SuperByteMatrixBuilder;
@@ -87,12 +93,74 @@ public class GenotypeCallTableBuilder {
             SuperByteMatrix matrix = SuperByteMatrixBuilder.getInstanceCopy(((ByteGenotypeCallTable) genotype).myGenotype);
             return new GenotypeCallTableBuilder(matrix).isPhased(genotype.isPhased()).alleleEncodings(genotype.alleleDefinitions());
         } else {
+            final int NUM_TAXA_TO_COPY = 10;
+            int numTaxa = genotype.numberOfTaxa();
+            int numSites = genotype.numberOfSites();
+            GenotypeCallTableBuilder builder = GenotypeCallTableBuilder.getInstance(numTaxa, numSites).isPhased(genotype.isPhased()).alleleEncodings(genotype.alleleDefinitions());
+            int numThreads = Runtime.getRuntime().availableProcessors();
+            ExecutorService pool = Executors.newFixedThreadPool(numThreads);
+            for (int t = 0; t < numTaxa; t += NUM_TAXA_TO_COPY) {
+                int numTaxaToCopy = Math.min(NUM_TAXA_TO_COPY, numTaxa - t);
+                pool.execute(new CopyAllSitesFromTaxa(genotype, builder, t, numTaxaToCopy));
+            }
+
+            try {
+                pool.shutdown();
+                if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("GenotypeCallTableBuilder: getInstanceCopy: processing threads timed out.");
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            return builder;
+        }
+    }
+
+    private static class CopyAllSitesFromTaxa implements Runnable {
+
+        private final GenotypeCallTable mySrc;
+        private final GenotypeCallTableBuilder myDest;
+        private final int myStartTaxon;
+        private final int myNumTaxaToCopy;
+        private final int myNumSites;
+
+        public CopyAllSitesFromTaxa(GenotypeCallTable src, GenotypeCallTableBuilder dest, int startTaxon, int numTaxaToCopy) {
+            mySrc = src;
+            myDest = dest;
+            myStartTaxon = startTaxon;
+            myNumTaxaToCopy = numTaxaToCopy;
+            myNumSites = src.numberOfSites();
+        }
+
+        @Override
+        public void run() {
+            for (int t = myStartTaxon, n = myStartTaxon + myNumTaxaToCopy; t < n; t++) {
+                for (int s = 0; s < myNumSites; s++) {
+                    myDest.setBase(t, s, mySrc.genotype(t, s));
+                }
+            }
+        }
+    }
+
+    public static GenotypeCallTableBuilder getHomozygousInstance(GenotypeCallTable genotype) {
+        if (genotype instanceof ByteGenotypeCallTable) {
+            SuperByteMatrix matrix = SuperByteMatrixBuilder.getInstanceCopy(((ByteGenotypeCallTable) genotype).myGenotype);
+            matrix.setHetsTo(GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
+            return new GenotypeCallTableBuilder(matrix).isPhased(genotype.isPhased()).alleleEncodings(genotype.alleleDefinitions());
+        } else {
             int numTaxa = genotype.numberOfTaxa();
             int numSites = genotype.numberOfSites();
             GenotypeCallTableBuilder builder = GenotypeCallTableBuilder.getInstance(numTaxa, numSites).isPhased(genotype.isPhased()).alleleEncodings(genotype.alleleDefinitions());
             for (int t = 0; t < numTaxa; t++) {
+
                 for (int s = 0; s < numSites; s++) {
-                    builder.setBase(t, s, genotype.genotype(t, s));
+                    byte currGeno = genotype.genotype(t, s);
+                    if (GenotypeTableUtils.isHeterozygous(currGeno)) {
+                        builder.setBase(t, s, GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
+                    } else {
+                        builder.setBase(t, s, currGeno);
+                    }
                 }
 
             }
@@ -109,7 +177,7 @@ public class GenotypeCallTableBuilder {
         myGenotype.arraycopy(taxon, value, startSite);
         return this;
     }
-    
+
     public GenotypeCallTableBuilder setBases(String[] data) {
 
         int numTaxa = data.length;

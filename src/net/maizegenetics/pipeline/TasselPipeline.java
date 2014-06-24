@@ -85,8 +85,6 @@ public class TasselPipeline implements PluginListener {
 
         myMainFrame = frame;
 
-        LoggingUtils.setupLogging();
-
         try {
 
             if ((args.length == 1) && (args[0].equalsIgnoreCase("-versionComment"))) {
@@ -129,6 +127,10 @@ public class TasselPipeline implements PluginListener {
     }
 
     public static void main(String args[]) {
+        
+        TasselPrefs.setPersistPreferences(false);
+        LoggingUtils.setupLogging();
+        
         if ((args.length >= 2) && (args[0].equalsIgnoreCase("-createXML"))) {
             String xmlFilename = args[1].trim();
             String[] temp = new String[args.length - 2];
@@ -143,8 +145,12 @@ public class TasselPipeline implements PluginListener {
                 System.out.print(" ");
             }
             System.out.println("");
-        } else {
-            TasselPrefs.setPersistPreferences(false);
+        } else if ((args.length >= 1) && (args[0].equalsIgnoreCase("-debug"))) {
+            LoggingUtils.setupDebugLogging();
+            String[] temp = new String[args.length - 1];
+            System.arraycopy(args, 1, temp, 0, temp.length);
+            new TasselPipeline(temp, null);
+        }else {
             new TasselPipeline(args, null);
         }
     }
@@ -757,10 +763,9 @@ public class TasselPipeline implements PluginListener {
                     KinshipPlugin plugin = new KinshipPlugin(myMainFrame, false);
                     integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-ckModelHets")) {
-                    throw new IllegalArgumentException("TasselPipeline: parseArgs: -ckModelHets not needed in Tassel 4.0. It is designed to handle heterzygotes.");
+                    throw new IllegalArgumentException("TasselPipeline: parseArgs: -ckModelHets not needed in Tassel 5.0. It is designed to handle heterzygotes.");
                 } else if (current.equalsIgnoreCase("-ckRescale")) {
-                    throw new IllegalArgumentException("TasselPipeline: parseArgs: -ckRescale not needed in Tassel 4.0. It is designed to handle heterzygotes.");
-
+                    throw new IllegalArgumentException("TasselPipeline: parseArgs: -ckRescale not needed in Tassel 5.0. It is designed to handle heterzygotes.");
                 } else if (current.equalsIgnoreCase("-tree")) {
 
                     CreateTreePlugin plugin = new CreateTreePlugin(myMainFrame, false);
@@ -1553,6 +1558,7 @@ public class TasselPipeline implements PluginListener {
      *
      * @param event event
      */
+    @Override
     public void dataSetReturned(PluginEvent event) {
         DataSet tds = (DataSet) event.getSource();
         if ((tds != null) && (tds.getSize() != 0) && (myMainFrame != null)) {
@@ -1566,6 +1572,7 @@ public class TasselPipeline implements PluginListener {
      *
      * @param event event
      */
+    @Override
     public void progress(PluginEvent event) {
 
         if (myMainFrame == null) {

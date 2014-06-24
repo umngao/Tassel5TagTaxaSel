@@ -3,6 +3,7 @@ package net.maizegenetics.analysis.clustering;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Iterator;
 
 import com.google.common.collect.HashMultiset;
@@ -30,7 +31,7 @@ public class HaplotypeCluster implements Comparable<HaplotypeCluster> {
 	 * If majority, the most common allele at a locus within the cluster will be used.
 	 * If unanimous, then the alleles used will be those for which almost all taxa within the cluster are the same. One error is allowed.
 	 */
-	public enum TYPE {majority, unanimous}
+	public enum TYPE {majority, unanimous, censored}
 	
 	/**
 	 * The TYPE used to represent all HaplotypeClusters
@@ -94,6 +95,12 @@ public class HaplotypeCluster implements Comparable<HaplotypeCluster> {
 	 * the 1 divided by the number of clusters containing a Haplotype.
 	 */
 	public double getScore() { return score; }
+	
+	/**
+	 * Sets the score of this haplotype to the new score.
+	 * @param newScore	the new score
+	 */
+	public void setScore(double newScore) { score = newScore; }
 	
 	/**
 	 * @param val	the value to be added to the cluster score
@@ -246,6 +253,8 @@ public class HaplotypeCluster implements Comparable<HaplotypeCluster> {
 			return getUnanimousHaplotype();
 		case majority:
 			return getMajorityHaplotype();
+		case censored:
+			return getCensoredMajorityHaplotype(0.05, 1);
 		default:
 			return getUnanimousHaplotype();
 		}
@@ -310,34 +319,81 @@ public class HaplotypeCluster implements Comparable<HaplotypeCluster> {
 	}
 	
 	/**
-	 * The unanimous haplotype of this cluster. Only monomorphic sites are reported. Others will be unknown. One off-type call is allowed.
+	 * This returns the majority haplotype for sites with either minor allele frequency below maxMinorFreq or minor allele count less than or equal to maxMinorCount.
+	 * Missing is returned at sites not meeting the stated criteria.
+	 * @param maxMinorFreq	the maximum proportion of offtypes (alternate alleles) allowed before site is set to missing
+	 * @param maxMinorCount	the maximum minor allele count allowed before site is set to missing	
+	 * @return a byte array representing the haplotype of this cluster
+	 */
+	public byte[] getCensoredMajorityHaplotype(double maxMinorFreq, int maxMinorCount) {
+		int nsites = hapList.get(0).seqlen;
+		byte[] hap = new byte[nsites];
+		Arrays.fill(hap, N);
+
+		for (int s = 0; s < nsites; s++) {
+			//Get a count of all bytes not equal to N
+			Multiset<Byte> byteset = HashMultiset.create(5);
+			for (Haplotype h : hapList) {
+				byte b = h.seq[s];
+				if (b != N) byteset.add(h.seq[s]);
+			}
+
+			//if all bytes are N, leave site as N
+			if (byteset.size() > 0) {
+				int majorcount = 0;
+				int minorcount = 0;
+				int totalcount = 0;
+				Byte majorAllele = null;
+				Byte minorAllele = null;
+				Iterator<Byte> it = byteset.elementSet().iterator();
+				
+				while (it.hasNext()) {
+					Byte thisbyte = it.next();
+					int thiscount = byteset.count(thisbyte);
+					totalcount += thiscount;
+					if (thiscount > majorcount) {
+						minorcount = majorcount;
+						minorAllele = majorAllele;
+						majorcount = thiscount;
+						majorAllele = thisbyte;
+					} else if (thiscount > minorcount) {
+						minorcount = thiscount;
+						minorAllele = thisbyte;
+					}
+				}
+				double maf = ((double) minorcount) / totalcount;
+				if (maf <= maxMinorFreq || minorcount <= maxMinorCount) {
+					hap[s] = majorAllele.byteValue();
+				}
+			}
+			
+		}
+		
+		return hap;
+	}
+	
+	/**
+	 * The unanimous haplotype of this cluster. Only monomorphic sites are reported. Others will be unknown.
 	 * @return a byte array representing the haplotype of this cluster
 	 */
 	public byte[] getUnanimousHaplotype() {
 		int nsites = hapList.get(0).seqlen;
 		byte[] hap = new byte[nsites];
 		for (int s = 0; s < nsites; s++) {
-			Multiset<Byte> byteset = HashMultiset.create();
+			HashSet<Byte> byteset = new HashSet<Byte>();
+			Multiset<Byte> multiByteset = HashMultiset.create();
 			for (Haplotype haplo : hapList) {
-				if (haplo.seq[s] != N) byteset.add(haplo.seq[s]);
+				if (haplo.seq[s] != N) {
+					byteset.add(haplo.seq[s]);
+					multiByteset.add(haplo.seq[s]);
+				}
 			}
 			
-			if (byteset.size() == 0) {
+			int nNucleotidesObserved = byteset.size();
+			if (nNucleotidesObserved == 1) { 
+				hap[s] = Byte.valueOf(byteset.iterator().next());
+			} else  {
 				hap[s] = N;
-			} else {
-				Iterator<Entry<Byte>> it = byteset.entrySet().iterator();
-				int count = 0;
-				hap[s] = N;
-				while (it.hasNext()) {
-					Entry<Byte> ent = it.next();
-					if (!GenotypeTableUtils.isHeterozygous(ent.getElement()) && ent.getCount() > 1) {
-						if (count > 1) hap[s] = N;
-						else {
-							hap[s] = ent.getElement();
-							count = ent.getCount();
-						}
-					}
-				}
 			}
 		}
 		
@@ -368,10 +424,13 @@ public class HaplotypeCluster implements Comparable<HaplotypeCluster> {
 		return taxa;
 	}
 	
+	public boolean contains(Haplotype hap) {
+		return hapList.contains(hap);
+	}
+	
 	@Override
 	public String toString() {
 		return getHaplotypeAsString();
 	}
-	
 	
 }

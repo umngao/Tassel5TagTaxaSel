@@ -264,4 +264,14 @@ public class SuperByteMatrixSingle implements SuperByteMatrix {
         }
 
     }
+
+    @Override
+    public void setHetsTo(byte value) {
+        for (int i = 0; i < myData.length; i++) {
+            if (((myData[i] >>> 4) & 0xf) != (myData[i] & 0xf)) {
+                myData[i] = value;
+            }
+        }
+    }
+
 }

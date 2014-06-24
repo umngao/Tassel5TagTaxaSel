@@ -106,7 +106,7 @@
                  version="true"
                  use="true"
                  windowtitle="net.maizegenetics API"
-                 doctitle="TASSEL 5.0: Trait Analysis by aSSociation, Evolution and Linkage (${build-date})">
+                 doctitle="TASSEL 5.0: JavaDoc (${build-date})">
             <classpath refid="build.class.path"/>
             
             <sourcepath>

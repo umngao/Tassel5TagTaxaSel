@@ -77,7 +77,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     
     private PluginParameter<Integer> appoxSitesPerDonorGenotypeTable= new PluginParameter.Builder<>("hapSize",8000,Integer.class).guiName("Preferred haplotype size")
             .description("Preferred haplotype block size in sites (use same as in FILLINFindHaplotypesPlugin)").build();
-    private PluginParameter<Double> hetThresh= new PluginParameter.Builder<>("hetThresh",0.01,Double.class).guiName("Heterozygosity threshold")
+    private PluginParameter<Double> hetThresh= new PluginParameter.Builder<>("mxHet",0.01,Double.class).guiName("Heterozygosity threshold")
             .description("Threshold per taxon heterozygosity for treating taxon as heterozygous (no Viterbi, het thresholds).").build();
     private PluginParameter<Double> maximumInbredError= new PluginParameter.Builder<>("mxInbErr",0.01,Double.class).guiName("Max error to impute one donor")
             .description("Maximum error rate for applying one haplotype to entire site window").build();
@@ -104,11 +104,11 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     private PluginParameter<Boolean> accuracy= new PluginParameter.Builder<>("accuracy",false,Boolean.class).guiName("Calculate accuracy")
             .description("Masks input file before imputation and calculates accuracy based on masked genotypes").build();
     private PluginParameter<Double> propSitesMask= new PluginParameter.Builder<>("propSitesMask",0.01,Double.class).guiName("Proportion of genotypes to mask if no depth")
-            .description("Proportion of genotypes to mask for accuracy calculation if depth not available").build();
+            .description("Proportion of genotypes to mask for accuracy calculation if depth not available").dependentOnParameter(accuracy).build();
     private PluginParameter<Integer> depthToMask= new PluginParameter.Builder<>("depthMask",9,Integer.class).guiName("Depth of genotypes to mask")
-            .description("Depth of genotypes to mask for accuracy calculation if depth information available").build();
+            .description("Depth of genotypes to mask for accuracy calculation if depth information available").dependentOnParameter(accuracy).build();
     private PluginParameter<Double> propDepthSitesMask= new PluginParameter.Builder<>("propDepthSitesMask",0.2,Double.class).guiName("Proportion of depth genotypes to mask")
-            .description("Proportion of genotypes of given depth to mask for accuracy calculation if depth available").build();
+            .description("Proportion of genotypes of given depth to mask for accuracy calculation if depth available").dependentOnParameter(accuracy).build();
     
     //Additional variables
     private boolean verboseOutput= true;

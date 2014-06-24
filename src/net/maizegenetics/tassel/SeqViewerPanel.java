@@ -263,13 +263,25 @@ public class SeqViewerPanel extends JPanel implements ComponentListener, TableMo
         myMenu.add(useAsGeneticDistance);
 
         myTable.addMouseListener(new MouseAdapter() {
+            @Override
             public void mousePressed(MouseEvent e) {
-                myMenu.setLocation(e.getXOnScreen(), e.getYOnScreen());
-                myMenu.setVisible(true);
+                checkPopup(e);
             }
 
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                checkPopup(e);
+            }
+
+            @Override
             public void mouseReleased(MouseEvent e) {
-                myMenu.setVisible(false);
+                checkPopup(e);
+            }
+
+            private void checkPopup(MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    myMenu.show(myTable, e.getX(), e.getY());
+                }
             }
         });
 

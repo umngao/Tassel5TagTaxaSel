@@ -602,6 +602,7 @@ abstract public class AbstractPlugin implements Plugin {
                     menu.addItem(item);
                 }
                 menu.setSelectedItem(current.value());
+                createEnableDisableAction(current, parameterFields, menu);
                 JPanel temp = new JPanel(new FlowLayout(FlowLayout.CENTER));
                 temp.add(new JLabel(current.guiName()));
                 temp.add(menu);
@@ -616,6 +617,7 @@ abstract public class AbstractPlugin implements Plugin {
                 } else {
                     check.setSelected(false);
                 }
+                createEnableDisableAction(current, parameterFields, check);
                 JPanel temp = new JPanel(new FlowLayout(FlowLayout.CENTER));
                 temp.add(check);
                 panel.add(temp);
@@ -655,17 +657,28 @@ abstract public class AbstractPlugin implements Plugin {
                     label = current.guiName();
                 }
 
+                JPanel line = null;
                 if (current.fileType() == PluginParameter.FILE_TYPE.IN_FILE) {
-                    panel.add(getLine(label, field, getOpenFile(dialog, field), getToolTip(current)));
+                    JButton browse = getOpenFile(dialog, field);
+                    line = getLine(label, field, browse, getToolTip(current));
+                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse});
                 } else if (current.fileType() == PluginParameter.FILE_TYPE.OUT_FILE) {
-                    panel.add(getLine(label, field, getSaveFile(dialog, field), getToolTip(current)));
+                    JButton browse = getSaveFile(dialog, field);
+                    line = getLine(label, field, browse, getToolTip(current));
+                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse});
                 } else if (current.fileType() == PluginParameter.FILE_TYPE.IN_DIR) {
-                    panel.add(getLine(label, field, getOpenDir(dialog, field), getToolTip(current)));
+                    JButton browse = getOpenDir(dialog, field);
+                    line = getLine(label, field, browse, getToolTip(current));
+                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse});
                 } else if (current.fileType() == PluginParameter.FILE_TYPE.OUT_DIR) {
-                    panel.add(getLine(label, field, getSaveDir(dialog, field), getToolTip(current)));
+                    JButton browse = getSaveDir(dialog, field);
+                    line = getLine(label, field, browse, getToolTip(current));
+                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse});
                 } else {
-                    panel.add(getLine(label, field, null, getToolTip(current)));
+                    line = getLine(label, field, null, getToolTip(current));
+                    createEnableDisableAction(current, parameterFields, field);
                 }
+                panel.add(line);
 
                 parameterFields.put(current.cmdLineName(), field);
             }
@@ -692,6 +705,43 @@ abstract public class AbstractPlugin implements Plugin {
         dialog.setLocationRelativeTo(getParentFrame());
         dialog.setVisible(true);
         return parametersAreSet;
+
+    }
+
+    private void createEnableDisableAction(PluginParameter<?> current, Map<String, JComponent> parameterFields, final JComponent component) {
+        createEnableDisableAction(current, parameterFields, new JComponent[]{component});
+    }
+
+    private void createEnableDisableAction(PluginParameter<?> current, Map<String, JComponent> parameterFields, final JComponent[] components) {
+
+        if (current.dependentOnParameter() != null) {
+            JComponent depends = parameterFields.get(current.dependentOnParameter().cmdLineName());
+            if (depends instanceof JCheckBox) {
+                final JCheckBox checkBox = (JCheckBox) depends;
+
+                for (JComponent component : components) {
+                    if (checkBox.isSelected()) {
+                        component.setEnabled(true);
+                    } else {
+                        component.setEnabled(false);
+                    }
+                }
+
+                checkBox.addActionListener(new ActionListener() {
+
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        for (JComponent component : components) {
+                            if (checkBox.isSelected()) {
+                                component.setEnabled(true);
+                            } else {
+                                component.setEnabled(false);
+                            }
+                        }
+                    }
+                });
+            }
+        }
 
     }
 

@@ -8,12 +8,13 @@ import ch.systemsx.cisd.hdf5.IHDF5Writer;
 
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.util.HDF5Utils;
 import net.maizegenetics.util.SuperByteMatrix;
 import net.maizegenetics.util.SuperByteMatrixBuilder;
 
 /**
- * Builder to store 3 dimensional byte encoded values.
+ * Builder to store 2 dimensional byte encoded values.
  *
  * @author Terry Casstevens
  */
@@ -25,92 +26,36 @@ public class Byte2DBuilder {
     private final int myNumSites;
     private int myNumTaxa = 0;
     private final GenotypeTable.SITE_SCORE_TYPE mySiteScoreType;
+    private final TaxaList myTaxaList;
 
-    private Byte2DBuilder(IHDF5Writer writer, int numSites, GenotypeTable.SITE_SCORE_TYPE siteScoreType) {
+    private Byte2DBuilder(IHDF5Writer writer, int numSites, GenotypeTable.SITE_SCORE_TYPE siteScoreType, TaxaList taxaList) {
         myIsHDF5 = true;
         myHDF5Writer = writer;
         myNumSites = numSites;
         mySiteScoreType = siteScoreType;
+        myTaxaList = taxaList;
     }
 
-    private Byte2DBuilder(int numTaxa, int numSites, GenotypeTable.SITE_SCORE_TYPE siteScoreType) {
+    private Byte2DBuilder(int numTaxa, int numSites, GenotypeTable.SITE_SCORE_TYPE siteScoreType, TaxaList taxaList) {
         myIsHDF5 = false;
         myHDF5Writer = null;
         myNumSites = numSites;
         myNumTaxa = numTaxa;
         mySiteScoreType = siteScoreType;
         myValues = SuperByteMatrixBuilder.getInstance(myNumTaxa, myNumSites);
+        myTaxaList = taxaList;
     }
 
-    public static Byte2DBuilder getInstance(int numTaxa, int numSites, GenotypeTable.SITE_SCORE_TYPE siteScoreType) {
-        return new Byte2DBuilder(numTaxa, numSites, siteScoreType);
+    public static Byte2DBuilder getInstance(int numTaxa, int numSites, GenotypeTable.SITE_SCORE_TYPE siteScoreType, TaxaList taxaList) {
+        return new Byte2DBuilder(numTaxa, numSites, siteScoreType, taxaList);
     }
 
-    public static Byte2DBuilder getInstance(IHDF5Writer writer, int numSites, GenotypeTable.SITE_SCORE_TYPE siteScoreType) {
-        return new Byte2DBuilder(writer, numSites, siteScoreType);
+    public static Byte2DBuilder getInstance(IHDF5Writer writer, int numSites, GenotypeTable.SITE_SCORE_TYPE siteScoreType, TaxaList taxaList) {
+        return new Byte2DBuilder(writer, numSites, siteScoreType, taxaList);
     }
 
     public static FilterByte2D getFilteredInstance(Byte2D base, FilterGenotypeTable filterGenotypeTable) {
         return new FilterByte2D(base, filterGenotypeTable);
-    }
-
-    /**
-     * Set values for the all sites for a taxon simultaneously.
-     *
-     * @param taxon Index of taxon
-     * @param siteOffset site offset
-     * @param values array[sites] of all values
-     *
-     * @return builder
-     */
-    public Byte2DBuilder setRangeForTaxon(int taxon, int siteOffset, byte[] values) {
-        if (myIsHDF5) {
-            throw new IllegalStateException("Byte3DBuilder: setDepth: use addTaxon for HDF5 files.");
-        }
-        for (int s = 0; s < values.length; s++) {
-            set(taxon, s + siteOffset, values[s]);
-        }
-        return this;
-    }
-
-    /**
-     * Set value for taxon and site. Value should have already been translated.
-     *
-     * @param taxon taxon
-     * @param site site
-     * @param value value
-     *
-     * @return builder
-     */
-    public Byte2DBuilder set(int taxon, int site, byte value) {
-        if (myIsHDF5) {
-            throw new IllegalStateException("Byte3DBuilder: set: use addTaxon for HDF5 files.");
-        }
-        myValues.set(taxon, site, value);
-        return this;
-    }
-
-    /**
-     * Set values for the all sites for a taxon simultaneously. Values should
-     * have already been translated.
-     *
-     * @param taxon Index of taxon
-     * @param values array[sites] of all values
-     *
-     * @return builder
-     */
-    public Byte2DBuilder set(int taxon, byte[] values) {
-        if (myIsHDF5) {
-            throw new IllegalStateException("Byte3DBuilder: setDepth: use addTaxon for HDF5 files.");
-        }
-        int numSites = values.length;
-        if (numSites != myNumSites) {
-            throw new IllegalArgumentException("Byte3DBuilder: setDepth: value number of sites: " + numSites + " should have: " + myNumSites);
-        }
-        for (int s = 0; s < myNumSites; s++) {
-            set(taxon, s, values[s]);
-        }
-        return this;
     }
 
     /**
@@ -121,18 +66,23 @@ public class Byte2DBuilder {
      *
      * @return builder
      */
-    public Byte2DBuilder addTaxon(Taxon taxon, byte[] values) {
+    public Byte2DBuilder addTaxon(int taxon, byte[] values) {
+
+        if (values.length != myNumSites) {
+            throw new IllegalStateException("Byte2DBuilder: addTaxon: Number of sites: " + values.length + " should be: " + myNumSites);
+        }
+
         if (myIsHDF5) {
-            if (values.length != myNumSites) {
-                throw new IllegalStateException("Byte3DBuilder: addTaxon: Number of sites: " + values.length + " should be: " + myNumSites);
-            }
             synchronized (myHDF5Writer) {
-                //HDF5Utils.writeHDF5GenotypesDepth(myHDF5Writer, taxon.getName(), values);
+                HDF5Utils.writeHDF5GenotypeSiteScores(myHDF5Writer, myTaxaList.get(taxon).getName(), mySiteScoreType.toString(), values);
             }
             myNumTaxa++;
         } else {
-            throw new UnsupportedOperationException();
+            for (int s = 0; s < myNumSites; s++) {
+                myValues.set(taxon, s, values[s]);
+            }
         }
+
         return this;
     }
 

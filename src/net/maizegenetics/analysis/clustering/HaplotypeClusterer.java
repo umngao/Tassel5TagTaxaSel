@@ -3,6 +3,7 @@ package net.maizegenetics.analysis.clustering;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -326,6 +327,35 @@ public class HaplotypeClusterer {
 	}
 
 	/**
+	 * Merges clusters whose maximum pairwise difference is less than maxdiff. Clusters are tested sequentially.
+	 * That is, if two clusters are merged, they become the new head cluster against which remaining clusters are tested for merging.
+	 * @param candidateClusters	an ArrayList of HaplotypeClusters
+	 * @param maxdiff
+	 */
+	public void mergeClusters(int maxdiff) {
+		ArrayList<HaplotypeCluster> candidates = new ArrayList<HaplotypeCluster>(clusterList);
+		Collections.sort(candidates);
+		ArrayList<HaplotypeCluster> mergedClusterList = new ArrayList<HaplotypeCluster>();
+
+		while (candidates.size() > 0) {
+			HaplotypeCluster headCluster = candidates.remove(0);
+			mergedClusterList.add(headCluster);
+			Iterator<HaplotypeCluster> cit = candidates.iterator();
+			while (cit.hasNext()) {
+				HaplotypeCluster candidate = cit.next();
+				boolean mergePair = doMerge(headCluster, candidate, maxdiff);
+				if (mergePair) {
+					cit.remove();
+					mergeTwoClusters(headCluster, candidate);
+				}
+			} 
+		}
+		
+		clusterList = mergedClusterList;
+		recalculateScores();
+	}
+
+	/**
 	 * Tests whether two clusters are less than or equal to maxdiff distant. 
 	 * Uses clusterDistanceMaxPairDiff() to calculate distance.
 	 * @param c0	a cluster
@@ -346,5 +376,101 @@ public class HaplotypeClusterer {
 	public static void mergeTwoClusters(HaplotypeCluster c0, HaplotypeCluster c1) {
 		c1.removeAll(c0);
 		c0.addAll(c1);
+	}
+	
+	/**
+	 * For this cluster, remove all of its haplotypes from other clusters, adjust the cluster scores, and re-sort the clusters.
+	 * As a result, cluster size will equal cluster score for this cluster.
+	 * @param clusterIndex	the index of a cluster in the cluster list
+	 */
+	public void removeClusterHaplotypesFromOtherClusters(int clusterIndex) {
+		HaplotypeCluster thisCluster = clusterList.get(clusterIndex);
+		int nClusters = clusterList.size();
+		for (int c = 0; c < nClusters; c++) if (c != clusterIndex) {
+			HaplotypeCluster anotherCluster = clusterList.get(c);
+			Iterator<Haplotype> hapit = anotherCluster.getIterator();
+			while (hapit.hasNext()) {
+				Haplotype anotherHaplotype = hapit.next();
+				if (thisCluster.contains(anotherHaplotype)) hapit.remove();
+			}
+		}
+		recalculateScores();
+		sortClusters();
+	}
+	
+	/**
+	 * For the indexed cluster, move all haplotypes consistent with the cluster haplotype to this cluster from any other cluster
+	 * @param clusterIndex	the index of a cluster in the cluster list
+	 */
+	public void moveAllPossibleHaplotypesToCluster(int clusterIndex, boolean fromClustersWithHigherIndexOnly, int maxdiff) {
+		
+		HaplotypeCluster thisCluster = clusterList.get(clusterIndex);
+		if (thisCluster.getSize() == 0) return;
+		int nClusters = clusterList.size();
+		Haplotype clusterHap = new Haplotype(thisCluster.getUnanimousHaplotype());
+//		Haplotype clusterHap = new Haplotype(thisCluster.getMajorityHaplotype());
+		int start = 0;
+		if (fromClustersWithHigherIndexOnly) start = clusterIndex + 1;
+		
+		for (int c = start; c < nClusters; c++) if (c != clusterIndex) {
+			HaplotypeCluster anotherCluster = clusterList.get(c);
+			if (anotherCluster.getSize() > 0) {
+				Iterator<Haplotype> hapit = anotherCluster.getIterator();
+				while (hapit.hasNext()) {
+					Haplotype anotherHaplotype = hapit.next();
+					if (clusterHap.distanceFrom(anotherHaplotype) <= maxdiff) {
+						hapit.remove();
+						if (!thisCluster.contains(anotherHaplotype)) thisCluster.add(anotherHaplotype);
+					}
+				}
+			}
+		}
+	}
+	
+	/**
+	 * For each cluster, from largest to smallest, move all consistent haplotypes from other clusters to that cluster
+	 */
+	public void moveAllHaplotypesToBiggestCluster(int maxdiff) {
+		sortClusters();
+		int nclusters = clusterList.size();
+
+		for (int i = 0; i < nclusters; i++) {
+			moveAllPossibleHaplotypesToCluster(i, true, maxdiff);
+		}
+		
+		//remove clusters with size = 0
+		Iterator<HaplotypeCluster> clusterIt = clusterList.iterator();
+		while (clusterIt.hasNext()) {
+			HaplotypeCluster thisCluster = clusterIt.next();
+			if (thisCluster.getSize() == 0) clusterIt.remove();
+		}
+		
+		recalculateScores();
+		sortClusters();
+	}
+	
+	/**
+	 * Recalculates the scores of the clusters in the cluster list. Removes any clusters with a score of 0.
+	 */
+	public void recalculateScores() {
+		int nClusters = clusterList.size();
+		for (HaplotypeCluster hc : clusterList) hc.setScore(0);
+		for (Haplotype hap : haplotypeList) {
+			ArrayList<HaplotypeCluster> clustersWithHaplotypeList = new ArrayList<HaplotypeCluster>();
+			for (HaplotypeCluster hc : clusterList) {
+				if (hc.contains(hap)) clustersWithHaplotypeList.add(hc);
+			}
+			int numberOfContainers = clustersWithHaplotypeList.size();
+			double addScore = 1/((double) numberOfContainers);
+			for (HaplotypeCluster hc : clustersWithHaplotypeList) {
+				hc.incrementScore(addScore);
+			}
+		}
+		
+		Iterator<HaplotypeCluster> clusterIter = clusterList.iterator();
+		while (clusterIter.hasNext()) {
+			HaplotypeCluster hc = clusterIter.next();
+			if (hc.getScore() == 0) clusterIter.remove();
+		}
 	}
 }

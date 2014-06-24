@@ -24,6 +24,7 @@ public class PluginParameter<T extends Comparable<T>> {
     private final T myValue;
     private final boolean myRequired;
     private final Class<T> myClass;
+    private final PluginParameter<?> myDependentOnParameter;
 
     public enum FILE_TYPE {
 
@@ -32,7 +33,7 @@ public class PluginParameter<T extends Comparable<T>> {
     private final FILE_TYPE myFileType;
 
     private PluginParameter(String guiName, String guiUnits, String cmdLineName,
-            String description, Range<T> range, T defaultValue, T value, boolean required, FILE_TYPE fileType, Class<T> type) {
+            String description, Range<T> range, T defaultValue, T value, boolean required, FILE_TYPE fileType, PluginParameter<?> dependentOnParameter, Class<T> type) {
         myGuiName = guiName;
         myUnits = guiUnits;
         myCmdLineName = cmdLineName;
@@ -70,6 +71,7 @@ public class PluginParameter<T extends Comparable<T>> {
         }
         myClass = type;
         myFileType = fileType;
+        myDependentOnParameter = dependentOnParameter;
     }
 
     /**
@@ -82,7 +84,7 @@ public class PluginParameter<T extends Comparable<T>> {
     public PluginParameter(PluginParameter<T> oldParameter, T newValue) {
         this(oldParameter.myGuiName, oldParameter.myUnits, oldParameter.myCmdLineName,
                 oldParameter.myDescription, oldParameter.myRange, oldParameter.myDefaultValue, newValue,
-                oldParameter.myRequired, oldParameter.myFileType, oldParameter.myClass);
+                oldParameter.myRequired, oldParameter.myFileType, oldParameter.dependentOnParameter(), oldParameter.myClass);
     }
 
     public String guiName() {
@@ -134,6 +136,10 @@ public class PluginParameter<T extends Comparable<T>> {
         return myFileType;
     }
 
+    public PluginParameter<?> dependentOnParameter() {
+        return myDependentOnParameter;
+    }
+
     public boolean isEmpty() {
         if ((myValue == null) || (myValue.toString().trim().length() == 0)) {
             return true;
@@ -153,6 +159,7 @@ public class PluginParameter<T extends Comparable<T>> {
         private boolean myIsRequired = false;
         private final Class<T> myClass;
         private FILE_TYPE myFileType = FILE_TYPE.NA;
+        private PluginParameter<?> myDependentOnParameter = null;
 
         public Builder(Enum cmdLineName, T defaultValue, Class<T> type) {
             this(cmdLineName.toString(), defaultValue, type);
@@ -209,6 +216,11 @@ public class PluginParameter<T extends Comparable<T>> {
             return this;
         }
 
+        public Builder<T> dependentOnParameter(PluginParameter<?> parameter) {
+            myDependentOnParameter = parameter;
+            return this;
+        }
+
         public PluginParameter<T> build() {
             if ((myGuiName == null) || (myGuiName.isEmpty())) {
                 StringBuilder builder = new StringBuilder();
@@ -226,7 +238,8 @@ public class PluginParameter<T extends Comparable<T>> {
                 myDescription = myGuiName;
             }
             return new PluginParameter<>(myGuiName, myUnits, myCmdLineName,
-                    myDescription, myRange, myDefaultValue, null, myIsRequired, myFileType, myClass);
+                    myDescription, myRange, myDefaultValue, null, myIsRequired,
+                    myFileType, myDependentOnParameter, myClass);
         }
     }
 }

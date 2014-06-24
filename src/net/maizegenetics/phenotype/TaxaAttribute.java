@@ -16,6 +16,7 @@ public class TaxaAttribute implements PhenotypeAttribute {
 	private final ArrayList<Taxon> taxaList;
 	private final int numberOfTaxa;
 	private final String name;
+	public static final String DEFAULT_NAME = "Taxa";
 	
 	private static final List<ATTRIBUTE_TYPE> myAllowedTypes;
 	static{
@@ -31,7 +32,7 @@ public class TaxaAttribute implements PhenotypeAttribute {
 	}
 	
 	TaxaAttribute(List<Taxon> taxa) {
-		this(taxa, "Taxa");
+		this(taxa, DEFAULT_NAME);
 	}
 	
 	public Taxon[] allTaxa() {

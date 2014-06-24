@@ -8,6 +8,7 @@ import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.bit.BitStorage;
+import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.BitSet;
 
@@ -47,7 +48,7 @@ public interface GenotypeTable {
         DepthA, DepthC, DepthG, DepthT, DepthGap, DepthInsertion,
         ProbA, ProbC, ProbG, ProbT, ProbGap, ProbInsertion
     };
-
+    
     /**
      * This defines the possible allele scope types.
      */
@@ -470,23 +471,6 @@ public interface GenotypeTable {
     public int[] chromosomesOffsets();
 
     /**
-     * Returns the site score of the given taxon and site.
-     *
-     * @param taxon taxon index
-     * @param site site
-     *
-     * @return site score.
-     */
-    public float siteScore(int taxon, int site);
-
-    /**
-     * Returns the site scores.
-     *
-     * @return site scores.
-     */
-    public float[][] siteScores();
-
-    /**
      * Returns true if this genotype table has sequencing depth.
      *
      * @return true if this genotype table has sequencing depth.
@@ -494,18 +478,15 @@ public interface GenotypeTable {
     public boolean hasDepth();
 
     /**
-     * Returns true if this genotype table has site scores.
-     *
-     * @return true if this genotype table has site scores.
-     */
-    public boolean hasSiteScores();
-
-    /**
      * Return the site scores types.
      *
      * @return site score types.
      */
-    public Set<GenotypeTable.SITE_SCORE_TYPE> siteScoreTypes();
+    public Set<SITE_SCORE_TYPE> siteScoreTypes();
+    
+    public AlleleProbability alleleProbability();
+    
+    public float alleleProbability(int taxon, int site, SITE_SCORE_TYPE type);
 
     /**
      * Return size of indel at given site.
