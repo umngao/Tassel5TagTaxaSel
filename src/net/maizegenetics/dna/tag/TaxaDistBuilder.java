@@ -1,8 +1,10 @@
 package net.maizegenetics.dna.tag;
 
+import cern.colt.list.IntArrayList;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.common.primitives.Shorts;
+import com.google.common.primitives.UnsignedBytes;
 
 
 /**
@@ -49,6 +51,25 @@ public class TaxaDistBuilder {
         return dstTD;
     }
 
+    /**
+     * Create expandable TaxaDistribution from encoded taxa distribution.  The int[] encoding use first three bytes
+     * for taxa index, and last byte for depth as unsigned byte.  Depths greater than 256 just increase.
+     * @param maxTaxa
+     * @param encodeTaxaDepths
+     * @return
+     */
+    public static TaxaDistribution create(int maxTaxa, int[] encodeTaxaDepths) {
+        TaxaDistribution dstTD=new TaxaDistExpandable(maxTaxa);
+        for (int taxaDepth : encodeTaxaDepths) {
+            int taxa=taxaDepth>>>8;
+            int depth=UnsignedBytes.toInt((byte)taxaDepth);
+            for (int i = 0; i < depth; i++) {
+                dstTD.increment(taxa);
+            }
+        }
+        return dstTD;
+    }
+
 }
 
 /**
@@ -59,23 +80,16 @@ public class TaxaDistBuilder {
  * @author Ed Buckler
  */
 class TaxaDistExpandable implements TaxaDistribution {
-    //minimal size 8 + 12 + 12 + 10 + 12 + 4+ 4 + 4 = 66
+    //minimal size 8 + 12 + 12 + 10 + 12 + 4+ 4 = 66
     //This could be changed for the singletons by just making a new class
     private short[][] taxaWithTag;
     private int[] size;
     private int totalSize;
     private final int maxTaxa;
-    private int singleTaxa=Integer.MIN_VALUE;  //this halves the memory footprint for the singleton tags
 
     public TaxaDistExpandable(int maxTaxa) {
         this.maxTaxa=maxTaxa;
         initializeArrays();
-    }
-
-    public TaxaDistExpandable(int maxTaxa, int taxaWithTag) {
-        this.maxTaxa=maxTaxa;
-        singleTaxa=maxTaxa;
-        totalSize=1;
     }
 
     private void initializeArrays() {
@@ -85,7 +99,6 @@ class TaxaDistExpandable implements TaxaDistribution {
             taxaWithTag[i]=new short[5];
         }
         size=new int[shortSets];
-        if(singleTaxa>=0) increment(singleTaxa);
     }
 
     @Override
@@ -101,7 +114,6 @@ class TaxaDistExpandable implements TaxaDistribution {
     @Override
     public int[] depths() {
         int[] depths=new int[maxTaxa];
-        if(totalSize==1) {depths[singleTaxa]=1; return depths;}
         for (int i = 0; i < taxaWithTag.length; i++) {
             int base=i*(1<<16);
             for (int j = 0; j < size[i]; j++) {
@@ -131,11 +143,16 @@ class TaxaDistExpandable implements TaxaDistribution {
     @Override
     public int[] encodeTaxaDepth() {
         int[][] tds=taxaWithDepths();
-        int[] result=new int[tds[0].length];
+        IntArrayList result=new IntArrayList(tds[0].length);
         for (int i = 0; i < tds[0].length; i++) {
-            result[i]=(tds[0][i]<<8)|(tds[1][i]);
+            int depth=tds[1][i];
+            while(depth>0) {
+                byte outDepth=(depth<256)?UnsignedBytes.checkedCast(depth):UnsignedBytes.checkedCast(255);
+                result.add((tds[0][i]<<8)|(outDepth));
+                depth-=255;
+            }
         }
-        return result;
+        return result.elements();
     }
 
     @Override
@@ -156,6 +173,16 @@ class TaxaDistExpandable implements TaxaDistribution {
     @Override
     public int maxTaxa() {
         return maxTaxa;
+    }
+
+    @Override
+    public int memorySize() {
+        //minimal size 8 (object) + 12 (outer short array) + 12 (sizeArray) + 4+ 4 = 40
+        int size=40;
+        for (int i = 0; i < taxaWithTag.length; i++) {
+            size+=16+(taxaWithTag[i].length*2);  //4 size array + 12 inner short array plus of the size of it
+        }
+        return size;
     }
 
     private int unSignShort(short v) {
@@ -231,6 +258,11 @@ class TaxaDistSingleTaxon implements TaxaDistribution {
     @Override
     public int maxTaxa() {
         return maxTaxa;
+    }
+
+    @Override
+    public int memorySize() {
+        return 16;
     }
 
     @Override

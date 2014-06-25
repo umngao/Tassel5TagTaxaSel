@@ -117,14 +117,14 @@ public class FILLINImputationAccuracyPlugin extends AbstractPlugin {
                 int taxaCnt= 0;
                 mask.setBaseRangeForTaxon(taxon, 0, a.genotypeAllSites(taxon));
                 for (int site = 0; site < a.numberOfSites(); site++) {
-                    if (GenotypeTableUtils.isEqual(NucleotideGenotypeTable.UNKNOWN_DIPLOID_ALLELE, a.genotype(taxon, site))) continue;
+                    if (GenotypeTableUtils.isEqual(GenotypeTable.UNKNOWN_DIPLOID_ALLELE, a.genotype(taxon, site))) continue;
                     if (a.physicalPositions()[site]%maskDenom!=0) continue;
                     int[] currD= a.depthForAlleles(taxon, site);
                     if (currD[0]+currD[1]!=depthToMask) continue;
                     else if ((a.isHeterozygous(taxon, site)==false) ||
                                 (depthToMask > 3 && currD[0] > 1 && currD[1] > 1)|| 
                                 (depthToMask < 4)) {
-                        mask.setBase(taxon, site, NucleotideGenotypeTable.UNKNOWN_DIPLOID_ALLELE); key.setBase(taxon, site, a.genotype(taxon, site)); taxaCnt++;
+                        mask.setBase(taxon, site, GenotypeTable.UNKNOWN_DIPLOID_ALLELE); key.setBase(taxon, site, a.genotype(taxon, site)); taxaCnt++;
                     }
                 }
                 if (verboseOutput) System.out.println(taxaCnt+" sites masked for "+a.taxaName(taxon)); cnt+= taxaCnt;
@@ -147,8 +147,8 @@ public class FILLINImputationAccuracyPlugin extends AbstractPlugin {
                 int taxaCnt= 0;
                 mask.setBaseRangeForTaxon(taxon, 0, a.genotypeAllSites(taxon));
                 for (int site = 0; site < a.numberOfSites(); site++) {
-                    if (Math.random()<propSitesMask && GenotypeTableUtils.isEqual(NucleotideGenotypeTable.UNKNOWN_DIPLOID_ALLELE, a.genotype(taxon, site))==false) {
-                        mask.setBase(taxon, site, NucleotideGenotypeTable.UNKNOWN_DIPLOID_ALLELE); key.setBase(taxon, site, a.genotype(taxon, site)); taxaCnt++;
+                    if (Math.random()<propSitesMask && GenotypeTableUtils.isEqual(GenotypeTable.UNKNOWN_DIPLOID_ALLELE, a.genotype(taxon, site))==false) {
+                        mask.setBase(taxon, site, GenotypeTable.UNKNOWN_DIPLOID_ALLELE); key.setBase(taxon, site, a.genotype(taxon, site)); taxaCnt++;
                     }
                 }
                 cnt+= taxaCnt;

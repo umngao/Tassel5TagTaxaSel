@@ -133,7 +133,10 @@ public class TaxaListBuilder {
     }
 
     public static void createHDF5TaxaList(IHDF5Writer writer, TaxaList exportList) {
-        //TODO TAS-315 Create memory efficient VCF to HDF5
+        HDF5Utils.createHDF5TaxaModule(writer);
+        for (Taxon taxon : exportList) {
+            HDF5Utils.addTaxon(writer, taxon);
+        }
     }
 
     //Default package private method to hand the list to the instance
