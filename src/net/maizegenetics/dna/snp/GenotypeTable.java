@@ -9,6 +9,7 @@ import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.bit.BitStorage;
 import net.maizegenetics.dna.snp.score.AlleleProbability;
+import net.maizegenetics.dna.snp.score.Dosage;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.BitSet;
 
@@ -487,6 +488,10 @@ public interface GenotypeTable {
     public AlleleProbability alleleProbability();
     
     public float alleleProbability(int taxon, int site, SITE_SCORE_TYPE type);
+    
+    public Dosage dosage();
+    
+    public byte dosage(int taxon, int site);
 
     /**
      * Return size of indel at given site.

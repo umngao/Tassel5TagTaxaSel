@@ -9,6 +9,20 @@ import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
  * @author Peter Bradbury
  */
 public class Haplotype implements Comparable<Haplotype>{
+	//byte values for hets
+	private static byte AC = NucleotideAlignmentConstants.getNucleotideDiploidByte("AC");
+	private static byte AG = NucleotideAlignmentConstants.getNucleotideDiploidByte("AG");
+	private static byte AT = NucleotideAlignmentConstants.getNucleotideDiploidByte("AT");
+	private static byte CG = NucleotideAlignmentConstants.getNucleotideDiploidByte("CG");
+	private static byte CT = NucleotideAlignmentConstants.getNucleotideDiploidByte("CT");
+	private static byte GT = NucleotideAlignmentConstants.getNucleotideDiploidByte("GT");
+	private static byte CA = NucleotideAlignmentConstants.getNucleotideDiploidByte("CA");
+	private static byte GA = NucleotideAlignmentConstants.getNucleotideDiploidByte("GA");
+	private static byte TA = NucleotideAlignmentConstants.getNucleotideDiploidByte("TA");
+	private static byte GC = NucleotideAlignmentConstants.getNucleotideDiploidByte("GC");
+	private static byte TC = NucleotideAlignmentConstants.getNucleotideDiploidByte("TC");
+	private static byte TG = NucleotideAlignmentConstants.getNucleotideDiploidByte("TG");
+	
 	/**
 	 * The haplotype (or genotype) sequence
 	 */
@@ -39,8 +53,10 @@ public class Haplotype implements Comparable<Haplotype>{
 	 * @param taxon	the taxon index
 	 */
 	public Haplotype(byte[] hap, int taxon) {
-		seq = hap;
+		seq = makeHetsConsistent(hap);
 		seqlen = seq.length;
+		
+		//convert heterozygotes to consistent value
 		countNotMissing();
 		taxonIndex = taxon;
 	}
@@ -50,6 +66,22 @@ public class Haplotype implements Comparable<Haplotype>{
 	 */
 	public Haplotype(byte[] hap) {
 		this(hap, -1);
+	}
+	
+	public byte[] makeHetsConsistent(byte[] seqIn) {
+		int n = seqIn.length;
+		byte[] seqOut = new byte[n];
+		for (int i = 0; i < n; i++) {
+			byte val = seqIn[i];
+			if (val == CA) val = AC;
+			else if (val == GA) val = AG;
+			else if (val == TA) val = AT;
+			else if (val == GC) val = CG;
+			else if (val == TC) val = CT;
+			else if (val == TG) val = GT;
+			seqOut[i] = val;
+		}
+		return seqOut;
 	}
 	
 	/**
