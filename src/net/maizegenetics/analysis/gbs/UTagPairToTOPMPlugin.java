@@ -140,7 +140,7 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
     @Override
     protected void postProcessParameters(){
         //Test that at least one output file supplied
-        if((toBinary() == null) && (toText() == null)){
+        if( (toBinary() == null || "".equals(toBinary())) && (toText() == null || "".equals(toText())) ){
             throw new IllegalArgumentException("\n\nMust specify at least one output file (text or binary).\n\n");
         }
         if(padDistance() < 100){
