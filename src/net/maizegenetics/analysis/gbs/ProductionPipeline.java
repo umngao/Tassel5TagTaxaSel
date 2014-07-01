@@ -33,20 +33,15 @@ public class ProductionPipeline extends AbstractPlugin {
     private static final String READY_FILE_NAME = "ready.txt";
     private static final String LOCK_FILE_NAME = "lock.txt";
 
-    public enum PARAMETERS {
-
-        inputDirectory, keyFile, enzyme, productionTOPM, outputGenotypeFile, archiveDirectory
-    };
-
-    protected PluginParameter<String> myInputDirectory = new PluginParameter.Builder<>(PARAMETERS.inputDirectory, null, String.class).required(true).inDir()
+    private PluginParameter<String> myInputDirectory = new PluginParameter.Builder<>("inputDirectory", null, String.class).required(true).inDir()
             .description("Input directory containing subdirectories with fastq AND/OR qseq files").build();
-    protected PluginParameter<String> myEnzyme = new PluginParameter.Builder<>(PARAMETERS.enzyme, null, String.class).required(true)
+    private PluginParameter<String> myEnzyme = new PluginParameter.Builder<>("enzyme", null, String.class).required(true)
             .description("Enzyme used to create the GBS library").build();
-    protected PluginParameter<String> myProductionTOPM = new PluginParameter.Builder<>(PARAMETERS.productionTOPM, null, String.class).required(true).inFile()
+    private PluginParameter<String> myProductionTOPM = new PluginParameter.Builder<>("productionTOPM", null, String.class).required(true).inFile()
             .description("Physical map file containing tags and corresponding variants (production TOPM)").build();
-    protected PluginParameter<String> myOutputGenotypeFile = new PluginParameter.Builder<>(PARAMETERS.outputGenotypeFile, null, String.class).required(true).outFile()
+    private PluginParameter<String> myOutputGenotypeFile = new PluginParameter.Builder<>("outputGenotypeFile", null, String.class).required(true).outFile()
             .description("Output (target) HDF5 genotypes file to add new genotypes to (new file created if it doesn't exist)").build();
-    protected PluginParameter<String> myArchiveDirectory = new PluginParameter.Builder<>(PARAMETERS.archiveDirectory, null, String.class).required(true).outDir()
+    private PluginParameter<String> myArchiveDirectory = new PluginParameter.Builder<>("archiveDirectory", null, String.class).required(true).outDir()
             .description("Archive directory where to move processed files").build();
 
     private String myOutputDirectory;
