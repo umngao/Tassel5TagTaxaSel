@@ -16,6 +16,7 @@ import javax.swing.*;
 import java.awt.*;
 
 import java.io.File;
+import java.io.FilenameFilter;
 
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -29,23 +30,23 @@ public class ProductionPipeline extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(ProductionPipeline.class);
     private static final SimpleDateFormat LOGGING_DATE_FORMAT = new SimpleDateFormat("yyyyMMdd HH:mm:ss");
+    private static final String READY_FILE_NAME = "ready.txt";
+    private static final String LOCK_FILE_NAME = "lock.txt";
 
     public enum PARAMETERS {
 
         inputDirectory, keyFile, enzyme, productionTOPM, outputGenotypeFile, archiveDirectory
     };
 
-    protected PluginParameter<String> myInputDirectory = new PluginParameter.Builder<String>(PARAMETERS.inputDirectory, null, String.class).required(true).inDir()
-            .description("Input directory containing fastq AND/OR qseq files").build();
-    protected PluginParameter<String> myKeyFile = new PluginParameter.Builder<String>(PARAMETERS.keyFile, null, String.class).required(true).inFile()
-            .description("Barcode Key File").build();
-    protected PluginParameter<String> myEnzyme = new PluginParameter.Builder<String>(PARAMETERS.enzyme, null, String.class).required(true)
+    protected PluginParameter<String> myInputDirectory = new PluginParameter.Builder<>(PARAMETERS.inputDirectory, null, String.class).required(true).inDir()
+            .description("Input directory containing subdirectories with fastq AND/OR qseq files").build();
+    protected PluginParameter<String> myEnzyme = new PluginParameter.Builder<>(PARAMETERS.enzyme, null, String.class).required(true)
             .description("Enzyme used to create the GBS library").build();
-    protected PluginParameter<String> myProductionTOPM = new PluginParameter.Builder<String>(PARAMETERS.productionTOPM, null, String.class).required(true).inFile()
+    protected PluginParameter<String> myProductionTOPM = new PluginParameter.Builder<>(PARAMETERS.productionTOPM, null, String.class).required(true).inFile()
             .description("Physical map file containing tags and corresponding variants (production TOPM)").build();
-    protected PluginParameter<String> myOutputGenotypeFile = new PluginParameter.Builder<String>(PARAMETERS.outputGenotypeFile, null, String.class).required(true).outFile()
+    protected PluginParameter<String> myOutputGenotypeFile = new PluginParameter.Builder<>(PARAMETERS.outputGenotypeFile, null, String.class).required(true).outFile()
             .description("Output (target) HDF5 genotypes file to add new genotypes to (new file created if it doesn't exist)").build();
-    protected PluginParameter<String> myArchiveDirectory = new PluginParameter.Builder<String>(PARAMETERS.archiveDirectory, null, String.class).required(true).outDir()
+    protected PluginParameter<String> myArchiveDirectory = new PluginParameter.Builder<>(PARAMETERS.archiveDirectory, null, String.class).required(true).outDir()
             .description("Archive directory where to move processed files").build();
 
     private String myOutputDirectory;
@@ -67,23 +68,26 @@ public class ProductionPipeline extends AbstractPlugin {
     public DataSet processData(DataSet input) {
 
         try {
-            String[] rawSeqFileNames = DirectoryCrawler.listFileNames(ProductionSNPCallerPlugin.rawSeqFileNameRegex, myInputDirectory.value());
-            if ((rawSeqFileNames == null) || (rawSeqFileNames.length == 0)) {
+
+            String lockFilename = inputDirectory() + File.separator + LOCK_FILE_NAME;
+            if (new File(lockFilename).exists()) {
+                myLogger.warn("Production Pipeline already running.  File exists: " + lockFilename + "  Aborting...");
                 return null;
             }
 
-            myLogger.info("Raw Sequence Files: " + Arrays.deepToString(rawSeqFileNames));
-            myLogger.info("Parameters Passed to ProductionSNPCallerPlugin: " + Arrays.deepToString(getPluginArgs()));
+            File inputDirectory = new File(inputDirectory());
+            String[] directories = inputDirectory.list(new FilenameFilter() {
+                @Override
+                public boolean accept(File current, String name) {
+                    return new File(current, name).isDirectory();
+                }
+            });
 
-            ProductionSNPCallerPlugin plugin = new ProductionSNPCallerPlugin();
-            plugin.setParameters(getPluginArgs());
-
-            printParameterValues();
-            plugin.performFunction(null);
-
-            for (int i = 0; i < rawSeqFileNames.length; i++) {
-                File currentLocation = new File(rawSeqFileNames[i]);
-                File newLocation = new File(myArchiveDirectory.value() + Utils.getFilename(rawSeqFileNames[i]));
+            for (String current : directories) {
+                String fullDirName = inputDirectory() + File.separator + current;
+                processSubDirectory(fullDirName);
+                File currentLocation = new File(fullDirName);
+                File newLocation = new File(archiveDirectory() + current);
                 currentLocation.renameTo(newLocation);
                 myLogger.info("Moved : " + currentLocation.getAbsolutePath() + " to: " + newLocation.getAbsolutePath());
             }
@@ -95,13 +99,48 @@ public class ProductionPipeline extends AbstractPlugin {
 
     }
 
-    private String[] getPluginArgs() {
+    private void processSubDirectory(String subDirectory) {
+
+        String readyFilename = subDirectory + File.separator + READY_FILE_NAME;
+        File readyFile = new File(readyFilename);
+        if (readyFile.exists()) {
+            myLogger.info("Processing directory: " + subDirectory);
+            readyFile.delete();
+        } else {
+            myLogger.warn("This directory is not ready yet: " + subDirectory);
+            return;
+        }
+
+        String keyFile = subDirectory + File.separator + Utils.getFilename(subDirectory) + ".key";
+        if (!new File(keyFile).exists()) {
+            myLogger.error("Keyfile doesn't exist: " + keyFile);
+            return;
+        }
+
+        String[] rawSeqFileNames = DirectoryCrawler.listFileNames(ProductionSNPCallerPlugin.rawSeqFileNameRegex, subDirectory);
+        if ((rawSeqFileNames == null) || (rawSeqFileNames.length == 0)) {
+            myLogger.warn("No sequence files in directory: " + subDirectory);
+            return;
+        }
+
+        myLogger.info("Raw Sequence Files: " + Arrays.deepToString(rawSeqFileNames));
+        myLogger.info("Parameters Passed to ProductionSNPCallerPlugin: " + Arrays.deepToString(getPluginArgs(subDirectory, keyFile)));
+
+        ProductionSNPCallerPlugin plugin = new ProductionSNPCallerPlugin();
+        plugin.setParameters(getPluginArgs(subDirectory, keyFile));
+
+        printParameterValues();
+        plugin.performFunction(null);
+
+    }
+
+    private String[] getPluginArgs(String inputDir, String keyFile) {
         String[] args = {
-            "-i", myInputDirectory.value(),
-            "-k", myKeyFile.value(),
-            "-e", myEnzyme.value(),
-            "-o", myOutputGenotypeFile.value(),
-            "-m", myProductionTOPM.value()
+            "-i", inputDir,
+            "-k", keyFile,
+            "-e", enzyme(),
+            "-o", outputGenotypeFile(),
+            "-m", productionTOPM()
         };
         return args;
     }
@@ -150,7 +189,7 @@ public class ProductionPipeline extends AbstractPlugin {
     //     GeneratePluginCode.generate(ProductionPipeline.class);
     // }
     /**
-     * Input directory containing fastq AND/OR qseq files
+     * Input directory containing subdirectories with fastq AND/OR qseq files
      *
      * @return Input Directory
      */
@@ -159,7 +198,8 @@ public class ProductionPipeline extends AbstractPlugin {
     }
 
     /**
-     * Set Input Directory. Input directory containing fastq AND/OR qseq files
+     * Set Input Directory. Input directory containing subdirectories with fastq
+     * AND/OR qseq files
      *
      * @param value Input Directory
      *
@@ -167,27 +207,6 @@ public class ProductionPipeline extends AbstractPlugin {
      */
     public ProductionPipeline inputDirectory(String value) {
         myInputDirectory = new PluginParameter<>(myInputDirectory, value);
-        return this;
-    }
-
-    /**
-     * Barcode Key File
-     *
-     * @return Key File
-     */
-    public String keyFile() {
-        return myKeyFile.value();
-    }
-
-    /**
-     * Set Key File. Barcode Key File
-     *
-     * @param value Key File
-     *
-     * @return this plugin
-     */
-    public ProductionPipeline keyFile(String value) {
-        myKeyFile = new PluginParameter<>(myKeyFile, value);
         return this;
     }
 
