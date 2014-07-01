@@ -459,6 +459,16 @@ abstract public class AbstractPlugin implements Plugin {
     }
 
     @Override
+    public Plugin setParameter(PluginParameter param, Object value){
+        if(value instanceof String) {
+            setParameter(param.cmdLineName(), (String) value);
+        }else if(value instanceof Comparable){
+            setParameter(param.cmdLineName(), (Comparable) value);
+        }
+        return this;
+    }
+
+    @Override
     public Plugin setParameter(String key, Comparable value) {
 
         PluginParameter parameter = null;

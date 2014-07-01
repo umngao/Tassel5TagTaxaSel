@@ -61,6 +61,16 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
     public Comparable getParameter(String key);
 
     /**
+     * Sets parameter value for a given plugin
+     *
+     * @param param parameter
+     * @param value value
+     *
+     * @return this plugin
+     */
+    public Plugin setParameter(PluginParameter param, Object value);
+
+    /**
      * Sets parameter value for given parameter key.
      *
      * @param key key
