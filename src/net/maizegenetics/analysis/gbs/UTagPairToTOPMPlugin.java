@@ -3,11 +3,13 @@
  */
 package net.maizegenetics.analysis.gbs;
 
+import com.google.common.collect.Range;
 import net.maizegenetics.dna.map.TagsOnPhysicalMap;
 import net.maizegenetics.dna.tag.AbstractTags;
 import net.maizegenetics.dna.tag.UTagPairs;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.ArgsEngine;
 import org.apache.log4j.Logger;
@@ -46,22 +48,26 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
             .description("Distance to pad between each tag pair")
             .guiName("Pad distance")
             .units("base pairs")
+            .range(Range.closed(1, Integer.MAX_VALUE))
             .build();
     private PluginParameter<String> infile
             = new PluginParameter.Builder<>("input", null, String.class)
             .description("Input file of matched tag pairs")
+            .guiName("Input tag pair file")
             .required(true)
             .inFile()
             .build();
     private PluginParameter<String> textOutputFile
             = new PluginParameter.Builder<>("toText", null, String.class)
             .description("File to output TOPM in text format")
+            .guiName("Output file (text)")
             .required(false)
             .outFile()
             .build();
     private PluginParameter<String> binaryOutputFile
             = new PluginParameter.Builder<>("toBinary", null, String.class)
             .description("File to output TOPM in binary format")
+            .guiName("Output file (binary)")
             .required(false)
             .outFile()
             .build();
@@ -79,17 +85,17 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
     public DataSet processData(DataSet input) {
 
         //Make TOPM
-        tp = new UTagPairs(inputFile());
+        tp = new UTagPairs(input());
         TagsOnPhysicalMap myTopm = makeTopmFromTagPairs(tp);
 
         //Output to specified file(s)
-        if (textOutputFile() != null) {
-            logger.info("Outputting TOPM in text format to " + textOutputFile());
-            myTopm.writeTextFile(new File(textOutputFile()));
+        if (toText() != null) {
+            logger.info("Outputting TOPM in text format to " + toText());
+            myTopm.writeTextFile(new File(toText()));
         }
-        if (binaryOutputFile() != null) {
-            logger.info("Outputting TOPM in binary format to " + binaryOutputFile());
-            myTopm.writeBinaryFile(new File(binaryOutputFile()));
+        if (toBinary() != null) {
+            logger.info("Outputting TOPM in binary format to " + toBinary());
+            myTopm.writeBinaryFile(new File(toBinary()));
         }
 
         return null;
@@ -106,11 +112,11 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
             tempTags.setTag(i, tp.getTag(i), tp.getTagLength(i));
         }
         TagsOnPhysicalMap myTopm = new TagsOnPhysicalMap(tempTags);
-        int currPos = 1;
-        int currChrom = startChrom();
+        long currPos = 1;
+        int currChrom = startChromosome();
         for (int i = 0; i < tp.getTagNum(); i++) {
 
-            myTopm.setChromoPosition(i, currChrom, myStrand, currPos, currPos + tp.getTagLength(i) - 1);
+            myTopm.setChromoPosition(i, currChrom, myStrand, (int) currPos, (int) currPos + tp.getTagLength(i) - 1);
             myTopm.setDivergence(i, (byte) 0);
 
             //These may not be necessary; don't know
@@ -123,7 +129,7 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
                 currPos += padDistance();
             }
             //If over max interger value, increment chromosome and start over
-            if (currPos >= Integer.MAX_VALUE) {
+            if (currPos >= Integer.MAX_VALUE ) {
                 currChrom++;
                 currPos = 1;
             }
@@ -134,8 +140,11 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
     @Override
     protected void postProcessParameters(){
         //Test that at least one output file supplied
-        if((binaryOutputFile() == null) && (textOutputFile() == null)){
+        if( (toBinary() == null || "".equals(toBinary())) && (toText() == null || "".equals(toText())) ){
             throw new IllegalArgumentException("\n\nMust specify at least one output file (text or binary).\n\n");
+        }
+        if(padDistance() < 100){
+            logger.warn("Warning! Setting the pad distance to <100 base pairs risks overlapping tags pairs with each other (and thus calling false SNPs)");
         }
     }
 
@@ -144,52 +153,6 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
         return "This plugin takes a tag-pair file (from UTagCountToTagPairPlugin) and converts it into a TOPM (tags on physical map) " +
                 "file for use in the GBS pipeline. The resulting chromosome coordinates and other data are just filler to comply with " +
                 "the TOPM file specifications.";
-    }
-
-    //Parameter get/set functions
-    public UTagPairToTOPMPlugin inputFile(String filename){
-        setParameter(infile.cmdLineName(), filename);
-        return this;
-    }
-
-    public UTagPairToTOPMPlugin textOutfile(String filename){
-        setParameter(textOutputFile.cmdLineName(), filename);
-        return this;
-    }
-
-    public UTagPairToTOPMPlugin binaryOutfile(String filename){
-        setParameter(binaryOutputFile.cmdLineName(), filename);
-        return this;
-    }
-
-    public UTagPairToTOPMPlugin startChrom(Integer value){
-        setParameter(chrom.cmdLineName(), value);
-        return this;
-    }
-
-    public UTagPairToTOPMPlugin padDistance(Integer value){
-        setParameter(distance.cmdLineName(), value);
-        return this;
-    }
-
-    public String inputFile(){
-        return infile.value();
-    }
-
-    public String textOutputFile(){
-        return textOutputFile.value();
-    }
-
-    public String binaryOutputFile(){
-        return binaryOutputFile.value();
-    }
-
-    public Integer startChrom(){
-        return chrom.value();
-    }
-
-    public Integer padDistance(){
-        return distance.value();
     }
 
     @Override
@@ -205,6 +168,120 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
     @Override
     public String getToolTipText() {
         return("Tag Pairs to TOPM");
+    }
+
+    // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(UTagPairToTOPMPlugin.class);
+    // }
+
+    /**
+     * Chromosome to start numbering at
+     *
+     * @return Start chromosome
+     */
+    public Integer startChromosome() {
+        return chrom.value();
+    }
+
+    /**
+     * Set Start chromosome. Chromosome to start numbering
+     * at
+     *
+     * @param value Start chromosome
+     *
+     * @return this plugin
+     */
+    public UTagPairToTOPMPlugin startChromosome(Integer value) {
+        chrom = new PluginParameter<>(chrom, value);
+        return this;
+    }
+
+    /**
+     * Distance to pad between each tag pair
+     *
+     * @return Pad distance
+     */
+    public Integer padDistance() {
+        return distance.value();
+    }
+
+    /**
+     * Set Pad distance. Distance to pad between each tag
+     * pair
+     *
+     * @param value Pad distance
+     *
+     * @return this plugin
+     */
+    public UTagPairToTOPMPlugin padDistance(Integer value) {
+        distance = new PluginParameter<>(distance, value);
+        return this;
+    }
+
+    /**
+     * Input file of matched tag pairs
+     *
+     * @return Input
+     */
+    public String input() {
+        return infile.value();
+    }
+
+    /**
+     * Set Input. Input file of matched tag pairs
+     *
+     * @param value Input
+     *
+     * @return this plugin
+     */
+    public UTagPairToTOPMPlugin input(String value) {
+        infile = new PluginParameter<>(infile, value);
+        return this;
+    }
+
+    /**
+     * File to output TOPM in text format
+     *
+     * @return To Text
+     */
+    public String toText() {
+        return textOutputFile.value();
+    }
+
+    /**
+     * Set To Text. File to output TOPM in text format
+     *
+     * @param value To Text
+     *
+     * @return this plugin
+     */
+    public UTagPairToTOPMPlugin toText(String value) {
+        textOutputFile = new PluginParameter<>(textOutputFile, value);
+        return this;
+    }
+
+    /**
+     * File to output TOPM in binary format
+     *
+     * @return To Binary
+     */
+    public String toBinary() {
+        return binaryOutputFile.value();
+    }
+
+    /**
+     * Set To Binary. File to output TOPM in binary format
+     *
+     * @param value To Binary
+     *
+     * @return this plugin
+     */
+    public UTagPairToTOPMPlugin toBinary(String value) {
+        binaryOutputFile = new PluginParameter<>(binaryOutputFile, value);
+        return this;
     }
 }
 

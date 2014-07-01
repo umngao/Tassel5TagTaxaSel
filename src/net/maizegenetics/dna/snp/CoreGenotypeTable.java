@@ -11,6 +11,7 @@ import net.maizegenetics.dna.snp.bit.DynamicBitStorage;
 import net.maizegenetics.dna.snp.depth.AlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.score.AlleleProbability;
+import net.maizegenetics.dna.snp.score.Dosage;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.BitSet;
 
@@ -37,23 +38,31 @@ public class CoreGenotypeTable implements GenotypeTable {
     private final Map<WHICH_ALLELE, BitStorage> myBitStorage = new HashMap<>();
     private final PositionList myPositionList;
     private final TaxaList myTaxaList;
-    private final AlleleProbability myAlleleProbability = null;
+    private final AlleleProbability myAlleleProbability;
     private final AlleleDepth myAlleleDepth;
+    private final Dosage myDosage;
     private final int mySiteCount;
     private final int myTaxaCount;
 
-    CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth) {
-        //todo need check dimensions
+    CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, Dosage dosage) {
+        if (genotype.numberOfTaxa() != taxaList.numberOfTaxa()) {
+            throw new IllegalArgumentException("CoreGenotypeTable: init: genotype number of taxa: " + genotype.numberOfTaxa() + " doesn't match taxa list: " + taxaList.numberOfTaxa());
+        }
+        if (genotype.numberOfSites() != positionList.numberOfSites()) {
+            throw new IllegalArgumentException("CoreGenotypeTable: init: genotype number of sites: " + genotype.numberOfSites() + " doesn't match position list: " + positionList.numberOfSites());
+        }
         myGenotype = genotype;
         myPositionList = positionList;
         myTaxaList = taxaList;
         myAlleleDepth = alleleDepth;
+        myAlleleProbability = alleleProbability;
+        myDosage = dosage;
         mySiteCount = myPositionList.numberOfSites();
         myTaxaCount = myTaxaList.numberOfTaxa();
     }
 
     CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList) {
-        this(genotype, positionList, taxaList, null);
+        this(genotype, positionList, taxaList, null, null, null);
     }
 
     @Override
@@ -246,12 +255,14 @@ public class CoreGenotypeTable implements GenotypeTable {
         return myPositionList.chromosomesOffsets();
     }
 
-
     @Override
     public Set<GenotypeTable.SITE_SCORE_TYPE> siteScoreTypes() {
         Set<GenotypeTable.SITE_SCORE_TYPE> result = new HashSet<>();
         if (myAlleleProbability != null) {
             result.addAll(myAlleleProbability.siteScoreTypes());
+        }
+        if (myDosage != null) {
+            result.addAll(myDosage.siteScoreTypes());
         }
         return result;
     }
@@ -493,6 +504,16 @@ public class CoreGenotypeTable implements GenotypeTable {
     @Override
     public float alleleProbability(int taxon, int site, SITE_SCORE_TYPE type) {
         return myAlleleProbability.value(taxon, site, type);
+    }
+
+    @Override
+    public Dosage dosage() {
+        return myDosage;
+    }
+
+    @Override
+    public byte dosage(int taxon, int site) {
+        return myDosage.value(taxon, site);
     }
 
 }

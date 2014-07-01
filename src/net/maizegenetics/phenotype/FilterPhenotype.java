@@ -14,7 +14,7 @@ import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.TableReport;
 
-public class FilterPhenotype implements Phenotype, TableReport {
+public class FilterPhenotype implements Phenotype {
 	private int[] myRowRedirect;
 	private int numberOfObservations;
 	private CorePhenotype basePhenotype;

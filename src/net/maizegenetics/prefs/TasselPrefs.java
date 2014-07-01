@@ -32,6 +32,10 @@ public class TasselPrefs {
     public static final int TASSEL_Y_DIM_DEFAULT = -1;
     public static final String TASSEL_LOG_DEBUG = "logDebug";
     public static final boolean TASSEL_LOG_DEBUG_DEFAULT = false;
+    public static final String TASSEL_LOG_X_DIM = "logxDimension";
+    public static final int TASSEL_LOG_X_DIM_DEFAULT = -1;
+    public static final String TASSEL_LOG_Y_DIM = "logyDimension";
+    public static final int TASSEL_LOG_Y_DIM_DEFAULT = -1;
     //
     // FilterAlignmentPlugin preferences
     //
@@ -237,6 +241,22 @@ public class TasselPrefs {
 
     public static void putLogDebug(boolean value) {
         putBooleanPref(TASSEL_TOP, TASSEL_LOG_DEBUG, value);
+    }
+
+    public static int getLogXDim() {
+        return getIntPref(TASSEL_TOP, TASSEL_LOG_X_DIM, TASSEL_LOG_X_DIM_DEFAULT);
+    }
+
+    public static void putLogXDim(int value) {
+        putIntPref(TASSEL_TOP, TASSEL_LOG_X_DIM, value);
+    }
+
+    public static int getLogYDim() {
+        return getIntPref(TASSEL_TOP, TASSEL_LOG_Y_DIM, TASSEL_LOG_Y_DIM_DEFAULT);
+    }
+
+    public static void putLogYDim(int value) {
+        putIntPref(TASSEL_TOP, TASSEL_LOG_Y_DIM, value);
     }
 
     //

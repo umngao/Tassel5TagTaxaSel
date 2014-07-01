@@ -169,7 +169,7 @@ public class HDF5SummaryPlugin extends AbstractPlugin {
         }
         else if(HDF5Utils.doTagsExist(h5reader) && !HDF5Utils.doTagsByTaxaExist(h5reader)){ // Extra check for lack of tags-by-taxa is in case this statement ever gets reordered
             myFileType = H5FileType.TOPM;
-        }else{
+        } else{
             myFileType = H5FileType.UNKNOWN;
         }
     }
@@ -180,7 +180,7 @@ public class HDF5SummaryPlugin extends AbstractPlugin {
                 genos = ImportUtils.readGuessFormat(inputFile());
                 break;
             case TBT:
-                tbt = TagsByTaxaHDF5Builder.openTaxaIncremental(inputFile()).build();
+                tbt = TagsByTaxaHDF5Builder.openForReading(inputFile());
                 break;
             case TOPM:
                 topm = TOPMUtils.readTOPM(inputFile());

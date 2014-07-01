@@ -225,8 +225,9 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
         usage.append("-m or -merge : if true families are merged into a single file, if false each family is output to a separate file (default = true)\n");
         usage.append("-o or -outputType : parents = output parent calls, nucleotides = output nucleotides, both = output both\n");
         usage.append("-d or -diploid : if true output is AA/CC/AC, if false output is A/C/M\n");
-        usage.append("-c or -minCoverage : the minimum coverage for a monomorphic snp to be included in the nucleotide output (default = NaN, no monomorphic SNPs included)\n");
-        usage.append("-x or -maxMono : the maximum minor allele frequency used to call monomorphic snps (default = NaN, none called)\n");
+        usage.append("-c or -minCoverage : the minimum coverage for a monomorphic snp to be included in the nucleotide output (default = 0.1)\n");
+        usage.append("-x or -maxMono : the maximum minor allele frequency used to call monomorphic snps (default = 0.01)\n");
+        usage.append("if -c or -x equals NaN and merge is true, then missing values at monomorphic sites (within a family) will be left missing\n");
         usage.append("? : print the parameter list.\n");
 
         return usage.toString();

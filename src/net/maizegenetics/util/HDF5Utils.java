@@ -11,12 +11,16 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.SetMultimap;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.tag.Tag;
 import net.maizegenetics.dna.tag.Tags;
+import net.maizegenetics.dna.tag.TaxaDistribution;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 
 import java.util.*;
+
+import static net.maizegenetics.util.Tassel5HDF5Constants.*;
 
 /**
  *
@@ -36,6 +40,7 @@ public final class HDF5Utils {
      public static void createHDF5TaxaModule(IHDF5Writer h5w) {
          h5w.createGroup(Tassel5HDF5Constants.TAXA_MODULE);
          h5w.setBooleanAttribute(Tassel5HDF5Constants.TAXA_ATTRIBUTES_PATH,Tassel5HDF5Constants.TAXA_LOCKED,false);
+         h5w.createStringArray(Tassel5HDF5Constants.TAXA_ORDER, 256, 0, 1);
      }
 
     public static void lockHDF5TaxaModule(IHDF5Writer h5w) {
@@ -78,6 +83,8 @@ public final class HDF5Utils {
             String s=Joiner.on(",").join(annoMap.get(keys));
             h5w.setStringAttribute(path,keys,s);
         }
+        long size=h5w.getDataSetInformation(Tassel5HDF5Constants.TAXA_ORDER).getNumberOfElements();
+        h5w.writeStringArrayBlockWithOffset(Tassel5HDF5Constants.TAXA_ORDER,new String[]{taxon.getName()},1,size);
         return true;
     }
     
@@ -106,9 +113,16 @@ public final class HDF5Utils {
 
     public static List<String> getAllTaxaNames(IHDF5Reader reader) {
         List<String> taxaNames=new ArrayList<>();
-        List<HDF5LinkInformation> fields = reader.getAllGroupMemberInformation(Tassel5HDF5Constants.TAXA_MODULE, true);
-        for (HDF5LinkInformation is : fields) {
-            taxaNames.add(is.getName());
+        if(reader.exists(Tassel5HDF5Constants.TAXA_ORDER)) {
+            for (String s : reader.readStringArray(Tassel5HDF5Constants.TAXA_ORDER)) {
+                taxaNames.add(s);
+            }
+        } else {
+            List<HDF5LinkInformation> fields = reader.getAllGroupMemberInformation(Tassel5HDF5Constants.TAXA_MODULE, true);
+            for (HDF5LinkInformation is : fields) {
+                if(!is.isGroup()) continue;
+                taxaNames.add(is.getName());
+            }
         }
         return taxaNames;
     }
@@ -347,130 +361,36 @@ public final class HDF5Utils {
         return reader.exists(Tassel5HDF5Constants.TAGS);
     }
 
-    public static void writeHDF5Tags(IHDF5Writer h5w, Tags tags) {
-        if(doTagsExist(h5w)) throw new UnsupportedOperationException("Tags already exists in HDF5 file");
-        if(isHDF5TagLocked(h5w)==true) throw new UnsupportedOperationException("Trying to write to a locked HDF5 file");
-        int blockSize = Math.min(tags.getTagCount(), Tassel5HDF5Constants.BLOCK_SIZE);
-        h5w.createLongMatrix(Tassel5HDF5Constants.TAGS, tags.getTagSizeInLong(), tags.getTagCount(), tags.getTagSizeInLong(),
-                blockSize, Tassel5HDF5Constants.intDeflation);
-        h5w.createIntArray(Tassel5HDF5Constants.TAG_LENGTHS, tags.getTagCount(), blockSize,Tassel5HDF5Constants.intDeflation);
-        h5w.setIntAttribute(Tassel5HDF5Constants.TAG_ATTRIBUTES_PATH, Tassel5HDF5Constants.TAG_COUNT, tags.getTagCount());
-        int blocks = ((tags.getTagCount() - 1) / blockSize) + 1;
-        for (int block = 0; block < blocks; block++) {
-            int startPos = block * blockSize;
-            int length = Math.min(tags.getTagCount() - startPos, blockSize);
-            long[][] sval = new long[tags.getTagSizeInLong()][length];
-            int[] tLenBlock = new int[length];
-            for (int k = 0; k < length; k++) {
-                long[] tg=tags.getTag(startPos+k);
-                for (int j = 0; j < tg.length; j++) {
-                    sval[j][k]=tg[j];
-                }
-                tLenBlock[k]=tags.getTagLength(k);
-            }
-            writeHDF5Block(Tassel5HDF5Constants.TAGS, h5w, blockSize, block, sval);
-            writeHDF5Block(Tassel5HDF5Constants.TAG_LENGTHS, h5w, blockSize, block, tLenBlock);
-        }
+
+    public static String getTagPath(Tag tag) {
+        return null;
     }
 
     public static long[][] getTags(IHDF5Reader reader) {
         return reader.readLongMatrix(Tassel5HDF5Constants.TAGS);
     }
 
-    public static int[] getTagLengths(IHDF5Reader reader) {
-        return reader.readIntArray(Tassel5HDF5Constants.TAG_LENGTHS);
-    }
 
-    public static void createHDF5TagByTaxaDist(IHDF5Writer h5w, boolean isTaxaDirection, TaxaList taxaList) {
-        if(h5w.exists(Tassel5HDF5Constants.TAG_DIST)) throw new UnsupportedOperationException("TagDist module already exists in HDF5 file");
-        if(isTaxaDirection) {
-            h5w.createByteMatrix(Tassel5HDF5Constants.TAG_DIST, 0, getHDF5TagCount(h5w),
-                    1, Math.min(getHDF5TagCount(h5w), Tassel5HDF5Constants.BLOCK_SIZE), Tassel5HDF5Constants.intDeflation);
-            h5w.setBooleanAttribute(Tassel5HDF5Constants.TAG_DIST,Tassel5HDF5Constants.TAG_DIST_CHUNK,true);
-        } else {
-            h5w.createByteMatrix(Tassel5HDF5Constants.TAG_DIST, taxaList.size(), getHDF5TagCount(h5w),
-                    taxaList.size(), 1, Tassel5HDF5Constants.intDeflation);
-            h5w.setBooleanAttribute(Tassel5HDF5Constants.TAG_DIST,Tassel5HDF5Constants.TAG_DIST_CHUNK,false);
-            for (int t = 0; t < taxaList.size(); t++) {
-                h5w.setStringAttribute(Tassel5HDF5Constants.TAG_DIST,"TN"+t,taxaList.taxaName(t));
-            }
-        }
-    }
 
-    public static int addTaxonTagDistribution(IHDF5Writer h5w, Taxon taxon, byte[] dist) {
-        if(!isTagsByTaxaInTaxaDirection(h5w)) throw new IllegalStateException("Chunking in wrong direction for adding taxa");
-        addTaxon(h5w,taxon);
-        int tbtTaxaNum=(int)h5w.getDataSetInformation(Tassel5HDF5Constants.TAG_DIST).getDimensions()[0];
-        //System.out.println(h5w.getDataSetInformation(Tassel5HDF5Constants.TAG_DIST).toString());
-        h5w.writeByteMatrixBlock(Tassel5HDF5Constants.TAG_DIST, new byte[][]{dist}, tbtTaxaNum, 0);
-        h5w.setStringAttribute(Tassel5HDF5Constants.TAG_DIST,"TN"+tbtTaxaNum,taxon.getName());
-        return tbtTaxaNum;
-    }
-
-    /**
-     * Returns all tags count (in byte format - negatives are logs) for a single taxon.
-     * @param reader
-     * @param taxonIndex
-     * @return
-     */
-    public static byte[] getTagDistForTaxon(IHDF5Reader reader, int taxonIndex) {
-        if(!isTagsByTaxaInTaxaDirection(reader)) throw new IllegalStateException("Chunking in wrong direction for reading taxa");
-        //getting read count and checking read direction may slow things.
-        return reader.readByteMatrixBlock(Tassel5HDF5Constants.TAG_DIST,1,getHDF5TagCount(reader),taxonIndex,0l)[0];
-    }
-
-    /**
-     * Returns all tags count (in byte format - negatives are logs) for a single taxon for a tag block (1<<16 tags).
-     * If this is the last block it will be smaller than 1<<16
-     * @param reader
-     * @param taxonIndex
-     * @param tagBlock
-     * @return
-     */
-    public static byte[] getTagDistBlockForTaxon(IHDF5Reader reader, int taxonIndex, int tagBlock) {
-        if(!isTagsByTaxaInTaxaDirection(reader)) throw new IllegalStateException("Chunking in wrong direction for reading taxa");
-        //getting read count and checking read direction may slow things.
-        int length=Math.min(Tassel5HDF5Constants.BLOCK_SIZE,getHDF5TagCount(reader)-(tagBlock*Tassel5HDF5Constants.BLOCK_SIZE));
-        return reader.readByteMatrixBlock(Tassel5HDF5Constants.TAG_DIST,1,length,taxonIndex, tagBlock)[0];
-    }
-
-    public static byte[] getTaxaDistForTag(IHDF5Reader reader, int tagIndex) {
-        if(isTagsByTaxaInTaxaDirection(reader)) throw new IllegalStateException("Chunking in wrong direction for reading tags");
-        //getting read count and checking read direction may slow things.
-        return reader.readByteMatrixBlock(Tassel5HDF5Constants.TAG_DIST,getNumberOfTaxaInTBT(reader),1,0,tagIndex)[0];
+    //TODO invoke all is kicking this off but it is stopping the process before complete.  Only with synchronized is
+    //it completing
+    public static synchronized void writeTagDistributionBucket(IHDF5Writer h5w, int bucket, long[][] tags, short[] length,
+                                                  int[] encodedTaxaDist, int maxTaxa, int[] tagDistOffset) {
+        String path= Tassel5HDF5Constants.TAG_MODULE+"/"+bucket+"/";
+        h5w.createGroup(path);
+        h5w.writeLongMatrix(path+TAG_SEQ,tags,intDeflation);
+        h5w.writeShortArray(path + TAG_LENGTHS, length, intDeflation);
+        h5w.createIntArray(path + TAG_DIST, encodedTaxaDist.length, Math.min(BLOCK_SIZE,encodedTaxaDist.length), intDeflation);
+        h5w.writeIntArray(path+TAG_DIST,encodedTaxaDist,intDeflation);
+        h5w.setIntAttribute(path+TAG_DIST,"MaxTaxa",maxTaxa);
+        h5w.createIntArray(path + TAG_DIST_OFFSETS, tagDistOffset.length, intDeflation);
+        h5w.writeIntArray(path+TAG_DIST_OFFSETS,tagDistOffset,intDeflation);
     }
 
     public static boolean doTagsByTaxaExist(IHDF5Reader reader){
-        return reader.exists(Tassel5HDF5Constants.TAG_DIST);
+        throw new UnsupportedOperationException("Not implemented yet");
+        //return reader.exists(Tassel5HDF5Constants.TAG_DIST);
     }
-
-    public static boolean isTagsByTaxaInTaxaDirection(IHDF5Reader reader){
-        return reader.getBooleanAttribute(Tassel5HDF5Constants.TAG_DIST, Tassel5HDF5Constants.TAG_DIST_CHUNK);
-    }
-
-    public static int getNumberOfTaxaInTBT(IHDF5Reader reader){
-        return (int)reader.getDataSetInformation(Tassel5HDF5Constants.TAG_DIST).getDimensions()[0];
-    }
-
-    public static BiMap<String, Integer> getTBTMapOfRowIndices(IHDF5Reader reader) {
-        int tbtTaxaNum=(int)reader.getDataSetInformation(Tassel5HDF5Constants.TAG_DIST).getDimensions()[0];
-        BiMap<String, Integer> taxaNameToRowIndex= HashBiMap.create(tbtTaxaNum);
-        for (int t = 0; t < tbtTaxaNum; t++) {
-            taxaNameToRowIndex.put(reader.getStringAttribute(Tassel5HDF5Constants.TAG_DIST, "TN" + t), t);
-        }
-        return taxaNameToRowIndex;
-    }
-
-    public static TaxaList getTaxaListInTBTOrder(IHDF5Reader reader) {
-        int tbtTaxaNum=(int)reader.getDataSetInformation(Tassel5HDF5Constants.TAG_DIST).getDimensions()[0];
-        TaxaListBuilder tlb=new TaxaListBuilder();
-        for (int t = 0; t < tbtTaxaNum; t++) {
-            tlb.add(HDF5Utils.getTaxon(reader,reader.getStringAttribute(Tassel5HDF5Constants.TAG_DIST, "TN" + t)));
-        }
-        return tlb.build();
-    }
-
-
 
 
     /**

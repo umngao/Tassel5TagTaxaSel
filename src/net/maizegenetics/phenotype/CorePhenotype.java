@@ -22,7 +22,7 @@ import net.maizegenetics.util.TableReport;
  * @author pbradbury
  *
  */
-public class CorePhenotype implements Phenotype, TableReport {
+public class CorePhenotype implements Phenotype {
 	protected final List<PhenotypeAttribute> myAttributeList;
 	protected final List<ATTRIBUTE_TYPE> myAttributeTypeList;
 	protected final Multimap<ATTRIBUTE_TYPE, Integer> myAttributeTypeMap;

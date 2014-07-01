@@ -3,17 +3,23 @@
  */
 package net.maizegenetics.dna.tag;
 
+import cern.colt.list.IntArrayList;
 import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import ch.systemsx.cisd.hdf5.IHDF5WriterConfigurator;
 import com.google.common.collect.BiMap;
 import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.HDF5Utils;
-import static net.maizegenetics.dna.tag.TagsByTaxaHDF5.Chunking;
+import net.maizegenetics.util.Tassel5HDF5Constants;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.*;
+
+import static net.maizegenetics.util.Tassel5HDF5Constants.*;
 
 /**
  * Tags by Taxa (TBT) Builder based on the HDF5 data structure.  This version uses the standard 2-dimension matrix with
@@ -25,102 +31,110 @@ import java.util.*;
  */
 public class TagsByTaxaHDF5Builder {
 
-    private final Chunking cnkDir;
+    //private final Chunking cnkDir;
 
-    private int tagCount = 0;
-    private final IHDF5Writer h5;
-    private final BiMap<String, Integer> taxonNameToIndexMap;
+//    private int tagCount = 0;
+//    private final IHDF5Writer h5;
+//    private final BiMap<String, Integer> taxonNameToIndexMap;
 
-    /**
-     * Create Tags by taxa module within a HDF5 file
-     * @param newHDF5file file name
-     * @param tags the list of tags to be use
-     * @return
-     */
-    public static final TagsByTaxaHDF5Builder createTaxaIncremental(String newHDF5file, Tags tags) {
-        return new TagsByTaxaHDF5Builder(newHDF5file, Chunking.Taxa,tags, null);
-    }
-
-    /**
-     * Used to add taxa to an existing Tags by Taxa module
-     * @param existingHDF5file
-     * @return
-     */
-    public static final TagsByTaxaHDF5Builder openTaxaIncremental(String existingHDF5file) {
-        return new TagsByTaxaHDF5Builder(existingHDF5file,Chunking.Taxa,null,null);
-    }
-
-    public static final TagsByTaxaHDF5Builder createTagOriented(String newHDF5file, Tags tags, TaxaList taxaList) {
-        return new TagsByTaxaHDF5Builder(newHDF5file,Chunking.Tags,tags,taxaList);
-    }
-
-//    public static final TagsByTaxaHDF5Builder createTagOriented(String srcHDF5File, String dstHDF5file) {
-//        return new TagsByTaxaHDF5Builder(newHDF5file,BuildDirection.AddTaxa,tags);
+//    /**
+//     * Create Tags by taxa module within a HDF5 file
+//     * @param newHDF5file file name
+//     * @param tags the list of tags to be use
+//     * @return
+//     */
+//    public static final TagsByTaxaHDF5Builder createTaxaIncremental(String newHDF5file, Tags tags) {
+//        return new TagsByTaxaHDF5Builder(newHDF5file, Chunking.Taxa,tags, null);
 //    }
 
-    private TagsByTaxaHDF5Builder(String theHDF5file, TagsByTaxaHDF5.Chunking chunkDirection, Tags tags, TaxaList taxaList) {
-        cnkDir=chunkDirection;
-        h5 = HDF5Factory.configure(new File(theHDF5file))
+//    /**
+//     * Used to add taxa to an existing Tags by Taxa module
+//     * @param existingHDF5file
+//     * @return
+//     */
+//    public static final TagsByTaxaHDF5Builder openTaxaIncremental(String existingHDF5file) {
+//        return new TagsByTaxaHDF5Builder(existingHDF5file,Chunking.Taxa,null,null);
+//    }
+//
+//    public static final TagsByTaxaHDF5Builder createTagOriented(String newHDF5file, Tags tags, TaxaList taxaList) {
+//        return new TagsByTaxaHDF5Builder(newHDF5file,Chunking.Tags,tags,taxaList);
+//    }
+
+    public static final void create(String newHDF5file, Map<Tag,TaxaDistribution> tagTaxaMap, TaxaList taxaList) {
+        IHDF5Writer h5w = HDF5Factory.configure(new File(newHDF5file))
                 .useUTF8CharacterEncoding().writer();
-        if(tags==null) {
-            if(!HDF5Utils.doTagsExist(h5)) throw new IllegalStateException("File :"+theHDF5file+" does not have the needed tags" +
-                            " to build a TBT file.");
-        } else {
-            if(HDF5Utils.doesTaxaModuleExist(h5)==false) HDF5Utils.createHDF5TaxaModule(h5);
-            HDF5Utils.createHDF5TagModule(h5,tags.getTagSizeInLong());
-            HDF5Utils.writeHDF5Tags(h5,tags);
+        Map.Entry<Tag, TaxaDistribution> firstEntry=tagTaxaMap.entrySet().iterator().next();
+        Tag aTag=firstEntry.getKey();
+        int maxTaxa=firstEntry.getValue().maxTaxa();
+        if(maxTaxa!=taxaList.numberOfTaxa()) throw new IllegalStateException("Taxa Distribution does not agree with size of TaxaList");
+        TaxaListBuilder.createHDF5TaxaList(h5w,taxaList);
+        HDF5Utils.createHDF5TagModule(h5w,aTag.seq2Bit().length);
+        ArrayList<Map.Entry<Tag, TaxaDistribution>>[] blockList=new ArrayList[Tassel5HDF5Constants.TAGS_BIN_NUM];
+        for (int i = 0; i < blockList.length; i++) {
+            blockList[i]=new ArrayList<>();
         }
-        tagCount=HDF5Utils.getHDF5TagCount(h5);
-        if(HDF5Utils.doTagsByTaxaExist(h5)) {
-            //validate the taxa list
-        } else {
-            HDF5Utils.createHDF5TagByTaxaDist(h5,chunkDirection==Chunking.Taxa, taxaList);
+        for (Map.Entry<Tag, TaxaDistribution> entry : tagTaxaMap.entrySet()) {
+            blockList[entry.getKey().hashCode()>>>Tassel5HDF5Constants.HASH_SHIFT_TO_TAG_BIN].add(entry);
         }
-        taxonNameToIndexMap=HDF5Utils.getTBTMapOfRowIndices(h5);
+        //todo parallelize this
+        int numThreads=Runtime.getRuntime().availableProcessors();
+        ExecutorService pool= Executors.newFixedThreadPool(numThreads - 1);
+        List<WriteTagBucket> bucketList=new ArrayList<>();
+        for (int i = 0; i < blockList.length; i++) {
+            //System.out.println("Using File:"+inputSeqFile.toString());
+            bucketList.add(new WriteTagBucket(h5w,i,blockList[i]));
+        }
+        try{pool.invokeAll(bucketList);}
+        catch (Exception ie) {
+            ie.printStackTrace();
+        }
     }
 
-    public TagsByTaxaHDF5Builder addTag(long[] tag, byte[] dist) {
-        //check if Tags
-        if(cnkDir!=Chunking.Tags) throw new IllegalStateException("This builder with these options can only add Tags");
-        //do something
-        return this;
+    public static final TagsByTaxa openForReading(String aHDF5file) {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
-    public TagsByTaxa build() {
-        h5.close();
-        return new TagsByTaxaHDF5(h5.getFile().getAbsolutePath());
+}
+
+class WriteTagBucket implements Callable<Integer> {
+    private final int bucket;
+    private final ArrayList<Map.Entry<Tag, TaxaDistribution>> tagDistList;
+    private final IHDF5Writer h5w;
+    private final int maxTaxa=192;
+
+    WriteTagBucket(IHDF5Writer h5w, int bucket, ArrayList<Map.Entry<Tag, TaxaDistribution>> tagDistList) {
+        this.bucket=bucket;
+        this.tagDistList=tagDistList;
+        this.h5w=h5w;
     }
 
-
-    public TagsByTaxaHDF5Builder addTaxon(Taxon taxon, byte[] values) {
-        if(cnkDir!=Chunking.Taxa) throw new IllegalStateException("This builder with these options can only add Taxa");
-        synchronized (h5) {
-            if (values.length != this.tagCount) {
-                System.err.printf("Taxon (%s) does not have the right number of sites (%d)%n", taxon.getName(), values.length);
-                throw new IllegalStateException(String.format("Taxon (%s) does not have the right number of sites (%d)%n", taxon.getName(), values.length));
+    @Override
+    public Integer call() throws Exception {
+        if(tagDistList.size()<1) return bucket;
+        int block=tagDistList.get(0).getKey().hashCode()>>>Tassel5HDF5Constants.HASH_SHIFT_TO_TAG_BIN;
+        long[][] tags=new long[tagDistList.get(0).getKey().seq2Bit().length][tagDistList.size()];
+        short[] length=new short[tagDistList.size()];
+        IntArrayList taxaDist=new IntArrayList(tagDistList.size());
+        IntArrayList tagDistOffset=new IntArrayList(tagDistList.size());
+        int t_i=0;
+        for (Map.Entry<Tag, TaxaDistribution> entry : tagDistList) {
+            Tag t=entry.getKey();
+            int li=0; for (long l : t.seq2Bit()) {tags[li++][t_i]=l;}
+            length[t_i]=t.seqLength();
+            int[] encodeTagDist=entry.getValue().encodeTaxaDepth();
+            tagDistOffset.add(taxaDist.size());
+            for (int i : encodeTagDist) {
+                taxaDist.add(i);
             }
-            if(taxonNameToIndexMap.containsKey(taxon.getName())) {
-                throw new IllegalStateException(String.format("Taxon (%s) already exists in the TBT table, please use replace if this is not an error%n", taxon.getName()));
-            }
-            int rowIndex=HDF5Utils.addTaxonTagDistribution(h5,taxon,values);
-            taxonNameToIndexMap.put(taxon.getName(),rowIndex);
-            return this;
+            t_i++;
         }
+        tagDistOffset.add(taxaDist.size());
+        taxaDist.trimToSize();
+        tagDistOffset.trimToSize();
+        //TODO use snappy for compression over gzip for speed and greater parallelization in java
+//        byte[] compressed = Snappy.compress(input.getBytes("UTF-8"));
+//        byte[] uncompressed = Snappy.uncompress(compressed);
+        HDF5Utils.writeTagDistributionBucket(h5w,block, tags,length,taxaDist.elements(),maxTaxa,tagDistOffset.elements());
+        return bucket;
     }
-
-    public TagsByTaxaHDF5Builder replaceTaxon(Taxon oldTaxon, Taxon newTaxon, byte[] values) {
-        synchronized (h5) {
-//            if (values.length != this.tagCount) {
-//                System.err.printf("Taxon (%s) does not have the right number of sites (%d)%n", taxon.getName(), values.length);
-//                throw new IllegalStateException(String.format("Taxon (%s) does not have the right number of sites (%d)%n", taxon.getName(), values.length));
-//            }
-//            if(taxonNameToIndexMap.containsKey(taxon.getName())) {
-//                throw new IllegalStateException(String.format("Taxon (%s) already exists in the TBT table, please use replace if this is not an error%n", taxon.getName()));
-//            }
-//            int rowIndex=HDF5Utils.addTaxonTagDistribution(h5,taxon,values);
-//            taxonNameToIndexMap.put(taxon.getName(),rowIndex);
-            return this;
-        }
-    }
-
 }
