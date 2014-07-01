@@ -13,7 +13,7 @@ import static net.maizegenetics.plugindef.AbstractPlugin.convert;
  * @author Terry Casstevens
  *
  */
-public class PluginParameter<T extends Comparable<T>> {
+public final class PluginParameter<T extends Comparable<T>> {
 
     private final String myGuiName;
     private final String myUnits;
@@ -25,6 +25,7 @@ public class PluginParameter<T extends Comparable<T>> {
     private final boolean myRequired;
     private final Class<T> myClass;
     private final PluginParameter<?> myDependentOnParameter;
+    private final Comparable<?> myDependentOnParameterValue;
 
     public enum FILE_TYPE {
 
@@ -33,7 +34,7 @@ public class PluginParameter<T extends Comparable<T>> {
     private final FILE_TYPE myFileType;
 
     private PluginParameter(String guiName, String guiUnits, String cmdLineName,
-            String description, Range<T> range, T defaultValue, T value, boolean required, FILE_TYPE fileType, PluginParameter<?> dependentOnParameter, Class<T> type) {
+            String description, Range<T> range, T defaultValue, T value, boolean required, FILE_TYPE fileType, PluginParameter<?> dependentOnParameter, Comparable<?> dependentOnParameterValue, Class<T> type) {
         myGuiName = guiName;
         myUnits = guiUnits;
         myCmdLineName = cmdLineName;
@@ -72,6 +73,7 @@ public class PluginParameter<T extends Comparable<T>> {
         myClass = type;
         myFileType = fileType;
         myDependentOnParameter = dependentOnParameter;
+        myDependentOnParameterValue = dependentOnParameterValue;
     }
 
     /**
@@ -84,7 +86,8 @@ public class PluginParameter<T extends Comparable<T>> {
     public PluginParameter(PluginParameter<T> oldParameter, T newValue) {
         this(oldParameter.myGuiName, oldParameter.myUnits, oldParameter.myCmdLineName,
                 oldParameter.myDescription, oldParameter.myRange, oldParameter.myDefaultValue, newValue,
-                oldParameter.myRequired, oldParameter.myFileType, oldParameter.dependentOnParameter(), oldParameter.myClass);
+                oldParameter.myRequired, oldParameter.myFileType, oldParameter.dependentOnParameter(),
+                oldParameter.dependentOnParameterValue(), oldParameter.myClass);
     }
 
     public String guiName() {
@@ -140,6 +143,10 @@ public class PluginParameter<T extends Comparable<T>> {
         return myDependentOnParameter;
     }
 
+    public Comparable<?> dependentOnParameterValue() {
+        return myDependentOnParameterValue;
+    }
+
     public boolean isEmpty() {
         if ((myValue == null) || (myValue.toString().trim().length() == 0)) {
             return true;
@@ -160,10 +167,7 @@ public class PluginParameter<T extends Comparable<T>> {
         private final Class<T> myClass;
         private FILE_TYPE myFileType = FILE_TYPE.NA;
         private PluginParameter<?> myDependentOnParameter = null;
-
-        public Builder(Enum cmdLineName, T defaultValue, Class<T> type) {
-            this(cmdLineName.toString(), defaultValue, type);
-        }
+        private Comparable<?> myDependentOnParameterValue = null;
 
         public Builder(String cmdLineName, T defaultValue, Class<T> type) {
             myCmdLineName = cmdLineName.toString();
@@ -217,7 +221,16 @@ public class PluginParameter<T extends Comparable<T>> {
         }
 
         public Builder<T> dependentOnParameter(PluginParameter<?> parameter) {
+            if (Boolean.class.isAssignableFrom(parameter.valueType())) {
+                return dependentOnParameter(parameter, true);
+            } else {
+                throw new IllegalArgumentException("PluginParameter: dependentOnParameter: no default value for: " + parameter.valueType().getName());
+            }
+        }
+
+        public Builder<T> dependentOnParameter(PluginParameter<?> parameter, Comparable<?> value) {
             myDependentOnParameter = parameter;
+            myDependentOnParameterValue = value;
             return this;
         }
 
@@ -239,7 +252,8 @@ public class PluginParameter<T extends Comparable<T>> {
             }
             return new PluginParameter<>(myGuiName, myUnits, myCmdLineName,
                     myDescription, myRange, myDefaultValue, null, myIsRequired,
-                    myFileType, myDependentOnParameter, myClass);
+                    myFileType, myDependentOnParameter,
+                    myDependentOnParameterValue, myClass);
         }
     }
 }

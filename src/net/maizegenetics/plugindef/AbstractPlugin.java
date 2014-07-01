@@ -12,6 +12,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 
 import java.io.File;
 import java.lang.reflect.Field;
@@ -752,7 +754,7 @@ abstract public class AbstractPlugin implements Plugin {
         createEnableDisableAction(current, parameterFields, new JComponent[]{component});
     }
 
-    private void createEnableDisableAction(PluginParameter<?> current, Map<String, JComponent> parameterFields, final JComponent[] components) {
+    private void createEnableDisableAction(final PluginParameter<?> current, Map<String, JComponent> parameterFields, final JComponent[] components) {
 
         if (current.dependentOnParameter() != null) {
             JComponent depends = parameterFields.get(current.dependentOnParameter().cmdLineName());
@@ -760,19 +762,19 @@ abstract public class AbstractPlugin implements Plugin {
                 final JCheckBox checkBox = (JCheckBox) depends;
 
                 for (JComponent component : components) {
-                    if (checkBox.isSelected()) {
+                    if (checkBox.isSelected() == (Boolean) current.dependentOnParameterValue()) {
                         component.setEnabled(true);
                     } else {
                         component.setEnabled(false);
                     }
                 }
 
-                checkBox.addActionListener(new ActionListener() {
+                checkBox.addItemListener(new ItemListener() {
 
                     @Override
-                    public void actionPerformed(ActionEvent e) {
+                    public void itemStateChanged(ItemEvent e) {
                         for (JComponent component : components) {
-                            if (checkBox.isSelected()) {
+                            if (checkBox.isSelected() == (Boolean) current.dependentOnParameterValue()) {
                                 component.setEnabled(true);
                             } else {
                                 component.setEnabled(false);
@@ -780,6 +782,7 @@ abstract public class AbstractPlugin implements Plugin {
                         }
                     }
                 });
+
             }
         }
 
