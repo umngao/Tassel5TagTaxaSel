@@ -110,11 +110,11 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
             tempTags.setTag(i, tp.getTag(i), tp.getTagLength(i));
         }
         TagsOnPhysicalMap myTopm = new TagsOnPhysicalMap(tempTags);
-        int currPos = 1;
+        long currPos = 1;
         int currChrom = startChromosome();
         for (int i = 0; i < tp.getTagNum(); i++) {
 
-            myTopm.setChromoPosition(i, currChrom, myStrand, currPos, currPos + tp.getTagLength(i) - 1);
+            myTopm.setChromoPosition(i, currChrom, myStrand, (int) currPos, (int) currPos + tp.getTagLength(i) - 1);
             myTopm.setDivergence(i, (byte) 0);
 
             //These may not be necessary; don't know
@@ -127,7 +127,7 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
                 currPos += padDistance();
             }
             //If over max interger value, increment chromosome and start over
-            if (currPos >= Integer.MAX_VALUE) {
+            if (currPos >= Integer.MAX_VALUE ) {
                 currChrom++;
                 currPos = 1;
             }
