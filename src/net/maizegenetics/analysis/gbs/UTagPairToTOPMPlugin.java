@@ -3,6 +3,7 @@
  */
 package net.maizegenetics.analysis.gbs;
 
+import com.google.common.collect.Range;
 import net.maizegenetics.dna.map.TagsOnPhysicalMap;
 import net.maizegenetics.dna.tag.AbstractTags;
 import net.maizegenetics.dna.tag.UTagPairs;
@@ -47,6 +48,7 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
             .description("Distance to pad between each tag pair")
             .guiName("Pad distance")
             .units("base pairs")
+            .range(Range.closed(1, Integer.MAX_VALUE))
             .build();
     private PluginParameter<String> infile
             = new PluginParameter.Builder<>("input", null, String.class)
@@ -140,6 +142,9 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
         //Test that at least one output file supplied
         if((toBinary() == null) && (toText() == null)){
             throw new IllegalArgumentException("\n\nMust specify at least one output file (text or binary).\n\n");
+        }
+        if(padDistance() < 100){
+            logger.warn("Warning! Setting the pad distance to <100 base pairs risks overlapping tags pairs with each other (and thus calling false SNPs)");
         }
     }
 
