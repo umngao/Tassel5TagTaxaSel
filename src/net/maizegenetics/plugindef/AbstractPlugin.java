@@ -459,10 +459,10 @@ abstract public class AbstractPlugin implements Plugin {
     }
 
     @Override
-    public Plugin setParameter(PluginParameter param, Object value){
-        if(value instanceof String) {
+    public Plugin setParameter(PluginParameter param, Object value) {
+        if (value instanceof String) {
             setParameter(param.cmdLineName(), (String) value);
-        }else if(value instanceof Comparable){
+        } else if (value instanceof Comparable) {
             setParameter(param.cmdLineName(), (Comparable) value);
         }
         return this;
@@ -519,16 +519,6 @@ abstract public class AbstractPlugin implements Plugin {
             }
         }
         return this;
-    }
-
-    @Override
-    final public Plugin setParameter(Enum key, Comparable value) {
-        return setParameter(key.toString(), value);
-    }
-
-    @Override
-    final public Plugin setParameter(Enum key, String value) {
-        return setParameter(key.toString(), value);
     }
 
     private static final int TEXT_FIELD_WIDTH = 25;
@@ -590,6 +580,7 @@ abstract public class AbstractPlugin implements Plugin {
                 dialog.setVisible(false);
             }
         });
+
         JButton cancelButton = new JButton();
         cancelButton.setText("Cancel");
         cancelButton.addActionListener(new ActionListener() {
@@ -597,6 +588,15 @@ abstract public class AbstractPlugin implements Plugin {
             public void actionPerformed(ActionEvent e) {
                 parametersAreSet = false;
                 dialog.setVisible(false);
+            }
+        });
+
+        JButton defaultsButton = new JButton();
+        defaultsButton.setText("Defaults");
+        defaultsButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                setFieldsToDefault(parameterFields);
             }
         });
 
@@ -701,6 +701,7 @@ abstract public class AbstractPlugin implements Plugin {
         pnlButtons.setLayout(new FlowLayout());
         pnlButtons.add(okButton);
         pnlButtons.add(cancelButton);
+        pnlButtons.add(defaultsButton);
         dialog.getContentPane().add(tabbedPane, BorderLayout.CENTER);
         dialog.getContentPane().add(pnlButtons, BorderLayout.SOUTH);
 
@@ -715,6 +716,35 @@ abstract public class AbstractPlugin implements Plugin {
         dialog.setLocationRelativeTo(getParentFrame());
         dialog.setVisible(true);
         return parametersAreSet;
+
+    }
+
+    private void setFieldsToDefault(Map<String, JComponent> parameterFields) {
+
+        final List<PluginParameter<?>> parameterInstances = getParameterInstances();
+        if (parameterInstances.isEmpty()) {
+            return;
+        }
+
+        for (final PluginParameter<?> current : parameterInstances) {
+            JComponent component = parameterFields.get(current.cmdLineName());
+            if (component instanceof JTextField) {
+                Comparable defaultValue = current.defaultValue();
+                if (defaultValue == null) {
+                    ((JTextField) component).setText(null);
+                } else {
+                    ((JTextField) component).setText(defaultValue.toString());
+                }
+                setParameter(current.cmdLineName(), defaultValue);
+            } else if (component instanceof JCheckBox) {
+                Boolean value = (Boolean) current.defaultValue();
+                ((JCheckBox) component).setSelected(value);
+                setParameter(current.cmdLineName(), value);
+            } else if (component instanceof JComboBox) {
+                ((JComboBox) component).setSelectedItem(current.defaultValue());
+                setParameter(current.cmdLineName(), current.defaultValue());
+            }
+        }
 
     }
 

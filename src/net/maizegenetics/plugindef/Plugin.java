@@ -50,7 +50,7 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
      * @return value
      */
     public Comparable getParameter(Enum key);
-    
+
     /**
      * Returns parameter value for given parameter key.
      *
@@ -70,26 +70,6 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
      */
     public Plugin setParameter(PluginParameter param, Object value);
 
-    /**
-     * Sets parameter value for given parameter key.
-     *
-     * @param key key
-     * @param value value
-     *
-     * @return this plugin
-     */
-    public Plugin setParameter(Enum key, Comparable value);
-
-    /**
-     * Sets parameter value for given parameter key.
-     *
-     * @param key key
-     * @param value value
-     *
-     * @return this plugin
-     */
-    public Plugin setParameter(Enum key, String value);
-    
     /**
      * Sets parameter value for given parameter key.
      *
@@ -195,10 +175,10 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
      * @return Citation
      */
     public String getCitation();
-    
+
     /**
      * Returns description of the plugin.
-     * 
+     *
      * @return description
      */
     public String pluginDescription();
