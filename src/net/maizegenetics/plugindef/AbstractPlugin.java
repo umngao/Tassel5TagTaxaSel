@@ -466,6 +466,8 @@ abstract public class AbstractPlugin implements Plugin {
             setParameter(param.cmdLineName(), (String) value);
         } else if (value instanceof Comparable) {
             setParameter(param.cmdLineName(), (Comparable) value);
+        } else {
+            throw new IllegalArgumentException("AbstractPlugin: setParameter: illegal value type: " + value.getClass().getName());
         }
         return this;
     }
@@ -783,6 +785,30 @@ abstract public class AbstractPlugin implements Plugin {
                     }
                 });
 
+            } else if (depends instanceof JComboBox) {
+                final JComboBox comboBox = (JComboBox) depends;
+
+                for (JComponent component : components) {
+                    if (comboBox.getSelectedItem() == current.dependentOnParameterValue()) {
+                        component.setEnabled(true);
+                    } else {
+                        component.setEnabled(false);
+                    }
+                }
+
+                comboBox.addItemListener(new ItemListener() {
+
+                    @Override
+                    public void itemStateChanged(ItemEvent e) {
+                        for (JComponent component : components) {
+                            if (comboBox.getSelectedItem() == current.dependentOnParameterValue()) {
+                                component.setEnabled(true);
+                            } else {
+                                component.setEnabled(false);
+                            }
+                        }
+                    }
+                });
             }
         }
 
