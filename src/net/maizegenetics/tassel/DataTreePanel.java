@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import net.maizegenetics.analysis.data.GenotypeSummaryPlugin;
 import net.maizegenetics.dna.map.TOPMInterface;
+import net.maizegenetics.util.HDF5TableReport;
 
 import org.apache.batik.util.gui.MemoryMonitor;
 
@@ -75,6 +76,7 @@ public class DataTreePanel extends JPanel implements PluginListener {
     public static final String NODE_TYPE_SEQUENCE = "Sequence";
     public static final String NODE_TYPE_POLYMORPHISMS = "Polymorphisms";
     public static final String NODE_TYPE_NUMERICAL = "Numerical";
+    public static final String NODE_TYPE_HDF5_SCHEMA = "HDF5 Schema";
     public static final String NODE_TYPE_MATRIX = "Matrix";
     public static final String NODE_TYPE_TREE = "Tree";
     public static final String NODE_TYPE_FUSIONS = "Fusions";
@@ -95,6 +97,7 @@ public class DataTreePanel extends JPanel implements PluginListener {
         NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_SEQUENCE);
         NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_POLYMORPHISMS);
         NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_NUMERICAL);
+        NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_HDF5_SCHEMA);
         NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_MATRIX);
         NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_TREE);
         NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_FUSIONS);
@@ -316,8 +319,6 @@ public class DataTreePanel extends JPanel implements PluginListener {
                         myTASSELMainFrame.mainDisplayPanel.removeAll();
 
                         if (book.getData() instanceof TableReport) {
-                            //This method issues that giant files are not opened as JTables
-                            //In the future it may be good to add a getSize method to TableReport
                             int size = ((TableReport) book.getData()).getElementCount();
                             myLogger.info("initSelectionListener: Table Report Size: " + size);
                             if (size == 0) {
@@ -330,8 +331,6 @@ public class DataTreePanel extends JPanel implements PluginListener {
                                 myTASSELMainFrame.mainDisplayPanel.add(theATP, BorderLayout.CENTER);
                             }
                         } else if (book.getData() instanceof TOPMInterface) {
-                            //This method issues that giant files are not opened as JTables
-                            //In the future it may be good to add a getSize method to TableReport
                             int size = ((TOPMInterface) book.getData()).getTagCount();
                             myLogger.info("initSelectionListener: TOPM Tag Count: " + size);
                             if (size == 0) {
@@ -533,6 +532,11 @@ public class DataTreePanel extends JPanel implements PluginListener {
 
             if (d.getData() instanceof DistanceMatrix) {
                 addDatum(NODE_TYPE_MATRIX, d);
+                continue;
+            }
+
+            if (d.getData() instanceof HDF5TableReport) {
+                addDatum(NODE_TYPE_HDF5_SCHEMA, d);
                 continue;
             }
 
