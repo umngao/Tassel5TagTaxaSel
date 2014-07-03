@@ -182,7 +182,7 @@ public class ColtDoubleMatrix implements DoubleMatrix {
 	@Override
 	public DoubleMatrix row(int i) {
 		int[] rowIndex = new int[]{i};
-		return new ColtDoubleMatrix(myMatrix.viewSelection(rowIndex,null).copy());
+		return new ColtDoubleMatrix(myMatrix.viewSelection(rowIndex,null).viewDice().copy());
 	}
 
 	@Override
