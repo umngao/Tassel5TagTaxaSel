@@ -1,5 +1,7 @@
 package net.maizegenetics.dna.tag;
 
+import com.google.common.collect.ComparisonChain;
+import java.io.Serializable;
 import java.util.Arrays;
 
 /**
@@ -21,7 +23,7 @@ public class TagBuilder {
     }
 }
 
-class Tag2Long implements Tag {
+class Tag2Long implements Tag, Comparable<Tag>, Serializable {
     //memory 8 + 16 + 1 =25 bytes
     //An array would add 12 to it
     private final long val0, val1;
@@ -72,9 +74,18 @@ class Tag2Long implements Tag {
                 ", length=" + length +
                 '}';
     }
+
+    @Override
+    public int compareTo(Tag o) {
+        return ComparisonChain.start()
+                .compare(val0, o.seq2Bit()[0])
+                .compare(val1,o.seq2Bit()[1])
+                .compare(length,o.seqLength())
+                .result();
+    }
 }
 
-class Tag3Long implements Tag{
+class Tag3Long implements Tag, Serializable{
     //memory 8 + 24 + 1 = 33 bytes
     //An array would add 12 to it
     private long val0, val1, val2;
@@ -122,7 +133,7 @@ class Tag3Long implements Tag{
     }
 }
 
-class TagVarLong implements Tag{
+class TagVarLong implements Tag, Serializable{
     //memory 8 + 12 + 8*LongLen + 2 = XX bytes
     private long[] val;
     private short length;

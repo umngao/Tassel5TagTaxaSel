@@ -143,6 +143,7 @@ public class TagGWASMapInfo {
             return Math.log10(value);
         }
         else {
+            //return Math.log10((double)Math.abs(this.gChr-this.pChr)*1000000000+Math.abs(this.gPos-this.pPos));
             return Math.log10(Integer.MAX_VALUE);
         }
     }

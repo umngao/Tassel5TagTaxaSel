@@ -52,7 +52,7 @@ public class PanAFilteringTagMapPlugin extends AbstractPlugin {
         System.out.println("Distance cutoff is " + String.valueOf(this.distanceCutoff) + " bp");
         try {
             BufferedWriter bw = new BufferedWriter (new FileWriter(this.anchorFileS), 65536);
-            bw.write("Tag\tTagLength\tGChr\tGPos\tLog10Distance");
+            bw.write("Tag\tTagLength\tGChr\tGPos\tPredictedDistance");
             bw.newLine();
             long[] t;
             TagGWASMapInfo info;

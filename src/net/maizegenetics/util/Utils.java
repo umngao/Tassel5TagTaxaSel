@@ -123,12 +123,12 @@ public final class Utils {
         return result;
 
     }
-    
+
     /**
      * Returns just the directory with the filename removed.
-     * 
+     *
      * @param str original filename
-     * 
+     *
      * @return directory
      */
     public static String getDirectory(String str) {
@@ -377,7 +377,7 @@ public final class Utils {
                     }
                 } else {
                     if (inSourceName.endsWith(".gz")) {
-                        return new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(inSourceName),bufSize)), bufSize);
+                        return new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(inSourceName), bufSize)), bufSize);
                     } else {
                         return new BufferedReader(new InputStreamReader(new FileInputStream(inSourceName)), bufSize);
                     }
@@ -418,10 +418,10 @@ public final class Utils {
                 return new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file, append)));
             }
         } catch (Exception e) {
-            myLogger.error("getBufferedReader: Error getting reader for: " + filename);
-            e.printStackTrace();
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("getBufferedReader: Error getting reader for: " + filename + "\n" + e.getMessage());
         }
-        return null;
+
     }
 
     public static DataOutputStream getDataOutputStream(String filename, int bufSize) {

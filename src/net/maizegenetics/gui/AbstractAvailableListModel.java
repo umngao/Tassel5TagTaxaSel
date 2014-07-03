@@ -11,15 +11,17 @@ import java.util.regex.Pattern;
 
 /**
  *
- * @author terry
+ * @author Terry Casstevens
  */
 public abstract class AbstractAvailableListModel extends AbstractListModel<String> {
 
-    private BitSet myShownIndices;
+    private final BitSet myShownIndices;
     private boolean myShowAll = true;
+    private final int myRealSize;
 
-    public AbstractAvailableListModel() {
-        myShownIndices = new OpenBitSet(getRealSize());
+    public AbstractAvailableListModel(int realSize) {
+        myRealSize = realSize;
+        myShownIndices = new OpenBitSet(myRealSize);
         showAll();
     }
 
@@ -104,7 +106,9 @@ public abstract class AbstractAvailableListModel extends AbstractListModel<Strin
         myShownIndices.clear(0, getRealSize());
     }
 
-    abstract public int getRealSize();
+    public int getRealSize() {
+        return myRealSize;
+    }
 
     abstract public String getRealElementAt(int index);
 }

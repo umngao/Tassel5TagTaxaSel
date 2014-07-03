@@ -255,6 +255,9 @@ public class TasselPipeline implements PluginListener {
                 } else if (current.equalsIgnoreCase("-h5")) {
                     String hdf5File = args[index++].trim();
                     loadFile(hdf5File, FileLoadPlugin.TasselFileType.HDF5);
+                } else if (current.equalsIgnoreCase("-hdf5Schema")) {
+                    String hdf5File = args[index++].trim();
+                    loadFile(hdf5File, FileLoadPlugin.TasselFileType.HDF5Schema);
                 } else if (current.equalsIgnoreCase("-r")) {
                     String phenotypeFile = args[index++].trim();
                     loadFile(phenotypeFile, FileLoadPlugin.TasselFileType.Phenotype);
