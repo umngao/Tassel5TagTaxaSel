@@ -7,6 +7,8 @@ package net.maizegenetics.util;
 import com.google.common.collect.ImmutableSetMultimap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
 import net.maizegenetics.util.Graph.GraphType;
 
 /**
@@ -33,11 +35,21 @@ public class GraphBuilder<T> {
         this.wts = new HashMap();
     }
     public Graph build() {
-        // TODO: Make build correctly for both types of graph
         if(type == GraphType.UNDIRECTED) {
             return new UndirectedGraph(nodes, adj.build(), wts);
         }
-        else {throw new UnsupportedOperationException("Not supported yet.");}
+        else {
+            // Make predecessor multimap
+            ImmutableSetMultimap successors = adj.build();
+            final ImmutableSetMultimap.Builder<T,T> pred = new ImmutableSetMultimap.Builder();
+            Iterator<Map.Entry<T,T>> successor_it = successors.entries().iterator();
+            while (successor_it.hasNext()) {
+                Map.Entry<T,T> item = successor_it.next();
+                pred.put(item.getValue(), item.getKey());
+            }
+            // Instantiate directed graph
+            return new DirectedGraph(nodes, successors, pred.build(), wts);
+        }
     }
     /**
      * Adds a single node
