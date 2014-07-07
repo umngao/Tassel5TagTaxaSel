@@ -197,5 +197,19 @@ public class UndirectedGraph<T> implements Graph<T> {
     @Override
     public int size() {
         return adj.size()/2;
-    } 
+    }
+    @Override
+    public double size(boolean weighted) {
+        if (weighted) {
+            double total_size = 0.;
+            Iterator<Map.Entry<T,T>> it = edgesIter();
+            while (it.hasNext()) {
+                Map.Entry<T,T> entry = it.next();
+                total_size += wts.get(new Tuple(entry.getKey(), entry.getValue()));
+            }
+            return total_size;
+        } else {
+            return (double) size();
+        }
+    }
 }

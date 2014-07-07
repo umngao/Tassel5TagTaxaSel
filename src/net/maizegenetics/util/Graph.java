@@ -70,7 +70,13 @@ public interface Graph<T>{
     public int degree(T n);
     /**
      * Gets the number of edges in the graph
-     * @return the number of edges in the graph
+     * @return The number of edges in the graph
      */
     public int size();
+    /**
+     * Gets the sum of edges in the graph
+     * @param weighted true if weights should be used in the calculation
+     * @return the sum of edges in the graph
+     */
+    public double size(boolean weighted);
 }
