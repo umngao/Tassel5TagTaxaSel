@@ -1,7 +1,7 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
+* To change this template, choose Tools | Templates
+* and open the template in the editor.
+*/
 package net.maizegenetics.dna.map;
 
 import java.io.BufferedInputStream;
@@ -26,12 +26,13 @@ import net.maizegenetics.dna.BaseEncoder;
 public class TagsOnGeneticMap extends AbstractTags {
     protected int[] gChr;
     protected int[] gPos;
+    protected float[] prediction;
     
     /**
      * Construct TOGM from a file
      * @param infileS
      *        File name of input TagsOnGeneticMap file
-     * @param format 
+     * @param format
      *        FilePacking format
      */
     public TagsOnGeneticMap (String infileS, FilePacking format) {
@@ -41,7 +42,7 @@ public class TagsOnGeneticMap extends AbstractTags {
     /**
      * Return chromosome of genetic position
      * @param index
-     * @return Chromosome of genetic position 
+     * @return Chromosome of genetic position
      */
     public int getGChr (int index) {
         return gChr[index];
@@ -50,7 +51,7 @@ public class TagsOnGeneticMap extends AbstractTags {
     /**
      * Return site of genetic position
      * @param index
-     * @return Genetic position 
+     * @return Genetic position
      */
     public int getGPos (int index) {
         return gPos[index];
@@ -59,10 +60,10 @@ public class TagsOnGeneticMap extends AbstractTags {
     /**
      * Read tagsOnGeneticMap file
      * @param infileS
-     * @param format 
+     * @param format
      */
     public void readDistFile (String infileS, FilePacking format) {
-        System.out.println("Reading TOGM file to " + infileS);
+        System.out.println("Reading TOGM file from " + infileS);
         File infile = new File (infileS);
         switch (format) {
             case Text:
@@ -72,29 +73,52 @@ public class TagsOnGeneticMap extends AbstractTags {
                 readBinaryTOGMFile(infile);
                 break;
         }
-        System.out.println("TOGM file read. Tatol: " + this.getTagCount() + " PETags");
+        System.out.println("TOGM file read. Tatol: " + this.getTagCount() + " Tags");
     }
     
     /**
      * Read text TOGM file
-     * @param infile 
+     * @param infile
      */
     private void readTextTOGMFile (File infile) {
         try {
             BufferedReader br = new BufferedReader (new FileReader(infile), 65536);
-            tagLengthInLong = Integer.parseInt(br.readLine());
-            this.iniMatrix(tagLengthInLong, Integer.parseInt(br.readLine()));
-            br.readLine();
-            for (int i = 0; i < this.getTagCount(); i++) {
-                String[] temp = br.readLine().split("\t");
-                long[] t = BaseEncoder.getLongArrayFromSeq(temp[0]);
-                for (int j = 0; j < tagLengthInLong; j++) {
-                    tags[j][i] = t[j];
-                }
-                tagLength[i] = Byte.parseByte(temp[1]);
-                gChr[i] = Integer.parseInt(temp[2]);
-                gPos[i] = Integer.parseInt(temp[3]);        
+            String tem = br.readLine();
+            
+            tagLengthInLong = br.readLine().split("\t")[0].length()/BaseEncoder.chunkSize;
+            int tagNum = 1;
+            while ((tem=br.readLine())!=null) {
+                tagNum++;
             }
+            this.iniMatrix(tagLengthInLong, tagNum);
+            br = new BufferedReader (new FileReader(infile), 65536);
+            if (br.readLine().split("\t").length == 4) {
+                for (int i = 0; i < this.getTagCount(); i++) {
+                    String[] temp = br.readLine().split("\t");
+                    long[] t = BaseEncoder.getLongArrayFromSeq(temp[0]);
+                    for (int j = 0; j < tagLengthInLong; j++) {
+                        tags[j][i] = t[j];
+                    }
+                    tagLength[i] = Byte.parseByte(temp[1]);
+                    gChr[i] = Integer.parseInt(temp[2]);
+                    gPos[i] = Integer.parseInt(temp[3]);
+                    prediction[i] = Float.NaN;
+                }
+            }
+            else {
+                for (int i = 0; i < this.getTagCount(); i++) {
+                    String[] temp = br.readLine().split("\t");
+                    long[] t = BaseEncoder.getLongArrayFromSeq(temp[0]);
+                    for (int j = 0; j < tagLengthInLong; j++) {
+                        tags[j][i] = t[j];
+                    }
+                    tagLength[i] = Byte.parseByte(temp[1]);
+                    gChr[i] = Integer.parseInt(temp[2]);
+                    gPos[i] = Integer.parseInt(temp[3]);
+                    prediction[i] = Float.parseFloat(temp[4]);
+                }
+            }
+            
             br.close();
         }
         catch (Exception e) {
@@ -104,7 +128,7 @@ public class TagsOnGeneticMap extends AbstractTags {
     
     /**
      * Read binary TOGM file
-     * @param infile 
+     * @param infile
      */
     private void readBinaryTOGMFile (File infile) {
         try {
@@ -129,7 +153,7 @@ public class TagsOnGeneticMap extends AbstractTags {
      * Initialize the matrix of TOGM
      * @param tagLengthInLong
      *        Tag length in Long primitive data type
-     * @param tagNum 
+     * @param tagNum
      *        Total tag number
      */
     protected void iniMatrix (int tagLengthInLong, int tagNum) {
@@ -137,13 +161,14 @@ public class TagsOnGeneticMap extends AbstractTags {
         tagLength = new byte[tagNum];
         gChr = new int[tagNum];
         gPos = new int[tagNum];
+        prediction = new float[tagNum];
     }
     
     /**
      * Write TagsOnGeneticMap file
      * @param outfileS
      *        File name of output file
-     * @param format 
+     * @param format
      *        FilePacking format
      */
     public void writeDistFile (String outfileS, FilePacking format) {
@@ -161,24 +186,20 @@ public class TagsOnGeneticMap extends AbstractTags {
     
     /**
      * Write text TOGM file
-     * @param outfileS 
+     * @param outfileS
      */
     private void writeTextTOGMFile (String outfileS) {
         try {
             BufferedWriter bw = new BufferedWriter (new FileWriter(outfileS), 65536);
-            bw.write(String.valueOf(this.tagLengthInLong));
-            bw.newLine();
-            bw.write(String.valueOf(this.getTagCount()));
-            bw.newLine();
-            bw.write("Tag\tTagLength\tGChr\tGPos");
+            bw.write("Tag\tTagLength\tGChr\tGPos\tPredictedDistance");
             bw.newLine();
             long[] temp = new long[this.tagLengthInLong];
             for (int i = 0; i < this.getTagCount(); i++) {
-				for (int j = 0; j < temp.length; j++) {
-					temp[j] = tags[j][i];
-				}
+                for (int j = 0; j < temp.length; j++) {
+                    temp[j] = tags[j][i];
+                }
                 bw.write(BaseEncoder.getSequenceFromLong(temp)+"\t"+String.valueOf(this.getTagLength(i))+"\t");
-                bw.write(String.valueOf(this.gChr[i])+"\t"+String.valueOf(this.gPos[i]));
+                bw.write(String.valueOf(this.gChr[i])+"\t"+String.valueOf(this.gPos[i])+"\t"+String.valueOf(this.prediction[i]));
                 bw.newLine();
             }
             bw.flush();
@@ -191,7 +212,7 @@ public class TagsOnGeneticMap extends AbstractTags {
     
     /**
      * Write binary TOGM file
-     * @param outfileS 
+     * @param outfileS
      */
     private void writeBinaryTOGMFile (String outfileS) {
         try {

@@ -18,6 +18,7 @@ import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeMergeRule;
 import net.maizegenetics.dna.snp.score.AlleleProbabilityBuilder;
 import net.maizegenetics.dna.snp.score.AlleleProbability;
+import net.maizegenetics.dna.snp.score.DosageBuilder;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
@@ -27,6 +28,7 @@ import net.maizegenetics.util.Tassel5HDF5Constants;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import net.maizegenetics.dna.snp.score.Dosage;
 
 /**
  * Builder for GenotypeTables. New genotypeTables are built from a minimum of
@@ -85,6 +87,7 @@ public class GenotypeTableBuilder {
     private ArrayList<byte[]> incGeno = null;
     private ArrayList<byte[][]> incDepth = null;
     private AlleleProbabilityBuilder myAlleleProbabilityBuilder = null;
+    private DosageBuilder myDosageBuilder = null;
     private HashMap<Taxon, Integer> incTaxonIndex = null;
     private boolean sortAlphabetically = false;
 
@@ -319,10 +322,11 @@ public class GenotypeTableBuilder {
      * @param taxaList
      * @param alleleDepth
      * @param alleleProbability
+     * @param dosage
      *
      * @return new genotype table
      */
-    public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability) {
+    public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, Dosage dosage) {
         int numTaxa = genotype.numberOfTaxa();
         int numSites = genotype.numberOfSites();
 
@@ -347,15 +351,24 @@ public class GenotypeTableBuilder {
             }
         }
 
-        return new CoreGenotypeTable(genotype, positionList, taxaList, alleleDepth, alleleProbability);
+        if (dosage != null) {
+            if (numSites != dosage.numSites()) {
+                throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of sites in genotype: " + numSites + " doesn't equal number of sites in dosage: " + dosage.numSites());
+            }
+            if (numTaxa != dosage.numTaxa()) {
+                throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + numTaxa + " doesn't equal number of taxa in dosage: " + dosage.numTaxa());
+            }
+        }
+
+        return new CoreGenotypeTable(genotype, positionList, taxaList, alleleDepth, alleleProbability, dosage);
     }
 
     public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth) {
-        return getInstance(genotype, positionList, taxaList, alleleDepth, null);
+        return getInstance(genotype, positionList, taxaList, alleleDepth, null, null);
     }
 
     public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList) {
-        return getInstance(genotype, positionList, taxaList, null, null);
+        return getInstance(genotype, positionList, taxaList, null, null, null);
     }
 
     /**
@@ -474,6 +487,11 @@ public class GenotypeTableBuilder {
 
     public GenotypeTableBuilder addAlleleProbability(AlleleProbabilityBuilder alleleProbabilityBuilder) {
         myAlleleProbabilityBuilder = alleleProbabilityBuilder;
+        return this;
+    }
+
+    public GenotypeTableBuilder addDosage(DosageBuilder dosageBuilder) {
+        myDosageBuilder = dosageBuilder;
         return this;
     }
 
@@ -639,11 +657,18 @@ public class GenotypeTableBuilder {
                     }
                 }
                 AlleleDepth ad = (hasDepth) ? adb.build() : null;
+
                 AlleleProbability alleleProbability = null;
                 if (myAlleleProbabilityBuilder != null) {
                     alleleProbability = myAlleleProbabilityBuilder.build();
                 }
-                return getInstance(gB.build(), positionList, tl, ad, alleleProbability);
+                
+                Dosage dosage = null;
+                if (myDosageBuilder != null) {
+                    dosage = myDosageBuilder.build();
+                }
+                
+                return getInstance(gB.build(), positionList, tl, ad, alleleProbability, dosage);
             }
             case SITE_INC: {
                 GenotypeCallTableBuilder gB = GenotypeCallTableBuilder.getInstance(taxaList.numberOfTaxa(), posListBuilder.size());

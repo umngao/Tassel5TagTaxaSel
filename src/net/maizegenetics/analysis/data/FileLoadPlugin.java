@@ -52,7 +52,7 @@ public class FileLoadPlugin extends AbstractPlugin {
 
         SqrMatrix, Sequence, Unknown, Fasta,
         Hapmap, Plink, Phenotype, ProjectionAlignment, Phylip_Seq, Phylip_Inter, GeneticMap, Table,
-        Serial, HapmapDiploid, Text, VCF, HDF5, TOPM
+        Serial, HapmapDiploid, Text, VCF, HDF5, TOPM, HDF5Schema
     };
     public static final String FILE_EXT_HAPMAP = ".hmp.txt";
     public static final String FILE_EXT_HAPMAP_GZ = ".hmp.txt.gz";
@@ -314,6 +314,11 @@ public class FileLoadPlugin extends AbstractPlugin {
                     result = ImportUtils.readGuessFormat(inFile);
                     break;
                 }
+                case HDF5Schema: {
+                    suffix = "";
+                    result = new HDF5TableReport(inFile);
+                    break;
+                }
                 case VCF: {
                     suffix = FILE_EXT_VCF;
                     if (inFile.endsWith(".gz")) {
@@ -483,6 +488,7 @@ class FileLoadPluginDialog extends JDialog {
     ButtonGroup conversionButtonGroup = new ButtonGroup();
     JRadioButton hapMapRadioButton = new JRadioButton("Load Hapmap");
     JRadioButton hdf5RadioButton = new JRadioButton("Load HDF5");
+    JRadioButton hdf5SchemaRadioButton = new JRadioButton("Load HDF5 Schema");
     JRadioButton vcfRadioButton = new JRadioButton("Load VCF");
     JRadioButton plinkRadioButton = new JRadioButton("Load Plink");
     JRadioButton sequenceAlignRadioButton = new JRadioButton("Load Phylip");
@@ -529,6 +535,7 @@ class FileLoadPluginDialog extends JDialog {
         conversionButtonGroup.add(projectionAlignmentRadioButton);
         conversionButtonGroup.add(hapMapRadioButton);
         conversionButtonGroup.add(hdf5RadioButton);
+        conversionButtonGroup.add(hdf5SchemaRadioButton);
         conversionButtonGroup.add(vcfRadioButton);
         conversionButtonGroup.add(plinkRadioButton);
         conversionButtonGroup.add(sequenceAlignRadioButton);
@@ -593,6 +600,7 @@ class FileLoadPluginDialog extends JDialog {
 
         result.add(hapMapRadioButton);
         result.add(hdf5RadioButton);
+        result.add(hdf5SchemaRadioButton);
         result.add(vcfRadioButton);
         result.add(plinkRadioButton);
         result.add(projectionAlignmentRadioButton);
@@ -646,6 +654,9 @@ class FileLoadPluginDialog extends JDialog {
         }
         if (hdf5RadioButton.isSelected()) {
             return FileLoadPlugin.TasselFileType.HDF5;
+        }
+        if (hdf5SchemaRadioButton.isSelected()) {
+            return FileLoadPlugin.TasselFileType.HDF5Schema;
         }
         if (vcfRadioButton.isSelected()) {
             return FileLoadPlugin.TasselFileType.VCF;

@@ -35,6 +35,10 @@ public class StepwiseOLSModelFitter {
 	private FactorModelEffect nestingEffect;
 	private int nestingFactorIndex;
 	private boolean isNested;
+    private boolean calculateVIF = true;
+    private double VIFTolerance = 0.001;
+    private VIF_TYPE VIFType = VIF_TYPE.average; // options are min, average, and max
+    public enum VIF_TYPE {min, average, max};
 	private ArrayList<String> nestingFactorNames;
 
 	//global variables used by the analysis
@@ -50,6 +54,7 @@ public class StepwiseOLSModelFitter {
 	private LinkedList<Object[]> resultRowsAnovaWithCI = new LinkedList<Object[]>();        
 	private LinkedList<Object[]> rowsSiteEffectTable = new LinkedList<Object[]>();
 	private LinkedList<Object[]> rowsSiteEffectTableWithCI = new LinkedList<Object[]>();
+    private ArrayList<Integer> excludedSNPs = new ArrayList<>();
 	private MODEL_TYPE modelType = MODEL_TYPE.mbic;
 	private String datasetName;
 	private double globalbestbic = Double.MAX_VALUE; //Rationale: the optimal model has minimum BIC. Thus, initialize bestbic with the largest possible double java can handle.
@@ -176,20 +181,189 @@ public class StepwiseOLSModelFitter {
 			}
 		}
 		numberOfBaseModelEffects = currentModel.size();
-		//permutations should be run right here
+		
+		//run permutation test
 		System.out.println("-----Number of Permutations = " + numberOfPermutations + "------------");
 		if(numberOfPermutations > 0) runPermutationTestNoMissingData(); 
 		System.out.println("--------------the Enter limit is " + enterlimit);
 		System.out.println("--------------the Exit limit is " + exitlimit);  			
 
 		while(forwardStep()){
+			if((calculateVIF)&&(currentModel.size()> (numberOfBaseModelEffects+1))){
+				ArrayList<Double> theVIFValues = removeCollinearMarkers(true);
+			}
 			while(backwardStep());
+		}
+		if((calculateVIF)&&(currentModel.size()> (numberOfBaseModelEffects+1))){
+			//Begin code for testing out the model
+			ArrayList<SNP> theSNPs = new ArrayList<SNP>();
+			for(int i = numberOfBaseModelEffects; i < currentModel.size();i++){
+				SNP thisSNP = (SNP) currentModel.get(i).getID();
+				theSNPs.add(thisSNP);
+			}
+
+			System.out.println("Here are all of the SNPs in the model prior to identifying a collinear effect: ");
+			System.out.println(theSNPs.toString());
+			//End code for testing out the model
+
+			ArrayList<Double> theVIFValues = removeCollinearMarkers(true);
 		}
 
 		SweepFastLinearModel theLinearModel = new SweepFastLinearModel(currentModel, y);
 		appendAnovaResults(theLinearModel);
 		appendSiteEffectEstimates(theLinearModel);
 
+	}
+
+	public ArrayList<Double> removeCollinearMarkers(boolean removeCollinearMarker){
+		//Obtain the design matrix of the current model (everything except for the "BaseModelEffects")        
+		DoubleMatrix theDesignMatrix = null;
+		for(int i=numberOfBaseModelEffects; i < currentModel.size(); i++){//I am starting the i loop at 1 because I do not want to have the intercept in the model
+			DoubleMatrix partialDesignMatrix = currentModel.get(i).getX();
+			if(i==numberOfBaseModelEffects){
+				theDesignMatrix = partialDesignMatrix;
+			}else{
+				theDesignMatrix = theDesignMatrix.concatenate(partialDesignMatrix, false);
+			}
+		}
+
+		//Scale and center the design matrix
+		DoubleMatrix theCenteredDesignmatrix = centerCols(theDesignMatrix);         
+		DoubleMatrix theCenteredAndScaledDesignMatrix = scaleCenteredMatrix(theCenteredDesignmatrix);
+		double invSqrtSampleSizeMinusOne = 1/Math.sqrt(((double)theCenteredAndScaledDesignMatrix.numberOfRows())-1);
+		theCenteredAndScaledDesignMatrix = theCenteredAndScaledDesignMatrix.scalarMult(invSqrtSampleSizeMinusOne);
+
+		//Obtain the correlation matrix of the explanatory variables, r_{xx}
+		DoubleMatrix theCorrelationMatrix = theCenteredAndScaledDesignMatrix.crossproduct(); 
+
+
+		//Invert r_{xx}, and call it r_{xx}^{-1}. The diagonal elements of r_{xx}^{-1} are the VIF values
+		DoubleMatrix theInvertedCorrelationMatrix = theCorrelationMatrix.inverse();
+		ArrayList<Double> theVIFForEachExplanatoryVariable = new ArrayList<Double>();
+
+		//For loop through the marker effects //NOTE: Turn these two for loops into separate methods
+		int counter = 0;
+		double theMinimumValue = Double.MAX_VALUE;
+		int indexOfCollinearEffect = 0;
+		ArrayList<Integer> indiciesOfCollinearExplanatoryVariables = new ArrayList<Integer>();
+		ModelEffect theCollinearEffect = null;
+		boolean InfiniteVIFsPresent = false;
+		for(int i=numberOfBaseModelEffects; i < currentModel.size(); i++){
+			int numberOfExplanatoryVariables = currentModel.get(i).getX().numberOfColumns();
+
+			//For loop through all explanatory variables for a marker effect
+			double theSumVIFValues = 0; 
+			double theMinimumToleranceValueWithinX = Double.MAX_VALUE;
+			double theMaximumToleranceValueWithinX = Double.MIN_VALUE;
+			for(int j = 0; j < numberOfExplanatoryVariables; j++){
+				//If one of the diagonoal elements of theInvertedCorrelationMatrix (i.e. the VIFs)
+				// is infinity, this means that the most recent term added to the model has has a VIF
+				// of infinity. The following if statment will remove this term from the model.
+				double theVIF = theInvertedCorrelationMatrix.get((counter+j), (counter+j));
+				if(Double.isNaN(theVIF)){
+					theMinimumValue = 0;
+					theCollinearEffect = currentModel.get((currentModel.size()-1));
+					InfiniteVIFsPresent = true;
+					break;
+				}
+				double theInvertedVIF = 1/theInvertedCorrelationMatrix.get((counter+j), (counter+j));
+				if((j == 0) | (j == numberOfExplanatoryVariables)) System.out.println("theInvertedVIF is: " + theInvertedVIF);
+				if(theInvertedVIF < theMinimumToleranceValueWithinX)theMinimumToleranceValueWithinX = theInvertedVIF;
+				if(theInvertedVIF > theMaximumToleranceValueWithinX)theMaximumToleranceValueWithinX = theInvertedVIF;
+				theSumVIFValues += theInvertedVIF;
+			}
+
+			if(InfiniteVIFsPresent) break;
+			if(VIFType == VIF_TYPE.average){
+				//Take the average (1/VIF) value of the tested marker
+				double theAverageVIFValue = theSumVIFValues/numberOfExplanatoryVariables;
+				if(theAverageVIFValue < theMinimumValue){
+					theMinimumValue = theAverageVIFValue;
+					theCollinearEffect = currentModel.get(i);
+					indexOfCollinearEffect = i-numberOfBaseModelEffects; //i-numberOfBaseModelEffects because java indexes things starting at zero
+				}
+				theVIFForEachExplanatoryVariable.add(theAverageVIFValue);
+			}else if(VIFType == VIF_TYPE.min){
+				if(theMinimumToleranceValueWithinX < theMinimumValue){
+					theMinimumValue = theMinimumToleranceValueWithinX;
+					theCollinearEffect = currentModel.get(i);
+					indexOfCollinearEffect = i-numberOfBaseModelEffects;//i-1 because java indexes things starting at zero
+				} 
+				theVIFForEachExplanatoryVariable.add(theMinimumToleranceValueWithinX);
+			}else if(VIFType == VIF_TYPE.max){
+				if(theMaximumToleranceValueWithinX < theMinimumValue){
+					theMinimumValue = theMaximumToleranceValueWithinX;
+					theCollinearEffect = currentModel.get(i);
+					indexOfCollinearEffect = i-numberOfBaseModelEffects;//i-1 because java indexes things starting at zero
+				} 
+				theVIFForEachExplanatoryVariable.add(theMaximumToleranceValueWithinX);
+
+			}
+
+			counter = counter + numberOfExplanatoryVariables;
+			System.out.println("indexOfCollinearEffect: " + indexOfCollinearEffect);
+			System.out.println("theVIFForEachExplanatoryVariable");
+			System.out.println(theVIFForEachExplanatoryVariable.toString());
+
+			//End for loop through the marker effects
+		}
+		//If this minimum exceeds the tolerence threshold, remove the corresponding marker from the model
+		if(removeCollinearMarker){
+			if(theMinimumValue < VIFTolerance){
+				ArrayList<SNP> theSNPs = new ArrayList<SNP>();
+				for(int i = numberOfBaseModelEffects; i < currentModel.size();i++){
+					SNP thisSNP = (SNP) currentModel.get(i).getID();
+					theSNPs.add(thisSNP);
+				}
+				System.out.println("Here are all of the SNPs in the model prior to identifying a collinear effect: ");
+				System.out.println(theSNPs.toString());
+
+				currentModel.remove(theCollinearEffect);
+				excludedSNPs.add(((SNP)theCollinearEffect.getID()).index);
+
+				SNP snpRemoved = (SNP) theCollinearEffect.getID(); 
+				if(!InfiniteVIFsPresent)theVIFForEachExplanatoryVariable.remove(indexOfCollinearEffect);
+				System.out.println("------------------"+snpRemoved +
+						" is causing multicollinearity in the model. It has been removed from the model------------------------------");
+			}
+		}
+
+		return theVIFForEachExplanatoryVariable;
+
+	}    
+	
+	//scaleCenteredMatrix was written by in PrinComp by (I think) Peter Bradbury
+
+	private DoubleMatrix centerCols(DoubleMatrix data) {
+		int nrows = data.numberOfRows();
+		int ncols = data.numberOfColumns();
+		DoubleMatrix dm = data.copy();
+		for (int c = 0; c < ncols; c++) {
+			double colmean = dm.columnSum(c) / nrows;
+			for (int r = 0; r < nrows; r++) {
+				dm.set(r, c, dm.get(r, c) - colmean);
+			}
+		}
+
+		return dm;
+	}
+	
+	private DoubleMatrix scaleCenteredMatrix(DoubleMatrix data) {
+		int nrows = data.numberOfRows();
+		int ncols = data.numberOfColumns();
+		for (int c = 0; c < ncols; c++) {
+			double sumsq = 0;
+			for (int r = 0; r < nrows; r++) {
+				double val = data.get(r, c);
+				sumsq += val * val;
+			}
+			double stdDev = Math.sqrt(sumsq/(nrows - 1));
+			for (int r = 0; r < nrows; r++) {
+				double val = data.get(r, c);
+				data.set(r, c, val/stdDev);
+			}
+		}
+		return data;
 	}
 
     public void scanAndFindCI() {
@@ -314,12 +488,6 @@ public class StepwiseOLSModelFitter {
   
     
     private int scanASide(boolean left, int whichModelTerm) {
-        /*BufferedWriter bwlog = null;
-        try {
-            bwlog = new BufferedWriter(new FileWriter(scanFilename, true));
-        } catch (IOException e) {
-            System.out.println("unable to open " + scanFilename);
-        }*/
        
         double alpha = 0.05;
         int minIndex = 0;
@@ -342,6 +510,11 @@ public class StepwiseOLSModelFitter {
         ///
         do{
             testIndex += incr;
+            if(testIndex < minIndex || testIndex > maxIndex){
+                testIndex -= incr;
+                boundfound = true;
+                break;
+            }
             ModelEffect markerEffect = null;
             SNP snp = new SNP(myData.getMarkerName(testIndex), new Chromosome(myData.getLocusName(testIndex)), (int) myData.getMarkerChromosomePosition(testIndex), testIndex);
             Chromosome chrOfTestedSnp = snp.locus;
@@ -423,7 +596,7 @@ public class StepwiseOLSModelFitter {
 
 		double[] temperrorssdf = sflm.getResidualSSdf();
 		System.out.println("The value of errorss before the loop in forwardStep() is: " + temperrorssdf[0]);
-		for (int s = 0; s < numberOfSites; s++) {
+		for (int s = 0; s < numberOfSites; s++) if (!excludedSNPs.contains(s)) {
 			//create the appropriate marker effect
 
 			ModelEffect markerEffect = null;
@@ -481,8 +654,14 @@ public class StepwiseOLSModelFitter {
 			int numberOfTwoWayInteractions = (numberOfSites*(numberOfSites-1))/2;
 			double pForMbic = modeldf[1];
 			double qForMbic = 0; //This is going to be the number of two-way interaction terms. For now, this is not implemented, and thus I am setting it equal to zer
-			double mbic = (n*Math.log(errorss[0])) + ((pForMbic+qForMbic)*Math.log(n)) + (2*pForMbic*(Math.log((numberOfSites/2.2)-1))) + 
-					(2*qForMbic*(Math.log((numberOfTwoWayInteractions/2.2)-1) ));
+			double mbic;
+			if(qForMbic == 0){
+				mbic = (n*Math.log(errorss[0])) + ((pForMbic+qForMbic)*Math.log(n)) + (2*pForMbic*(Math.log((numberOfSites/2.2)-1)));
+			}else{
+				mbic = (n*Math.log(errorss[0])) + ((pForMbic+qForMbic)*Math.log(n)) + (2*pForMbic*(Math.log((numberOfSites/2.2)-1))) + 
+						(2*qForMbic*(Math.log((numberOfTwoWayInteractions/2.2)-1) )); 
+			}
+
 
 			switch(modelType){
 			case pvalue:
@@ -597,11 +776,15 @@ public class StepwiseOLSModelFitter {
 				aic = (n*Math.log(errorss[0]/n)) + (2*pForBIC) ;
 
 				//Calculate the mBIC
-				int numberOfTwoWayInteractions = (numberOfSites*(numberOfSites-1))/2;
+				double numberOfTwoWayInteractions = (double) (numberOfSites*(numberOfSites-1))/2;			
 				double pForMbic = modeldf[1];
 				double qForMbic = 0; //This is going to be the number of two-way interaction terms. For now, this is not implemented, and thus I am setting it equal to zer
-				mbic = (n*Math.log(errorss[0])) + ((pForMbic+qForMbic)*Math.log(n)) + (2*pForMbic*(Math.log((numberOfSites/2.2)-1))) + 
-						(2*qForMbic*(Math.log((numberOfTwoWayInteractions/2.2)-1) ));
+				if(qForMbic == 0){
+					mbic = (n*Math.log(errorss[0])) + ((pForMbic+qForMbic)*Math.log(n)) + (2*pForMbic*(Math.log((numberOfSites/2.2)-1)));
+				}else{
+					mbic = (n*Math.log(errorss[0])) + ((pForMbic+qForMbic)*Math.log(n)) + (2*pForMbic*(Math.log((numberOfSites/2.2)-1))) + 
+							(2*qForMbic*(Math.log((numberOfTwoWayInteractions/2.2)-1) )); 
+				}
 
 
 				currentModel.add(t, meTest1);
@@ -700,59 +883,47 @@ public class StepwiseOLSModelFitter {
 		return false;
 	}
 
-        public void runPermutationTestNoMissingData() {
-                ArrayList<double[]> permutedData = new ArrayList<double[]>();
-                DoubleMatrix PvalueVectorAcrossMarkers = null;
-                
-                int indexOfThreshold = (int) (alpha*numberOfPermutations);
-                        
-                int numberOfSites = myData.getNumberOfMarkers();
-                DoubleMatrix[][] Xmatrices;
+	public void runPermutationTestNoMissingData() {
+		ArrayList<double[]> permutedData = new ArrayList<double[]>();
+		DoubleMatrix PvalueVectorAcrossMarkers = null;
+
+		int indexOfThreshold = (int) (alpha*numberOfPermutations);
+
+		int numberOfSites = myData.getNumberOfMarkers();
+		DoubleMatrix[][] Xmatrices;
 		System.out.println("-----------------Running permutations...----------------");
 
 		int numberOfObs = y.length;
 		double totalSS = 0;
 		for (int i = 0; i < numberOfObs; i++) totalSS += y[i] * y[i];
-		
+
 		ArrayList<double[]> baseModelSSdf = new ArrayList<double[]>();
-                double[] permTotalSS = new double[numberOfPermutations];
-		
-		/*
-                 * I commented out this code because this step is already done in StepwiseOLSModelFitter
-                int[] mean = new int[numberOfObs];
+		double[] permTotalSS = new double[numberOfPermutations];
+
+		int[] mean = new int[numberOfObs];
 		FactorModelEffect meanME = new FactorModelEffect(mean, false, "mean");
-		FactorModelEffect popME = new FactorModelEffect(ModelEffectUtils.getIntegerLevels(pops), true);
-		ArrayList<ModelEffect> effectList = new ArrayList<ModelEffect>();
-		effectList.add(meanME);
-		effectList.add(popME);
-		DoubleMatrix[][] Xmatrices = new DoubleMatrix[1][3];
+		int columnNumber = 2;
+		if(covariateList != null){
+			columnNumber = columnNumber + covariateList.size();
+			//(any other covariates)+one marker = currentModel.size()+1
+		}if(factorList != null){
+			columnNumber = columnNumber + factorList.size();                
+		}
+
+		Xmatrices = new DoubleMatrix[1][columnNumber];//Intercept+family term+                
+
 		Xmatrices[0][0] = meanME.getX();
-		Xmatrices[0][1] = popME.getX();
-                */
-                int[] mean = new int[numberOfObs];
-		FactorModelEffect meanME = new FactorModelEffect(mean, false, "mean");
-                int columnNumber = 2;
-                if(covariateList != null){
-                    columnNumber = columnNumber + covariateList.size();
-                    //(any other covariates)+one marker = currentModel.size()+1
-                }if(factorList != null){
-                    columnNumber = columnNumber + factorList.size();                
-                }
-                
-                Xmatrices = new DoubleMatrix[1][columnNumber];//Intercept+family term+                
-	
-		Xmatrices[0][0] = meanME.getX();
-                int indexForFactorLevelinXmatrices = 0;
-                if(covariateList != null){
-                    indexForFactorLevelinXmatrices = covariateList.size(); //This is not equal to
-                    // covariateList.size()+1 because java starts indices at 0; not 1
-                    for(int i=0;  i < covariateList.size(); i++){
-                        CovariateModelEffect cme = new CovariateModelEffect(covariateList.get(i), 
-                                                  myData.getCovariateName(i));
-                        Xmatrices[0][i+1] = cme.getX();
-                    }
-                    //(any other covariates)+one marker = currentModel.size()+1
-                }if(factorList != null){
+		int indexForFactorLevelinXmatrices = 0;
+		if(covariateList != null){
+			indexForFactorLevelinXmatrices = covariateList.size(); //This is not equal to
+			// covariateList.size()+1 because java starts indices at 0; not 1
+			for(int i=0;  i < covariateList.size(); i++){
+				CovariateModelEffect cme = new CovariateModelEffect(covariateList.get(i), 
+						myData.getCovariateName(i));
+				Xmatrices[0][i+1] = cme.getX();
+			}
+			//(any other covariates)+one marker = currentModel.size()+1
+		}if(factorList != null){
 			for (int f = 0; f < factorList.size(); f++) {
 				ArrayList<String> ids = new ArrayList<String>();
 				int[] levels = ModelEffectUtils.getIntegerLevels(factorList.get(f), ids);
@@ -761,92 +932,48 @@ public class StepwiseOLSModelFitter {
 					nestingEffect = fme;
 					nestingFactorNames = ids; 
 				}
-                                Xmatrices[0][f+indexForFactorLevelinXmatrices+1] = fme.getX();
+				Xmatrices[0][f+indexForFactorLevelinXmatrices+1] = fme.getX();
 			}                                   
-                }            
-                
-                SweepFastLinearModel baseSflm = new SweepFastLinearModel(currentModel, y);
+		}            
 
-                        
-                DoubleMatrix resAsDoubleMatrix = baseSflm.getResiduals();
-                DoubleMatrix predAsDoubleMatrix = baseSflm.getPredictedValues();
- 		double[] res = new double[numberOfObs];
-                double[] pred = new double[numberOfObs];
-                for(int i = 0; i < numberOfObs; i++){
-                    res[i] = resAsDoubleMatrix.get(i,0);
-                    pred[i] = predAsDoubleMatrix.get(i,0);
-                }
-//                System.out.println("resAsDoubleMatrix are: " + resAsDoubleMatrix.toString());
-//                System.out.println("predAsDoubleMatrix are: " + predAsDoubleMatrix.toString());
-  
-//                System.out.println("residuals[0] are: " + res[0]);
-//                System.out.println("predicted[0] values are: " + pred[0]);
-//TEMPORARY CODE
-/*		double[][] permsFromSAS = ImportAsTextFile.ImportTwoDimensionalArrayAsText(numberOfObs,numberOfPermutations, 
-                                           "G:\\Lipka_Hal\\Java_Coding_Project\\Permutation_Code\\Validatation\\Input_Files_for_R\\Permuted.Kernel.Color.Phenotypes.from.R.Set5.txt");
-                
-                System.out.println("permsFromSAS[0][0]: " + permsFromSAS[0][0]);
-                System.out.println("permsFromSAS[0][999]: " + permsFromSAS[0][999]);
-                System.out.println("permsFromSAS[1683][0]: " + permsFromSAS[1683][0]);
-                System.out.println("permsFromSAS[1683][999]: " + permsFromSAS[1683][999]);
-                
-                
-                double[] minP = new double[numberOfPermutations];
-                DoubleMatrix minPAsDoubleMatrix = null;
-		for (int p = 0; p < numberOfPermutations; p++) {
-			minP[p] = 1;
-			double[] pdata = new double[numberOfObs];
-			//System.arraycopy(res, 0, pdata, 0, numberOfObs);
-			//BasicShuffler.shuffleEd(pdata);
-                        //System.out.println("pdata");
-                        for(int i = 0; i < numberOfObs; i++){
-                            pdata[i] = permsFromSAS[i][p];
-                            //System.out.println(pdata[i]);
-                        } //Add the predicted value back to the residual
-                        totalSS = 0;
-                        for (int i = 0; i < numberOfObs; i++) totalSS += pdata[i] * pdata[i];
-                        permTotalSS[p] = totalSS;
-                        //System.out.println("pdata[0] after pred added back are: " + pdata[0]);
-			permutedData.add(pdata); 
-			
-			SweepFastLinearModel sflm = new SweepFastLinearModel(currentModel, pdata);
-			baseModelSSdf.add(sflm.getFullModelSSdf());
-		}    */          
-                
- //END TEMPORARY CODE            
-                
-                
+		SweepFastLinearModel baseSflm = new SweepFastLinearModel(currentModel, y);
+
+
+		DoubleMatrix resAsDoubleMatrix = baseSflm.getResiduals();
+		DoubleMatrix predAsDoubleMatrix = baseSflm.getPredictedValues();
+		double[] res = new double[numberOfObs];
+		double[] pred = new double[numberOfObs];
+		for(int i = 0; i < numberOfObs; i++){
+			res[i] = resAsDoubleMatrix.get(i,0);
+			pred[i] = predAsDoubleMatrix.get(i,0);
+		}
+
 		//permute data
-                //This for loop below is temporarily commented out. UNCOMMENT THIS ONCE
-                //YOU FIGURED OUT WHY SAS AND TASSEL ARE GIVING DIFFERENT ANSWERS
 		double[] minP = new double[numberOfPermutations];
-                
-                DoubleMatrix minPAsDoubleMatrix = null;
+
+		DoubleMatrix minPAsDoubleMatrix = null;
 		for (int p = 0; p < numberOfPermutations; p++) {
 			minP[p] = 1;
 			double[] pdata = new double[numberOfObs];
 			System.arraycopy(res, 0, pdata, 0, numberOfObs);
 			BasicShuffler.shuffle(pdata);
 
-                        //System.out.println("pdata");
-                        for(int i = 0; i < numberOfObs; i++){
-                            pdata[i] = pdata[i] + pred[i];
-                            //System.out.println(pdata[i]);
-                        } //Add the predicted value back to the residual
-                        totalSS = 0;
-                        for (int i = 0; i < numberOfObs; i++) totalSS += pdata[i] * pdata[i];
-                        permTotalSS[p] = totalSS;
-                        //System.out.println("pdata[0] after pred added back are: " + pdata[0]);
+			for(int i = 0; i < numberOfObs; i++){
+				pdata[i] = pdata[i] + pred[i];
+			} //Add the predicted value back to the residual
+			totalSS = 0;
+			for (int i = 0; i < numberOfObs; i++) totalSS += pdata[i] * pdata[i];
+			permTotalSS[p] = totalSS;
 			permutedData.add(pdata); 
-			
+
 			SweepFastLinearModel sflm = new SweepFastLinearModel(currentModel, pdata);
 			baseModelSSdf.add(sflm.getFullModelSSdf());
 		}
-		
-                
+
+
 		for (int m = 0; m < numberOfSites; m++) {
 			if (m % 50 == 0) System.out.println("Testing marker " + m);                   
-  			ModelEffect markerEffect = null;                      
+			ModelEffect markerEffect = null;                      
 			SNP snp = new SNP(myData.getMarkerName(m), new Chromosome(myData.getLocusName(m)), (int) myData.getMarkerChromosomePosition(m), m);;
 			Object[] markerValues = myData.getMarkerValue(currentPhenotypeIndex, m);
 			Object[] markersForNonMissing = new Object[numberNotMissing];
@@ -855,12 +982,12 @@ public class StepwiseOLSModelFitter {
 			for (Object marker:markerValues) {
 				if (!missing[allCount++]) markersForNonMissing[nonmissingCount++] = marker;
 			}
-                        
-        			if (myData.isMarkerDiscrete(m)) {
+
+			if (myData.isMarkerDiscrete(m)) {
 				ArrayList<Object> markerIds = new ArrayList<Object>();
 				int[] levels = ModelEffectUtils.getIntegerLevels(markersForNonMissing, markerIds);
 				snp.alleles = markerIds;
-				
+
 				if (isNested) {
 					//not implemented yet
 					markerEffect = new FactorModelEffect(levels, true, snp);
@@ -880,143 +1007,77 @@ public class StepwiseOLSModelFitter {
 					markerEffect = new CovariateModelEffect(cov, snp);
 				}
 			}
- 
-                        /*Begin old code that may be commented out
-                        float[] snpscore = snp.score;
-			double[] dscore = new double[numberOfObs];
-			for (int i = 0; i < numberOfObs; i++) {
-				dscore[i] = snpscore[i];
-			}
-			
-			NestedCovariateModelEffect ncme = new NestedCovariateModelEffect(dscore, popME);
-                        */
-                        
-                        //System.out.println("columnNumber - 1: " + (columnNumber-1));
+
 			Xmatrices[0][columnNumber-1] = markerEffect.getX(); //columnNumber-1 because java
-                        //starts counting things from 0
+			//starts counting things from 0
 			DoubleMatrix X = DoubleMatrixFactory.DEFAULT.compose(Xmatrices);
 
-                        //Temporary Code
-                      /*  ArrayList<double[]> baseModelSSdfTest = new ArrayList<double[]>();
-                        SweepFastLinearModel sflmTest = new SweepFastLinearModel(currentModel, y);
-                        baseModelSSdfTest.add(sflmTest.getFullModelSSdf());*/
-                        //End temporary code 
-                        
 			currentModel.add(markerEffect);
 			SweepFastLinearModel sflm = new SweepFastLinearModel(currentModel, y);         
 			double[] modelSSdf = sflm.getFullModelSSdf();
 			DoubleMatrix G = sflm.getInverseOfXtX();
-                        
-                        //Temporary code
- 
-             /*           DoubleMatrix ypermTemp = DoubleMatrixFactory.DEFAULT.make(numberOfObs, 1, y);
-                        DoubleMatrix XtyTemp = X.crossproduct(ypermTemp);
-                        double[] reducedSSdfTemp = sflmTest.getFullModelSSdf();
-                        double fullSSTemp = XtyTemp.crossproduct(G.mult(XtyTemp)).get(0, 0);
-                        System.out.println("fullSSTemp: " + fullSSTemp);
-                        double fulldfTemp = modelSSdf[1];
-                        System.out.println("modelSSdf[1] " + modelSSdf[1]);
-                        double markerSSTemp = fullSSTemp - reducedSSdfTemp[0];
-                        System.out.println("markerSS " + markerSSTemp);
-                        double markerdfTemp = fulldfTemp - reducedSSdfTemp[1];
-                        System.out.println("markerdf " + markerdfTemp);
-                        double errorSSTemp = totalSS - fullSSTemp;
-                        System.out.println("errorSS " + errorSSTemp);
-                        double errordfTemp = numberOfObs - fulldfTemp;
-                        System.out.println("errordf " + errordfTemp);
-                        double Ftemp = markerSSTemp / markerdfTemp / errorSSTemp * errordfTemp;
-                        System.out.println("Ftemp " + Ftemp);*/
 
-                        //Resuts match PROC GLM exaclty
-                        //End temporary code
-			
 			for (int p = 0; p < numberOfPermutations; p++) {
 				double[] pdata = permutedData.get(p);
-                                DoubleMatrix yperm = DoubleMatrixFactory.DEFAULT.make(numberOfObs, 1, pdata);
-                                totalSS = permTotalSS[p];
-                                
+				DoubleMatrix yperm = DoubleMatrixFactory.DEFAULT.make(numberOfObs, 1, pdata);
+				totalSS = permTotalSS[p];
+
 				DoubleMatrix Xty = X.crossproduct(yperm);
 				double[] reducedSSdf = baseModelSSdf.get(p);
-                                //System.out.println("reducedSSdf[0]: " + reducedSSdf[0]);
-                                //System.out.println("reducedSSdf[1]: " + reducedSSdf[1]);
 				double fullSS = Xty.crossproduct(G.mult(Xty)).get(0, 0);
-                                //System.out.println("fullSS: " + fullSS);
 				double fulldf = modelSSdf[1];
-                                //System.out.println("fulldf: " + fulldf);
 				double markerSS = fullSS - reducedSSdf[0];
-                                //System.out.println("markerSS: " + markerSS);
 				double markerdf = fulldf - reducedSSdf[1];
-                                //System.out.println("markerdf: " + markerdf);
 				double errorSS = totalSS - fullSS;
-                                //System.out.println("errorSS: " + errorSS);
 				double errordf = numberOfObs - fulldf;
-                                //System.out.println("errordf: " + errordf);
 				double F = markerSS / markerdf / errorSS * errordf;
-                                //System.out.println("F: " + F);
 				double probF;
 				try {
 					probF = LinearModelUtils.Ftest(F, markerdf, errordf);
 				} catch(Exception e) {
 					probF = 1;
 				}
-				//System.out.println("probF: "+probF);
-				//minP[p] = Math.min(minP[p], probF);
-                                minP[p] = probF;
-                                //System.out.println("minP[p]:"+ minP[p]);
+				minP[p] = probF;
 				minPAsDoubleMatrix = DoubleMatrixFactory.DEFAULT.make(minP.length, 1, minP);
 			}
-                        if(m == 0){
-                            PvalueVectorAcrossMarkers = minPAsDoubleMatrix;
-                        }else{
-                            PvalueVectorAcrossMarkers = PvalueVectorAcrossMarkers.concatenate(minPAsDoubleMatrix, false);//Change this to a DoubleMatrix; transpose it
-                            //for the next step                            
-                        }
+			if(m == 0){
+				PvalueVectorAcrossMarkers = minPAsDoubleMatrix;
+			}else{
+				PvalueVectorAcrossMarkers = PvalueVectorAcrossMarkers.concatenate(minPAsDoubleMatrix, false);//Change this to a DoubleMatrix; transpose it
+				//for the next step                            
+			}
 
 			currentModel.remove(markerEffect);
 		}
-		
-                System.out.println(PvalueVectorAcrossMarkers.toString());
-                for(int p=0; p<numberOfPermutations; p++){
-                    double minFromOnePermutation = 1;
-                    for(int m=0; m < numberOfSites; m++){
-                       //System.out.println("Marker:" + m + ":Permutation:"+ p +":"+ PvalueVectorAcrossMarkers.get(p,m));
-                       minFromOnePermutation = Math.min(PvalueVectorAcrossMarkers.get(p,m), minFromOnePermutation);
-                    }
-                   //obtain the minimum P-value across each permutation
-                    //System.out.println("--------------p is " + p);
-                    minPvalues[p] = minFromOnePermutation;
-                    //System.out.println(" minPvalues[p] " +  minPvalues[p]);
-                  //PvalueVectorAcrossMarkers.
-                }
-		
-                //System.out.println("minPvalues[0]: " + minPvalues[0]);
-                //System.out.println("minPvalues[1]: " + minPvalues[1]);                
-                
-                //sort the P-values from smallest to largest
-                Arrays.sort(minPvalues);
 
-                //System.out.println("minPvalues[0] after permuting: " + minPvalues[0]);
-                //System.out.println("minPvalues[1] after permuting: " + minPvalues[1]); 
-                
-                //select the (alpha*nperm)th smallest P-value
-                enterlimit = minPvalues[indexOfThreshold];
-                exitlimit = 2*enterlimit;
-                
-                //System.out.println("indexOfThreshold: " + indexOfThreshold);
-                //System.out.println("enterlimit: " + enterlimit);
-                //System.out.println("exitlimit: " + exitlimit); 
-		//String traitname = myData.getPhenotypeName(currentPhenotypeIndex);
-		
-                //Turn this into a new method. Put it into the plugger. Have a logical statement to run this 
-                //only if permutations are selected.
-                //Create a table that has the permuted P-values
+		System.out.println(PvalueVectorAcrossMarkers.toString());
+		for(int p=0; p<numberOfPermutations; p++){
+			double minFromOnePermutation = 1;
+			for(int m=0; m < numberOfSites; m++){
+				//System.out.println("Marker:" + m + ":Permutation:"+ p +":"+ PvalueVectorAcrossMarkers.get(p,m));
+				minFromOnePermutation = Math.min(PvalueVectorAcrossMarkers.get(p,m), minFromOnePermutation);
+			}
+			//obtain the minimum P-value across each permutation
+			//System.out.println("--------------p is " + p);
+			minPvalues[p] = minFromOnePermutation;
+			//System.out.println(" minPvalues[p] " +  minPvalues[p]);
+			//PvalueVectorAcrossMarkers.
+		}
 
-                
+		//sort the P-values from smallest to largest
+		Arrays.sort(minPvalues);
 
-                
-                System.out.println("--------------the Enter limit is " + enterlimit);
-                System.out.println("--------------the Exit limit is " + exitlimit); 
-                System.out.println("--------------indexOfThreshold is " + indexOfThreshold); 
+		//select the (alpha*nperm)th smallest P-value
+		enterlimit = minPvalues[indexOfThreshold];
+		exitlimit = 2*enterlimit;
+
+		//Turn this into a new method. Put it into the plugger. Have a logical statement to run this 
+		//only if permutations are selected.
+		//Create a table that has the permuted P-values
+
+		System.out.println("--------------the Enter limit is " + enterlimit);
+		System.out.println("--------------the Exit limit is " + exitlimit); 
+		System.out.println("--------------indexOfThreshold is " + indexOfThreshold); 
 	}
 
         
@@ -1065,12 +1126,17 @@ public class StepwiseOLSModelFitter {
 
 
 		//Calculate the mBIC
-		int numberOfTwoWayInteractions = (numberOfSites*(numberOfSites-1))/2;
+		double numberOfTwoWayInteractions = (double) (numberOfSites*(numberOfSites-1))/2;			
 		double pForMbic = modeldf[1];
 		double qForMbic = 0; //This is going to be the number of two-way interaction terms. For now, this is not implemented, and thus I am setting it equal to zer
-		double mbic = (n*Math.log(errorss[0])) + ((pForMbic+qForMbic)*Math.log(n)) + (2*pForMbic*(Math.log((numberOfSites/2.2)-1))) + 
-				(2*qForMbic*(Math.log((numberOfTwoWayInteractions/2.2)-1) ));
-
+		double mbic;
+		if(qForMbic == 0){
+			mbic = (n*Math.log(errorss[0])) + ((pForMbic+qForMbic)*Math.log(n)) + (2*pForMbic*(Math.log((numberOfSites/2.2)-1)));
+		}else{
+			mbic = (n*Math.log(errorss[0])) + ((pForMbic+qForMbic)*Math.log(n)) + (2*pForMbic*(Math.log((numberOfSites/2.2)-1))) + 
+					(2*qForMbic*(Math.log((numberOfTwoWayInteractions/2.2)-1) )); 
+		}
+                
 		int effectPtr = 0;
 		for (ModelEffect me : currentModel) {
 			Object[] reportRow = new Object[ncol];
@@ -1153,11 +1219,16 @@ public class StepwiseOLSModelFitter {
 
 
 		//Calculate the mBIC
-		int numberOfTwoWayInteractions = (numberOfSites*(numberOfSites-1))/2;
+		double numberOfTwoWayInteractions = (double) (numberOfSites*(numberOfSites-1))/2;			
 		double pForMbic = modeldf[1];
 		double qForMbic = 0; //This is going to be the number of two-way interaction terms. For now, this is not implemented, and thus I am setting it equal to zer
-		double mbic = (n*Math.log(errorss[0])) + ((pForMbic+qForMbic)*Math.log(n)) + (2*pForMbic*(Math.log((numberOfSites/2.2)-1))) + 
-				(2*qForMbic*(Math.log((numberOfTwoWayInteractions/2.2)-1) ));
+		double mbic;
+		if(qForMbic == 0){
+			mbic = (n*Math.log(errorss[0])) + ((pForMbic+qForMbic)*Math.log(n)) + (2*pForMbic*(Math.log((numberOfSites/2.2)-1)));
+		}else{
+			mbic = (n*Math.log(errorss[0])) + ((pForMbic+qForMbic)*Math.log(n)) + (2*pForMbic*(Math.log((numberOfSites/2.2)-1))) + 
+					(2*qForMbic*(Math.log((numberOfTwoWayInteractions/2.2)-1) )); 
+		}
 
 		int effectPtr = 0;
 		for (ModelEffect me : currentModel) {

@@ -45,7 +45,7 @@ public class FILLINImputationAccuracy {
     public int[] MAF= null;
     private double[][] all= null; //arrays held ("columns"): 0-maskedMinor, 1-maskedHet, 2-maskedMajor; each array ("rows"):0-to minor, 1-to het, 2-to major, 3-unimp, 4-total for known type
     private double[][][] mafAll= null;//sam as all, but first array holds MAF category
-    private double[] MAFClass= null;//new double[]{0,.02,.05,.10,.20,.3,.4,.5,1};
+    private double[] MAFClass= new double[]{0,.02,.05,.10,.20,.3,.4,.5,1};
     private boolean verboseOutput= true;
     
     public FILLINImputationAccuracy(GenotypeTable unimp, double propSitesMask, String outFileName, boolean verbose) {
@@ -72,6 +72,13 @@ public class FILLINImputationAccuracy {
         this.outFile= outFileName;
     }
     
+    public FILLINImputationAccuracy(GenotypeTable unimp, GenotypeTable maskKey, String outFileName, boolean verbose) {
+        this.unimp= unimp;
+        this.maskKey= maskKey;
+        this.verboseOutput= verbose;
+        this.outFile= outFileName;
+    }
+    
     public FILLINImputationAccuracy(GenotypeTable unimp, GenotypeTable maskKey, GenotypeTable[] donor, String outFileName, boolean verbose) {
         this.unimp= unimp;
         this.maskKey= maskKey;
@@ -89,11 +96,6 @@ public class FILLINImputationAccuracy {
         this.outFile= outFileName;
     }
     
-    public boolean addImputed(GenotypeTable imputed) {
-        this.imputed= imputed;
-        return true;
-    }
-    
     public GenotypeTable initiateAccuracy() {
         if (this.MAFClass!=null) {//if mafClass not null, assign MAF categories to sites in unimputed
             generateMAF();
@@ -104,7 +106,7 @@ public class FILLINImputationAccuracy {
         if (this.maskKey!=null) {
             if (this.verboseOutput) System.out.println("File already masked. Use input key file for calculating accuracy");
             boolean goodKey= true;
-            if (Arrays.equals(this.maskKey.physicalPositions(), this.unimp.physicalPositions())==false) goodKey= filterKey();
+            if (Arrays.equals(this.maskKey.physicalPositions(), this.unimp.physicalPositions())==false) goodKey= filterKeySites();
             if (!goodKey && this.verboseOutput) System.out.println("Problem with input key file. Masking unimputed input");
             else return this.unimp;
         }
@@ -184,7 +186,7 @@ public class FILLINImputationAccuracy {
         }
 
         //filters for site position and chromosome. returns null if mask has fewer chromosomes or positions in chromosomes than unimp
-        private boolean filterKey() {
+        private boolean filterKeySites() {
             if (this.verboseOutput) System.out.println("Filtering user input key file...\nsites in original Key file: "+this.maskKey.numberOfSites());
             String[] unimpNames= new String[this.unimp.numberOfSites()];
             for (int site = 0; site < this.unimp.numberOfSites(); site++) {unimpNames[site]= this.unimp.siteName(site);}
@@ -210,9 +212,17 @@ public class FILLINImputationAccuracy {
             FilterGenotypeTable filter= FilterGenotypeTable.getInstance(this.maskKey, keepSites.toArray(new String[keepSites.size()]));
             this.maskKey= GenotypeTableBuilder.getGenotypeCopyInstance(filter);
             if (verboseOutput) System.out.println("Sites in new mask: "+this.maskKey.numberOfSites());
+            
+            //check to see if all taxa in unimputed are in the mask file
+            if (this.maskKey.taxa().containsAll(this.unimp.taxa())) 
+                this.maskKey= FilterGenotypeTable.getInstance(this.maskKey, this.unimp.taxa());
+            else {
+                System.out.println("Not all taxa in target imputation file contained in mask key. Not using mask");
+                return false;
+            }
             return true;
         }
-
+        
         private boolean matchChromosomes() {
             Chromosome[] unimpChr= this.unimp.chromosomes();
             Chromosome[] keyChr= this.maskKey.chromosomes();

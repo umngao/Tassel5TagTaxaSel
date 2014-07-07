@@ -2,14 +2,8 @@ package net.maizegenetics.analysis.gbs;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableMap;
-import net.maizegenetics.dna.tag.Tag;
-import net.maizegenetics.dna.tag.TagBuilder;
-import net.maizegenetics.dna.tag.TaxaDistBuilder;
-import net.maizegenetics.dna.tag.TaxaDistribution;
-import net.maizegenetics.plugindef.AbstractPlugin;
-import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.plugindef.GeneratePluginCode;
-import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.dna.tag.*;
+import net.maizegenetics.plugindef.*;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListIOUtils;
 import net.maizegenetics.taxa.Taxon;
@@ -28,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Develops a discovery TBT file from a set of GBS sequence files.
@@ -51,12 +46,16 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
             .description("Enzyme used to create the GBS library, if it differs from the one listed in the key file").build();
     private PluginParameter<Integer> myMinTagCount = new PluginParameter.Builder<>("c", 10, Integer.class).guiName("Min Tag Count")
             .description("Minimum tag count").build();
-    private PluginParameter<String> myOutputDir = new PluginParameter.Builder<>("o", null, String.class).guiName("Output Directory").required(true).outDir()
-            .description("Output directory to contain .cnt files (one per FASTQ file (one per FASTQ file)").build();
+    private PluginParameter<String> myOutputFile = new PluginParameter.Builder<>("o", null, String.class).guiName("Output TBT File").required(true).outFile()
+            .description("Output TBT file").build();
     private PluginParameter<Integer> myMinQualScore = new PluginParameter.Builder<>("mnQS", 0, Integer.class).guiName("Minimum quality score").required(false)
             .description("Minimum quality score within the barcode and read length to be accepted").build();
+    private PluginParameter<Integer> myMaxMapMemoryInMb = new PluginParameter.Builder<>("mxMapMem", 8000, Integer.class).guiName("Maximum Map Memory in Mb").required(false)
+            .description("Maximum size for the tag distribution map in Mb").build();
 
-    private Map<Tag,TaxaDistribution> tagCntMap=new ConcurrentHashMap<>(20_000_000);
+    private int maxMapSize=20_000_000;
+    private TagDistributionMap tagCntMap;
+
     private static final String inputFileGlob="glob:*{.fq,fq.gz,fastq,fastq.txt,fastq.gz,fastq.txt.gz,_sequence.txt,_sequence.txt.gz}";
     private static final int keyFileTaxaNameIndex=3;
     private static final int keyFilePrepIDIndex=7;
@@ -75,6 +74,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
 
     @Override
     public DataSet processData(DataSet input) {
+        tagCntMap=new TagDistributionMap(maxMapSize,(long)myMaxMapMemoryInMb.value()*1_000_000l);
         try {
             //Get the map of taxa indices from the key files
             //Get the list of fastq files
@@ -102,6 +102,10 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                 throw new IllegalStateException("BuilderFromHapMap: processing threads timed out.");
             }
             System.out.println("tagCntMap.size()="+tagCntMap.size());
+            System.out.println("Memory Size"+tagCntMap.estimateMapMemorySize());
+            tagCntMap.removeTagByCount(0);
+            System.out.println("tagCntMap.size()="+tagCntMap.size());
+            System.out.println("Memory Size"+tagCntMap.estimateMapMemorySize());
             int cnt=0;
             int totalmatch=0;
             for (Map.Entry<Tag, TaxaDistribution> entry : tagCntMap.entrySet()) {
@@ -110,12 +114,16 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                 totalmatch+=entry.getValue().totalDepth();
             }
             System.out.println("totalmatch = " + totalmatch);
+            TagsByTaxaHDF5Builder.create(myOutputFile.value(), tagCntMap, masterTaxaList);
 
         } catch(Exception e) {
             e.printStackTrace();
         }
-        return null;
+
+        return new DataSet(new Datum("TagMap",tagCntMap,""),this);
     }
+    
+
 
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
@@ -225,8 +233,8 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
      *
      * @return Output Directory
      */
-    public String outputDirectory() {
-        return myOutputDir.value();
+    public String outputFile() {
+        return myOutputFile.value();
     }
 
     /**
@@ -237,8 +245,8 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public DiscoveryTBTPlugin outputDirectory(String value) {
-        myOutputDir = new PluginParameter<>(myOutputDir, value);
+    public DiscoveryTBTPlugin outputFile(String value) {
+        myOutputFile = new PluginParameter<>(myOutputFile, value);
         return this;
     }
 
@@ -265,6 +273,25 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
         return this;
     }
 
+    /**
+     * Maximum size for the tag distribution map in Mb
+     * @return Maximum Map Memory in Mb
+     */
+    public Integer maximumMapMemoryInMb() {
+        return myMaxMapMemoryInMb.value();
+    }
+
+    /**
+     * Set Maximum Map Memory in Mb. Maximum size for the tag distribution map in Mb
+     * @param value Maximum Map Memory in Mb
+     * @return this plugin
+     */
+    public DiscoveryTBTPlugin maximumMapMemoryInMb(Integer value) {
+        myMaxMapMemoryInMb = new PluginParameter<>(myMaxMapMemoryInMb, value);
+        return this;
+    }
+
+
     @Override
     public ImageIcon getIcon() {
         return null;
@@ -278,6 +305,70 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
     @Override
     public String getToolTipText() {
         return "Discovery Tags By Taxa";
+    }
+}
+
+
+/**
+ * This concurrnet HashMap constrain the size of the map, and purges low distribution count tags when the size needs
+ * to be reduced.
+ *
+ *
+ */
+class TagDistributionMap extends ConcurrentHashMap<Tag,TaxaDistribution> {
+    private final long maxMemorySize;
+    private int minDepthToRetainInMap=1;
+    private AtomicLong putCntSinceMemoryCheck=new AtomicLong(0L);  //since we don't need an exact count of the puts,
+    //this may be overkill
+    private long checkFreq;  //numbers of puts to check size
+
+    TagDistributionMap(int initialCapacity, long maxMemorySize) {
+        super(initialCapacity);
+        this.maxMemorySize=maxMemorySize;
+        checkFreq=(maxMemorySize/(100L*10L));  //this is checking roughly to keep the map within 10% of the max
+    }
+
+    @Override
+    public TaxaDistribution put(Tag key, TaxaDistribution value) {
+        if(putCntSinceMemoryCheck.incrementAndGet()>checkFreq) {
+            checkMemoryAndReduceIfNeeded();
+            putCntSinceMemoryCheck.set(0);
+        }
+        return super.put(key, value);
+    }
+
+    public synchronized void checkMemoryAndReduceIfNeeded() {
+        System.out.println("TagDistributionMap.checkMemoryAndReduceIfNeeded"+estimateMapMemorySize());
+        while(estimateMapMemorySize()>maxMemorySize) {
+            reduceMapSize();
+        }
+    }
+
+
+    public synchronized void removeTagByCount(int minCnt) {
+        for (Tag tag : keySet()) {
+            if(get(tag).totalDepth()<minCnt) remove(tag);
+        }
+    }
+
+    private synchronized void reduceMapSize() {
+        System.out.println("reduceMapSize()"+minDepthToRetainInMap);
+        removeTagByCount(minDepthToRetainInMap);
+        minDepthToRetainInMap++;
+    }
+
+    public long estimateMapMemorySize() {
+        long size=0;
+        int cnt=0;
+        for (Map.Entry<Tag, TaxaDistribution> entry : entrySet()) {
+            size+=8+16+1; //Tag size
+            size+=16; //Map references
+            size+=entry.getValue().memorySize();
+            cnt++;
+            if(cnt>10000) break;
+        }
+        long estSize=(size()/cnt)*size;
+        return estSize;
     }
 }
 
@@ -311,9 +402,6 @@ class ProcessFastQFile implements Runnable {
     public void run() {
         TaxaList tl=getLaneAnnotatedTaxaList(keyPath, fastQPath);
         if(enzyme==null) enzyme=tl.get(0).getTextAnnotation(enzymeField)[0];
-//        for (Taxon taxon : tl) {
-//            System.out.println(taxon.toStringWithVCFAnnotation());
-//        }
         ParseBarcodeRead2 thePBR=new ParseBarcodeRead2(tl, enzyme, masterTaxaList);
         processFastQ(fastQPath,thePBR);
     }
@@ -347,7 +435,6 @@ class ProcessFastQFile implements Runnable {
             int maxTaxaNumber=masterTaxaList.size();
 
             try {
-                //todo parallelize this multiple cores
                 BufferedReader br = Utils.getBufferedReader(fastqFile.toString(), 1<<22);
                 int currLine = 0;
                 long time=System.nanoTime();
@@ -401,7 +488,6 @@ class ProcessFastQFile implements Runnable {
                 myLogger.info("Total number of good barcoded reads=" + goodBarcodedReads);
                 myLogger.info("Timing process (sorting, collapsing, and writing TagCount to file).");
                 long timePoint1 = System.currentTimeMillis();
-                //theTC.collapseCounts();
                 System.out.println("tagCntMap size"+masterTagTaxaMap.size());
 //                for (Map.Entry<Tag, TaxaDistribution> entry : masterTagTaxaMap.entrySet()) {
 //                    if(entry.getKey().seqLength()==64 && entry.getValue().totalDepth()>1000) {

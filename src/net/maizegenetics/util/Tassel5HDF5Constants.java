@@ -58,6 +58,7 @@ public final class Tassel5HDF5Constants {
     public static final String TAXA_ATTRIBUTES_PATH = TAXA_MODULE + "/";
     public static final String TAXA_NUM_TAXA = "numTaxa";
     public static final String TAXA_LOCKED = "locked";
+    public static final String TAXA_ORDER = TAXA_ATTRIBUTES_PATH+"TaxaOrder";
 
     public static final String getTaxonPath(String taxon) {
         return TAXA_MODULE + "/" + taxon;
@@ -88,9 +89,14 @@ public final class Tassel5HDF5Constants {
     public static final String TAG_LENGTH_LONG = "tagLengthLong";
     public static final String TAG_LOCKED = "locked";
     public static final String TAGS = TAG_MODULE + "/Tags";
-    public static final String TAG_LENGTHS = TAG_MODULE + "/TagLength";
-    public static final String TAG_DIST = TAG_MODULE + "/TagDist";
-    public static final String TAG_DIST_CHUNK = "taxaDirection";
+    public static final int TAGS_BIN_NUM = 64;
+    public static final int HASH_SHIFT_TO_TAG_BIN=Integer.numberOfLeadingZeros(TAGS_BIN_NUM)+1;
+
+    public static final String TAG_SEQ = "TagSeq";
+    public static final String TAG_LENGTHS = "TagLength";
+    public static final String TAG_DIST = "TagDist";
+    public static final String TAG_DIST_OFFSETS = "TagTaxaDistOffset";
+//    public static final String TAG_DIST_CHUNK = "taxaDirection";
 
     private Tassel5HDF5Constants() {
         // do not instantiate

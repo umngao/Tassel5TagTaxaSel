@@ -12,6 +12,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 
 import java.io.File;
 import java.lang.reflect.Field;
@@ -459,6 +461,18 @@ abstract public class AbstractPlugin implements Plugin {
     }
 
     @Override
+    public Plugin setParameter(PluginParameter param, Object value) {
+        if (value instanceof String) {
+            setParameter(param.cmdLineName(), (String) value);
+        } else if (value instanceof Comparable) {
+            setParameter(param.cmdLineName(), (Comparable) value);
+        } else {
+            throw new IllegalArgumentException("AbstractPlugin: setParameter: illegal value type: " + value.getClass().getName());
+        }
+        return this;
+    }
+
+    @Override
     public Plugin setParameter(String key, Comparable value) {
 
         PluginParameter parameter = null;
@@ -509,16 +523,6 @@ abstract public class AbstractPlugin implements Plugin {
             }
         }
         return this;
-    }
-
-    @Override
-    final public Plugin setParameter(Enum key, Comparable value) {
-        return setParameter(key.toString(), value);
-    }
-
-    @Override
-    final public Plugin setParameter(Enum key, String value) {
-        return setParameter(key.toString(), value);
     }
 
     private static final int TEXT_FIELD_WIDTH = 25;
@@ -580,6 +584,7 @@ abstract public class AbstractPlugin implements Plugin {
                 dialog.setVisible(false);
             }
         });
+
         JButton cancelButton = new JButton();
         cancelButton.setText("Cancel");
         cancelButton.addActionListener(new ActionListener() {
@@ -587,6 +592,15 @@ abstract public class AbstractPlugin implements Plugin {
             public void actionPerformed(ActionEvent e) {
                 parametersAreSet = false;
                 dialog.setVisible(false);
+            }
+        });
+
+        JButton defaultsButton = new JButton();
+        defaultsButton.setText("Defaults");
+        defaultsButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                setFieldsToDefault(parameterFields);
             }
         });
 
@@ -691,6 +705,7 @@ abstract public class AbstractPlugin implements Plugin {
         pnlButtons.setLayout(new FlowLayout());
         pnlButtons.add(okButton);
         pnlButtons.add(cancelButton);
+        pnlButtons.add(defaultsButton);
         dialog.getContentPane().add(tabbedPane, BorderLayout.CENTER);
         dialog.getContentPane().add(pnlButtons, BorderLayout.SOUTH);
 
@@ -708,11 +723,40 @@ abstract public class AbstractPlugin implements Plugin {
 
     }
 
+    private void setFieldsToDefault(Map<String, JComponent> parameterFields) {
+
+        final List<PluginParameter<?>> parameterInstances = getParameterInstances();
+        if (parameterInstances.isEmpty()) {
+            return;
+        }
+
+        for (final PluginParameter<?> current : parameterInstances) {
+            JComponent component = parameterFields.get(current.cmdLineName());
+            if (component instanceof JTextField) {
+                Comparable defaultValue = current.defaultValue();
+                if (defaultValue == null) {
+                    ((JTextField) component).setText(null);
+                } else {
+                    ((JTextField) component).setText(defaultValue.toString());
+                }
+                setParameter(current.cmdLineName(), defaultValue);
+            } else if (component instanceof JCheckBox) {
+                Boolean value = (Boolean) current.defaultValue();
+                ((JCheckBox) component).setSelected(value);
+                setParameter(current.cmdLineName(), value);
+            } else if (component instanceof JComboBox) {
+                ((JComboBox) component).setSelectedItem(current.defaultValue());
+                setParameter(current.cmdLineName(), current.defaultValue());
+            }
+        }
+
+    }
+
     private void createEnableDisableAction(PluginParameter<?> current, Map<String, JComponent> parameterFields, final JComponent component) {
         createEnableDisableAction(current, parameterFields, new JComponent[]{component});
     }
 
-    private void createEnableDisableAction(PluginParameter<?> current, Map<String, JComponent> parameterFields, final JComponent[] components) {
+    private void createEnableDisableAction(final PluginParameter<?> current, Map<String, JComponent> parameterFields, final JComponent[] components) {
 
         if (current.dependentOnParameter() != null) {
             JComponent depends = parameterFields.get(current.dependentOnParameter().cmdLineName());
@@ -720,19 +764,44 @@ abstract public class AbstractPlugin implements Plugin {
                 final JCheckBox checkBox = (JCheckBox) depends;
 
                 for (JComponent component : components) {
-                    if (checkBox.isSelected()) {
+                    if (checkBox.isSelected() == (Boolean) current.dependentOnParameterValue()) {
                         component.setEnabled(true);
                     } else {
                         component.setEnabled(false);
                     }
                 }
 
-                checkBox.addActionListener(new ActionListener() {
+                checkBox.addItemListener(new ItemListener() {
 
                     @Override
-                    public void actionPerformed(ActionEvent e) {
+                    public void itemStateChanged(ItemEvent e) {
                         for (JComponent component : components) {
-                            if (checkBox.isSelected()) {
+                            if (checkBox.isSelected() == (Boolean) current.dependentOnParameterValue()) {
+                                component.setEnabled(true);
+                            } else {
+                                component.setEnabled(false);
+                            }
+                        }
+                    }
+                });
+
+            } else if (depends instanceof JComboBox) {
+                final JComboBox comboBox = (JComboBox) depends;
+
+                for (JComponent component : components) {
+                    if (comboBox.getSelectedItem() == current.dependentOnParameterValue()) {
+                        component.setEnabled(true);
+                    } else {
+                        component.setEnabled(false);
+                    }
+                }
+
+                comboBox.addItemListener(new ItemListener() {
+
+                    @Override
+                    public void itemStateChanged(ItemEvent e) {
+                        for (JComponent component : components) {
+                            if (comboBox.getSelectedItem() == current.dependentOnParameterValue()) {
                                 component.setEnabled(true);
                             } else {
                                 component.setEnabled(false);

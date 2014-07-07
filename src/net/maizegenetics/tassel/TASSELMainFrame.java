@@ -96,8 +96,8 @@ import net.maizegenetics.analysis.imputation.FILLINImputationPlugin;
 public class TASSELMainFrame extends JFrame implements ActionListener {
 
     private static final Logger myLogger = Logger.getLogger(TASSELMainFrame.class);
-    public static final String version = "5.0.7";
-    public static final String versionDate = "June 5, 2014";
+    public static final String version = "5.0.8";
+    public static final String versionDate = "June 26, 2014";
     private DataTreePanel myDataTreePanel;
     private String tasselDataFile = "TasselDataFile";
     //a variable to control when the progress bar was last updated
@@ -138,14 +138,11 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
     //Component initialization
     private void initializeMyFrame() throws Exception {
         getContentPane().setLayout(new BorderLayout());
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
 
-        // it is time for TASSEL to claim more (almost all) of the screen real estate for itself
-        // this size was selected so as to encourage the user to resize to full screen,  thereby
-        // insuring that all parts of the frame are visible.
         int xDim = TasselPrefs.getXDim();
         int yDim = TasselPrefs.getYDim();
         if ((xDim < 50) || (yDim < 50)) {
+            Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
             setSize(new Dimension(screenSize.width * 19 / 20, screenSize.height * 19 / 20));
         } else {
             setSize(xDim, yDim);
@@ -153,6 +150,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         setTitle("TASSEL (Trait Analysis by aSSociation, Evolution, and Linkage)");
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(WindowEvent e) {
+                TasselLogging.closeInstance();
                 TasselPrefs.putXDim(getWidth());
                 TasselPrefs.putYDim(getHeight());
                 System.exit(0);
@@ -166,6 +164,8 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
         reportPanelTextArea.setEditable(false);
         reportPanelTextArea.setToolTipText("Report Panel");
+        reportPanelTextArea.setLineWrap(true);
+        reportPanelTextArea.setWrapStyleWord(true);
         mainPanelTextArea.setDoubleBuffered(true);
         mainPanelTextArea.setEditable(false);
         mainPanelTextArea.setFont(new java.awt.Font("Monospaced", 0, 12));
@@ -711,6 +711,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         JMenuItem exitMenuItem = new JMenuItem("Exit");
         exitMenuItem.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(ActionEvent e) {
+                TasselLogging.closeInstance();
                 TasselPrefs.putXDim(getWidth());
                 TasselPrefs.putYDim(getHeight());
                 System.exit(0);
@@ -795,6 +796,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         }, -1));
 
         helpMenu.add(createMenuItem(PrintHeapAction.getInstance(this), -1));
+        helpMenu.add(createMenuItem(TasselLogging.getInstance(this)));
 
         return helpMenu;
     }

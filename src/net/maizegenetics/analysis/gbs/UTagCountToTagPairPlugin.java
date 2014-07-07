@@ -5,6 +5,7 @@ package net.maizegenetics.analysis.gbs;
 
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import org.apache.log4j.Logger;
 
@@ -42,7 +43,6 @@ public class UTagCountToTagPairPlugin extends AbstractPlugin {
             .build();
 
 
-
     public UTagCountToTagPairPlugin() {
         super(null, false);
     }
@@ -74,33 +74,6 @@ public class UTagCountToTagPairPlugin extends AbstractPlugin {
          + " Switchgrass genomic diversity, ploidy and evolution: novel insights from a network-based SNP discovery protocol. PLoS Genetics 9(1):e1003215.";
     }
 
-    public UTagCountToTagPairPlugin inputFile(String filename){
-        setParameter(infile.cmdLineName(), filename);
-        return this;
-    }
-
-    public UTagCountToTagPairPlugin outputFile(String filename){
-        setParameter(outfile.cmdLineName(), filename);
-        return this;
-    }
-
-    public UTagCountToTagPairPlugin errorTolerance(Double value){
-        setParameter(errorTolerance.cmdLineName(), value);
-        return this;
-    }
-
-    public String inputFile(){
-        return infile.value();
-    }
-
-    public String outputFile(){
-        return outfile.value();
-    }
-
-    public double errorTolerance(){
-        return errorTolerance.value();
-    }
-
     @Override
     public ImageIcon getIcon() {
         return null;
@@ -115,4 +88,77 @@ public class UTagCountToTagPairPlugin extends AbstractPlugin {
     public String getToolTipText() {
         return "Tag Counts to Tag Pairs";
     }
+
+    // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(UTagCountToTagPairPlugin.class);
+    // }
+
+    /**
+     * What fraction of errors to tolerate when filtering
+     * by UNEAK
+     *
+     * @return Error tolerance
+     */
+    public Double errorTolerance() {
+        return errorTolerance.value();
+    }
+
+    /**
+     * Set Error tolerance. What fraction of errors to tolerate
+     * when filtering by UNEAK
+     *
+     * @param value Error tolerance
+     *
+     * @return this plugin
+     */
+    public UTagCountToTagPairPlugin errorTolerance(Double value) {
+        errorTolerance = new PluginParameter<>(errorTolerance, value);
+        return this;
+    }
+
+    /**
+     * Input file of merged tag counts
+     *
+     * @return Input file
+     */
+    public String inputFile() {
+        return infile.value();
+    }
+
+    /**
+     * Set Input file. Input file of merged tag counts
+     *
+     * @param value Input file
+     *
+     * @return this plugin
+     */
+    public UTagCountToTagPairPlugin inputFile(String value) {
+        infile = new PluginParameter<>(infile, value);
+        return this;
+    }
+
+    /**
+     * Output file of matched tag pairs
+     *
+     * @return Output file
+     */
+    public String outputFile() {
+        return outfile.value();
+    }
+
+    /**
+     * Set Output file. Output file of matched tag pairs
+     *
+     * @param value Output file
+     *
+     * @return this plugin
+     */
+    public UTagCountToTagPairPlugin outputFile(String value) {
+        outfile = new PluginParameter<>(outfile, value);
+        return this;
+    }
+
 }

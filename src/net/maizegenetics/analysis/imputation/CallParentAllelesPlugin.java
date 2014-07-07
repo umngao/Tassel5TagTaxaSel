@@ -38,7 +38,8 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 	private boolean useClusterAlgorithm = false;
 	private boolean checkSubPops = false;
 	private boolean useHets = true;
-	private double maxHetDev = 5;
+	private boolean useWindowLD = false;
+	private int overlap = -1;
 	private ArrayList<PopulationData> familyList = null;
 	
 	public CallParentAllelesPlugin(Frame parentFrame) {
@@ -85,20 +86,18 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 				}
 				
 				myLogger.info("family alignment created");
-				if (useClusterAlgorithm)  {
+				if (useWindowLD) NucleotideImputationUtils.callParentAllelesByWindow(family, maxMissing, minMinorAlleleFrequency, windowSize, minRforSnps);
+				else if (useClusterAlgorithm)  NucleotideImputationUtils.callParentAllelesUsingClusters(family, maxMissing, minMinorAlleleFrequency, windowSize, checkSubPops);
+				else if (useBCFilter && (family.contribution1 == 0.75 || family.contribution1 == 0.25)) NucleotideImputationUtils.callParentAllelesByWindowForBackcrosses(family, maxMissing, minMinorAlleleFrequency, windowSize, minRforSnps);
+				else if (useMultipleBCFilter) NucleotideImputationUtils.callParentAllelesByWindowForMultipleBC(family, maxMissing, 1, windowSize);
+				else {
 					BiparentalHaplotypeFinder hapFinder = new BiparentalHaplotypeFinder(family);
-					hapFinder.maxHetDeviation = maxHetDev;
-					hapFinder.minR2 = minRforSnps;
-					hapFinder.minMaf = minMinorAlleleFrequency;
-					hapFinder.minCoverage = 1 - maxMissing;
+					if (overlap > -1) hapFinder.overlap = overlap;
 					hapFinder.window = windowSize;
+					hapFinder.minR2 = minRforSnps;
 					hapFinder.assignHaplotyes();
 					hapFinder.convertGenotypesToParentCalls();
 				}
-//				if (useClusterAlgorithm)  NucleotideImputationUtils.callParentAllelesUsingClusters(family, maxMissing, minMinorAlleleFrequency, windowSize, checkSubPops);
-				else if (useBCFilter && (family.contribution1 == 0.75 || family.contribution1 == 0.25)) NucleotideImputationUtils.callParentAllelesByWindowForBackcrosses(family, maxMissing, minMinorAlleleFrequency, windowSize, minRforSnps);
-				else if (useMultipleBCFilter) NucleotideImputationUtils.callParentAllelesByWindowForMultipleBC(family, maxMissing, 1, windowSize);
-				else NucleotideImputationUtils.callParentAllelesByWindow(family, maxMissing, minMinorAlleleFrequency, windowSize, minRforSnps);
 				String comment = "Parent Calls for family " + family.name + " from " + d.getName() + ".";
 				datumList.add(new Datum(family.name, family, comment));
 			}
@@ -139,9 +138,6 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 			else if (args[i].equals("-f") || args[i].equalsIgnoreCase("-minMaf")) {
 				minMinorAlleleFrequency = Double.parseDouble(args[++i]);
 			}
-			else if (args[i].equals("-d") || args[i].equalsIgnoreCase("-maxHetDev")) {
-				maxHetDev = Double.parseDouble(args[++i]);
-			}
 			else if (args[i].equals("-b") || args[i].equalsIgnoreCase("-bc1")) {
 				String param = args[++i];
 				if (param.toUpperCase().startsWith("F")) useBCFilter = false;
@@ -158,6 +154,9 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 			}
 			else if (args[i].startsWith("-clust")) {
 				useClusterAlgorithm = true;
+			}
+			else if (args[i].toLowerCase().equals("-windowld")) {
+				useWindowLD = true;
 			}
 			else if (args[i].equals("-subpops")) {
 				checkSubPops = true;
@@ -245,7 +244,8 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 		usage.append("-n or -bcn : use multipe backcross specific filter (default = false)\n");
 		usage.append("-logfile : the name of a file to which all logged messages will be printed.\n");
 		usage.append("-cluster : use the cluster algorithm. minMaf defaults to 0.05.\n");
-		usage.append("-subpops : filter sites for heterozygosity in subpopulations.\n");
+		usage.append("-windowld : use the window LD method to impute parent haplotypes.\n");
+		usage.append("-subpops : filter sites for heterozygosity in subpopulations. Only used for -cluster option.\n");
 		usage.append("-nohets : delete het calls from original data before imputing.\n");
 		usage.append("? : print the parameter list.\n");
 
