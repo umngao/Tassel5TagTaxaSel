@@ -39,6 +39,7 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 	private boolean checkSubPops = false;
 	private boolean useHets = true;
 	private boolean useWindowLD = false;
+	private double maxHetDev = 5;
 	private int overlap = -1;
 	private ArrayList<PopulationData> familyList = null;
 	
@@ -95,6 +96,7 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 					if (overlap > -1) hapFinder.overlap = overlap;
 					hapFinder.window = windowSize;
 					hapFinder.minR2 = minRforSnps;
+					hapFinder.maxHetDeviation = maxHetDev;
 					hapFinder.assignHaplotyes();
 					hapFinder.convertGenotypesToParentCalls();
 				}
@@ -137,6 +139,9 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 			}
 			else if (args[i].equals("-f") || args[i].equalsIgnoreCase("-minMaf")) {
 				minMinorAlleleFrequency = Double.parseDouble(args[++i]);
+			}
+			else if (args[i].equals("-d") || args[i].equalsIgnoreCase("-maxHetDev")) {
+				maxHetDev = Double.parseDouble(args[++i]);
 			}
 			else if (args[i].equals("-b") || args[i].equalsIgnoreCase("-bc1")) {
 				String param = args[++i];
