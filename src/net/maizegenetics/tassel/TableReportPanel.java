@@ -12,6 +12,8 @@ import java.util.Map;
 import java.util.WeakHashMap;
 import net.maizegenetics.dna.map.TOPMInterface;
 import net.maizegenetics.dna.map.TOPMTableReport;
+import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.TaxaListTableReport;
 
 /**
  */
@@ -95,6 +97,15 @@ public class TableReportPanel extends JPanel {
         if (result == null) {
             result = new TableReportPanel(new TOPMTableReport(topm));
             INSTANCES.put(topm, result);
+        }
+        return result;
+    }
+
+    public static TableReportPanel getInstance(TaxaList taxaList) {
+        TableReportPanel result = INSTANCES.get(taxaList);
+        if (result == null) {
+            result = new TableReportPanel(new TaxaListTableReport(taxaList));
+            INSTANCES.put(taxaList, result);
         }
         return result;
     }
