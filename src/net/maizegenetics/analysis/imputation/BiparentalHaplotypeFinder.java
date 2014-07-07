@@ -66,6 +66,10 @@ public class BiparentalHaplotypeFinder {
 	 */
 	double minCoverage = 0.2;
 	
+	/**
+	 * Filter out sites more than maxHetDeviation * (standard deviation) different from the mean percent heterozygosity.;
+	 */
+	double maxHetDeviation = 5;
 	
 	public BiparentalHaplotypeFinder(PopulationData popdata) {
 		myPopulationData = popdata;
@@ -85,9 +89,9 @@ public class BiparentalHaplotypeFinder {
 		//  5. assign remaining clusters to parent or het
 		//	6. record parent or het for each taxon and non-missing site in the window
 		
-		GenotypeTable filterGeno = myPopulationData.original;
-//		GenotypeTable filterGeno = preFilterSites();
-//		myPopulationData.original = filterGeno;
+//		GenotypeTable filterGeno = myPopulationData.original; 
+		GenotypeTable filterGeno = preFilterSites();
+		myPopulationData.original = filterGeno;
 		
 		int nsites = myPopulationData.original.numberOfSites();
 		myPopulationData.alleleA = new byte[nsites];
@@ -353,7 +357,7 @@ public class BiparentalHaplotypeFinder {
 
 		double meanPhet = StatUtils.mean(pHet);
 		double sdPhet = Math.sqrt(StatUtils.variance(pHet));
-		double maxPhet = meanPhet + 4*sdPhet;
+		double maxPhet = meanPhet + maxHetDeviation * sdPhet;
 		
 		boolean[] selected = new boolean[nsites];
 		int numberFalse = 0;
