@@ -913,17 +913,8 @@ public class StepwiseOLSModelFitter {
 		Xmatrices = new DoubleMatrix[1][columnNumber];//Intercept+family term+                
 
 		Xmatrices[0][0] = meanME.getX();
-		int indexForFactorLevelinXmatrices = 0;
-		if(covariateList != null){
-			indexForFactorLevelinXmatrices = covariateList.size(); //This is not equal to
-			// covariateList.size()+1 because java starts indices at 0; not 1
-			for(int i=0;  i < covariateList.size(); i++){
-				CovariateModelEffect cme = new CovariateModelEffect(covariateList.get(i), 
-						myData.getCovariateName(i));
-				Xmatrices[0][i+1] = cme.getX();
-			}
-			//(any other covariates)+one marker = currentModel.size()+1
-		}if(factorList != null){
+		int effectCount = 1;
+		if(factorList != null){
 			for (int f = 0; f < factorList.size(); f++) {
 				ArrayList<String> ids = new ArrayList<String>();
 				int[] levels = ModelEffectUtils.getIntegerLevels(factorList.get(f), ids);
@@ -932,8 +923,17 @@ public class StepwiseOLSModelFitter {
 					nestingEffect = fme;
 					nestingFactorNames = ids; 
 				}
-				Xmatrices[0][f+indexForFactorLevelinXmatrices+1] = fme.getX();
+				Xmatrices[0][effectCount++] = fme.getX();
 			}                                   
+		}
+		if(covariateList != null){
+			// covariateList.size()+1 because java starts indices at 0; not 1
+			for(int i=0;  i < covariateList.size(); i++){
+				CovariateModelEffect cme = new CovariateModelEffect(covariateList.get(i), 
+						myData.getCovariateName(i));
+				Xmatrices[0][effectCount++] = cme.getX();
+			}
+			//(any other covariates)+one marker = currentModel.size()+1
 		}            
 
 		SweepFastLinearModel baseSflm = new SweepFastLinearModel(currentModel, y);
