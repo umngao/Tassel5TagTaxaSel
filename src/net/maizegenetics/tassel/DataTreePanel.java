@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import net.maizegenetics.analysis.data.GenotypeSummaryPlugin;
 import net.maizegenetics.dna.map.TOPMInterface;
+import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.HDF5TableReport;
 
 import org.apache.batik.util.gui.MemoryMonitor;
@@ -79,6 +80,7 @@ public class DataTreePanel extends JPanel implements PluginListener {
     public static final String NODE_TYPE_HDF5_SCHEMA = "HDF5 Schema";
     public static final String NODE_TYPE_MATRIX = "Matrix";
     public static final String NODE_TYPE_TREE = "Tree";
+    public static final String NODE_TYPE_LISTS = "Lists";
     public static final String NODE_TYPE_FUSIONS = "Fusions";
     public static final String NODE_TYPE_SYNONYMS = "Synonyms";
     public static final String NODE_TYPE_DIVERSITY = "Diversity";
@@ -102,6 +104,7 @@ public class DataTreePanel extends JPanel implements PluginListener {
         NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_TREE);
         NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_FUSIONS);
         NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_TOPM);
+        NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_LISTS);
     }
     //Possible line styles...
     //"Angled", "Horizontal", and "None" (the default).
@@ -349,6 +352,18 @@ public class DataTreePanel extends JPanel implements PluginListener {
                                 }
 
                             }
+                        } else if (book.getData() instanceof TaxaList) {
+                            int size = ((TaxaList) book.getData()).numberOfTaxa();
+                            myLogger.info("initSelectionListener: Number of Taxa: " + size);
+                            if (size == 0) {
+                                JPanel blankPanel = new JPanel();
+                                blankPanel.setLayout(new BorderLayout());
+                                blankPanel.add(new JLabel("     No Taxa"), BorderLayout.CENTER);
+                                myTASSELMainFrame.mainDisplayPanel.add(blankPanel, BorderLayout.CENTER);
+                            } else {
+                                TableReportPanel theATP = TableReportPanel.getInstance((TaxaList) book.getData());
+                                myTASSELMainFrame.mainDisplayPanel.add(theATP, BorderLayout.CENTER);
+                            }
                         } else if (book.getData() instanceof GenotypeTable) {
                             GenotypeTable align = (GenotypeTable) book.getData();
                             List masks = new ArrayList();
@@ -547,6 +562,11 @@ public class DataTreePanel extends JPanel implements PluginListener {
 
             if (d.getData() instanceof Tree) {
                 addDatum(NODE_TYPE_TREE, d);
+                continue;
+            }
+
+            if (d.getData() instanceof TaxaList) {
+                addDatum(NODE_TYPE_LISTS, d);
                 continue;
             }
 

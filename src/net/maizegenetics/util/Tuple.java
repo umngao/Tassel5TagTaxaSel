@@ -26,7 +26,10 @@ public class Tuple<X, Y> extends Object {
     public int hashCode() {
         return (x.hashCode()^y.hashCode());
     }
-
+    @Override
+    public String toString() {
+        return "("+x.toString()+","+y.toString()+")";
+    }
     @Override
     public boolean equals(Object obj) {
         if (obj == null) {

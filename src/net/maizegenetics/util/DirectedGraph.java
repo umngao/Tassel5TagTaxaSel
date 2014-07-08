@@ -115,5 +115,18 @@ public class DirectedGraph<T> implements Graph<T> {
     public int size() {
         return adj.size();
     }
-    
-}
+    @Override
+    public double size(boolean weighted) {
+        if (weighted) {
+            double total_size = 0.;
+            Iterator<Double> it = wts.values().iterator();
+            while(it.hasNext()) {
+                total_size += it.next();
+            }
+            return total_size;
+        } else {
+            return (double)size();
+        }
+    }
+}    
+
