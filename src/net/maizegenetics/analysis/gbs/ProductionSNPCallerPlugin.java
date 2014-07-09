@@ -153,26 +153,12 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
 
     @Override
     public DataSet processData(DataSet input) {
-        long previous = System.nanoTime();
+        long previous, current;
         readKeyFile();  // TODO: read/write full set of metadata
-        long current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: performFunction: readKeyFile: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
-        previous = System.nanoTime();
         matchKeyFileToAvailableRawSeqFiles();
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: performFunction: matchKeyFileToAvailableRawSeqFiles: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
-        previous = System.nanoTime();
         myPositionList = getUniquePositions();
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: performFunction: getUniquePositions: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
-        previous = System.nanoTime();
         generateFastSiteLookup(myPositionList);
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: performFunction: generateFastSiteLookup: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
-        previous = System.nanoTime();
         setUpGenotypeTableBuilder();
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: performFunction: setUpGenotypeTableBuilder: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
         int nFilesProcessed = 0;
         for (int fileNum = 0; fileNum < myRawSeqFileNames.length; fileNum++) {
             if (!seqFilesInKeyAndDir.contains(myRawSeqFileNames[fileNum])) {
@@ -190,10 +176,7 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
             current = System.nanoTime();
             System.out.println("ProductionSNPCallerPlugin: performFunction: callGenotypes: " + myRawSeqFileNames[fileNum] + ": " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
             ++nFilesProcessed;
-            previous = System.nanoTime();
             reportTotals(fileNum, counters, nFilesProcessed);
-            current = System.nanoTime();
-            System.out.println("ProductionSNPCallerPlugin: performFunction: reportTotals: " + myRawSeqFileNames[fileNum] + ": " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
         }
         if (keepGenotypesOpen()) {
             previous = System.nanoTime();
@@ -206,36 +189,22 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
             current = System.nanoTime();
             System.out.println("ProductionSNPCallerPlugin: performFunction: genos.build(): " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
         }
-        previous = System.nanoTime();
         writeReadsPerSampleReports();
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: performFunction: writeReadsPerSampleReports: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
         return null;
     }
 
     private void readRawSequencesAndRecordDepth(int fileNum, int[] counters) {
-        long previous = System.nanoTime();
+        long previous, current;
         ParseBarcodeRead thePBR = setUpBarcodes(fileNum);
-        long current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: readRawSequencesAndRecordDepth: setUpBarcodes: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
-        previous = System.nanoTime();
         if (thePBR == null || thePBR.getBarCodeCount() == 0) {
             myLogger.info("No barcodes found. Skipping this raw sequence file.");
             return;
         }
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: readRawSequencesAndRecordDepth: getBarCodeCount: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
-        previous = System.nanoTime();
         taxaList = new TaxaListBuilder().addAll(getHDF5Taxa(fileNum)).sortTaxaAlphabetically().build();
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: readRawSequencesAndRecordDepth: new TaxaListBuilder(): " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
-        previous = System.nanoTime();
         obsTagsForEachTaxon = new IntArrayList[taxaList.numberOfTaxa()];
         for (int t = 0; t < obsTagsForEachTaxon.length; t++) {
             obsTagsForEachTaxon[t] = new IntArrayList(750_000); // initial capacity
         }
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: readRawSequencesAndRecordDepth: IntArrayList: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
         String temp = "Nothing has been read from the raw sequence file yet";
         BufferedReader br = getBufferedReaderForRawSeqFile(fileNum);
         try {
