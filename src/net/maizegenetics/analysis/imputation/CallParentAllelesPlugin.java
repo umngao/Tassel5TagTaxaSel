@@ -39,7 +39,7 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 	private boolean checkSubPops = false;
 	private boolean useHets = true;
 	private boolean useWindowLD = false;
-	private double maxHetDev = 5;
+	private double maxHetDev = 25;
 	private int overlap = -1;
 	private ArrayList<PopulationData> familyList = null;
 	
@@ -68,7 +68,7 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 				
 				myLogger.info("creating family alignment for family " + family.name);
                 TaxaList tL=new TaxaListBuilder().addAll(ids).build();
-				family.original =  GenotypeTableBuilder.getGenotypeCopyInstance((FilterGenotypeTable)FilterGenotypeTable.getInstance(align, tL, false));
+                family.original = FilterGenotypeTable.getInstance(align, tL, false);
 				
 				if (!useHets) {
 					byte NN = NucleotideAlignmentConstants.getNucleotideDiploidByte('N');
