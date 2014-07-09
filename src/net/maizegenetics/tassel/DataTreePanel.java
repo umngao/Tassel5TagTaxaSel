@@ -61,6 +61,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import net.maizegenetics.analysis.data.GenotypeSummaryPlugin;
+import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.TOPMInterface;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.HDF5TableReport;
@@ -364,6 +365,18 @@ public class DataTreePanel extends JPanel implements PluginListener {
                                 TableReportPanel theATP = TableReportPanel.getInstance((TaxaList) book.getData());
                                 myTASSELMainFrame.mainDisplayPanel.add(theATP, BorderLayout.CENTER);
                             }
+                        } else if (book.getData() instanceof PositionList) {
+                            int size = ((PositionList) book.getData()).numberOfSites();
+                            myLogger.info("initSelectionListener: Number of Positions: " + size);
+                            if (size == 0) {
+                                JPanel blankPanel = new JPanel();
+                                blankPanel.setLayout(new BorderLayout());
+                                blankPanel.add(new JLabel("     No Positions"), BorderLayout.CENTER);
+                                myTASSELMainFrame.mainDisplayPanel.add(blankPanel, BorderLayout.CENTER);
+                            } else {
+                                TableReportPanel theATP = TableReportPanel.getInstance((PositionList) book.getData());
+                                myTASSELMainFrame.mainDisplayPanel.add(theATP, BorderLayout.CENTER);
+                            }
                         } else if (book.getData() instanceof GenotypeTable) {
                             GenotypeTable align = (GenotypeTable) book.getData();
                             List masks = new ArrayList();
@@ -566,6 +579,11 @@ public class DataTreePanel extends JPanel implements PluginListener {
             }
 
             if (d.getData() instanceof TaxaList) {
+                addDatum(NODE_TYPE_LISTS, d);
+                continue;
+            }
+            
+            if (d.getData() instanceof PositionList) {
                 addDatum(NODE_TYPE_LISTS, d);
                 continue;
             }

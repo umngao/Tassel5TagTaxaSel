@@ -10,6 +10,9 @@ import javax.swing.table.*;
 import java.awt.*;
 import java.util.Map;
 import java.util.WeakHashMap;
+
+import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.map.PositionListTableReport;
 import net.maizegenetics.dna.map.TOPMInterface;
 import net.maizegenetics.dna.map.TOPMTableReport;
 import net.maizegenetics.taxa.TaxaList;
@@ -106,6 +109,15 @@ public class TableReportPanel extends JPanel {
         if (result == null) {
             result = new TableReportPanel(new TaxaListTableReport(taxaList));
             INSTANCES.put(taxaList, result);
+        }
+        return result;
+    }
+
+    public static TableReportPanel getInstance(PositionList positionList) {
+        TableReportPanel result = INSTANCES.get(positionList);
+        if (result == null) {
+            result = new TableReportPanel(new PositionListTableReport(positionList));
+            INSTANCES.put(positionList, result);
         }
         return result;
     }
