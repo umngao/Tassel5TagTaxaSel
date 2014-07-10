@@ -4,19 +4,23 @@
 package net.maizegenetics.analysis.imputation;
 
 // standard imports for plugins
+import ch.systemsx.cisd.hdf5.HDF5Factory;
+import ch.systemsx.cisd.hdf5.IHDF5Reader;
+import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import org.apache.log4j.Logger;
 import net.maizegenetics.plugindef.DataSet;
 import javax.swing.*;
 import java.awt.*;
 import net.maizegenetics.plugindef.PluginParameter;
-import net.maizegenetics.plugindef.GeneratePluginCode;
 
 // imports specifically needed for this plugin
 import java.util.ArrayList;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.HDF5Utils;
+import java.util.List;
 
 /**
  * Compares an unfinished HDF5 file containing raw genotypes to a corresponding 
@@ -32,14 +36,14 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(ReImputeUpdatedTaxaByFILLINPlugin.class);
 
-    private PluginParameter<String> rawGenos 
+    private PluginParameter<String> rawHDF5GenotypeFile 
         = new PluginParameter.Builder<>("raw", null, String.class)
         .guiName("Raw HDF5 Genotype File")
         .required(true)
         .inFile()
         .description("Input HDF5 (*.h5) file containing raw (unimputed) genotypes")
         .build();
-    private PluginParameter<String> impGenos 
+    private PluginParameter<String> imputedHDF5GenotypeFile 
         = new PluginParameter.Builder<>("imp", null, String.class)
         .guiName("Imputed HDF5 Genotype File")
         .required(true)
@@ -56,6 +60,10 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
         .build();
 
     // TODO: add all possible FILLINImputationPlugin parameters?  It seems that the default parameters were used for maize.
+    
+    // global variables
+    IHDF5Reader rawGenosReader;
+    IHDF5Writer impGenosWriter;
     
 
     public ReImputeUpdatedTaxaByFILLINPlugin() {
@@ -110,14 +118,50 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
     }
     
     private void openInputHDF5GenoFiles() {
-        ;
+        myLogger.info("\nOpening input raw genotypes file:\n  "+rawHDF5GenotypeFile()+"\n");
+        rawGenosReader=HDF5Factory.openForReading(rawHDF5GenotypeFile());
+        myLogger.info("\nOpening target imputed genotypes file:\n  "+imputedHDF5GenotypeFile()+"\n");
+        impGenosWriter=HDF5Factory.open(imputedHDF5GenotypeFile());
     }
     
     private TaxaList compareRawAndImputedTaxa() {
+        StringBuilder modifiedTaxaReport = new StringBuilder("Modified taxa:\n");
         ArrayList<Taxon> modifiedTaxa = new ArrayList();
         // compare taxa & add to modified taxa if new or changed
-        
+        List<String> rawTaxaNames = HDF5Utils.getAllTaxaNames(rawGenosReader);
+        for (String taxonName : rawTaxaNames) {
+            if (!HDF5Utils.doTaxonCallsExist(impGenosWriter, taxonName)) {
+                modifiedTaxa.add(HDF5Utils.getTaxon(rawGenosReader, taxonName));
+                modifiedTaxaReport.append("  "+taxonName+" (new taxon)\n");
+            } else if (flowcellLaneAdded(taxonName)) {
+                modifiedTaxa.add(HDF5Utils.getTaxon(rawGenosReader, taxonName));
+                modifiedTaxaReport.append("  "+taxonName+" (additional depth)\n");
+            }
+        }
+        if (!modifiedTaxa.isEmpty()) myLogger.info(modifiedTaxaReport.toString());
         return new TaxaListBuilder().addAll(modifiedTaxa).sortTaxaAlphabetically().build();
+    }
+    
+    private boolean flowcellLaneAdded(String taxonName) {
+        Taxon rawTaxon = HDF5Utils.getTaxon(rawGenosReader, taxonName);
+        if (rawTaxon == null) {
+            throw new IllegalStateException("No corresponding Taxon found in the raw genotype file for the existing taxon name: "+taxonName);
+        }
+        Taxon impTaxon = HDF5Utils.getTaxon(impGenosWriter, taxonName);
+        if (impTaxon == null) return true;
+        String[] rawFlowCellLanes = (String[]) rawTaxon.getAnnotation("Flowcell_Lane");
+        String[] impFlowCellLanes = (String[]) impTaxon.getAnnotation("Flowcell_Lane");
+        for (String rawFlowCellLane : rawFlowCellLanes) {
+            boolean found = false;
+            for (String impFlowCellLane : impFlowCellLanes) {
+                if(impFlowCellLane.equals(rawFlowCellLane)) {
+                    found = true;
+                    continue;
+                }
+            }
+            if (!found) return true;
+        }
+        return false;
     }
     
     private String createTempInputFileForFILLIN(TaxaList modifiedTaxa) {
@@ -171,7 +215,7 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
      * @return Raw HDF5 Genotype File
      */
     public String rawHDF5GenotypeFile() {
-        return rawGenos.value();
+        return rawHDF5GenotypeFile.value();
     }
 
     /**
@@ -183,7 +227,7 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
      * @return this plugin
      */
     public ReImputeUpdatedTaxaByFILLINPlugin rawHDF5GenotypeFile(String value) {
-        rawGenos = new PluginParameter<>(rawGenos, value);
+        rawHDF5GenotypeFile = new PluginParameter<>(rawHDF5GenotypeFile, value);
         return this;
     }
 
@@ -194,7 +238,7 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
      * @return Imputed HDF5 Genotype File
      */
     public String imputedHDF5GenotypeFile() {
-        return impGenos.value();
+        return imputedHDF5GenotypeFile.value();
     }
 
     /**
@@ -206,7 +250,7 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
      * @return this plugin
      */
     public ReImputeUpdatedTaxaByFILLINPlugin imputedHDF5GenotypeFile(String value) {
-        impGenos = new PluginParameter<>(impGenos, value);
+        imputedHDF5GenotypeFile = new PluginParameter<>(imputedHDF5GenotypeFile, value);
         return this;
     }
 
