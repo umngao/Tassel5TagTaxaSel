@@ -73,6 +73,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import net.maizegenetics.analysis.data.GetPositionListPlugin;
 import net.maizegenetics.analysis.data.GetTaxaListPlugin;
 import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
 import net.maizegenetics.analysis.data.SortGenotypeFilePlugin;
@@ -616,6 +617,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new FileLoadPlugin(this, true, plinkLoadPlugin, projectionLoadPlugin), KeyEvent.VK_L));
         result.add(createMenuItem(new ExportPlugin(this, true)));
         result.add(createMenuItem(new GetTaxaListPlugin(this, true)));
+        result.add(createMenuItem(new GetPositionListPlugin(this, true)));
         result.add(createMenuItem(new SortGenotypeFilePlugin(this, true)));
         result.add(createMenuItem(new NumericalTransformPlugin(this, true)));
         result.add(createMenuItem(new SynonymizerPlugin(this, true)));

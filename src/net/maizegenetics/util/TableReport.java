@@ -37,14 +37,14 @@ public interface TableReport {
     /**
      * get the number of the columns
      *
-     * @return columns names
+     * @return number of columns
      */
     public int getColumnCount();
 
     /**
-     * get the number of columns
+     * get the number of rows
      *
-     * @return columns names
+     * @return number of rows
      */
     public int getRowCount();
 
