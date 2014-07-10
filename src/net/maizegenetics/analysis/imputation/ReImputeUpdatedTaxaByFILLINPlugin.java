@@ -10,7 +10,7 @@ import net.maizegenetics.plugindef.DataSet;
 import javax.swing.*;
 import java.awt.*;
 import net.maizegenetics.plugindef.PluginParameter;
-//import net.maizegenetics.plugindef.GeneratePluginCode;
+import net.maizegenetics.plugindef.GeneratePluginCode;
 
 // imports specifically needed for this plugin
 import java.util.ArrayList;
