@@ -23,13 +23,16 @@ public class GenomeFeature {
     //Variables to store the information on the feature
     private String id;
     private String type;
-    private int chromosome;  //Replace with a Chromosome class, or not necessary?
+    private String parentId;
+    private Chromosome chromosome;  //Replace with a Chromosome class, or not necessary?
     private int start, stop;    //Location on the chromosome (start and stop should be inclusive)
     private StrandSide strand = StrandSide.UNKNOWN; //Strand.
 
-    //Variables to link to parents and mychildren
+
+    /*//Variables to link to parents and mychildren
+    DEPRECATED - GenomeFeatureMap uses an explicit graph structure instead
     GenomeFeature parent=null;
-    Multimap<String, GenomeFeature> children=null;   //Hashmap of mychildren, sorted by type (
+    Multimap<String, GenomeFeature> children=null;   //Hashmap of mychildren, sorted by type (*/
 
     /**
      * Constructor to create a new GenomeFeature. Should ONLY be called by the GenomeFeatureBuilder class
@@ -39,19 +42,19 @@ public class GenomeFeature {
      * @param mystart   Start position
      * @param mystop    Stop position
      * @param mystrand  Strand (plus, minus, or unknown)
-     * @param myparent  Parent feature
-     * @param mychildren    Children features, in a Multimap by type
+     * //@param myparent  Parent feature
+     * //@param mychildren    Children features, in a Multimap by type
      */
-    GenomeFeature(String myId, String mytype, int mychr, int mystart, int mystop, StrandSide mystrand,
-                  GenomeFeature myparent, Multimap<String, GenomeFeature> mychildren){
+    GenomeFeature(String myId, String mytype, Chromosome mychr, int mystart, int mystop, StrandSide mystrand, String myParentId){
         this.id = myId;
         this.type=mytype;
         this.chromosome=mychr;
         this.start=mystart;
         this.stop=mystop;
         this.strand=mystrand;
-        this.parent=myparent;
-        this.children=mychildren;
+        this.parentId=myParentId;
+        //this.parent=myparent;
+        //this.children=mychildren;
     }
 
     public String id(){
@@ -62,7 +65,11 @@ public class GenomeFeature {
         return this.type;
     }
 
-    public int chromosome(){
+    public String parentId(){
+        return this.parentId;
+    }
+
+    public Chromosome chromosome(){
         return this.chromosome;
     }
 
@@ -86,18 +93,20 @@ public class GenomeFeature {
         }
     }
 
-    public GenomeFeature parent(){
+    //ALL PARENT-CHILDREN FEATURES DEPRECATED
+
+    /*public GenomeFeature parent(){
         return this.parent;
-    }
+    }*/
 
     /**
      * Get all the mychildren of this feature as a single Collection
      * @return A Collection containing all mychildren GenomeFeatures of this feature
      */
     //TODO: Wrap collection into a HashSet?
-    public Collection<GenomeFeature> children(){
+    /*public Collection<GenomeFeature> children(){
         return children.values();
-    }
+    }*/
 
     /**
      * Get a collection of all the mychildren of this feature that are annotated as a certain type
@@ -105,15 +114,15 @@ public class GenomeFeature {
      * @return A Collection containing all matching mychildren
      */
     //TODO: Wrap collection into a HashSet?
-    public Collection<GenomeFeature> childrenOfType(String type){
+    /*public Collection<GenomeFeature> childrenOfType(String type){
         return children.get(type);
-    }
+    }*/
 
     /**
      * Get the actual Multimap that stores the type->mychildren mapping for this GenomeFeature
      * @return An unmodifiable Multimap with type->child mapping (e.g., exon->GRMZ01482E02, exon->GRMZ01482E03, etc)
      */
-    public Multimap<String, GenomeFeature> childrenMap(){
+    /*public Multimap<String, GenomeFeature> childrenMap(){
         return Multimaps.unmodifiableMultimap(this.children);
-    }
+    }*/
 }
