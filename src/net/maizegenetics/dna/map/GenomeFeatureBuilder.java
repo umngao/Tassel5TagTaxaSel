@@ -4,6 +4,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import net.maizegenetics.dna.map.GenomeFeature.StrandSide;
+import org.apache.commons.math.exception.NumberIsTooSmallException;
 import org.apache.log4j.Logger;
 
 import java.util.regex.Matcher;
@@ -22,8 +23,8 @@ public class GenomeFeatureBuilder {
     private String myId=null;
     private String mytype =null;
     private String myParentId=null;
-    private Chromosome mychromosome = null;  //Replace with a Chromosome class, or not necessary?
-    private int mystart =-1, mystop =-1;    //Location on the mychromosome (mystart and mystop should be inclusive)
+    private Chromosome mychromosome = null;
+    private int mystart =-1, mystop =-1;    //Location on the mychromosome (mystart and mystop should be inclusive). Negative by default to flag as unassigned
     private StrandSide mystrand =StrandSide.UNKNOWN; //Strand.
 
     //Variables to link to parents and mychildren - DEPRECATED. GenomeFeatureMapBuilder uses explicit graph instead
@@ -69,12 +70,23 @@ public class GenomeFeatureBuilder {
     }*/
 
     public GenomeFeature build(){
-        //return new GenomeFeature(myId, mytype, mychromosome, mystart, mystop, mystrand, myparent, mychildren);
+        validateData();
+        return new GenomeFeature(myId, mytype, mychromosome, mystart, mystop, mystrand, myParentId);
+    }
+
+    private void validateData(){
+        //Test if start or stop is negative (eg, if was never assigned)
+        if(mystart < 0){
+            throw new UnsupportedOperationException("GenomeFeatureBuilder: Start coordinate is negative for " + myId + ": " + mystart + " (possibly unassigned?)");
+        }
+        if(mystop < 0){
+            throw new UnsupportedOperationException("GenomeFeatureBuilder: Start coordinate is negative for " + myId + ": " + mystart + " (possibly unassigned?)");
+        }
+
         //Test that start is less than stop
         if(mystart > mystop){
             throw new UnsupportedOperationException("GenomeFeatureBuilder: Start coordinate is greater than stop coordinate for " + myId);
         }
-        return new GenomeFeature(myId, mytype, mychromosome, mystart, mystop, mystrand, myParentId);
     }
 
     public GenomeFeatureBuilder id(String id){
@@ -107,12 +119,21 @@ public class GenomeFeatureBuilder {
     }
 
     public GenomeFeatureBuilder start(int start){
-        mystart=start;
+        if(start >=0){
+            mystart=start;
+        }else{
+            throw new NumberFormatException("Start position must be greater than zero. Got " + start);
+        }
+
         return this;
     }
 
     public GenomeFeatureBuilder stop(int stop){
-        mystop=stop;
+        if(stop >=0){
+            mystop=stop;
+        }else{
+            throw new NumberFormatException("Stop position must be greater than zero. Got " + stop);
+        }
         return this;
     }
 
