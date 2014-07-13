@@ -26,6 +26,7 @@ import net.maizegenetics.dna.BaseEncoder;
 public class TagsOnGeneticMap extends AbstractTags {
     protected int[] gChr;
     protected int[] gPos;
+    protected byte[] ifPAV;
     protected float[] prediction;
     
     /**
@@ -58,6 +59,24 @@ public class TagsOnGeneticMap extends AbstractTags {
     }
     
     /**
+     * Return if this tag is PAV
+     * @param index
+     * @return 
+     */
+    public byte getIfPAV (int index) {
+        return ifPAV[index];
+    }
+    
+    /**
+     * Return prediction value from model
+     * @param index
+     * @return 
+     */
+    public float getPrediction (int index) {
+        return prediction[index];
+    }
+    
+    /**
      * Read tagsOnGeneticMap file
      * @param infileS
      * @param format
@@ -83,42 +102,27 @@ public class TagsOnGeneticMap extends AbstractTags {
     private void readTextTOGMFile (File infile) {
         try {
             BufferedReader br = new BufferedReader (new FileReader(infile), 65536);
-            String tem = br.readLine();
-            
+            br.readLine();
             tagLengthInLong = br.readLine().split("\t")[0].length()/BaseEncoder.chunkSize;
             int tagNum = 1;
-            while ((tem=br.readLine())!=null) {
+            while ((br.readLine())!=null) {
                 tagNum++;
             }
             this.iniMatrix(tagLengthInLong, tagNum);
             br = new BufferedReader (new FileReader(infile), 65536);
-            if (br.readLine().split("\t").length == 4) {
-                for (int i = 0; i < this.getTagCount(); i++) {
-                    String[] temp = br.readLine().split("\t");
-                    long[] t = BaseEncoder.getLongArrayFromSeq(temp[0]);
-                    for (int j = 0; j < tagLengthInLong; j++) {
-                        tags[j][i] = t[j];
-                    }
-                    tagLength[i] = Byte.parseByte(temp[1]);
-                    gChr[i] = Integer.parseInt(temp[2]);
-                    gPos[i] = Integer.parseInt(temp[3]);
-                    prediction[i] = Float.NaN;
+            br.readLine();
+            for (int i = 0; i < tagNum; i++) {
+                String[] temp = br.readLine().split("\t");
+                long[] t = BaseEncoder.getLongArrayFromSeq(temp[0]);
+                for (int j = 0; j < tagLengthInLong; j++) {
+                    tags[j][i] = t[j];
                 }
+                tagLength[i] = Byte.parseByte(temp[1]);
+                gChr[i] = Integer.parseInt(temp[2]);
+                gPos[i] = Integer.parseInt(temp[3]);
+                ifPAV[i] = Byte.parseByte(temp[4]);
+                prediction[i] = Float.parseFloat(temp[5]);
             }
-            else {
-                for (int i = 0; i < this.getTagCount(); i++) {
-                    String[] temp = br.readLine().split("\t");
-                    long[] t = BaseEncoder.getLongArrayFromSeq(temp[0]);
-                    for (int j = 0; j < tagLengthInLong; j++) {
-                        tags[j][i] = t[j];
-                    }
-                    tagLength[i] = Byte.parseByte(temp[1]);
-                    gChr[i] = Integer.parseInt(temp[2]);
-                    gPos[i] = Integer.parseInt(temp[3]);
-                    prediction[i] = Float.parseFloat(temp[4]);
-                }
-            }
-            
             br.close();
         }
         catch (Exception e) {
@@ -134,7 +138,8 @@ public class TagsOnGeneticMap extends AbstractTags {
         try {
             DataInputStream dis = new DataInputStream(new BufferedInputStream(new FileInputStream(infile), 65536));
             tagLengthInLong = dis.readInt();
-            this.iniMatrix(tagLengthInLong, dis.readInt());
+            int tagNum = (int)(infile.length()/(8*tagLengthInLong)+1+4+4+1+4);
+            this.iniMatrix(tagLengthInLong, tagNum);
             for (int i = 0; i < this.getTagCount(); i++) {
                 for (int j = 0; j < this.tagLengthInLong; j++) {
                     this.tags[j][i] = dis.readLong();
@@ -142,6 +147,8 @@ public class TagsOnGeneticMap extends AbstractTags {
                 this.tagLength[i] = dis.readByte();
                 this.gChr[i] = dis.readInt();
                 this.gPos[i] = dis.readInt();
+                this.ifPAV[i] = dis.readByte();
+                this.prediction[i] = dis.readFloat();
             }
         }
         catch (Exception e) {
@@ -161,6 +168,7 @@ public class TagsOnGeneticMap extends AbstractTags {
         tagLength = new byte[tagNum];
         gChr = new int[tagNum];
         gPos = new int[tagNum];
+        ifPAV = new byte[tagNum];
         prediction = new float[tagNum];
     }
     
@@ -191,7 +199,7 @@ public class TagsOnGeneticMap extends AbstractTags {
     private void writeTextTOGMFile (String outfileS) {
         try {
             BufferedWriter bw = new BufferedWriter (new FileWriter(outfileS), 65536);
-            bw.write("Tag\tTagLength\tGChr\tGPos\tPredictedDistance");
+            bw.write("Tag\tTagLength\tGChr\tGPos\tIfPAV\tPredictedDistance");
             bw.newLine();
             long[] temp = new long[this.tagLengthInLong];
             for (int i = 0; i < this.getTagCount(); i++) {
@@ -199,7 +207,7 @@ public class TagsOnGeneticMap extends AbstractTags {
                     temp[j] = tags[j][i];
                 }
                 bw.write(BaseEncoder.getSequenceFromLong(temp)+"\t"+String.valueOf(this.getTagLength(i))+"\t");
-                bw.write(String.valueOf(this.gChr[i])+"\t"+String.valueOf(this.gPos[i])+"\t"+String.valueOf(this.prediction[i]));
+                bw.write(String.valueOf(this.gChr[i])+"\t"+String.valueOf(this.gPos[i])+"\t"+String.valueOf(ifPAV[i])+"\t"+String.valueOf(this.prediction[i]));
                 bw.newLine();
             }
             bw.flush();
@@ -218,7 +226,6 @@ public class TagsOnGeneticMap extends AbstractTags {
         try {
             DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outfileS), 65536));
             dos.writeInt(tagLengthInLong);
-            dos.write(this.getTagCount());
             for (int i = 0; i < this.getTagCount(); i++) {
                 for (int j = 0; j < this.tagLengthInLong; j++) {
                     dos.writeLong(this.tags[j][i]);
@@ -226,6 +233,8 @@ public class TagsOnGeneticMap extends AbstractTags {
                 dos.writeByte(this.getTagLength(i));
                 dos.writeInt(this.getGChr(i));
                 dos.writeInt(this.getGPos(i));
+                dos.writeByte(this.getIfPAV(i));
+                dos.writeFloat(this.getPrediction(i));
             }
             dos.flush();
             dos.close();
