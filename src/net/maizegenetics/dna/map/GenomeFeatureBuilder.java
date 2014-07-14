@@ -3,7 +3,6 @@ package net.maizegenetics.dna.map;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
-//import net.maizegenetics.dna.map.GenomeFeature.StrandSide;
 import org.apache.commons.math.exception.NumberIsTooSmallException;
 import org.apache.log4j.Logger;
 
@@ -25,18 +24,9 @@ public class GenomeFeatureBuilder {
     private static final Logger myLogger = Logger.getLogger(GenomeFeatureBuilder.class);
 
     //Variables to store the information on the feature
-    //private String myId=null;
-    //private String mytype =null;
-    //private String myParentId=null;
-    //private Chromosome mychromosome = null;
-    //private String mychromosome = null;
     private int mystart =-1, mystop =-1;    //Location on the mychromosome (mystart and mystop should be inclusive). Negative by default to flag as unassigned
     private HashMap<String, String> myannotations = null;
-    //private StrandSide mystrand =StrandSide.UNKNOWN; //Strand.
 
-    //Variables to link to parents and mychildren - DEPRECATED. GenomeFeatureMapBuilder uses explicit graph instead
-    //GenomeFeature myparent =null;
-    //Multimap<String, GenomeFeature> mychildren = HashMultimap.create();
 
     /**
      * Generic constructor which does nothing special
@@ -50,23 +40,9 @@ public class GenomeFeatureBuilder {
      * @param feature
      */
     public GenomeFeatureBuilder(GenomeFeature feature){
-        //this.mytype =feature.type();
-        //this.mychromosome =feature.chromosome();
         this.mystart =feature.start();
         this.mystop =feature.stop();
-        //this.mystrand =feature.strand();
         this.myannotations = feature.annotations();
-        //this.myParentId= feature.parentId();
-        //this.myparent =feature.parent();
-
-        //Since the multimap returned by GenomeFeature.childrenmap() is immutable, copy it into a new multimap
-        /*this.mychildren = HashMultimap.create();
-        Multimap <String, GenomeFeature> childrenMap = feature.childrenMap();
-        for(String type: childrenMap.keySet()){
-            for(GenomeFeature child: childrenMap.get(type)){
-                mychildren.put(type, child);
-            }
-        }*/
     }
 
     /**
@@ -81,12 +57,10 @@ public class GenomeFeatureBuilder {
 
     public GenomeFeature build(){
         validateData();
-        //return new GenomeFeature(myId, mytype, mychromosome, mystart, mystop, myannotations, myParentId);
         return new GenomeFeature(myannotations);
     }
 
     private void validateData(){
-        //System.out.println("Building...\n\tStart=" + mystart + "_" + myannotations.get("start") + "\n\tStop=" + mystop + "_" + myannotations.get("stop"));
 
         //Test that feature has a personal ID
         if(!myannotations.containsKey("id")){
@@ -124,14 +98,10 @@ public class GenomeFeatureBuilder {
 
     public GenomeFeatureBuilder chromosome(Chromosome chr){
         return addAnnotation("chromosome", chr.getName());
-        //mychromosome=chr;
-        //return this;
     }
 
     public GenomeFeatureBuilder chromosome(String chr){
         return addAnnotation("chromosome", chr);
-        //mychromosome=new Chromosome("" + chr);
-        //return this;
     }
 
     public GenomeFeatureBuilder chromosome(int chr){
@@ -156,7 +126,6 @@ public class GenomeFeatureBuilder {
         }else{
             throw new NumberFormatException("Stop position must be greater than zero. Got " + stop);
         }
-        //return this;
     }
 
     public GenomeFeatureBuilder stop(String stop){
@@ -167,8 +136,6 @@ public class GenomeFeatureBuilder {
     public GenomeFeatureBuilder addAnnotation(String key, String value){
         key = synonymizeKeys(key);
         myannotations.put(key, value);  //All annotations kept in the hash
-
-        //System.out.println("Adding "+ key + " with value " + value);
 
         //Specific handling for start-stop positions because are used in validation at build time
         switch(key){
@@ -210,49 +177,6 @@ public class GenomeFeatureBuilder {
             default: return key;
         }
     }
-
-    /*public GenomeFeatureBuilder strand(StrandSide strand){
-        mystrand=strand;
-        return this;
-    }*/
-
-    /**
-     * Assign strand based on an integer value. 1 is plus strand, -1 is minus strand. Anything else is unknown.
-     * @param strand Strand side (1 or -1)
-     * @return This builder
-     */
-    /*public GenomeFeatureBuilder strand(int strand){
-        switch(strand){
-            case 1: mystrand=StrandSide.PLUS; break;
-            case -1: mystrand=StrandSide.MINUS; break;
-            default: mystrand=StrandSide.UNKNOWN; break;
-        }
-        return this;
-    }*/
-
-    /**
-     * Assign strand based on an character value. '+' for plus, '-' for minus, anything else is unknown
-     * @param strand Strand side (1 or -1)
-     * @return This builder
-     */
-    /*public GenomeFeatureBuilder strand(char strand){
-        switch(strand){
-            case '+': mystrand=StrandSide.PLUS; break;
-            case '-': mystrand=StrandSide.MINUS; break;
-            default: mystrand=StrandSide.UNKNOWN; break;
-        }
-        return this;
-    }*/
-
-    /**
-     * Assign strand based on the first character in a string. '+' for plus, '-' for minus, anything else is unknown.
-     * Note that only the first character is tested; all others are ignored.
-     * @param strand Strand side (1 or -1)
-     * @return This builder
-     */
-    /*public GenomeFeatureBuilder strand(String strand){
-        return this.strand(strand.charAt(0));
-    }*/
 
 
     /**
@@ -342,33 +266,4 @@ public class GenomeFeatureBuilder {
         return null;
     }
 
-    /*public GenomeFeatureBuilder parent(GenomeFeature parent){
-        myparent=parent;
-        return this;
-    }*/
-
-    /**
-     * Add a child. Since this
-     * @param type  The type of this child (gene, exon, etc)
-     * @param child The child GenomeFeature to be added
-     * @return This builder
-     */
-    /*public GenomeFeatureBuilder child(String type, GenomeFeature child){
-        mychildren.put(type, child);
-        return this;
-    }*/
-
-    /**
-     * Add a group of children, all of the same type. The children must be in some sort of structure that implements
-     * the Iterable interface (usually some sort of Collection, such as a List, Set, etc.)
-     * @param type The type of all children to be added (gene, exon, etc)
-     * @param children An Iterable-compatible collection of the children to be added
-     * @return This builder
-     */
-   /*public GenomeFeatureBuilder children(String type, Iterable<GenomeFeature> children){
-        for(GenomeFeature c: children){
-            mychildren.put(type, c);
-        }
-        return this;
-    }*/
 }
