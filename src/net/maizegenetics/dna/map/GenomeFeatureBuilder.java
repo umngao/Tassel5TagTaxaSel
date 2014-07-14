@@ -13,36 +13,33 @@ import java.util.regex.Pattern;
 
 /**
  * Created by jgw87 on 7/2/14.
- * Builder class to create a GenomeFeature.
- * Note: There are no methods add children without an associated type (exon, gene, etc). Please do not create them.
+ * Builder class to create a GenomeFeature. All annoations are stored in a HashMap. Any annotation can be added through
+ * the addAnnotation method, but the required fields each have their own specific methods (id, type, chromosome, start, stop).
+ * ParentID is not required, but has its own method because of how frequently it should be used. Position() is just a wrapper
+ * method to make start and stop equal.
  */
-//TODO: Currently somewhat messy back-and-forth conversion for start and stop (can go String-int-String-int). Find a better way?
-//TODO: Set start & stop to 0 initially, not -1? (Implicitly required now)
-//TODO: Make id, chrom, start, stop, & type all required data? Makes sense given the uses of them.
+//TODO: Are all the required fields necessary, or should I just require the ID and (maybe) check for start-stop values if they're given?
 public class GenomeFeatureBuilder {
 
     private static final Logger myLogger = Logger.getLogger(GenomeFeatureBuilder.class);
 
     //Variables to store the information on the feature
-    private int mystart =-1, mystop =-1;    //Location on the mychromosome (mystart and mystop should be inclusive). Negative by default to flag as unassigned
     private HashMap<String, String> myannotations = null;
-
 
     /**
      * Generic constructor which does nothing special
      */
-    public GenomeFeatureBuilder(){
+    public GenomeFeatureBuilder() {
         myannotations = new HashMap<String, String>();
     }
 
     /**
-     * Constructor to build a new feature off of an existing one
-     * @param feature
+     * Constructor to build a new feature off of an existing one.
+     *
+     * @param feature The genome feature to copy
      */
-    public GenomeFeatureBuilder(GenomeFeature feature){
-        this.mystart =feature.start();
-        this.mystop =feature.stop();
-        this.myannotations = feature.annotations();
+    public GenomeFeatureBuilder(GenomeFeature feature) {
+        this.myannotations = feature.annotations();    //the annotations() method returns a shallow copy, so should be safe
     }
 
     /**
@@ -54,95 +51,107 @@ public class GenomeFeatureBuilder {
     /*public static GenomeFeatureBuilder getInstance(GenomeFeature feature){
         return new GenomeFeatureBuilder(feature);
     }*/
-
-    public GenomeFeature build(){
+    public GenomeFeature build() {
         validateData();
         return new GenomeFeature(myannotations);
     }
 
-    private void validateData(){
+    private void validateData() {
 
-        //Test that feature has a personal ID
-        if(!myannotations.containsKey("id")){
+        //Test that feature has the required fields
+        if (!myannotations.containsKey("id")) {
             throw new UnsupportedOperationException("GenomeFeatureBuilder: Cannot build a feature without a personal identifier (field 'id')");
         }
+        if (!myannotations.containsKey("type")) {
+            throw new UnsupportedOperationException("GenomeFeatureBuilder: Cannot build a feature without a feature type (field 'id')");
+        }
+        if (!myannotations.containsKey("chromosome")) {
+            throw new UnsupportedOperationException("GenomeFeatureBuilder: Cannot build a feature without a chromosome (field 'id')");
+        }
+        if (!myannotations.containsKey("start")) {
+            throw new UnsupportedOperationException("GenomeFeatureBuilder: Cannot build a feature without a start position (field 'id')");
+        }
+        if (!myannotations.containsKey("stop")) {
+            throw new UnsupportedOperationException("GenomeFeatureBuilder: Cannot build a feature without a stop position (field 'id')");
+        }
 
-        //Test if start or stop is negative (eg, if was never assigned)
-        if(mystart < 0){
+
+        //Test if start or stop is negative
+        int mystart = Integer.parseInt(myannotations.get("start"));
+        int mystop = Integer.parseInt(myannotations.get("stop"));
+        if (mystart < 0) {
             throw new UnsupportedOperationException("GenomeFeatureBuilder: Start coordinate is negative for " +
                     myannotations.get("id") + ": " + mystart + " (possibly unassigned?)");
         }
-        if(mystop < 0){
+        if (mystop < 0) {
             throw new UnsupportedOperationException("GenomeFeatureBuilder: Stop coordinate is negative for " +
                     myannotations.get("id") + ": " + mystop + " (possibly unassigned?)");
         }
 
         //Test that start is less than stop
-        if(mystart > mystop){
+        if (mystart > mystop) {
             throw new UnsupportedOperationException("GenomeFeatureBuilder: Start coordinate is greater than stop " +
-                    "coordinate for " + myannotations.get("id") + ": " +  mystart + " vs " + mystop);
+                    "coordinate for " + myannotations.get("id") + ": " + mystart + " vs " + mystop);
         }
     }
 
-    public GenomeFeatureBuilder id(String id){
+    public GenomeFeatureBuilder id(String id) {
         return addAnnotation("id", id);
     }
 
-    public GenomeFeatureBuilder type(String type){
+    public GenomeFeatureBuilder type(String type) {
         return addAnnotation("type", type);
     }
 
-    public GenomeFeatureBuilder parentId(String parentId){
+    public GenomeFeatureBuilder parentId(String parentId) {
         return addAnnotation("parent_id", parentId);
     }
 
-    public GenomeFeatureBuilder chromosome(Chromosome chr){
+    public GenomeFeatureBuilder chromosome(Chromosome chr) {
         return addAnnotation("chromosome", chr.getName());
     }
 
-    public GenomeFeatureBuilder chromosome(String chr){
+    public GenomeFeatureBuilder chromosome(String chr) {
         return addAnnotation("chromosome", chr);
     }
 
-    public GenomeFeatureBuilder chromosome(int chr){
+    public GenomeFeatureBuilder chromosome(int chr) {
         return addAnnotation("chromosome", "" + chr);
     }
 
-    public GenomeFeatureBuilder start(int start){
-        if(start >=0){
-            return addAnnotation("start", "" + start);
-        }else{
-            throw new NumberFormatException("Start position must be greater than zero. Got " + start);
-        }
+    public GenomeFeatureBuilder start(int start) {
+        return addAnnotation("start", "" + start);
     }
 
-    public GenomeFeatureBuilder start(String start){
-        return this.start(Integer.parseInt(start));
+    public GenomeFeatureBuilder start(String start) {
+        return addAnnotation("start", start);
     }
 
-    public GenomeFeatureBuilder stop(int stop){
-        if(stop >=0){
-            return addAnnotation("stop", "" + stop);
-        }else{
-            throw new NumberFormatException("Stop position must be greater than zero. Got " + stop);
-        }
+    public GenomeFeatureBuilder stop(int stop) {
+        return addAnnotation("stop", "" + stop);
     }
 
-    public GenomeFeatureBuilder stop(String stop){
-        return this.stop(Integer.parseInt(stop));
+    public GenomeFeatureBuilder stop(String stop) {
+        return addAnnotation("stop", stop);
     }
 
+    public GenomeFeatureBuilder position(String position) {
+        return addAnnotation("position", position);
+    }
 
-    public GenomeFeatureBuilder addAnnotation(String key, String value){
+    public GenomeFeatureBuilder position(int position) {
+        return addAnnotation("position", "" + position);
+    }
+
+    public GenomeFeatureBuilder addAnnotation(String key, String value) {
         key = synonymizeKeys(key);
         myannotations.put(key, value);  //All annotations kept in the hash
 
-        //Specific handling for start-stop positions because are used in validation at build time
-        switch(key){
-            case "start": mystart = Integer.parseInt(value); break;
-            case "stop": mystop = Integer.parseInt(value); break;
+        //If the key is "position", convert to identical start-stop coordinates as well.
+        if (key == "position") {
+            this.start(value);
+            this.stop(value);
         }
-
         return this;
     }
 
@@ -150,31 +159,42 @@ public class GenomeFeatureBuilder {
      * Method that takes common synonyms of annotation types and standardizes them according to the following rules:
      * (1) Make lowercase
      * (2) Standardize according to following rules. (Any not on this list are returned as just lowercased)
-     *    name, id -> id
-     *    chr, chrom, chromosome -> chromosome
-     *    stop, end -> stop
-     *    parentid, parent_id, parent -> parent_id
+     * name, id -> id
+     * chr, chrom, chromosome -> chromosome
+     * stop, end -> stop
+     * parentid, parent_id, parent -> parent_id
+     * pos, position -> position
+     *
      * @param key
      * @return
      */
-    public String synonymizeKeys(String key){
+    public static String synonymizeKeys(String key) {
         key.toLowerCase(Locale.ENGLISH);
-        switch(key){
+        switch (key) {
             case "name":
-            case "id" : return "id";
+            case "id":
+                return "id";
 
             case "chr":
             case "chrom":
-            case "chromosome": return "chromosome";
+            case "chromosome":
+                return "chromosome";
 
             case "end":
-            case "stop": return "stop";
+            case "stop":
+                return "stop";
 
             case "parent":
             case "parentid":
-            case "parent_id": return "parent_id";
+            case "parent_id":
+                return "parent_id";
 
-            default: return key;
+            case "pos":
+            case "position":
+                return "position";
+
+            default:
+                return key;
         }
     }
 
@@ -182,11 +202,12 @@ public class GenomeFeatureBuilder {
     /**
      * Create a GenomeFeature from a line of GFF file. This method is modified from the BioJava source code for the same
      * purpose, in biojava3-genome/src/main/java/org/biojava3/genome/GFF3Reader.java
+     *
      * @param line A single line from a GFF file as a string
      */
-    public GenomeFeatureBuilder parseGffLine(String line){
+    public GenomeFeatureBuilder parseGffLine(String line) {
         //Field identifiers for GFF format
-        int gffSeq=0, gffSource=1, gffFeatureType=2, gffStart=3, gffStop=4, gffScore=5, gffStrand=6, gffFrame=7, gffAttributes=8;
+        int gffSeq = 0, gffSource = 1, gffFeatureType = 2, gffStart = 3, gffStop = 4, gffScore = 5, gffStrand = 6, gffFrame = 7, gffAttributes = 8;
 
         //Get all the easy data stored in its own fields
         String[] tokens = line.split("\t");
@@ -202,8 +223,8 @@ public class GenomeFeatureBuilder {
 
         //Extract the unique identifier for this feature. If none, build one from available info
         String myID = getFeatureIdFromGffAttributes(tokens[gffAttributes]);
-        if(myID == null){
-            myID = myannotations.get("type") + "_" + myannotations.get("chromosome") + "_" + mystart + "_" + mystop;
+        if (myID == null) {
+            myID = myannotations.get("type") + "_" + myannotations.get("chromosome") + "_" + myannotations.get("start") + "_" + myannotations.get("stop");
         }
         this.id(myID);
 
@@ -214,34 +235,35 @@ public class GenomeFeatureBuilder {
      * Parse a GFF attribute field to identify the parent of the current GenomeFeature. Tricky b/c of the different ways it
      * can be represented. There's a hierarchy of accepted answers, with 'parent_id', 'Parent=', 'transcript_id', and
      * 'gene_id' taken in that order. If nothing is found, returns an empty string ("")
+     *
      * @param attributes The string from the attribute field of the GFF file
      * @return The parent's ID string
      */
-    public static String getParentFromGffAttributes(String attributes){
+    public static String getParentFromGffAttributes(String attributes) {
         //Match the appropriate string with regular expressions
         Matcher matcher;
 
         //Pattern for 'parent_id "GRMZM2G005232"'
         matcher = Pattern.compile("parent_id \"(\\w+)\"").matcher(attributes);
-        if(matcher.find()){
+        if (matcher.find()) {
             return matcher.group(1);
         }
 
         //Pattern for 'Parent=GRMZM2G005232' and  'Parent=gene:GRMZM2G005232'
         matcher = Pattern.compile("Parent=(\\w+:){0,1}(\\w+)").matcher(attributes);
-        if(matcher.find()){
+        if (matcher.find()) {
             return matcher.group(2);
         }
 
         //Pattern for 'gene_id "GRMZM2G005232"'
         matcher = Pattern.compile("transcript_id \"(\\w+)\"").matcher(attributes);
-        if(matcher.find()){
+        if (matcher.find()) {
             return matcher.group(1);
         }
 
         //Pattern for 'transcript_id "GRMZM2G005232_T01"'
         matcher = Pattern.compile("gene_id \"(\\w+)\"").matcher(attributes);
-        if(matcher.find()){
+        if (matcher.find()) {
             return matcher.group(1);
         }
 
@@ -250,6 +272,7 @@ public class GenomeFeatureBuilder {
 
     /**
      * Parse a GFF attribute field to identify the name of the current GenomeFeature. Looks for 'ID=' and 'Name=' fields
+     *
      * @param attributes The string from the attribute field of the GFF file. REturns null if not found
      * @return The feature's ID string
      */
@@ -259,7 +282,7 @@ public class GenomeFeatureBuilder {
 
         //Pattern for 'ID=GRMZM2G005232' and  'ID=gene:GRMZM2G005232'
         matcher = Pattern.compile("(Name|ID)=(\\w+:){0,1}(\\w+)").matcher(attributes);
-        if(matcher.find()){
+        if (matcher.find()) {
             return matcher.group(3);
         }
 

@@ -15,7 +15,6 @@ import java.util.HashSet;
  * this information to be read in from an external file (such as an Ensembl GFF/GTF file) and collated into a
  * GenomeFeatureMap, but it could be used in other ways.
  */
-//TODO: Change int chromosome to Chromosome class? Or String to handle scaffolds?
 public class GenomeFeature {
 
     private int start, stop;    //Location on the chromosome (start and stop should be inclusive)
@@ -25,36 +24,54 @@ public class GenomeFeature {
        this.annotations=myannotations;
 
        //Assign position values based on annotations. Lookup is 100-1000x faster this way than having to convert from String each time
-       if(annotations.containsKey("start")){
-           this.start = Integer.parseInt(annotations.get("start"));
-       }
-       if(annotations.containsKey("stop")){
-            this.stop = Integer.parseInt(annotations.get("stop"));
-       }
+       this.start = Integer.parseInt(annotations.get("start"));
+       this.stop = Integer.parseInt(annotations.get("stop"));
     }
 
+    //Various convenience methods to get the most common annotations
     public String id(){
-        return annotations.get("id");
+        return getAnnotation("id");
     }
 
     public String type(){
-        return annotations.get("type");
+        return getAnnotation("type");
     }
 
     public String parentId(){
-        return annotations.get("parent_id");
+        return getAnnotation("parent_id");
     }
 
     public String chromosome(){
-        return annotations.get("chromosome");
+        return getAnnotation("chromosome");
     }
 
     public int start(){
         return this.start;
     }
 
+    public String startAsString(){
+        return getAnnotation("start");
+    }
+
     public int stop(){
         return this.stop;
+    }
+
+    public String stopAsString(){
+        return getAnnotation("stop");
+    }
+
+    /**
+     * Get any annotation based on its key. If this feature lacks that annotation, it returns 'NA'
+     * @param key The name of the annotation to look for
+     * @return The value of that annotation, or 'NA' if not found
+     */
+    public String getAnnotation(String key){
+        if(annotations.containsKey(key)){
+            return annotations.get(key);
+        }else{
+            return "NA";
+        }
     }
 
     /**
