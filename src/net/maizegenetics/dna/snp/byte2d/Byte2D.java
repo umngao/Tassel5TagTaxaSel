@@ -3,7 +3,7 @@
  */
 package net.maizegenetics.dna.snp.byte2d;
 
-import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.score.SiteScore;
 
 /**
  * @author Terry Casstevens
@@ -18,6 +18,6 @@ public interface Byte2D {
 
     public int numSites();
 
-    public GenotypeTable.SITE_SCORE_TYPE siteScoreType();
+    public SiteScore.SITE_SCORE_TYPE siteScoreType();
 
 }

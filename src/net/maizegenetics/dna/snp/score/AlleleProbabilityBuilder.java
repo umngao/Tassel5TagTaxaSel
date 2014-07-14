@@ -10,7 +10,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.byte2d.Byte2D;
 import net.maizegenetics.dna.snp.byte2d.Byte2DBuilder;
 import net.maizegenetics.dna.snp.byte2d.FilterByte2D;
@@ -22,13 +21,13 @@ import net.maizegenetics.taxa.TaxaList;
  */
 public class AlleleProbabilityBuilder {
 
-    private final Map<GenotypeTable.SITE_SCORE_TYPE, Byte2DBuilder> myBuilders = new LinkedHashMap<>();
+    private final Map<SiteScore.SITE_SCORE_TYPE, Byte2DBuilder> myBuilders = new LinkedHashMap<>();
     private final int myNumSites;
 
-    private static final GenotypeTable.SITE_SCORE_TYPE[] ALLELE_PROBABILITY_TYPES = new GenotypeTable.SITE_SCORE_TYPE[]{
-        GenotypeTable.SITE_SCORE_TYPE.ProbA, GenotypeTable.SITE_SCORE_TYPE.ProbC,
-        GenotypeTable.SITE_SCORE_TYPE.ProbG, GenotypeTable.SITE_SCORE_TYPE.ProbT,
-        GenotypeTable.SITE_SCORE_TYPE.ProbGap, GenotypeTable.SITE_SCORE_TYPE.ProbInsertion};
+    private static final SiteScore.SITE_SCORE_TYPE[] ALLELE_PROBABILITY_TYPES = new SiteScore.SITE_SCORE_TYPE[]{
+        SiteScore.SITE_SCORE_TYPE.ProbA, SiteScore.SITE_SCORE_TYPE.ProbC,
+        SiteScore.SITE_SCORE_TYPE.ProbG, SiteScore.SITE_SCORE_TYPE.ProbT,
+        SiteScore.SITE_SCORE_TYPE.ProbGap, SiteScore.SITE_SCORE_TYPE.ProbInsertion};
 
     private AlleleProbabilityBuilder(int numTaxa, int numSites, TaxaList taxaList) {
         for (int i = 0; i < ALLELE_PROBABILITY_TYPES.length; i++) {
@@ -62,12 +61,12 @@ public class AlleleProbabilityBuilder {
         return new AlleleProbability(resultStorage);
     }
 
-    public AlleleProbabilityBuilder addTaxon(int taxon, byte[] values, GenotypeTable.SITE_SCORE_TYPE type) {
+    public AlleleProbabilityBuilder addTaxon(int taxon, byte[] values, SiteScore.SITE_SCORE_TYPE type) {
         myBuilders.get(type).addTaxon(taxon, values);
         return this;
     }
 
-    public AlleleProbabilityBuilder addTaxon(int taxon, float[] values, GenotypeTable.SITE_SCORE_TYPE type) {
+    public AlleleProbabilityBuilder addTaxon(int taxon, float[] values, SiteScore.SITE_SCORE_TYPE type) {
         if (myNumSites != values.length) {
             throw new IllegalArgumentException("AlleleProbabilityBuilder: addTaxon: number of values: " + values.length + " doesn't equal number of sites: " + myNumSites);
         }

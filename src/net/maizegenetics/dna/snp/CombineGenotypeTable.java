@@ -14,6 +14,7 @@ import net.maizegenetics.util.BitSet;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.dna.snp.score.Dosage;
+import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
 
 import java.util.*;
 
@@ -504,8 +505,8 @@ public class CombineGenotypeTable implements GenotypeTable {
     }
 
     @Override
-    public Set<GenotypeTable.SITE_SCORE_TYPE> siteScoreTypes() {
-        Set<GenotypeTable.SITE_SCORE_TYPE> result = new LinkedHashSet<>();
+    public Set<SITE_SCORE_TYPE> siteScoreTypes() {
+        Set<SITE_SCORE_TYPE> result = new LinkedHashSet<>();
         for (int i = 0; i < myAlignments.length; i++) {
             result.addAll(myAlignments[i].siteScoreTypes());
         }
@@ -845,6 +846,39 @@ public class CombineGenotypeTable implements GenotypeTable {
         boolean result = true;
         for (GenotypeTable current : myAlignments) {
             if (!current.hasDepth()) {
+                result = false;
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public boolean hasAlleleProbabilities() {
+        boolean result = true;
+        for (GenotypeTable current : myAlignments) {
+            if (!current.hasAlleleProbabilities()) {
+                result = false;
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public boolean hasReferenceProbablity() {
+        boolean result = true;
+        for (GenotypeTable current : myAlignments) {
+            if (!current.hasReferenceProbablity()) {
+                result = false;
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public boolean hasDosage() {
+        boolean result = true;
+        for (GenotypeTable current : myAlignments) {
+            if (!current.hasDosage()) {
                 result = false;
             }
         }

@@ -10,7 +10,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.byte2d.Byte2D;
 import net.maizegenetics.dna.snp.byte2d.Byte2DBuilder;
 import net.maizegenetics.dna.snp.byte2d.FilterByte2D;
@@ -22,13 +21,13 @@ import net.maizegenetics.taxa.TaxaList;
  */
 public class AlleleDepthBuilder {
 
-    private final Map<GenotypeTable.SITE_SCORE_TYPE, Byte2DBuilder> myBuilders = new LinkedHashMap<>();
+    private final Map<SiteScore.SITE_SCORE_TYPE, Byte2DBuilder> myBuilders = new LinkedHashMap<>();
     private final int myNumSites;
 
-    private static final GenotypeTable.SITE_SCORE_TYPE[] ALLELE_DEPTH_TYPES = new GenotypeTable.SITE_SCORE_TYPE[]{
-        GenotypeTable.SITE_SCORE_TYPE.DepthA, GenotypeTable.SITE_SCORE_TYPE.DepthC,
-        GenotypeTable.SITE_SCORE_TYPE.DepthG, GenotypeTable.SITE_SCORE_TYPE.DepthT,
-        GenotypeTable.SITE_SCORE_TYPE.DepthGap, GenotypeTable.SITE_SCORE_TYPE.DepthInsertion};
+    private static final SiteScore.SITE_SCORE_TYPE[] ALLELE_DEPTH_TYPES = new SiteScore.SITE_SCORE_TYPE[]{
+        SiteScore.SITE_SCORE_TYPE.DepthA, SiteScore.SITE_SCORE_TYPE.DepthC,
+        SiteScore.SITE_SCORE_TYPE.DepthG, SiteScore.SITE_SCORE_TYPE.DepthT,
+        SiteScore.SITE_SCORE_TYPE.DepthGap, SiteScore.SITE_SCORE_TYPE.DepthInsertion};
 
     private AlleleDepthBuilder(int numTaxa, int numSites, TaxaList taxaList) {
         for (int i = 0; i < ALLELE_DEPTH_TYPES.length; i++) {
@@ -62,7 +61,7 @@ public class AlleleDepthBuilder {
         return new AlleleDepth(resultStorage);
     }
 
-    public AlleleDepthBuilder addTaxon(int taxon, int[] values, GenotypeTable.SITE_SCORE_TYPE type) {
+    public AlleleDepthBuilder addTaxon(int taxon, int[] values, SiteScore.SITE_SCORE_TYPE type) {
         if (myNumSites != values.length) {
             throw new IllegalArgumentException("AlleleDepthBuilder: addTaxon: number of values: " + values.length + " doesn't equal number of sites: " + myNumSites);
         }

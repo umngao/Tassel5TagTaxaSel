@@ -6,7 +6,6 @@ package net.maizegenetics.dna.snp.score;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.byte2d.Byte2D;
 import net.maizegenetics.dna.snp.byte2d.Byte2DBuilder;
 import net.maizegenetics.dna.snp.byte2d.FilterByte2D;
@@ -22,12 +21,12 @@ public class DosageBuilder {
     private final int myNumSites;
 
     private DosageBuilder(int numTaxa, int numSites, TaxaList taxaList) {
-        myBuilder = Byte2DBuilder.getInstance(numTaxa, numSites, GenotypeTable.SITE_SCORE_TYPE.Dosage, taxaList);
+        myBuilder = Byte2DBuilder.getInstance(numTaxa, numSites, SiteScore.SITE_SCORE_TYPE.Dosage, taxaList);
         myNumSites = numSites;
     }
 
     private DosageBuilder(IHDF5Writer writer, int numTaxa, int numSites, TaxaList taxaList) {
-        myBuilder = Byte2DBuilder.getInstance(writer, numSites, GenotypeTable.SITE_SCORE_TYPE.Dosage, taxaList);
+        myBuilder = Byte2DBuilder.getInstance(writer, numSites, SiteScore.SITE_SCORE_TYPE.Dosage, taxaList);
         myNumSites = numSites;
     }
 
@@ -40,7 +39,7 @@ public class DosageBuilder {
     }
 
     public static Dosage getFilteredInstance(Dosage base, FilterGenotypeTable filterGenotypeTable) {
-        FilterByte2D resultStorage = Byte2DBuilder.getFilteredInstance(base.byteStorage(GenotypeTable.SITE_SCORE_TYPE.Dosage), filterGenotypeTable);
+        FilterByte2D resultStorage = Byte2DBuilder.getFilteredInstance(base.byteStorage(SiteScore.SITE_SCORE_TYPE.Dosage), filterGenotypeTable);
         return new Dosage(resultStorage);
     }
 

@@ -7,7 +7,7 @@ import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.score.SiteScore;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.HDF5Utils;
 import net.maizegenetics.util.SuperByteMatrix;
@@ -25,10 +25,10 @@ public class Byte2DBuilder {
     private IHDF5Writer myHDF5Writer = null;
     private final int myNumSites;
     private int myNumTaxa = 0;
-    private final GenotypeTable.SITE_SCORE_TYPE mySiteScoreType;
+    private final SiteScore.SITE_SCORE_TYPE mySiteScoreType;
     private final TaxaList myTaxaList;
 
-    private Byte2DBuilder(IHDF5Writer writer, int numSites, GenotypeTable.SITE_SCORE_TYPE siteScoreType, TaxaList taxaList) {
+    private Byte2DBuilder(IHDF5Writer writer, int numSites, SiteScore.SITE_SCORE_TYPE siteScoreType, TaxaList taxaList) {
         myIsHDF5 = true;
         myHDF5Writer = writer;
         myNumSites = numSites;
@@ -36,7 +36,7 @@ public class Byte2DBuilder {
         myTaxaList = taxaList;
     }
 
-    private Byte2DBuilder(int numTaxa, int numSites, GenotypeTable.SITE_SCORE_TYPE siteScoreType, TaxaList taxaList) {
+    private Byte2DBuilder(int numTaxa, int numSites, SiteScore.SITE_SCORE_TYPE siteScoreType, TaxaList taxaList) {
         myIsHDF5 = false;
         myHDF5Writer = null;
         myNumSites = numSites;
@@ -46,11 +46,11 @@ public class Byte2DBuilder {
         myTaxaList = taxaList;
     }
 
-    public static Byte2DBuilder getInstance(int numTaxa, int numSites, GenotypeTable.SITE_SCORE_TYPE siteScoreType, TaxaList taxaList) {
+    public static Byte2DBuilder getInstance(int numTaxa, int numSites, SiteScore.SITE_SCORE_TYPE siteScoreType, TaxaList taxaList) {
         return new Byte2DBuilder(numTaxa, numSites, siteScoreType, taxaList);
     }
 
-    public static Byte2DBuilder getInstance(IHDF5Writer writer, int numSites, GenotypeTable.SITE_SCORE_TYPE siteScoreType, TaxaList taxaList) {
+    public static Byte2DBuilder getInstance(IHDF5Writer writer, int numSites, SiteScore.SITE_SCORE_TYPE siteScoreType, TaxaList taxaList) {
         return new Byte2DBuilder(writer, numSites, siteScoreType, taxaList);
     }
 
