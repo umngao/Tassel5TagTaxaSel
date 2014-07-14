@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 
@@ -131,5 +132,30 @@ public class ModelEffectUtils {
     	return getIntegerLevels(originalLevels, null);
     }
     
-
+    public static double[] getNumericCodingForAdditiveModel(Object[] marker, String allele) {
+    	String firstMarker = ((String) marker[0]);
+    	int nmarkers = marker.length;
+    	double[] values = new double[nmarkers];
+    	
+    	if (firstMarker.contains(":")) {
+        	Pattern colon = Pattern.compile(":");
+        	for (int m = 0; m < nmarkers; m++) {
+        		String markerval = (String) marker[m];
+        		String[] markerAlleles = colon.split(markerval);
+        		if (markerAlleles[0].equals(allele)) values[m]++;
+        		if (markerAlleles[1].equals(allele)) values[m]++;
+        	}
+    	} else {
+    		Pattern nuc = Pattern.compile("[RSYWKM0]");
+    		for (int m = 0; m < nmarkers; m++) {
+    			String markerval = (String) marker[m];
+    			if (markerval.equals(allele)) values[m] = 2;
+    			else if (nuc.matcher((String) marker[m]).matches()) values[m] = 1;
+    			else marker[m] = 0;
+    		}
+    	}
+    	return values;
+    	
+    }
+    
 }
