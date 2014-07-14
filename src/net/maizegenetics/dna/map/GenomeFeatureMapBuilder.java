@@ -78,7 +78,7 @@ public class GenomeFeatureMapBuilder {
         }
 
         for(GenomeFeature feature: nameLookup.values()){
-            RangeMap mymap = locationLookup.get(feature.chromosome().getName());
+            RangeMap mymap = locationLookup.get(feature.chromosome());
             addFeatureToRangemap(mymap, feature);
             //TODO: I think the logic here is faulty
         }
@@ -153,7 +153,7 @@ public class GenomeFeatureMapBuilder {
     public GenomeFeatureMapBuilder addOrReplaceFeature(GenomeFeature feature){
         nameLookup.put(feature.id(), feature);
         typeLookup.put(feature.type(), feature);
-        chromosomes.add(feature.chromosome().getName());
+        chromosomes.add(feature.chromosome());
         return this;
     }
 

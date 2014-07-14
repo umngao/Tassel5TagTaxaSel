@@ -3,10 +3,12 @@ package net.maizegenetics.dna.map;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
-import net.maizegenetics.dna.map.GenomeFeature.StrandSide;
+//import net.maizegenetics.dna.map.GenomeFeature.StrandSide;
 import org.apache.commons.math.exception.NumberIsTooSmallException;
 import org.apache.log4j.Logger;
 
+import java.util.HashMap;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -15,17 +17,22 @@ import java.util.regex.Pattern;
  * Builder class to create a GenomeFeature.
  * Note: There are no methods add children without an associated type (exon, gene, etc). Please do not create them.
  */
+//TODO: Currently somewhat messy back-and-forth conversion for start and stop (can go String-int-String-int). Find a better way?
+//TODO: Set start & stop to 0 initially, not -1? (Implicitly required now)
+//TODO: Make id, chrom, start, stop, & type all required data? Makes sense given the uses of them.
 public class GenomeFeatureBuilder {
 
     private static final Logger myLogger = Logger.getLogger(GenomeFeatureBuilder.class);
 
     //Variables to store the information on the feature
-    private String myId=null;
-    private String mytype =null;
-    private String myParentId=null;
-    private Chromosome mychromosome = null;
+    //private String myId=null;
+    //private String mytype =null;
+    //private String myParentId=null;
+    //private Chromosome mychromosome = null;
+    //private String mychromosome = null;
     private int mystart =-1, mystop =-1;    //Location on the mychromosome (mystart and mystop should be inclusive). Negative by default to flag as unassigned
-    private StrandSide mystrand =StrandSide.UNKNOWN; //Strand.
+    private HashMap<String, String> myannotations = null;
+    //private StrandSide mystrand =StrandSide.UNKNOWN; //Strand.
 
     //Variables to link to parents and mychildren - DEPRECATED. GenomeFeatureMapBuilder uses explicit graph instead
     //GenomeFeature myparent =null;
@@ -34,19 +41,22 @@ public class GenomeFeatureBuilder {
     /**
      * Generic constructor which does nothing special
      */
-    public GenomeFeatureBuilder(){}
+    public GenomeFeatureBuilder(){
+        myannotations = new HashMap<String, String>();
+    }
 
     /**
      * Constructor to build a new feature off of an existing one
      * @param feature
      */
     public GenomeFeatureBuilder(GenomeFeature feature){
-        this.mytype =feature.type();
-        this.mychromosome =feature.chromosome();
+        //this.mytype =feature.type();
+        //this.mychromosome =feature.chromosome();
         this.mystart =feature.start();
         this.mystop =feature.stop();
-        this.mystrand =feature.strand();
-        this.myParentId= feature.parentId();
+        //this.mystrand =feature.strand();
+        this.myannotations = feature.annotations();
+        //this.myParentId= feature.parentId();
         //this.myparent =feature.parent();
 
         //Since the multimap returned by GenomeFeature.childrenmap() is immutable, copy it into a new multimap
@@ -71,104 +81,168 @@ public class GenomeFeatureBuilder {
 
     public GenomeFeature build(){
         validateData();
-        return new GenomeFeature(myId, mytype, mychromosome, mystart, mystop, mystrand, myParentId);
+        //return new GenomeFeature(myId, mytype, mychromosome, mystart, mystop, myannotations, myParentId);
+        return new GenomeFeature(myannotations);
     }
 
     private void validateData(){
+        //System.out.println("Building...\n\tStart=" + mystart + "_" + myannotations.get("start") + "\n\tStop=" + mystop + "_" + myannotations.get("stop"));
+
+        //Test that feature has a personal ID
+        if(!myannotations.containsKey("id")){
+            throw new UnsupportedOperationException("GenomeFeatureBuilder: Cannot build a feature without a personal identifier (field 'id')");
+        }
+
         //Test if start or stop is negative (eg, if was never assigned)
         if(mystart < 0){
-            throw new UnsupportedOperationException("GenomeFeatureBuilder: Start coordinate is negative for " + myId + ": " + mystart + " (possibly unassigned?)");
+            throw new UnsupportedOperationException("GenomeFeatureBuilder: Start coordinate is negative for " +
+                    myannotations.get("id") + ": " + mystart + " (possibly unassigned?)");
         }
         if(mystop < 0){
-            throw new UnsupportedOperationException("GenomeFeatureBuilder: Start coordinate is negative for " + myId + ": " + mystart + " (possibly unassigned?)");
+            throw new UnsupportedOperationException("GenomeFeatureBuilder: Stop coordinate is negative for " +
+                    myannotations.get("id") + ": " + mystop + " (possibly unassigned?)");
         }
 
         //Test that start is less than stop
         if(mystart > mystop){
-            throw new UnsupportedOperationException("GenomeFeatureBuilder: Start coordinate is greater than stop coordinate for " + myId);
+            throw new UnsupportedOperationException("GenomeFeatureBuilder: Start coordinate is greater than stop " +
+                    "coordinate for " + myannotations.get("id") + ": " +  mystart + " vs " + mystop);
         }
     }
 
     public GenomeFeatureBuilder id(String id){
-        myId=id;
-        return this;
+        return addAnnotation("id", id);
     }
 
     public GenomeFeatureBuilder type(String type){
-        mytype=type;
-        return this;
+        return addAnnotation("type", type);
     }
 
     public GenomeFeatureBuilder parentId(String parentId){
-        myParentId=parentId;
-        return this;
+        return addAnnotation("parent_id", parentId);
     }
 
     public GenomeFeatureBuilder chromosome(Chromosome chr){
-        mychromosome=chr;
-        return this;
+        return addAnnotation("chromosome", chr.getName());
+        //mychromosome=chr;
+        //return this;
     }
 
     public GenomeFeatureBuilder chromosome(String chr){
-        mychromosome=new Chromosome("" + chr);
-        return this;
+        return addAnnotation("chromosome", chr);
+        //mychromosome=new Chromosome("" + chr);
+        //return this;
     }
 
     public GenomeFeatureBuilder chromosome(int chr){
-        return this.chromosome("" + chr);
+        return addAnnotation("chromosome", "" + chr);
     }
 
     public GenomeFeatureBuilder start(int start){
         if(start >=0){
-            mystart=start;
+            return addAnnotation("start", "" + start);
         }else{
             throw new NumberFormatException("Start position must be greater than zero. Got " + start);
         }
+    }
 
-        return this;
+    public GenomeFeatureBuilder start(String start){
+        return this.start(Integer.parseInt(start));
     }
 
     public GenomeFeatureBuilder stop(int stop){
         if(stop >=0){
-            mystop=stop;
+            return addAnnotation("stop", "" + stop);
         }else{
             throw new NumberFormatException("Stop position must be greater than zero. Got " + stop);
         }
+        //return this;
+    }
+
+    public GenomeFeatureBuilder stop(String stop){
+        return this.stop(Integer.parseInt(stop));
+    }
+
+
+    public GenomeFeatureBuilder addAnnotation(String key, String value){
+        key = synonymizeKeys(key);
+        myannotations.put(key, value);  //All annotations kept in the hash
+
+        //System.out.println("Adding "+ key + " with value " + value);
+
+        //Specific handling for start-stop positions because are used in validation at build time
+        switch(key){
+            case "start": mystart = Integer.parseInt(value); break;
+            case "stop": mystop = Integer.parseInt(value); break;
+        }
+
         return this;
     }
 
-    public GenomeFeatureBuilder strand(StrandSide strand){
+    /**
+     * Method that takes common synonyms of annotation types and standardizes them according to the following rules:
+     * (1) Make lowercase
+     * (2) Standardize according to following rules. (Any not on this list are returned as just lowercased)
+     *    name, id -> id
+     *    chr, chrom, chromosome -> chromosome
+     *    stop, end -> stop
+     *    parentid, parent_id, parent -> parent_id
+     * @param key
+     * @return
+     */
+    public String synonymizeKeys(String key){
+        key.toLowerCase(Locale.ENGLISH);
+        switch(key){
+            case "name":
+            case "id" : return "id";
+
+            case "chr":
+            case "chrom":
+            case "chromosome": return "chromosome";
+
+            case "end":
+            case "stop": return "stop";
+
+            case "parent":
+            case "parentid":
+            case "parent_id": return "parent_id";
+
+            default: return key;
+        }
+    }
+
+    /*public GenomeFeatureBuilder strand(StrandSide strand){
         mystrand=strand;
         return this;
-    }
+    }*/
 
     /**
      * Assign strand based on an integer value. 1 is plus strand, -1 is minus strand. Anything else is unknown.
      * @param strand Strand side (1 or -1)
      * @return This builder
      */
-    public GenomeFeatureBuilder strand(int strand){
+    /*public GenomeFeatureBuilder strand(int strand){
         switch(strand){
             case 1: mystrand=StrandSide.PLUS; break;
             case -1: mystrand=StrandSide.MINUS; break;
             default: mystrand=StrandSide.UNKNOWN; break;
         }
         return this;
-    }
+    }*/
 
     /**
      * Assign strand based on an character value. '+' for plus, '-' for minus, anything else is unknown
      * @param strand Strand side (1 or -1)
      * @return This builder
      */
-    public GenomeFeatureBuilder strand(char strand){
+    /*public GenomeFeatureBuilder strand(char strand){
         switch(strand){
             case '+': mystrand=StrandSide.PLUS; break;
             case '-': mystrand=StrandSide.MINUS; break;
             default: mystrand=StrandSide.UNKNOWN; break;
         }
         return this;
-    }
+    }*/
 
     /**
      * Assign strand based on the first character in a string. '+' for plus, '-' for minus, anything else is unknown.
@@ -176,9 +250,9 @@ public class GenomeFeatureBuilder {
      * @param strand Strand side (1 or -1)
      * @return This builder
      */
-    public GenomeFeatureBuilder strand(String strand){
+    /*public GenomeFeatureBuilder strand(String strand){
         return this.strand(strand.charAt(0));
-    }
+    }*/
 
 
     /**
@@ -194,9 +268,9 @@ public class GenomeFeatureBuilder {
         String[] tokens = line.split("\t");
         this.chromosome(tokens[gffSeq].trim());
         this.type(tokens[gffFeatureType].trim());
-        this.start(Integer.parseInt(tokens[gffStart]));
-        this.stop(Integer.parseInt(tokens[gffStop]));
-        this.strand(tokens[gffStrand].trim().charAt(0));
+        this.start(tokens[gffStart]);
+        this.stop(tokens[gffStop]);
+        addAnnotation("strand", tokens[gffStrand].trim());
 
         //Extract the parent from the attributes field
         String parentID = getParentFromGffAttributes(tokens[gffAttributes]);
@@ -204,11 +278,10 @@ public class GenomeFeatureBuilder {
 
         //Extract the unique identifier for this feature. If none, build one from available info
         String myID = getFeatureIdFromGffAttributes(tokens[gffAttributes]);
-        if(myID != null){
-            this.id(myID);
-        }else{
-            this.id(mytype + "_" + mychromosome.getName() + "_" + mystart + "_" + mystop + "_" + mystrand);
+        if(myID == null){
+            myID = myannotations.get("type") + "_" + myannotations.get("chromosome") + "_" + mystart + "_" + mystop;
         }
+        this.id(myID);
 
         return this;
     }
