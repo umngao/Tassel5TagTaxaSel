@@ -10,6 +10,7 @@ import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.bit.BitStorage;
 import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.dna.snp.score.Dosage;
+import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.BitSet;
 
@@ -43,13 +44,6 @@ public interface GenotypeTable {
     public static String UNKNOWN_DIPLOID_ALLELE_STR = "N:N";
     public static char UNKNOWN_ALLELE_CHAR = 'N';
 
-    public static enum SITE_SCORE_TYPE {
-
-        None, MixedScoreTypes, QualityScore, ImputedProbablity, Dosage,
-        DepthA, DepthC, DepthG, DepthT, DepthGap, DepthInsertion,
-        ProbA, ProbC, ProbG, ProbT, ProbGap, ProbInsertion
-    };
-    
     /**
      * This defines the possible allele scope types.
      */
@@ -288,8 +282,8 @@ public interface GenotypeTable {
     public byte referenceAllele(int site);
 
     /**
-     * Returns (haploid) reference alleles in specified range.
-     * End site not included.
+     * Returns (haploid) reference alleles in specified range. End site not
+     * included.
      *
      * @param startSite start site
      * @param endSite end site
@@ -479,18 +473,39 @@ public interface GenotypeTable {
     public boolean hasDepth();
 
     /**
-     * Return the site scores types.
+     * Returns true if this genotype table has allele probabilities.
+     *
+     * @return true if this genotype table has allele probabilities.
+     */
+    public boolean hasAlleleProbabilities();
+
+    /**
+     * Returns true if this genotype table has reference probability.
+     *
+     * @return true if this genotype table has reference probability.
+     */
+    public boolean hasReferenceProbablity();
+
+    /**
+     * Returns true if this genotype table has dosage.
+     *
+     * @return true if this genotype table has dosage.
+     */
+    public boolean hasDosage();
+
+    /**
+     * Return the site scores types that have value for this genotype table.
      *
      * @return site score types.
      */
     public Set<SITE_SCORE_TYPE> siteScoreTypes();
-    
+
     public AlleleProbability alleleProbability();
-    
+
     public float alleleProbability(int taxon, int site, SITE_SCORE_TYPE type);
-    
+
     public Dosage dosage();
-    
+
     public byte dosage(int taxon, int site);
 
     /**

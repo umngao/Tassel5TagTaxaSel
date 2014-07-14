@@ -3,7 +3,7 @@
  */
 package net.maizegenetics.dna.snp.byte2d;
 
-import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.score.SiteScore;
 
 /**
  *
@@ -11,11 +11,11 @@ import net.maizegenetics.dna.snp.GenotypeTable;
  */
 public abstract class AbstractByte2D implements Byte2D {
 
-    private final GenotypeTable.SITE_SCORE_TYPE myScoreType;
+    private final SiteScore.SITE_SCORE_TYPE myScoreType;
     private final int myNumTaxa;
     private final int myNumSites;
 
-    public AbstractByte2D(GenotypeTable.SITE_SCORE_TYPE scoreType, int numTaxa, int numSites) {
+    public AbstractByte2D(SiteScore.SITE_SCORE_TYPE scoreType, int numTaxa, int numSites) {
         myScoreType = scoreType;
         myNumTaxa = numTaxa;
         myNumSites = numSites;
@@ -41,7 +41,7 @@ public abstract class AbstractByte2D implements Byte2D {
     }
 
     @Override
-    public GenotypeTable.SITE_SCORE_TYPE siteScoreType() {
+    public SiteScore.SITE_SCORE_TYPE siteScoreType() {
         return myScoreType;
     }
 

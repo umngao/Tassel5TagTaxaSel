@@ -11,7 +11,9 @@ import net.maizegenetics.dna.snp.bit.DynamicBitStorage;
 import net.maizegenetics.dna.snp.depth.AlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.score.AlleleProbability;
+import net.maizegenetics.dna.snp.score.ReferenceProbability;
 import net.maizegenetics.dna.snp.score.Dosage;
+import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.BitSet;
 
@@ -39,6 +41,7 @@ public class CoreGenotypeTable implements GenotypeTable {
     private final PositionList myPositionList;
     private final TaxaList myTaxaList;
     private final AlleleProbability myAlleleProbability;
+    private final ReferenceProbability myReferenceProbabily = null;
     private final AlleleDepth myAlleleDepth;
     private final Dosage myDosage;
     private final int mySiteCount;
@@ -256,13 +259,16 @@ public class CoreGenotypeTable implements GenotypeTable {
     }
 
     @Override
-    public Set<GenotypeTable.SITE_SCORE_TYPE> siteScoreTypes() {
-        Set<GenotypeTable.SITE_SCORE_TYPE> result = new HashSet<>();
-        if (myAlleleProbability != null) {
+    public Set<SITE_SCORE_TYPE> siteScoreTypes() {
+        Set<SITE_SCORE_TYPE> result = new HashSet<>();
+        if (hasAlleleProbabilities()) {
             result.addAll(myAlleleProbability.siteScoreTypes());
         }
-        if (myDosage != null) {
+        if (hasDosage()) {
             result.addAll(myDosage.siteScoreTypes());
+        }
+        if (hasReferenceProbablity()) {
+            result.addAll(myReferenceProbabily.siteScoreTypes());
         }
         return result;
     }
@@ -444,7 +450,22 @@ public class CoreGenotypeTable implements GenotypeTable {
 
     @Override
     public boolean hasDepth() {
-        return (myAlleleDepth != null);
+        return myAlleleDepth != null;
+    }
+
+    @Override
+    public boolean hasAlleleProbabilities() {
+        return myAlleleProbability != null;
+    }
+
+    @Override
+    public boolean hasReferenceProbablity() {
+        return myReferenceProbabily != null;
+    }
+
+    @Override
+    public boolean hasDosage() {
+        return myDosage != null;
     }
 
     @Override
