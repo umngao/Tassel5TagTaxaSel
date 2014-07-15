@@ -109,6 +109,11 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
             .description("Depth of genotypes to mask for accuracy calculation if depth information available").dependentOnParameter(accuracy).build();
     private PluginParameter<Double> propDepthSitesMask= new PluginParameter.Builder<>("propDepthSitesMask",0.2,Double.class).guiName("Proportion of depth genotypes to mask")
             .description("Proportion of genotypes of given depth to mask for accuracy calculation if depth available").dependentOnParameter(accuracy).build();
+    private PluginParameter<String> maskKey= new PluginParameter.Builder<>("maskKey",null,String.class).inFile().required(false).guiName("Optional key to calculate accuracy")
+            .description("Key to calculate accuracy. Genotypes missing (masked) in target file should be present in key, with all other sites set to missing. Overrides other"
+                    + "accuracy options if present and all sites and taxa present in target file present").dependentOnParameter(accuracy).build();
+    private PluginParameter<Boolean> byMAF= new PluginParameter.Builder<>("byMAF",false,Boolean.class).guiName("Calculate accuracy within MAF categories")
+            .description("Calculate R2 accuracy within MAF categories based on donor file").dependentOnParameter(accuracy).build();
     
     //Additional variables
     private boolean verboseOutput= true;
@@ -124,6 +129,8 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     private double maxSmashErrFocusHet= maximumInbredError.value();//.01;
 
     public static GenotypeTable unimpAlign;  //the unimputed alignment to be imputed, unphased
+    public static GenotypeTable maskKeyAlign= null;  //the key to the unimputed alignment mask
+    public static double[] MAFClass= new double[]{0,.02,.05,.10,.20,.3,.4,.5,1};//must retain 0 and 1
     private int testing=0;  //level of reporting to stdout
         //major and minor alleles can be differ between the donor and unimp alignment
     private boolean isSwapMajorMinor=true;  //if swapped try to fix it
@@ -162,6 +169,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
         maxSmashErrFocusHet= maximumInbredError.value();//.01;
         maxHybridErrFocusHomo= .3333*maxHybridErrorRate.value();
         if (nonverboseOutput.value()) verboseOutput= false;
+        if (byMAF.value()==false) MAFClass= null;
     }
     
     public FILLINImputationPlugin() {
@@ -189,9 +197,12 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
         GenotypeTable[] donorAlign=FILLINDonorGenotypeUtils.loadDonors(donorFile.value(), unimpAlign, minTestSites.value(),
                 verboseOutput,appoxSitesPerDonorGenotypeTable.value());
         if (accuracy.value()) {
-            acc= new FILLINImputationAccuracy(unimpAlign,propSitesMask.value(),depthToMask.value(), 
-                    propDepthSitesMask.value(),outFileBase.value(),verboseOutput);
+            time= System.currentTimeMillis()-time; //holds the time so far
+            if (maskKey.value()!=null) maskKeyAlign= ImportUtils.readGuessFormat(maskKey.value());
+            acc= new FILLINImputationAccuracy(unimpAlign,maskKeyAlign,donorAlign,propSitesMask.value(),depthToMask.value(), 
+                propDepthSitesMask.value(),outFileBase.value(),MAFClass,verboseOutput);
             unimpAlign= acc.initiateAccuracy();
+            time= System.currentTimeMillis()-time;//restarts the time, including the time to load donors and target but not including the time to set up accuracy
         }
         OpenBitSet[][] conflictMasks=FILLINDonorGenotypeUtils.createMaskForAlignmentConflicts(unimpAlign, donorAlign,
                 verboseOutput);
