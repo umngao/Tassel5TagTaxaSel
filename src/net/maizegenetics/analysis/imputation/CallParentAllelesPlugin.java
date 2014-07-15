@@ -59,7 +59,7 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 
 		for (Datum d : inputAlignments) {
 			GenotypeTable align = (GenotypeTable) d.getData();
-			if (familyList == null) familyList = PopulationData.readPedigreeFile(pedfileName);
+			familyList = PopulationData.readPedigreeFile(pedfileName);
 			for (PopulationData family : familyList) {
 				myLogger.info("Calling parent alleles for family " + family.name + ", chromosome " + align.chromosomeName(0) + ".");
 				
@@ -72,7 +72,6 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 				
 				if (!useHets) {
 					byte NN = NucleotideAlignmentConstants.getNucleotideDiploidByte('N');
-//					MutableNucleotideAlignment mna = MutableNucleotideAlignment.getInstance(family.original);
 					GenotypeTableBuilder builder = GenotypeTableBuilder.getSiteIncremental(family.original.taxa());
 					int nsites = family.original.numberOfSites();
 					int ntaxa = family.original.numberOfTaxa();

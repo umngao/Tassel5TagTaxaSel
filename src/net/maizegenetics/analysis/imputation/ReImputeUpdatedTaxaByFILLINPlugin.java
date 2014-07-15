@@ -12,15 +12,24 @@ import org.apache.log4j.Logger;
 import net.maizegenetics.plugindef.DataSet;
 import javax.swing.*;
 import java.awt.*;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
 import net.maizegenetics.plugindef.PluginParameter;
 
 // imports specifically needed for this plugin
 import java.util.ArrayList;
+import java.util.Date;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.HDF5Utils;
 import java.util.List;
+import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.map.PositionListBuilder;
+import net.maizegenetics.dna.snp.GenotypeTableBuilder;
+import net.maizegenetics.util.Utils;
 
 /**
  * Compares an unfinished HDF5 file containing raw genotypes to a corresponding 
@@ -64,6 +73,7 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
     // global variables
     IHDF5Reader rawGenosReader;
     IHDF5Writer impGenosWriter;
+    String tempPath;
     
 
     public ReImputeUpdatedTaxaByFILLINPlugin() {
@@ -86,6 +96,11 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
     }
 
     @Override
+    protected void postProcessParameters() {
+        tempPath = Utils.getDirectory(imputedHDF5GenotypeFile()) + File.separator;
+    }
+
+    @Override
     public DataSet processData(DataSet input) {
         ReImputeUpdatedTaxaByFILLIN();
         fireProgress(100);
@@ -99,7 +114,7 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
         // compare taxa (exit if no change)
         TaxaList modifiedTaxa = compareRawAndImputedTaxa();
         if (modifiedTaxa.isEmpty()) {
-            myLogger.info("No additional or updated taxa were found in the raw genotype input file.");
+            myLogger.info("  No additional or updated taxa were found in the raw genotype input file.");
             return;
         }
         
@@ -114,7 +129,6 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
         
         // delete temporary files
         deleteTemporaryFiles(tempInFile, tempOutFile);
-        
     }
     
     private void openInputHDF5GenoFiles() {
@@ -125,6 +139,7 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
     }
     
     private TaxaList compareRawAndImputedTaxa() {
+        myLogger.info("Comparing taxa in raw and imputed genotype files for additions or additional depth in the raw genotypes:\n");
         StringBuilder modifiedTaxaReport = new StringBuilder("Modified taxa:\n");
         ArrayList<Taxon> modifiedTaxa = new ArrayList();
         // compare taxa & add to modified taxa if new or changed
@@ -165,19 +180,56 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
     }
     
     private String createTempInputFileForFILLIN(TaxaList modifiedTaxa) {
-        return null;
+        myLogger.info("Creating temporary HDF5 files to hold raw and imputed genos for modified taxa");
+        String tempRawGenosFileName = "tempRawGenos" + new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss_Z").format(new Date()) + ".h5";
+        PositionList positionList = PositionListBuilder.getInstance(rawGenosReader);
+        GenotypeTableBuilder gtb =  GenotypeTableBuilder.getTaxaIncremental(positionList, tempPath+tempRawGenosFileName);
+        for (Taxon modTaxon : modifiedTaxa) {
+            gtb.addTaxon(modTaxon, HDF5Utils.getHDF5GenotypesCalls(rawGenosReader, modTaxon.getName()));
+        }
+        gtb.build();
+        return tempRawGenosFileName;
     }
     
     private String runFILLIN(String tempInFile) {
-        return null;
+        myLogger.info("Running FILLIN on the modified taxa using default paramenters");
+        String tempImpGenosFileName = tempInFile.replaceFirst("Raw", "Imp");
+        FILLINImputationPlugin fip = new FILLINImputationPlugin()
+            .targetFile(tempPath+tempInFile)
+            .outputFilename(tempPath+tempImpGenosFileName)
+            .donorFile(donorDir())
+        ;
+        fip.performFunction(null);
+        return tempImpGenosFileName;
     }
     
-    private void replaceTaxaInImputedFile(String tempOutFile) {
-        ;
+    private void replaceTaxaInImputedFile(String tempImpFile) {
+        myLogger.info("Replacing modified taxa in the target file containing cumulative, imputed genotypes");
+        IHDF5Reader impGenosReader = HDF5Factory.openForReading(tempPath+tempImpFile);
+        List<String> impTaxaNames = HDF5Utils.getAllTaxaNames(impGenosReader);
+        for (String taxonName : impTaxaNames) {
+            Taxon impTaxon = HDF5Utils.getTaxon(impGenosReader, taxonName);
+            Taxon origTaxon = HDF5Utils.getTaxon(impGenosWriter, taxonName);
+            if (origTaxon == null) {
+                HDF5Utils.addTaxon(impGenosWriter, impTaxon);
+            }
+            byte[] genoCalls = HDF5Utils.getHDF5GenotypesCalls(impGenosReader, taxonName);
+            HDF5Utils.replaceHDF5GenotypesCalls(impGenosWriter, taxonName, genoCalls);
+        }
     }
     
     private void deleteTemporaryFiles(String tempInFile, String tempOutFile) {
-        ;
+        myLogger.info("Deleting the temporary HDF5 files");
+        try {
+            Files.delete(Paths.get(tempPath+tempInFile));
+        } catch (Exception e) {
+            throw new IllegalStateException("Can't delete temporary HDF5 raw geno file: "+e);
+        }
+        try {
+            Files.delete(Paths.get(tempPath+tempOutFile));
+        } catch (Exception e) {
+            throw new IllegalStateException("Can't delete temporary HDF5 imputed geno file: "+e);
+        }
     }
     
     @Override

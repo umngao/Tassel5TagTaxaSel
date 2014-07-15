@@ -21,7 +21,7 @@ import net.maizegenetics.plugindef.PluginEvent;
 public class WritePopulationAlignmentPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(WritePopulationAlignmentPlugin.class);
-    boolean mergeAlignments = true;
+    boolean mergeAlignments = false;
     boolean writeParentCalls = true;
     boolean writeNucleotides = true;
     boolean outputDiploid = false;
@@ -56,9 +56,9 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
         String filename;
         if (mergeAlignments) {
             if (asNucleotides) {
-                filename = baseFileName + "nuc.hmp.txt";
+                filename = baseFileName + ".nuc.hmp.txt";
             } else {
-                filename = baseFileName + "parents.hmp.txt";
+                filename = baseFileName + ".parents.hmp.txt";
             }
             GenotypeTable[] allOfTheAlignments = new GenotypeTable[theData.size()];
             int count = 0;
@@ -72,15 +72,15 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
             for (Datum datum : theData) {
                 PopulationData family = (PopulationData) datum.getData();
                 String familyName = family.name.replace('/', '.');
+                String chrName = family.original.chromosomeName(0);
                 if (asNucleotides) {
-                    filename = baseFileName + ".family." + familyName + "nuc.hmp.txt";
+                    filename = baseFileName + ".family." + familyName + ".chr" + chrName + ".nuc.hmp.txt";
                 } else {
-                    filename = baseFileName + ".family." + familyName + "parents.hmp.txt";
+                    filename = baseFileName + ".family." + familyName + ".chr" + chrName + ".parents.hmp.txt";
                 }
                 ExportUtils.writeToHapmap(createOutputAlignment(family, asNucleotides), outputDiploid, filename, '\t', null);
             }
         }
-
     }
 
     private GenotypeTable createOutputAlignment(PopulationData popdata, boolean asNucleotides) {
@@ -222,7 +222,7 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
         StringBuilder usage = new StringBuilder("The WritePopulationAlignmentPlugin requires the following parameter:\n");
         usage.append("-f or -file : The base file name for the ouput. .hmp.txt will be appended.\n");
         usage.append("The following parameters are optional:\n");
-        usage.append("-m or -merge : if true families are merged into a single file, if false each family is output to a separate file (default = true)\n");
+        usage.append("-m or -merge : if true families are merged into a single file, if false each family is output to a separate file (default = false)\n");
         usage.append("-o or -outputType : parents = output parent calls, nucleotides = output nucleotides, both = output both\n");
         usage.append("-d or -diploid : if true output is AA/CC/AC, if false output is A/C/M\n");
         usage.append("-c or -minCoverage : the minimum coverage for a monomorphic snp to be included in the nucleotide output (default = 0.1)\n");

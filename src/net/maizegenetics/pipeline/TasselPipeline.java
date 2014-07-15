@@ -300,6 +300,9 @@ public class TasselPipeline implements PluginListener {
                 } else if (current.equalsIgnoreCase("-importGuess")) {
                     String file = args[index++].trim();
                     loadFile(file, FileLoadPlugin.TasselFileType.Unknown);
+                } else if (current.equalsIgnoreCase("-projection")) {
+                    String file = args[index++].trim();
+                    loadFile(file, FileLoadPlugin.TasselFileType.ProjectionAlignment);
                 } else if (current.equalsIgnoreCase("-convertTOPMtoHDF5")) {
                     String filename = args[index++].trim();
                     TagsOnPhysicalMap topm = null;

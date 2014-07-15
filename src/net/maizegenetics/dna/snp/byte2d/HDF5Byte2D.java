@@ -9,10 +9,10 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.util.Tassel5HDF5Constants;
 import net.maizegenetics.util.HDF5Utils;
-import net.maizegenetics.dna.snp.GenotypeTable;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.maizegenetics.dna.snp.score.SiteScore;
 
 /**
  *
@@ -33,7 +33,7 @@ public class HDF5Byte2D extends AbstractByte2D {
     private final int myNumSites;
     private final TaxaList myTaxa;
 
-    HDF5Byte2D(IHDF5Reader reader, GenotypeTable.SITE_SCORE_TYPE siteScoreType) {
+    HDF5Byte2D(IHDF5Reader reader, SiteScore.SITE_SCORE_TYPE siteScoreType) {
         super(siteScoreType, reader.getIntAttribute(Tassel5HDF5Constants.GENOTYPES_MODULE, Tassel5HDF5Constants.GENOTYPES_NUM_TAXA),
                 reader.getIntAttribute(Tassel5HDF5Constants.POSITION_ATTRIBUTES_PATH, Tassel5HDF5Constants.POSITION_NUM_SITES)
         );

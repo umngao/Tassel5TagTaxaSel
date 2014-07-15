@@ -18,6 +18,7 @@ import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.dna.snp.score.AlleleProbabilityBuilder;
 import net.maizegenetics.dna.snp.score.Dosage;
 import net.maizegenetics.dna.snp.score.DosageBuilder;
+import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
@@ -766,7 +767,7 @@ public class FilterGenotypeTable implements GenotypeTable {
     }
 
     @Override
-    public Set<GenotypeTable.SITE_SCORE_TYPE> siteScoreTypes() {
+    public Set<SITE_SCORE_TYPE> siteScoreTypes() {
         return myBaseAlignment.siteScoreTypes();
     }
 
@@ -893,6 +894,21 @@ public class FilterGenotypeTable implements GenotypeTable {
     @Override
     public boolean hasDepth() {
         return myBaseAlignment.hasDepth();
+    }
+    
+    @Override
+    public boolean hasAlleleProbabilities() {
+        return myBaseAlignment.hasAlleleProbabilities();
+    }
+
+    @Override
+    public boolean hasReferenceProbablity() {
+        return myBaseAlignment.hasReferenceProbablity();
+    }
+
+    @Override
+    public boolean hasDosage() {
+        return myBaseAlignment.hasDosage();
     }
 
     @Override
