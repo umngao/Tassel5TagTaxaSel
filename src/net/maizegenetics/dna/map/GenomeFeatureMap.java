@@ -75,6 +75,7 @@ public class GenomeFeatureMap {
      * @param filename The output file to be written to
      */
     //TODO: Test and use this
+    //TODO: Figure out how to fix large features getting 1-bp entries when add adjacent features on top
     public void writeLocationLookupToFile(String filename){
         try {
             BufferedWriter writer = Utils.getBufferedWriter(filename);

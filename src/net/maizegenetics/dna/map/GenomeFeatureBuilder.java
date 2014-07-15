@@ -14,9 +14,8 @@ import java.util.regex.Pattern;
 /**
  * Created by jgw87 on 7/2/14.
  * Builder class to create a GenomeFeature. All annoations are stored in a HashMap. Any annotation can be added through
- * the addAnnotation method, but the required fields each have their own specific methods (id, type, chromosome, start, stop).
- * ParentID is not required, but has its own method because of how frequently it should be used. Position() is just a wrapper
- * method to make start and stop equal.
+ * the addAnnotation() method, but the more common fields have their own convenience methods. Only the feature's own ID
+ * is required; all other annotations are optional
  */
 //TODO: Are all the required fields necessary, or should I just require the ID and (maybe) check for start-stop values if they're given?
 public class GenomeFeatureBuilder {
@@ -59,39 +58,29 @@ public class GenomeFeatureBuilder {
     private void validateData() {
 
         //Test that feature has the required fields
-        if (!myannotations.containsKey("id")) {
+        if ( (!myannotations.containsKey("id")) || myannotations.get("id") == "NA") {
             throw new UnsupportedOperationException("GenomeFeatureBuilder: Cannot build a feature without a personal identifier (field 'id')");
-        }
-        if (!myannotations.containsKey("type")) {
-            throw new UnsupportedOperationException("GenomeFeatureBuilder: Cannot build a feature without a feature type (field 'id')");
-        }
-        if (!myannotations.containsKey("chromosome")) {
-            throw new UnsupportedOperationException("GenomeFeatureBuilder: Cannot build a feature without a chromosome (field 'id')");
-        }
-        if (!myannotations.containsKey("start")) {
-            throw new UnsupportedOperationException("GenomeFeatureBuilder: Cannot build a feature without a start position (field 'id')");
-        }
-        if (!myannotations.containsKey("stop")) {
-            throw new UnsupportedOperationException("GenomeFeatureBuilder: Cannot build a feature without a stop position (field 'id')");
         }
 
 
         //Test if start or stop is negative
-        int mystart = Integer.parseInt(myannotations.get("start"));
-        int mystop = Integer.parseInt(myannotations.get("stop"));
-        if (mystart < 0) {
-            throw new UnsupportedOperationException("GenomeFeatureBuilder: Start coordinate is negative for " +
-                    myannotations.get("id") + ": " + mystart + " (possibly unassigned?)");
-        }
-        if (mystop < 0) {
-            throw new UnsupportedOperationException("GenomeFeatureBuilder: Stop coordinate is negative for " +
-                    myannotations.get("id") + ": " + mystop + " (possibly unassigned?)");
-        }
+        if(myannotations.containsKey("start") && myannotations.containsKey("stop")) {
+            int mystart = Integer.parseInt(myannotations.get("start"));
+            int mystop = Integer.parseInt(myannotations.get("stop"));
+            if (mystart < 0) {
+                throw new UnsupportedOperationException("GenomeFeatureBuilder: Start coordinate is negative for " +
+                        myannotations.get("id") + ": " + mystart + " (possibly unassigned?)");
+            }
+            if (mystop < 0) {
+                throw new UnsupportedOperationException("GenomeFeatureBuilder: Stop coordinate is negative for " +
+                        myannotations.get("id") + ": " + mystop + " (possibly unassigned?)");
+            }
 
-        //Test that start is less than stop
-        if (mystart > mystop) {
-            throw new UnsupportedOperationException("GenomeFeatureBuilder: Start coordinate is greater than stop " +
-                    "coordinate for " + myannotations.get("id") + ": " + mystart + " vs " + mystop);
+            //Test that start is less than stop
+            if (mystart > mystop) {
+                throw new UnsupportedOperationException("GenomeFeatureBuilder: Start coordinate is greater than stop " +
+                        "coordinate for " + myannotations.get("id") + ": " + mystart + " vs " + mystop);
+            }
         }
     }
 
@@ -145,6 +134,9 @@ public class GenomeFeatureBuilder {
 
     public GenomeFeatureBuilder addAnnotation(String key, String value) {
         key = synonymizeKeys(key);
+        if("".equals(value)){   //Convert empty strings to 'NA'
+            value="NA";
+        }
         myannotations.put(key, value);  //All annotations kept in the hash
 
         //If the key is "position", convert to identical start-stop coordinates as well.
@@ -169,7 +161,7 @@ public class GenomeFeatureBuilder {
      * @return
      */
     public static String synonymizeKeys(String key) {
-        key.toLowerCase(Locale.ENGLISH);
+        key = key.toLowerCase(Locale.ENGLISH);
         switch (key) {
             case "name":
             case "id":
@@ -198,12 +190,24 @@ public class GenomeFeatureBuilder {
         }
     }
 
+    /**
+     * Load all annotations from a hashmap. Keys become the annotations, and values the annotation value. Each key-value
+     * pair is added individually (instead of using a putAll() method) to allow for key standardization, etc.
+     * @return This builder, with the new data loaded from the hashmap
+     */
+    public GenomeFeatureBuilder loadAll(HashMap<String, String> newAnnotations){
+        for(String key: newAnnotations.keySet()){
+            addAnnotation(key, newAnnotations.get(key));
+        }
+        return this;
+    }
 
     /**
      * Create a GenomeFeature from a line of GFF file. This method is modified from the BioJava source code for the same
      * purpose, in biojava3-genome/src/main/java/org/biojava3/genome/GFF3Reader.java
      *
      * @param line A single line from a GFF file as a string
+     * @return This builder, with the data loaded from the line
      */
     public GenomeFeatureBuilder parseGffLine(String line) {
         //Field identifiers for GFF format

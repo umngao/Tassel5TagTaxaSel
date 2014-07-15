@@ -4,6 +4,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
+import net.maizegenetics.analysis.data.IntersectionAlignmentPlugin;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -24,8 +25,22 @@ public class GenomeFeature {
        this.annotations=myannotations;
 
        //Assign position values based on annotations. Lookup is 100-1000x faster this way than having to convert from String each time
-       this.start = Integer.parseInt(annotations.get("start"));
-       this.stop = Integer.parseInt(annotations.get("stop"));
+       this.start = assignPosition("start");
+       this.stop = assignPosition("stop");
+    }
+
+    /**
+     * Parse the stored annotation on a position into an int. Returns -1 if not found.
+     * @param key
+     * @return
+     */
+    private int assignPosition(String key){
+        String value = getAnnotation(key);
+        try{
+            return Integer.parseInt(value);
+        }catch(NumberFormatException e){
+            return -1;
+        }
     }
 
     //Various convenience methods to get the most common annotations

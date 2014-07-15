@@ -1,15 +1,13 @@
 package net.maizegenetics.dna.map;
 
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Range;
-import com.google.common.collect.RangeMap;
-import com.google.common.collect.TreeRangeMap;
+import com.google.common.collect.*;
 import net.maizegenetics.util.DirectedGraph;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -20,6 +18,7 @@ import java.util.Map;
  * For now, not implementing functionality to make a new builder from an existing map.
  */
 //TODO: Add functionality for reading in a precompiled map
+//TODO: Add ability to read in GFF, Flatfile, and JSON
 public class GenomeFeatureMapBuilder {
 
     //Root of the GenomeFeature tree - DEPRECATED IN FAVOR OF AN ACTUAL GRAPH
@@ -32,8 +31,8 @@ public class GenomeFeatureMapBuilder {
 
     //Lookups to identify GenomeFeatures by their name, location, and type (exon, gene, etc)
     private HashMap<String, GenomeFeature> nameLookup = new HashMap<>();
-    private HashMap<String, RangeMap<Integer, HashSet<GenomeFeature>>> locationLookup = null; // Complex.
-    private Multimap<String, GenomeFeature> typeLookup = null;
+    private HashMap<String, RangeMap<Integer, HashSet<GenomeFeature>>> locationLookup = new HashMap<>(); // Complex.
+    private Multimap<String, GenomeFeature> typeLookup = HashMultimap.create();
 
     //Helper variables used to store information to build the feature map
     HashSet<String> chromosomes = new HashSet<>();
@@ -91,25 +90,34 @@ public class GenomeFeatureMapBuilder {
      * @param feature GenomeFeature to be added. Only start and stop position are checked
      * @return
      */
+    //TODO: Check that this works for single-bp features
     public static void addFeatureToRangemap(
             RangeMap<Integer, HashSet<GenomeFeature>>  masterMap, GenomeFeature feature){
 
-        Range<Integer> span = Range.closed(feature.start(), feature.stop());
+        Range<Integer> featureRange = Range.closed(feature.start(), feature.stop());
 
-        //First, extract out subrange (to preserve annotations already there)
-        RangeMap subrange = masterMap.subRangeMap(span);
+        //First, extract out subrange and save any annotations already there. (Requires making a copy so later modification of
+        // masterMap doesn't change things
+        ArrayList<Range> rangeList = new ArrayList<>();
+        ArrayList<HashSet<GenomeFeature>> hashList = new ArrayList<>();
+        Map<Range<Integer>, HashSet<GenomeFeature>> subranges = masterMap.subRangeMap(featureRange).asMapOfRanges();
+        for(Range r: subranges.keySet()){
+            rangeList.add(Range.closed(r.lowerEndpoint(), r.upperEndpoint()));
+            hashList.add(new HashSet<GenomeFeature>(subranges.get(r)));
+        }
 
-        //Next, set entire range equal to the new feature (so that any previously empty regions now map to it)
+        //Next, set entire range equal to the new feature to cover any areas not covered by the existing ranges
         HashSet<GenomeFeature> newset = new HashSet<>();
         newset.add(feature);
-        masterMap.put(span, newset);
+        masterMap.put(featureRange, newset);
 
-        //Take the extracted, existing annotations and add back in, adding this feature to the list
-        Map<Range<Integer>, HashSet<GenomeFeature>> subranges = subrange.asMapOfRanges();
-        for(Range r: subranges.keySet()){
-            HashSet<GenomeFeature> tempset = subranges.get(r);
-            tempset.add(feature);
-            masterMap.put(r, tempset);
+        //Take the extracted, existing annotations and add back in, adding this feature to the list since they overwrite
+        // everything already there
+        for(int i=0; i<rangeList.size(); i++){
+            HashSet<GenomeFeature> tempset = hashList.get(i);
+            Range<Integer> temprange = rangeList.get(i);
+            tempset.add(feature); //Add the feature on top of existing ones
+            masterMap.put(temprange, tempset);
         }
 
         //return masterMap;
@@ -162,9 +170,8 @@ public class GenomeFeatureMapBuilder {
      * this involves several ad-hoc heuristics about what things to look for. As such, it is not the preferred way to
      * read in annotations. (That is JSON or tab-delimited format.)
      *
-     * This method does not build the map, so you can string
-     * multiple calls together (if, for example, you have different annotations in different files)
-     *
+     * This method does not build the map, so you can string multiple calls together (if, for example, you have
+     * different annotations in different files)
      *
      * @param filename
      */
@@ -201,7 +208,7 @@ public class GenomeFeatureMapBuilder {
      *   "start":    Start position on the chromosome
      *   "stop":     Stop position on the chromosome (Also accepts "end")
      *   "position": Postion on chromosome (in place of "start" and "stop" for features that are a single nucleotide)
-     *   "parent":   What other named feature this descends from (eg, Gene -> Transcript -> Exon). If none given, this
+     *   "parent_id":   What other named feature this descends from (eg, Gene -> Transcript -> Exon). If none given, this
      *                   will default to the chromosome (or the genome if chromosome isn't supplied)
      *
      * This method does not build the map, so you can string multiple calls together (if, for example, you have
@@ -224,7 +231,7 @@ public class GenomeFeatureMapBuilder {
      *   "start":    Start position on the chromosome
      *   "stop":     Stop position on the chromosome (Also accepts "end")
      *   "position": Postion on chromosome (in place of "start" and "stop" for features that are a single nucleotide)
-     *   "parent":   What other named feature this descends from (eg, Gene -> Transcript -> Exon). If none given, this
+     *   "parent_id":   What other named feature this descends from (eg, Gene -> Transcript -> Exon). If none given, this
      *                   will default to the chromosome (or the genome if chromosome isn't supplied)
      *
      * This method does not build the map, so you can string multiple calls together (if, for example, you have
@@ -232,7 +239,45 @@ public class GenomeFeatureMapBuilder {
      * @param filename
      */
     public GenomeFeatureMapBuilder addFromFlatFile(String filename) {
-        //TODO: Load columns into hashes to make features extensible? - maybe for optional things
+        try {
+            BufferedReader reader = Utils.getBufferedReader(filename);
+            String line=reader.readLine();
+            String[] header = null;
+            int n=1;    //Keep track of line numbers
+            while(line != null ){
+                n++;
+                if(line.startsWith("#")){    //Skip comment lines
+                    line=reader.readLine();
+                    continue;
+                }
+                String[] tokens = line.split("\t");
+
+                if(header == null){ //Save header data
+                    header=tokens;
+                    line=reader.readLine();
+                    continue;
+                }
+
+                //Check that number of fields is correct
+                if(tokens.length != header.length){
+                    myLogger.error("Error: line " + n + " has a different number of fields (" + tokens.length + ") than the header (" + header.length + ")");
+                }
+
+                //Load everything into a hapmap
+                HashMap<String, String> data = new HashMap<>();
+                for(int i=0; i<tokens.length; i++){
+                    data.put(header[i], tokens[i]);
+                }
+
+                //Add to map
+                GenomeFeature newFeature = new GenomeFeatureBuilder().loadAll(data).build();
+                addFeature(newFeature);
+                line=reader.readLine();
+            }
+            reader.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         return this;
     }
 
