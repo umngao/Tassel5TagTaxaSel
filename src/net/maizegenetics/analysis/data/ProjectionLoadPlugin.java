@@ -1,9 +1,7 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * ProjectionLoadPlugin
  */
 package net.maizegenetics.analysis.data;
-
 
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.io.ProjectionGenotypeIO;
@@ -28,10 +26,10 @@ import java.awt.event.ComponentEvent;
 import java.io.*;
 
 import org.apache.log4j.Logger;
+
 /**
  *
- * @author Alex Lipka
- * This should enable a used to load a projection alignment
+ * @author Alex Lipka This should enable a used to load a projection alignment
  * using the TASSEL GUI
  */
 public class ProjectionLoadPlugin extends AbstractPlugin {
@@ -46,7 +44,9 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
     private String hetSeparator;
     private String missingCharacter;
 
-    /** Creates a new instance of ProjectionLoadPlugin */
+    /**
+     * Creates a new instance of ProjectionLoadPlugin
+     */
     public ProjectionLoadPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
@@ -79,7 +79,7 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
             DataSet result = loadFile(myRecombinationBreakpoints, myHighDensityMarkers);
             return result;
         } catch (Exception e) {
-            String msg = "Recombination breakpoints " + myRecombinationBreakpoints+ " and high density markers"
+            String msg = "Recombination breakpoints " + myRecombinationBreakpoints + " and high density markers"
                     + myHighDensityMarkers + " failed to load. " + "Make sure the import options are properly set.";
             if (isInteractive()) {
                 JOptionPane.showMessageDialog(getParentFrame(), msg, "Error uploading Projection files", JOptionPane.ERROR_MESSAGE);
@@ -147,18 +147,16 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
         GenotypeTable theAlignmentForGenotype = null;
         //Terry - fix this
         try {
-        theAlignmentForGenotype = ProjectionGenotypeIO.getInstance(theRecombinationBreakpoints, theHighDensityMarkers);
-        
-        //Run ProjectionBuilder() to create the breakpoints
-        //ProjectionBuilder theProjectionBuilder =  new ProjectionBuilder(theAlignment);
-        
-        //theAlignmentForGenotype = theProjectionBuilder.build();
-       } catch (Exception e) {
+            theAlignmentForGenotype = ProjectionGenotypeIO.getInstance(theRecombinationBreakpoints, theHighDensityMarkers);
+
+            //Run ProjectionBuilder() to create the breakpoints
+            //ProjectionBuilder theProjectionBuilder =  new ProjectionBuilder(theAlignment);
+            //theAlignmentForGenotype = theProjectionBuilder.build();
+        } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
-        
-        
+
         //Begin here, Alex
         Datum td = new Datum(Utils.getFilename(theRecombinationBreakpoints, FileLoadPlugin.FILE_EXT_HAPMAP), theAlignmentForGenotype, null);
         DataSet tds = new DataSet(td, this);
@@ -323,22 +321,6 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
             pack();
         }
 
-        private JButton getResetButton() {
-
-            JButton resetButton = new JButton("Reset");
-            resetButton.addActionListener(new ActionListener() {
-
-                public void actionPerformed(ActionEvent e) {
-                    myRecombinationBreakpointsField.setText("");
-                    myHighDensityMarkersField.setText("");
-                    myChromosomeField.setText("");
-                }
-            });
-
-            return resetButton;
-
-        }
-
         private JButton getCancelButton() {
 
             JButton cancelButton = new JButton("Cancel");
@@ -376,5 +358,5 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
         public boolean isCancel() {
             return myIsCancel;
         }
-    }    
+    }
 }
