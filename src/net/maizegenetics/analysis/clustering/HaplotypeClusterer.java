@@ -449,6 +449,14 @@ public class HaplotypeClusterer {
 		sortClusters();
 	}
 	
+	public void removeHeterozygousClusters(int maxHetSites) {
+		Iterator<HaplotypeCluster> clusterIt = clusterList.iterator();
+		while (clusterIt.hasNext()) {
+			HaplotypeCluster thisCluster = clusterIt.next();
+			if (thisCluster.countHeterozygousSites() > maxHetSites) clusterIt.remove();
+		}
+	}
+	
 	/**
 	 * Recalculates the scores of the clusters in the cluster list. Removes any clusters with a score of 0.
 	 */
