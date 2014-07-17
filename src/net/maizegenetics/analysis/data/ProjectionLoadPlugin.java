@@ -24,6 +24,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.io.*;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 
@@ -37,6 +38,7 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
     private static final Logger myLogger = Logger.getLogger(ProjectionLoadPlugin.class);
     private String myRecombinationBreakpoints = null;
     private String myHighDensityMarkers = null;
+    private GenotypeTable myHighDensityMarkersGenotypeTable = null;
     private String myChromosome = null;
     private boolean hasHetSeparator;
     private boolean hasNucleotides = true;
@@ -66,18 +68,29 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
             //missingCharacter = theDialog.txtMissing.getText().trim();
             //isPhysicalMap = theDialog.radioPhysical.isSelected();
             theDialog.dispose();
-        }
-
-        if ((myRecombinationBreakpoints == null) || (myRecombinationBreakpoints.length() == 0)) {
-            return null;
-        }
-        if ((myHighDensityMarkers == null) || (myHighDensityMarkers.length() == 0)) {
-            return null;
+        } else {
+            List<Datum> genotypeTables = input.getDataOfType(GenotypeTable.class);
+            if (genotypeTables.size() == 1) {
+                myHighDensityMarkersGenotypeTable = (GenotypeTable) genotypeTables.get(0).getData();
+            }
         }
 
         try {
-            DataSet result = loadFile(myRecombinationBreakpoints, myHighDensityMarkers);
-            return result;
+
+            if ((myRecombinationBreakpoints == null) || (myRecombinationBreakpoints.length() == 0)) {
+                return null;
+            }
+
+            if (myHighDensityMarkersGenotypeTable != null) {
+                return loadFile(myRecombinationBreakpoints, myHighDensityMarkersGenotypeTable);
+            }
+
+            if ((myHighDensityMarkers == null) || (myHighDensityMarkers.length() == 0)) {
+                return null;
+            }
+
+            return loadFile(myRecombinationBreakpoints, myHighDensityMarkers);
+
         } catch (Exception e) {
             String msg = "Recombination breakpoints " + myRecombinationBreakpoints + " and high density markers"
                     + myHighDensityMarkers + " failed to load. " + "Make sure the import options are properly set.";
@@ -87,6 +100,8 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
                 myLogger.error(msg);
             }
             return null;
+        } finally {
+            fireProgress(100);
         }
 
     }
@@ -143,6 +158,30 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
     }
 
     public DataSet loadFile(String theRecombinationBreakpoints, String theHighDensityMarkers) {
+
+        GenotypeTable theAlignmentForGenotype = null;
+        //Terry - fix this
+        try {
+            theAlignmentForGenotype = ProjectionGenotypeIO.getInstance(theRecombinationBreakpoints, theHighDensityMarkers);
+
+            //Run ProjectionBuilder() to create the breakpoints
+            //ProjectionBuilder theProjectionBuilder =  new ProjectionBuilder(theAlignment);
+            //theAlignmentForGenotype = theProjectionBuilder.build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+
+        //Begin here, Alex
+        Datum td = new Datum(Utils.getFilename(theRecombinationBreakpoints, FileLoadPlugin.FILE_EXT_HAPMAP), theAlignmentForGenotype, null);
+        DataSet tds = new DataSet(td, this);
+        fireDataSetReturned(new PluginEvent(tds, ProjectionLoadPlugin.class));
+
+        return tds;
+
+    }
+
+    public DataSet loadFile(String theRecombinationBreakpoints, GenotypeTable theHighDensityMarkers) {
 
         GenotypeTable theAlignmentForGenotype = null;
         //Terry - fix this
