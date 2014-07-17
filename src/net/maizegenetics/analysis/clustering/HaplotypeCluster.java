@@ -185,6 +185,8 @@ public class HaplotypeCluster implements Comparable<HaplotypeCluster> {
 	 * 
 	 * @param site
 	 * @return	the alleles at this site with respective count, sorted by count, high to low
+	 * The first dimension is the allele number. For the second dimension, the zero element is the byte value of the allele and 
+	 * the second element is the number of individuals carrying that allele.
 	 */
 	public int[][] getAllelesAtSite(int site) {
 		if (alleleCounts == null) countAllelesAtAllSites();
@@ -426,6 +428,18 @@ public class HaplotypeCluster implements Comparable<HaplotypeCluster> {
 	
 	public boolean contains(Haplotype hap) {
 		return hapList.contains(hap);
+	}
+	
+	public int countHeterozygousSites() {
+		countAllelesAtAllSites();
+		int nhet = 0;
+		int ntotal = getNumberOfSites();
+		for (int s = 0; s < ntotal; s++) {
+			int[][] alleles = alleleCounts.get(s);
+			if (alleles.length > 0 && GenotypeTableUtils.isHeterozygous((byte) alleles[0][0])) nhet++;
+			else if (alleles.length > 1 && alleles[1][1] > 1) nhet++;
+		}
+		return nhet;
 	}
 	
 	@Override
