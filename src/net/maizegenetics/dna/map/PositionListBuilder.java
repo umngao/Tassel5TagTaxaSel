@@ -182,7 +182,7 @@ public class PositionListBuilder {
     /**
      * Creates in memory of PositionList from the an array of positions.
      */
-    public static PositionList getInstance(ArrayList<Position> positions) {
+    public static PositionList getInstance(List<Position> positions) {
         PositionListBuilder builder = new PositionListBuilder();
         builder.addAll(positions);
         return builder.build();

@@ -77,7 +77,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     
     private PluginParameter<Integer> appoxSitesPerDonorGenotypeTable= new PluginParameter.Builder<>("hapSize",8000,Integer.class).guiName("Preferred haplotype size")
             .description("Preferred haplotype block size in sites (use same as in FILLINFindHaplotypesPlugin)").build();
-    private PluginParameter<Double> hetThresh= new PluginParameter.Builder<>("mxHet",0.01,Double.class).guiName("Heterozygosity threshold")
+    private PluginParameter<Double> hetThresh= new PluginParameter.Builder<>("mxHet",0.02,Double.class).guiName("Heterozygosity threshold")
             .description("Threshold per taxon heterozygosity for treating taxon as heterozygous (no Viterbi, het thresholds).").build();
     private PluginParameter<Double> maximumInbredError= new PluginParameter.Builder<>("mxInbErr",0.01,Double.class).guiName("Max error to impute one donor")
             .description("Maximum error rate for applying one haplotype to entire site window").build();
@@ -482,15 +482,15 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
                 for (DonorHypoth dh:best2donors) {
                     if(dh!=null&&dh.getErrorRate()<focusSmashErr) {
                         goodDH.add(dh);
+                    }
                 }
-                    if (goodDH.size()!=0) {
-                        DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
-                        for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
-                        regionHypth[focusBlock]= vdh;
-                        impT= setAlignmentWithDonors(donorAlign, regionHypth[focusBlock], donorOffset, true,impT, true, hetsToMiss);//only set donors for focus block //KLS0201
-                        impT.incBlocksSolved(); currBlocksSolved[2]++; currBlocksSolved[4]++; continue;
-            }
-        }
+                if (goodDH.size()!=0) {
+                    DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
+                    for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
+                    regionHypth[focusBlock]= vdh;
+                    impT= setAlignmentWithDonors(donorAlign, regionHypth[focusBlock], donorOffset, true,impT, true, hetsToMiss);//only set donors for focus block //KLS0201
+                    impT.incBlocksSolved(); currBlocksSolved[2]++; currBlocksSolved[4]++; continue;
+                }
             //if fails, do not impute this focus block    
             } else currBlocksSolved[3]++;
         }
@@ -610,12 +610,14 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
         static protected StatePositionChain reverseInstance(StatePositionChain forwardSPC) {
             byte[] informStatesR=Arrays.copyOf(forwardSPC.informStates,forwardSPC.informStates.length);
             ArrayUtils.reverse(informStatesR);
-            int[] informSitesReverse= Arrays.copyOf(forwardSPC.informSites,forwardSPC.informSites.length);
-            ArrayUtils.reverse(informSitesReverse);
-            return new StatePositionChain(forwardSPC.startSite, forwardSPC.totalSiteCnt, informStatesR, informSitesReverse);
+            //this retains the distance between sites in the reverse
+            int[] informSitesReverse= new int[forwardSPC.informSites.length];
+            for (int site = 0; site < informSitesReverse.length; site++) {
+                informSitesReverse[site]= forwardSPC.totalSiteCnt-1-forwardSPC.informSites[forwardSPC.informSites.length-site-1];
+            }
+            return new StatePositionChain(informSitesReverse[0], forwardSPC.totalSiteCnt, informStatesR, informSitesReverse);
         }
     }
-
 
     private int[] getUniqueDonorsForBlock(DonorHypoth[][] regionHypth, int block) {//change so only adding those donors that are not identical for target blocks
         Set<Integer> donors= new HashSet<>();
