@@ -1620,6 +1620,10 @@ public class NucleotideImputationUtils {
 		}
 
 		public static void fillGapsInAlignment(PopulationData popdata) {
+			popdata.imputed = fillGapsInImputedAlignment(popdata);		
+		}
+
+		public static GenotypeTable fillGapsInImputedAlignment(PopulationData popdata) {
 			int ntaxa = popdata.imputed.numberOfTaxa();
 			int nsites = popdata.imputed.numberOfSites();
 			GenotypeTableBuilder builder = GenotypeTableBuilder.getTaxaIncremental(popdata.imputed.positions());
@@ -1634,21 +1638,23 @@ public class NucleotideImputationUtils {
 						if (prevsite == -1) {
 							prevsite = s;
 							prevValue = val;
+							taxonGeno[s] = val;
 						} else if(val == prevValue) {
-							for (int site = prevsite + 1; site < s; site++) {
+							for (int site = prevsite + 1; site <= s; site++) {
 								taxonGeno[site] = prevValue;
 							}
 							prevsite = s;
 						} else {
 							prevsite = s;
 							prevValue = val;
+							taxonGeno[s] = val;
 						}
 					}
 				}
 				builder.addTaxon(popdata.imputed.taxa().get(t), taxonGeno);
 			}
 
-			popdata.imputed = builder.build();		
+			return builder.build();		
 		}
 
 		public static GenotypeTable convertParentCallsToNucleotides(PopulationData popdata) {
@@ -1658,18 +1664,20 @@ public class NucleotideImputationUtils {
 
 			GenotypeTableBuilder builder = GenotypeTableBuilder.getSiteIncremental(popdata.imputed.taxa());
 			BitSet isPopSnp = popdata.snpIndex;
-			int nsites = (int) isPopSnp.capacity();
+			int nsites = popdata.original.numberOfSites();
 			int ntaxa = popdata.imputed.taxa().numberOfTaxa();
 			int imputedSnpCount = 0;
 
 			for (int s = 0; s < nsites; s++) {
 				if (isPopSnp.fastGet(s)) {
-					int Acall = popdata.alleleA[s];
-					int Ccall = popdata.alleleC[s];
-					byte AAcall = (byte) ((Acall << 4) | Acall);
-					byte CCcall = (byte) ((Ccall << 4) | Ccall);
-					byte ACcall = (byte) ((Acall << 4) | Ccall);
+					byte AAcall = popdata.alleleA[s];
+					byte CCcall = popdata.alleleC[s];
+					byte ACcall;
+					if (GenotypeTableUtils.isHeterozygous(AAcall)) ACcall = AAcall;
+					else if (GenotypeTableUtils.isHeterozygous(CCcall)) ACcall = CCcall; 
+					else ACcall = GenotypeTableUtils.getDiploidValue(AAcall, CCcall);
 					byte[] geno = new byte[ntaxa];
+					
 					for (int t = 0; t < ntaxa; t++) {
 						byte parentCall = popdata.imputed.genotype(t, imputedSnpCount);
 						if (parentCall == AA) {

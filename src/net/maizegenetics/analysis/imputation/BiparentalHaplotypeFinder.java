@@ -17,6 +17,7 @@ import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
+import net.maizegenetics.util.OpenBitSet;
 
 /**
  * @author pbradbury
@@ -24,6 +25,7 @@ import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
  */
 public class BiparentalHaplotypeFinder {
 	PopulationData myPopulationData;
+	GenotypeTable initialGenotype;
 	static final byte AA = NucleotideAlignmentConstants.getNucleotideDiploidByte("AA");
 	static final byte CC = NucleotideAlignmentConstants.getNucleotideDiploidByte("CC");
 	static final byte AC = NucleotideAlignmentConstants.getNucleotideDiploidByte("AC");
@@ -79,7 +81,7 @@ public class BiparentalHaplotypeFinder {
 	
 	public BiparentalHaplotypeFinder(PopulationData popdata) {
 		myPopulationData = popdata;
-		
+		initialGenotype = popdata.original;
 	}
 	
 	public void assignHaplotyes() {
@@ -347,6 +349,25 @@ public class BiparentalHaplotypeFinder {
 		}
 		
 		myPopulationData.imputed = genoBuilder.build();
+		
+		//replace original, which was filtered, with initial, which is pre-filtered
+		//create snpIndex
+//		myPopulationData.original = initialGenotype;
+//		int[] imputedPositions = myPopulationData.imputed.physicalPositions();
+//		int[] originalPositions = initialGenotype.physicalPositions();
+//		int npos = originalPositions.length;
+//		OpenBitSet snpNdx = new OpenBitSet(npos);
+//		for (int i = 0; i < npos; i++) {
+//			int ndx = Arrays.binarySearch(imputedPositions, originalPositions[i]);
+//			if (ndx > -1) snpNdx.fastSet(i);
+//		}
+//		myPopulationData.snpIndex = snpNdx;
+		
+		//create a snp index
+		int npos = myPopulationData.original.numberOfSites();
+		OpenBitSet snpNdx = new OpenBitSet(npos);
+		snpNdx.not(); //use all sites
+		myPopulationData.snpIndex = snpNdx;
 	}
 
 	public GenotypeTable preFilterSites() {
