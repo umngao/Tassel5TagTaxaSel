@@ -6,8 +6,6 @@
  */
 package net.maizegenetics.analysis.data;
 
-
-import net.maizegenetics.analysis.data.FileLoadPlugin;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.ImportUtils;
 
@@ -48,7 +46,9 @@ public class PlinkLoadPlugin extends AbstractPlugin {
     private String myMapFile = null;
     private String myChromosome = null;
 
-    /** Creates a new instance of PlinkLoadPlugin */
+    /**
+     * Creates a new instance of PlinkLoadPlugin
+     */
     public PlinkLoadPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
@@ -132,8 +132,6 @@ public class PlinkLoadPlugin extends AbstractPlugin {
 
     public DataSet loadFile(String thePedFile, String theMapFile, String chromosome) {
 
-        // Terry - fix this.
-        //Alignment result = null;
         GenotypeTable result = ImportUtils.readFromPLink(thePedFile, theMapFile, this);
         Datum td = new Datum(Utils.getFilename(thePedFile, FileLoadPlugin.FILE_EXT_PLINK_PED), result, null);
         DataSet tds = new DataSet(td, this);
@@ -149,7 +147,6 @@ public class PlinkLoadPlugin extends AbstractPlugin {
         private final static int TEXT_FIELD_WIDTH = 30;
         private JTextField myMapFileField = null;
         private JTextField myPedFileField = null;
-        private JTextField myChromosomeField = null;
         private boolean myIsCancel = false;
 
         private JButton myMapFileBrowseButton = null;
@@ -174,7 +171,7 @@ public class PlinkLoadPlugin extends AbstractPlugin {
 
             myMapFileField = new JTextField(TEXT_FIELD_WIDTH);
             myMapFileField.setText("(Select .MAP File)");
-            
+
             myFileChooser = new JFileChooser(TasselPrefs.getOpenDir());
 
             myPedFileBrowseButton = new JButton("Browse...");
@@ -252,7 +249,6 @@ public class PlinkLoadPlugin extends AbstractPlugin {
 
             inputs.add(getLine("Ped File:", myPedFileField, myPedFileBrowseButton));
             inputs.add(getLine("Map File:", myMapFileField, myMapFileBrowseButton));
-//            inputs.add(getLine("Chromosome:", myChromosomeField));
 
             inputs.add(Box.createRigidArea(new Dimension(1, 20)));
 
@@ -270,7 +266,6 @@ public class PlinkLoadPlugin extends AbstractPlugin {
                 public void actionPerformed(ActionEvent e) {
                     myPedFileField.setText("");
                     myMapFileField.setText("");
-                    myChromosomeField.setText("");
                 }
             });
 
@@ -349,7 +344,6 @@ public class PlinkLoadPlugin extends AbstractPlugin {
                 public void actionPerformed(ActionEvent e) {
                     myPedFile = myPedFileField.getText();
                     myMapFile = myMapFileField.getText();
-//                    myChromosome = myChromosomeField.getText();
                     myIsCancel = false;
                     setVisible(false);
                 }

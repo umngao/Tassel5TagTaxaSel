@@ -16,8 +16,8 @@ import net.maizegenetics.util.Tassel5HDF5Constants;
 import java.util.concurrent.ExecutionException;
 
 /**
- * HDF5 implementation of GenotypeTable. Uses caching of GenotypeTable, alleleCounts, MAF,
- * and siteCoverage
+ * HDF5 implementation of GenotypeTable. Uses caching of GenotypeTable,
+ * alleleCounts, MAF, and siteCoverage
  *
  * @author Ed Buckler
  * @author Terry Casstevens
@@ -36,6 +36,7 @@ class HDF5ByteGenotypeCallTable extends AbstractGenotypeCallTable {
 
     private final LoadingCache<Long, byte[]> myGenoCache;
     private final CacheLoader<Long, byte[]> myGenoLoader = new CacheLoader<Long, byte[]>() {
+        @Override
         public byte[] load(Long key) {
             long offset = getSiteStartFromKey(key) << SHIFT_AMOUNT;
             byte[] data;
@@ -46,14 +47,15 @@ class HDF5ByteGenotypeCallTable extends AbstractGenotypeCallTable {
         }
     };
 
-    private LoadingCache<Integer, SiteBlockAttr> mySiteAnnoCache; //key = site
-    private CacheLoader<Integer, SiteBlockAttr> siteAnnotLoader = new CacheLoader<Integer, SiteBlockAttr>() {
+    private final LoadingCache<Integer, SiteBlockAttr> mySiteAnnoCache; //key = site
+    private final CacheLoader<Integer, SiteBlockAttr> siteAnnotLoader = new CacheLoader<Integer, SiteBlockAttr>() {
         int lastCachedStartSite = Integer.MIN_VALUE;
         int[][] af;
         byte[][] afOrder;
         float[] maf;
         float[] paf;
 
+        @Override
         public SiteBlockAttr load(Integer key) {
             int startSite = getStartSite(key);
             int length = Math.min(HDF5_GENOTYPE_BLOCK_SIZE, numberOfSites() - startSite);
@@ -66,9 +68,7 @@ class HDF5ByteGenotypeCallTable extends AbstractGenotypeCallTable {
                 paf = myHDF5Reader.readFloatArrayBlockWithOffset(Tassel5HDF5Constants.SITECOV, length, startSite);
                 lastCachedStartSite = startSite;
             }
-            //perhaps kickoff a process to load the rest
-            SiteBlockAttr sa = new SiteBlockAttr(startSite, afOrder, af, maf, paf);
-            return sa;
+            return new SiteBlockAttr(startSite, afOrder, af, maf, paf);
         }
     };
 
@@ -111,12 +111,6 @@ class HDF5ByteGenotypeCallTable extends AbstractGenotypeCallTable {
             return siteCov[site - startSite];
         }
 
-//        public int getAlleleTotal(int site) {
-//            int offset=site-startSite;
-//            int total=0;
-//            for (int b : myAlleleCnt) {total+=b;}
-//            return total;
-//        }
     }
 
     private static long getCacheKey(int taxon, int site) {
@@ -144,7 +138,6 @@ class HDF5ByteGenotypeCallTable extends AbstractGenotypeCallTable {
         genotypePaths = new String[numTaxa];
         TaxaList tL = new TaxaListBuilder().buildFromHDF5Genotypes(reader);  //not the most efficient thing to do, but ensures sort is the same.
         for (int i = 0; i < numTaxa; i++) {
-            //genotypePaths[i] = Tassel5HDF5Constants.GENOTYPES + "/" + tL.taxaName(i);
             genotypePaths[i] = Tassel5HDF5Constants.getGenotypesCallsPath(tL.taxaName(i));
         }
         myHDF5Reader = reader;
