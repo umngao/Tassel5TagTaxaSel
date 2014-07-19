@@ -341,7 +341,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
                 }
                 impTaxon.setSegmentSolved(false);
 
-                //tries to solve the entire donorAlign region by Virterbi
+                //tries to solve the entire donorAlign region by Virterbi or Inbred
                 impTaxon=solveEntireDonorRegion(taxon, donorAlign[da], donorOffset, regionHypthInbred, impTaxon, maskedTargetBits, maxHybridErrorRate.value(), targetToDonorDistances);
                 if(impTaxon.isSegmentSolved()) {countFullLength++; continue;}
 
@@ -458,14 +458,17 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
             //check for Viterbi and inbred
             ArrayList<DonorHypoth> goodDH= new ArrayList<DonorHypoth>(); //KLS0201
             if (best2donors[0].getErrorRate()<focusInbredErr) {
+                boolean top= true;
                 for (DonorHypoth dh : best2donors) {
-                    if((dh!=null)) {
-                        if((dh.isInbred()==false)&&(dh.getErrorRate()<focusHybridErr)){
-                            dh=getStateBasedOnViterbi(dh, donorOffset, donorAlign, twoWayViterbi, transition);
-                            if(dh!=null) vit= true;
-                        }
-                    if(dh!=null&&(dh.getErrorRate()<focusInbredErr)) goodDH.add(dh);
+                    if(dh==null) continue;
+                    if(dh.isInbred() && (dh.getErrorRate()<focusInbredErr)) {
+                        goodDH.add(dh);
+                    } else if(dh.getErrorRate()<focusHybridErr) {
+                        dh=getStateBasedOnViterbi(dh, donorOffset, donorAlign, twoWayViterbi, transition);
+                        if(dh!=null) goodDH.add(dh);
+                        if (top) vit= true;
                     }
+                    top= false;
                 }
                 if (goodDH.size()!=0) {
                     DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];

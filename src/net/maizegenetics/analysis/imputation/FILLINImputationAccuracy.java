@@ -19,6 +19,7 @@ import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.PositionListBuilder;
+import net.maizegenetics.dna.snp.ExportUtils;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import static net.maizegenetics.dna.snp.GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
@@ -192,23 +193,8 @@ public class FILLINImputationAccuracy {
                     return false;
                 }
             }
-//            int[] unimpPos;
-//            int[] keyPos;
-//            for (Chromosome chr:this.unimp.chromosomes()) {
-//                int[] startEndUnimp= this.unimp.firstLastSiteOfChromosome(chr); int[] startEndKey= maskKey.firstLastSiteOfChromosome(chr);
-//                unimpPos= Arrays.copyOfRange(this.unimp.physicalPositions(), startEndUnimp[0], startEndUnimp[1]+1);
-//                keyPos= Arrays.copyOfRange(this.maskKey.physicalPositions(), startEndKey[0], startEndKey[1]+1);
-//                for (int posOnChr = 0; posOnChr < unimpPos.length; posOnChr++) {//if input hapmap sites not in key, return null
-//                    if (Arrays.binarySearch(keyPos, unimpPos[posOnChr])<0) return false;
-//                }
-//                for (int posOnChr = 0; posOnChr < keyPos.length; posOnChr++) {//if key site in input hapmap, retain
-//                    if (Arrays.binarySearch(unimpPos, keyPos[posOnChr])>-1) {
-//                        keepSites.add(this.maskKey.siteName(startEndKey[0]+posOnChr));
-//                    }
-//                }
-//            }
             FilterGenotypeTable filter= FilterGenotypeTable.getInstance(this.maskKey, keepSites.toArray(new String[keepSites.size()]));
-            this.maskKey= GenotypeTableBuilder.getGenotypeCopyInstance(filter);
+            this.maskKey= filter;//GenotypeTableBuilder.getGenotypeCopyInstance(filter); //Change this back when GenotypeCopyInstance fixed
             if (verboseOutput) System.out.println("Sites in new mask: "+this.maskKey.numberOfSites());
             
             //check to see if all taxa in unimputed are in the mask file
@@ -240,7 +226,7 @@ public class FILLINImputationAccuracy {
                 }
             }
             FilterGenotypeTable filter= FilterGenotypeTable.getInstance(this.maskKey, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));
-            this.maskKey= GenotypeTableBuilder.getGenotypeCopyInstance(filter);
+            this.maskKey= filter;//GenotypeTableBuilder.getGenotypeCopyInstance(filter);//Change this back when GenotypeCopyInstance fixed
             if (verboseOutput) System.out.println(this.maskKey.numberOfSites()+" sites retained after chromsome filter");
             return true;
         }
