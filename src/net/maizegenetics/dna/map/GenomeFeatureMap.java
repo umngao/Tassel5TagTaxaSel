@@ -1,5 +1,6 @@
 package net.maizegenetics.dna.map;
 
+import com.google.common.collect.BoundType;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
@@ -74,8 +75,6 @@ public class GenomeFeatureMap {
      * as there is no way to read them back in.
      * @param filename The output file to be written to
      */
-    //TODO: Test and use this
-    //TODO: Figure out how to fix large features getting 1-bp entries when add adjacent features on top
     public void writeLocationLookupToFile(String filename){
         try {
             BufferedWriter writer = Utils.getBufferedWriter(filename);
@@ -87,6 +86,13 @@ public class GenomeFeatureMap {
                 for(Range<Integer> r: itermap.keySet()){
                     int start = r.lowerEndpoint();
                     int stop = r.upperEndpoint();
+                    //Adjust start-stop positions if ranges are open on that end (= up to but not including that number)
+                    if(r.lowerBoundType() == BoundType.OPEN){
+                        start++;
+                    }
+                    if(r.upperBoundType() == BoundType.OPEN){
+                        stop--;
+                    }
                     writer.append(chrom + "\t" + start + "\t" + stop + "\t");
                     //List of features
                     HashSet<GenomeFeature> features = itermap.get(r);

@@ -5,9 +5,11 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import org.apache.commons.math.exception.NumberIsTooSmallException;
 import org.apache.log4j.Logger;
+import org.json.simple.JSONObject;
 
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -291,6 +293,14 @@ public class GenomeFeatureBuilder {
         }
 
         return null;
+    }
+
+    public GenomeFeatureBuilder parseJsonObject (JSONObject featureData){
+        HashMap<String, String> jsonHash = new HashMap<>();
+        for (String key : (Set<String>) featureData.keySet()) {
+            addAnnotation(key, featureData.get(key).toString());
+        }
+        return this;
     }
 
 }

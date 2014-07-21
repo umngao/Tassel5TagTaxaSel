@@ -4,13 +4,14 @@ import com.google.common.collect.*;
 import net.maizegenetics.util.DirectedGraph;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+import sun.org.mozilla.javascript.internal.json.JsonParser;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by jgw87 on 7/2/14.
@@ -79,8 +80,12 @@ public class GenomeFeatureMapBuilder {
         for(GenomeFeature feature: nameLookup.values()){
             RangeMap mymap = locationLookup.get(feature.chromosome());
             addFeatureToRangemap(mymap, feature);
-            //TODO: I think the logic here is faulty
+
+
         }
+
+        //TODO: Remove 1-bp ranges caused by adjacent features; need a clean() function to call at end?
+        //TODO: Or maybe add new features in a different way, finding and filling gaps rather than overlaying
     }
 
     /**
@@ -90,21 +95,23 @@ public class GenomeFeatureMapBuilder {
      * @param feature GenomeFeature to be added. Only start and stop position are checked
      * @return
      */
-    //TODO: Check that this works for single-bp features
     public static void addFeatureToRangemap(
             RangeMap<Integer, HashSet<GenomeFeature>>  masterMap, GenomeFeature feature){
 
-        Range<Integer> featureRange = Range.closed(feature.start(), feature.stop());
+        //Make ranges closed-open b/c otherwise results in a lot of 1-bp redundant ranges where adjacent features were added
+        Range<Integer> featureRange = Range.closedOpen(feature.start(), feature.stop() + 1);
 
         //First, extract out subrange and save any annotations already there. (Requires making a copy so later modification of
         // masterMap doesn't change things
-        ArrayList<Range> rangeList = new ArrayList<>();
+        ArrayList<Range<Integer>> rangeList = new ArrayList<>();
         ArrayList<HashSet<GenomeFeature>> hashList = new ArrayList<>();
         Map<Range<Integer>, HashSet<GenomeFeature>> subranges = masterMap.subRangeMap(featureRange).asMapOfRanges();
-        for(Range r: subranges.keySet()){
-            rangeList.add(Range.closed(r.lowerEndpoint(), r.upperEndpoint()));
+        for(Range<Integer> r: subranges.keySet()){
+            rangeList.add(Range.closedOpen(r.lowerEndpoint(), r.upperEndpoint()));
             hashList.add(new HashSet<GenomeFeature>(subranges.get(r)));
         }
+
+
 
         //Next, set entire range equal to the new feature to cover any areas not covered by the existing ranges
         HashSet<GenomeFeature> newset = new HashSet<>();
@@ -119,8 +126,6 @@ public class GenomeFeatureMapBuilder {
             tempset.add(feature); //Add the feature on top of existing ones
             masterMap.put(temprange, tempset);
         }
-
-        //return masterMap;
     }
 
     /**
@@ -175,7 +180,7 @@ public class GenomeFeatureMapBuilder {
      *
      * @param filename
      */
-    public GenomeFeatureMapBuilder addFromGtfFile(String filename){
+    public GenomeFeatureMapBuilder addFromGffFile(String filename){
         myLogger.warn("GenomeFeatureMapBuilder - Loading genome annotations from GFF file. Will try to parse annotations " +
                 "field as best as possible. (JSON or tab-delimited formats are preferred.)");
         try {
@@ -216,7 +221,33 @@ public class GenomeFeatureMapBuilder {
      * @param filename
      */
     public GenomeFeatureMapBuilder addFromJsonFile(String filename) {
-        //TODO: Add JSON API and parse. Allow additional keys beyond just what's listed here in an extensible hash
+        JSONParser jparse = new JSONParser();
+        BufferedReader reader = Utils.getBufferedReader(filename);
+        try {
+            String jsonAsString = reader.readLine();
+            while(jsonAsString != null){
+                //Build up JSON object as a single string
+                String nextLine  = reader.readLine();
+                while(nextLine != null){
+                    jsonAsString += nextLine;
+                    if(nextLine.contains("}")){ //Break when hit closing brace
+                        break;
+                    }
+                    nextLine  = reader.readLine();
+                }
+                JSONObject featureData = (JSONObject) jparse.parse(jsonAsString);
+                GenomeFeature newFeature = new GenomeFeatureBuilder().parseJsonObject(featureData).build();
+                addFeature(newFeature);
+                jsonAsString = reader.readLine();
+            }
+        } catch (IOException e) {
+            myLogger.error("Error loading data from JSON file " + filename);
+            e.printStackTrace();
+        } catch (ParseException e) {
+            myLogger.error("Error parsing information in JSON file " + filename);
+            e.printStackTrace();
+        }
+
         return this;
     }
 
