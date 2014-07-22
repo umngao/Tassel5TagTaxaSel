@@ -17,6 +17,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import net.maizegenetics.plugindef.PluginParameter;
+//import net.maizegenetics.plugindef.GeneratePluginCode;
+
 
 // imports specifically needed for this plugin
 import java.util.ArrayList;
@@ -60,12 +62,18 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
         .description("Target HDF5 (*.h5) file containing imputed genotypes to be updated")
         .build();
     private PluginParameter<String> donorDir 
-        = new PluginParameter.Builder<>("d",null,String.class)
+        = new PluginParameter.Builder<>("d", null, String.class)
         .guiName("Donor Dir")
         .inDir()
         .required(true)
         .description("Directory containing donor haplotype files from output of the FILLINFindHaplotypesPlugin. "
                     +"All files with '.gc' in the filename will be read in, only those with matching sites are used")
+        .build();
+    private PluginParameter<Integer> preferredHaplotypeSize
+        = new PluginParameter.Builder<>("hapSize", 8000, Integer.class)
+        .guiName("Preferred haplotype size")
+        .required(false)
+        .description("Preferred haplotype block size in sites (use same as in FILLINFindHaplotypesPlugin)")        
         .build();
 
     // TODO: add all possible FILLINImputationPlugin parameters?  It seems that the default parameters were used for maize.
@@ -180,7 +188,7 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
     }
     
     private String createTempInputFileForFILLIN(TaxaList modifiedTaxa) {
-        myLogger.info("Creating temporary HDF5 files to hold raw and imputed genos for modified taxa");
+        myLogger.info("Creating temporary HDF5 file to hold raw genos for modified taxa (input for FILLIN");
         String tempRawGenosFileName = "tempRawGenos" + new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss_Z").format(new Date()) + ".h5";
         PositionList positionList = PositionListBuilder.getInstance(rawGenosReader);
         GenotypeTableBuilder gtb =  GenotypeTableBuilder.getTaxaIncremental(positionList, tempPath+tempRawGenosFileName);
@@ -250,9 +258,9 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
     //
-    // public static void main(String[] args) {
-    //     GeneratePluginCode.generate(ReImputeUpdatedTaxaByFILLINPlugin.class);
-    // }
+//     public static void main(String[] args) {
+//         GeneratePluginCode.generate(ReImputeUpdatedTaxaByFILLINPlugin.class);
+//     }
 
     /**
      * Convenience method to run plugin with one return object.
@@ -330,6 +338,29 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
      */
     public ReImputeUpdatedTaxaByFILLINPlugin donorDir(String value) {
         donorDir = new PluginParameter<>(donorDir, value);
+        return this;
+    }
+
+    /**
+     * Preferred haplotype block size in sites (use same as
+     * in FILLINFindHaplotypesPlugin)
+     *
+     * @return Preferred haplotype size
+     */
+    public Integer preferredHaplotypeSize() {
+        return preferredHaplotypeSize.value();
+    }
+
+    /**
+     * Set Preferred haplotype size. Preferred haplotype block
+     * size in sites (use same as in FILLINFindHaplotypesPlugin)
+     *
+     * @param value Preferred haplotype size
+     *
+     * @return this plugin
+     */
+    public ReImputeUpdatedTaxaByFILLINPlugin preferredHaplotypeSize(Integer value) {
+        preferredHaplotypeSize = new PluginParameter<>(preferredHaplotypeSize, value);
         return this;
     }
 
