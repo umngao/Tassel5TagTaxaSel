@@ -351,23 +351,30 @@ public class BiparentalHaplotypeFinder {
 		myPopulationData.imputed = genoBuilder.build();
 		
 		//replace original, which was filtered, with initial, which is pre-filtered
-		//create snpIndex
-//		myPopulationData.original = initialGenotype;
-//		int[] imputedPositions = myPopulationData.imputed.physicalPositions();
-//		int[] originalPositions = initialGenotype.physicalPositions();
-//		int npos = originalPositions.length;
-//		OpenBitSet snpNdx = new OpenBitSet(npos);
-//		for (int i = 0; i < npos; i++) {
-//			int ndx = Arrays.binarySearch(imputedPositions, originalPositions[i]);
-//			if (ndx > -1) snpNdx.fastSet(i);
-//		}
-//		myPopulationData.snpIndex = snpNdx;
+		//create snpIndex and pad alleles so that sites match original
+		myPopulationData.original = initialGenotype;
+		int[] imputedPositions = myPopulationData.imputed.physicalPositions();
+		int[] originalPositions = initialGenotype.physicalPositions();
+		int numberOfOriginalPositions = originalPositions.length;
+		int numberOfImputedPositions = imputedPositions.length;
 		
-		//create a snp index
-		int npos = myPopulationData.original.numberOfSites();
-		OpenBitSet snpNdx = new OpenBitSet(npos);
-		snpNdx.not(); //use all sites
+		byte[] parentAgenotypes = new byte[numberOfOriginalPositions];
+		byte[] parentCgenotypes = new byte[numberOfOriginalPositions];
+		Arrays.fill(parentAgenotypes, NN);
+		Arrays.fill(parentCgenotypes, NN);
+		OpenBitSet snpNdx = new OpenBitSet(numberOfOriginalPositions);
+		for (int i = 0; i < numberOfOriginalPositions; i++) {
+			int ndx = Arrays.binarySearch(imputedPositions, originalPositions[i]);
+			if (ndx > -1) {
+				snpNdx.fastSet(i);
+				parentAgenotypes[i] = parentA[ndx];
+				parentCgenotypes[i] = parentC[ndx];
+			}
+			
+		}
 		myPopulationData.snpIndex = snpNdx;
+		myPopulationData.alleleA = parentAgenotypes;
+		myPopulationData.alleleC = parentCgenotypes;
 	}
 
 	public GenotypeTable preFilterSites() {

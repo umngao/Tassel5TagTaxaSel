@@ -32,7 +32,7 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
     double minSnpCoverage = Double.NaN;//0.1;
     double maxMafForMono = Double.NaN;//0.01;
     String baseFileName;
-    boolean outputAlternateNucleotides = false;
+    boolean outputAlternateNucleotides = true;
 
     public WritePopulationAlignmentPlugin(Frame parentFrame) {
         super(parentFrame, false);
@@ -54,7 +54,6 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
         } else {
             return null;
         }
-
     }
 
     private void writeOutput(List<Datum> theData, boolean asNucleotides) {
@@ -80,16 +79,18 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
                 String chrName = family.original.chromosomeName(0);
                 if (asNucleotides) {
                     filename = baseFileName + ".family." + familyName + ".chr" + chrName + ".nuc.hmp.txt";
+                    ExportUtils.writeToHapmap(createOutputAlignmentImputingAllNucleotides(family), outputDiploid, filename, '\t', null);
                 } else {
                     filename = baseFileName + ".family." + familyName + ".chr" + chrName + ".parents.hmp.txt";
+                    ExportUtils.writeToHapmap(createOutputAlignment(family, asNucleotides), outputDiploid, filename, '\t', null);
                 }
-                ExportUtils.writeToHapmap(createOutputAlignmentImputingAllNucleotides(family), outputDiploid, filename, '\t', null);
+               
                 
                 //test alternate nucleotide as well
-                if (outputAlternateNucleotides) {
-                	filename = baseFileName + ".family." + familyName + ".chr" + chrName + ".altnuc.hmp.txt";
-                	ExportUtils.writeToHapmap(createOutputAlignment(family, asNucleotides), outputDiploid, filename, '\t', null);
-                }
+//                if (outputAlternateNucleotides) {
+//                	filename = baseFileName + ".family." + familyName + ".chr" + chrName + ".altnuc.hmp.txt";
+//                	ExportUtils.writeToHapmap(createOutputAlignment(family, asNucleotides), outputDiploid, filename, '\t', null);
+//                }
             }
         }
     }
@@ -140,19 +141,31 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
     }
 
     private GenotypeTable createOutputAlignmentImputingAllNucleotides(PopulationData family) {
-    	//first fill in gaps flanked by the same parent in the imputed alignment
     	GenotypeTable filledImputedGenotypes = NucleotideImputationUtils.fillGapsInImputedAlignment(family);
     	int nsites = family.original.numberOfSites();
     	int nImputedSites = filledImputedGenotypes.numberOfSites();
-    	int ntaxa = family.original.numberOfTaxa();
     	int[] imputedPos = filledImputedGenotypes.physicalPositions();
     	int[] origPos = family.original.physicalPositions();
+
+    	
+    	//if the length of alleles equals that of family.imputed rather than family.original, create snpIndex and pad alleles
+//    	int alleleLength = family.alleleA.length;
+//    	
+//    	if (alleleLength == nImputedSites && alleleLength < nsites) {
+//    		
+//    	} else {
+//    		
+//    	}
+    	
+    	//first fill in gaps flanked by the same parent in the imputed alignment
+    	int ntaxa = family.original.numberOfTaxa();
     	GenotypeTableBuilder genoBuilder = GenotypeTableBuilder.getSiteIncremental(family.original.taxa());
     	for (int s = 0; s < nsites; s++) {
     		byte[] nuc = family.original.alleles(s);
     		int nalleles = nuc.length;
     		if (nalleles == 0) { 
-    			//do nothing 
+    			//do nothing
+    			genoBuilder.addSite(family.original.positions().get(s), family.original.genotypeAllTaxa(s));
     		} else if (nalleles > 0) {
     			//find flanking markers in imputed
     			int ndx = Arrays.binarySearch(imputedPos, origPos[s]);
@@ -218,6 +231,8 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
     					}
     				}
     				genoBuilder.addSite(family.original.positions().get(s), genotypes);
+    			} else {
+    				genoBuilder.addSite(family.original.positions().get(s), family.original.genotypeAllTaxa(s));
     			}
 
     		}
@@ -229,10 +244,25 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
     
 	private static byte[] getMajorAndMinorAllelesAtSite(int[][] counts, byte[] OriginalNucleotides) {
 		int minratio = 4;
-		if ( (counts[0][1] == 0 ||counts[0][0] / counts[0][1] >= minratio) && (counts[1][0] == 0 || counts[1][1] / counts[1][0] >= minratio) ) 
+		int minPresent = 7;
+		int totalPresent = counts[0][0] + counts[0][1] + counts[1][0] + counts[1][1];
+		
+		if ( (counts[0][1] == 0 ||counts[0][0] / counts[0][1] >= minratio) && (counts[1][0] == 0 || counts[1][1] / counts[1][0] >= minratio) ) {
+			if (OriginalNucleotides.length == 1) {
+				if (totalPresent < minPresent) return null; //not enough data to call
+				return new byte[]{OriginalNucleotides[0],GenotypeTable.UNKNOWN_ALLELE}; //biologically missing
+			}
 			return OriginalNucleotides;
-		if ( (counts[0][0] == 0 || counts[0][1] / counts[0][0] >= minratio) && (counts[1][1] == 0 || counts[1][0] / counts[1][1] >= minratio) ) 
+		}
+			
+		if ( (counts[0][0] == 0 || counts[0][1] / counts[0][0] >= minratio) && (counts[1][1] == 0 || counts[1][0] / counts[1][1] >= minratio) ) {
+			if (OriginalNucleotides.length == 1) {
+				if (totalPresent < minPresent) return null;  //not enough data to call
+				return new byte[]{GenotypeTable.UNKNOWN_ALLELE,OriginalNucleotides[0]}; //biologically missing
+			}
 			return new byte[]{OriginalNucleotides[1],OriginalNucleotides[0]};
+		}
+			
 		
 		//the site may be monomorphic
 		//if so, one of the parents may be biologically missing
@@ -248,8 +278,8 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
 			if (col1 <= 1 || col0 / col1 >= minratio) return new byte[]{OriginalNucleotides[0],OriginalNucleotides[0]};
 			if (col0 <= 1 || col1 / col0 >= minratio) return new byte[]{OriginalNucleotides[1],OriginalNucleotides[1]};
 		} else {	//biologically missing case
-			if (row0 <= 1) return new byte[]{GenotypeTable.UNKNOWN_ALLELE,OriginalNucleotides[0]};
-			if (row1 <= 1) return new byte[]{OriginalNucleotides[0],GenotypeTable.UNKNOWN_ALLELE};
+			if (row0 <= 1 && totalPresent >= minPresent) return new byte[]{GenotypeTable.UNKNOWN_ALLELE,OriginalNucleotides[0]};
+			if (row1 <= 1 && totalPresent >= minPresent) return new byte[]{OriginalNucleotides[0],GenotypeTable.UNKNOWN_ALLELE};
 		}
 		return null;
 	}
