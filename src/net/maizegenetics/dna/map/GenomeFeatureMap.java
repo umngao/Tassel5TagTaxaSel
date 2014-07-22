@@ -29,15 +29,13 @@ import java.util.*;
 //TODO: Add functionality to write out a full constructed map to a file of some sort
 public class GenomeFeatureMap {
 
-    //Root of the GenomeFeature tree - DEPRECATED. REPLACED BY AN EXPLICIT GRAPH, BELOW
-    //GenomeFeature mygenome = null;
 
+    //Graph of all the genome features, rooted at the genome itself
     DirectedGraph<GenomeFeature> featureTree = null;
 
-    //Lookups to identify GenomeFeatures by their name
+    //Lookups to identify GenomeFeatures by their name, type, and location
     private HashMap<String, GenomeFeature> nameLookup = new HashMap<>();
     private Multimap<String, GenomeFeature> typeLookup = null;
-    //TODO: Figure out how to organize this, especially for dealing with multiple chromosomes. Nested lookup structure?
     private HashMap<String, RangeMap<Integer, HashSet<GenomeFeature>>> locationLookup = null;
 
     /**
@@ -51,7 +49,6 @@ public class GenomeFeatureMap {
      */
     GenomeFeatureMap(HashMap<String, GenomeFeature> nameLookup, Multimap<String, GenomeFeature> typeLookup,
                      HashMap<String, RangeMap<Integer, HashSet<GenomeFeature>>> locationLookup, DirectedGraph<GenomeFeature> featureTree) {
-        //this.mygenome=root;
         this.typeLookup = typeLookup;
         this.nameLookup = nameLookup;
         this.locationLookup = locationLookup;
@@ -62,16 +59,66 @@ public class GenomeFeatureMap {
         return nameLookup.get(id);
     }
 
-    public Collection<GenomeFeature> getFeaturesAtLocation(int chrom, int position) {
+    /**
+     * Get a {@link HashSet} of {@link GenomeFeature}s at a specified genome location. Takes chromsome as a String
+     * for ones like "Pt", "scaffold487", etc.
+     * @param chrom The chromosome name
+     * @param start Beginning physical position
+     * @param end End physical position
+     * @return A HashSet of GenomeFeatures
+     */
+    public HashSet<GenomeFeature> getFeaturesInRange(String chrom, int start, int end) {
+        Range myrange = Range.closed(start, end); //'Closed' = inclusive, so closed(1,3) = 1,2,3 and closed(1,1) = 1
+        Map<Range<Integer>, HashSet<GenomeFeature>> chromMap = locationLookup.get(chrom).subRangeMap(myrange).asMapOfRanges();
+        HashSet<GenomeFeature> featureSet = new HashSet<>();
+        for(Range r: chromMap.keySet()){
+            featureSet.addAll(chromMap.get(r));
+        }
+        return featureSet;
+    }
+
+    /**
+     * Get a {@link HashSet} of {@link GenomeFeature}s at a specified genome location
+     * @param chrom Chromosome number (should be the same as its name)
+     * @param position Physical position (base pair)
+     * @return A HashSet of GenomeFeatures
+     */
+    public HashSet<GenomeFeature> getFeaturesAtLocation(int chrom, int position) {
         return getFeaturesInRange(chrom, position, position);
     }
 
-    //TODO: Figure out how to get this working
-    public Collection<GenomeFeature> getFeaturesInRange(int chrom, int start, int end) {
-        Range myrange = Range.closed(start, end); //'Closed' = inclusive, so closed(1,3) = 1,2,3 and closed(1,1) = 1
-        return null;
+    /**
+     * Get a {@link HashSet} of {@link GenomeFeature}s at a specified genome location Takes chromsome as a String
+     * for ones like "Pt", "scaffold487", etc.
+     * @param chrom Chromosome name
+     * @param position Physical position (base pair)
+     * @return A HashSet of GenomeFeatures
+     */
+    public HashSet<GenomeFeature> getFeaturesAtLocation(String chrom, int position) {
+        return getFeaturesInRange(chrom, position, position);
     }
 
+    /**
+     * Get a {@link HashSet} of {@link GenomeFeature}s at a specified genome location. Takes chromsome as a String
+     * for ones like "Pt", "scaffold487", etc.
+     * @param chrom The chromosome number (should be the same as its name)
+     * @param start Beginning physical position
+     * @param end End physical position
+     * @return A HashSet of GenomeFeatures
+     */
+    public HashSet<GenomeFeature> getFeaturesInRange(int chrom, int start, int end) {
+        return getFeaturesInRange("" + chrom, start, end);
+    }
+
+    /** Get all {@link GenomeFeature}s of a specified type
+     * @param type The type of feature to get
+     * @return A {@link HashSet} of GenomeFeatures
+     */
+    public HashSet<GenomeFeature> getFeaturesOfType(String type){
+        HashSet<GenomeFeature> featureSet = new HashSet<>();
+        featureSet.addAll(typeLookup.get(type));
+        return featureSet;
+    }
 
     /**
      * Write just the location lookup to a tab-delimited file. This is mostly to check that your locations loaded properly,

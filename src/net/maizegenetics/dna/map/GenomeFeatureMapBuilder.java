@@ -2,6 +2,8 @@ package net.maizegenetics.dna.map;
 
 import com.google.common.collect.*;
 import net.maizegenetics.util.DirectedGraph;
+import net.maizegenetics.util.Graph;
+import net.maizegenetics.util.GraphBuilder;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 import org.json.simple.JSONArray;
@@ -20,7 +22,6 @@ import java.util.*;
  * For now, not implementing functionality to make a new builder from an existing map.
  */
 //TODO: Add functionality for reading in a precompiled map
-//TODO: Add ability to read in GFF, Flatfile, and JSON
 public class GenomeFeatureMapBuilder {
 
     //Root of the GenomeFeature tree - DEPRECATED IN FAVOR OF AN ACTUAL GRAPH
@@ -42,33 +43,123 @@ public class GenomeFeatureMapBuilder {
 
 
     public GenomeFeatureMap build(){
-        //buildGenomeTree();
+        buildGenomeTree();
         buildLocationLookup();
         return new GenomeFeatureMap(nameLookup, typeLookup, locationLookup, featureTree);
     }
 
+    /**
+     * Build the genome feature tree, linking everything to its parent. If something has no parent, it's assigned to the
+     * chromosome (and if no chromosome, then the genome, but that's not very useful). It also checks that the genome itself
+     * and chromosomes exist as their own {@link GenomeFeature}s, and creates them if needed.
+     */
     private void buildGenomeTree(){
-        //TODO: Implement
+        addRootFeaturesIfNeeded();
 
-        //TODO: Build chromosomes first
-
-        /*//Pull out the "genome" feature to serve as root. If it doesn't exist, create it.
-        if(typeLookup.keySet().contains("genome")){
-            Collection<GenomeFeature> mygenome = typeLookup.get("genome");
-            if(mygenome.size() >1){ //If more than one feature annotated as "genome", throw an error
-                StringBuilder types = new StringBuilder();
-                for(GenomeFeature f:mygenome){
-                    types.append("\n\t" + f.id());
-                }
-                throw new UnsupportedOperationException("Error: Attempt to build a GenomeFeatureMap with more than one feature annotated as type 'genome':" + types);
+        //Go through each feature and add parent IDs for those that don't have them (link to chromosome or genome)
+        GenomeFeature genome = getGenome();
+        ArrayList<GenomeFeature> toReplace = new ArrayList();
+        for(GenomeFeature feature: nameLookup.values()){
+            if(feature.id() == getGenome().id()){   //Don't assign the genome as its own parent
+                continue;
             }
-            root = mygenome.toArray(new GenomeFeature[0])[0];
-        }else{
-            GenomeFeatureBuilder rootBuilder = new GenomeFeatureBuilder()
-                    .parent(null).chromosome(-1).id("GENOME").type("genome");
+            if(feature.parentId().equals("NA") || !nameLookup.containsKey(feature.parentId())){
+                GenomeFeatureBuilder replacement = new GenomeFeatureBuilder(feature);
+                if(feature.chromosome().equals("NA")){
+                    replacement.parentId(genome.id());
+                }else{
+                    replacement.parentId(feature.chromosome());
+                }
+                toReplace.add(replacement.build());
+            }
+        }
+        for(GenomeFeature f:toReplace){
+            replaceFeature(f);
+        }
 
-            root = new GenomeFeatureBuilder().parent(null).build();
-        }*/
+        //Build the actual genome graph based on parent information
+        GraphBuilder builder = new GraphBuilder(Graph.GraphType.DIRECTED);
+        for(GenomeFeature feature: nameLookup.values()){
+            if(feature.id() == getGenome().id()){   //Don't assign the genome as its own parent
+                continue;
+            }
+            if(!nameLookup.containsKey(feature.parentId())){
+                myLogger.warn("WARNING! Unable to find parent " + feature.parentId() + " for feature " + feature.id());
+                continue;
+            }
+            GenomeFeature parent = nameLookup.get(feature.parentId());
+            builder.addEdge(parent, feature);
+        }
+        featureTree = (DirectedGraph<GenomeFeature>) builder.build();
+    }
+
+    /**
+     * Add the genome itself and each chromosome as an overarching GenomeFeatures if they haven't been added already
+     */
+    private void addRootFeaturesIfNeeded(){
+
+        //Check if a feature names "genome" has been added. If so, confirm there's only one. If not, create it.
+        GenomeFeature genome;
+        if(typeLookup.keySet().contains("genome")){
+            genome = getGenome();
+        }else{
+            genome = new GenomeFeatureBuilder().id("GENOME").type("genome").build();
+            addFeature(genome);
+        }
+
+        //Go through and check/create chromosomes, assigning their parent to the genome if need be.
+        ArrayList<GenomeFeature> toReplace = new ArrayList();
+        ArrayList<GenomeFeature> toAdd = new ArrayList();
+        for(String c: chromosomes){
+            //If chromosome already entered, check that parent is assigned to genome
+            if(nameLookup.containsKey(c)){
+                GenomeFeature mychrom = nameLookup.get(c);
+                //No parent assigned -> Assign to the genome
+                if(mychrom.parentId().equals("NA")){
+                    GenomeFeature newChrom = new GenomeFeatureBuilder(mychrom).parentId(genome.id()).build();
+                    toReplace.add(newChrom);
+                //parent assigned, but to different feature -> throw error
+                }else if(!mychrom.parentId().equals(genome.id())){
+                    throw new UnsupportedOperationException("Error: Chromosome " + mychrom.id() + " assigned with parent "
+                            + mychrom.parentId() + " that does not match the recognized genome " + genome.id());
+                }
+            }else{ //Chromosome not entered yet -> make a new one
+                System.out.println("Making chromosome " + c + " from scratch");
+                GenomeFeature newChrom = new GenomeFeatureBuilder().id(c).parentId(genome.id()).chromosome(c).type("chromosome").build();
+                toAdd.add(newChrom);
+            }
+        }
+
+        //Actually add & replace the relevant GenomeFeatures; Done here to avoid ConcurrentModificationExceptions
+        for(GenomeFeature f: toAdd){
+            addFeature(f);
+        }
+        for(GenomeFeature f: toReplace){
+            replaceFeature(f);
+        }
+    }
+
+    private GenomeFeature getGenome(){
+        if(typeLookup.keySet().contains("genome")) {
+            Collection<GenomeFeature> genomes = typeLookup.get("genome");
+            //If somehow can't pull feature out, throw an error
+            if (genomes.size() == 0) {
+                throw new UnsupportedOperationException("Error: Cannot find feature with type 'genome' even though supposedly loaded");
+            }
+
+            //If more than one feature annotated as "genome", throw an error
+            if (genomes.size() > 1) {
+                StringBuilder multiples = new StringBuilder();
+                for (GenomeFeature g : genomes) {
+                    multiples.append("\n\t" + g.id());
+                }
+                throw new UnsupportedOperationException("Error: Attempt to build a GenomeFeatureMap with more than one feature annotated as type 'genome':" + multiples);
+            }
+            return(genomes.iterator().next()); //Take first (and by this point, only) feature
+        }else{
+            myLogger.warn("Warning! Attempting to retrieve the root genome when it hasn't been created yet");
+            return null;
+        }
     }
 
     private void buildLocationLookup(){
@@ -81,12 +172,7 @@ public class GenomeFeatureMapBuilder {
         for(GenomeFeature feature: nameLookup.values()){
             RangeMap mymap = locationLookup.get(feature.chromosome());
             addFeatureToRangemap(mymap, feature);
-
-
         }
-
-        //TODO: Remove 1-bp ranges caused by adjacent features; need a clean() function to call at end?
-        //TODO: Or maybe add new features in a different way, finding and filling gaps rather than overlaying
     }
 
     /**
@@ -94,10 +180,14 @@ public class GenomeFeatureMapBuilder {
      * (how RangeMap behaves natively)
      * @param masterMap Rangemap object to be modified
      * @param feature GenomeFeature to be added. Only start and stop position are checked
-     * @return
      */
     public static void addFeatureToRangemap(
             RangeMap<Integer, HashSet<GenomeFeature>>  masterMap, GenomeFeature feature){
+
+        //Check that range is valid (all >=0). Features with invalid ranges (e.g., default chromosomes) are ignored
+        if(feature.start() <0 || feature.stop() < 0){
+            return;
+        }
 
         //Make ranges closed-open b/c otherwise results in a lot of 1-bp redundant ranges where adjacent features were added
         Range<Integer> featureRange = Range.closedOpen(feature.start(), feature.stop() + 1);
@@ -111,8 +201,6 @@ public class GenomeFeatureMapBuilder {
             rangeList.add(Range.closedOpen(r.lowerEndpoint(), r.upperEndpoint()));
             hashList.add(new HashSet<GenomeFeature>(subranges.get(r)));
         }
-
-
 
         //Next, set entire range equal to the new feature to cover any areas not covered by the existing ranges
         HashSet<GenomeFeature> newset = new HashSet<>();
@@ -167,7 +255,9 @@ public class GenomeFeatureMapBuilder {
     public GenomeFeatureMapBuilder addOrReplaceFeature(GenomeFeature feature){
         nameLookup.put(feature.id(), feature);
         typeLookup.put(feature.type(), feature);
-        chromosomes.add(feature.chromosome());
+        if(!feature.chromosome().equals("NA")){
+            chromosomes.add(feature.chromosome());
+        }
         return this;
     }
 
