@@ -6,6 +6,8 @@ import com.google.common.collect.Multiset;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.UnsignedBytes;
 
+import java.io.Serializable;
+
 
 /**
  * Builder for TaxaDistribution.  Deals with the
@@ -79,7 +81,7 @@ public class TaxaDistBuilder {
  * taxa scored out of the thousands.
  * @author Ed Buckler
  */
-class TaxaDistExpandable implements TaxaDistribution {
+class TaxaDistExpandable implements TaxaDistribution, Serializable {
     //minimal size 8 + 12 + 12 + 10 + 12 + 4+ 4 = 66
     //This could be changed for the singletons by just making a new class
     private short[][] taxaWithTag;
@@ -152,6 +154,7 @@ class TaxaDistExpandable implements TaxaDistribution {
                 depth-=255;
             }
         }
+        result.trimToSize();
         return result.elements();
     }
 

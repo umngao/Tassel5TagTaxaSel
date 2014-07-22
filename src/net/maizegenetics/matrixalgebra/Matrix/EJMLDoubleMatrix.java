@@ -323,8 +323,8 @@ public class EJMLDoubleMatrix implements DoubleMatrix {
 	@Override
 	public DoubleMatrix row(int i) {
 		int n = myMatrix.numCols;
-		DenseMatrix64F result = new DenseMatrix64F(1,n);
-		SpecializedOps.subvector(myMatrix, 0, i, n, true, 0, result);
+		DenseMatrix64F result = new DenseMatrix64F(n,1);
+		SpecializedOps.subvector(myMatrix, i, 0, n, true, 0, result);
 		return new EJMLDoubleMatrix(result);
 	}
 	

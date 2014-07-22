@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.byte2d.Byte2D;
 
 /**
@@ -17,8 +16,15 @@ import net.maizegenetics.dna.snp.byte2d.Byte2D;
  */
 public abstract class SiteScore {
 
-    private final Map<GenotypeTable.SITE_SCORE_TYPE, Byte2D> myValues = new HashMap<>();
-    protected final GenotypeTable.SITE_SCORE_TYPE myOnlyScoreType;
+    public static enum SITE_SCORE_TYPE {
+
+        None, QualityScore, ReferenceProbablity, Dosage,
+        DepthA, DepthC, DepthG, DepthT, DepthGap, DepthInsertion,
+        ProbA, ProbC, ProbG, ProbT, ProbGap, ProbInsertion
+    };
+
+    private final Map<SITE_SCORE_TYPE, Byte2D> myValues = new HashMap<>();
+    protected final SITE_SCORE_TYPE myOnlyScoreType;
     private final int myNumTaxa;
     private final int myNumSites;
 
@@ -48,7 +54,7 @@ public abstract class SiteScore {
      *
      * @return site score types.
      */
-    public Set<GenotypeTable.SITE_SCORE_TYPE> siteScoreTypes() {
+    public Set<SITE_SCORE_TYPE> siteScoreTypes() {
         return myValues.keySet();
     }
 
@@ -63,8 +69,8 @@ public abstract class SiteScore {
     public int numAlleles() {
         return myValues.size();
     }
-    
-    protected Byte2D byteStorage(GenotypeTable.SITE_SCORE_TYPE type) {
+
+    protected Byte2D byteStorage(SITE_SCORE_TYPE type) {
         return myValues.get(type);
     }
 

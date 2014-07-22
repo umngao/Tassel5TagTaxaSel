@@ -17,6 +17,7 @@ import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
+import net.maizegenetics.util.OpenBitSet;
 
 /**
  * @author pbradbury
@@ -24,6 +25,7 @@ import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
  */
 public class BiparentalHaplotypeFinder {
 	PopulationData myPopulationData;
+	GenotypeTable initialGenotype;
 	static final byte AA = NucleotideAlignmentConstants.getNucleotideDiploidByte("AA");
 	static final byte CC = NucleotideAlignmentConstants.getNucleotideDiploidByte("CC");
 	static final byte AC = NucleotideAlignmentConstants.getNucleotideDiploidByte("AC");
@@ -49,7 +51,13 @@ public class BiparentalHaplotypeFinder {
 	/**
 	 * Only use clusters with minClusterSize taxa as parent haplotypes
 	 */
-	int minClusterSize = 5;
+	int minClusterSize = 3;
+	
+	/**
+	 * Haplotypes with a difference score less than or equal to maxDifferenceScore will be assigned to the same cluster.
+	 * The difference between two non-equal homozygotes is 2, between a homozygote and heterozygote is 1.
+	 */
+	int maxDifferenceScore = 0;
 	
 	/**
 	 * Filter out sites with less than minR2 average r-square with neighboring sites (window size = 50).
@@ -66,15 +74,19 @@ public class BiparentalHaplotypeFinder {
 	 */
 	double minCoverage = 0.2;
 	
+	/**
+	 * Filter out sites more than maxHetDeviation * (standard deviation) different from the mean percent heterozygosity.;
+	 */
+	double maxHetDeviation = 5;
 	
 	public BiparentalHaplotypeFinder(PopulationData popdata) {
 		myPopulationData = popdata;
-		
+		initialGenotype = popdata.original;
 	}
 	
 	public void assignHaplotyes() {
 		int startIncr = window - overlap;
-		int diff = 0;
+		int diff = maxDifferenceScore;
 		
 		//assign haplotype of parent1(A), parent2(C), het(M) at each non-missing locus for each taxon
 		//for each window:
@@ -85,9 +97,9 @@ public class BiparentalHaplotypeFinder {
 		//  5. assign remaining clusters to parent or het
 		//	6. record parent or het for each taxon and non-missing site in the window
 		
-		GenotypeTable filterGeno = myPopulationData.original;
-//		GenotypeTable filterGeno = preFilterSites();
-//		myPopulationData.original = filterGeno;
+//		GenotypeTable filterGeno = myPopulationData.original; 
+		GenotypeTable filterGeno = preFilterSites();
+		myPopulationData.original = filterGeno;
 		
 		int nsites = myPopulationData.original.numberOfSites();
 		myPopulationData.alleleA = new byte[nsites];
@@ -110,9 +122,11 @@ public class BiparentalHaplotypeFinder {
 			HaplotypeClusterer myClusterMaker = clusterWindow(filterGeno, initialStart, window, diff, minNotMissing); //1
 			myClusterMaker.sortClusters(); //2
 			myClusterMaker.moveAllHaplotypesToBiggestCluster(diff); //3
+			myClusterMaker.removeHeterozygousClusters(5);
 			h0 = new Haplotype(myClusterMaker.getClusterList().get(0).getMajorityHaplotype());
 			h1 = new Haplotype(myClusterMaker.getClusterList().get(1).getMajorityHaplotype());
-			int cluster2Size = myClusterMaker.getClusterList().get(2).getSize();
+			int cluster2Size = 0;
+			if (myClusterMaker.getClusterList().size() > 2) cluster2Size = myClusterMaker.getClusterList().get(2).getSize();
 			if (cluster2Size < minClusterSize && h0.distanceFrom(h1) >= 2 * window - 4) {
 				exactlyTwo = true;
 				parentHaplotypes.get(0).add(h0);
@@ -141,6 +155,7 @@ public class BiparentalHaplotypeFinder {
 			//debug
 			myClusterMaker.sortClusters(); //2
 			myClusterMaker.moveAllHaplotypesToBiggestCluster(diff); //3
+			myClusterMaker.removeHeterozygousClusters(5);
 			
 			//get major haplotypes
 			ArrayList<Haplotype> myHaplotypes = mergeMajorHaplotypes(myClusterMaker, minClusterSize);
@@ -166,6 +181,7 @@ public class BiparentalHaplotypeFinder {
 			HaplotypeClusterer myClusterMaker = clusterWindow(myPopulationData.original, start, windowSize, diff, minNotMissing); //1
 			myClusterMaker.sortClusters(); //2
 			myClusterMaker.moveAllHaplotypesToBiggestCluster(diff); //3
+			myClusterMaker.removeHeterozygousClusters(5);
 			
 			//get major haplotypes
 			ArrayList<Haplotype> myHaplotypes = mergeMajorHaplotypes(myClusterMaker, minClusterSize);
@@ -290,12 +306,12 @@ public class BiparentalHaplotypeFinder {
 	}
 	
 	public ArrayList<Haplotype> mergeMajorHaplotypes(HaplotypeClusterer clusterMaker, int minClusterSize) {
-		double maxMaf = 0.05;
-		int maxMinorCount = 1;
+		double maxMaf = 0.2;
+		int maxMinorCount = 2;
 		int maxDistance = 4;
 		ArrayList<Haplotype> myHaplotypes = new ArrayList<Haplotype>();
 		int clusterCount = 1;
-		while (clusterMaker.getClusterList().get(clusterCount).getSize() >= minClusterSize) {
+		while (clusterCount < clusterMaker.getNumberOfClusters() && clusterMaker.getClusterList().get(clusterCount).getSize() >= minClusterSize) {
 			Haplotype compHap = new Haplotype(clusterMaker.getClusterList().get(clusterCount).getCensoredMajorityHaplotype(maxMaf, maxMinorCount));
 			for (int i = 0; i < clusterCount; i++) {
 				Haplotype headHap = new Haplotype(clusterMaker.getClusterList().get(i).getCensoredMajorityHaplotype(maxMaf, maxMinorCount));
@@ -333,6 +349,25 @@ public class BiparentalHaplotypeFinder {
 		}
 		
 		myPopulationData.imputed = genoBuilder.build();
+		
+		//replace original, which was filtered, with initial, which is pre-filtered
+		//create snpIndex
+//		myPopulationData.original = initialGenotype;
+//		int[] imputedPositions = myPopulationData.imputed.physicalPositions();
+//		int[] originalPositions = initialGenotype.physicalPositions();
+//		int npos = originalPositions.length;
+//		OpenBitSet snpNdx = new OpenBitSet(npos);
+//		for (int i = 0; i < npos; i++) {
+//			int ndx = Arrays.binarySearch(imputedPositions, originalPositions[i]);
+//			if (ndx > -1) snpNdx.fastSet(i);
+//		}
+//		myPopulationData.snpIndex = snpNdx;
+		
+		//create a snp index
+		int npos = myPopulationData.original.numberOfSites();
+		OpenBitSet snpNdx = new OpenBitSet(npos);
+		snpNdx.not(); //use all sites
+		myPopulationData.snpIndex = snpNdx;
 	}
 
 	public GenotypeTable preFilterSites() {
@@ -353,7 +388,7 @@ public class BiparentalHaplotypeFinder {
 
 		double meanPhet = StatUtils.mean(pHet);
 		double sdPhet = Math.sqrt(StatUtils.variance(pHet));
-		double maxPhet = meanPhet + 4*sdPhet;
+		double maxPhet = meanPhet + maxHetDeviation * sdPhet;
 		
 		boolean[] selected = new boolean[nsites];
 		int numberFalse = 0;
@@ -504,16 +539,26 @@ public class BiparentalHaplotypeFinder {
 				
 				//find the best match
 				int haplen = hap.seqlen;
-				Haplotype hapstart = new Haplotype(Arrays.copyOf(hap.seq, overlap));
+				Haplotype hapstart;
+				if (forward) hapstart = new Haplotype(Arrays.copyOf(hap.seq, overlap));
+				else hapstart = new Haplotype(Arrays.copyOfRange(hap.seq, haplen - overlap, haplen));
 				int par0dist = 1000000;
 				for (Haplotype parentHap : previousParents.get(0)) {
-					Haplotype parentEnd = new Haplotype(Arrays.copyOfRange(parentHap.seq, haplen - overlap, haplen));
+					int parentLen = parentHap.seqlen;
+					byte[] matchSeq;
+					if (forward) matchSeq = Arrays.copyOfRange(parentHap.seq, parentLen - overlap, parentLen);
+					else matchSeq = Arrays.copyOf(parentHap.seq, overlap);
+					Haplotype parentEnd = new Haplotype(matchSeq);
 					int distFromParent = hapstart.distanceFrom(parentEnd);
 					par0dist = Math.min(par0dist, distFromParent);
 				}
 				int par1dist = 1000000;
 				for (Haplotype parentHap : previousParents.get(1)) {
-					Haplotype parentEnd = new Haplotype(Arrays.copyOfRange(parentHap.seq, haplen - overlap, haplen));
+					int parentLen = parentHap.seqlen;
+					byte[] matchSeq;
+					if (forward) matchSeq = Arrays.copyOfRange(parentHap.seq, parentLen - overlap, parentLen);
+					else matchSeq = Arrays.copyOf(parentHap.seq, overlap);
+					Haplotype parentEnd = new Haplotype(matchSeq);
 					int distFromParent = hapstart.distanceFrom(parentEnd);
 					par1dist = Math.min(par1dist, distFromParent);
 				}

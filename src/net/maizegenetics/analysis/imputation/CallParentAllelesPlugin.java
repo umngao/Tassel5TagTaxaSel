@@ -39,8 +39,12 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 	private boolean checkSubPops = false;
 	private boolean useHets = true;
 	private boolean useWindowLD = false;
+	private int maxDifference = 0;
+	private int minUsedClusterSize = 5;
+	private double maxHetDev = 25;
 	private int overlap = -1;
 	private ArrayList<PopulationData> familyList = null;
+	private boolean familyListNotSupplied = true;	//used for testing
 	
 	public CallParentAllelesPlugin(Frame parentFrame) {
         super(parentFrame, false);
@@ -58,7 +62,7 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 
 		for (Datum d : inputAlignments) {
 			GenotypeTable align = (GenotypeTable) d.getData();
-			if (familyList == null) familyList = PopulationData.readPedigreeFile(pedfileName);
+			if (familyListNotSupplied) familyList = PopulationData.readPedigreeFile(pedfileName);
 			for (PopulationData family : familyList) {
 				myLogger.info("Calling parent alleles for family " + family.name + ", chromosome " + align.chromosomeName(0) + ".");
 				
@@ -67,11 +71,10 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 				
 				myLogger.info("creating family alignment for family " + family.name);
                 TaxaList tL=new TaxaListBuilder().addAll(ids).build();
-				family.original =  GenotypeTableBuilder.getGenotypeCopyInstance((FilterGenotypeTable)FilterGenotypeTable.getInstance(align, tL, false));
+                family.original = FilterGenotypeTable.getInstance(align, tL, false);
 				
 				if (!useHets) {
 					byte NN = NucleotideAlignmentConstants.getNucleotideDiploidByte('N');
-//					MutableNucleotideAlignment mna = MutableNucleotideAlignment.getInstance(family.original);
 					GenotypeTableBuilder builder = GenotypeTableBuilder.getSiteIncremental(family.original.taxa());
 					int nsites = family.original.numberOfSites();
 					int ntaxa = family.original.numberOfTaxa();
@@ -95,6 +98,9 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 					if (overlap > -1) hapFinder.overlap = overlap;
 					hapFinder.window = windowSize;
 					hapFinder.minR2 = minRforSnps;
+					hapFinder.maxHetDeviation = maxHetDev;
+					hapFinder.maxDifferenceScore = maxDifference;
+					hapFinder.minClusterSize = minUsedClusterSize;
 					hapFinder.assignHaplotyes();
 					hapFinder.convertGenotypesToParentCalls();
 				}
@@ -137,6 +143,15 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 			}
 			else if (args[i].equals("-f") || args[i].equalsIgnoreCase("-minMaf")) {
 				minMinorAlleleFrequency = Double.parseDouble(args[++i]);
+			}
+			else if (args[i].equals("-d") || args[i].equalsIgnoreCase("-maxHetDev")) {
+				maxHetDev = Double.parseDouble(args[++i]);
+			}
+			else if (args[i].equals("-mh") || args[i].equalsIgnoreCase("-minHap")) {
+				minUsedClusterSize = Integer.parseInt(args[++i]);
+			}
+			else if (args[i].equals("-md") || args[i].equalsIgnoreCase("-maxDiff")) {
+				maxDifference = Integer.parseInt(args[++i]);
 			}
 			else if (args[i].equals("-b") || args[i].equalsIgnoreCase("-bc1")) {
 				String param = args[++i];
@@ -216,6 +231,14 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 		this.minRforSnps = minRforSnps;
 	}
 
+	public void setMaxDifference(int maxDifference) {
+		this.maxDifference = maxDifference;
+	}
+
+	public void setMinUsedClusterSize(int minUsedClusterSize) {
+		this.minUsedClusterSize = minUsedClusterSize;
+	}
+
 	@Override
 	public ImageIcon getIcon() {
 		return null;
@@ -239,6 +262,9 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 		usage.append("-r or -minR : minimum R used to filter SNPs on LD (default = 0.2, use 0 for no ld filter)\n");
 		usage.append("-m or -maxMissing : maximum proportion of missing data allowed for a SNP (default = 0.9)\n");
 		usage.append("-f or -minMaf : minimum minor allele frequency used to filter SNPs. If negative, filters on expected segregation ratio from parental contribution (default = -1)\n");
+		usage.append("-d or -maxHetDev : filter sites on maximum heterozygosity, max heterozygosity = maxHetDev * sd of percent het + mean percent het (default = 5)\n");
+		usage.append("-mh or -minHap : haplotypes seen fewer than minHap times will not be used to infer parental haplotypes (default = 5)\n");
+		usage.append("-d or -maxDiff : maximum allowable number of allele differences for treating two haplotypes as equivalent (default = 0)\n");
 		usage.append("-b or -bc1 : use BC1 specific filter (default = true)\n");
 		usage.append("-n or -bcn : use multipe backcross specific filter (default = false)\n");
 		usage.append("-logfile : the name of a file to which all logged messages will be printed.\n");
@@ -253,5 +279,6 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 
 	public void setFamilyList(ArrayList<PopulationData> familyList) {
 		this.familyList = familyList;
+		familyListNotSupplied = false;
 	}
 }

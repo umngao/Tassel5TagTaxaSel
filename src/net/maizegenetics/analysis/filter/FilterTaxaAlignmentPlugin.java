@@ -6,8 +6,8 @@
  */
 package net.maizegenetics.analysis.filter;
 
-import net.maizegenetics.gui.AbstractAvailableListModel;
 import net.maizegenetics.gui.SelectFromAvailableDialog;
+import net.maizegenetics.gui.TaxaAvailableListModel;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.trait.FilterPhenotype;
@@ -19,6 +19,7 @@ import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginEvent;
+
 import org.apache.log4j.Logger;
 
 import javax.swing.*;
@@ -36,7 +37,9 @@ public class FilterTaxaAlignmentPlugin extends AbstractPlugin {
     private TaxaList myIdsToKeep = null;
     private TaxaList myIdsToRemove = null;
 
-    /** Creates a new instance of FilterTaxaAlignmentPlugin */
+    /**
+     * Creates a new instance of FilterTaxaAlignmentPlugin
+     */
     public FilterTaxaAlignmentPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
@@ -87,39 +90,17 @@ public class FilterTaxaAlignmentPlugin extends AbstractPlugin {
         Object theData = inDatum.getData();
 
         if (isInteractive) {
-            TaxaList origIdGroup = null;
+            TaxaList taxaList = null;
             SelectFromAvailableDialog dialog = null;
             if (theData instanceof GenotypeTable) {
                 final GenotypeTable alignment = (GenotypeTable) theData;
-                origIdGroup = alignment.taxa();
-                AbstractAvailableListModel listModel = new AbstractAvailableListModel() {
-
-                    @Override
-                    public int getRealSize() {
-                        return alignment.numberOfTaxa();
-                    }
-
-                    @Override
-                    public String getRealElementAt(int index) {
-                        return alignment.taxaName(index);
-                    }
-                };
+                taxaList = alignment.taxa();
+                TaxaAvailableListModel listModel = new TaxaAvailableListModel(taxaList);
                 dialog = new SelectFromAvailableDialog(getParentFrame(), "Taxa Filter", listModel);
             } else if (theData instanceof Phenotype) {
                 final Phenotype phenotype = (Phenotype) theData;
-                origIdGroup = phenotype.getTaxa();
-                AbstractAvailableListModel listModel = new AbstractAvailableListModel() {
-
-                    @Override
-                    public int getRealSize() {
-                        return phenotype.getNumberOfTaxa();
-                    }
-
-                    @Override
-                    public String getRealElementAt(int index) {
-                        return phenotype.getTaxon(index).getName();
-                    }
-                };
+                taxaList = phenotype.getTaxa();
+                TaxaAvailableListModel listModel = new TaxaAvailableListModel(taxaList);
                 dialog = new SelectFromAvailableDialog(getParentFrame(), "Taxa Filter", listModel);
             } else {
                 JOptionPane.showMessageDialog(getParentFrame(), "Invalid selection. Please select a single sequence or phenotype.");
@@ -133,9 +114,9 @@ public class FilterTaxaAlignmentPlugin extends AbstractPlugin {
             int[] indicesToKeep = dialog.getDesiredIndices();
             Taxon[] ids = new Taxon[indicesToKeep.length];
             for (int i = 0; i < indicesToKeep.length; i++) {
-                ids[i] = origIdGroup.get(indicesToKeep[i]);
+                ids[i] = taxaList.get(indicesToKeep[i]);
             }
-            myIdsToKeep=new TaxaListBuilder().addAll(ids).build();
+            myIdsToKeep = new TaxaListBuilder().addAll(ids).build();
             dialog.dispose();
         }
 

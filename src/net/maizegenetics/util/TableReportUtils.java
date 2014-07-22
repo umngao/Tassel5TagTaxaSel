@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 /**
- * @author terry
+ * @author Terry Casstevens
  */
 public class TableReportUtils {
 
@@ -55,13 +55,13 @@ public class TableReportUtils {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("TableReportUtils: writeReport: problem writing file: " + e.getMessage());
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("TableReportUtils: writeReport: problem writing file: " + saveFile.getName() + "\n" + e.getMessage());
         } finally {
             try {
                 bw.close();
             } catch (Exception e) {
-                // do nothing
+                myLogger.debug(e.getMessage(), e);
             }
         }
 
@@ -96,13 +96,13 @@ public class TableReportUtils {
             }
             return new SimpleTableReport(saveFile, columnHeaders, data);
         } catch (Exception e) {
-            e.printStackTrace();
+            myLogger.debug(e.getMessage(), e);
             throw new IllegalArgumentException("Problem creating TableReport: " + saveFile + ": " + ExceptionUtils.getExceptionCauses(e));
         } finally {
             try {
                 br.close();
             } catch (Exception ex) {
-                // do nothing
+                myLogger.debug(ex.getMessage(), ex);
             }
         }
 

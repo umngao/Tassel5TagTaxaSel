@@ -52,6 +52,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
     private boolean permute = false;
     private int numberOfPermutations = 1000;
     private double[][] minP;
+    private boolean reportAdditive;
     private Random randomizer = new Random();
 
     public FixedEffectLMPlugin(Frame parentFrame, boolean isInteractive) {
@@ -153,6 +154,9 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
             return calculateBLUEsFromPhenotypes(theAdapter, dataset.getName());
         }
 
+        if (theAdapter.isMarkerDiscrete(0)) reportAdditive = true;
+        else reportAdditive = false;
+        
         //numbers of various model components
         int numberOfCovariates = theAdapter.getNumberOfCovariates();
         int numberOfFactors = theAdapter.getNumberOfFactors();
@@ -170,6 +174,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
         BufferedWriter ftestWriter = null;
         BufferedWriter BLUEWriter = null;
         String ftestHeader = "Trait\tMarker\tLocus\tLocus_pos\tChr\tChr_pos\tmarker_F\tmarker_p\tperm_p\tmarkerR2\tmarkerDF\tmarkerMS\terrorDF\terrorMS\tmodelDF\tmodelMS";
+        String ftestAdditiveHeader = ftestHeader + "\tadditive_F\tadditive_p\tadditiveDF\tdom_F\tdom_p\tdomDF";
         String BLUEHeader = "Trait\tMarker\tObs\tLocus\tLocus_pos\tChr\tChr_pos\tAllele\tEstimate";
         if (writeOutputToFile) {
             //create the file objects; avoid overwriting permanent files
@@ -199,11 +204,13 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
             try {
                 if (permute) {
                     ftestWriter = new BufferedWriter(new FileWriter(tempFile));
-                    ftestWriter.write(ftestHeader);
+                    if (reportAdditive) ftestWriter.write(ftestAdditiveHeader);
+                    else ftestWriter.write(ftestHeader);
                     ftestWriter.newLine();
                 } else {
                     ftestWriter = new BufferedWriter(new FileWriter(ftestFile));
-                    ftestWriter.write(ftestHeader);
+                    if (reportAdditive) ftestWriter.write(ftestAdditiveHeader);
+                    else ftestWriter.write(ftestHeader);
                     ftestWriter.newLine();
                 }
 
@@ -277,11 +284,14 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
                 //keep track of X matrix columns, so that the position of marker effect estimates in beta can be determined
                 int firstMarkerAlleleEstimate = 1; //for the mean
 
-                //first, add the mean to the model
+                //first, add the mean to the models
+                //modelEffects is additive plus dominance, modelAdditiveEffects is additive only. Mean, factors and covariates will be the same for both
                 ArrayList<ModelEffect> modelEffects = new ArrayList<ModelEffect>();
+                ArrayList<ModelEffect> modelAdditiveEffects = new ArrayList<ModelEffect>();
                 FactorModelEffect meanEffect = new FactorModelEffect(new int[numberOfObs], false);
                 meanEffect.setID("mean");
                 modelEffects.add(meanEffect);
+                modelAdditiveEffects.add(meanEffect);
 
                 //add factors
                 if (numberOfFactors > 0) {
@@ -293,6 +303,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
                         }
                         FactorModelEffect fme = new FactorModelEffect(ModelEffectUtils.getIntegerLevels(factorLabels), true, theAdapter.getFactorName(f));
                         modelEffects.add(fme);
+                        modelAdditiveEffects.add(fme);
                         firstMarkerAlleleEstimate += fme.getNumberOfLevels() - 1;
                     }
                 }
@@ -306,6 +317,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
                             covar[i] = covariateData[nonmissingRows[i]];
                         }
                         modelEffects.add(new CovariateModelEffect(covar, theAdapter.getCovariateName(c)));
+                        modelAdditiveEffects.add(new CovariateModelEffect(covar, theAdapter.getCovariateName(c)));
                         firstMarkerAlleleEstimate++;
                     }
                 }
@@ -314,7 +326,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
                 ModelEffect markerEffect;
                 boolean markerIsDiscrete = theAdapter.isMarkerDiscrete(m);
                 ArrayList<Object> alleleNames = new ArrayList<Object>();
-
+                
                 if (markerIsDiscrete) {
                     Object[] markers = new Object[numberOfObs];
                     for (int i = 0; i < numberOfObs; i++) {
@@ -324,6 +336,11 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
                     int[] markerLevels = ModelEffectUtils.getIntegerLevels(markers, alleleNames);
                     markerEffect = new FactorModelEffect(markerLevels, true, theAdapter.getMarkerName(m));
                     hasAlleleNames = true;
+                    
+                    String additiveAllele = ((String) markers[0]).substring(0, 1);
+                    double[] markerValues = ModelEffectUtils.getNumericCodingForAdditiveModel(markers, additiveAllele);
+                    ModelEffect additiveMarkerEffect = new CovariateModelEffect(markerValues, new String[]{theAdapter.getMarkerName(m), additiveAllele});
+                    modelAdditiveEffects.add(additiveMarkerEffect);
                 } else {
                     double[] markerdbl = new double[numberOfObs];
                     for (int i = 0; i < numberOfObs; i++) {
@@ -347,14 +364,17 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
                 boolean areTaxaReplicated = containsDuplicates(taxaSublist);
 
                 double[] markerSSdf = null, errorSSdf = null, modelSSdf = null;
+                double[] markerAddSSdf = null, errorAddSSdf = null, modelAddSSdf = null;
+                double[] markerDomSSdf = null;
                 double F, p;
+                double FAdd = Double.NaN, pAdd = Double.NaN;
+                double FDom = Double.NaN, pDom = Double.NaN;
                 double[] beta = null;
                 if (areTaxaReplicated && markerIsDiscrete) {
                     ModelEffect taxaEffect = new FactorModelEffect(ModelEffectUtils.getIntegerLevels(taxaSublist), true);
                     modelEffects.add(taxaEffect);
                     SweepFastNestedModel sfnm = new SweepFastNestedModel(modelEffects, y);
                     double[] taxaSSdf = sfnm.getTaxaInMarkerSSdf();
-                    double[] residualSSdf = sfnm.getErrorSSdf();
                     markerSSdf = sfnm.getMarkerSSdf();
                     errorSSdf = sfnm.getErrorSSdf();
                     modelSSdf = sfnm.getModelcfmSSdf();
@@ -369,6 +389,33 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
                     if (permute && markerdf > 0) {
                         updatePermutationPValues(ph, permutedData, nonMissingIndex(missing, finalMissing), getXfromModelEffects(modelEffects), sfnm.getInverseOfXtX(), markerdf);
                     }
+                    
+                    //additive only model
+                    modelAdditiveEffects.add(taxaEffect);
+                    SweepFastNestedModel sfnmAddOnly = new SweepFastNestedModel(modelAdditiveEffects, y);
+                    double[] taxaAddSSdf = sfnmAddOnly.getTaxaInMarkerSSdf();
+                    markerAddSSdf = sfnmAddOnly.getMarkerSSdf();
+                    errorAddSSdf = sfnmAddOnly.getErrorSSdf();
+                    modelAddSSdf = sfnmAddOnly.getModelcfmSSdf();
+                    FAdd = markerAddSSdf[0] / markerAddSSdf[1] / taxaSSdf[0] * taxaSSdf[1];
+                    try {
+                        pAdd = LinearModelUtils.Ftest(FAdd, markerAddSSdf[1], taxaSSdf[1]);
+                    } catch (Exception e) {
+                        pAdd = Double.NaN;
+                    }
+                    
+                    //dominance
+                    markerDomSSdf = new double[2];
+                    markerDomSSdf[0] = errorAddSSdf[0] - errorSSdf[0];
+                    markerDomSSdf[1] = errorAddSSdf[1] - errorSSdf[1];
+                    FDom = markerDomSSdf[0] / markerDomSSdf[1] / taxaSSdf[0] * taxaSSdf[1];
+                    try {
+                        pDom = LinearModelUtils.Ftest(FDom, markerDomSSdf[1], taxaSSdf[1]);
+                    } catch (Exception e) {
+                        pDom = Double.NaN;
+                    }
+                    
+                    
                 } else {
                     SweepFastLinearModel sflm = new SweepFastLinearModel(modelEffects, y);
                     modelSSdf = sflm.getModelcfmSSdf();
@@ -385,6 +432,33 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
                     int markerdf = (int) markerSSdf[1];
                     if (permute && markerdf > 0) {
                         updatePermutationPValues(ph, permutedData, nonMissingIndex(missing, finalMissing), getXfromModelEffects(modelEffects), sflm.getInverseOfXtX(), markerdf);
+                    }
+                    
+                    //compute additive and dominance terms
+                    if (reportAdditive) {
+                        //additive only model
+                        SweepFastNestedModel sfnmAddOnly = new SweepFastNestedModel(modelAdditiveEffects, y);
+                        markerAddSSdf = sfnmAddOnly.getMarkerSSdf();
+                        errorAddSSdf = sfnmAddOnly.getErrorSSdf();
+                        modelAddSSdf = sfnmAddOnly.getModelcfmSSdf();
+                        FAdd = markerAddSSdf[0] / markerAddSSdf[1] / errorSSdf[0] * errorSSdf[1];
+                        try {
+                            pAdd = LinearModelUtils.Ftest(FAdd, markerAddSSdf[1], errorSSdf[1]);
+                        } catch (Exception e) {
+                            pAdd = Double.NaN;
+                        }
+                        
+                        //dominance
+                        markerDomSSdf = new double[2];
+                        markerDomSSdf[0] = errorAddSSdf[0] - errorSSdf[0];
+                        markerDomSSdf[1] = errorAddSSdf[1] - errorSSdf[1];
+                        FDom = markerDomSSdf[0] / markerDomSSdf[1] / errorSSdf[0] * errorSSdf[1];
+                        try {
+                            pDom = LinearModelUtils.Ftest(FDom, markerDomSSdf[1], errorSSdf[1]);
+                        } catch (Exception e) {
+                            pDom = Double.NaN;
+                        }
+
                     }
                 }
 
@@ -409,8 +483,11 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
                             chrpos = myMap.getGeneticPosition(ndx);
                         }
                     }
-
-                    Object[] result = new Object[16];
+                    
+                    Object[] result;
+                    if (reportAdditive) result = new Object[22];
+                    else result = new Object[16];
+                    
                     int col = 0;
                     result[col++] = traitname;
                     result[col++] = marker;
@@ -428,6 +505,15 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
                     result[col++] = new Double(errorSSdf[0] / errorSSdf[1]);
                     result[col++] = new Double(modelSSdf[1]);
                     result[col++] = new Double(modelSSdf[0] / modelSSdf[1]);
+                    
+                    if (reportAdditive) {
+                    	result[col++] = new Double(FAdd);
+                    	result[col++] = new Double(pAdd);
+                    	result[col++] = new Double(markerAddSSdf[1]);
+                    	result[col++] = new Double(FDom);
+                    	result[col++] = new Double(pDom);
+                    	result[col++] = new Double(markerDomSSdf[1]);
+                    }
 
                     if (writeOutputToFile) {
                         StringBuilder sb = new StringBuilder();
@@ -598,7 +684,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
         //set colnames
 
         String[] columnLabels = new String[]{"Trait", "Marker", "Locus", "Locus_pos", "Chr", "Chr_pos", "marker_F", "marker_p", "perm_p",
-            "markerR2", "markerDF", "markerMS", "errorDF", "errorMS", "modelDF", "modelMS"};
+            "markerR2", "markerDF", "markerMS", "errorDF", "errorMS", "modelDF", "modelMS", "add_F", "add_p", "addDF", "dom_F", "dom_p", "domDF"};
         boolean hasMarkerNames = theAdapter.hasMarkerNames();
 
         LinkedList<Integer> outputList = new LinkedList<Integer>();
@@ -620,7 +706,9 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
         for (int i = 9; i < 16; i++) {
             outputList.add(i);
         }
-
+        
+        if (reportAdditive) for (int i = 16; i < 22; i++) outputList.add(i);
+        
         LinkedList<Datum> resultset = new LinkedList<Datum>();
         int nrows = markerTestResults.size();
         Object[][] table = new Object[nrows][];
