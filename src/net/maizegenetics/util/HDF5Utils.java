@@ -82,9 +82,18 @@ public final class HDF5Utils {
             String s = Joiner.on(",").join(annoMap.get(keys));
             h5w.setStringAttribute(path, keys, s);
         }
+        if(!h5w.exists(Tassel5HDF5Constants.TAXA_ORDER)) createTaxaOrder(h5w);
         long size = h5w.getDataSetInformation(Tassel5HDF5Constants.TAXA_ORDER).getNumberOfElements();
         h5w.writeStringArrayBlockWithOffset(Tassel5HDF5Constants.TAXA_ORDER, new String[]{taxon.getName()}, 1, size);
         return true;
+    }
+    
+    private static void createTaxaOrder(IHDF5Writer h5w){
+        List<String> taxaNames = getAllTaxaNames(h5w);
+        h5w.createStringArray(Tassel5HDF5Constants.TAXA_ORDER, 256, 0, 1);
+        for (int i = 0; i < taxaNames.size(); i++) {
+            h5w.writeStringArrayBlockWithOffset(Tassel5HDF5Constants.TAXA_ORDER, new String[]{taxaNames.get(i)}, 1, i);           
+        }
     }
 
     public static void replaceTaxonAnnotations(IHDF5Writer h5w, Taxon modifiedTaxon) {
