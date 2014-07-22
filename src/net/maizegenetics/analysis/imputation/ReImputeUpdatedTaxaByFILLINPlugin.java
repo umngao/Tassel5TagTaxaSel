@@ -172,8 +172,8 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
         }
         Taxon impTaxon = HDF5Utils.getTaxon(impGenosWriter, taxonName);
         if (impTaxon == null) return true;
-        String[] rawFlowCellLanes = (String[]) rawTaxon.getAnnotation("Flowcell_Lane");
-        String[] impFlowCellLanes = (String[]) impTaxon.getAnnotation("Flowcell_Lane");
+        String[] rawFlowCellLanes = rawTaxon.getTextAnnotation("Flowcell_Lane");
+        String[] impFlowCellLanes = impTaxon.getTextAnnotation("Flowcell_Lane");
         for (String rawFlowCellLane : rawFlowCellLanes) {
             boolean found = false;
             for (String impFlowCellLane : impFlowCellLanes) {
