@@ -32,7 +32,7 @@ public class GenomeFeature {
     /**
      * Parse the stored annotation on a position into an int. Returns -1 if not found.
      * @param key
-     * @return
+     * @return An integer value of the position, or -1 if parsing it fails
      */
     private int assignPosition(String key){
         String value = getAnnotation(key);

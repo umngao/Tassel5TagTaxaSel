@@ -65,7 +65,7 @@ public class GenomeFeatureMap {
      * @param chrom The chromosome name
      * @param start Beginning physical position
      * @param end End physical position
-     * @return A HashSet of GenomeFeatures
+     * @return A {@link HashSet} of GenomeFeatures
      */
     public HashSet<GenomeFeature> getFeaturesInRange(String chrom, int start, int end) {
         Range myrange = Range.closed(start, end); //'Closed' = inclusive, so closed(1,3) = 1,2,3 and closed(1,1) = 1

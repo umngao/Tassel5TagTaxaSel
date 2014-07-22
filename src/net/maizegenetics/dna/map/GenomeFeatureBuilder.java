@@ -158,7 +158,7 @@ public class GenomeFeatureBuilder {
      * parentid, parent_id, parent -> parent_id
      * pos, position -> position
      *
-     * @param key
+     * @param key The key to standardize
      * @return
      */
     public static String synonymizeKeys(String key) {

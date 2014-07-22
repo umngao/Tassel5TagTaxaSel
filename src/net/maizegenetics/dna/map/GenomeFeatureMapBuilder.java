@@ -24,9 +24,6 @@ import java.util.*;
 //TODO: Add functionality for reading in a precompiled map
 public class GenomeFeatureMapBuilder {
 
-    //Root of the GenomeFeature tree - DEPRECATED IN FAVOR OF AN ACTUAL GRAPH
-    //GenomeFeature root = null;
-
     private static final Logger myLogger = Logger.getLogger(GenomeFeatureMapBuilder.class);
 
     //Graph of all the genome features connecting to each other
@@ -39,7 +36,6 @@ public class GenomeFeatureMapBuilder {
 
     //Helper variables used to store information to build the feature map
     HashSet<String> chromosomes = new HashSet<>();
-
 
 
     public GenomeFeatureMap build(){
