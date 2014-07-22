@@ -19,7 +19,6 @@ import java.util.regex.Pattern;
  * the addAnnotation() method, but the more common fields have their own convenience methods. Only the feature's own ID
  * is required; all other annotations are optional
  */
-//TODO: Are all the required fields necessary, or should I just require the ID and (maybe) check for start-stop values if they're given?
 public class GenomeFeatureBuilder {
 
     private static final Logger myLogger = Logger.getLogger(GenomeFeatureBuilder.class);

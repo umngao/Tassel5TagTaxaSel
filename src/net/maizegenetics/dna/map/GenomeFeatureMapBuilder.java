@@ -4,6 +4,7 @@ import com.google.common.collect.*;
 import net.maizegenetics.util.DirectedGraph;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -206,8 +207,13 @@ public class GenomeFeatureMapBuilder {
     /**
      * Load in data from a JSON-formatted file. JSON format is defined at http://www.json.org/, and consists of structured
      * key-value pairs. For genome features, the key is the name of an attribute and the value is (obviously) its value.
-     * (For example: "chromosome":1). Common attributes (keys) are listed below. Although only the "id" attribute is
-     * required, a feature is pretty useless without some sort of positional information (chromosome, start/stop, etc.).
+     * (For example: "chromosome":1). Note that if you have more than one feature per file (the normal case), all but the
+     * last closing brace ('}') should be followed by a comma, and the whole group should be within square braces ('[...]'
+     * That is, the first character of the file should be '[' and the last should be ']'). This makes it a properly-formatted
+     * JSON array.
+     *
+     * Common attributes (keys) are listed below. Although only the "id" attribute is required, a feature is pretty
+     * useless without some sort of positional information (chromosome, start/stop, etc.).
      *   "id":       Unique identifier for this feature. Repeated identifiers throw an error. (Also accepts "name".) Required.
      *   "chrom":    Which chromosome it occurs on (Also accepts "chr" or "chromosome")
      *   "start":    Start position on the chromosome
@@ -224,22 +230,14 @@ public class GenomeFeatureMapBuilder {
         JSONParser jparse = new JSONParser();
         BufferedReader reader = Utils.getBufferedReader(filename);
         try {
-            String jsonAsString = reader.readLine();
-            while(jsonAsString != null){
-                //Build up JSON object as a single string
-                String nextLine  = reader.readLine();
-                while(nextLine != null){
-                    jsonAsString += nextLine;
-                    if(nextLine.contains("}")){ //Break when hit closing brace
-                        break;
-                    }
-                    nextLine  = reader.readLine();
-                }
-                JSONObject featureData = (JSONObject) jparse.parse(jsonAsString);
-                GenomeFeature newFeature = new GenomeFeatureBuilder().parseJsonObject(featureData).build();
+            JSONArray jarray = (JSONArray) jparse.parse(reader);
+            Iterator iter = jarray.iterator();
+            while(iter.hasNext()){
+                JSONObject json = (JSONObject) iter.next();
+                GenomeFeature newFeature = new GenomeFeatureBuilder().parseJsonObject(json).build();
                 addFeature(newFeature);
-                jsonAsString = reader.readLine();
             }
+            reader.close();
         } catch (IOException e) {
             myLogger.error("Error loading data from JSON file " + filename);
             e.printStackTrace();
@@ -250,6 +248,44 @@ public class GenomeFeatureMapBuilder {
 
         return this;
     }
+
+    //Alternate implementation with manually reading in the JSON data; not recommended
+    /*public GenomeFeatureMapBuilder addFromJsonFile(String filename) {
+        JSONParser jparse = new JSONParser();
+        BufferedReader reader = Utils.getBufferedReader(filename);
+        try {
+            String inline = reader.readLine();
+            String tempJson = "";
+            while(inline != null){
+                tempJson += inline;
+                //If has closing brace (mark of end of object), then parse
+                while(tempJson.contains("}")){  //While loop in case multiple objects on one line
+                    //Subtract out JSON object
+                    int start=tempJson.indexOf('{');
+                    int end=tempJson.indexOf('}');
+                    String json = tempJson.substring(start, end+1);
+                    System.out.println("jsonAsString:" + tempJson);
+                    System.out.println("\ttake out:" + json);
+                    tempJson = tempJson.substring(end + 1, tempJson.length());    //Remove everything
+                    System.out.println("\tleft:" + tempJson);
+
+                    //Add data as feature
+                    JSONObject featureData = (JSONObject) jparse.parse(json);
+                    GenomeFeature newFeature = new GenomeFeatureBuilder().parseJsonObject(featureData).build();
+                    addFeature(newFeature);
+                }
+                inline = reader.readLine();
+            }
+        } catch (IOException e) {
+            myLogger.error("Error loading data from JSON file " + filename);
+            e.printStackTrace();
+        } catch (ParseException e) {
+            myLogger.error("Error parsing information in JSON file " + filename);
+            e.printStackTrace();
+        }
+
+        return this;
+    }*/
 
     /**
      * Load in data from a flat, tab-delimited text file. The first row should be a header identifying what attribute is
