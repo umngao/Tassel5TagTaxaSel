@@ -1,9 +1,7 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * ProjectionLoadPlugin
  */
 package net.maizegenetics.analysis.data;
-
 
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.io.ProjectionGenotypeIO;
@@ -26,31 +24,32 @@ import java.awt.event.ActionListener;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.io.*;
+import java.util.List;
 
 import org.apache.log4j.Logger;
+
 /**
  *
- * @author Alex Lipka
- * This should enable a used to load a projection alignment
+ * @author Alex Lipka This should enable a used to load a projection alignment
  * using the TASSEL GUI
  */
 public class ProjectionLoadPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(ProjectionLoadPlugin.class);
+
     private String myRecombinationBreakpoints = null;
     private String myHighDensityMarkers = null;
+    private GenotypeTable myHighDensityMarkersGenotypeTable = null;
     private String myChromosome = null;
-    private boolean hasHetSeparator;
-    private boolean hasNucleotides = true;
-    private boolean isPhysicalMap = true;
-    private String hetSeparator;
-    private String missingCharacter;
 
-    /** Creates a new instance of ProjectionLoadPlugin */
+    /**
+     * Creates a new instance of ProjectionLoadPlugin
+     */
     public ProjectionLoadPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
 
+    @Override
     public DataSet performFunction(DataSet input) {
 
         if (isInteractive()) {
@@ -60,26 +59,32 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
             if (theDialog.isCancel()) {
                 return null;
             }
-            //hasHetSeparator = theDialog.chkHetsSeparated.isSelected();
-            //hasNucleotides = theDialog.chkMarkersAreNucleotides.isSelected();
-            //hetSeparator = theDialog.txtHetsep.getText().trim();
-            //missingCharacter = theDialog.txtMissing.getText().trim();
-            //isPhysicalMap = theDialog.radioPhysical.isSelected();
             theDialog.dispose();
-        }
-
-        if ((myRecombinationBreakpoints == null) || (myRecombinationBreakpoints.length() == 0)) {
-            return null;
-        }
-        if ((myHighDensityMarkers == null) || (myHighDensityMarkers.length() == 0)) {
-            return null;
+        } else {
+            List<Datum> genotypeTables = input.getDataOfType(GenotypeTable.class);
+            if (genotypeTables.size() == 1) {
+                myHighDensityMarkersGenotypeTable = (GenotypeTable) genotypeTables.get(0).getData();
+            }
         }
 
         try {
-            DataSet result = loadFile(myRecombinationBreakpoints, myHighDensityMarkers);
-            return result;
+
+            if ((myRecombinationBreakpoints == null) || (myRecombinationBreakpoints.length() == 0)) {
+                return null;
+            }
+
+            if (myHighDensityMarkersGenotypeTable != null) {
+                return loadFile(myRecombinationBreakpoints, myHighDensityMarkersGenotypeTable);
+            }
+
+            if ((myHighDensityMarkers == null) || (myHighDensityMarkers.length() == 0)) {
+                return null;
+            }
+
+            return loadFile(myRecombinationBreakpoints, myHighDensityMarkers);
+
         } catch (Exception e) {
-            String msg = "Recombination breakpoints " + myRecombinationBreakpoints+ " and high density markers"
+            String msg = "Recombination breakpoints " + myRecombinationBreakpoints + " and high density markers"
                     + myHighDensityMarkers + " failed to load. " + "Make sure the import options are properly set.";
             if (isInteractive()) {
                 JOptionPane.showMessageDialog(getParentFrame(), msg, "Error uploading Projection files", JOptionPane.ERROR_MESSAGE);
@@ -87,6 +92,8 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
                 myLogger.error(msg);
             }
             return null;
+        } finally {
+            fireProgress(100);
         }
 
     }
@@ -120,6 +127,7 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
      *
      * @return ImageIcon
      */
+    @Override
     public ImageIcon getIcon() {
         return null;
     }
@@ -129,6 +137,7 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
      *
      * @return String
      */
+    @Override
     public String getButtonName() {
         return "Load Projection Alignment";
     }
@@ -138,6 +147,7 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
      *
      * @return String
      */
+    @Override
     public String getToolTipText() {
         return "Load Projection Alignments";
     }
@@ -145,21 +155,13 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
     public DataSet loadFile(String theRecombinationBreakpoints, String theHighDensityMarkers) {
 
         GenotypeTable theAlignmentForGenotype = null;
-        //Terry - fix this
         try {
-        theAlignmentForGenotype = ProjectionGenotypeIO.getInstance(theRecombinationBreakpoints, theHighDensityMarkers);
-        
-        //Run ProjectionBuilder() to create the breakpoints
-        //ProjectionBuilder theProjectionBuilder =  new ProjectionBuilder(theAlignment);
-        
-        //theAlignmentForGenotype = theProjectionBuilder.build();
-       } catch (Exception e) {
+            theAlignmentForGenotype = ProjectionGenotypeIO.getInstance(theRecombinationBreakpoints, theHighDensityMarkers);
+        } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
-        
-        
-        //Begin here, Alex
+
         Datum td = new Datum(Utils.getFilename(theRecombinationBreakpoints, FileLoadPlugin.FILE_EXT_HAPMAP), theAlignmentForGenotype, null);
         DataSet tds = new DataSet(td, this);
         fireDataSetReturned(new PluginEvent(tds, ProjectionLoadPlugin.class));
@@ -168,24 +170,22 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
 
     }
 
-    public void hasHetSeparator(boolean hasSeparator) {
-        hasHetSeparator = hasSeparator;
-    }
+    public DataSet loadFile(String theRecombinationBreakpoints, GenotypeTable theHighDensityMarkers) {
 
-    public void hasNucleotides(boolean nucleotides) {
-        hasNucleotides = nucleotides;
-    }
+        GenotypeTable theAlignmentForGenotype = null;
+        try {
+            theAlignmentForGenotype = ProjectionGenotypeIO.getInstance(theRecombinationBreakpoints, theHighDensityMarkers);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
 
-    public void setHetSeparator(String separator) {
-        hetSeparator = separator;
-    }
+        Datum td = new Datum(Utils.getFilename(theRecombinationBreakpoints, FileLoadPlugin.FILE_EXT_HAPMAP), theAlignmentForGenotype, null);
+        DataSet tds = new DataSet(td, this);
+        fireDataSetReturned(new PluginEvent(tds, ProjectionLoadPlugin.class));
 
-    public void setMissingCharacter(String missing) {
-        missingCharacter = missing;
-    }
+        return tds;
 
-    public void hasPhysicalMap(boolean physicalmap) {
-        isPhysicalMap = physicalmap;
     }
 
     class ProjectionPluginDialog extends JDialog {
@@ -198,12 +198,6 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
         private boolean myIsCancel = false;
         private JButton myHighDensityMarkersBrowseButton = null;
         private JButton myRecombinationBreakpointsBrowseButton = null;
-        private final JCheckBox chkHetsSeparated = new JCheckBox("Heterozygotes are separated by a character (eg, A/T rather than AT)", true);
-        private final JCheckBox chkMarkersAreNucleotides = new JCheckBox("Markers are nucleotides (ie, A, C, G, or T)", true);
-        private final JTextField txtHetsep = new JTextField(5);
-        private final JTextField txtMissing = new JTextField(5);
-        private final JRadioButton radioPhysical = new JRadioButton("Physical", true);
-        private final JRadioButton radioGenetic = new JRadioButton("Genetic", false);
 
         public ProjectionPluginDialog() {
             super((Frame) null, "File Loader", true);
@@ -225,8 +219,6 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
 
             myRecombinationBreakpointsBrowseButton = new JButton("Browse...");
             myHighDensityMarkersBrowseButton = new JButton("Browse...");
-            //txtHetsep.setText("/");
-            //txtMissing.setText("-");
 
             setLocationRelativeTo(getParentFrame());
 
@@ -323,22 +315,6 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
             pack();
         }
 
-        private JButton getResetButton() {
-
-            JButton resetButton = new JButton("Reset");
-            resetButton.addActionListener(new ActionListener() {
-
-                public void actionPerformed(ActionEvent e) {
-                    myRecombinationBreakpointsField.setText("");
-                    myHighDensityMarkersField.setText("");
-                    myChromosomeField.setText("");
-                }
-            });
-
-            return resetButton;
-
-        }
-
         private JButton getCancelButton() {
 
             JButton cancelButton = new JButton("Cancel");
@@ -363,7 +339,6 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
                 public void actionPerformed(ActionEvent e) {
                     myRecombinationBreakpoints = myRecombinationBreakpointsField.getText();
                     myHighDensityMarkers = myHighDensityMarkersField.getText();
-//                    myChromosome = myChromosomeField.getText();
                     myIsCancel = false;
                     setVisible(false);
                 }
@@ -376,5 +351,5 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
         public boolean isCancel() {
             return myIsCancel;
         }
-    }    
+    }
 }

@@ -1,6 +1,8 @@
 package net.maizegenetics.analysis.association;
 
+import net.maizegenetics.analysis.data.ExportPlugin;
 import net.maizegenetics.dna.snp.GeneticMap;
+import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.trait.MarkerPhenotypeAdapterUtils;
 import net.maizegenetics.trait.Phenotype;
 import net.maizegenetics.trait.MarkerPhenotypeAdapter;
@@ -195,7 +197,16 @@ public class CompressedMLMusingDoubleMatrix {
             int baseModeldf = emlm.getDfModel();
 
             //record the results
-            if (outputResiduals) results.add(createResPhenotype(emlm, nonmissingIds, new Trait(theAdapter.getPhenotypeName(ph), false, Trait.TYPE_DATA)));
+            if (outputResiduals) {
+                Datum residuals = createResPhenotype(emlm, nonmissingIds, new Trait(theAdapter.getPhenotypeName(ph), false, Trait.TYPE_DATA));
+                results.add(residuals);
+                if(parentPlugin.isWriteOutputToFile()){
+                    ExportPlugin exporter = new ExportPlugin(null, false);
+                    String outfile = parentPlugin.getOutputName() + "_" + residuals.getName() +  "_residuals.txt";
+                    exporter.setSaveFile(outfile);
+                    exporter.performFunction(new DataSet(residuals, parentPlugin));
+                }
+            }
             
             Object[] tableRow;
             if (myGeneticMap != null) {
