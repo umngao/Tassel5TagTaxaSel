@@ -156,7 +156,7 @@ public class TaxaListIOUtils {
                 int i=0;
                 for(String header: line.split("\\t")) {
                     if(header.equals(taxaNameField)) {indexOfName=i;}
-                    isQuant.add(header.startsWith("#"));
+                    isQuant.add(header.startsWith("#") || header.startsWith("<#"));
                     headers.add(header.replace(">", "").replace("<", "").replace("#", ""));
                     i++;
                 }

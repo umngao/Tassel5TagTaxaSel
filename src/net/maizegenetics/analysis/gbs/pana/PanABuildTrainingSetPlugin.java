@@ -66,6 +66,9 @@ public class PanABuildTrainingSetPlugin extends AbstractPlugin {
             br.readLine();
             String[] temp = br.readLine().split("\t");
             lamdas = new double[temp.length];
+            for (int i = 0; i < lamdas.length; i++) {
+                lamdas[i] = Double.valueOf(temp[i]);
+            }
             br.close();
             br = new BufferedReader(new FileReader(this.trainingSetFileS), 65536);
             String header = br.readLine();

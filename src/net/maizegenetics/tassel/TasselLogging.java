@@ -13,6 +13,7 @@ import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
+import java.io.File;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
@@ -30,10 +31,15 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 
+import net.maizegenetics.gui.DialogUtils;
+import net.maizegenetics.gui.FileBrowserUtils;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.util.LoggingUtils;
+import net.maizegenetics.util.Utils;
+
+import org.apache.log4j.Logger;
 
 /**
  *
@@ -42,11 +48,13 @@ import net.maizegenetics.util.LoggingUtils;
 public class TasselLogging extends AbstractPlugin {
 
     private static TasselLogging myInstance = null;
+    private static final Logger myLogger = Logger.getLogger(TasselLogging.class);
 
     private final JDialog myDialog = new JDialog((Window) null, "Tassel Logging", Dialog.ModalityType.MODELESS);
     private final JTextArea myTextArea = new JTextArea();
     private final TextAreaOutputStream myTextAreaOutputStream = new TextAreaOutputStream(myTextArea);
     private final PrintStream myPrintStream = new PrintStream(myTextAreaOutputStream);
+    private boolean myJustCreated = true;
 
     private TasselLogging(Frame parentFrame) {
         super(parentFrame, true);
@@ -122,10 +130,28 @@ public class TasselLogging extends AbstractPlugin {
             }
         });
 
+        JButton saveButton = new JButton("Save");
+        saveButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    File theFile = FileBrowserUtils.getSaveFile(myDialog);
+                    if (theFile != null) {
+                        myTextArea.write(Utils.getBufferedWriter(theFile));
+                    }
+                } catch (Exception ex) {
+                    DialogUtils.showError(ex.getMessage() + "\n", myDialog);
+                }
+            }
+
+        });
+
         JPanel pnlButtons = new JPanel();
         pnlButtons.setLayout(new FlowLayout());
         pnlButtons.add(closeButton);
         pnlButtons.add(clearButton);
+        pnlButtons.add(saveButton);
         pnlButtons.add(isDebug);
 
         myDialog.getContentPane().add(new JScrollPane(myTextArea), BorderLayout.CENTER);
@@ -140,6 +166,10 @@ public class TasselLogging extends AbstractPlugin {
         LoggingUtils.setupLogging(myPrintStream);
         myDialog.setLocationRelativeTo(getParentFrame());
         myDialog.setVisible(true);
+        if (myJustCreated) {
+            myTextAreaOutputStream.clear();
+            myJustCreated = false;
+        }
         return null;
     }
 
@@ -175,6 +205,9 @@ public class TasselLogging extends AbstractPlugin {
         public synchronized void clear() {
             if (myTextAppender != null) {
                 myTextAppender.clear();
+                myLogger.info("Tassel Version: " + TASSELMainFrame.version + "  Date: " + TASSELMainFrame.versionDate);
+                myLogger.info("Max Available Memory Reported by JVM: " + Utils.getMaxHeapSizeMB() + " MB");
+                myLogger.info("Java Version: " + System.getProperty("java.version"));
             }
         }
 

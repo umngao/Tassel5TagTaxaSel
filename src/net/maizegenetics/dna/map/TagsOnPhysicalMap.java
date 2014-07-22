@@ -827,14 +827,52 @@ public class TagsOnPhysicalMap extends AbstractTagsOnPhysicalMap {
 
     @Override
     public void setVariantDef(int tagIndex, int variantIndex, byte def) {
-        variantDefs[tagIndex][variantIndex] = (byte) NucleotideAlignmentConstants.NUCLEOTIDE_ALLELES[0][def].charAt(0);
+        // ragged arrays complicate things:
+        if (variantDefs[tagIndex] == null || variantDefs[tagIndex].length <= variantIndex) { // defs either don't exist or are too small
+            if (variantIndex == 0) {
+                variantDefs[tagIndex] = new byte[]{def};
+            } else {
+                byte[] newVariantDefs = new byte[variantIndex+1];
+                for (int v = 0; v < newVariantDefs.length; v++) {
+                    if (variantDefs[tagIndex] != null && v < variantDefs[tagIndex].length) {
+                        newVariantDefs[v] = variantDefs[tagIndex][v]; // copy exisiting variant defs
+                    } else if (v < variantIndex) {
+                        newVariantDefs[v] = Byte.MIN_VALUE; // fill with missing values as needed
+                    } else {
+                        newVariantDefs[v] = def;
+                    }
+                }
+                variantDefs[tagIndex] = Arrays.copyOf(newVariantDefs, newVariantDefs.length);
+            }
+        } else { // defs exist and are large enough
+            variantDefs[tagIndex][variantIndex] = def;
+        } 
     }
 
     @Override
     public void setVariantPosOff(int tagIndex, int variantIndex, byte offset) {
-        variantOffsets[tagIndex][variantIndex] = offset;
+        // ragged arrays complicate things:
+        if (variantOffsets[tagIndex] == null || variantOffsets[tagIndex].length <= variantIndex) { // offsets either don't exist or are too small
+            if (variantIndex == 0) {
+                variantOffsets[tagIndex] = new byte[]{offset};
+            } else {
+                byte[] newVariantOffs = new byte[variantIndex+1];
+                for (int v = 0; v < newVariantOffs.length; v++) {
+                    if (variantOffsets[tagIndex] != null && v < variantOffsets[tagIndex].length) {
+                        newVariantOffs[v] = variantOffsets[tagIndex][v]; // copy exisiting variant offsets
+                    } else if (v < variantIndex) {
+                        newVariantOffs[v] = Byte.MIN_VALUE; // fill with missing values as needed
+                    } else {
+                        newVariantOffs[v] = offset;
+                    }
+                }
+                variantOffsets[tagIndex] = Arrays.copyOf(newVariantOffs, newVariantOffs.length);
+            }
+        } else { // offsets exist and are large enough
+            variantOffsets[tagIndex][variantIndex] = offset;
+        } 
     }
-
+    
     @Override
     public int getMaxNumVariants() {
         return myMaxVariants;

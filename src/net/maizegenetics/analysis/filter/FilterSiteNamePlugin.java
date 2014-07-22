@@ -22,14 +22,14 @@ import java.net.URL;
 
 import java.util.List;
 
-import net.maizegenetics.gui.AbstractAvailableListModel;
 import net.maizegenetics.gui.SelectFromAvailableDialog;
+import net.maizegenetics.gui.SiteNamesAvailableListModel;
 
 import org.apache.log4j.Logger;
 
 /**
  *
- * @author terry
+ * @author Terry Casstevens
  */
 public class FilterSiteNamePlugin extends AbstractPlugin {
 
@@ -80,17 +80,7 @@ public class FilterSiteNamePlugin extends AbstractPlugin {
         final GenotypeTable alignment = (GenotypeTable) inDatum.getData();
 
         if (isInteractive) {
-            AbstractAvailableListModel listModel = new AbstractAvailableListModel() {
-                @Override
-                public int getRealSize() {
-                    return alignment.numberOfSites();
-                }
-
-                @Override
-                public String getRealElementAt(int index) {
-                    return alignment.siteName(index);
-                }
-            };
+            SiteNamesAvailableListModel listModel = new SiteNamesAvailableListModel(alignment.positions());
             SelectFromAvailableDialog dialog = new SelectFromAvailableDialog(getParentFrame(), "Site Name Filter", listModel);
             dialog.setLocationRelativeTo(getParentFrame());
             dialog.setVisible(true);

@@ -60,6 +60,7 @@ import java.util.*;
 import java.util.List;
 import java.util.regex.Pattern;
 import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
+import net.maizegenetics.analysis.data.ProjectionLoadPlugin;
 import net.maizegenetics.analysis.filter.FilterSubsetPlugin;
 import net.maizegenetics.util.LoggingUtils;
 
@@ -127,10 +128,10 @@ public class TasselPipeline implements PluginListener {
     }
 
     public static void main(String args[]) {
-        
+
         TasselPrefs.setPersistPreferences(false);
         LoggingUtils.setupLogging();
-        
+
         if ((args.length >= 2) && (args[0].equalsIgnoreCase("-createXML"))) {
             String xmlFilename = args[1].trim();
             String[] temp = new String[args.length - 2];
@@ -150,11 +151,12 @@ public class TasselPipeline implements PluginListener {
             String[] temp = new String[args.length - 1];
             System.arraycopy(args, 1, temp, 0, temp.length);
             new TasselPipeline(temp, null);
-        }else {
+        } else {
             new TasselPipeline(args, null);
         }
+
     }
-    
+
     public void parseArgs(String[] args) {
 
         if ((args.length >= 2) && (args[0].equalsIgnoreCase("-configFile"))) {
@@ -255,6 +257,9 @@ public class TasselPipeline implements PluginListener {
                 } else if (current.equalsIgnoreCase("-h5")) {
                     String hdf5File = args[index++].trim();
                     loadFile(hdf5File, FileLoadPlugin.TasselFileType.HDF5);
+                } else if (current.equalsIgnoreCase("-hdf5Schema")) {
+                    String hdf5File = args[index++].trim();
+                    loadFile(hdf5File, FileLoadPlugin.TasselFileType.HDF5Schema);
                 } else if (current.equalsIgnoreCase("-r")) {
                     String phenotypeFile = args[index++].trim();
                     loadFile(phenotypeFile, FileLoadPlugin.TasselFileType.Phenotype);
@@ -297,6 +302,11 @@ public class TasselPipeline implements PluginListener {
                 } else if (current.equalsIgnoreCase("-importGuess")) {
                     String file = args[index++].trim();
                     loadFile(file, FileLoadPlugin.TasselFileType.Unknown);
+                } else if (current.equalsIgnoreCase("-projection")) {
+                    String file = args[index++].trim();
+                    ProjectionLoadPlugin plugin = new ProjectionLoadPlugin(myMainFrame, false);
+                    plugin.setRecombinationBreakpoints(file);
+                    integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-convertTOPMtoHDF5")) {
                     String filename = args[index++].trim();
                     TagsOnPhysicalMap topm = null;

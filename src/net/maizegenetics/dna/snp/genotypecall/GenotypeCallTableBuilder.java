@@ -6,9 +6,13 @@ package net.maizegenetics.dna.snp.genotypecall;
 import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Future;
+import java.util.regex.Pattern;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
@@ -16,7 +20,7 @@ import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.util.SuperByteMatrix;
 import net.maizegenetics.util.SuperByteMatrixBuilder;
 
-import java.util.regex.Pattern;
+import org.apache.log4j.Logger;
 
 /**
  * Builder to construct a GenotypeCallTable. This builder is generally only used
@@ -25,6 +29,8 @@ import java.util.regex.Pattern;
  * @author Terry Casstevens
  */
 public class GenotypeCallTableBuilder {
+
+    private static Logger myLogger = Logger.getLogger(GenotypeCallTableBuilder.class);
 
     private SuperByteMatrix myGenotype;
     private boolean myIsPhased = false;
@@ -99,19 +105,22 @@ public class GenotypeCallTableBuilder {
             GenotypeCallTableBuilder builder = GenotypeCallTableBuilder.getInstance(numTaxa, numSites).isPhased(genotype.isPhased()).alleleEncodings(genotype.alleleDefinitions());
             int numThreads = Runtime.getRuntime().availableProcessors();
             ExecutorService pool = Executors.newFixedThreadPool(numThreads);
+            List<Future<?>> futures = new ArrayList<>();
             for (int t = 0; t < numTaxa; t += NUM_TAXA_TO_COPY) {
                 int numTaxaToCopy = Math.min(NUM_TAXA_TO_COPY, numTaxa - t);
-                pool.execute(new CopyAllSitesFromTaxa(genotype, builder, t, numTaxaToCopy));
+                Future<?> future = pool.submit(new CopyAllSitesFromTaxa(genotype, builder, t, numTaxaToCopy));
+                futures.add(future);
             }
 
-            try {
-                pool.shutdown();
-                if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
-                    throw new IllegalStateException("GenotypeCallTableBuilder: getInstanceCopy: processing threads timed out.");
+            for (Future<?> future : futures) {
+                try {
+                    future.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    myLogger.debug(e.getMessage(), e);
+                    throw new IllegalStateException("GenotypeCallTableBuilder: getInstanceCopy: " + e.getMessage());
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
             }
+            pool.shutdown();
 
             return builder;
         }

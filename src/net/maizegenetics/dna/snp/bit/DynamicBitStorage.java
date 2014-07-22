@@ -8,6 +8,7 @@ import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.UnmodifiableBitSet;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -88,7 +89,7 @@ public class DynamicBitStorage implements BitStorage {
             }
             for (int i = 0; i < length; i++) {
                 byte a1 = myPrefAllele[site + i];
-                BitSet bs = GenotypeTableUtils.calcBitPresenceFromGenotype(genotypeTBlock[i], a1);
+                BitSet bs = UnmodifiableBitSet.getInstance(GenotypeTableUtils.calcBitPresenceFromGenotype(genotypeTBlock[i], a1));
                 result.put(getKey(SB.SITE, site + i), bs);
             }
             return result;

@@ -8,26 +8,31 @@ import javax.swing.ImageIcon;
 
 import org.apache.log4j.Logger;
 
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.CombineGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.ExportUtils;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
+import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginEvent;
+import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.OpenBitSet;
 
 public class WritePopulationAlignmentPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(WritePopulationAlignmentPlugin.class);
-    boolean mergeAlignments = true;
+    boolean mergeAlignments = false;
     boolean writeParentCalls = true;
     boolean writeNucleotides = true;
     boolean outputDiploid = false;
-    double minSnpCoverage = 0.1;
-    double maxMafForMono = 0.01;
+    double minSnpCoverage = Double.NaN;//0.1;
+    double maxMafForMono = Double.NaN;//0.01;
     String baseFileName;
+    boolean outputAlternateNucleotides = false;
 
     public WritePopulationAlignmentPlugin(Frame parentFrame) {
         super(parentFrame, false);
@@ -56,9 +61,9 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
         String filename;
         if (mergeAlignments) {
             if (asNucleotides) {
-                filename = baseFileName + "nuc.hmp.txt";
+                filename = baseFileName + ".nuc.hmp.txt";
             } else {
-                filename = baseFileName + "parents.hmp.txt";
+                filename = baseFileName + ".parents.hmp.txt";
             }
             GenotypeTable[] allOfTheAlignments = new GenotypeTable[theData.size()];
             int count = 0;
@@ -72,15 +77,21 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
             for (Datum datum : theData) {
                 PopulationData family = (PopulationData) datum.getData();
                 String familyName = family.name.replace('/', '.');
+                String chrName = family.original.chromosomeName(0);
                 if (asNucleotides) {
-                    filename = baseFileName + ".family." + familyName + "nuc.hmp.txt";
+                    filename = baseFileName + ".family." + familyName + ".chr" + chrName + ".nuc.hmp.txt";
                 } else {
-                    filename = baseFileName + ".family." + familyName + "parents.hmp.txt";
+                    filename = baseFileName + ".family." + familyName + ".chr" + chrName + ".parents.hmp.txt";
                 }
-                ExportUtils.writeToHapmap(createOutputAlignment(family, asNucleotides), outputDiploid, filename, '\t', null);
+                ExportUtils.writeToHapmap(createOutputAlignmentImputingAllNucleotides(family), outputDiploid, filename, '\t', null);
+                
+                //test alternate nucleotide as well
+                if (outputAlternateNucleotides) {
+                	filename = baseFileName + ".family." + familyName + ".chr" + chrName + ".altnuc.hmp.txt";
+                	ExportUtils.writeToHapmap(createOutputAlignment(family, asNucleotides), outputDiploid, filename, '\t', null);
+                }
             }
         }
-
     }
 
     private GenotypeTable createOutputAlignment(PopulationData popdata, boolean asNucleotides) {
@@ -123,10 +134,125 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
                     }
                     out = builder.build();
                 }
-            }
+            } else out = outPoly;
         }
         return out;
     }
+
+    private GenotypeTable createOutputAlignmentImputingAllNucleotides(PopulationData family) {
+    	//first fill in gaps flanked by the same parent in the imputed alignment
+    	GenotypeTable filledImputedGenotypes = NucleotideImputationUtils.fillGapsInImputedAlignment(family);
+    	int nsites = family.original.numberOfSites();
+    	int nImputedSites = filledImputedGenotypes.numberOfSites();
+    	int ntaxa = family.original.numberOfTaxa();
+    	int[] imputedPos = filledImputedGenotypes.physicalPositions();
+    	int[] origPos = family.original.physicalPositions();
+    	GenotypeTableBuilder genoBuilder = GenotypeTableBuilder.getSiteIncremental(family.original.taxa());
+    	for (int s = 0; s < nsites; s++) {
+    		byte[] nuc = family.original.alleles(s);
+    		int nalleles = nuc.length;
+    		if (nalleles == 0) { 
+    			//do nothing 
+    		} else if (nalleles > 0) {
+    			//find flanking markers in imputed
+    			int ndx = Arrays.binarySearch(imputedPos, origPos[s]);
+
+    			//do not impute if ndx is before the first or after the last marker
+    			if (ndx != -1 && ndx > -nImputedSites - 1  ) {
+    				//deal with original sites that fall before the first imputed site or after the last one
+    				//assume no recombination and assign them to the haplotype of the first or last site
+    				if (ndx == -1) ndx = 0;
+    				if (-ndx - 1 >= nImputedSites) ndx = nImputedSites - 1;
+
+    				OpenBitSet mjImputed;
+    				OpenBitSet mnImputed;
+
+    				byte[] genotype = new byte[ntaxa];
+    				if (ndx >= 0 ) {
+    					mjImputed = new OpenBitSet(filledImputedGenotypes.allelePresenceForAllTaxa(ndx, WHICH_ALLELE.Major));
+    					mnImputed = new OpenBitSet(filledImputedGenotypes.allelePresenceForAllTaxa(ndx, WHICH_ALLELE.Minor));
+    				} else {
+    					ndx = -ndx - 1; //the original site falls between ndx-1 and ndx
+    					mjImputed = new OpenBitSet(filledImputedGenotypes.allelePresenceForAllTaxa(ndx, WHICH_ALLELE.Major));
+    					mnImputed = new OpenBitSet(filledImputedGenotypes.allelePresenceForAllTaxa(ndx, WHICH_ALLELE.Minor));
+    					OpenBitSet flankingSame = new OpenBitSet(filledImputedGenotypes.allelePresenceForAllTaxa(ndx, WHICH_ALLELE.Major));
+    					flankingSame.notXor(filledImputedGenotypes.allelePresenceForAllTaxa(ndx - 1, WHICH_ALLELE.Major));
+    					OpenBitSet mnImputedSame = new OpenBitSet(filledImputedGenotypes.allelePresenceForAllTaxa(ndx, WHICH_ALLELE.Minor));
+    					mnImputedSame.notXor(filledImputedGenotypes.allelePresenceForAllTaxa(ndx - 1, WHICH_ALLELE.Minor));
+    					flankingSame.and(mnImputedSame); //are the flanking imputed markers the same?
+
+    					mjImputed.and(flankingSame);
+    					mnImputed.and(flankingSame);
+    				}
+
+    				BitSet mjOrig = family.original.allelePresenceForAllTaxa(s, WHICH_ALLELE.Major);
+    				BitSet mnOrig = family.original.allelePresenceForAllTaxa(s, WHICH_ALLELE.Minor);
+    				OpenBitSet imj = new OpenBitSet(mjImputed);  
+    				imj.andNot(mnImputed); //homozygous major allele
+    				OpenBitSet imn = new OpenBitSet(mnImputed);  
+    				imn.andNot(mjImputed); //homozygous minor allele
+    				OpenBitSet omj = new OpenBitSet(mjOrig);  
+    				omj.andNot(mnOrig); //homozygous major allele
+    				OpenBitSet omn = new OpenBitSet(mnOrig);  
+    				omn.andNot(mjOrig); //homozygous minor allele
+    				int[][] counts = new int[2][2];
+    				counts[0][0] = (int) OpenBitSet.intersectionCount(imj, omj);
+    				counts[0][1] = (int) OpenBitSet.intersectionCount(imj, omn);
+    				counts[1][0] = (int) OpenBitSet.intersectionCount(imn, omj);
+    				counts[1][1] = (int) OpenBitSet.intersectionCount(imn, omn);
+    				byte[] alleles = getMajorAndMinorAllelesAtSite(counts, nuc);
+    				byte[] genotypes = family.original.genotypeAllTaxa(s);
+    				if (alleles != null) {
+    					byte major = GenotypeTableUtils.getUnphasedDiploidValue(alleles[0], alleles[0]);
+    					byte minor = GenotypeTableUtils.getUnphasedDiploidValue(alleles[1], alleles[1]);
+    					byte het;
+    					if (alleles[0] == GenotypeTable.UNKNOWN_ALLELE || alleles[1] == GenotypeTable.UNKNOWN_ALLELE) het = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+    					else het = GenotypeTableUtils.getUnphasedDiploidValue(alleles[0], alleles[1]);
+    					for (int t = 0; t < ntaxa; t++) {
+    						if (mjImputed.fastGet(t)) {
+    							if (mnImputed.fastGet(t)) genotypes[t] = het;
+    							else genotypes[t] = major;
+    						} else if (mnImputed.fastGet(t)) {
+    							genotypes[t] = minor;
+    						} 
+    					}
+    				}
+    				genoBuilder.addSite(family.original.positions().get(s), genotypes);
+    			}
+
+    		}
+
+    	}
+    	
+    	return genoBuilder.build();
+    }
+    
+	private static byte[] getMajorAndMinorAllelesAtSite(int[][] counts, byte[] OriginalNucleotides) {
+		int minratio = 4;
+		if ( (counts[0][1] == 0 ||counts[0][0] / counts[0][1] >= minratio) && (counts[1][0] == 0 || counts[1][1] / counts[1][0] >= minratio) ) 
+			return OriginalNucleotides;
+		if ( (counts[0][0] == 0 || counts[0][1] / counts[0][0] >= minratio) && (counts[1][1] == 0 || counts[1][0] / counts[1][1] >= minratio) ) 
+			return new byte[]{OriginalNucleotides[1],OriginalNucleotides[0]};
+		
+		//the site may be monomorphic
+		//if so, one of the parents may be biologically missing
+		//if a column sum is 1 or 0, then the site is monomorphic
+		//if a row sum is 1 or 0, then that parent is biologically missing
+		minratio = 10;
+		int col0 = counts[0][0] + counts[1][0];
+		int col1 = counts[0][1] + counts[1][1];
+		int row0 = counts[0][0] + counts[0][1];
+		int row1 = counts[1][0] + counts[1][1];
+		
+		if (row0 > 1 && row1 > 1) { 		//not biologically missing case
+			if (col1 <= 1 || col0 / col1 >= minratio) return new byte[]{OriginalNucleotides[0],OriginalNucleotides[0]};
+			if (col0 <= 1 || col1 / col0 >= minratio) return new byte[]{OriginalNucleotides[1],OriginalNucleotides[1]};
+		} else {	//biologically missing case
+			if (row0 <= 1) return new byte[]{GenotypeTable.UNKNOWN_ALLELE,OriginalNucleotides[0]};
+			if (row1 <= 1) return new byte[]{OriginalNucleotides[0],GenotypeTable.UNKNOWN_ALLELE};
+		}
+		return null;
+	}
 
     @Override
     public void setParameters(String[] args) {
@@ -222,7 +348,7 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
         StringBuilder usage = new StringBuilder("The WritePopulationAlignmentPlugin requires the following parameter:\n");
         usage.append("-f or -file : The base file name for the ouput. .hmp.txt will be appended.\n");
         usage.append("The following parameters are optional:\n");
-        usage.append("-m or -merge : if true families are merged into a single file, if false each family is output to a separate file (default = true)\n");
+        usage.append("-m or -merge : if true families are merged into a single file, if false each family is output to a separate file (default = false)\n");
         usage.append("-o or -outputType : parents = output parent calls, nucleotides = output nucleotides, both = output both\n");
         usage.append("-d or -diploid : if true output is AA/CC/AC, if false output is A/C/M\n");
         usage.append("-c or -minCoverage : the minimum coverage for a monomorphic snp to be included in the nucleotide output (default = 0.1)\n");

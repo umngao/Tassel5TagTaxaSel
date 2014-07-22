@@ -16,6 +16,10 @@ import java.util.Arrays;
 import java.util.InputMismatchException;
 import java.util.Random;
 import net.maizegenetics.dna.map.Chromosome;
+import net.maizegenetics.dna.map.Position;
+import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.map.PositionListBuilder;
+import net.maizegenetics.dna.snp.ExportUtils;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import static net.maizegenetics.dna.snp.GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
@@ -40,34 +44,22 @@ public class FILLINImputationAccuracy {
     private GenotypeTable[] donor= null;
     private String outFile= null;
     private double propSitesMask= 0.01;
-    private int depthToMask= 0;
+    private int depthToMask= 7;
     private double propDepthSitesToMask= 0.2;
     public int[] MAF= null;
     private double[][] all= null; //arrays held ("columns"): 0-maskedMinor, 1-maskedHet, 2-maskedMajor; each array ("rows"):0-to minor, 1-to het, 2-to major, 3-unimp, 4-total for known type
     private double[][][] mafAll= null;//sam as all, but first array holds MAF category
-    private double[] MAFClass= new double[]{0,.02,.05,.10,.20,.3,.4,.5,1};
+    private double[] MAFClass= null;
     private boolean verboseOutput= true;
     
-    public FILLINImputationAccuracy(GenotypeTable unimp, double propSitesMask, String outFileName, boolean verbose) {
+    public FILLINImputationAccuracy(GenotypeTable unimp, GenotypeTable maskKey, GenotypeTable[] donors, double propSitesMask, int depthToMask, double propDepthSitesToMask, String outFileName, double[] MAFClass, boolean verbose) {
         this.unimp= unimp;
-        this.propSitesMask= propSitesMask;
-        this.verboseOutput= verbose;
-        this.outFile= outFileName;
-    }
-    
-    public FILLINImputationAccuracy(GenotypeTable unimp, int depthToMask, double propDepthSitesToMask, String outFileName, boolean verbose) {
-        this.unimp= unimp;
-        this.depthToMask= depthToMask;
-        this.propDepthSitesToMask= propDepthSitesToMask;
-        this.verboseOutput= verbose;
-        this.outFile= outFileName;
-    }
-    
-    public FILLINImputationAccuracy(GenotypeTable unimp, double propSitesMask, int depthToMask, double propDepthSitesToMask, String outFileName, boolean verbose) {
-        this.unimp= unimp;
+        this.maskKey= maskKey;
+        this.donor= donors;
         this.propSitesMask= propSitesMask;
         this.depthToMask= depthToMask;
         this.propDepthSitesToMask= propDepthSitesToMask;
+        this.MAFClass= MAFClass;
         this.verboseOutput= verbose;
         this.outFile= outFileName;
     }
@@ -187,39 +179,34 @@ public class FILLINImputationAccuracy {
 
         //filters for site position and chromosome. returns null if mask has fewer chromosomes or positions in chromosomes than unimp
         private boolean filterKeySites() {
+            long time= System.currentTimeMillis();
             if (this.verboseOutput) System.out.println("Filtering user input key file...\nsites in original Key file: "+this.maskKey.numberOfSites());
-            String[] unimpNames= new String[this.unimp.numberOfSites()];
-            for (int site = 0; site < this.unimp.numberOfSites(); site++) {unimpNames[site]= this.unimp.siteName(site);}
-            int[] unimpPos;
-            int[] keyPos;
             ArrayList<String> keepSites= new ArrayList<>();
             boolean working= true;
             if (Arrays.equals(this.unimp.chromosomes(), this.maskKey.chromosomes())==false) working= matchChromosomes();
             if (!working) {System.out.println("No overlapping chromosomes"); return false;}
-            for (Chromosome chr:this.unimp.chromosomes()) {
-                int[] startEndUnimp= this.unimp.firstLastSiteOfChromosome(chr); int[] startEndKey= maskKey.firstLastSiteOfChromosome(chr);
-                unimpPos= Arrays.copyOfRange(this.unimp.physicalPositions(), startEndUnimp[0], startEndUnimp[1]+1);
-                keyPos= Arrays.copyOfRange(this.maskKey.physicalPositions(), startEndKey[0], startEndKey[1]+1);
-                for (int posOnChr = 0; posOnChr < unimpPos.length; posOnChr++) {//if input hapmap sites not in key, return null
-                    if (Arrays.binarySearch(keyPos, unimpPos[posOnChr])<0) return false;
-                }
-                for (int posOnChr = 0; posOnChr < keyPos.length; posOnChr++) {//if key site in input hapmap, retain
-                    if (Arrays.binarySearch(unimpPos, keyPos[posOnChr])>-1) {
-                        keepSites.add(this.maskKey.siteName(startEndKey[0]+posOnChr));
-                    }
+            PositionList maskPos= this.maskKey.positions();
+            for (Position p:this.unimp.positions()) {
+                if (maskPos.contains(p)) keepSites.add(p.getSNPID());
+                else {
+                    System.out.println("Not all sites in target imputation file contained in mask key. Not using mask");
+                    return false;
                 }
             }
             FilterGenotypeTable filter= FilterGenotypeTable.getInstance(this.maskKey, keepSites.toArray(new String[keepSites.size()]));
-            this.maskKey= GenotypeTableBuilder.getGenotypeCopyInstance(filter);
+            this.maskKey= filter;//GenotypeTableBuilder.getGenotypeCopyInstance(filter); //Change this back when GenotypeCopyInstance fixed
             if (verboseOutput) System.out.println("Sites in new mask: "+this.maskKey.numberOfSites());
             
             //check to see if all taxa in unimputed are in the mask file
-            if (this.maskKey.taxa().containsAll(this.unimp.taxa())) 
-                this.maskKey= FilterGenotypeTable.getInstance(this.maskKey, this.unimp.taxa());
-            else {
-                System.out.println("Not all taxa in target imputation file contained in mask key. Not using mask");
-                return false;
+            if (!this.maskKey.taxa().equals(this.unimp.taxa())) {
+                if (this.maskKey.taxa().containsAll(this.unimp.taxa())) 
+                    this.maskKey= FilterGenotypeTable.getInstance(this.maskKey, this.unimp.taxa());
+                else {
+                    System.out.println("Not all taxa in target imputation file contained in mask key. Not using mask");
+                    return false;
+                }
             }
+            System.out.println("Filtering key took "+(System.currentTimeMillis()-time)+" milliseconds");
             return true;
         }
         
@@ -239,12 +226,13 @@ public class FILLINImputationAccuracy {
                 }
             }
             FilterGenotypeTable filter= FilterGenotypeTable.getInstance(this.maskKey, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));
-            this.maskKey= GenotypeTableBuilder.getGenotypeCopyInstance(filter);
+            this.maskKey= filter;//GenotypeTableBuilder.getGenotypeCopyInstance(filter);//Change this back when GenotypeCopyInstance fixed
+            if (verboseOutput) System.out.println(this.maskKey.numberOfSites()+" sites retained after chromsome filter");
             return true;
         }
         
             //this is the sample multiple r2.
-        private double pearsonR2(double[][] all) {
+        private double pearsonR2(double[][] all, boolean verbose) {
             int size= 0;
             for (int x = 0; x < 3; x++) {size+= (all[x][4]-all[x][3]);}
             double[][] xy= new double[2][size]; //0 is x, 1 is y
@@ -266,13 +254,13 @@ public class FILLINImputationAccuracy {
                 covXY+= currX*currY;
             }
             r2= (covXY/(Math.sqrt(varX)*Math.sqrt(varY)))*(covXY/(Math.sqrt(varX)*Math.sqrt(varY)));
-            if (this.verboseOutput) System.out.println("Unadjusted R2 value for "+size+" comparisons: "+r2);
+            if (verbose) System.out.println("Unadjusted R2 value for "+size+" comparisons: "+r2);
             return r2;
         }
 
         private void accuracyOut(double time) {
             DecimalFormat df = new DecimalFormat("0.########");
-            double r2= pearsonR2(this.all);
+            double r2= pearsonR2(this.all, this.verboseOutput);
             try {
                 File outputFile = new File(this.outFile.substring(0, this.outFile.indexOf(".hmp")) + "DepthAccuracy.txt");
                 DataOutputStream outStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
@@ -328,7 +316,7 @@ public class FILLINImputationAccuracy {
                     outStream.writeBytes("##TotalByImputed\t"+this.MAFClass[i]+"\t"+(this.mafAll[i][0][4]+this.mafAll[i][1][4]+this.mafAll[i][2][4])+"\t"+(this.mafAll[i][0][4]+this.mafAll[i][1][4]+this.mafAll[i][2][4]-this.mafAll[i][0][3]-this.mafAll[i][1][3]-this.mafAll[i][2][3])+"\t"+
                         ((this.mafAll[i][0][3]+this.mafAll[i][1][3]+this.mafAll[i][2][3])/(this.mafAll[i][0][4]+this.mafAll[i][1][4]+this.mafAll[i][2][4]))+"\t"+this.mafAll[i][0][4]+"\t"+this.mafAll[i][0][0]+"\t"+this.mafAll[i][0][1]+"\t"+this.mafAll[i][0][2]+"\t"+this.mafAll[i][0][3]+
                         "\t"+this.mafAll[i][1][4]+"\t"+this.mafAll[i][1][0]+"\t"+this.mafAll[i][1][1]+"\t"+this.mafAll[i][1][2]+"\t"+this.mafAll[i][1][3]+"\t"+this.mafAll[i][2][4]+"\t"+this.mafAll[i][2][0]+"\t"+this.mafAll[i][2][1]+"\t"+this.mafAll[i][2][2]+
-                        "\t"+this.mafAll[i][2][3]+"\t"+pearsonR2(this.mafAll[i])+"\n");
+                        "\t"+this.mafAll[i][2][3]+"\t"+pearsonR2(this.mafAll[i], false)+"\n");
                 }
                 outStream.writeBytes("#MAFClass,Minor=0,Het=1,Major=2;x is masked(known), y is predicted\nMAF\tx\ty\tN\tprop\n");
                 for (int i= 0; i<this.MAFClass.length;i++) { outStream.writeBytes(
@@ -392,7 +380,7 @@ public class FILLINImputationAccuracy {
             }
             accuracyOut(runtime);
             if (this.MAFClass!=null) accuracyMAFOut();
-            return pearsonR2(this.all);
+            return pearsonR2(this.all,this.verboseOutput);
         }
         
      /**

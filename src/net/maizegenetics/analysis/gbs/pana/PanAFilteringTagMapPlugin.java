@@ -52,7 +52,7 @@ public class PanAFilteringTagMapPlugin extends AbstractPlugin {
         System.out.println("Distance cutoff is " + String.valueOf(this.distanceCutoff) + " bp");
         try {
             BufferedWriter bw = new BufferedWriter (new FileWriter(this.anchorFileS), 65536);
-            bw.write("Tag\tTagLength\tGChr\tGPos\tLog10Distance");
+            bw.write("Tag\tTagLength\tGChr\tGPos\tIfPAV\tPredictedDistance");
             bw.newLine();
             long[] t;
             TagGWASMapInfo info;
@@ -62,7 +62,7 @@ public class PanAFilteringTagMapPlugin extends AbstractPlugin {
                 if (info.predictedDistance > logCut) continue;
                 t = tgm.getTag(i);
                 bw.write(BaseEncoder.getSequenceFromLong(t)+"\t"+String.valueOf(tgm.getTagLength(i))+"\t");
-                bw.write(String.valueOf(info.gChr)+"\t"+String.valueOf(info.gPos)+"\t"+String.valueOf(info.predictedDistance));
+                bw.write(String.valueOf(info.gChr)+"\t"+String.valueOf(info.gPos)+"\t"+String.valueOf(Byte.MIN_VALUE)+"\t"+String.valueOf(info.predictedDistance));
                 bw.newLine();
                 cnt++;
                 if (cnt%100000 == 0) System.out.println(String.valueOf(cnt+1)+" anchors are written");

@@ -213,7 +213,18 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
 		
 		int narg = args.length;
 		for (int i = 0; i < narg; i++) {
-			if (args[i].equals("-e") || args[i].equalsIgnoreCase("-enter")) {
+			if (args[i].equals("-t") || args[i].equalsIgnoreCase("-modeltype")) {
+				//enum MODEL_TYPE {pvalue, bic, mbic, aic} (from StepwiseOLSModelFitter)
+				String parm = args[++i].toLowerCase();
+				if (parm.startsWith("pval")) modelType = StepwiseOLSModelFitter.MODEL_TYPE.pvalue;
+				else if (parm.equals("bic")) modelType = StepwiseOLSModelFitter.MODEL_TYPE.bic;
+				else if (parm.equals("mbic")) modelType = StepwiseOLSModelFitter.MODEL_TYPE.mbic;
+				else if (parm.equals("aic")) modelType = StepwiseOLSModelFitter.MODEL_TYPE.aic;
+				else {
+					myLogger.error("Invalid value for modelType. Defaulting to mbic.");
+				}
+			}
+			else if (args[i].equals("-e") || args[i].equalsIgnoreCase("-enter")) {
 				enterlimit = Double.parseDouble(args[++i]);
 			}
 			else if (args[i].equals("-x") || args[i].equalsIgnoreCase("-exit")) {
@@ -251,6 +262,7 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
 	
 	public String getUsage() {
 		StringBuilder sb = new StringBuilder("The StepwiseOLSModelFitterPlugin can take the following parameters:\n");
+		sb.append("-t or -modeltype: The model selection criteria used to determine which terms enter the model and how many. Value must be one of pvalue, bic, mbic, or aic. (default = mbic)");
 		sb.append("-e or -enter : The enter limit or maximum p-value for which a term can enter the model (default = 1e-5).\n");
 		sb.append("-x or -exit : A term exits the model on a backward step if its p-value is greater than this value (default = 2e-5.\n");
 		sb.append("-es or -enterlimits : a comma separated list of enter limits, one for each trait. Overides global enter limit.\n");

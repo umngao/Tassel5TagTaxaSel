@@ -77,7 +77,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     
     private PluginParameter<Integer> appoxSitesPerDonorGenotypeTable= new PluginParameter.Builder<>("hapSize",8000,Integer.class).guiName("Preferred haplotype size")
             .description("Preferred haplotype block size in sites (use same as in FILLINFindHaplotypesPlugin)").build();
-    private PluginParameter<Double> hetThresh= new PluginParameter.Builder<>("mxHet",0.01,Double.class).guiName("Heterozygosity threshold")
+    private PluginParameter<Double> hetThresh= new PluginParameter.Builder<>("mxHet",0.02,Double.class).guiName("Heterozygosity threshold")
             .description("Threshold per taxon heterozygosity for treating taxon as heterozygous (no Viterbi, het thresholds).").build();
     private PluginParameter<Double> maximumInbredError= new PluginParameter.Builder<>("mxInbErr",0.01,Double.class).guiName("Max error to impute one donor")
             .description("Maximum error rate for applying one haplotype to entire site window").build();
@@ -109,6 +109,11 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
             .description("Depth of genotypes to mask for accuracy calculation if depth information available").dependentOnParameter(accuracy).build();
     private PluginParameter<Double> propDepthSitesMask= new PluginParameter.Builder<>("propDepthSitesMask",0.2,Double.class).guiName("Proportion of depth genotypes to mask")
             .description("Proportion of genotypes of given depth to mask for accuracy calculation if depth available").dependentOnParameter(accuracy).build();
+    private PluginParameter<String> maskKey= new PluginParameter.Builder<>("maskKey",null,String.class).inFile().required(false).guiName("Optional key to calculate accuracy")
+            .description("Key to calculate accuracy. Genotypes missing (masked) in target file should be present in key, with all other sites set to missing. Overrides other"
+                    + "accuracy options if present and all sites and taxa present in target file present").dependentOnParameter(accuracy).build();
+    private PluginParameter<Boolean> byMAF= new PluginParameter.Builder<>("byMAF",false,Boolean.class).guiName("Calculate accuracy within MAF categories")
+            .description("Calculate R2 accuracy within MAF categories based on donor file").dependentOnParameter(accuracy).build();
     
     //Additional variables
     private boolean verboseOutput= true;
@@ -124,6 +129,8 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     private double maxSmashErrFocusHet= maximumInbredError.value();//.01;
 
     public static GenotypeTable unimpAlign;  //the unimputed alignment to be imputed, unphased
+    public static GenotypeTable maskKeyAlign= null;  //the key to the unimputed alignment mask
+    public static double[] MAFClass= new double[]{0,.02,.05,.10,.20,.3,.4,.5,1};//must retain 0 and 1
     private int testing=0;  //level of reporting to stdout
         //major and minor alleles can be differ between the donor and unimp alignment
     private boolean isSwapMajorMinor=true;  //if swapped try to fix it
@@ -162,6 +169,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
         maxSmashErrFocusHet= maximumInbredError.value();//.01;
         maxHybridErrFocusHomo= .3333*maxHybridErrorRate.value();
         if (nonverboseOutput.value()) verboseOutput= false;
+        if (byMAF.value()==false) MAFClass= null;
     }
     
     public FILLINImputationPlugin() {
@@ -189,9 +197,12 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
         GenotypeTable[] donorAlign=FILLINDonorGenotypeUtils.loadDonors(donorFile.value(), unimpAlign, minTestSites.value(),
                 verboseOutput,appoxSitesPerDonorGenotypeTable.value());
         if (accuracy.value()) {
-            acc= new FILLINImputationAccuracy(unimpAlign,propSitesMask.value(),depthToMask.value(), 
-                    propDepthSitesMask.value(),outFileBase.value(),verboseOutput);
+            time= System.currentTimeMillis()-time; //holds the time so far
+            if (maskKey.value()!=null) maskKeyAlign= ImportUtils.readGuessFormat(maskKey.value());
+            acc= new FILLINImputationAccuracy(unimpAlign,maskKeyAlign,donorAlign,propSitesMask.value(),depthToMask.value(), 
+                propDepthSitesMask.value(),outFileBase.value(),MAFClass,verboseOutput);
             unimpAlign= acc.initiateAccuracy();
+            time= System.currentTimeMillis()-time;//restarts the time, including the time to load donors and target but not including the time to set up accuracy
         }
         OpenBitSet[][] conflictMasks=FILLINDonorGenotypeUtils.createMaskForAlignmentConflicts(unimpAlign, donorAlign,
                 verboseOutput);
@@ -330,7 +341,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
                 }
                 impTaxon.setSegmentSolved(false);
 
-                //tries to solve the entire donorAlign region by Virterbi
+                //tries to solve the entire donorAlign region by Virterbi or Inbred
                 impTaxon=solveEntireDonorRegion(taxon, donorAlign[da], donorOffset, regionHypthInbred, impTaxon, maskedTargetBits, maxHybridErrorRate.value(), targetToDonorDistances);
                 if(impTaxon.isSegmentSolved()) {countFullLength++; continue;}
 
@@ -447,14 +458,17 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
             //check for Viterbi and inbred
             ArrayList<DonorHypoth> goodDH= new ArrayList<DonorHypoth>(); //KLS0201
             if (best2donors[0].getErrorRate()<focusInbredErr) {
+                boolean top= true;
                 for (DonorHypoth dh : best2donors) {
-                    if((dh!=null)) {
-                        if((dh.isInbred()==false)&&(dh.getErrorRate()<focusHybridErr)){
-                            dh=getStateBasedOnViterbi(dh, donorOffset, donorAlign, twoWayViterbi, transition);
-                            if(dh!=null) vit= true;
-                        }
-                    if(dh!=null&&(dh.getErrorRate()<focusInbredErr)) goodDH.add(dh);
+                    if(dh==null) continue;
+                    if(dh.isInbred() && (dh.getErrorRate()<focusInbredErr)) {
+                        goodDH.add(dh);
+                    } else if(dh.getErrorRate()<focusHybridErr) {
+                        dh=getStateBasedOnViterbi(dh, donorOffset, donorAlign, twoWayViterbi, transition);
+                        if(dh!=null) goodDH.add(dh);
+                        if (top) vit= true;
                     }
+                    top= false;
                 }
                 if (goodDH.size()!=0) {
                     DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
@@ -471,15 +485,15 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
                 for (DonorHypoth dh:best2donors) {
                     if(dh!=null&&dh.getErrorRate()<focusSmashErr) {
                         goodDH.add(dh);
+                    }
                 }
-                    if (goodDH.size()!=0) {
-                        DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
-                        for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
-                        regionHypth[focusBlock]= vdh;
-                        impT= setAlignmentWithDonors(donorAlign, regionHypth[focusBlock], donorOffset, true,impT, true, hetsToMiss);//only set donors for focus block //KLS0201
-                        impT.incBlocksSolved(); currBlocksSolved[2]++; currBlocksSolved[4]++; continue;
-            }
-        }
+                if (goodDH.size()!=0) {
+                    DonorHypoth[] vdh=new DonorHypoth[goodDH.size()];
+                    for (int i = 0; i < vdh.length; i++) {vdh[i]=goodDH.get(i);}
+                    regionHypth[focusBlock]= vdh;
+                    impT= setAlignmentWithDonors(donorAlign, regionHypth[focusBlock], donorOffset, true,impT, true, hetsToMiss);//only set donors for focus block //KLS0201
+                    impT.incBlocksSolved(); currBlocksSolved[2]++; currBlocksSolved[4]++; continue;
+                }
             //if fails, do not impute this focus block    
             } else currBlocksSolved[3]++;
         }
@@ -599,12 +613,14 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
         static protected StatePositionChain reverseInstance(StatePositionChain forwardSPC) {
             byte[] informStatesR=Arrays.copyOf(forwardSPC.informStates,forwardSPC.informStates.length);
             ArrayUtils.reverse(informStatesR);
-            int[] informSitesReverse= Arrays.copyOf(forwardSPC.informSites,forwardSPC.informSites.length);
-            ArrayUtils.reverse(informSitesReverse);
-            return new StatePositionChain(forwardSPC.startSite, forwardSPC.totalSiteCnt, informStatesR, informSitesReverse);
+            //this retains the distance between sites in the reverse
+            int[] informSitesReverse= new int[forwardSPC.informSites.length];
+            for (int site = 0; site < informSitesReverse.length; site++) {
+                informSitesReverse[site]= forwardSPC.totalSiteCnt-1-forwardSPC.informSites[forwardSPC.informSites.length-site-1];
+            }
+            return new StatePositionChain(informSitesReverse[0], forwardSPC.totalSiteCnt, informStatesR, informSitesReverse);
         }
     }
-
 
     private int[] getUniqueDonorsForBlock(DonorHypoth[][] regionHypth, int block) {//change so only adding those donors that are not identical for target blocks
         Set<Integer> donors= new HashSet<>();

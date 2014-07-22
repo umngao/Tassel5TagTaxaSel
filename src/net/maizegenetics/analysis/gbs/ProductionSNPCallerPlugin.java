@@ -4,6 +4,7 @@
 package net.maizegenetics.analysis.gbs;
 
 import cern.colt.list.IntArrayList;
+import com.google.common.collect.ImmutableMap;
 
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Multimap;
@@ -31,6 +32,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.*;
 import java.util.*;
+import net.maizegenetics.taxa.TaxaListIOUtils;
 
 /**
  * This plugin converts all of the fastq (and/or qseq) files in the input folder
@@ -100,7 +102,7 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
     private Map<String, String> fullNameToHDF5Name = new TreeMap<>();
     private Multimap<String, String> flowCellLaneToLibPrepIDs = TreeMultimap.create();
     private Map<String, String> libraryPrepIDToSampleName = new TreeMap<String, String>();
-
+    
     private GenotypeTableBuilder genos = null; //output genotype table
     private TaxaList taxaList = null;
     private PositionList myPositionList = null;
@@ -151,26 +153,12 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
 
     @Override
     public DataSet processData(DataSet input) {
-        long previous = System.nanoTime();
+        long previous, current;
         readKeyFile();  // TODO: read/write full set of metadata
-        long current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: performFunction: readKeyFile: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
-        previous = System.nanoTime();
         matchKeyFileToAvailableRawSeqFiles();
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: performFunction: matchKeyFileToAvailableRawSeqFiles: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
-        previous = System.nanoTime();
         myPositionList = getUniquePositions();
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: performFunction: getUniquePositions: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
-        previous = System.nanoTime();
         generateFastSiteLookup(myPositionList);
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: performFunction: generateFastSiteLookup: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
-        previous = System.nanoTime();
         setUpGenotypeTableBuilder();
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: performFunction: setUpGenotypeTableBuilder: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
         int nFilesProcessed = 0;
         for (int fileNum = 0; fileNum < myRawSeqFileNames.length; fileNum++) {
             if (!seqFilesInKeyAndDir.contains(myRawSeqFileNames[fileNum])) {
@@ -188,10 +176,7 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
             current = System.nanoTime();
             System.out.println("ProductionSNPCallerPlugin: performFunction: callGenotypes: " + myRawSeqFileNames[fileNum] + ": " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
             ++nFilesProcessed;
-            previous = System.nanoTime();
             reportTotals(fileNum, counters, nFilesProcessed);
-            current = System.nanoTime();
-            System.out.println("ProductionSNPCallerPlugin: performFunction: reportTotals: " + myRawSeqFileNames[fileNum] + ": " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
         }
         if (keepGenotypesOpen()) {
             previous = System.nanoTime();
@@ -204,36 +189,22 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
             current = System.nanoTime();
             System.out.println("ProductionSNPCallerPlugin: performFunction: genos.build(): " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
         }
-        previous = System.nanoTime();
         writeReadsPerSampleReports();
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: performFunction: writeReadsPerSampleReports: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
         return null;
     }
 
     private void readRawSequencesAndRecordDepth(int fileNum, int[] counters) {
-        long previous = System.nanoTime();
+        long previous, current;
         ParseBarcodeRead thePBR = setUpBarcodes(fileNum);
-        long current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: readRawSequencesAndRecordDepth: setUpBarcodes: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
-        previous = System.nanoTime();
         if (thePBR == null || thePBR.getBarCodeCount() == 0) {
             myLogger.info("No barcodes found. Skipping this raw sequence file.");
             return;
         }
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: readRawSequencesAndRecordDepth: getBarCodeCount: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
-        previous = System.nanoTime();
         taxaList = new TaxaListBuilder().addAll(getHDF5Taxa(fileNum)).sortTaxaAlphabetically().build();
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: readRawSequencesAndRecordDepth: new TaxaListBuilder(): " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
-        previous = System.nanoTime();
         obsTagsForEachTaxon = new IntArrayList[taxaList.numberOfTaxa()];
         for (int t = 0; t < obsTagsForEachTaxon.length; t++) {
             obsTagsForEachTaxon[t] = new IntArrayList(750_000); // initial capacity
         }
-        current = System.nanoTime();
-        System.out.println("ProductionSNPCallerPlugin: readRawSequencesAndRecordDepth: IntArrayList: " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
         String temp = "Nothing has been read from the raw sequence file yet";
         BufferedReader br = getBufferedReaderForRawSeqFile(fileNum);
         try {
@@ -264,6 +235,9 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
                     counters[2]++;  // goodMatched++;
                     matchedReadCountsForFullSampleName.put(rr.getTaxonName(), matchedReadCountsForFullSampleName.get(rr.getTaxonName()) + 1);
                     int taxonIndex = taxaList.indexOf(fullNameToHDF5Name.get(rr.getTaxonName()));
+                    if (taxonIndex == -1) {
+                        System.out.println("We're here!");
+                    }
                     obsTagsForEachTaxon[taxonIndex].add(tagIndex);
                 }
                 current = System.nanoTime();
@@ -509,18 +483,23 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
     }
 
     /**
-     * Gets the list of taxa (each named "Sample:LibraryPrepID" and annotated
-     * with Flowcell_Lane) for the LibraryPrepIDs in the key file for the
-     * corresponding fastq file.
+     * Gets an ArrayList of taxa, each named "Sample:LibraryPrepID" and annotated
+     * with Flowcell_Lane as well as all other annotations in the key file, for 
+     * the corresponding fastq file.
      *
      * @return ArrayList<Taxon>
      */
     private ArrayList<Taxon> getHDF5Taxa(int fileNum) {
-        ArrayList<Taxon> taxaAL = new ArrayList();
         String currFlowcellLane = seqFileNameToFlowcellLane.get(myRawSeqFileNames[fileNum]);
-        for (String libPrepID : flowCellLaneToLibPrepIDs.get(currFlowcellLane)) {
-            String hdf5Name = libraryPrepIDToSampleName.get(libPrepID) + ":" + libPrepID;
-            Taxon gbsTaxon = new Taxon.Builder(hdf5Name).addAnno("Flowcell_Lane", currFlowcellLane).build();
+        String[] flowcellLane = currFlowcellLane.split("_");
+        TaxaList annoTL = TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), "LibraryPrepID",
+                ImmutableMap.of("Flowcell", flowcellLane[0], "Lane", flowcellLane[1]), false);
+        ArrayList<Taxon> taxaAL = new ArrayList();
+        for (Taxon tax : annoTL) {
+            String newName = tax.getTextAnnotation("Sample").length == 0 ? tax.getTextAnnotation("DNASample")[0] : tax.getTextAnnotation("Sample")[0];
+            String libPrepID = tax.getName();
+            newName += ":" + libPrepID;
+            Taxon gbsTaxon = new Taxon.Builder(tax).name(newName).addAnno("Flowcell_Lane", currFlowcellLane).addAnno("LibraryPrepID", libPrepID).build();
             taxaAL.add(gbsTaxon);
         }
         return taxaAL;
