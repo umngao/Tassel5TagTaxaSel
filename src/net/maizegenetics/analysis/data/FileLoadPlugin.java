@@ -96,7 +96,7 @@ public class FileLoadPlugin extends AbstractPlugin {
                 }
 
                 if (myFileType == TasselFileType.ProjectionAlignment) {
-                    return myProjectionLoadPlugin.performFunction(null);
+                    return myProjectionLoadPlugin.performFunction(input);
                 }
                 
                 setOpenFiles(getOpenFilesByChooser());

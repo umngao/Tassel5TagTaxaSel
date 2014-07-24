@@ -72,6 +72,7 @@ public final class HDF5Utils {
         if (isTaxaLocked(h5w) == true) {
             throw new UnsupportedOperationException("Trying to write to a locked HDF5 file");
         }
+        if(!h5w.exists(Tassel5HDF5Constants.TAXA_ORDER)) createTaxaOrder(h5w);
         String path = Tassel5HDF5Constants.getTaxonPath(taxon.getName());
         if (h5w.exists(path)) {
             return false;
@@ -82,7 +83,6 @@ public final class HDF5Utils {
             String s = Joiner.on(",").join(annoMap.get(keys));
             h5w.setStringAttribute(path, keys, s);
         }
-        if(!h5w.exists(Tassel5HDF5Constants.TAXA_ORDER)) createTaxaOrder(h5w);
         long size = h5w.getDataSetInformation(Tassel5HDF5Constants.TAXA_ORDER).getNumberOfElements();
         h5w.writeStringArrayBlockWithOffset(Tassel5HDF5Constants.TAXA_ORDER, new String[]{taxon.getName()}, 1, size);
         return true;
