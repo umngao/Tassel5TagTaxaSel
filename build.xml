@@ -84,8 +84,6 @@
             </manifest>
         </jar>
         
-        <signjar jar="${tassel}" alias="http://www.maizegenetics.net/tassel" storepass="EdBuckler" keystore="${keystore_dir}/keystore"/>
-        
     </target>
     
     

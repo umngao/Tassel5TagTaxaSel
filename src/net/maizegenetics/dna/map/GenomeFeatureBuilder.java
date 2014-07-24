@@ -1,10 +1,7 @@
 package net.maizegenetics.dna.map;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.SetMultimap;
-import org.apache.commons.math.exception.NumberIsTooSmallException;
 import org.apache.log4j.Logger;
+
 import org.json.simple.JSONObject;
 
 import java.util.HashMap;

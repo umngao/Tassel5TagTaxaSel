@@ -305,7 +305,7 @@ public class TasselPipeline implements PluginListener {
                 } else if (current.equalsIgnoreCase("-projection")) {
                     String file = args[index++].trim();
                     ProjectionLoadPlugin plugin = new ProjectionLoadPlugin(myMainFrame, false);
-                    plugin.setRecombinationBreakpoints(file);
+                    plugin.recombinationBreakpoints(file);
                     integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-convertTOPMtoHDF5")) {
                     String filename = args[index++].trim();
