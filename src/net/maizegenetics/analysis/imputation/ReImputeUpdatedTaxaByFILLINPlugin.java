@@ -23,11 +23,13 @@ import net.maizegenetics.plugindef.PluginParameter;
 // imports specifically needed for this plugin
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.HDF5Utils;
 import java.util.List;
+import java.util.Map;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
@@ -154,11 +156,13 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
         List<String> rawTaxaNames = HDF5Utils.getAllTaxaNames(rawGenosReader);
         for (String taxonName : rawTaxaNames) {
             if (!HDF5Utils.doTaxonCallsExist(impGenosWriter, taxonName)) {
-                modifiedTaxa.add(HDF5Utils.getTaxon(rawGenosReader, taxonName));
-                modifiedTaxaReport.append("  "+taxonName+" (new taxon)\n");
+                Taxon modTax = HDF5Utils.getTaxon(rawGenosReader, taxonName);
+                modifiedTaxa.add(modTax);
+                modifiedTaxaReport.append("  "+taxonName+" (new taxon) "+modTax.toStringWithVCFAnnotation()+"\n");
             } else if (flowcellLaneAdded(taxonName)) {
-                modifiedTaxa.add(HDF5Utils.getTaxon(rawGenosReader, taxonName));
-                modifiedTaxaReport.append("  "+taxonName+" (additional depth)\n");
+                Taxon modTax = HDF5Utils.getTaxon(rawGenosReader, taxonName);
+                modifiedTaxa.add(modTax);
+                modifiedTaxaReport.append("  "+taxonName+" (additional depth) "+modTax.toStringWithVCFAnnotation()+"\n");
             }
         }
         if (!modifiedTaxa.isEmpty()) myLogger.info(modifiedTaxaReport.toString());
@@ -188,7 +192,7 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
     }
     
     private String createTempInputFileForFILLIN(TaxaList modifiedTaxa) {
-        myLogger.info("Creating temporary HDF5 file to hold raw genos for modified taxa (input for FILLIN");
+        myLogger.info("Creating temporary HDF5 file to hold raw genos for modified taxa (input for FILLIN)");
         String tempRawGenosFileName = "tempRawGenos" + new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss_Z").format(new Date()) + ".h5";
         PositionList positionList = PositionListBuilder.getInstance(rawGenosReader);
         GenotypeTableBuilder gtb =  GenotypeTableBuilder.getTaxaIncremental(positionList, tempPath+tempRawGenosFileName);
@@ -217,13 +221,32 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
         List<String> impTaxaNames = HDF5Utils.getAllTaxaNames(impGenosReader);
         for (String taxonName : impTaxaNames) {
             Taxon impTaxon = HDF5Utils.getTaxon(impGenosReader, taxonName);
+            byte[] genoCalls = HDF5Utils.getHDF5GenotypesCalls(impGenosReader, taxonName);
             Taxon origTaxon = HDF5Utils.getTaxon(impGenosWriter, taxonName);
             if (origTaxon == null) {
                 HDF5Utils.addTaxon(impGenosWriter, impTaxon);
+                HDF5Utils.writeHDF5GenotypesCalls(impGenosWriter, taxonName, genoCalls);
+            } else {
+                Taxon modTaxon = updateTaxonAnnotations(origTaxon, impTaxon);
+                HDF5Utils.replaceTaxonAnnotations(impGenosWriter, modTaxon);
+                HDF5Utils.replaceHDF5GenotypesCalls(impGenosWriter, taxonName, genoCalls);
             }
-            byte[] genoCalls = HDF5Utils.getHDF5GenotypesCalls(impGenosReader, taxonName);
-            HDF5Utils.replaceHDF5GenotypesCalls(impGenosWriter, taxonName, genoCalls);
         }
+    }
+    
+    private Taxon updateTaxonAnnotations(Taxon origTaxon, Taxon newTaxon) {
+        Map.Entry<String, String>[] allNewAnnos = newTaxon.getAllAnnotationEntries();
+        Map<String, String> annosToAdd = new HashMap<String, String>();
+        for (Map.Entry<String, String> newAnno : allNewAnnos) {
+            if (!origTaxon.isAnnotatedWithValue(newAnno.getKey(), newAnno.getValue())) {
+                annosToAdd.put(newAnno.getKey(), newAnno.getValue());
+            }
+        }
+        Taxon.Builder modTaxonBuilder = new Taxon.Builder(origTaxon);
+        for (Map.Entry<String,String> annoToAdd : annosToAdd.entrySet()) {
+            modTaxonBuilder.addAnno(annoToAdd.getKey(), annoToAdd.getValue());
+        }
+        return modTaxonBuilder.build();
     }
     
     private void deleteTemporaryFiles(String tempInFile, String tempOutFile) {
