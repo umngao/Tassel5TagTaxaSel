@@ -142,7 +142,7 @@ class HDF5ByteGenotypeCallTable extends AbstractGenotypeCallTable {
         }
         myHDF5Reader = reader;
         myGenoCache = CacheBuilder.newBuilder()
-                .maximumSize((3 * numberOfTaxa()) / 2)
+                .maximumSize(Runtime.getRuntime().availableProcessors() * 3)
                 .build(myGenoLoader);
         mySiteAnnoCache = CacheBuilder.newBuilder()
                 .maximumSize(150)
