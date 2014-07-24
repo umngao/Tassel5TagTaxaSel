@@ -66,6 +66,8 @@ abstract public class AbstractPlugin implements Plugin {
 
         try {
 
+            preProcessParameters(input);
+
             if (isInteractive()) {
                 if (!setParametersViaGUI()) {
                     return null;
@@ -100,6 +102,10 @@ abstract public class AbstractPlugin implements Plugin {
             fireProgress(100);
         }
 
+    }
+
+    protected void preProcessParameters(DataSet input) {
+        // do nothing
     }
 
     protected void postProcessParameters() {
