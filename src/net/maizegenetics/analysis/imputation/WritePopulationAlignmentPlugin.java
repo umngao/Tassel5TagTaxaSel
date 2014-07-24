@@ -96,6 +96,7 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
     }
 
     private GenotypeTable createOutputAlignment(PopulationData popdata, boolean asNucleotides) {
+    	
     	GenotypeTable out = null;
 
         if (!asNucleotides) {
@@ -161,7 +162,8 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
     	int ntaxa = family.original.numberOfTaxa();
     	GenotypeTableBuilder genoBuilder = GenotypeTableBuilder.getSiteIncremental(family.original.taxa());
     	for (int s = 0; s < nsites; s++) {
-    		byte[] nuc = family.original.alleles(s);
+    		
+   		byte[] nuc = family.original.alleles(s);
     		int nalleles = nuc.length;
     		if (nalleles == 0) { 
     			//do nothing
