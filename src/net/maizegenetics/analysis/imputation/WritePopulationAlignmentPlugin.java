@@ -1,6 +1,7 @@
 package net.maizegenetics.analysis.imputation;
 
 import java.awt.Frame;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -8,10 +9,11 @@ import javax.swing.ImageIcon;
 
 import org.apache.log4j.Logger;
 
+import net.maizegenetics.analysis.imputation.NucleotideImputationUtils;
+import net.maizegenetics.analysis.imputation.PopulationData;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.CombineGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.ExportUtils;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
@@ -31,7 +33,6 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
     boolean outputDiploid = false;
     double minSnpCoverage = Double.NaN;//0.1;
     double maxMafForMono = Double.NaN;//0.01;
-    String baseFileName;
     boolean outputAlternateNucleotides = true;
 
     public WritePopulationAlignmentPlugin(Frame parentFrame) {
@@ -41,62 +42,84 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
     @Override
     public DataSet performFunction(DataSet input) {
         List<Datum> theData = input.getDataOfType(PopulationData.class);
-
+        List<Datum> theResult = new ArrayList<Datum>();
         if (theData.size() > 0) {
             if (writeParentCalls) {
-                writeOutput(theData, false);
+                theResult.addAll(writeOutput(theData, false));
             }
             if (writeNucleotides) {
-                writeOutput(theData, true);
+            	theResult.addAll(writeOutput(theData, true));
             }
-            fireDataSetReturned(new PluginEvent(input, input.getCreator().getClass()));
-            return input;
+            DataSet resultDataSet = new DataSet(theResult, this);
+            fireDataSetReturned(new PluginEvent(resultDataSet, this));
+            return resultDataSet;
         } else {
             return null;
         }
     }
 
-    private void writeOutput(List<Datum> theData, boolean asNucleotides) {
-        String filename;
-        if (mergeAlignments) {
-            if (asNucleotides) {
-                filename = baseFileName + ".nuc.hmp.txt";
-            } else {
-                filename = baseFileName + ".parents.hmp.txt";
-            }
-            GenotypeTable[] allOfTheAlignments = new GenotypeTable[theData.size()];
-            int count = 0;
-            for (Datum datum : theData) {
-                PopulationData family = (PopulationData) datum.getData();
-                allOfTheAlignments[count++] = createOutputAlignment(family, asNucleotides);
-            }
-            GenotypeTable alignment = CombineGenotypeTable.getInstance(allOfTheAlignments, true);
-            ExportUtils.writeToHapmap(alignment, outputDiploid, filename, '\t', null);
-        } else {
-            for (Datum datum : theData) {
-                PopulationData family = (PopulationData) datum.getData();
-                String familyName = family.name.replace('/', '.');
-                String chrName = family.original.chromosomeName(0);
-                if (asNucleotides) {
-                    filename = baseFileName + ".family." + familyName + ".chr" + chrName + ".nuc.hmp.txt";
-                    ExportUtils.writeToHapmap(createOutputAlignmentImputingAllNucleotides(family), outputDiploid, filename, '\t', null);
-                } else {
-                    filename = baseFileName + ".family." + familyName + ".chr" + chrName + ".parents.hmp.txt";
-                    ExportUtils.writeToHapmap(createOutputAlignment(family, asNucleotides), outputDiploid, filename, '\t', null);
-                }
-               
-                
-                //test alternate nucleotide as well
-//                if (outputAlternateNucleotides) {
-//                	filename = baseFileName + ".family." + familyName + ".chr" + chrName + ".altnuc.hmp.txt";
-//                	ExportUtils.writeToHapmap(createOutputAlignment(family, asNucleotides), outputDiploid, filename, '\t', null);
-//                }
-            }
-        }
+    private List<Datum> writeOutput(List<Datum> theData, boolean asNucleotides) {
+    	List<Datum> theResult = new ArrayList<Datum>();
+    	if (mergeAlignments) {
+    		GenotypeTable[] allOfTheAlignments = new GenotypeTable[theData.size()];
+    		int count = 0;
+    		for (Datum datum : theData) {
+    			PopulationData family = (PopulationData) datum.getData();
+    			if (asNucleotides) {
+    				allOfTheAlignments[count++] = createOutputAlignmentImputingAllNucleotides(family);
+    			} else {
+    				allOfTheAlignments[count++] = createOutputAlignment(family, asNucleotides);
+    			}
+    		}
+    		GenotypeTable myImputedGenotypes = CombineGenotypeTable.getInstance(allOfTheAlignments, true);
+    		
+    		String myDatumName = "merged imputed genotypes";
+    		String myDatumComment = "imputed_genotypes";
+    		
+    		if (asNucleotides) {
+    			myDatumName = "imputed_genotypes";
+    			myDatumComment = "imputed genotypes, merged";
+    		} else {
+    			myDatumName = "imputed_parents";
+    			myDatumComment = "Imputed parents were coded as A and C.\nA and C were assigned at random for each chromosome independently.";
+    		}
+    		
+    		Datum myDatum = new Datum(myDatumName, myImputedGenotypes, myDatumComment);
+    		theResult.add(myDatum);
+    	} else {
+    		for (Datum datum : theData) {
+    			PopulationData family = (PopulationData) datum.getData();
+    			String familyName = family.name.replace('/', '.');
+    			String chrName = family.original.chromosomeName(0);
+    			GenotypeTable myImputedGenotypes;
+    			StringBuilder myDatumName;
+    			StringBuilder myDatumComment;
+    			if (asNucleotides) {
+    				myImputedGenotypes = createOutputAlignmentImputingAllNucleotides(family);
+        			myDatumName = new StringBuilder("imputed_genotypes_Chr");
+        			myDatumName.append(chrName).append("_").append(familyName);
+        			myDatumComment = new StringBuilder("imputed genotypes");
+        			myDatumComment.append("\nchromosome ").append(chrName);
+        			myDatumComment.append("\nfamily = ").append(familyName);
+    			} else {
+    				myImputedGenotypes = createOutputAlignment(family, asNucleotides);
+        			myDatumName = new StringBuilder("imputed_parents_Chr");
+        			myDatumName.append(chrName).append("_").append(familyName);
+        			myDatumComment = new StringBuilder("imputed parents");
+        			myDatumComment.append("\nchromosome ").append(chrName);
+        			myDatumComment.append("\nfamily = ").append(familyName);
+        			myDatumComment.append("\nImputed parents have been coded as A and C.");
+        			myDatumComment.append("\nA and C were assigned to parents at random for each chromosome independently.");
+    			}
+    			
+    			Datum myDatum = new Datum(myDatumName.toString(), myImputedGenotypes, myDatumComment.toString());
+    			theResult.add(myDatum);
+    		}
+    	}
+    	return theResult;
     }
 
     private GenotypeTable createOutputAlignment(PopulationData popdata, boolean asNucleotides) {
-    	
     	GenotypeTable out = null;
 
         if (!asNucleotides) {
@@ -149,21 +172,11 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
     	int[] origPos = family.original.physicalPositions();
 
     	
-    	//if the length of alleles equals that of family.imputed rather than family.original, create snpIndex and pad alleles
-//    	int alleleLength = family.alleleA.length;
-//    	
-//    	if (alleleLength == nImputedSites && alleleLength < nsites) {
-//    		
-//    	} else {
-//    		
-//    	}
-    	
     	//first fill in gaps flanked by the same parent in the imputed alignment
     	int ntaxa = family.original.numberOfTaxa();
     	GenotypeTableBuilder genoBuilder = GenotypeTableBuilder.getSiteIncremental(family.original.taxa());
     	for (int s = 0; s < nsites; s++) {
-    		
-   		byte[] nuc = family.original.alleles(s);
+     		byte[] nuc = family.original.alleles(s);
     		int nalleles = nuc.length;
     		if (nalleles == 0) { 
     			//do nothing
@@ -295,9 +308,7 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
 
         int narg = args.length;
         for (int i = 0; i < narg; i++) {
-            if (args[i].equals("-f") || args[i].equalsIgnoreCase("-file")) {
-                baseFileName = args[++i];
-            } else if (args[i].equals("-m") || args[i].equalsIgnoreCase("-merge")) {
+            if (args[i].equals("-m") || args[i].equalsIgnoreCase("-merge")) {
                 String val = args[++i];
                 if (val.toUpperCase().startsWith("T")) {
                     mergeAlignments = true;
@@ -357,9 +368,9 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
         this.outputDiploid = outputDiploid;
     }
 
-    public void setBaseFileName(String baseFileName) {
-        this.baseFileName = baseFileName;
-    }
+//    public void setBaseFileName(String baseFileName) {
+//        this.baseFileName = baseFileName;
+//    }
 
     @Override
     public ImageIcon getIcon() {
@@ -378,13 +389,11 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
 
     public String getUsage() {
         StringBuilder usage = new StringBuilder("The WritePopulationAlignmentPlugin requires the following parameter:\n");
-        usage.append("-f or -file : The base file name for the ouput. .hmp.txt will be appended.\n");
         usage.append("The following parameters are optional:\n");
         usage.append("-m or -merge : if true families are merged into a single file, if false each family is output to a separate file (default = false)\n");
         usage.append("-o or -outputType : parents = output parent calls, nucleotides = output nucleotides, both = output both\n");
-        usage.append("-d or -diploid : if true output is AA/CC/AC, if false output is A/C/M\n");
-        usage.append("-c or -minCoverage : the minimum coverage for a monomorphic snp to be included in the nucleotide output (default = 0.1)\n");
-        usage.append("-x or -maxMono : the maximum minor allele frequency used to call monomorphic snps (default = 0.01)\n");
+//        usage.append("-c or -minCoverage : the minimum coverage for a monomorphic snp to be included in the nucleotide output (default = 0.1)\n");
+//        usage.append("-x or -maxMono : the maximum minor allele frequency used to call monomorphic snps (default = 0.01)\n");
         usage.append("if -c or -x equals NaN and merge is true, then missing values at monomorphic sites (within a family) will be left missing\n");
         usage.append("? : print the parameter list.\n");
 

@@ -19,6 +19,9 @@ public class FSFHapImputationPlugin extends AbstractPlugin {
 	private PluginParameter<String> pedigreeFilename = new PluginParameter.Builder<>("pedigrees", null, String.class)
 			.description("the pedigree file name")
 			.inFile().required(true).build();
+	private PluginParameter<String> logFilename = new PluginParameter.Builder<>("logfile", null, String.class)
+			.description("the name of a log file for runtime messages")
+			.outFile().build();
 	private PluginParameter<Boolean> useClusterAlgorithm = new PluginParameter.Builder<>("cluster", false, Boolean.class)
 			.description("use the cluster algorithm").build();
 	private PluginParameter<Boolean> useWindowLD = new PluginParameter.Builder<>("windowLD", false, Boolean.class)
@@ -33,7 +36,7 @@ public class FSFHapImputationPlugin extends AbstractPlugin {
 			.description("filter out sites with less than minimumMinorAlleleFrequency").build();
 	private PluginParameter<Double> minRforSnps = new PluginParameter.Builder<>("minR", 0.2, Double.class)
 			.range(Range.closed(0.0, 1.0)).description("filter out sites not correlated with neighboring sites").build();
-	private PluginParameter<Double> maxMissing = new PluginParameter.Builder<>("maxMissing", 0.2, Double.class)
+	private PluginParameter<Double> maxMissing = new PluginParameter.Builder<>("maxMissing", 0.8, Double.class)
 			.range(Range.closed(0.0, 1.0)).description("filter out sites with proportion missing > maxMissing").build();
 	private PluginParameter<Boolean> noHets = new PluginParameter.Builder<>("nohets", false, Boolean.class)
 			.description("delete heterozygous calls before imputing").build();
@@ -86,6 +89,7 @@ public class FSFHapImputationPlugin extends AbstractPlugin {
 		try {
 			CallParentAllelesPlugin cpa = new CallParentAllelesPlugin(null);
 			cpa.setPedfileName(pedigreeFilename.value());
+			cpa.setLogFile(logFilename.value());
 			cpa.setUseClusterAlgorithm(useClusterAlgorithm.value());
 			cpa.setUseWindowLD(useWindowLD.value());
 			cpa.setUseBCFilter(useBCFilter.value());
@@ -98,14 +102,15 @@ public class FSFHapImputationPlugin extends AbstractPlugin {
 			cpa.setMaxDifference(maxDifference.value());
 			cpa.setMinUsedClusterSize(minHaplotypeCluster.value());
 			cpa.setOverlap(overlap.value());
-			DataSet cpaResult = cpa.processData(input);
+			fireProgress(10);
+			DataSet cpaResult = cpa.performFunction(input);
 			
 			fireProgress(30);
 			
 			ViterbiAlgorithmPlugin vap = new ViterbiAlgorithmPlugin(null);
 			vap.setFillGapsInAlignment(fillgaps.value());
 			vap.setProbHeterozygous(probHeterozygous.value());
-			DataSet vapResult = vap.processData(cpaResult);
+			DataSet vapResult = vap.performFunction(cpaResult);
 			
 			fireProgress(60);
 			
@@ -116,11 +121,8 @@ public class FSFHapImputationPlugin extends AbstractPlugin {
 			writePap.setOutputDiploid(!outIUPAC.value());
 			DataSet writeResult = writePap.performFunction(vapResult);
 			
-			fireDataSetReturned(writeResult);
-			
 			fireProgress(90); 
 			return writeResult;
-			
 		} finally {
 			fireProgress(100);
 		}
