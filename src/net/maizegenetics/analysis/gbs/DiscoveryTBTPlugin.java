@@ -114,7 +114,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                 totalmatch+=entry.getValue().totalDepth();
             }
             System.out.println("totalmatch = " + totalmatch);
-            TagsByTaxaHDF5Builder.create(myOutputFile.value(), tagCntMap, masterTaxaList);
+            //TagsByTaxaHDF5Builder.create(myOutputFile.value(), tagCntMap, masterTaxaList);
 
         } catch(Exception e) {
             e.printStackTrace();

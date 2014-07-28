@@ -270,6 +270,20 @@ public class BaseEncoder {
         return seq.toString();
     }
 
+//    /**
+//     * Return a string representation of an array of 2-bit encoded longs.
+//     * @param val array of 2-bit encoded sequences
+//     * @return DNA sequence as a string
+//     */
+//    public static String getSequenceFromLong(long[] val, short length) {
+//        StringBuilder seq = new StringBuilder();
+//        for (long v : val) {
+//            seq.append(getSequenceFromLong(v,(byte)Math.max(32,length)));
+//            length-=32;
+//        }
+//        return seq.toString();
+//    }
+
     /**
      * Split a 2-bit encoded long into 2 integers.
      * @param val 2-bit encoded long sequence
