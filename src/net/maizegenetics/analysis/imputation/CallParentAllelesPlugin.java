@@ -27,9 +27,7 @@ import java.util.List;
 public class CallParentAllelesPlugin extends AbstractPlugin {
 	private static final Logger myLogger = Logger.getLogger(CallParentAllelesPlugin.class);
 	private String pedfileName = null;
-	private int minAlleleCount = 2; //minimum allele count for the minor allele to consider that a site might be polymorphic
 	private int windowSize = 50;  //the number of sites to be used a window for determining the original set of snps in LD
-	private double cutHeightSnps = 0.2;  //the tree cut height used to find the largest cluster of correlated SNPs
 	private double minRforSnps = 0.2;  //the minimum R used to judge whether a snp is in ld with a test group
 	private double maxMissing = 0.9;
 	private double minMinorAlleleFrequency = -1.0;
@@ -126,14 +124,8 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 			if (args[i].equals("-p") || args[i].equalsIgnoreCase("-pedigrees")) {
 				pedfileName = args[++i];
 			}
-			else if (args[i].equals("-a") || args[i].equalsIgnoreCase("-minAlleleCount")) {
-				minAlleleCount = Integer.parseInt(args[++i]);
-			}
 			else if (args[i].equals("-w") || args[i].equalsIgnoreCase("-windowSize")) {
 				windowSize = Integer.parseInt(args[++i]);
-			}
-			else if (args[i].equals("-h") || args[i].equalsIgnoreCase("-cutHeight")) {
-				cutHeightSnps = Double.parseDouble(args[++i]);
 			}
 			else if (args[i].equals("-r") || args[i].equalsIgnoreCase("-minR")) {
 				minRforSnps = Double.parseDouble(args[++i]);
@@ -215,16 +207,8 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 		this.pedfileName = pedfileName;
 	}
 
-	public void setMinAlleleCount(int minAlleleCount) {
-		this.minAlleleCount = minAlleleCount;
-	}
-
 	public void setWindowSize(int windowSize) {
 		this.windowSize = windowSize;
-	}
-
-	public void setCutHeightSnps(double cutHeightSnps) {
-		this.cutHeightSnps = cutHeightSnps;
 	}
 
 	public void setMinRforSnps(double minRforSnps) {
@@ -239,6 +223,50 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 		this.minUsedClusterSize = minUsedClusterSize;
 	}
 
+	public void setCheckSubPops(boolean checkSubPops) {
+		this.checkSubPops = checkSubPops;
+	}
+
+	public void setMaxMissing(double maxMissing) {
+		this.maxMissing = maxMissing;
+	}
+
+	public void setMinMinorAlleleFrequency(double minMinorAlleleFrequency) {
+		this.minMinorAlleleFrequency = minMinorAlleleFrequency;
+	}
+
+	public void setUseBCFilter(boolean useBCFilter) {
+		this.useBCFilter = useBCFilter;
+	}
+
+	public void setUseMultipleBCFilter(boolean useMultipleBCFilter) {
+		this.useMultipleBCFilter = useMultipleBCFilter;
+	}
+
+	public void setUseClusterAlgorithm(boolean useClusterAlgorithm) {
+		this.useClusterAlgorithm = useClusterAlgorithm;
+	}
+
+	public void setUseHets(boolean useHets) {
+		this.useHets = useHets;
+	}
+
+	public void setUseWindowLD(boolean useWindowLD) {
+		this.useWindowLD = useWindowLD;
+	}
+
+	public void setMaxHetDev(double maxHetDev) {
+		this.maxHetDev = maxHetDev;
+	}
+
+	public void setOverlap(int overlap) {
+		this.overlap = overlap;
+	}
+
+	public void setLogFile(String logname) {
+		setFileLogger(logname);
+	}
+	
 	@Override
 	public ImageIcon getIcon() {
 		return null;

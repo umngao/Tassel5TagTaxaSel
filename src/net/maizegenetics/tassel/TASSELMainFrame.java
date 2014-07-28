@@ -73,6 +73,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+
 import net.maizegenetics.analysis.data.GetPositionListPlugin;
 import net.maizegenetics.analysis.data.GetTaxaListPlugin;
 import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
@@ -90,6 +91,7 @@ import net.maizegenetics.analysis.gbs.UTagCountToTagPairPlugin;
 import net.maizegenetics.analysis.gbs.UTagPairToTOPMPlugin;
 import net.maizegenetics.analysis.imputation.FILLINFindHaplotypesPlugin;
 import net.maizegenetics.analysis.imputation.FILLINImputationPlugin;
+import net.maizegenetics.analysis.imputation.FSFHapImputationPlugin;
 
 /**
  * TASSELMainFrame
@@ -655,7 +657,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
         result.add(createMenuItem(new FILLINFindHaplotypesPlugin(this, true)));
         result.add(createMenuItem(new FILLINImputationPlugin(this, true)));
-
+        result.add(createMenuItem(new FSFHapImputationPlugin(this, true)));
         return result;
     }
 

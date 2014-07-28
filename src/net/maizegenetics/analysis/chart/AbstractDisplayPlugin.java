@@ -48,11 +48,6 @@ public abstract class AbstractDisplayPlugin extends AbstractPlugin {
     };
     private Outformat myOutformat = Outformat.svg;
 
-    public enum FileFormat {
-
-        svg, jpg, gif, bmp, wbmp, png, printer, txt, csv
-    };
-
     public AbstractDisplayPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
@@ -165,16 +160,16 @@ public abstract class AbstractDisplayPlugin extends AbstractPlugin {
 
     }
 
-    protected File getSaveFileByChooser(FileFormat[] formats) {
-        return getSaveFileByChooser(formats, getParentFrame());
+    protected File getSaveFileByChooser(String[] fileExtensions) {
+        return getSaveFileByChooser(fileExtensions, getParentFrame());
     }
 
-    protected File getSaveFileByChooser(FileFormat[] formats, Component parent) {
+    protected File getSaveFileByChooser(String[] fileExtensions, Component parent) {
 
         JFileChooser fileChooser = new JFileChooser(new File(TasselPrefs.getSaveDir()));
 
-        for (int i = 0; i < formats.length; i++) {
-            FileFilter current = new BasicFileFilter(formats[i].toString());
+        for (int i = 0; i < fileExtensions.length; i++) {
+            FileFilter current = new BasicFileFilter(fileExtensions[i]);
             fileChooser.addChoosableFileFilter(current);
             if (i == 0) {
                 fileChooser.setFileFilter(current);
