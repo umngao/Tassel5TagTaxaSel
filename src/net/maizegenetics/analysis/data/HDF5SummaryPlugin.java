@@ -8,7 +8,6 @@ import net.maizegenetics.dna.map.TOPMUtils;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.ImportUtils;
 import net.maizegenetics.dna.tag.TagsByTaxa;
-import net.maizegenetics.dna.tag.TagsByTaxaHDF5Builder;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.PluginParameter;
@@ -180,7 +179,7 @@ public class HDF5SummaryPlugin extends AbstractPlugin {
                 genos = ImportUtils.readGuessFormat(inputFile());
                 break;
             case TBT:
-                tbt = TagsByTaxaHDF5Builder.openForReading(inputFile());
+                //tbt = TagsByTaxaHDF5Builder.openForReading(inputFile());
                 break;
             case TOPM:
                 topm = TOPMUtils.readTOPM(inputFile());
