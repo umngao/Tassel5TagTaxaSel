@@ -204,7 +204,7 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
     }
     
     private String runFILLIN(String tempInFile) {
-        myLogger.info("Running FILLIN on the modified taxa using default paramenters (preferredHaplotypeSize:"+preferredHaplotypeSize());
+        myLogger.info("Running FILLIN on the modified taxa using default paramenters (preferredHaplotypeSize:"+preferredHaplotypeSize()+")");
         String tempImpGenosFileName = tempInFile.replaceFirst("Raw", "Imp");
         FILLINImputationPlugin fip = new FILLINImputationPlugin()
             .targetFile(tempPath+tempInFile)
