@@ -11,7 +11,6 @@ import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.TableReportUtils;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.analysis.chart.AbstractDisplayPlugin.FileFormat;
 import net.maizegenetics.gui.TableReportNoPagingTableModel;
 
 import javax.swing.*;
@@ -81,8 +80,8 @@ public class TableDisplayPlugin extends AbstractDisplayPlugin {
         }
     }
 
-    public void saveDataToFile(TableReport tr, String delimit, FileFormat[] formats) {
-        TableReportUtils.saveDelimitedTableReport(tr, delimit, getSaveFileByChooser(formats, myDialog));
+    public void saveDataToFile(TableReport tr, String delimit, String[] fileExtensions) {
+        TableReportUtils.saveDelimitedTableReport(tr, delimit, getSaveFileByChooser(fileExtensions, myDialog));
     }
 
     public void saveDataToFile(TableReport tr, String delimit) {
@@ -207,11 +206,11 @@ class TablePluginDialog extends JDialog implements Printable {
     }
 
     void saveTabButton_actionPerformed(ActionEvent e) {
-        theTableDisplayPlugin.saveDataToFile(theTableSource, "\t", new FileFormat[]{FileFormat.txt});
+        theTableDisplayPlugin.saveDataToFile(theTableSource, "\t", new String[]{"txt"});
     }
 
     void saveCommaButton_actionPerformed(ActionEvent e) {
-        theTableDisplayPlugin.saveDataToFile(theTableSource, ",", new FileFormat[]{FileFormat.csv});
+        theTableDisplayPlugin.saveDataToFile(theTableSource, ",", new String[]{"csv"});
     }
 
     void printButton_actionPerformed(ActionEvent e) {
