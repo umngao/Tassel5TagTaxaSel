@@ -499,7 +499,8 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
             String newName = tax.getTextAnnotation("Sample").length == 0 ? tax.getTextAnnotation("DNASample")[0] : tax.getTextAnnotation("Sample")[0];
             String libPrepID = tax.getName();
             newName += ":" + libPrepID;
-            Taxon gbsTaxon = new Taxon.Builder(tax).name(newName).addAnno("Flowcell_Lane", currFlowcellLane).addAnno("LibraryPrepID", libPrepID).build();
+            Taxon gbsTaxon = new Taxon.Builder(tax).name(newName).addAnno("Flowcell_Lane", currFlowcellLane)
+                    .addAnno("LibraryPrepID", libPrepID).addAnno("Status", "private").build();
             taxaAL.add(gbsTaxon);
         }
         return taxaAL;

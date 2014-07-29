@@ -9,7 +9,11 @@ import java.io.Serializable;
  */
 public interface Tag {
 
+    public String sequence();
+
     public long[] seq2Bit();
+
+    public byte[] seq2BitAsBytes();
 
     public short seqLength();
 

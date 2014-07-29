@@ -29,8 +29,10 @@ public interface TaxaDistribution {
      */
     int[][] taxaWithDepths();
 
-
-    int[] encodeTaxaDepth();
+    /**
+     * Custom run length encoding compression that also use Snappy
+     */
+    byte[] encodeTaxaDepth();
 
     /**
      * Multiset version of the taxa depth.  This is a convenient data structure, but it is slow to create compared
