@@ -705,7 +705,7 @@ abstract public class AbstractPlugin implements Plugin {
         }
 
         JTabbedPane tabbedPane = new JTabbedPane();
-        tabbedPane.add(panel, getButtonName());
+        tabbedPane.add(new JScrollPane(panel, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER), getButtonName());
 
         JPanel pnlButtons = new JPanel();
         pnlButtons.setLayout(new FlowLayout());
@@ -715,13 +715,17 @@ abstract public class AbstractPlugin implements Plugin {
         dialog.getContentPane().add(tabbedPane, BorderLayout.CENTER);
         dialog.getContentPane().add(pnlButtons, BorderLayout.SOUTH);
 
-        dialog.pack();
         JTextArea helpText = new JTextArea(getUsage());
         helpText.setLineWrap(true);
         helpText.setWrapStyleWord(true);
         helpText.setMargin(new Insets(10, 10, 10, 10));
         helpText.setEditable(false);
-        tabbedPane.add(new JPanel().add(new JScrollPane(helpText)), "Help");
+        tabbedPane.add(new JScrollPane(helpText), "Help");
+        dialog.pack();
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        if (screenSize.getHeight() < dialog.getHeight()) {
+            dialog.setSize(dialog.getWidth(), (int) screenSize.getHeight() - 125);
+        }
         dialog.setResizable(false);
         dialog.setLocationRelativeTo(getParentFrame());
         dialog.setVisible(true);
