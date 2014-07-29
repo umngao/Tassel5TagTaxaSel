@@ -531,7 +531,7 @@ public class NucleotideImputationUtils {
 				for (int i = 0; i < 3; i++) sublists[i] = new TaxaListBuilder();
 				for (Taxon taxon:popdata.original.taxa()) {
 					int pop = SubpopulationFinder.getNamSubPopulation(taxon);
-					if (pop > 0) sublists[pop].add(taxon);
+					if (pop >= 0) sublists[pop].add(taxon);
 				}
 
 				//add the subgroups to popdata

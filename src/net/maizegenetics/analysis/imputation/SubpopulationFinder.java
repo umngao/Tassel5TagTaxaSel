@@ -231,6 +231,7 @@ public class SubpopulationFinder {
 	}
 	
 	public static int getNamSubPopulation(String taxonname) {
+		if (!taxonname.startsWith("Z0")) return 0;  //founder lines go in subpop 0
 		String shortname;
 		int colonpos = taxonname.indexOf(':');
 		if (colonpos < 0) shortname = taxonname;
