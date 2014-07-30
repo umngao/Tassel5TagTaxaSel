@@ -177,21 +177,23 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
 
     private GenotypeTable createOutputAlignmentImputingAllNucleotides(PopulationData family) {
     	GenotypeTable filledImputedGenotypes = NucleotideImputationUtils.fillGapsInImputedAlignment(family);
-    	int nsites = family.original.numberOfSites();
+    	GenotypeTable filteredOriginalGenotypes = FilterGenotypeTable.getInstance(family.original, filledImputedGenotypes.taxa());
+    	int nsites = filteredOriginalGenotypes.numberOfSites();
     	int nImputedSites = filledImputedGenotypes.numberOfSites();
     	int[] imputedPos = filledImputedGenotypes.physicalPositions();
-    	int[] origPos = family.original.physicalPositions();
+    	int[] origPos = filteredOriginalGenotypes.physicalPositions();
 
     	
     	//first fill in gaps flanked by the same parent in the imputed alignment
-    	int ntaxa = family.original.numberOfTaxa();
-    	GenotypeTableBuilder genoBuilder = GenotypeTableBuilder.getSiteIncremental(family.original.taxa());
+    	int ntaxa = filteredOriginalGenotypes.numberOfTaxa();
+    	GenotypeTableBuilder genoBuilder = GenotypeTableBuilder.getSiteIncremental(filteredOriginalGenotypes.taxa());
     	for (int s = 0; s < nsites; s++) {
-     		byte[] nuc = family.original.alleles(s);
+    		
+    		byte[] nuc = filteredOriginalGenotypes.alleles(s);
     		int nalleles = nuc.length;
     		if (nalleles == 0) { 
     			//do nothing
-    			genoBuilder.addSite(family.original.positions().get(s), family.original.genotypeAllTaxa(s));
+    			genoBuilder.addSite(filteredOriginalGenotypes.positions().get(s), filteredOriginalGenotypes.genotypeAllTaxa(s));
     		} else if (nalleles > 0) {
     			//find flanking markers in imputed
     			int ndx = Arrays.binarySearch(imputedPos, origPos[s]);
@@ -224,8 +226,8 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
     					mnImputed.and(flankingSame);
     				}
 
-    				BitSet mjOrig = family.original.allelePresenceForAllTaxa(s, WHICH_ALLELE.Major);
-    				BitSet mnOrig = family.original.allelePresenceForAllTaxa(s, WHICH_ALLELE.Minor);
+    				BitSet mjOrig = filteredOriginalGenotypes.allelePresenceForAllTaxa(s, WHICH_ALLELE.Major);
+    				BitSet mnOrig = filteredOriginalGenotypes.allelePresenceForAllTaxa(s, WHICH_ALLELE.Minor);
     				OpenBitSet imj = new OpenBitSet(mjImputed);  
     				imj.andNot(mnImputed); //homozygous major allele
     				OpenBitSet imn = new OpenBitSet(mnImputed);  
@@ -240,7 +242,7 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
     				counts[1][0] = (int) OpenBitSet.intersectionCount(imn, omj);
     				counts[1][1] = (int) OpenBitSet.intersectionCount(imn, omn);
     				byte[] alleles = getMajorAndMinorAllelesAtSite(counts, nuc);
-    				byte[] genotypes = family.original.genotypeAllTaxa(s);
+    				byte[] genotypes = filteredOriginalGenotypes.genotypeAllTaxa(s);
     				if (alleles != null) {
     					byte major = GenotypeTableUtils.getUnphasedDiploidValue(alleles[0], alleles[0]);
     					byte minor = GenotypeTableUtils.getUnphasedDiploidValue(alleles[1], alleles[1]);
@@ -258,9 +260,9 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
     						
     					}
     				}
-    				genoBuilder.addSite(family.original.positions().get(s), genotypes);
+    				genoBuilder.addSite(filteredOriginalGenotypes.positions().get(s), genotypes);
     			} else {
-    				genoBuilder.addSite(family.original.positions().get(s), family.original.genotypeAllTaxa(s));
+    				genoBuilder.addSite(filteredOriginalGenotypes.positions().get(s), filteredOriginalGenotypes.genotypeAllTaxa(s));
     			}
 
     		}
