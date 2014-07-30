@@ -15,6 +15,7 @@ import org.apache.log4j.Logger;
 import javax.swing.*;
 import java.awt.*;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FilenameFilter;
 
@@ -32,6 +33,7 @@ public class ProductionPipeline extends AbstractPlugin {
     private static final SimpleDateFormat LOGGING_DATE_FORMAT = new SimpleDateFormat("yyyyMMdd HH:mm:ss");
     private static final String READY_FILE_NAME = "ready.txt";
     private static final String LOCK_FILE_NAME = "lock.txt";
+    private static final String SUMMARY_LOG_FILE = "ProductionPipeline.log";
 
     private PluginParameter<String> myInputDirectory = new PluginParameter.Builder<>("inputDirectory", null, String.class).required(true).inDir()
             .description("Input directory containing subdirectories with fastq AND/OR qseq files").build();
@@ -45,6 +47,7 @@ public class ProductionPipeline extends AbstractPlugin {
             .description("Archive directory where to move processed files").build();
 
     private String myOutputDirectory;
+    private BufferedWriter mySummaryLogFile;
 
     public ProductionPipeline(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
@@ -62,13 +65,17 @@ public class ProductionPipeline extends AbstractPlugin {
     @Override
     public DataSet processData(DataSet input) {
 
+        String lockFilename = inputDirectory() + File.separator + LOCK_FILE_NAME;
+
         try {
 
-            String lockFilename = inputDirectory() + File.separator + LOCK_FILE_NAME;
-            if (new File(lockFilename).exists()) {
+            if (!new File(lockFilename).createNewFile()) {
                 myLogger.warn("Production Pipeline already running.  File exists: " + lockFilename + "  Aborting...");
                 return null;
             }
+
+            String logFilename = inputDirectory() + File.separator + SUMMARY_LOG_FILE;
+            mySummaryLogFile = Utils.getBufferedWriter(logFilename, true);
 
             File inputDirectory = new File(inputDirectory());
             String[] directories = inputDirectory.list(new FilenameFilter() {
@@ -80,21 +87,41 @@ public class ProductionPipeline extends AbstractPlugin {
 
             for (String current : directories) {
                 String fullDirName = inputDirectory() + File.separator + current;
-                processSubDirectory(fullDirName);
-                File currentLocation = new File(fullDirName);
-                File newLocation = new File(archiveDirectory() + current);
-                currentLocation.renameTo(newLocation);
-                myLogger.info("Moved : " + currentLocation.getAbsolutePath() + " to: " + newLocation.getAbsolutePath());
+                try {
+                    processSubDirectory(fullDirName);
+                    File currentLocation = new File(fullDirName);
+                    File newLocation = new File(archiveDirectory() + current);
+                    currentLocation.renameTo(newLocation);
+                    myLogger.info("Moved : " + currentLocation.getAbsolutePath() + " to: " + newLocation.getAbsolutePath());
+                    writeToSummaryLogFile("Moved : " + currentLocation.getAbsolutePath() + " to: " + newLocation.getAbsolutePath());
+                } catch (Exception e) {
+                    writeToSummaryLogFile("Production Pipeline Failed: " + fullDirName);
+                    myLogger.error(e.getMessage(), e);
+                }
+
             }
 
             return null;
+
+        } catch (Exception ex) {
+            writeToSummaryLogFile("Problem Running Production Pipeline: " + ex.getMessage());
+            myLogger.error(ex.getMessage(), ex);
+            return null;
         } finally {
             LoggingUtils.closeLogfile();
+            try {
+                mySummaryLogFile.close();
+            } catch (Exception e) {
+                // do nothing
+            }
+            new File(lockFilename).delete();
         }
 
     }
 
     private void processSubDirectory(String subDirectory) {
+
+        writeToSummaryLogFile("----------- Production Pipeline Started: " + subDirectory);
 
         String readyFilename = subDirectory + File.separator + READY_FILE_NAME;
         File readyFile = new File(readyFilename);
@@ -103,29 +130,39 @@ public class ProductionPipeline extends AbstractPlugin {
             readyFile.delete();
         } else {
             myLogger.warn("This directory is not ready yet: " + subDirectory);
+            writeToSummaryLogFile("Ready File not Found; " + readyFilename);
             return;
         }
 
-        String keyFile = subDirectory + File.separator + Utils.getFilename(subDirectory) + ".key";
+        String keyFile = subDirectory + File.separator + Utils.getFilename(subDirectory) + "_key.txt";
         if (!new File(keyFile).exists()) {
             myLogger.error("Keyfile doesn't exist: " + keyFile);
+            writeToSummaryLogFile("Keyfile doesn't exist: " + keyFile);
             return;
         }
 
         String[] rawSeqFileNames = DirectoryCrawler.listFileNames(ProductionSNPCallerPlugin.rawSeqFileNameRegex, subDirectory);
         if ((rawSeqFileNames == null) || (rawSeqFileNames.length == 0)) {
             myLogger.warn("No sequence files in directory: " + subDirectory);
+            writeToSummaryLogFile("No sequence files in directory");
             return;
         }
 
+        String[] args = getPluginArgs(subDirectory, keyFile);
+
         myLogger.info("Raw Sequence Files: " + Arrays.deepToString(rawSeqFileNames));
-        myLogger.info("Parameters Passed to ProductionSNPCallerPlugin: " + Arrays.deepToString(getPluginArgs(subDirectory, keyFile)));
+        myLogger.info("Parameters Passed to ProductionSNPCallerPlugin: " + Arrays.deepToString(args));
+        writeToSummaryLogFile("Raw Sequence Files: " + Arrays.deepToString(rawSeqFileNames));
+        writeToSummaryLogFile("Parameters Passed to ProductionSNPCallerPlugin: " + Arrays.deepToString(args));
 
         ProductionSNPCallerPlugin plugin = new ProductionSNPCallerPlugin();
-        plugin.setParameters(getPluginArgs(subDirectory, keyFile));
+
+        plugin.setParameters(args);
 
         printParameterValues();
         plugin.performFunction(null);
+
+        writeToSummaryLogFile("Production Pipeline Finished: " + subDirectory);
 
     }
 
@@ -135,7 +172,8 @@ public class ProductionPipeline extends AbstractPlugin {
             "-k", keyFile,
             "-e", enzyme(),
             "-o", outputGenotypeFile(),
-            "-m", productionTOPM()
+            "-m", productionTOPM(),
+            "-ko"
         };
         return args;
     }
@@ -153,6 +191,16 @@ public class ProductionPipeline extends AbstractPlugin {
             throw new IllegalArgumentException("ProductionPipeline: setupLogfile: " + logFileName + " doesn't exist.");
         }
 
+    }
+
+    private void writeToSummaryLogFile(String str) {
+        try {
+            mySummaryLogFile.write(getTimeStamp());
+            mySummaryLogFile.write(str);
+            mySummaryLogFile.write("\n");
+        } catch (Exception e) {
+            myLogger.error("writeToSummaryLogFile: Problem writing to Summary Log File.");
+        }
     }
 
     /**
