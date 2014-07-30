@@ -723,7 +723,7 @@ abstract public class AbstractPlugin implements Plugin {
         tabbedPane.add(new JScrollPane(helpText), "Help");
         dialog.pack();
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        if (screenSize.getHeight() < dialog.getHeight()) {
+        if (screenSize.getHeight() - 125 < dialog.getHeight()) {
             dialog.setSize(dialog.getWidth(), (int) screenSize.getHeight() - 125);
         }
         dialog.setResizable(false);
