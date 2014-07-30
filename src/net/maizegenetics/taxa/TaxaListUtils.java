@@ -56,6 +56,7 @@ public class TaxaListUtils {
 
         TaxaListBuilder builder = new TaxaListBuilder();
         builder.addAll(intersectIds);
+        builder.sortTaxaAlphabetically();
         return builder.build();
 
     }
@@ -96,6 +97,7 @@ public class TaxaListUtils {
 
         TaxaListBuilder builder = new TaxaListBuilder();
         builder.addAll(allIds);
+        builder.sortTaxaAlphabetically();
         return builder.build();
 
     }
