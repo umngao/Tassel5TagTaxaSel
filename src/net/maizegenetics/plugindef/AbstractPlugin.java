@@ -14,6 +14,7 @@ import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.awt.event.WindowEvent;
 
 import java.io.File;
 import java.lang.reflect.Field;
@@ -550,6 +551,13 @@ abstract public class AbstractPlugin implements Plugin {
         }
 
         final JDialog dialog = new JDialog(getParentFrame(), null, true);
+        dialog.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                parametersAreSet = false;
+                dialog.setVisible(false);
+            }
+        });
 
         final Map<String, JComponent> parameterFields = new HashMap<>();
 
