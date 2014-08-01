@@ -88,7 +88,7 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
         
         // need to add these via GenotypeTableBuilder
         if (dataSetName() != null) {
-            HDF5Utils.writeHDF5DataSetName(null, null);
+//            HDF5Utils.writeHDF5DataSetName(null, null);
         }
         if (dataSetDescription() != null) {
             ;
