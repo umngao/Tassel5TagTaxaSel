@@ -205,6 +205,15 @@ public class GenotypeTableBuilder {
         isHDF5 = true;
 
     }
+    
+    /**
+     * Returns a builder to an existing, unfinished HDF5 genotypes file.
+     * 
+     * Can be used if you want to add/modify annotations, etc, and/or call build() to finalize it
+     */
+    public static GenotypeTableBuilder getBuilder(String existingHDF5File) {
+        return new GenotypeTableBuilder(existingHDF5File, null, null);
+    } 
 
     /**
      * Creates an in memory builder for addition by taxon. Each taxon can only
@@ -268,25 +277,25 @@ public class GenotypeTableBuilder {
      * Merges taxa to an existing HDF5 file. The position list is derived from
      * the positions already in the existing HDF5 file.
      *
-     * @param existingHDFFile
+     * @param existingHDF5File
      * @param mergeRule
      * @return builder to merge taxa with
      */
-    public static GenotypeTableBuilder mergeTaxaIncremental(String existingHDFFile, GenotypeMergeRule mergeRule) {
-        return new GenotypeTableBuilder(existingHDFFile, null, mergeRule);
+    public static GenotypeTableBuilder mergeTaxaIncremental(String existingHDF5File, GenotypeMergeRule mergeRule) {
+        return new GenotypeTableBuilder(existingHDF5File, null, mergeRule);
     }
 
     /**
      * Creates a new taxa incremental HDF5 GenotypeTableBuilder to which
      * replicate taxa can be added
      *
-     * @param newHDFFile
+     * @param newHDF5File
      * @param positionList
      * @param mergeRule
      * @return
      */
-    public static GenotypeTableBuilder getTaxaIncrementalWithMerging(String newHDFFile, PositionList positionList, GenotypeMergeRule mergeRule) {
-        return new GenotypeTableBuilder(newHDFFile, positionList, mergeRule);
+    public static GenotypeTableBuilder getTaxaIncrementalWithMerging(String newHDF5File, PositionList positionList, GenotypeMergeRule mergeRule) {
+        return new GenotypeTableBuilder(newHDF5File, positionList, mergeRule);
     }
 
     /**
