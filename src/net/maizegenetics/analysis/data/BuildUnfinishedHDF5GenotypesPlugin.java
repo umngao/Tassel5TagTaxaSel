@@ -1,35 +1,41 @@
 package net.maizegenetics.analysis.data;
 
-// standard imports for plugins
-import net.maizegenetics.plugindef.AbstractPlugin;
-import net.maizegenetics.plugindef.DataSet;
-import org.apache.log4j.Logger;
-import javax.swing.*;
-import java.awt.*;
-import net.maizegenetics.plugindef.PluginParameter;
-//import net.maizegenetics.plugindef.GeneratePluginCode;
-
-// specifically needed for this plugin
 import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
-import net.maizegenetics.dna.map.PositionListBuilder;
+import java.awt.*;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import javax.swing.*;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
+import net.maizegenetics.plugindef.AbstractPlugin;
+import net.maizegenetics.plugindef.DataSet;
+//import net.maizegenetics.plugindef.GeneratePluginCode;
+import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
-import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.HDF5Utils;
+import org.apache.log4j.Logger;
 
 /**
- * Opens an "unfinished" HDF5 genos file, on which .closeUnfinished() was called rather than .build(),
- * makes a copy of it and then finalizes it by calling .build().
+ * Opens an "unfinished" HDF5 genotypes file, on which .closeUnfinished() was called rather than .build()
+ * and finalizes it by calling .build().
  * 
- * If provided, root level annotations DataSetName and DataSetDescription are also added.
+ * If an output file name is provided, then the input file is first copied to that, and then build() is called on that copy.
+ * 
+ * If provided, root level annotations DataSetName and DataSetDescription are also added. "__DATE__" in the provided
+ * dataSet name is replaced a current date stamp ("_yyyyMMdd"). "__SNPS__" and "__TAXA__" in the dataSetDescription are
+ * replaced with the number of sites and taxa, respectively.
  *
  * @author Jeff Glaubitz (jcg233@cornell.edu)
  */
 public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(BuildUnfinishedHDF5GenotypesPlugin.class);
+    
+    String dataSetDescrip;
 
     private PluginParameter<String> inputGenotypes = new PluginParameter.Builder<>("i", null, String.class)
         .guiName("Input file")
@@ -39,7 +45,7 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
         .build();
     private PluginParameter<String> outputGenotypes = new PluginParameter.Builder<>("o", null, String.class)
         .guiName("Output file")
-        .required(true)
+        .required(false)
         .outFile()
         .description("Output, finished HDF5 genotype (*.h5) file which can be opened with the TASSEL5 GUI")
         .build();
@@ -75,36 +81,61 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
     }
 
     private String buildUnfinishedHDF5Genotypes() {
-        myLogger.info("\n\nBuildUnfinishedHDF5GenotypesPlugin:\nFinalizing the following HDF5 genotype file:\n  "
-                +inputFile()+"\n\n");
-        IHDF5Reader h5Reader = HDF5Factory.openForReading(inputFile());
-        GenotypeTableBuilder genoTable = GenotypeTableBuilder.getTaxaIncremental(PositionListBuilder.getInstance(h5Reader), outputFile());
-        TaxaList taxa = new TaxaListBuilder().buildFromHDF5Genotypes(h5Reader);
-        for (Taxon taxon : taxa) {
-            byte[] genos = HDF5Utils.getHDF5GenotypesCalls(h5Reader, taxon.getName());
-            byte[][] depth = HDF5Utils.getHDF5GenotypesDepth(h5Reader, taxon.getName());
-            genoTable.addTaxon(taxon, genos, depth);
-        }
-        
-        // need to add these via GenotypeTableBuilder
-        if (dataSetName() != null) {
-//            HDF5Utils.writeHDF5DataSetName(null, null);
+        if (outputFile() == null) {
+            myLogger.info("\n\nBuildUnfinishedHDF5GenotypesPlugin:\nFinalizing the following HDF5 genotype file:\n   "
+                    +inputFile()+"\n\n");
+        } else {
+            myLogger.info("\n\nBuildUnfinishedHDF5GenotypesPlugin: Copying the HDF5 genotypes from the file:\n   "
+                    +inputFile()
+                    +"/n"+"and finalizing them in this output file:\n   "
+                    +outputFile()+"\n\n");
         }
         if (dataSetDescription() != null) {
-            ;
+            dataSetDescrip = parseDataSetDescription(dataSetDescription()); // get the number of SNPs and taxa
+        }
+        GenotypeTableBuilder genoTable;
+        if (outputFile() == null) {
+            genoTable = GenotypeTableBuilder.getBuilder(inputFile());
+        } else {
+            String message = copyInputFile();
+            if (message != null) return message;
+            genoTable = GenotypeTableBuilder.getBuilder(outputFile());
+        }
+        
+        // TODO: add these via GenotypeTableBuilder, once the annotations are implemented (TAS-486)
+        if (dataSetName() != null) {
+//            genoTable.addDataSetName(parseDataSetName(dataSetName()));
+        }
+        if (dataSetDescription() != null) {
+//            genoTable.addDataSetDescription(dataSetDescrip);
         }
         
         genoTable.build();
-        myLogger.info("\n\nBuildUnfinishedHDF5GenotypesPlugin: Finished finalizing HDF5 genotypes in the following output file:\n  "
-                +outputFile()+"\n\n");
+        myLogger.info("\n\nFinished finalizing HDF5 genotypes file\n\n");
         return null;
     }
     
     private String parseDataSetName(String dataSetName) {
-        return null;
+        String date = "_" + new SimpleDateFormat("yyyyMMdd").format(new Date());
+        return dataSetName.replace("__DATE__", date);
     }
     
-    private String parseDataSetDescription(String dataSetDescrip, int nSNPs, int nTaxa) {
+    private String parseDataSetDescription(String dataSetDescrip) {
+        IHDF5Reader h5Reader = HDF5Factory.openForReading(inputFile());
+        int nSNPs = HDF5Utils.getHDF5PositionNumber(h5Reader);
+        TaxaList tL = new TaxaListBuilder().buildFromHDF5Genotypes(h5Reader);
+        int nTaxa = tL.numberOfTaxa();
+        h5Reader.close();
+        return dataSetDescrip.replace("__SNPS__", ""+nSNPs).replace("__TAXA__", ""+nTaxa);
+    }
+    
+    private String copyInputFile() {
+        try {
+            Files.copy(new File(inputFile()).toPath(), new File(outputFile()).toPath());
+        } catch (IOException e) {
+            myLogger.error("Could not copy file: " + e.getMessage());
+            return "\n\nERROR: Could not copy input file to output file: " + e.getMessage() +"\n\n";
+        }
         return null;
     }
 
