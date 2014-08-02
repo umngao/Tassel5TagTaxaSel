@@ -81,9 +81,7 @@ abstract public class AbstractPlugin implements Plugin {
             checkParameters();
 
             DataSet output = processData(input);
-            if (output != null) {
-                fireDataSetReturned(new PluginEvent(output, getClass()));
-            }
+            fireDataSetReturned(new PluginEvent(output, getClass()));
             return output;
 
         } catch (Exception e) {

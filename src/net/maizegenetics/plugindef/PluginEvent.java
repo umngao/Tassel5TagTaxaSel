@@ -2,38 +2,35 @@
  * PluginEvent.java
  *
  */
-
 package net.maizegenetics.plugindef;
-
 
 import java.util.EventObject;
 
-
 /**
  *
- * @author terryc
+ * @author Terry Casstevens
  */
 public class PluginEvent extends EventObject {
-    
+
     private final Object myMetaData;
-    
-    
-    /** Creates a new instance of PluginEvent */
+
+    /**
+     * Creates a new instance of PluginEvent
+     */
     public PluginEvent(Object source) {
-        super(source);
-        myMetaData = null;
+        this(source, null);
     }
-    
-    
-    /** Creates a new instance of PluginEvent */
+
+    /**
+     * Creates a new instance of PluginEvent
+     */
     public PluginEvent(Object source, Object metaData) {
-        super(source);
+        super(source == null ? new DataSet((Datum) null, null) : source);
         myMetaData = metaData;
     }
-    
-    
+
     public Object getMetaData() {
         return myMetaData;
     }
-    
+
 }
