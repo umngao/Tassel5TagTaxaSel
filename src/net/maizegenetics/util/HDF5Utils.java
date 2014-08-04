@@ -177,7 +177,7 @@ public final class HDF5Utils {
     }
 
     public static boolean isHDF5GenotypeLocked(IHDF5Reader reader) {
-        if (reader.exists(Tassel5HDF5Constants.GENOTYPES_ATTRIBUTES_PATH + "/" + Tassel5HDF5Constants.GENOTYPES_LOCKED) == false) {
+        if (reader.exists(Tassel5HDF5Constants.GENOTYPES_ATTRIBUTES_PATH) == false) {
             return false;
         }
         return reader.getBooleanAttribute(Tassel5HDF5Constants.GENOTYPES_ATTRIBUTES_PATH, Tassel5HDF5Constants.GENOTYPES_LOCKED);
