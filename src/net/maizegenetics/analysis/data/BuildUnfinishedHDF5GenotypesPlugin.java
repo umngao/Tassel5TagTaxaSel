@@ -47,7 +47,7 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
         .guiName("Output file")
         .required(false)
         .outFile()
-        .description("Output, finished HDF5 genotype (*.h5) file which can be opened with the TASSEL5 GUI")
+        .description("Output, finished HDF5 genotype (*.h5) file which can be opened with the TASSEL5 GUI. __DATE__ is replaced with a _yyyyMMdd date stamp.")
         .build();
     private PluginParameter<String> dataSetName = new PluginParameter.Builder<>("name", null, String.class)
         .guiName("Data set name")
@@ -66,6 +66,13 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
 
     public BuildUnfinishedHDF5GenotypesPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, false);
+    }
+    
+    @Override
+    protected void preProcessParameters(DataSet input) {
+        String date = "_" + new SimpleDateFormat("yyyyMMdd").format(new Date());
+        String outfile = outputFile();
+        outputFile(outfile.replace("__DATE__", date));
     }
 
     @Override
@@ -87,7 +94,7 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
         } else {
             myLogger.info("\n\nBuildUnfinishedHDF5GenotypesPlugin: Copying the HDF5 genotypes from the file:\n   "
                     +inputFile()
-                    +"/n"+"and finalizing them in this output file:\n   "
+                    +"\n"+"and finalizing them in this output file:\n   "
                     +outputFile()+"\n\n");
         }
         if (dataSetDescription() != null) {
