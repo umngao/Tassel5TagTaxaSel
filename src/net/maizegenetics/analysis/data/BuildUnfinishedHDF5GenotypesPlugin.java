@@ -35,7 +35,7 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(BuildUnfinishedHDF5GenotypesPlugin.class);
     
-    String dataSetDescrip;
+    String dataSetDescrip, date;
 
     private PluginParameter<String> inputGenotypes = new PluginParameter.Builder<>("i", null, String.class)
         .guiName("Input file")
@@ -70,7 +70,7 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
     
     @Override
     protected void preProcessParameters(DataSet input) {
-        String date = "_" + new SimpleDateFormat("yyyyMMdd").format(new Date());
+        date = "_" + new SimpleDateFormat("yyyyMMdd").format(new Date());
         String outfile = outputFile();
         outputFile(outfile.replace("__DATE__", date));
     }
@@ -123,7 +123,6 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
     }
     
     private String parseDataSetName(String dataSetName) {
-        String date = "_" + new SimpleDateFormat("yyyyMMdd").format(new Date());
         return dataSetName.replace("__DATE__", date);
     }
     
@@ -133,7 +132,7 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
         TaxaList tL = new TaxaListBuilder().buildFromHDF5Genotypes(h5Reader);
         int nTaxa = tL.numberOfTaxa();
         h5Reader.close();
-        return dataSetDescrip.replace("__SNPS__", ""+nSNPs).replace("__TAXA__", ""+nTaxa);
+        return dataSetDescrip.replace("__SNPS__", ""+nSNPs).replace("__TAXA__", ""+nTaxa).replace("__DATE__", date);
     }
     
     private String copyInputFile() {
