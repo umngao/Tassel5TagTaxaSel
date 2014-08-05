@@ -13,10 +13,12 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.Utils;
+
 import org.apache.log4j.Logger;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -26,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+
 import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.A_ALLELE;
 import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.C_ALLELE;
 import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.GAP_ALLELE;
@@ -48,8 +51,8 @@ public class BuilderFromPLINK {
     private final String myPedFile;
     private final String myMapFile;
     private final ProgressListener myProgressListener;
-    private int[] myTaxaRedirect;
-    private boolean mySortAlphabetically = false;
+    private boolean mySortTaxaAlphabetically = false;
+    private boolean mySortPositions = false;
 
     private BuilderFromPLINK(String pedfile, String mapfile, ProgressListener listener) {
         myPedFile = pedfile;
@@ -61,15 +64,7 @@ public class BuilderFromPLINK {
         return new BuilderFromPLINK(pedfile, mapfile, listener);
     }
 
-    public GenotypeTable buildAndSort() {
-        return buildEngine(true);
-    }
-
     public GenotypeTable build() {
-        return buildEngine(false);
-    }
-
-    private GenotypeTable buildEngine(boolean fullSort) {
 
         GenotypeTable result = null;
         try {
@@ -124,14 +119,18 @@ public class BuilderFromPLINK {
             for (ProcessPLINKBlock pb : processBlockList) {
                 taxaBuild.addAll(pb.getBlockTaxa());
             }
+            if (mySortTaxaAlphabetically) {
+                taxaBuild.sortTaxaAlphabetically(genotypeCallTableBuilder);
+            }
             TaxaList taxaList = taxaBuild.build();
-            sortTaxaListIfNeeded(taxaList, genotypeCallTableBuilder);
 
-            //Check that result is in correct order. If not, either try to sort or just throw an error (determined by what was passed to fullSort)
+            // Check that result is in correct order. If not, either try to sort
+            // or just throw an error (determined by what was passed to fullSort)
             if (posBuild.validateOrdering() == false) {
-                if (fullSort) {
+                if (mySortPositions) {
                     posBuild.sortPositions(genotypeCallTableBuilder);
-                    if (posBuild.validateOrdering() == false) {   //Double-check post-sort ordering. Should never happen, but just to be safe
+                    // Double-check post-sort ordering. Should never happen, but just to be safe
+                    if (posBuild.validateOrdering() == false) {
                         throw new IllegalStateException("BuilderFromPLINK: Ordering of PLINK failed.");
                     }
                 } else {
@@ -150,22 +149,16 @@ public class BuilderFromPLINK {
      * Set the builder so that when built it will sort the taxa
      */
     public BuilderFromPLINK sortTaxa() {
-        mySortAlphabetically = true;
+        mySortTaxaAlphabetically = true;
         return this;
     }
 
-    private TaxaList sortTaxaListIfNeeded(TaxaList taxaList, GenotypeCallTableBuilder builder) {
-        TaxaList result;
-        if (mySortAlphabetically) {
-            result = new TaxaListBuilder().addAll(taxaList).sortTaxaAlphabetically(builder).build();
-        } else {
-            result = taxaList;
-        }
-        myTaxaRedirect = new int[taxaList.numberOfTaxa()];
-        for (int i = 0; i < myTaxaRedirect.length; i++) {
-            myTaxaRedirect[i] = result.indexOf(taxaList.get(i));
-        }
-        return result;
+    /**
+     * Set the builder so that when built it will sort the positions.
+     */
+    public BuilderFromPLINK sortPositions() {
+        mySortPositions = true;
+        return this;
     }
 
     // chromosome (1-22, X, Y or 0 if unplaced)
