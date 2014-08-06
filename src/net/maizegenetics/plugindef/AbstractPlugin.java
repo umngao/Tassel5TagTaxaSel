@@ -185,7 +185,9 @@ abstract public class AbstractPlugin implements Plugin {
     public static <T> T convert(String input, Class<T> outputClass) {
         try {
             if (outputClass.isEnum()) {
-                return (T) Enum.valueOf(outputClass.asSubclass(Enum.class), input);
+                return (T) Enum.valueOf((Class<Enum>)outputClass, input);
+            } else if (outputClass.isAssignableFrom(String.class)) {
+                return (T) input;
             } else {
                 return input == null ? null : outputClass.getConstructor(String.class).newInstance(input);
             }

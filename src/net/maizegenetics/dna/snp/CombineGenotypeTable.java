@@ -17,6 +17,7 @@ import net.maizegenetics.dna.snp.score.Dosage;
 import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
 
 import java.util.*;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 
 /**
  * Combines multiple GenotypeTables together.
@@ -931,6 +932,11 @@ public class CombineGenotypeTable implements GenotypeTable {
     public byte dosage(int taxon, int site) {
         int translate = translateSite(site);
         return myAlignments[translate].dosage(taxon, site - mySiteOffsets[translate]);
+    }
+
+    @Override
+    public GeneralAnnotationStorage annotations() {
+        throw new UnsupportedOperationException("Not supported yet.");
     }
 
 }

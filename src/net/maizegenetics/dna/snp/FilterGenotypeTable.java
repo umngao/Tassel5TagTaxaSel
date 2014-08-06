@@ -27,6 +27,7 @@ import net.maizegenetics.util.BitSet;
 import org.apache.log4j.Logger;
 
 import java.util.*;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 
 /**
  * Taxa and site filtering of GenotypeTables. The class essentially creates
@@ -1101,5 +1102,10 @@ public class FilterGenotypeTable implements GenotypeTable {
         } else {
             return myBaseAlignment.dosage(taxaIndex, translateSite(site));
         }
+    }
+
+    @Override
+    public GeneralAnnotationStorage annotations() {
+        return myBaseAlignment.annotations();
     }
 }

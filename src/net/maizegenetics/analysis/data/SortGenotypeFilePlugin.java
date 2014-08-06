@@ -53,7 +53,7 @@ public class SortGenotypeFilePlugin extends AbstractPlugin {
         try {
             switch (fileType()) {
                 case Hapmap:
-                    GenotypeTable myHapmap = BuilderFromHapMap.getBuilder(inputFile()).buildAndSort();
+                    GenotypeTable myHapmap = BuilderFromHapMap.getBuilder(inputFile(), null).sortPositions().build();
                     ExportUtils.writeToHapmap(myHapmap, outputFile());
                     break;
                 case VCF:

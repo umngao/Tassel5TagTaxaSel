@@ -37,7 +37,6 @@ import net.maizegenetics.analysis.tree.CreateTreePlugin;
 import net.maizegenetics.analysis.association.RidgeRegressionEmmaPlugin;
 import net.maizegenetics.dna.map.TagsOnPhysMapHDF5;
 import net.maizegenetics.dna.map.TagsOnPhysicalMap;
-import net.maizegenetics.dna.snp.io.BuilderFromHapMap;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibriumComponent;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibrium.HetTreatment;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibrium.testDesign;
@@ -251,9 +250,6 @@ public class TasselPipeline implements PluginListener {
                 } else if (current.equalsIgnoreCase("-h")) {
                     String hapFile = args[index++].trim();
                     loadFile(hapFile, FileLoadPlugin.TasselFileType.Hapmap);
-                } else if (current.equalsIgnoreCase("-nh")) {
-                    String hapFile = args[index++].trim();
-                    BuilderFromHapMap.getBuilder(hapFile).build();
                 } else if (current.equalsIgnoreCase("-h5")) {
                     String hdf5File = args[index++].trim();
                     loadFile(hdf5File, FileLoadPlugin.TasselFileType.HDF5);

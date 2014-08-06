@@ -29,6 +29,7 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 
 /**
  *
@@ -719,6 +720,11 @@ public class TOPMGenotypeTable implements GenotypeTable {
 
     @Override
     public byte dosage(int taxon, int site) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public GeneralAnnotationStorage annotations() {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 

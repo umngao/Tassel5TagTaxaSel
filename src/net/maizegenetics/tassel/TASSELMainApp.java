@@ -18,8 +18,6 @@
 // Author:     Ed Buckler
 package net.maizegenetics.tassel;
 
-import javax.swing.*;
-
 import net.maizegenetics.pipeline.TasselPipeline;
 import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.util.LoggingUtils;
@@ -38,12 +36,6 @@ public class TASSELMainApp {
 
             TasselPrefs.setPersistPreferences(true);
             LoggingUtils.setupLogging();
-
-            try {
-                UIManager.setLookAndFeel(new com.sun.java.swing.plaf.windows.WindowsLookAndFeel());
-            } catch (UnsupportedLookAndFeelException e) {
-                myLogger.debug(e.getMessage(), e);
-            }
 
             TASSELMainFrame frame = new TASSELMainFrame();
             frame.validate();
