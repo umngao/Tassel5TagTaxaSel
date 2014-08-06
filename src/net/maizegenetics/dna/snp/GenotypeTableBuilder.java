@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import net.maizegenetics.dna.snp.score.Dosage;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 
 /**
  * Builder for GenotypeTables. New genotypeTables are built from a minimum of
@@ -99,6 +100,7 @@ public class GenotypeTableBuilder {
     private boolean isHDF5 = false;
     private IHDF5Writer writer = null;
     private BuildType myBuildType;
+    private final GeneralAnnotationStorage.Builder myAnnotationBuilder = new GeneralAnnotationStorage.Builder();
 
     /**
      * Builder for in memory taxa incremental
@@ -205,15 +207,16 @@ public class GenotypeTableBuilder {
         isHDF5 = true;
 
     }
-    
+
     /**
      * Returns a builder to an existing, unfinished HDF5 genotypes file.
-     * 
-     * Can be used if you want to add/modify annotations, etc, and/or call build() to finalize it
+     *
+     * Can be used if you want to add/modify annotations, etc, and/or call
+     * build() to finalize it
      */
     public static GenotypeTableBuilder getBuilder(String existingHDF5File) {
         return new GenotypeTableBuilder(existingHDF5File, null, null);
-    } 
+    }
 
     /**
      * Creates an in memory builder for addition by taxon. Each taxon can only
@@ -335,7 +338,7 @@ public class GenotypeTableBuilder {
      *
      * @return new genotype table
      */
-    public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, Dosage dosage) {
+    public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, Dosage dosage, GeneralAnnotationStorage annotations) {
         int numTaxa = genotype.numberOfTaxa();
         int numSites = genotype.numberOfSites();
 
@@ -369,15 +372,15 @@ public class GenotypeTableBuilder {
             }
         }
 
-        return new CoreGenotypeTable(genotype, positionList, taxaList, alleleDepth, alleleProbability, dosage);
+        return new CoreGenotypeTable(genotype, positionList, taxaList, alleleDepth, alleleProbability, dosage, annotations);
     }
 
     public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth) {
-        return getInstance(genotype, positionList, taxaList, alleleDepth, null, null);
+        return getInstance(genotype, positionList, taxaList, alleleDepth, null, null, null);
     }
 
     public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList) {
-        return getInstance(genotype, positionList, taxaList, null, null, null);
+        return getInstance(genotype, positionList, taxaList, null, null, null, null);
     }
 
     /**
@@ -671,13 +674,13 @@ public class GenotypeTableBuilder {
                 if (myAlleleProbabilityBuilder != null) {
                     alleleProbability = myAlleleProbabilityBuilder.build();
                 }
-                
+
                 Dosage dosage = null;
                 if (myDosageBuilder != null) {
                     dosage = myDosageBuilder.build();
                 }
-                
-                return getInstance(gB.build(), positionList, tl, ad, alleleProbability, dosage);
+
+                return getInstance(gB.build(), positionList, tl, ad, alleleProbability, dosage, myAnnotationBuilder.build());
             }
             case SITE_INC: {
                 GenotypeCallTableBuilder gB = GenotypeCallTableBuilder.getInstance(taxaList.numberOfTaxa(), posListBuilder.size());
@@ -886,5 +889,25 @@ public class GenotypeTableBuilder {
     private static enum BuildType {
 
         TAXA_INC, SITE_INC
+    }
+
+    public GenotypeTableBuilder addAnnotation(String key, String value) {
+        myAnnotationBuilder.addAnnotation(key, value);
+        return this;
+    }
+
+    public GenotypeTableBuilder addAnnotation(String key, Number value) {
+        myAnnotationBuilder.addAnnotation(key, value);
+        return this;
+    }
+    
+    public GenotypeTableBuilder dataSetName(String dataSetName) {
+        myAnnotationBuilder.addAnnotation(GenotypeTable.ANNOTATION_DATA_SET_NAME, dataSetName);
+        return this;
+    }
+    
+    public GenotypeTableBuilder dataSetDescription(String dataSetDescription) {
+        myAnnotationBuilder.addAnnotation(GenotypeTable.ANNOTATION_DATA_SET_DESCRIPTION, dataSetDescription);
+        return this;
     }
 }

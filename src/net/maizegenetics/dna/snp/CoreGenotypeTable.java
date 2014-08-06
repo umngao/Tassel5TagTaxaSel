@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 
 /**
  * Basic implementation of a {@link GenotypeTable}. Use the GenotypeTableBuilder
@@ -46,8 +47,9 @@ public class CoreGenotypeTable implements GenotypeTable {
     private final Dosage myDosage;
     private final int mySiteCount;
     private final int myTaxaCount;
+    private final GeneralAnnotationStorage myAnnotations;
 
-    CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, Dosage dosage) {
+    CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, Dosage dosage, GeneralAnnotationStorage annotations) {
         if (genotype.numberOfTaxa() != taxaList.numberOfTaxa()) {
             throw new IllegalArgumentException("CoreGenotypeTable: init: genotype number of taxa: " + genotype.numberOfTaxa() + " doesn't match taxa list: " + taxaList.numberOfTaxa());
         }
@@ -62,10 +64,11 @@ public class CoreGenotypeTable implements GenotypeTable {
         myDosage = dosage;
         mySiteCount = myPositionList.numberOfSites();
         myTaxaCount = myTaxaList.numberOfTaxa();
+        myAnnotations = annotations;
     }
 
     CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList) {
-        this(genotype, positionList, taxaList, null, null, null);
+        this(genotype, positionList, taxaList, null, null, null, null);
     }
 
     @Override
@@ -535,6 +538,11 @@ public class CoreGenotypeTable implements GenotypeTable {
     @Override
     public byte dosage(int taxon, int site) {
         return myDosage.value(taxon, site);
+    }
+
+    @Override
+    public GeneralAnnotationStorage annotations() {
+        return myAnnotations;
     }
 
 }
