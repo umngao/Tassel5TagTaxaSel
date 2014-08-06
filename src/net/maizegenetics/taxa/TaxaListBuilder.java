@@ -195,4 +195,8 @@ public class TaxaListBuilder {
         return indicesOfSortByTaxa;
 
     }
+    
+    public int numberOfTaxa() {
+        return myTaxaList.size();
+    }
 }
