@@ -44,7 +44,7 @@ import java.util.regex.Pattern;
  */
 public class BuilderFromVCF {
 
-    private static final Logger myLogger=Logger.getLogger(BuilderFromHapMap.class);
+    private static final Logger myLogger=Logger.getLogger(BuilderFromVCF.class);
     private static final Pattern WHITESPACE_PATTERN=Pattern.compile("[\\s]+");
     private HeaderPositions hp=null;
     private final String infile;
@@ -155,7 +155,7 @@ public class BuilderFromVCF {
             }
             pool.shutdown();
             if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
-                throw new IllegalStateException("BuilderFromHapMap: processing threads timed out.");
+                throw new IllegalStateException("BuilderFromVCF: processing threads timed out.");
             }
             if(inMemory) {
                 result=completeInMemoryBuilding(pbs, taxaList, sitesRead, includeDepth, fullSort);
@@ -182,7 +182,7 @@ public class BuilderFromVCF {
 //                currentSite+=pb.getSiteNumber();
 //            }
 //            if (posBuild.validateOrdering()==false) {
-//                throw new IllegalStateException("BuilderFromHapMap: Ordering incorrect HapMap must be ordered by position");
+//                throw new IllegalStateException("BuilderFromVCF: Ordering incorrect HapMap must be ordered by position");
 //            }
 //            GenotypeCallTable g=gb.build();
 //            if(includeDepth) {result=GenotypeTableBuilder.getInstance(g, posBuild.build(), taxaList, null, db.build());}

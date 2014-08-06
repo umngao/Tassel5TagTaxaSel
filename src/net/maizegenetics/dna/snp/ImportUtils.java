@@ -3,7 +3,6 @@
  */
 package net.maizegenetics.dna.snp;
 
-import net.maizegenetics.dna.snp.io.BuilderFromHapMap;
 import net.maizegenetics.dna.snp.io.BuilderFromVCF;
 import net.maizegenetics.util.ProgressListener;
 import net.maizegenetics.util.Utils;
@@ -19,6 +18,7 @@ import java.util.regex.Pattern;
 import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
+import net.maizegenetics.dna.snp.io.BuilderFromHapMap;
 import net.maizegenetics.dna.snp.io.BuilderFromPLINK;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
@@ -75,7 +75,7 @@ public class ImportUtils {
      * @return a genotype table
      */
     public static GenotypeTable readFromHapmap(final String filename) {
-        return BuilderFromHapMap.getBuilder(filename).build();
+        return readFromHapmap(filename, null);
     }
 
     /**
@@ -86,7 +86,7 @@ public class ImportUtils {
      * @return a genotype table
      */
     public static GenotypeTable readFromHapmap(final String filename, ProgressListener listener) {
-        return BuilderFromHapMap.getBuilder(filename).build();
+        return BuilderFromHapMap.getBuilder(filename, listener).build();
     }
 
     public static GenotypeTable readFromPLink(final String pedFilename, final String mapFilename, ProgressListener listener) {
