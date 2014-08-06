@@ -103,6 +103,12 @@ public interface Phenotype  extends TableReport {
 	public List<PhenotypeAttribute> attributeListCopy();
 	
 	/**
+	 * @param type	an attribute type
+	 * @return	a List of all attributes of the requested type
+	 */
+	public List<PhenotypeAttribute> attributeListOfType(ATTRIBUTE_TYPE type);
+	
+	/**
 	 * @return	a shallow copy of the attribute type list for this Phenotype
 	 */
 	public List<ATTRIBUTE_TYPE> typeListCopy();

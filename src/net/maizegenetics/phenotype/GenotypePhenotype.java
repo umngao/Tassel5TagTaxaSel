@@ -9,6 +9,7 @@ import net.maizegenetics.util.TableReport;
  * @author Peter Bradbury
  * 
  */
+
 public class GenotypePhenotype implements TableReport {
 	private final GenotypeTable myGenotype;
 	private final Phenotype myPhenotype;
@@ -49,6 +50,14 @@ public class GenotypePhenotype implements TableReport {
 	}
 	
 	/**
+	 * @return	true if taxa are replicated (more observations than taxa), false otherwise
+	 */
+	public boolean areTaxaReplicated() {
+		//TODO implement
+		return true;
+	}
+	
+	/**
 	 * @param site	the site in the GenotypeTable
 	 * @return	the genotypes corresponding to every row of the phenotype table as String values
 	 */
@@ -68,9 +77,9 @@ public class GenotypePhenotype implements TableReport {
 
 	/**
 	 * @param site	the site in the GenotypeTable
-	 * @return	a BitSet indicating which rows in the phenotype table have missing values for this site
+	 * @return	a BitSet that returns true for observations that have a missing genotype for this site, false otherwise
 	 */
-	public BitSet missing(int site) {
+	public BitSet missingGenotypes(int site) {
 		//TODO implement
 		return null;
 	}

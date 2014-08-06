@@ -143,6 +143,11 @@ public class FilterPhenotype implements Phenotype {
 	}
 
 	@Override
+	public List<PhenotypeAttribute> attributeListOfType(ATTRIBUTE_TYPE type) {
+		return basePhenotype.attributeListOfType(type);
+	}
+
+	@Override
 	public List<ATTRIBUTE_TYPE> typeListCopy() {
 		return basePhenotype.typeListCopy();
 	}

@@ -147,6 +147,14 @@ public class CorePhenotype implements Phenotype {
 	}
 
 	@Override
+	public List<PhenotypeAttribute> attributeListOfType(ATTRIBUTE_TYPE type) {
+		int[] indices = attributeIndicesOfType(type);
+		ArrayList<PhenotypeAttribute> attrList = new ArrayList<>();
+		for (int ndx:indices) attrList.add(myAttributeList.get(ndx));
+		return attrList;
+	}
+
+	@Override
 	public List<ATTRIBUTE_TYPE> typeListCopy() {
 		return new ArrayList<Phenotype.ATTRIBUTE_TYPE>(myAttributeTypeList);
 	}
