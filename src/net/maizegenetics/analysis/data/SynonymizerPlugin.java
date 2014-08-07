@@ -14,10 +14,11 @@ import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginEvent;
+import net.maizegenetics.gui.TableReportNoPagingTableModel;
+
 import org.apache.log4j.Logger;
 
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -227,7 +228,7 @@ class SynonymizerDialog extends JDialog {
         this.theFrame = theFrame;
         this.theTS = ts;
         try {
-            theNameTable = new JTable(new DefaultTableModel(theTS.getTableData(), theTS.getTableColumnNames()));
+            theNameTable = new JTable(new TableReportNoPagingTableModel(this.theTS));
             theNameTable.setAutoCreateRowSorter(true);
             theNameTable.setCellEditor(null);
             theNameTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
