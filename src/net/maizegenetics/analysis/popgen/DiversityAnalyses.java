@@ -37,6 +37,8 @@ import java.util.List;
  * @version 1.0
  */
 public class DiversityAnalyses extends AbstractTableReport implements TableReport, Serializable {
+    
+    private static final int NUM_OF_COLUMNS = 14;
 
     /** the limits of analysis */
     int startSite, endSite;
@@ -214,11 +216,9 @@ public class DiversityAnalyses extends AbstractTableReport implements TableRepor
         nf.setMaximumFractionDigits(5);
         java.text.NumberFormat nf2 = new java.text.DecimalFormat();
         nf2.setMaximumFractionDigits(1);
-        int basicCols = 14, labelOffset;
-        data = new String[basicCols];
-        DiversityResults theDiversityResults;
-        theDiversityResults = (DiversityResults) diversityResultsVector.get(row);
-        labelOffset = 0;
+        data = new String[NUM_OF_COLUMNS];
+        DiversityResults theDiversityResults = diversityResultsVector.get(row);
+        int labelOffset = 0;
         data[labelOffset++] = "ALL";
         data[labelOffset++] = "" + theDiversityResults.chromosome;
         data[labelOffset++] = "" + nf2.format(theDiversityResults.startChrPosition);
@@ -237,10 +237,12 @@ public class DiversityAnalyses extends AbstractTableReport implements TableRepor
 
     }
 
+    @Override
     public String getTableTitle() {
         return "Diversity estimates";
     }
 
+    @Override
     public String toString() {
         if (diversityResultsVector.size() == 0) {
             return "Needs to be run";
@@ -251,26 +253,29 @@ public class DiversityAnalyses extends AbstractTableReport implements TableRepor
             cs.append(header[i]);
         }
         cs.append("\n");
-        Object[][] data = this.getTableData();
-        for (int i = 0; i < data.length; i++) {
-            for (int j = 0; j < data[i].length; j++) {
-                cs.append(data[i][j]);
+        for (int i = 0; i < getRowCount(); i++) {
+            Object[] data = getRow(i);
+            for (int j = 0; j < getColumnCount(); j++) {
+                cs.append(data[j]);
             }
             cs.append("\n");
         }
         return cs.toString();
     }
 
+    @Override
     public int getRowCount() {
         return diversityResultsVector.size();
     }
 
+    @Override
     public int getElementCount() {
-        throw new UnsupportedOperationException();
+        return getRowCount() * getColumnCount();
     }
 
+    @Override
     public int getColumnCount() {
-        throw new UnsupportedOperationException();
+        return NUM_OF_COLUMNS;
     }
 
     void testCode() {
