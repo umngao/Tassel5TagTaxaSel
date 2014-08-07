@@ -1,7 +1,5 @@
 package net.maizegenetics.analysis.popgen;
 
-import net.maizegenetics.util.TableReport;
-import net.maizegenetics.util.AbstractTableReport;
 
 import java.io.Serializable;
 import java.util.Vector;
@@ -13,7 +11,7 @@ import net.maizegenetics.dna.snp.GenotypeTable;
  * @author Ed Buckler
  * @version 1.0
  */
-public class PolymorphismDistribution extends AbstractTableReport implements TableReport, Serializable {
+public class PolymorphismDistribution implements Serializable {
 
     Vector polyDistResultsVector = new Vector();
     int maxSeqCount = -1;
@@ -47,7 +45,6 @@ public class PolymorphismDistribution extends AbstractTableReport implements Tab
         polyDistResultsVector.add(pdr);
     }
 
-    //Implementation of TableReport Interface
     public Object[] getTableColumnNames() {
         String[] basicLabels = new String[1 + polyDistResultsVector.size()];
         basicLabels[0] = "Site_Freq";
@@ -61,7 +58,7 @@ public class PolymorphismDistribution extends AbstractTableReport implements Tab
 
     public Object[][] getTableData() {
         Object[][] data;
-        int basicCols = 1, labelOffset;
+        int basicCols = 1;
         PolymorphismDistributionResults pdr;
         data = new String[maxSeqCount + 1][basicCols + polyDistResultsVector.size()];
         data[0][0] = "N";
@@ -78,17 +75,6 @@ public class PolymorphismDistribution extends AbstractTableReport implements Tab
             }
         }
         return data;
-    }
-
-    /**
-     * Returns specified row.
-     *
-     * @param row row number
-     *
-     * @return row
-     */
-    public Object[] getRow(int row) {
-        throw new UnsupportedOperationException();
     }
 
     public String getTableTitle() {
@@ -115,17 +101,6 @@ public class PolymorphismDistribution extends AbstractTableReport implements Tab
         return cs.toString();
     }
 
-    public int getRowCount() {
-        return maxSeqCount + 1;
-    }
-
-    public int getElementCount() {
-        throw new UnsupportedOperationException();
-    }
-
-    public int getColumnCount() {
-        throw new UnsupportedOperationException();
-    }
 }
 
 class PolymorphismDistributionResults implements Serializable {

@@ -101,7 +101,7 @@ public class SequenceDiversityPlugin extends AbstractPlugin {
         DiversityAnalyses theDA = new DiversityAnalyses(aa, isSlidingWindowAnalysis,
                 startSite, endSite, windowSize, stepSize, pda);
         List<Datum> results = new ArrayList<Datum>();
-        results.add(new Datum("PolyDist:" + input.getName(), new SimpleTableReport(pda), "Polymorphism Distribution"));
+        results.add(new Datum("PolyDist:" + input.getName(), new SimpleTableReport(pda.getTableTitle(), pda.getTableColumnNames(), pda.getTableData()), "Polymorphism Distribution"));
         results.add(new Datum("Diversity:" + input.getName(), new SimpleTableReport(theDA), "Diversity Analysis"));
         DataSet tds = new DataSet(results, this);
         return tds;
