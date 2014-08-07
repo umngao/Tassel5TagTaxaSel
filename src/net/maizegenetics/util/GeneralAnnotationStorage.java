@@ -5,10 +5,13 @@
  */
 package net.maizegenetics.util;
 
+import ch.systemsx.cisd.hdf5.IHDF5Reader;
+
 import com.google.common.collect.SetMultimap;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -48,6 +51,14 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
         for (int i = 0; i < builder.myAnnotations.size(); i++) {
             myAnnotations[i] = builder.myAnnotations.get(i);
         }
+    }
+
+    public static Builder getBuilder() {
+        return new Builder();
+    }
+
+    public static GeneralAnnotationStorage getFromHDF5(IHDF5Reader reader) {
+        return null;
     }
 
     @Override
@@ -106,7 +117,7 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
 
     @Override
     public Map.Entry<String, String>[] getAllAnnotationEntries() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return Arrays.copyOf(myAnnotations, myAnnotations.length);
     }
 
     @Override
@@ -127,6 +138,9 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
     public static class Builder {
 
         private final List<Map.Entry<String, String>> myAnnotations = new ArrayList<>(0);
+
+        private Builder() {
+        }
 
         /**
          * Add non-standard annotation
