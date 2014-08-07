@@ -44,6 +44,8 @@ public class PhenotypeBuilder {
 	private boolean isUnionJoin = false;
 	private boolean isFilterable = false;
 	private boolean isConcatenate = false;
+	private boolean tobeFiltered = false;
+	private boolean tobePivoted = false;
 	private String phenotypeName = "Phenotype";
 	private List<PhenotypeAttribute> attributeList = null;
 	private List<ATTRIBUTE_TYPE> attributeTypeList = null;
@@ -59,14 +61,12 @@ public class PhenotypeBuilder {
 	}
 	
 	/**
-	 * @param basePhenotype	the base Phenotype that will be filtered or copied
-	 * @return	a filterable PhenotypeBuilder
-	 * This is the only method that returns a filterable PhenotypeBuilder
+	 * @param base	the base Phenotype from which to create a new Phenotype
+	 * @return	a PhenotypeBuilder
 	 */
-	public PhenotypeBuilder filterPhenotype(Phenotype basePhenotype) {
-		this.basePhenotype = basePhenotype;
+	public PhenotypeBuilder fromPhenotype(Phenotype base) {
+		basePhenotype = base;
 		source = SOURCE_TYPE.phenotype;
-		phenotypeName = "filtered_" + basePhenotype.name();
 		isFilterable = true;
 		return this;
 	}
@@ -162,6 +162,7 @@ public class PhenotypeBuilder {
 	 */
 	public PhenotypeBuilder keepTaxa(List<Taxon> taxaToKeep) {
 		if (!isFilterable) notFilterable();
+		tobeFiltered = true;
 		this.taxaToKeep = taxaToKeep;
 		taxaToRemove = null;
 		return this;
@@ -175,6 +176,7 @@ public class PhenotypeBuilder {
 	 */
 	public PhenotypeBuilder removeTaxa(List<Taxon> taxaToRemove)  {
 		if (!isFilterable) notFilterable();
+		tobeFiltered = true;
 		this.taxaToRemove = taxaToRemove;
 		taxaToKeep = null;
 		return this;
@@ -189,6 +191,7 @@ public class PhenotypeBuilder {
 	 */
 	public PhenotypeBuilder keepAttributes(List<PhenotypeAttribute> attributesToKeep) {
 		if (!isFilterable) notFilterable();
+		tobeFiltered = true;
 		attributeList = attributesToKeep;
 		indexOfAttributesToKeep = null;
 		return this;
@@ -201,6 +204,7 @@ public class PhenotypeBuilder {
 	 */
 	public PhenotypeBuilder keepAttributes(int[] indexOfAttributes) {
 		if (!isFilterable) notFilterable();
+		tobeFiltered = true;
 		this.indexOfAttributesToKeep = indexOfAttributes;
 		attributeList = null;
 		return this;
@@ -214,6 +218,7 @@ public class PhenotypeBuilder {
 	 */
 	public PhenotypeBuilder changeAttributeType(PhenotypeAttribute attribute, ATTRIBUTE_TYPE type) {
 		if (!isFilterable) notFilterable();
+		tobeFiltered = true;
 		attributeChangeMap.put(attribute, type);
 		return this;
 	}
@@ -226,7 +231,28 @@ public class PhenotypeBuilder {
 	 */
 	public PhenotypeBuilder typesOfRetainedAttributes(List<ATTRIBUTE_TYPE> attributeTypes) {
 		if (!isFilterable) notFilterable();
+		tobeFiltered = true;
 		attributeTypeList = attributeTypes;
+		return this;
+	}
+	
+	/**
+	 * @param attributes	a list of attributes on which to pivot the table
+	 * @return	a PhenotypeBuilder that will create a pivoted Phenotype
+	 * This builder converts each of the attribute levels
+	 */
+	public PhenotypeBuilder pivotOn(List<PhenotypeAttribute> attributes) {
+		if (tobeFiltered) throw new IllegalArgumentException("Cannot both filter and pivot a Phenotype in a single step. The code is not smart enough to do that.");
+		if (source != SOURCE_TYPE.phenotype) throw new IllegalArgumentException("Must specify a single Phenotype to be pivoted.");
+		for (PhenotypeAttribute attr : attributes) {
+			if (!attr.isTypeCompatible(ATTRIBUTE_TYPE.factor)) {
+				String msg = "A pivot attribute is not a factor. Only factors can be used for pivots.";
+				throw new IllegalArgumentException(msg);
+			}
+		}
+		isFilterable = false;
+		tobePivoted = true;
+		attributeList = attributes;
 		return this;
 	}
 	
@@ -256,8 +282,10 @@ public class PhenotypeBuilder {
 				e.printStackTrace();
 				return null;
 			}
-		} else if (source == SOURCE_TYPE.phenotype) {
+		} else if (source == SOURCE_TYPE.phenotype && tobeFiltered) {
 			return filterBasePhenotype();
+		} else if (source == SOURCE_TYPE.phenotype && tobePivoted) {
+			return pivotPhenotype();
 		} else if (source == SOURCE_TYPE.list) {
 			return createPhenotypeFromLists();
 		} else if (source == SOURCE_TYPE.join) {
@@ -992,5 +1020,12 @@ public class PhenotypeBuilder {
 		}
 		
 	}
+	
+	private Phenotype pivotPhenotype() {
+		//TODO implement
+		
+		return null;
+	}
+	
 	
 }

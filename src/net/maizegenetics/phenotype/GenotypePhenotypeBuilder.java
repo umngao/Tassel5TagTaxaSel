@@ -78,7 +78,7 @@ public class GenotypePhenotypeBuilder {
 				myGenotype = FilterGenotypeTableBuilder.getInstance(myGenotype).taxaToKeep(commonTaxa).build();
 			}
 			if (myPhenotype.taxa().numberOfTaxa() > commonTaxa.numberOfTaxa()) {
-				myPhenotype = new PhenotypeBuilder().filterPhenotype(myPhenotype).keepTaxa(commonTaxa).build();
+				myPhenotype = new PhenotypeBuilder().fromPhenotype(myPhenotype).keepTaxa(commonTaxa).build();
 			}
 		}
 		
