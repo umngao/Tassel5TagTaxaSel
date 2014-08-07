@@ -100,7 +100,7 @@ public class GenotypeTableBuilder {
     private boolean isHDF5 = false;
     private IHDF5Writer writer = null;
     private BuildType myBuildType;
-    private final GeneralAnnotationStorage.Builder myAnnotationBuilder = new GeneralAnnotationStorage.Builder();
+    private final GeneralAnnotationStorage.Builder myAnnotationBuilder = GeneralAnnotationStorage.getBuilder();
 
     /**
      * Builder for in memory taxa incremental
@@ -335,6 +335,7 @@ public class GenotypeTableBuilder {
      * @param alleleDepth
      * @param alleleProbability
      * @param dosage
+     * @param annotations
      *
      * @return new genotype table
      */
@@ -424,7 +425,7 @@ public class GenotypeTableBuilder {
         PositionList pL = PositionListBuilder.getInstance(reader);
         GenotypeCallTable geno = GenotypeCallTableBuilder.buildHDF5(reader);
         AlleleDepth depth = AlleleDepthBuilder.getExistingHDF5Instance(reader);
-        return GenotypeTableBuilder.getInstance(geno, pL, tL, depth);
+        return GenotypeTableBuilder.getInstance(geno, pL, tL, depth, null, null, GeneralAnnotationStorage.getFromHDF5(reader));
     }
 
     public static GenotypeTable getInstanceOnlyMajorMinor(GenotypeTable alignment) {
@@ -648,6 +649,7 @@ public class GenotypeTableBuilder {
             }
             String name = writer.getFile().getAbsolutePath();
             annotateHDF5File(writer);
+            annotateHDF5FileWithGeneralAnnotations(writer, myAnnotationBuilder.build());
             HDF5Utils.lockHDF5GenotypeModule(writer);
             HDF5Utils.lockHDF5TaxaModule(writer);
             writer.close();
@@ -884,6 +886,10 @@ public class GenotypeTableBuilder {
      * @param refAlleles
      */
     public static void annotateHDF5FileWithRefAllele(IHDF5Writer writer, byte[] refAlleles) {
+    }
+    
+    public static void annotateHDF5FileWithGeneralAnnotations(IHDF5Writer writer, GeneralAnnotationStorage annotations) {
+        // TODO
     }
 
     private static enum BuildType {

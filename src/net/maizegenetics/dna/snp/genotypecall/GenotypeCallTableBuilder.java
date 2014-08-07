@@ -53,6 +53,10 @@ public class GenotypeCallTableBuilder {
     public static GenotypeCallTableBuilder getInstance(int numTaxa, int numSites) {
         return getUnphasedNucleotideGenotypeBuilder(numTaxa, numSites);
     }
+    
+    public static GenotypeCallTable getInstanceUnknownValues(int numTaxa, int numSites) {
+        return new GenotypeCallTableBuilder(SuperByteMatrixBuilder.getInstanceSingleValue(numSites, numSites, GenotypeTable.UNKNOWN_DIPLOID_ALLELE)).build();
+    }
 
     /**
      * Get Genotype Builder given number of taxa and sites. Performance

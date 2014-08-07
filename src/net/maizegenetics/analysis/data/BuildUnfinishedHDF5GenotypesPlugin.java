@@ -109,12 +109,11 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
             genoTable = GenotypeTableBuilder.getBuilder(outputFile());
         }
         
-        // TODO: add these via GenotypeTableBuilder, once the annotations are implemented (TAS-486)
         if (dataSetName() != null) {
-//            genoTable.addDataSetName(parseDataSetName(dataSetName()));
+            genoTable.dataSetName(parseDataSetName(dataSetName()));
         }
         if (dataSetDescription() != null) {
-//            genoTable.addDataSetDescription(dataSetDescrip);
+            genoTable.dataSetDescription(dataSetDescrip);
         }
         
         genoTable.build();
