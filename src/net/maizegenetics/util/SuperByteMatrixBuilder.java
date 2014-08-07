@@ -35,6 +35,10 @@ public class SuperByteMatrixBuilder {
             return new SuperByteMatrixSingle(numRows, numColumns);
         }
     }
+    
+    public static SuperByteMatrix getInstanceSingleValue(int numRows, int numColumns, byte value) {
+        return new SuperByteMatrixSingleValue(numRows, numColumns, value);
+    }
 
     public static SuperByteMatrix getInstanceCopy(SuperByteMatrix matrix) {
 
