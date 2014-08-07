@@ -23,25 +23,26 @@ public class TableReportBoxWhiskerCatDataset extends DefaultBoxAndWhiskerCategor
   }
 
   public boolean setTableReport(TableReport theTable, int seriesCategory, int[] seriesY) {
-    Object[][] theRawData = theTable.getTableData();
+    int numRows = theTable.getRowCount();
     Vector theCategories = new Vector();
     seriesNames = new String[seriesY.length];
     Object[] theSN = theTable.getTableColumnNames();
     for(int x=0; x<seriesY.length; x++){seriesNames[x]=theSN[seriesY[x]].toString();}
-    for (int i = 0; i < theRawData.length; i++) {
-      if(theCategories.contains(theRawData[i][seriesCategory])==false) {
-        theCategories.add(theRawData[i][seriesCategory]);
+    for (int i = 0; i < numRows; i++) {
+      Object current = theTable.getValueAt(i, seriesCategory);
+      if(theCategories.contains(current)==false) {
+        theCategories.add(current);
       }
     }
     ArrayList[][] catData=new ArrayList[theCategories.size()][seriesY.length];
     for (int i = 0; i < theCategories.size(); i++) {
        for(int x=0; x<seriesY.length; x++){catData[i][x]=new ArrayList();}
     }
-    for (int i = 0; i < theRawData.length; i++) {
-      int cat=theCategories.indexOf(theRawData[i][seriesCategory]);
+    for (int i = 0; i < numRows; i++) {
+      int cat=theCategories.indexOf(theTable.getValueAt(i, seriesCategory));
       Double d;
       for(int x=0; x<seriesY.length; x++){
-        try {d=new Double(theRawData[i][seriesY[x]].toString());
+        try {d=new Double(theTable.getValueAt(i,seriesY[x]).toString());
             if(d.isNaN()==false) catData[cat][x].add(d);}
         catch (NumberFormatException ex) {}
       }
