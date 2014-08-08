@@ -22,18 +22,19 @@ public class TableReportPieDataset extends DefaultPieDataset {
   }
 
   public boolean setTableReport(TableReport theTable, int seriesCategory) {
-    Object[][] theRawData = theTable.getTableData();
     Vector theCategories = new Vector();
     Object[] theSN = theTable.getTableColumnNames();
     seriesNames=theSN[seriesCategory].toString();
-    for (int i = 0; i < theRawData.length; i++) {
-      if(theCategories.contains(theRawData[i][seriesCategory])==false) {
-        theCategories.add(theRawData[i][seriesCategory]);
+    for (int i = 0; i < theTable.getRowCount(); i++) {
+        Object current = theTable.getValueAt(i, seriesCategory);
+      if(theCategories.contains(current)==false) {
+        theCategories.add(current);
       }
     }
     int[] catCount=new int[theCategories.size()];
-    for (int i = 0; i < theRawData.length; i++) {
-      int cat=theCategories.indexOf(theRawData[i][seriesCategory]);
+    for (int i = 0; i < theTable.getRowCount(); i++) {
+        Object current = theTable.getValueAt(i, seriesCategory);
+      int cat=theCategories.indexOf(current);
       catCount[cat]++;
     }
     for (int i = 0; i < theCategories.size(); i++) {
