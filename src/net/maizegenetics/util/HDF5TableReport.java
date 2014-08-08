@@ -39,11 +39,6 @@ public class HDF5TableReport implements TableReport {
     }
 
     @Override
-    public Object[][] getTableData() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
     public String getTableTitle() {
         return "HDF5 Schema";
     }
@@ -70,11 +65,6 @@ public class HDF5TableReport implements TableReport {
             result[i] = getValueAt(row, i);
         }
         return result;
-    }
-
-    @Override
-    public Object[][] getTableData(int start, int end) {
-        throw new UnsupportedOperationException("Not supported yet.");
     }
 
     @Override

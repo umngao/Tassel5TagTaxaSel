@@ -38,11 +38,6 @@ public class TOPMTableReport implements TableReport {
     }
 
     @Override
-    public Object[][] getTableData() {
-        throw new UnsupportedOperationException("Not supported.");
-    }
-
-    @Override
     public String getTableTitle() {
         throw new UnsupportedOperationException("Not supported.");
     }
@@ -64,11 +59,6 @@ public class TOPMTableReport implements TableReport {
 
     @Override
     public Object[] getRow(int row) {
-        throw new UnsupportedOperationException("Not supported.");
-    }
-
-    @Override
-    public Object[][] getTableData(int start, int end) {
         throw new UnsupportedOperationException("Not supported.");
     }
 

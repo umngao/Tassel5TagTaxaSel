@@ -95,12 +95,6 @@ public class GenotypePhenotype implements TableReport {
 	}
 
 	@Override
-	public Object[][] getTableData() {
-		getTableData(0, getRowCount() - 1);
-		return null;
-	}
-
-	@Override
 	public String getTableTitle() {
 		return name;
 	}
@@ -127,14 +121,6 @@ public class GenotypePhenotype implements TableReport {
 		System.arraycopy(myPhenotype.getRow(row), 0, rowData, 0, numberOfPhenotypeColumns);
 		rowData[numberOfPhenotypeColumns] = genotypeToDisplay(row);
 		return rowData;
-	}
-
-	@Override
-	public Object[][] getTableData(int start, int end) {
-		int nrows = end - start + 1;
-		Object[][] tableData = new Object[nrows][];
-		for (int i = 0; i < nrows; i++) tableData[i] = getRow(i + start);
-		return null;
 	}
 
 	@Override

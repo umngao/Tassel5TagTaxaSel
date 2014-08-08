@@ -341,32 +341,6 @@ public class GeneticMap implements TableReport, Serializable {
 	}
 
 	@Override
-	public Object[][] getTableData() {
-		int ncols = getColumnCount();
-		int nrows = getRowCount();
-		Object[][] data = new Object[nrows][ncols];
-		for (int r = 0; r < nrows; r++) {
-			for (int c = 0; c < ncols; c++) {
-				data[r][c] = getValueAt(r, c);
-			}
-		}
-		return null;
-	}
-
-	@Override
-	public Object[][] getTableData(int start, int end) {
-		int ncols = getColumnCount();
-		int nrows = end - start + 1;
-		Object[][] data = new Object[nrows][ncols];
-		for (int r = start; r <= end; r++) {
-			for (int c = 0; c < ncols; c++) {
-				data[r][c] = getValueAt(r, c);
-			}
-		}
-		return null;
-	}
-
-	@Override
 	public String getTableTitle() {
 		return name;
 	}

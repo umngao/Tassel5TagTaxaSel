@@ -2,15 +2,8 @@ package net.maizegenetics.util;
 
 import java.io.Serializable;
 
-import java.util.Iterator;
-import java.util.List;
-
 /**
- * Created by IntelliJ IDEA.
- * User: ed
- * Date: Sep 28, 2006
- * Time: 9:37:46 PM
- * To change this template use File | Settings | File Templates.
+ * Created by IntelliJ IDEA. User: ed Date: Sep 28, 2006 Time: 9:37:46 PM
  */
 public class SimpleTableReport extends AbstractTableReport implements Serializable, TableReport {
 
@@ -27,51 +20,13 @@ public class SimpleTableReport extends AbstractTableReport implements Serializab
     }
 
     public SimpleTableReport(TableReport tr) {
-        this.theData = tr.getTableData();
-        this.theColumnNames = tr.getTableColumnNames();
-        this.theName = tr.getTableTitle();
-    }
-
-    /**
-     * This method concatenates to rows together.  If the output has the same number of columns,
-     * but the rows total the sum of the all the rows.
-     */
-    public static SimpleTableReport getInstance(List<SimpleTableReport> list) {
-
-        if ((list == null) || (list.size() == 0)) {
-            return null;
+        theData = new Object[tr.getRowCount()][tr.getColumnCount()];
+        int numRows = tr.getRowCount();
+        for (int i = 0; i < numRows; i++) {
+            System.arraycopy(tr.getRow(i), 0, theData[i], 0, numRows);
         }
-
-        if (list.size() == 1) {
-            return list.get(0);
-        }
-
-        int colNum = list.get(0).getTableColumnNames().length;
-        int rowTotal = 0;
-        Iterator<SimpleTableReport> itr = list.iterator();
-        while (itr.hasNext()) {
-            TableReport tr = itr.next();
-            if (colNum != tr.getTableColumnNames().length) {
-                return null;
-            }
-            rowTotal += tr.getTableData().length;
-        }
-
-        Object[][] fused = new Object[rowTotal][colNum];
-        int currRow = 0;
-        itr = list.iterator();
-        while (itr.hasNext()) {
-            Object[][] f = itr.next().getTableData();
-            for (int i = 0; i < f.length; i++) {
-                for (int j = 0; j < colNum; j++) {
-                    fused[currRow][j] = f[i][j];
-                }
-                currRow++;
-            }
-        }
-
-        return new SimpleTableReport(list.get(0).getTableTitle(), list.get(0).getTableColumnNames(), fused);
-
+        theColumnNames = tr.getTableColumnNames();
+        theName = tr.getTableTitle();
     }
 
     /**
@@ -118,8 +73,8 @@ public class SimpleTableReport extends AbstractTableReport implements Serializab
         return theColumnNames.length;
     }
 
-    public void setRowNames(Object[] rowNames){
-    	theRowNames = rowNames;
+    public void setRowNames(Object[] rowNames) {
+        theRowNames = rowNames;
     }
 
     public Object getValueAt(int row, int col) {

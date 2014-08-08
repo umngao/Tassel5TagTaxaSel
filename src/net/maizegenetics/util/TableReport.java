@@ -7,7 +7,7 @@
 package net.maizegenetics.util;
 
 /**
- * interface for classes with data that can be presented in tables
+ * Interface for classes with data that can be presented in tables
  *
  * @author Ed Buckler
  */
@@ -19,13 +19,6 @@ public interface TableReport {
      * @return columns names
      */
     public Object[] getTableColumnNames();
-
-    /**
-     * get the data elements
-     *
-     * @return the data elements
-     */
-    public Object[][] getTableData();
 
     /**
      * get the title of the table
@@ -49,7 +42,8 @@ public interface TableReport {
     public int getRowCount();
 
     /**
-     * get the total number of elements in the dataset. Elements=rowCount * columnCount;
+     * Get the total number of elements in the dataset. Elements=rowCount *
+     * columnCount;
      *
      * @return columns names
      */
@@ -59,20 +53,10 @@ public interface TableReport {
      * Returns specified row.
      *
      * @param row row number
-     * 
+     *
      * @return row
      */
     public Object[] getRow(int row);
-
-    /**
-     * Get Table Data in specified range inclusive.
-     * Indices start at 0.
-     *
-     * @param start start position
-     * @param end end position
-     * @return array of the all the data
-     */
-    public Object[][] getTableData(int start, int end);
 
     /**
      * Returns value at given row and column.
@@ -82,5 +66,5 @@ public interface TableReport {
      * @return data
      */
     public Object getValueAt(int row, int col);
-    
+
 }

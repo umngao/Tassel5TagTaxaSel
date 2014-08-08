@@ -190,22 +190,6 @@ public abstract class AbstractPhenotype implements Phenotype {
 	}
 
 	@Override
-	public Object[][] getTableData() {
-		int n = getRowCount();
-		Object[][] tabledata = new Object[n][];
-		for (int i = 0; i < n; i++) tabledata[i] = getRow(i);
-		return tabledata;
-	}
-
-	@Override
-	public Object[][] getTableData(int start, int end) {
-		int n = end - start + 1;
-		Object[][] tabledata = new Object[n][];
-		for (int i = start; i <= end; i++) tabledata[i] = getRow(i);
-		return tabledata;
-	}
-
-	@Override
 	public String[] getRowNames() {
 		return IdGroupUtils.getNames(getTaxa());
 	}

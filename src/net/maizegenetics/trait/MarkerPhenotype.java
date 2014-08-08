@@ -2,7 +2,6 @@ package net.maizegenetics.trait;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
-import net.maizegenetics.trait.FilterPhenotype;
 import net.maizegenetics.util.TableReport;
 import net.maizegenetics.taxa.IdGroupUtils;
 import net.maizegenetics.taxa.TaxaList;
@@ -91,10 +90,6 @@ public class MarkerPhenotype implements TableReport {
         return basicLabels;
     }
 
-    public Object[][] getTableData() {
-        return getTableData(0, getRowCount() - 1);
-    }
-
     public String getTableTitle() {
         return "Phenotypes and Genotypes";
     }
@@ -128,24 +123,6 @@ public class MarkerPhenotype implements TableReport {
         data[myPhenotype.getNumberOfTraits() + 1] = builder.toString();
         return data;
 
-    }
-
-    public Object[][] getTableData(int start, int end) {
-        if ((start < 0) || (end >= getRowCount())) {
-            throw new IndexOutOfBoundsException("getTableData: start: " + start + "  end: " + end);
-        }
-
-        if (end < start) {
-            return null;
-        }
-
-        Object[][] temp = new Object[end - start + 1][];
-
-        for (int i = start; i <= end; i++) {
-            temp[i] = getRow(i);
-        }
-
-        return temp;
     }
 
     public Object getValueAt(int row, int col) {

@@ -384,18 +384,6 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     }
 
 	@Override
-	public Object[][] getTableData() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public Object[][] getTableData(int start, int end) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
 	public Object getValueAt(int rowIndex, int columnIndex) {
 		if (columnIndex == 0) return getTaxon(rowIndex);
 		return new Double(distance[rowIndex][columnIndex - 1]);

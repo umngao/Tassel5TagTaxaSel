@@ -540,28 +540,6 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
     }
 
     @Override
-    public Object[][] getTableData() {
-        return getTableData(0, getRowCount() - 1);
-    }
-
-    @Override
-    public Object[][] getTableData(int start, int end) {
-        if ((start < 0) || (end >= getRowCount())) {
-            throw new IndexOutOfBoundsException("getTableData: start: " + start + "  end: " + end);
-        }
-        if (end < start) {
-            return null;
-        }
-        Object[][] temp = new Object[end - start + 1][];
-        for (int i = start; i <= end; i++) {
-            temp[i] = getRow(i);
-        }
-
-        return temp;
-
-    }
-
-    @Override
     public Object[] getRow(int row) {
 
         if (myIsAccumulativeReport) {
