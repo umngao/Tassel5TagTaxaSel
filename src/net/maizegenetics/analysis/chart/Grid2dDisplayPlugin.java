@@ -144,7 +144,8 @@ class Grid2DDialog extends JDialog {
     private int selectedRow = 0, selectedColumn = 0, selectedZ = 0;
 //      TASSELMainFrame theTASSELMainFrame;
     Grid2dDisplayPlugin theGrid2dDisplayPlugin;
-    private Object tableHeader[], tableData[][];
+    private Object tableHeader[];
+    private TableReport tableData;
     private boolean rowLabels = true, colLabels = true;
     private Vector headerVector;
 //      private double[][] numericData = null;
@@ -181,7 +182,6 @@ class Grid2DDialog extends JDialog {
     private JLabel L_cutoff = new JLabel();
     private JLabel L_cellSize = new JLabel();
     private JColorChooser cc = new JColorChooser();
-    private Border cellBorder;
     private JTextField TF_cutoff = new JTextField();
     private JSlider S_cutoff = new JSlider();
     private JCheckBox C_pValueData = new JCheckBox();
@@ -314,7 +314,7 @@ class Grid2DDialog extends JDialog {
             jbInit();
             tableHeader = theTable.getTableColumnNames();
             headerVector = new Vector();
-            tableData = theTable.getTableData();
+            tableData = theTable;
             //this.setModal(true);
             this.setSize(new Dimension(600, 510));
             String[] newHeader = new String[theTable.getTableColumnNames().length];
@@ -323,7 +323,7 @@ class Grid2DDialog extends JDialog {
                 newHeader[i] = (String) tableHeader[i];
                 headerVector.add(tableHeader[i]);
             }
-            setComboBoxes(newHeader, theTable.getTableData());
+            setComboBoxes(newHeader, theTable);
             // processAndSetData(theTable.getTableColumnNames(), theTable.getTableData());
             showAtCenter();
             //         setVisible(true);
@@ -336,32 +336,34 @@ class Grid2DDialog extends JDialog {
     /**
      * This method finds the columns with numeric data
      */
-    private boolean isNumericData(String[] header, Object[][] data) {
+    private boolean isNumericData(String[] header, TableReport data) {
+        int numRows = data.getRowCount();
         if (header.length <= 1) {
             return false;
         }
-        if (data.length < 1) {
+        if (numRows < 1) {
             return false;
         }
-        for (int i = 0; i < data.length; i++) {
-            if (data[i].length != header.length) {
+        //for (int i = 0; i < numRows; i++) {
+            if (data.getColumnCount() != header.length) {
                 return false;
             }
-        }
+        //}
         String[] tempColumnHeader = new String[header.length];
         //rowHeader = new String[data.length];
-        double[][] tempColumnData = new double[header.length][data.length];
+        //double[][] tempColumnData = new double[header.length][data.length];
         int[] badDataCount = new int[header.length];
         //rowData = new double[rowHeader.length][columnHeader.length];
         try {
-            for (int i = 0; i < data.length; i++) {
+            for (int i = 0; i < numRows; i++) {
+                Object[] currentRow = data.getRow(i);
                 for (int j = 0; j < header.length; j++) {
                     tempColumnHeader[j] = header[j];
                     try {
-                        double d = Double.valueOf(data[i][j].toString()).doubleValue();
-                        tempColumnData[j][i] = d;
+                        double d = Double.valueOf(currentRow[j].toString()).doubleValue();
+                        //tempColumnData[j][i] = d;
                     } catch (NumberFormatException ex) {
-                        tempColumnData[j][i] = Double.NaN;
+                        //tempColumnData[j][i] = Double.NaN;
                         badDataCount[j]++;
                         //System.out.println("data["+i+"]["+j+"].toString()="+data[i][j].toString());
                     }
@@ -372,7 +374,7 @@ class Grid2DDialog extends JDialog {
         }
         int goodCol = 0;
         for (int j = 0; j < header.length; j++) {
-            if (badDataCount[j] < (data.length * 0.9)) {
+            if (badDataCount[j] < (numRows * 0.9)) {
                 goodCol++;
             }
         }
@@ -381,7 +383,7 @@ class Grid2DDialog extends JDialog {
         //     numericData = new double[goodCol][data.length];
         goodCol = 0;
         for (int j = 0; j < header.length; j++) {
-            if (badDataCount[j] < (data.length / 2)) {
+            if (badDataCount[j] < (numRows / 2)) {
                 numericHeader[goodCol] = tempColumnHeader[j];
 //            numericData[goodCol]=tempColumnData[j];
                 goodCol++;
@@ -391,7 +393,7 @@ class Grid2DDialog extends JDialog {
     }
 
     /** Set data, throw exception if invalid data */
-    public void setComboBoxes(String[] header, Object[][] data) throws Exception {
+    public void setComboBoxes(String[] header, TableReport data) throws Exception {
         if (isNumericData(header, data) == false) {
             throw new Exception("Invalid data for 1-D plotting");
         }
@@ -418,7 +420,7 @@ class Grid2DDialog extends JDialog {
         valueComboBox.setSelectedIndex(0);
     }
 
-    public boolean processAndSetData(Object[] header, Object[][] data) {
+    public boolean processAndSetData(Object[] header, TableReport data) {
 
         if ((selectedRow == selectedZ) || (selectedColumn == selectedZ) || (selectedColumn == selectedRow)) {
             return false;
@@ -427,12 +429,14 @@ class Grid2DDialog extends JDialog {
         Vector colVec = new Vector();
 
 //The following codes carries out the pivot of the data
-        for (int i = 0; i < data.length; i++) {
-            if (!rowVec.contains(data[i][selectedRow])) {
-                rowVec.add(data[i][selectedRow]);
+        for (int i = 0; i < data.getRowCount(); i++) {
+            Object current = data.getValueAt(i, selectedRow);
+            if (!rowVec.contains(current)) {
+                rowVec.add(current);
             }
-            if (!colVec.contains(data[i][selectedColumn])) {
-                colVec.add(data[i][selectedColumn]);
+            current = data.getValueAt(i, selectedColumn);
+            if (!colVec.contains(current)) {
+                colVec.add(current);
             }
         }
         Collections.sort(rowVec, new net.maizegenetics.util.StringNumberComparator());
@@ -442,7 +446,6 @@ class Grid2DDialog extends JDialog {
         rowHeader = new String[rowVec.size()];
         matrix = new double[rowHeader.length][columnHeader.length];
         modelMatrix = new String[rowHeader.length][columnHeader.length];
-//          newData=new Object[rowVec.size()][colVec.size()];
         for (int i = 0; i < rowVec.size(); i++) {
             for (int j = 0; j < colVec.size() + extraCol; j++) {
                 modelMatrix[i][j] = "0.0";
@@ -460,15 +463,18 @@ class Grid2DDialog extends JDialog {
         for (int j = 0; j < colVec.size(); j++) {
             columnHeader[j + extraCol] = (String) colVec.get(j);
         }
-        for (int i = 0; i < data.length; i++) {
+        for (int i = 0; i < data.getRowCount(); i++) {
             double d;
-            if (data[i][selectedZ].toString().equals("NaN")) {
+            Object current = data.getValueAt(i, selectedZ);
+            if (current.toString().equals("NaN")) {
                 d = Double.NaN;
             } else {
-                d = Double.valueOf(data[i][selectedZ].toString()).doubleValue();
+                d = Double.valueOf(current.toString()).doubleValue();
             }
-            matrix[rowVec.indexOf(data[i][selectedRow])][colVec.indexOf(data[i][selectedColumn]) + extraCol] = d;
-            modelMatrix[rowVec.indexOf(data[i][selectedRow])][colVec.indexOf(data[i][selectedColumn]) + extraCol] = data[i][selectedZ].toString();
+            Object currentRow = data.getValueAt(i, selectedRow);
+            Object currentColumn = data.getValueAt(i, selectedColumn);
+            matrix[rowVec.indexOf(currentRow)][colVec.indexOf(currentColumn) + extraCol] = d;
+            modelMatrix[rowVec.indexOf(currentRow)][colVec.indexOf(currentColumn) + extraCol] = current.toString();
         } //end of rows
 
         min = (float) ZDoubleUtil.min(matrix);
@@ -603,8 +609,6 @@ class Grid2DDialog extends JDialog {
 
     private void jbInit() throws Exception {
         setTitle("2-D chart");
-
-        cellBorder = BorderFactory.createEmptyBorder(15, 15, 15, 15);
 
         panel.setLayout(borderLayout1);
         statusBar.setBorder(BorderFactory.createLoweredBevelBorder());
