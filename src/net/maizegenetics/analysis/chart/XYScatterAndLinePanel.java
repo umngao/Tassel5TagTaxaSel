@@ -145,7 +145,7 @@ public class XYScatterAndLinePanel extends BasicChartPanel {
 
     public ArrayList<Integer> splitTable(TableReport table) {
         ArrayList<Integer> indexes = new ArrayList<Integer>();
-        int numRows = table.getRowCount();
+        int numRows = (int) table.getRowCount();
         String previousTrait = "";
         for (int i = 0; i < numRows; i++) {
             if (!previousTrait.equals((String) table.getValueAt(i, 0))) {

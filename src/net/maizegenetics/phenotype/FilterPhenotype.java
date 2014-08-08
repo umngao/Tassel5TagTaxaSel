@@ -4,15 +4,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.TreeSet;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
-import com.google.common.primitives.Ints;
 
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
-import net.maizegenetics.util.TableReport;
 
 public class FilterPhenotype implements Phenotype {
 	private int[] myRowRedirect;
@@ -67,15 +63,6 @@ public class FilterPhenotype implements Phenotype {
 	}
 
 	@Override
-	public Object[][] getTableData() {
-		Object[][] tableData = new Object[numberOfObservations][];
-		for (int i = 0; i < numberOfObservations; i++) {
-			tableData[i] = basePhenotype.getRow(myRowRedirect[i]);
-		}
-		return null;
-	}
-
-	@Override
 	public String getTableTitle() {
 		return name;
 	}
@@ -86,33 +73,23 @@ public class FilterPhenotype implements Phenotype {
 	}
 
 	@Override
-	public int getRowCount() {
+	public long getRowCount() {
 		return numberOfObservations;
 	}
 
 	@Override
-	public int getElementCount() {
+	public long getElementCount() {
 		return getRowCount() * getColumnCount();
 	}
 
 	@Override
-	public Object[] getRow(int row) {
-		return basePhenotype.getRow(myRowRedirect[row]);
+	public Object[] getRow(long row) {
+		return basePhenotype.getRow(myRowRedirect[(int) row]);
 	}
 
 	@Override
-	public Object[][] getTableData(int start, int end) {
-		int numberOfRows = end - start + 1;
-		Object[][] tableData = new Object[numberOfRows][];
-		for (int i = 0; i < numberOfRows; i++) {
-			tableData[i] = basePhenotype.getRow(i + start);
-		}
-		return null;
-	}
-
-	@Override
-	public Object getValueAt(int row, int col) {
-		return basePhenotype.getValueAt(myRowRedirect[row], col);
+	public Object getValueAt(long row, int col) {
+		return basePhenotype.getValueAt(myRowRedirect[(int) row], col);
 	}
 
 	//Phenotype methods

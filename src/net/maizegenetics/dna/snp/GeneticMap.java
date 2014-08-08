@@ -299,33 +299,33 @@ public class GeneticMap implements TableReport, Serializable {
 	}
 
 	@Override
-	public int getRowCount() {
+	public long getRowCount() {
 		return featureList.size();
 	}
 
 	@Override
-	public Object getValueAt(int row, int col) {
+	public Object getValueAt(long row, int col) {
 		switch(col) {
 		case 0:
-			return featureList.get(row).id;
+			return featureList.get((int) row).id;
 		case 1:
-			return featureList.get(row).chromosome;
+			return featureList.get((int)row).chromosome;
 		case 2:
-			return featureList.get(row).geneticPos;
+			return featureList.get((int) row).geneticPos;
 		case 3:
-			return featureList.get(row).physicalPos;
+			return featureList.get((int) row).physicalPos;
 		}
 		return "";
 	}
 
 	//TableReport functions
 	@Override
-	public int getElementCount() {
+	public long getElementCount() {
 		return getColumnCount() * getRowCount();
 	}
 
 	@Override
-	public Object[] getRow(int row) {
+	public Object[] getRow(long row) {
 		int ncol = getColumnCount();
 		Object[] thisRow = new Object[ncol];
 		for (int i = 0; i < ncol; i++) thisRow[i] = getValueAt(row, i);
@@ -338,32 +338,6 @@ public class GeneticMap implements TableReport, Serializable {
 		Object[] names = new Object[ncol];
 		for (int i = 0; i < ncol; i++) names[i] = getColumnName(i);
 		return names;
-	}
-
-	@Override
-	public Object[][] getTableData() {
-		int ncols = getColumnCount();
-		int nrows = getRowCount();
-		Object[][] data = new Object[nrows][ncols];
-		for (int r = 0; r < nrows; r++) {
-			for (int c = 0; c < ncols; c++) {
-				data[r][c] = getValueAt(r, c);
-			}
-		}
-		return null;
-	}
-
-	@Override
-	public Object[][] getTableData(int start, int end) {
-		int ncols = getColumnCount();
-		int nrows = end - start + 1;
-		Object[][] data = new Object[nrows][ncols];
-		for (int r = start; r <= end; r++) {
-			for (int c = 0; c < ncols; c++) {
-				data[r][c] = getValueAt(r, c);
-			}
-		}
-		return null;
 	}
 
 	@Override

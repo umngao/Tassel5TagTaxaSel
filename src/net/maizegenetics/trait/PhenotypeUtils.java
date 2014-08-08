@@ -1,6 +1,5 @@
 package net.maizegenetics.trait;
 
-import net.maizegenetics.trait.Trait;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -123,9 +122,9 @@ public class PhenotypeUtils {
 		pw.println(sb.toString());
 		
 		//output data
-		int nrows = pheno.getRowCount();
+		long nrows = pheno.getRowCount();
 		int ncol = pheno.getColumnCount();
-		for (int r = 0; r < nrows; r++) {
+		for (long r = 0; r < nrows; r++) {
 			sb = new StringBuilder(pheno.getValueAt(r, 0).toString());
 			for (int c = 1; c < ncol; c++) sb.append(sep).append(pheno.getValueAt(r, c));
 			pw.println(sb.toString());

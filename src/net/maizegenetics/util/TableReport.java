@@ -7,80 +7,65 @@
 package net.maizegenetics.util;
 
 /**
- * interface for classes with data that can be presented in tables
+ * Interface for classes with data that can be presented in tables
  *
  * @author Ed Buckler
  */
 public interface TableReport {
 
     /**
-     * get the names of the columns
+     * Get the names of the columns
      *
      * @return columns names
      */
     public Object[] getTableColumnNames();
 
     /**
-     * get the data elements
+     * Get the title of the table
      *
-     * @return the data elements
-     */
-    public Object[][] getTableData();
-
-    /**
-     * get the title of the table
-     *
-     * @return a String title
+     * @return title
      */
     public String getTableTitle();
 
     /**
-     * get the number of the columns
+     * Get the number of the columns
      *
      * @return number of columns
      */
     public int getColumnCount();
 
     /**
-     * get the number of rows
+     * Get the number of rows
      *
      * @return number of rows
      */
-    public int getRowCount();
+    public long getRowCount();
 
     /**
-     * get the total number of elements in the dataset. Elements=rowCount * columnCount;
+     * Get the total number of elements in the dataset. Elements = rowCount *
+     * columnCount;
      *
-     * @return columns names
+     * @return number of elements
      */
-    public int getElementCount();
+    public long getElementCount();
 
     /**
      * Returns specified row.
      *
      * @param row row number
-     * 
+     *
      * @return row
      */
-    public Object[] getRow(int row);
-
-    /**
-     * Get Table Data in specified range inclusive.
-     * Indices start at 0.
-     *
-     * @param start start position
-     * @param end end position
-     * @return array of the all the data
-     */
-    public Object[][] getTableData(int start, int end);
+    public Object[] getRow(long row);
 
     /**
      * Returns value at given row and column.
      *
      * @param row row number
      * @param col column number
+     *
      * @return data
      */
-    public Object getValueAt(int row, int col);
-    
+    public Object getValueAt(long row, int col);
+
 }

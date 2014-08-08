@@ -47,11 +47,6 @@ public class PositionListTableReport implements TableReport {
     }
 
     @Override
-    public Object[][] getTableData() {
-        throw new UnsupportedOperationException("Not supported.");
-    }
-
-    @Override
     public String getTableTitle() {
         return "Position List";
     }
@@ -62,27 +57,23 @@ public class PositionListTableReport implements TableReport {
     }
 
     @Override
-    public int getRowCount() {
+    public long getRowCount() {
         return myPositionList.numberOfSites();
     }
 
     @Override
-    public int getElementCount() {
+    public long getElementCount() {
         return getColumnCount() * getRowCount();
     }
 
     @Override
-    public Object[] getRow(int row) {
+    public Object[] getRow(long row) {
         throw new UnsupportedOperationException("Not supported.");
     }
 
     @Override
-    public Object[][] getTableData(int start, int end) {
-        throw new UnsupportedOperationException("Not supported.");
-    }
-
-    @Override
-    public Object getValueAt(int row, int col) {
+    public Object getValueAt(long rowLong, int col) {
+        int row = (int) rowLong;
         switch (col) {
             case 0:
                 return row;

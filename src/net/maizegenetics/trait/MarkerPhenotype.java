@@ -2,7 +2,6 @@ package net.maizegenetics.trait;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
-import net.maizegenetics.trait.FilterPhenotype;
 import net.maizegenetics.util.TableReport;
 import net.maizegenetics.taxa.IdGroupUtils;
 import net.maizegenetics.taxa.TaxaList;
@@ -91,10 +90,6 @@ public class MarkerPhenotype implements TableReport {
         return basicLabels;
     }
 
-    public Object[][] getTableData() {
-        return getTableData(0, getRowCount() - 1);
-    }
-
     public String getTableTitle() {
         return "Phenotypes and Genotypes";
     }
@@ -103,16 +98,17 @@ public class MarkerPhenotype implements TableReport {
         return myPhenotype.getNumberOfTraits() + 2;
     }
 
-    public int getRowCount() {
+    public long getRowCount() {
         return myAlignment.numberOfTaxa();
     }
 
-    public int getElementCount() {
+    public long getElementCount() {
         return getRowCount() * getColumnCount();
     }
 
-    public Object[] getRow(int row) {
+    public Object[] getRow(long rowLong) {
 
+        int row = (int) rowLong;
         Object[] data;
         data = new String[myPhenotype.getNumberOfTraits() + 2];
         data[0] = myAlignment.taxaName(row);
@@ -130,30 +126,12 @@ public class MarkerPhenotype implements TableReport {
 
     }
 
-    public Object[][] getTableData(int start, int end) {
-        if ((start < 0) || (end >= getRowCount())) {
-            throw new IndexOutOfBoundsException("getTableData: start: " + start + "  end: " + end);
-        }
-
-        if (end < start) {
-            return null;
-        }
-
-        Object[][] temp = new Object[end - start + 1][];
-
-        for (int i = start; i <= end; i++) {
-            temp[i] = getRow(i);
-        }
-
-        return temp;
-    }
-
-    public Object getValueAt(int row, int col) {
+    public Object getValueAt(long row, int col) {
         int haplotypeColumn = myPhenotype.getColumnCount();
         if (col == haplotypeColumn) {
             int siteCount = Math.min(myAlignment.numberOfSites(), 10);
             StringBuilder builder = new StringBuilder();
-            builder.append(myAlignment.genotypeAsStringRange(row, 0, siteCount));
+            builder.append(myAlignment.genotypeAsStringRange((int)row, 0, siteCount));
             if (myAlignment.numberOfSites() > 10) {
                 builder.append("...");
             }

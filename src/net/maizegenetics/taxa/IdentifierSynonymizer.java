@@ -306,8 +306,9 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
      *
      * @return row
      */
-    public Object[] getRow(int row) {
+    public Object[] getRow(long rowLong) {
 
+        int row = (int) rowLong;
         Object[] data = new Object[4];
         Object[] keyArray = idSynonyms.keySet().toArray();
         data[0] = (String) keyArray[row];
@@ -333,11 +334,11 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
         return 4;
     }
 
-    public int getRowCount() {
+    public long getRowCount() {
         return idSynonyms.size();
     }
 
-    public int getElementCount() {
+    public long getElementCount() {
         return getColumnCount() * getRowCount();
     }
 }

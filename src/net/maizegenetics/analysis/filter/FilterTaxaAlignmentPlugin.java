@@ -126,7 +126,7 @@ public class FilterTaxaAlignmentPlugin extends AbstractPlugin {
         }
 
         Object result = null;
-        int count = 0;
+        long count = 0;
         if (theData instanceof GenotypeTable) {
             if (myIdsToKeep != null) {
                 result = FilterGenotypeTable.getInstance((GenotypeTable) theData, myIdsToKeep, false);

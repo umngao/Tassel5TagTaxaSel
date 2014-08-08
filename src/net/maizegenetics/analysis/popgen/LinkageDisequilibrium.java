@@ -540,29 +540,7 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
     }
 
     @Override
-    public Object[][] getTableData() {
-        return getTableData(0, getRowCount() - 1);
-    }
-
-    @Override
-    public Object[][] getTableData(int start, int end) {
-        if ((start < 0) || (end >= getRowCount())) {
-            throw new IndexOutOfBoundsException("getTableData: start: " + start + "  end: " + end);
-        }
-        if (end < start) {
-            return null;
-        }
-        Object[][] temp = new Object[end - start + 1][];
-        for (int i = start; i <= end; i++) {
-            temp[i] = getRow(i);
-        }
-
-        return temp;
-
-    }
-
-    @Override
-    public Object[] getRow(int row) {
+    public Object[] getRow(long row) {
 
         if (myIsAccumulativeReport) {
             Object[] data = new Object[3];
@@ -630,7 +608,7 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
     }
 
     @Override
-    public int getRowCount() {
+    public long getRowCount() {
         if (myIsAccumulativeReport) {
             return myNumAccumulativeBins + 1;
         } else {
@@ -639,12 +617,12 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
     }
 
     @Override
-    public int getElementCount() {
+    public long getElementCount() {
         return getRowCount() * getColumnCount();
     }
 
     @Override
-    public Object getValueAt(int row, int col) {
+    public Object getValueAt(long row, int col) {
         return getRow(row)[col];
     }
 

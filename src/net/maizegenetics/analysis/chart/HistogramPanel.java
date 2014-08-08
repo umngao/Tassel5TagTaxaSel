@@ -152,12 +152,12 @@ IntervalXYDataset createDataset(int series1Column, int series2Column) {
 }
 
   double[] getFilteredNumericData(int column) {
-    Object[][] theRawData=theTable.getTableData();
     int countGood=0;
-    double[] tempData=new double[theRawData.length];
-    for(int i=0; i<theRawData.length; i++) {
+    int numRows = (int) theTable.getRowCount();
+    double[] tempData=new double[numRows];
+    for(int i=0; i<numRows; i++) {
       try{
-        double d = Double.valueOf(theRawData[i][column].toString()).doubleValue();
+        double d = Double.valueOf(theTable.getValueAt(i, column).toString()).doubleValue();
         if (!Double.isNaN(d)) {
            tempData[countGood] = d;
            countGood++;

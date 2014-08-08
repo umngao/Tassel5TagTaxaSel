@@ -39,11 +39,6 @@ public class HDF5TableReport implements TableReport {
     }
 
     @Override
-    public Object[][] getTableData() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
     public String getTableTitle() {
         return "HDF5 Schema";
     }
@@ -54,17 +49,17 @@ public class HDF5TableReport implements TableReport {
     }
 
     @Override
-    public int getRowCount() {
+    public long getRowCount() {
         return myData.get(0).size();
     }
 
     @Override
-    public int getElementCount() {
+    public long getElementCount() {
         return getColumnCount() * getRowCount();
     }
 
     @Override
-    public Object[] getRow(int row) {
+    public Object[] getRow(long row) {
         Object[] result = new Object[getColumnCount()];
         for (int i = 0; i < getColumnCount(); i++) {
             result[i] = getValueAt(row, i);
@@ -73,13 +68,8 @@ public class HDF5TableReport implements TableReport {
     }
 
     @Override
-    public Object[][] getTableData(int start, int end) {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public Object getValueAt(int row, int col) {
-        return myData.get(col).get(row);
+    public Object getValueAt(long row, int col) {
+        return myData.get(col).get((int) row);
     }
 
     private void traverseNode(String node, int column) {

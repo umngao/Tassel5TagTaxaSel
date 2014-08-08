@@ -5,7 +5,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.TreeSet;
 
 import com.google.common.collect.HashMultimap;
@@ -16,7 +15,6 @@ import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
-import net.maizegenetics.util.TableReport;
 
 /**
  * @author pbradbury
@@ -64,17 +62,6 @@ public class CorePhenotype implements Phenotype {
 	}
 
 	@Override
-	public Object[][] getTableData() {
-		Object[][] tableData = new Object[numberOfObservations][numberOfAttributes];
-		int ptr = 0;
-		for (PhenotypeAttribute attr : myAttributeList) {
-			for (int i = 0; i < numberOfObservations; i++) tableData[i][ptr] = attr.value(i);
-			ptr++;
-		}
-		return tableData;
-	}
-
-	@Override
 	public String getTableTitle() {
 		return name;
 	}
@@ -85,38 +72,26 @@ public class CorePhenotype implements Phenotype {
 	}
 
 	@Override
-	public int getRowCount() {
+	public long getRowCount() {
 		return numberOfObservations;
 	}
 
 	@Override
-	public int getElementCount() {
+	public long getElementCount() {
 		return getRowCount() * getColumnCount();
 	}
 
 	@Override
-	public Object[] getRow(int row) {
+	public Object[] getRow(long row) {
 		Object[] rowData = new Object[numberOfAttributes];
 		int ptr = 0;
-		for (PhenotypeAttribute attr : myAttributeList) rowData[ptr++] = attr.value(row);
+		for (PhenotypeAttribute attr : myAttributeList) rowData[ptr++] = attr.value((int) row);
 		return rowData;
 	}
 
 	@Override
-	public Object[][] getTableData(int start, int end) {
-		int numberOfRows = end - start + 1;
-		Object[][] tableData = new Object[numberOfRows][numberOfAttributes];
-		int ptr = 0;
-		for (PhenotypeAttribute attr : myAttributeList) {
-			for (int i = 0; i < numberOfRows; i++) tableData[i][ptr] = attr.value(i + start);
-			ptr++;
-		}
-		return tableData;
-	}
-
-	@Override
-	public Object getValueAt(int row, int col) {
-		return myAttributeList.get(col).value(row);
+	public Object getValueAt(long row, int col) {
+		return myAttributeList.get(col).value((int) row);
 	}
 
 	//Phenotype methods

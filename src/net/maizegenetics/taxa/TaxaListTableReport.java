@@ -45,11 +45,6 @@ public class TaxaListTableReport implements TableReport {
     }
 
     @Override
-    public Object[][] getTableData() {
-        throw new UnsupportedOperationException("Not supported.");
-    }
-
-    @Override
     public String getTableTitle() {
         return "Taxa List";
     }
@@ -60,34 +55,29 @@ public class TaxaListTableReport implements TableReport {
     }
 
     @Override
-    public int getRowCount() {
+    public long getRowCount() {
         return myTaxaList.numberOfTaxa();
     }
 
     @Override
-    public int getElementCount() {
+    public long getElementCount() {
         return getColumnCount() * getRowCount();
     }
 
     @Override
-    public Object[] getRow(int row) {
+    public Object[] getRow(long row) {
         throw new UnsupportedOperationException("Not supported.");
     }
 
     @Override
-    public Object[][] getTableData(int start, int end) {
-        throw new UnsupportedOperationException("Not supported.");
-    }
-
-    @Override
-    public Object getValueAt(int row, int col) {
+    public Object getValueAt(long row, int col) {
         switch (col) {
             case 0:
-                return myTaxaList.get(row).getName();
+                return myTaxaList.get((int) row).getName();
             case 1:
-                return myTaxaList.get(row).getName();
+                return myTaxaList.get((int) row).getName();
             default:
-                String[] annotations = myTaxaList.get(row).getTextAnnotation(myColumnHeadings[col]);
+                String[] annotations = myTaxaList.get((int) row).getTextAnnotation(myColumnHeadings[col]);
                 if (annotations != null) {
                     return annotations[0];
                 } else {

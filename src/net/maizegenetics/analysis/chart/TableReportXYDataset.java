@@ -1,7 +1,6 @@
 package net.maizegenetics.analysis.chart;
 
 import net.maizegenetics.util.TableReport;
-import org.jfree.data.xy.AbstractXYDataset;
 import org.jfree.data.xy.DefaultTableXYDataset;
 
 
@@ -73,17 +72,17 @@ public class TableReportXYDataset extends DefaultTableXYDataset {
 
 
   public boolean setTableReport(TableReport theTable, int seriesX, int seriesY1, int seriesY2) {
-    Object[][] theRawData=theTable.getTableData();
     int countGood = 0;
-    double[][] tempData = new double[theRawData.length][numberYAxes+1];
-    for (int i = 0; i < theRawData.length; i++) {
+    double[][] tempData = new double[(int) theTable.getRowCount()][numberYAxes+1];
+    for (int i = 0; i < theTable.getRowCount(); i++) {
+        Object[] theRawData=theTable.getRow(i);
       try {
-        tempData[countGood][0] = Double.valueOf(theRawData[i][seriesX].toString()).doubleValue();
-        tempData[countGood][1] = Double.valueOf(theRawData[i][seriesY1].toString()).doubleValue();
+        tempData[countGood][0] = Double.valueOf(theRawData[seriesX].toString()).doubleValue();
+        tempData[countGood][1] = Double.valueOf(theRawData[seriesY1].toString()).doubleValue();
         if (Double.isNaN(tempData[countGood][0])||Double.isNaN(tempData[countGood][1]))
             {throw new NumberFormatException();}
         if(numberYAxes==2) {
-          tempData[countGood][2] = Double.valueOf(theRawData[i][seriesY2].toString()).doubleValue();
+          tempData[countGood][2] = Double.valueOf(theRawData[seriesY2].toString()).doubleValue();
           if (Double.isNaN(tempData[countGood][2]))
             {throw new NumberFormatException();}
         }
