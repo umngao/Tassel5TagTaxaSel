@@ -153,7 +153,7 @@ IntervalXYDataset createDataset(int series1Column, int series2Column) {
 
   double[] getFilteredNumericData(int column) {
     int countGood=0;
-    int numRows = theTable.getRowCount();
+    int numRows = (int) theTable.getRowCount();
     double[] tempData=new double[numRows];
     for(int i=0; i<numRows; i++) {
       try{

@@ -48,22 +48,23 @@ public class TOPMTableReport implements TableReport {
     }
 
     @Override
-    public int getRowCount() {
+    public long getRowCount() {
         return myTOPM.getSize();
     }
 
     @Override
-    public int getElementCount() {
+    public long getElementCount() {
         return getColumnCount() * getRowCount();
     }
 
     @Override
-    public Object[] getRow(int row) {
+    public Object[] getRow(long row) {
         throw new UnsupportedOperationException("Not supported.");
     }
 
     @Override
-    public Object getValueAt(int row, int col) {
+    public Object getValueAt(long rowLong, int col) {
+        int row = (int) rowLong;
         switch (col) {
             case 0:
                 return BaseEncoder.getSequenceFromLong(myTOPM.getTag(row));

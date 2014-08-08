@@ -7,40 +7,35 @@ import java.io.Serializable;
  */
 public class SimpleTableReport extends AbstractTableReport implements Serializable, TableReport {
 
-    Object[][] theData;
-    Object[] theColumnNames;
-    Object[] theRowNames = null;
-    String theName;
+    private final Object[][] myData;
+    private final Object[] myColumnNames;
+    private final String myName;
 
-    //Implementation of TableReport Interface
     public SimpleTableReport(String theName, Object[] columnNames, Object[][] theData) {
-        this.theData = theData;
-        this.theColumnNames = columnNames;
-        this.theName = theName;
+        myData = theData;
+        myColumnNames = columnNames;
+        myName = theName;
     }
 
     public SimpleTableReport(TableReport tr) {
-        theData = new Object[tr.getRowCount()][tr.getColumnCount()];
-        int numRows = tr.getRowCount();
-        for (int i = 0; i < numRows; i++) {
-            System.arraycopy(tr.getRow(i), 0, theData[i], 0, numRows);
+        int numRows = (int) tr.getRowCount();
+        if ((long) numRows != tr.getRowCount()) {
+            throw new IllegalArgumentException("SimpleTableReport: init: This implementation can't support more rows than: " + Integer.MAX_VALUE);
         }
-        theColumnNames = tr.getTableColumnNames();
-        theName = tr.getTableTitle();
+        myData = new Object[numRows][tr.getColumnCount()];
+        for (int i = 0; i < numRows; i++) {
+            System.arraycopy(tr.getRow(i), 0, myData[i], 0, numRows);
+        }
+        myColumnNames = tr.getTableColumnNames();
+        myName = tr.getTableTitle();
     }
 
     /**
      * Return column names for the table
      */
+    @Override
     public Object[] getTableColumnNames() {
-        return theColumnNames;
-    }
-
-    /**
-     * Return data for the table
-     */
-    public Object[][] getTableData() {
-        return theData;
+        return myColumnNames;
     }
 
     /**
@@ -50,34 +45,36 @@ public class SimpleTableReport extends AbstractTableReport implements Serializab
      *
      * @return row
      */
-    public Object[] getRow(int row) {
-        return theData[row];
+    @Override
+    public Object[] getRow(long row) {
+        return myData[(int) row];
     }
 
     /**
      * Return the name for the title of the ANOVA
      */
+    @Override
     public String getTableTitle() {
-        return theName;
+        return myName;
     }
 
-    public int getRowCount() {
-        return theData.length;
+    @Override
+    public long getRowCount() {
+        return myData.length;
     }
 
-    public int getElementCount() {
+    @Override
+    public long getElementCount() {
         return getRowCount() * getColumnCount();
     }
 
+    @Override
     public int getColumnCount() {
-        return theColumnNames.length;
+        return myColumnNames.length;
     }
 
-    public void setRowNames(Object[] rowNames) {
-        theRowNames = rowNames;
-    }
-
-    public Object getValueAt(int row, int col) {
-        return theData[row][col];
+    @Override
+    public Object getValueAt(long row, int col) {
+        return myData[(int) row][col];
     }
 }

@@ -4,14 +4,13 @@
  */
 package net.maizegenetics.gui;
 
-
 import javax.swing.table.AbstractTableModel;
 
 import net.maizegenetics.util.TableReport;
 
 /**
  *
- * @author  terryc
+ * @author Terry Casstevens
  */
 public class TableReportNoPagingTableModel extends AbstractTableModel {
 
@@ -30,7 +29,7 @@ public class TableReportNoPagingTableModel extends AbstractTableModel {
 
     // Return values appropriate for the visible table part
     public int getRowCount() {
-        return myTable.getRowCount();
+        return (int) Math.min((long) Integer.MAX_VALUE, myTable.getRowCount());
     }
 
     public int getColumnCount() {
@@ -46,8 +45,7 @@ public class TableReportNoPagingTableModel extends AbstractTableModel {
     }
 
     /**
-     * Resets the table backing this matrix table model to
-     * an empty table.
+     * Resets the table backing this matrix table model to an empty table.
      */
     public void resetTable() {
     }

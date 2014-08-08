@@ -73,7 +73,7 @@ public class TableReportXYDataset extends DefaultTableXYDataset {
 
   public boolean setTableReport(TableReport theTable, int seriesX, int seriesY1, int seriesY2) {
     int countGood = 0;
-    double[][] tempData = new double[theTable.getRowCount()][numberYAxes+1];
+    double[][] tempData = new double[(int) theTable.getRowCount()][numberYAxes+1];
     for (int i = 0; i < theTable.getRowCount(); i++) {
         Object[] theRawData=theTable.getRow(i);
       try {

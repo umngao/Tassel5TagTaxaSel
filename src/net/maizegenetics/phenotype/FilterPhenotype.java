@@ -73,23 +73,23 @@ public class FilterPhenotype implements Phenotype {
 	}
 
 	@Override
-	public int getRowCount() {
+	public long getRowCount() {
 		return numberOfObservations;
 	}
 
 	@Override
-	public int getElementCount() {
+	public long getElementCount() {
 		return getRowCount() * getColumnCount();
 	}
 
 	@Override
-	public Object[] getRow(int row) {
-		return basePhenotype.getRow(myRowRedirect[row]);
+	public Object[] getRow(long row) {
+		return basePhenotype.getRow(myRowRedirect[(int) row]);
 	}
 
 	@Override
-	public Object getValueAt(int row, int col) {
-		return basePhenotype.getValueAt(myRowRedirect[row], col);
+	public Object getValueAt(long row, int col) {
+		return basePhenotype.getValueAt(myRowRedirect[(int) row], col);
 	}
 
 	//Phenotype methods

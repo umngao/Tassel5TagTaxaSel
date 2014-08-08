@@ -9,10 +9,11 @@ package net.maizegenetics.util;
  */
 public abstract class AbstractTableReport implements TableReport {
 
-    private int currentRowNumber = -1;
+    private long currentRowNumber = -1;
     private Object[] currentRow = null;
 
-    public Object getValueAt(int row, int col) {
+    @Override
+    public Object getValueAt(long row, int col) {
         if (row != currentRowNumber) {
             currentRowNumber = row;
             currentRow = getRow(row);

@@ -98,16 +98,17 @@ public class MarkerPhenotype implements TableReport {
         return myPhenotype.getNumberOfTraits() + 2;
     }
 
-    public int getRowCount() {
+    public long getRowCount() {
         return myAlignment.numberOfTaxa();
     }
 
-    public int getElementCount() {
+    public long getElementCount() {
         return getRowCount() * getColumnCount();
     }
 
-    public Object[] getRow(int row) {
+    public Object[] getRow(long rowLong) {
 
+        int row = (int) rowLong;
         Object[] data;
         data = new String[myPhenotype.getNumberOfTraits() + 2];
         data[0] = myAlignment.taxaName(row);
@@ -125,12 +126,12 @@ public class MarkerPhenotype implements TableReport {
 
     }
 
-    public Object getValueAt(int row, int col) {
+    public Object getValueAt(long row, int col) {
         int haplotypeColumn = myPhenotype.getColumnCount();
         if (col == haplotypeColumn) {
             int siteCount = Math.min(myAlignment.numberOfSites(), 10);
             StringBuilder builder = new StringBuilder();
-            builder.append(myAlignment.genotypeAsStringRange(row, 0, siteCount));
+            builder.append(myAlignment.genotypeAsStringRange((int)row, 0, siteCount));
             if (myAlignment.numberOfSites() > 10) {
                 builder.append("...");
             }

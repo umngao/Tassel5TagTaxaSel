@@ -24,8 +24,6 @@ import java.io.StringWriter;
  * - computation of (weighted) squared distance to other distance matrix
  * - Fills in all of array...
  *
- * @version $Id: DistanceMatrix.java,v 1.8 2009/07/07 16:19:37 tcasstevens Exp $
- *
  * @author Korbinian Strimmer
  * @author Alexei Drummond
  */
@@ -331,6 +329,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         this.distance = matrix;
     }
 
+    @Override
     public Object[] getTableColumnNames() {
         String[] colNames = new String[getSize() + 1];
         colNames[0] = "Taxa";
@@ -347,8 +346,10 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
      *
      * @return row
      */
-    public Object[] getRow(int row) {
+    @Override
+    public Object[] getRow(long rowLong) {
 
+        int row = (int) rowLong;
         Object[] result = new Object[distance[row].length + 1];
         result[0] = getTaxon(row);
         for (int j = 1; j <= distance[row].length; j++) {
@@ -363,7 +364,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         return "Alignment Distance Matrix";
     }
 
-    public int getRowCount() {
+    public long getRowCount() {
         if (distance != null) {
             return distance.length;
         } else {
@@ -371,7 +372,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         }
     }
 
-    public int getElementCount() {
+    public long getElementCount() {
         return getRowCount() * getColumnCount();
     }
 
@@ -384,9 +385,9 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     }
 
 	@Override
-	public Object getValueAt(int rowIndex, int columnIndex) {
-		if (columnIndex == 0) return getTaxon(rowIndex);
-		return new Double(distance[rowIndex][columnIndex - 1]);
+	public Object getValueAt(long rowIndex, int columnIndex) {
+		if (columnIndex == 0) return getTaxon((int) rowIndex);
+		return new Double(distance[(int) rowIndex][columnIndex - 1]);
 	}
 
     public String getColumnName(int col) {

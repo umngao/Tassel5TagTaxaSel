@@ -540,7 +540,7 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
     }
 
     @Override
-    public Object[] getRow(int row) {
+    public Object[] getRow(long row) {
 
         if (myIsAccumulativeReport) {
             Object[] data = new Object[3];
@@ -608,7 +608,7 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
     }
 
     @Override
-    public int getRowCount() {
+    public long getRowCount() {
         if (myIsAccumulativeReport) {
             return myNumAccumulativeBins + 1;
         } else {
@@ -617,12 +617,12 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
     }
 
     @Override
-    public int getElementCount() {
+    public long getElementCount() {
         return getRowCount() * getColumnCount();
     }
 
     @Override
-    public Object getValueAt(int row, int col) {
+    public Object getValueAt(long row, int col) {
         return getRow(row)[col];
     }
 

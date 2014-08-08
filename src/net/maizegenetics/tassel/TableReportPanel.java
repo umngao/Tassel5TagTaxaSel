@@ -136,8 +136,9 @@ public class TableReportPanel extends JPanel {
             return null;
         }
 
-        String[][] result = new String[report.getRowCount()][1];
-        for (int i = 0, n = report.getRowCount(); i < n; i++) {
+        int numRows = (int) Math.min((long) Integer.MAX_VALUE, report.getRowCount());
+        String[][] result = new String[numRows][1];
+        for (int i = 0, n = numRows; i < n; i++) {
             result[i][0] = report.getValueAt(i, myTaxaColumnIndex).toString();
         }
 

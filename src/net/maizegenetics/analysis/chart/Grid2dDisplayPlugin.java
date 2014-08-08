@@ -337,7 +337,7 @@ class Grid2DDialog extends JDialog {
      * This method finds the columns with numeric data
      */
     private boolean isNumericData(String[] header, TableReport data) {
-        int numRows = data.getRowCount();
+        long numRows = data.getRowCount();
         if (header.length <= 1) {
             return false;
         }
@@ -355,7 +355,7 @@ class Grid2DDialog extends JDialog {
         int[] badDataCount = new int[header.length];
         //rowData = new double[rowHeader.length][columnHeader.length];
         try {
-            for (int i = 0; i < numRows; i++) {
+            for (long i = 0; i < numRows; i++) {
                 Object[] currentRow = data.getRow(i);
                 for (int j = 0; j < header.length; j++) {
                     tempColumnHeader[j] = header[j];

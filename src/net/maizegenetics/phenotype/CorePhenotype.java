@@ -72,26 +72,26 @@ public class CorePhenotype implements Phenotype {
 	}
 
 	@Override
-	public int getRowCount() {
+	public long getRowCount() {
 		return numberOfObservations;
 	}
 
 	@Override
-	public int getElementCount() {
+	public long getElementCount() {
 		return getRowCount() * getColumnCount();
 	}
 
 	@Override
-	public Object[] getRow(int row) {
+	public Object[] getRow(long row) {
 		Object[] rowData = new Object[numberOfAttributes];
 		int ptr = 0;
-		for (PhenotypeAttribute attr : myAttributeList) rowData[ptr++] = attr.value(row);
+		for (PhenotypeAttribute attr : myAttributeList) rowData[ptr++] = attr.value((int) row);
 		return rowData;
 	}
 
 	@Override
-	public Object getValueAt(int row, int col) {
-		return myAttributeList.get(col).value(row);
+	public Object getValueAt(long row, int col) {
+		return myAttributeList.get(col).value((int) row);
 	}
 
 	//Phenotype methods

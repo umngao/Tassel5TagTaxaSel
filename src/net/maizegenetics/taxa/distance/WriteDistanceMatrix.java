@@ -6,7 +6,7 @@ import java.io.FileWriter;
 
 
 /**
- * @author Terry
+ * @author Terry Casstevens
  */
 public class WriteDistanceMatrix {
 
@@ -32,7 +32,7 @@ public class WriteDistanceMatrix {
             bw.write(String.valueOf(matrix.getRowCount()));
             bw.write("\n");
 
-            for (int r = 0, n = matrix.getRowCount(); r < n; r++) {
+            for (long r = 0, n = matrix.getRowCount(); r < n; r++) {
                 Object[] theRow = matrix.getRow(r);
                 for (int i = 0; i < theRow.length; i++) {
                     if (i != 0) {

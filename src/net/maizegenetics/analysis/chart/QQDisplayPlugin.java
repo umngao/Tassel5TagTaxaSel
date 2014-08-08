@@ -87,7 +87,7 @@ public class QQDisplayPlugin extends AbstractDisplayPlugin {
 
     private ArrayList<Integer> splitTable(TableReport table) {
         ArrayList<Integer> indexes = new ArrayList<Integer>();
-        int numRows = table.getRowCount();
+        int numRows = (int) table.getRowCount();
         String previousTrait = "";
         for (int i = 0; i < numRows; i++) {
             if (!previousTrait.equals((String) table.getValueAt(i, 0))) {
@@ -110,7 +110,7 @@ public class QQDisplayPlugin extends AbstractDisplayPlugin {
 
     private String[] getTraits(TableReport table) {
         ArrayList<String> traitArray = new ArrayList<String>();
-        int numRows = table.getRowCount();
+        int numRows = (int) table.getRowCount();
         String previousTrait = "";
         for (int i = 0; i < numRows; i++) {
             if (!previousTrait.equals((String) table.getValueAt(i, 0))) {

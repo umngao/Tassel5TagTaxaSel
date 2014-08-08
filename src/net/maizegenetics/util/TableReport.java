@@ -14,40 +14,40 @@ package net.maizegenetics.util;
 public interface TableReport {
 
     /**
-     * get the names of the columns
+     * Get the names of the columns
      *
      * @return columns names
      */
     public Object[] getTableColumnNames();
 
     /**
-     * get the title of the table
+     * Get the title of the table
      *
-     * @return a String title
+     * @return title
      */
     public String getTableTitle();
 
     /**
-     * get the number of the columns
+     * Get the number of the columns
      *
      * @return number of columns
      */
     public int getColumnCount();
 
     /**
-     * get the number of rows
+     * Get the number of rows
      *
      * @return number of rows
      */
-    public int getRowCount();
+    public long getRowCount();
 
     /**
-     * Get the total number of elements in the dataset. Elements=rowCount *
+     * Get the total number of elements in the dataset. Elements = rowCount *
      * columnCount;
      *
-     * @return columns names
+     * @return number of elements
      */
-    public int getElementCount();
+    public long getElementCount();
 
     /**
      * Returns specified row.
@@ -56,15 +56,16 @@ public interface TableReport {
      *
      * @return row
      */
-    public Object[] getRow(int row);
+    public Object[] getRow(long row);
 
     /**
      * Returns value at given row and column.
      *
      * @param row row number
      * @param col column number
+     *
      * @return data
      */
-    public Object getValueAt(int row, int col);
+    public Object getValueAt(long row, int col);
 
 }

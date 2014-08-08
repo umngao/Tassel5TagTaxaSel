@@ -1,6 +1,5 @@
 package net.maizegenetics.trait;
 
-import net.maizegenetics.trait.AbstractPhenotype;
 import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix2D;
 import net.maizegenetics.taxa.TaxaList;

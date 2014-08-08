@@ -2,7 +2,6 @@ package net.maizegenetics.analysis.distance;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
-import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
 import net.maizegenetics.taxa.distance.DistanceMatrix;

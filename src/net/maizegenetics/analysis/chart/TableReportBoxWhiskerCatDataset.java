@@ -23,7 +23,7 @@ public class TableReportBoxWhiskerCatDataset extends DefaultBoxAndWhiskerCategor
   }
 
   public boolean setTableReport(TableReport theTable, int seriesCategory, int[] seriesY) {
-    int numRows = theTable.getRowCount();
+    int numRows = (int) theTable.getRowCount();
     Vector theCategories = new Vector();
     seriesNames = new String[seriesY.length];
     Object[] theSN = theTable.getTableColumnNames();

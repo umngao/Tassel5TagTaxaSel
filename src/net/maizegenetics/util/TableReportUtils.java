@@ -37,7 +37,7 @@ public class TableReportUtils {
             }
             bw.write("\n");
 
-            for (int r = 0, n = theTableSource.getRowCount(); r < n; r++) {
+            for (long r = 0, n = theTableSource.getRowCount(); r < n; r++) {
                 Object[] theRow = theTableSource.getRow(r);
                 for (int i = 0; i < theRow.length; i++) {
                     if (i != 0) {

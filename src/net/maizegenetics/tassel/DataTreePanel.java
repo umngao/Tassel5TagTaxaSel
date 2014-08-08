@@ -239,9 +239,6 @@ public class DataTreePanel extends JPanel implements PluginListener {
 
                     Datum book = (Datum) nodeInfo;
                     myLogger.info("initSelectionListener: node type: " + book.getDataType());
-                    if (!(book.getData() instanceof Serializable)) {
-                        myLogger.info("This is not serializable.");
-                    }
                     StringBuilder builder = new StringBuilder();
                     if (book.getData() instanceof GenotypeTable) {
                         GenotypeTable a = (GenotypeTable) book.getData();
@@ -323,7 +320,7 @@ public class DataTreePanel extends JPanel implements PluginListener {
                         myTASSELMainFrame.mainDisplayPanel.removeAll();
 
                         if (book.getData() instanceof TableReport) {
-                            int size = ((TableReport) book.getData()).getElementCount();
+                            long size = ((TableReport) book.getData()).getElementCount();
                             myLogger.info("initSelectionListener: Table Report Size: " + size);
                             if (size == 0) {
                                 JPanel blankPanel = new JPanel();

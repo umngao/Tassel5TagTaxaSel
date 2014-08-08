@@ -123,7 +123,7 @@ public abstract class AbstractPhenotype implements Phenotype {
 		return taxa.indexOf(taxon);
 	}
 
-    @Override
+        @Override
 	public int whichTrait(Trait trait) {
 		return traitList.indexOf(trait);
 	}
@@ -146,12 +146,12 @@ public abstract class AbstractPhenotype implements Phenotype {
 	}
 
 	@Override
-	public int getElementCount() {
+	public long getElementCount() {
 		return getColumnCount() * getRowCount();
 	}
 
 	@Override
-	public int getRowCount() {
+	public long getRowCount() {
 		return taxa.numberOfTaxa();
 	}
 
@@ -172,7 +172,8 @@ public abstract class AbstractPhenotype implements Phenotype {
 		return title;
 	}
 	@Override
-	public Object[] getRow(int row) {
+	public Object[] getRow(long rowLong) {
+                int row = (int) rowLong;
 		int n = getColumnCount();
 		Object[] rowvalues = new Object[n];
 		rowvalues[0] = getTaxon(row);
@@ -196,7 +197,8 @@ public abstract class AbstractPhenotype implements Phenotype {
 
 
 	@Override
-	public Object getValueAt(int row, int col) {
+	public Object getValueAt(long rowLong, int col) {
+                int row = (int) rowLong;
 		if (col == 0) return getTaxon(row);
 		col --;
 		Trait trait = traitList.get(col);

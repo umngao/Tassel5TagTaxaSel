@@ -209,7 +209,8 @@ public class DiversityAnalyses extends AbstractTableReport implements TableRepor
      *
      * @return row
      */
-    public Object[] getRow(int row) {
+    @Override
+    public Object[] getRow(long row) {
 
         Object[] data;
         java.text.NumberFormat nf = new java.text.DecimalFormat();
@@ -217,7 +218,7 @@ public class DiversityAnalyses extends AbstractTableReport implements TableRepor
         java.text.NumberFormat nf2 = new java.text.DecimalFormat();
         nf2.setMaximumFractionDigits(1);
         data = new String[NUM_OF_COLUMNS];
-        DiversityResults theDiversityResults = diversityResultsVector.get(row);
+        DiversityResults theDiversityResults = diversityResultsVector.get((int) row);
         int labelOffset = 0;
         data[labelOffset++] = "ALL";
         data[labelOffset++] = "" + theDiversityResults.chromosome;
@@ -264,12 +265,12 @@ public class DiversityAnalyses extends AbstractTableReport implements TableRepor
     }
 
     @Override
-    public int getRowCount() {
+    public long getRowCount() {
         return diversityResultsVector.size();
     }
 
     @Override
-    public int getElementCount() {
+    public long getElementCount() {
         return getRowCount() * getColumnCount();
     }
 
