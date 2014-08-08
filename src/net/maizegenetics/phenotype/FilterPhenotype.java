@@ -129,7 +129,7 @@ public class FilterPhenotype implements Phenotype {
 
 	@Override
 	public PhenotypeAttribute attribute(int attrnum) {
-		return basePhenotype.attribute(attrnum).subset(myRowRedirect);
+		return basePhenotype.attribute(attrnum).subset(myRowRedirect, null);
 	}
 
 	@Override
@@ -205,7 +205,7 @@ public class FilterPhenotype implements Phenotype {
 
 	@Override
 	public TaxaAttribute taxaAttribute() {
-		return (TaxaAttribute) basePhenotype.taxaAttribute().subset(myRowRedirect);
+		return (TaxaAttribute) basePhenotype.taxaAttribute().subset(myRowRedirect, null);
 	}
 
 	@Override

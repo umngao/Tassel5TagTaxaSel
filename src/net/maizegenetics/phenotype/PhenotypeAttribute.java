@@ -23,7 +23,12 @@ public interface PhenotypeAttribute {
 	 * @param obs	an array of observation numbers
 	 * @return	an attribute equivalent to this one but with a subset of observations specified by obs
 	 */
-	PhenotypeAttribute subset(int[] obs);
+	/**
+	 * @param obs		an array of observation numbers
+	 * @param newName	The name for the new PhenotypeAttribute
+	 * @return			a new PhenotypeAttribute equivalent to this one but with a subset of observations specified by obs
+	 */
+	PhenotypeAttribute subset(int[] obs, String newName);
 	
 	/**
 	 * @param obs	the observation number

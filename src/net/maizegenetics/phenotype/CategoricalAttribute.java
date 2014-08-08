@@ -1,6 +1,7 @@
 package net.maizegenetics.phenotype;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.TreeSet;
 
@@ -88,6 +89,20 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 		return labelList;
 	}
 	
+	public int numberOfLevels() {
+		return labelBimap.size();
+	}
+	
+	public int[] whichObservations(int level) {
+		int nvalues = values.length;
+		int[] obs = new int[nvalues];
+		int obsCount = 0;
+		for (int i = 0; i < nvalues; i++) {
+			if (values[i] == level) obs[obsCount++] = i;
+		}
+		return Arrays.copyOf(obs, obsCount);
+	}
+	
 	@Override
 	public Object value(int obs) {
 		return labelBimap.inverse().get(values[obs]);
@@ -99,7 +114,7 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 	}
 
 	@Override
-	public PhenotypeAttribute subset(int[] obs) {
+	public PhenotypeAttribute subset(int[] obs, String newName) {
 		int n = obs.length;
 		String[] labels = new String[n];
 		ImmutableBiMap<Integer, String> reverseMap = labelBimap.inverse();
@@ -108,7 +123,8 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 			if (values[obs[i]] == -1) labels[i] = missingValue;
 			else labels[i] = reverseMap.get(values[obs[i]]);
 		}
-		return new CategoricalAttribute(name, labels);
+		if (newName == null) newName = name;
+		return new CategoricalAttribute(newName, labels);
 	}
 
 	@Override

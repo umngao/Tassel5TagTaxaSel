@@ -25,6 +25,7 @@ import com.google.common.collect.Multimap;
 
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.TaxaListUtils;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
@@ -36,39 +37,27 @@ import net.maizegenetics.util.OpenBitSet;
  */
 public class PhenotypeBuilder {
 	private Logger myLogger = Logger.getLogger(PhenotypeBuilder.class);
-	private enum SOURCE_TYPE{file, phenotype, list, join};
+	
+	private enum SOURCE_TYPE{file, phenotype, list};
+	private enum ACTION{importFile, union, intersect, separate, pivot, concatenate, keepTaxa, removeTaxa, keepAttributes, changeType};
+	
 	private SOURCE_TYPE source;
-	private String filename;
-	private Phenotype basePhenotype;
-	private List<Phenotype> phenotypesToJoin;
-	private boolean isUnionJoin = false;
-	private boolean isFilterable = false;
-	private boolean isConcatenate = false;
-	private boolean tobeFiltered = false;
-	private boolean tobePivoted = false;
+	private List<ACTION> actionList = new ArrayList<PhenotypeBuilder.ACTION>();
+	private List<String> filenameList = null;
+	private List<Phenotype> phenotypeList = new ArrayList<Phenotype>();
 	private String phenotypeName = "Phenotype";
 	private List<PhenotypeAttribute> attributeList = null;
 	private List<ATTRIBUTE_TYPE> attributeTypeList = null;
+	private List<PhenotypeAttribute> separateByList = null;
 	
 	//filter criteria
 	private List<Taxon> taxaToKeep = null;
 	private List<Taxon> taxaToRemove = null;
   	private int[] indexOfAttributesToKeep = null;
-	private HashMap<PhenotypeAttribute, ATTRIBUTE_TYPE> attributeChangeMap = new HashMap<PhenotypeAttribute, ATTRIBUTE_TYPE>();
+	private Map<PhenotypeAttribute, ATTRIBUTE_TYPE> attributeChangeMap = null;
 	
 	public PhenotypeBuilder() {
 		
-	}
-	
-	/**
-	 * @param base	the base Phenotype from which to create a new Phenotype
-	 * @return	a PhenotypeBuilder
-	 */
-	public PhenotypeBuilder fromPhenotype(Phenotype base) {
-		basePhenotype = base;
-		source = SOURCE_TYPE.phenotype;
-		isFilterable = true;
-		return this;
 	}
 	
 	/**
@@ -76,21 +65,33 @@ public class PhenotypeBuilder {
 	 * @return	a PhenotypeBuilder that will import a file
 	 */
 	public PhenotypeBuilder fromFile(String filename) {
-		this.filename = filename;
+		if (filenameList == null) filenameList = new ArrayList<String>();
+		filenameList.add(filename);
 		source = SOURCE_TYPE.file;
+		actionList.add(ACTION.importFile);
 		return this;
 	}
 	
 	/**
-	 * @param phenotypes	a List of Phenotypes to be joined
-	 * @return	a Phenotype builder that will build a join of the list of Phenotypes
+	 * @param base	the Phenotype from which to create a new Phenotype
+	 * @return	a PhenotypeBuilder
+	 * Multiple phenotypes can be added to a list using this method.
+	 */
+	public PhenotypeBuilder fromPhenotype(Phenotype base) {
+		phenotypeList.add(base);
+		source = SOURCE_TYPE.phenotype;
+		return this;
+	}
+	
+	/**
+	 * @param phenotypes	a List of Phenotypes
+	 * @return	a Phenotype builder that will act on all Phenotypes in the list
 	 * A union join returns a Phenotype containing any taxon present in at least one of the Phenotypes to be joined.
 	 * An intersect join returns a Phenotype containing only taxa present in all of the Phenotypes to be joined.
-	 * The type of join method should be specified using the intersect() or union() method. If no join method is specified, an intersect join will be performed.
 	 */
-	public PhenotypeBuilder joinPhenotypes(List<Phenotype> phenotypes) {
-		phenotypesToJoin = phenotypes;
-		source = SOURCE_TYPE.join;
+	public PhenotypeBuilder fromPhenotypeList(List<Phenotype> phenotypes) {
+		phenotypeList.addAll(phenotypes);
+		source = SOURCE_TYPE.phenotype;
 		StringBuilder sb = new StringBuilder();
 		for (Phenotype pheno : phenotypes) {
 			if (sb.length() > 0) sb.append(" + ");
@@ -101,51 +102,39 @@ public class PhenotypeBuilder {
 	}
 	
 	/**
-	 * @param pheno1	a Phenotype
-	 * @param pheno2	a second Phenotype to be merged with pheno1
-	 * @return	a Phenotype builder that will merge pheno1 and pheno2
-	 */
-	public PhenotypeBuilder joinPhenotypes(Phenotype pheno1, Phenotype pheno2) {
-		List<Phenotype> phenoList = new ArrayList<Phenotype>();
-		phenoList.add(pheno1);
-		phenoList.add(pheno2);
-		return joinPhenotypes(phenoList);
-	}
-
-	/**
-	 * @return	a builder that will perform an intersect join if given a list of Phenotypes to join
-	 */
-	public PhenotypeBuilder intersect() {
-		isUnionJoin = false;
-		return this;
-	}
-	
-	/**
-	 * @return	a builder that will perform a union join if given a list of Phenotypes to join
-	 */
-	public PhenotypeBuilder union() {
-		isUnionJoin = true;
-		return this;
-	}
-	
-	/**
-	 * @return	a builder that will perform concatenate the phenotypes to be joined
-	 */
-	public PhenotypeBuilder concatenate() {
-		isConcatenate = true;
-		return this;
-	}
-	
-	/**
 	 * @param attributes	a list of attributes
 	 * @param types	a list of types matching the attribute list
 	 * @return	a PhenotypeBuilder that will build using these lists
 	 * The attribute and type lists must be the same size and the types must be compatible with the attributes
 	 */
-	public PhenotypeBuilder fromList(List<PhenotypeAttribute> attributes, List<ATTRIBUTE_TYPE> types) {
+	public PhenotypeBuilder fromAttributeList(List<PhenotypeAttribute> attributes, List<ATTRIBUTE_TYPE> types) {
 		attributeList = attributes;
 		attributeTypeList = types;
 		source = SOURCE_TYPE.list;
+		return this;
+	}
+	
+	/**
+	 * @return
+	 */
+	public PhenotypeBuilder unionJoin() {
+		actionList.add(ACTION.union);
+		return this;
+	}
+	
+	/**
+	 * @return
+	 */
+	public PhenotypeBuilder intersectJoin() {
+		actionList.add(ACTION.intersect);
+		return this;
+	}
+	
+	/**
+	 * @return	a builder that will concatenate phenotypes 
+	 */
+	public PhenotypeBuilder concatenate() {
+		actionList.add(ACTION.concatenate);
 		return this;
 	}
 	
@@ -158,13 +147,10 @@ public class PhenotypeBuilder {
 	 * @param taxaToKeep	a list of taxa to be kept from the base Phenotype
 	 * @return	a PhenotypeBuilder that will return a FilterPhenotype with taxa in the taxaToKeep list
 	 * Only taxa that are in both taxaToKeep and the base Phenotype will be included in the Phenotype that is built.
-	 * This function can only be applied to a filterable instance.
 	 */
 	public PhenotypeBuilder keepTaxa(List<Taxon> taxaToKeep) {
-		if (!isFilterable) notFilterable();
-		tobeFiltered = true;
+		actionList.add(ACTION.keepTaxa);
 		this.taxaToKeep = taxaToKeep;
-		taxaToRemove = null;
 		return this;
 	}
 	
@@ -172,13 +158,10 @@ public class PhenotypeBuilder {
 	 * @param taxaToRemove	a list of taxa to removed from the base Phenotype
 	 * @return	a PhenotypeBuilder that will return a Phenotype with taxa from the supplied list excluded
 	 * Any taxa in taxaToRemove but not in the base Phenotype will be ignored.
-	 * This function can only be applied to a filterable instance.
 	 */
 	public PhenotypeBuilder removeTaxa(List<Taxon> taxaToRemove)  {
-		if (!isFilterable) notFilterable();
-		tobeFiltered = true;
+		actionList.add(ACTION.removeTaxa);
 		this.taxaToRemove = taxaToRemove;
-		taxaToKeep = null;
 		return this;
 	}
 	
@@ -187,26 +170,20 @@ public class PhenotypeBuilder {
 	 * @return	a PhenotypeBuilder that will return a new Phenotype with only the attributes in the supplied list
 	 * Only attributes in both attributesToKeep and the base Phenotype will be included in the Phenotype that is built.
 	 * The order of the attributes in the new Phenotype will match that in attributesToKeep.
-	 * This function can only be applied to a filterable instance.
 	 */
 	public PhenotypeBuilder keepAttributes(List<PhenotypeAttribute> attributesToKeep) {
-		if (!isFilterable) notFilterable();
-		tobeFiltered = true;
+		actionList.add(ACTION.keepAttributes);
 		attributeList = attributesToKeep;
-		indexOfAttributesToKeep = null;
 		return this;
 	}
 	
 	/**
 	 * @param indexOfAttributes	the column numbers of the attributes in the base Phenotype to be included in the newly built Phenotype
 	 * @return	a PhenotypeBuilder that will build a Phenotype with the specified attributes
-	 * This function can only be applied to a filterable instance.
 	 */
 	public PhenotypeBuilder keepAttributes(int[] indexOfAttributes) {
-		if (!isFilterable) notFilterable();
-		tobeFiltered = true;
+		actionList.add(ACTION.keepAttributes);
 		this.indexOfAttributesToKeep = indexOfAttributes;
-		attributeList = null;
 		return this;
 	}
 	
@@ -214,12 +191,11 @@ public class PhenotypeBuilder {
 	 * @param attributeIndex	the numeric index (column number) of an attribute in the base Phenotype
 	 * @param type	the new type for that attribute
 	 * @return	a PhenotypeBuilder that will build a phenotype with the changed attribute type
-	 * This function can only be applied to a filterable instance.
 	 */
-	public PhenotypeBuilder changeAttributeType(PhenotypeAttribute attribute, ATTRIBUTE_TYPE type) {
-		if (!isFilterable) notFilterable();
-		tobeFiltered = true;
-		attributeChangeMap.put(attribute, type);
+	public PhenotypeBuilder changeAttributeType(Map<PhenotypeAttribute, ATTRIBUTE_TYPE> changeMap) {
+		if (attributeChangeMap == null) attributeChangeMap = new HashMap<PhenotypeAttribute, Phenotype.ATTRIBUTE_TYPE>();
+		attributeChangeMap.putAll(changeMap);
+		actionList.add(ACTION.changeType);
 		return this;
 	}
 	
@@ -227,11 +203,8 @@ public class PhenotypeBuilder {
 	 * @param attributeTypes	a list of attribute types for the attributes to be built
 	 * @return	a PhenotypeBuilder that will build a Phenotype that will have this list of types
 	 * The order of types must be the same as the order of attributes as supplied by the keepAttributes methods if used or in the base Phenotype if the attribute list is not changed.
-	 * This function can only be applied to a filterable instance.
 	 */
 	public PhenotypeBuilder typesOfRetainedAttributes(List<ATTRIBUTE_TYPE> attributeTypes) {
-		if (!isFilterable) notFilterable();
-		tobeFiltered = true;
 		attributeTypeList = attributeTypes;
 		return this;
 	}
@@ -242,61 +215,104 @@ public class PhenotypeBuilder {
 	 * This builder converts each of the attribute levels
 	 */
 	public PhenotypeBuilder pivotOn(List<PhenotypeAttribute> attributes) {
-		if (tobeFiltered) throw new IllegalArgumentException("Cannot both filter and pivot a Phenotype in a single step. The code is not smart enough to do that.");
-		if (source != SOURCE_TYPE.phenotype) throw new IllegalArgumentException("Must specify a single Phenotype to be pivoted.");
 		for (PhenotypeAttribute attr : attributes) {
 			if (!attr.isTypeCompatible(ATTRIBUTE_TYPE.factor)) {
 				String msg = "A pivot attribute is not a factor. Only factors can be used for pivots.";
 				throw new IllegalArgumentException(msg);
 			}
 		}
-		isFilterable = false;
-		tobePivoted = true;
-		attributeList = attributes;
+		separateByList = attributes;
+		actionList.add(ACTION.pivot);
 		return this;
 	}
 	
 	/**
-	 * @return a new Phenotype built with the supplied parameters
+	 * @return	a new Phenotype built with the supplied parameters
+	 * If the parameters build more than one Phenotype, only one will be returned.
 	 */
 	public Phenotype build() {
-		if (source == SOURCE_TYPE.file) {
-			try {
-				File phenotypeFile = new File(filename);
-				BufferedReader br = new BufferedReader(new FileReader(phenotypeFile));
-				String topline = br.readLine();
-				if (phenotypeName.equals("Phenotype")) {
-					phenotypeName = new File(filename).getName();
-					if (phenotypeName.endsWith(".txt")) phenotypeName = phenotypeName.substring(0, phenotypeName.length() - 4);
-				}
-				Phenotype myPhenotype;
-				if (topline.toLowerCase().startsWith("<phenotype")) {
-					myPhenotype = importPhenotypeFile(phenotypeFile);
-				} else {
-					myPhenotype = importTraits(phenotypeFile);
-				}
-				br.close();
-				return myPhenotype;
-				
-			} catch (IOException e) {
-				e.printStackTrace();
-				return null;
-			}
-		} else if (source == SOURCE_TYPE.phenotype && tobeFiltered) {
-			return filterBasePhenotype();
-		} else if (source == SOURCE_TYPE.phenotype && tobePivoted) {
-			return pivotPhenotype();
-		} else if (source == SOURCE_TYPE.list) {
-			return createPhenotypeFromLists();
-		} else if (source == SOURCE_TYPE.join) {
-			return joinPhenotypes();
+		return buildList().get(0);
+	}
+	
+	/**
+	 * @return	a list of new Phenotypes built with the supplied parameters
+	 */
+	public List<Phenotype> buildList() {
+		for (ACTION action : actionList) {
+			performAction(action);
 		}
-		return null;
+		return phenotypeList;
+	}
+	
+	private void performAction(ACTION action) {
+		switch (action) {
+		case importFile:
+			importFile();
+			break;
+		case intersect:
+			joinPhenotypes(action);
+			break;
+		case union:
+			joinPhenotypes(action);
+			break;
+		case concatenate:
+			concatenatePhenotypes();
+			break;
+		case keepTaxa:
+			keepTaxaFilter();
+			break;
+		case keepAttributes:
+			keepAttributesFilter();
+			break;
+		case removeTaxa:
+			removeTaxaFilter();
+			break;
+		case changeType:
+			applyAttributeChangeMap();
+			break;
+		case separate:
+			separateByFactors();
+			break;
+		case pivot:
+			separateByFactors();
+			unionJoin();
+			break;
+		}
 	}
 	
 	//private methods  ------------------------------------------------------
-	private void notFilterable() {
-		throw new java.lang.IllegalStateException("Phenotype Builder error: applied a filter method to a non-filterable builder.");
+	
+	private void importFile() {
+		if (filenameList.size() < 1) {
+			myLogger.info("WARNING: fewer file names than expected in PhenotypeBuilder.");
+			return;
+		}
+
+		File phenotypeFile = new File(filenameList.remove(0));
+
+		try {
+			BufferedReader br = new BufferedReader(new FileReader(phenotypeFile));
+			String topline = br.readLine();
+			Phenotype myPhenotype;
+			if (phenotypeName.equals("Phenotype")) {
+				phenotypeName = phenotypeFile.getName();
+				if (phenotypeName.endsWith(".txt")) phenotypeName = phenotypeName.substring(0, phenotypeName.length() - 4);
+			}
+
+			if (topline.toLowerCase().startsWith("<phenotype")) {
+				myPhenotype = importPhenotypeFile(phenotypeFile);
+			} else {
+				myPhenotype = importTraits(phenotypeFile);
+			}
+			br.close();
+			phenotypeList.add(myPhenotype);
+		} catch (IOException e) {
+			String errorMsg = "Error reading " + phenotypeFile.getPath() + " in PhenotypeBuilder.importFile()." ;
+			myLogger.error(errorMsg);
+			e.printStackTrace();
+			throw new IllegalArgumentException(errorMsg);
+		}
+
 	}
 	
 	private Phenotype importPhenotypeFile(File phenotypeFile) throws IOException {
@@ -498,17 +514,17 @@ public class PhenotypeBuilder {
 		return new CorePhenotype(attributes, types, phenotypeName);
 	}
 	
-	private void processHeader(String headerLine, Map<String, ArrayList<String>> headerMap) {
-		String[] header = headerLine.split("[<>=\\s]+");
-		if ( header[1].toLowerCase().equals("header") && header[2].toLowerCase().equals("name")) {
-			String name = header[3];
-			ArrayList<String> values = new ArrayList<>();
-			for (int i = 4; i < header.length; i++) {
-				values.add(header[i]);
-			}
-			headerMap.put(name, values);
-		} else throw new IllegalArgumentException("Improperly formatted Header: " + headerLine);
-	}
+//	private void processHeader(String headerLine, Map<String, ArrayList<String>> headerMap) {
+//		String[] header = headerLine.split("[<>=\\s]+");
+//		if ( header[1].toLowerCase().equals("header") && header[2].toLowerCase().equals("name")) {
+//			String name = header[3];
+//			ArrayList<String> values = new ArrayList<>();
+//			for (int i = 4; i < header.length; i++) {
+//				values.add(header[i]);
+//			}
+//			headerMap.put(name, values);
+//		} else throw new IllegalArgumentException("Improperly formatted Header: " + headerLine);
+//	}
 	
 	private Phenotype processTraitsAndFactors(File phenotypeFile, String[] traitnames, int numberOfDataLines, boolean isCovariate, ArrayList<String> headerList)
 	throws IOException {
@@ -637,59 +653,115 @@ public class PhenotypeBuilder {
 		return new CorePhenotype(attributes, types, phenotypeName);
 	}
 	
-	private Phenotype filterBasePhenotype() {
-		if (attributeList != null) {
-			if (attributeTypeList == null) {
-				attributeTypeList = new ArrayList<ATTRIBUTE_TYPE>();
-				for (PhenotypeAttribute attr:attributeList) {
-					attributeTypeList.add(basePhenotype.attributeType(basePhenotype.indexOfAttribute(attr)));
-				}
-			}
-			applyAttributeChangeMap();
-			basePhenotype = new CorePhenotype(attributeList, attributeTypeList, phenotypeName);
-			
-		} else if (indexOfAttributesToKeep != null) {
-			attributeList = new ArrayList<PhenotypeAttribute>();
-			attributeTypeList = new ArrayList<ATTRIBUTE_TYPE>();
-			for (int attrnum : indexOfAttributesToKeep) {
-				attributeList.add(basePhenotype.attribute(attrnum));
-			}
-			if (attributeTypeList == null || attributeTypeList.size() != attributeList.size()) {
-				for (int attrnum : indexOfAttributesToKeep) {
-					attributeTypeList.add(basePhenotype.attributeType(attrnum));
-				}
-			}
-			applyAttributeChangeMap();
-			basePhenotype = new CorePhenotype(attributeList, attributeTypeList, phenotypeName);
-			
-		} else if (attributeChangeMap != null) {
-			attributeList = basePhenotype.attributeListCopy();
-			attributeTypeList = basePhenotype.typeListCopy();
-			applyAttributeChangeMap();
-			basePhenotype = new CorePhenotype(attributeList, attributeTypeList, phenotypeName);
-		}
 
-		if (taxaToKeep != null) {
-			return FilterPhenotype.getInstance(basePhenotype, taxaToKeep, phenotypeName);
+	private void keepTaxaFilter() {
+		List<Phenotype> newList = new ArrayList<Phenotype>();
+		for (Phenotype pheno : phenotypeList) {
+			newList.add(FilterPhenotype.getInstance(pheno, taxaToKeep, filterPhenotypeName(pheno.name())));
 		}
-		
-		if (taxaToRemove != null) {
-			TaxaList myTaxaList = basePhenotype.taxa();
+		phenotypeList = newList;
+	}
+	
+	private void keepAttributesFilter() {
+		List<Phenotype> newList = new ArrayList<Phenotype>();
+		for (Phenotype pheno : phenotypeList) {
+			if (attributeList != null) {
+				if (attributeTypeList == null) {
+					attributeTypeList = new ArrayList<ATTRIBUTE_TYPE>();
+					for (PhenotypeAttribute attr:attributeList) {
+						attributeTypeList.add(pheno.attributeType(pheno.indexOfAttribute(attr)));
+					}
+				}
+				applyAttributeChangeMap();
+				newList.add( new CorePhenotype(attributeList, attributeTypeList, filterPhenotypeName(pheno.name())) );
+				
+			} else if (indexOfAttributesToKeep != null) {
+				attributeList = new ArrayList<PhenotypeAttribute>();
+				attributeTypeList = new ArrayList<ATTRIBUTE_TYPE>();
+				for (int attrnum : indexOfAttributesToKeep) {
+					attributeList.add(pheno.attribute(attrnum));
+				}
+				if (attributeTypeList == null || attributeTypeList.size() != attributeList.size()) {
+					for (int attrnum : indexOfAttributesToKeep) {
+						attributeTypeList.add(pheno.attributeType(attrnum));
+					}
+				}
+				applyAttributeChangeMap();
+				newList.add( new CorePhenotype(attributeList, attributeTypeList, filterPhenotypeName(pheno.name())) );
+			}
+		}
+		phenotypeList = newList;
+
+	}
+	
+	private void removeTaxaFilter() {
+		List<Phenotype> newList = new ArrayList<Phenotype>();
+		for (Phenotype pheno : phenotypeList) {
+			TaxaList myTaxaList = pheno.taxa();
 			Iterator<Taxon> taxaIter = myTaxaList.iterator();
 			while (taxaIter.hasNext()) {
 				if (taxaToRemove.contains(taxaIter.next())) taxaIter.remove();
 			}
-			return FilterPhenotype.getInstance(basePhenotype, myTaxaList, phenotypeName);
+			newList.add(FilterPhenotype.getInstance(pheno, myTaxaList,  "filtered_" + pheno.name()));
 		}
-
-		return basePhenotype;
+		phenotypeList = newList;
+	}
+	
+	private String filterPhenotypeName(String oldName) {
+		if (oldName.toLowerCase().startsWith("filter")) return oldName;
+		return "filtered_" + oldName;
+	}
+	
+	private void separateByFactors() {
+		List<Phenotype> newList = new ArrayList<Phenotype>();
+		for (Phenotype pheno : phenotypeList) {
+			newList.addAll(separatePhenotypeByFactors(pheno));
+		}
+		phenotypeList = newList;
+	}
+	
+	private List<Phenotype> separatePhenotypeByFactors(Phenotype base) {
+		//TODO implement
+		return null;
+	}
+	
+	private void sep(Phenotype base) {
+		//temp code to try separate method
+		PhenotypeAttribute factor = separateByList.get(0);
+		CategoricalAttribute cat = (CategoricalAttribute) factor;
+		int whichAttribute = base.attributeIndexForName(cat.name());
+		int nlevels = cat.numberOfLevels();
+		int nattr = base.numberOfAttributes();
+		List<Phenotype> separatePhenotypes = new ArrayList<Phenotype>();
+		for (int i = 0; i < nlevels; i++) {
+			List<PhenotypeAttribute> levelattrList = new ArrayList<PhenotypeAttribute>();
+			List<ATTRIBUTE_TYPE> leveltypeList = new ArrayList<Phenotype.ATTRIBUTE_TYPE>();
+			int[] obsThisLevel = cat.whichObservations(i);
+			String levelName = cat.name() + "." + cat.attributeLabelForIndex(i);
+			for (int a = 0; a < nattr; a++) {
+				if (a != whichAttribute) {
+					PhenotypeAttribute baseAttribute = base.attribute(a);
+					String attrName = baseAttribute.name() + "_" + levelName;
+					levelattrList.add(baseAttribute.subset(obsThisLevel, attrName));
+					leveltypeList.add(base.attributeType(a));
+				}
+			}
+			separatePhenotypes.add(new PhenotypeBuilder().fromAttributeList(levelattrList, leveltypeList).build());
+		}
 	}
 	
 	private void applyAttributeChangeMap() {
-		if (attributeChangeMap != null && attributeTypeList != null && attributeList != null) {
-			for (PhenotypeAttribute attr : attributeChangeMap.keySet()) {
-				int ndx = attributeList.indexOf(attr);
-				if (ndx > -1) attributeTypeList.set(ndx, attributeChangeMap.get(attr));
+		if (attributeChangeMap != null) {
+			List<Phenotype> newList = new ArrayList<Phenotype>();
+			for (Phenotype pheno : phenotypeList) {
+				List<PhenotypeAttribute> attrList = pheno.attributeListCopy();
+				List<ATTRIBUTE_TYPE> typeList = pheno.typeListCopy();
+				int nattr = attrList.size();
+				for (int i = 0; i < nattr; i++) {
+					ATTRIBUTE_TYPE newType = attributeChangeMap.get(attrList.get(i));
+					if (newType != null) typeList.set(i, newType);
+				}
+				newList.add(new CorePhenotype(attrList, typeList, "retyped_" + pheno.name()));
 			}
 		}
 	}
@@ -706,28 +778,28 @@ public class PhenotypeBuilder {
 		return new CorePhenotype(attributeList, attributeTypeList, phenotypeName);
 	}
 	
-	private Phenotype joinPhenotypes() {
-		if (phenotypesToJoin.size() < 2) throw new IllegalArgumentException("No join will be made because joining phenotypes requires at least two phenotypes.");
-		if (isConcatenate) return concatenatePhenotypes();
+	private void joinPhenotypes(ACTION joinAction) {
+		if (phenotypeList.size() < 2) throw new IllegalArgumentException("No join will be made because joining phenotypes requires at least two phenotypes.");
 		
-		Iterator<Phenotype> phenoIter = phenotypesToJoin.iterator();
+		Iterator<Phenotype> phenoIter = phenotypeList.iterator();
 		Phenotype firstPhenotype = phenoIter.next();
 		Phenotype secondPhenotype = phenoIter.next();
-		Phenotype mergedPhenotype = mergeTwoPhenotypes(firstPhenotype, secondPhenotype);
-		while (phenoIter.hasNext()) mergedPhenotype = mergeTwoPhenotypes(mergedPhenotype, phenoIter.next());
-		return mergedPhenotype;
+		Phenotype mergedPhenotype = mergeTwoPhenotypes(firstPhenotype, secondPhenotype, joinAction);
+		while (phenoIter.hasNext()) mergedPhenotype = mergeTwoPhenotypes(mergedPhenotype, phenoIter.next(), joinAction);
+		phenotypeList.clear();
+		phenotypeList.add(mergedPhenotype);
 	}
 	
-	private Phenotype concatenatePhenotypes() {
-		int nPheno = phenotypesToJoin.size();
+	private void concatenatePhenotypes() {
+		int nPheno = phenotypeList.size();
 		if (nPheno < 2) throw new IllegalArgumentException("No phenotypes to join.");
 		attributeList = new ArrayList<PhenotypeAttribute>();
 		attributeTypeList = new ArrayList<Phenotype.ATTRIBUTE_TYPE>();
 		
 		//create a new TaxaAttribute
 		List<Taxon> jointTaxaList = new ArrayList<Taxon>();
-		String attrName = phenotypesToJoin.get(0).name();
-		for (Phenotype pheno : phenotypesToJoin) {
+		String attrName = phenotypeList.get(0).name();
+		for (Phenotype pheno : phenotypeList) {
 			TaxaAttribute someTaxa = pheno.taxaAttribute();
 			if (someTaxa == null) throw new IllegalArgumentException(String.format("Phenotypes cannot be concatenated because %s has no taxa.", pheno.name()));
 			jointTaxaList.addAll(someTaxa.allTaxaAsList());
@@ -739,7 +811,7 @@ public class PhenotypeBuilder {
 		//make a list of attribute names (except for taxa) and find out how many total observations there will be
 		HashSet<String> attributeNameSet = new HashSet<>();
 		int totalNumberOfObs = 0;
-		for (Phenotype pheno : phenotypesToJoin) {
+		for (Phenotype pheno : phenotypeList) {
 			int nattr = pheno.numberOfAttributes();
 			totalNumberOfObs += pheno.numberOfObservations();
 			for (int i = 0; i < nattr; i++) {
@@ -751,7 +823,7 @@ public class PhenotypeBuilder {
 		for (String attributeName : attributeNameSet) {
 			ATTRIBUTE_TYPE myType = null;
 			//take the type from the first phenotype with this name
-			for (Phenotype pheno : phenotypesToJoin) {
+			for (Phenotype pheno : phenotypeList) {
 				int attrIndex = pheno.attributeIndexForName(attributeName);
 				if (attrIndex > -1) {
 					myType = pheno.attributeType(attrIndex);
@@ -763,7 +835,7 @@ public class PhenotypeBuilder {
 			if (myType == ATTRIBUTE_TYPE.factor) {
 				String[] values = new String[totalNumberOfObs];
 				int nPreviousObs = 0;
-				for (Phenotype pheno : phenotypesToJoin) {
+				for (Phenotype pheno : phenotypeList) {
 					int nObs = pheno.numberOfObservations();
 					int attrIndex = pheno.attributeIndexForName(attributeName);
 					if (attrIndex > -1) {
@@ -779,7 +851,7 @@ public class PhenotypeBuilder {
 				float[] values = new float[totalNumberOfObs];
 				BitSet missing = new OpenBitSet(totalNumberOfObs);
 				int nPreviousObs = 0;
-				for (Phenotype pheno : phenotypesToJoin) {
+				for (Phenotype pheno : phenotypeList) {
 					int nObs = pheno.numberOfObservations();
 					int attrIndex = pheno.attributeIndexForName(attributeName);
 					if (attrIndex > -1) {
@@ -798,11 +870,11 @@ public class PhenotypeBuilder {
 		}
 		
 		sortAttributes();
-		
-		return new CorePhenotype(attributeList, attributeTypeList, phenotypeName);
+		phenotypeList.clear();
+		phenotypeList.add(new CorePhenotype(attributeList, attributeTypeList, phenotypeName));
 	}
 	
-	private Phenotype mergeTwoPhenotypes(Phenotype pheno1, Phenotype pheno2) {
+	private Phenotype mergeTwoPhenotypes(Phenotype pheno1, Phenotype pheno2, ACTION thisAction) {
 		
 		//build attribute name list for the new phenotype
 		TreeSet<String> attributeNameSet = new TreeSet<>();
@@ -831,7 +903,7 @@ public class PhenotypeBuilder {
 		
 		//create a list of taxa to be included in the merged phenotype
 		TaxaList outTaxa;
-		if (isUnionJoin) outTaxa = TaxaListUtils.getAllTaxa(pheno1.taxa(), pheno2.taxa());
+		if (thisAction.equals(ACTION.union)) outTaxa = TaxaListUtils.getAllTaxa(pheno1.taxa(), pheno2.taxa());
 		else outTaxa = TaxaListUtils.getCommonTaxa(pheno1.taxa(), pheno2.taxa());
 		
 		//for each phenotype create a Multimap with Taxon as key, obs number as value
@@ -1022,10 +1094,7 @@ public class PhenotypeBuilder {
 	}
 	
 	private Phenotype pivotPhenotype() {
-		//TODO implement
-		
 		return null;
 	}
-	
-	
+
 }

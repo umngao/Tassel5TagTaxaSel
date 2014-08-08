@@ -46,7 +46,7 @@ public class NumericAttribute implements PhenotypeAttribute {
 	}
 
 	@Override
-	public PhenotypeAttribute subset(int[] obs) {
+	public PhenotypeAttribute subset(int[] obs, String newName) {
 		int n = obs.length;
 		float[] valueSubset = new float[n];
 		OpenBitSet missingSubset = new OpenBitSet(n);
@@ -54,7 +54,8 @@ public class NumericAttribute implements PhenotypeAttribute {
 			valueSubset[i] = values[obs[i]];
 			if (missing.fastGet(obs[i])) missingSubset.fastSet(i);
 		}
-		return new NumericAttribute(name, valueSubset, missingSubset);
+		if (newName == null) newName = name;
+		return new NumericAttribute(newName, valueSubset, missingSubset);
 	}
 
 	@Override

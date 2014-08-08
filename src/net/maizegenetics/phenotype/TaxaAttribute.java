@@ -59,11 +59,12 @@ public class TaxaAttribute implements PhenotypeAttribute {
 	}
 
 	@Override
-	public PhenotypeAttribute subset(int[] obs) {
+	public PhenotypeAttribute subset(int[] obs, String newName) {
 		int n = obs.length;
 		ArrayList<Taxon> subset = new ArrayList<Taxon>();
 		for (int i = 0; i < n; i++) subset.add(taxaList.get(obs[i]));
-		return new TaxaAttribute(subset);
+		if (newName == null) newName = name;
+		return new TaxaAttribute(subset, newName);
 	}
 
 	@Override
