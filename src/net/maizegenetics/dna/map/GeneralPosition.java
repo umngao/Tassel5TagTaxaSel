@@ -108,6 +108,7 @@ public final class GeneralPosition implements Position {
             myChromosome = Chromosome.getCanonicalChromosome(chr);
             myPosition = position;
             Arrays.fill(myAlleles,GenotypeTable.UNKNOWN_ALLELE);
+            myKnownVariants=getCanonicalAnnotation("VARIANT","");
         }
 
         /**Constructor from an existing position*/
@@ -126,6 +127,7 @@ public final class GeneralPosition implements Position {
             for (Map.Entry<String, String> entry : aCorePosition.getAllAnnotationEntries()) {
                 myAnnotations.add(entry);
             }
+
 //            myKnownVariants=aCorePosition.getKnownVariants(); //todo Fix
         }
         
