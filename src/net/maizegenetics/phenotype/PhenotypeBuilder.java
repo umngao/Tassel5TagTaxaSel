@@ -38,8 +38,8 @@ import net.maizegenetics.util.OpenBitSet;
 public class PhenotypeBuilder {
 	private Logger myLogger = Logger.getLogger(PhenotypeBuilder.class);
 	
-	private enum SOURCE_TYPE{file, phenotype, list};
-	private enum ACTION{importFile, union, intersect, separate, pivot, concatenate, keepTaxa, removeTaxa, keepAttributes, changeType};
+	private enum SOURCE_TYPE{file, phenotype, list, attributes};
+	private enum ACTION{importFile, union, intersect, separate, concatenate, keepTaxa, removeTaxa, keepAttributes, changeType, buildFromAttributes};
 	
 	private SOURCE_TYPE source;
 	private List<ACTION> actionList = new ArrayList<PhenotypeBuilder.ACTION>();
@@ -91,7 +91,7 @@ public class PhenotypeBuilder {
 	 */
 	public PhenotypeBuilder fromPhenotypeList(List<Phenotype> phenotypes) {
 		phenotypeList.addAll(phenotypes);
-		source = SOURCE_TYPE.phenotype;
+		source = SOURCE_TYPE.list;
 		StringBuilder sb = new StringBuilder();
 		for (Phenotype pheno : phenotypes) {
 			if (sb.length() > 0) sb.append(" + ");
@@ -110,12 +110,14 @@ public class PhenotypeBuilder {
 	public PhenotypeBuilder fromAttributeList(List<PhenotypeAttribute> attributes, List<ATTRIBUTE_TYPE> types) {
 		attributeList = attributes;
 		attributeTypeList = types;
-		source = SOURCE_TYPE.list;
+		source = SOURCE_TYPE.attributes;
+		actionList.add(ACTION.buildFromAttributes);
 		return this;
 	}
 	
 	/**
-	 * @return
+	 * @return	a PhenotypeBuilder that will perform a union join of Phenotypes added using one or more of the from methods.
+	 *  A union join returns a Phenotype containing Taxa that are in any of the source Phenotypes.
 	 */
 	public PhenotypeBuilder unionJoin() {
 		actionList.add(ACTION.union);
@@ -123,7 +125,8 @@ public class PhenotypeBuilder {
 	}
 	
 	/**
-	 * @return
+	 * @return	a PhenotypeBuilder that will perform an intersect join of Phenotypes added using one or more of the from methods.
+	 *  An intersect join returns a Phenotype containing only Taxa that are in all of the source Phenotypes.
 	 */
 	public PhenotypeBuilder intersectJoin() {
 		actionList.add(ACTION.intersect);
@@ -210,34 +213,43 @@ public class PhenotypeBuilder {
 	}
 	
 	/**
-	 * @param attributes	a list of attributes on which to pivot the table
-	 * @return	a PhenotypeBuilder that will create a pivoted Phenotype
-	 * This builder converts each of the attribute levels
+	 * @param factors	a list of attributes on which to pivot the table. These must be CategoricalAttributes.
+	 * @return	a PhenotypeBuilder that will create a pivoted Phenotype.
+	 *  Pivoting is equivalent to using the separateOn() method followed by a union join.
 	 */
-	public PhenotypeBuilder pivotOn(List<PhenotypeAttribute> attributes) {
-		for (PhenotypeAttribute attr : attributes) {
+	public PhenotypeBuilder pivotOn(List<PhenotypeAttribute> factors) {
+		for (PhenotypeAttribute attr : factors) {
 			if (!attr.isTypeCompatible(ATTRIBUTE_TYPE.factor)) {
-				String msg = "A pivot attribute is not a factor. Only factors can be used for pivots.";
+				String msg = "One of the attributes in factors is not a CategoricalAttribute. Only CategoricalAttributes (factors) can be used for pivots.";
 				throw new IllegalArgumentException(msg);
 			}
 		}
-		separateByList = attributes;
-		actionList.add(ACTION.pivot);
+		separateByList = factors;
+		actionList.add(ACTION.separate);
+		actionList.add(ACTION.union);
 		return this;
 	}
 	
 	/**
-	 * @return	a new Phenotype built with the supplied parameters
-	 * If the parameters build more than one Phenotype, only one will be returned.
+	 * @param factors	a list of attributes used to create separate Phenotypes. These must be CategoricalAttributes.
+	 * @return	a PhenotypeBuilder that will create a separate Phenotype for each distinct level of the combined factors.
 	 */
-	public Phenotype build() {
-		return buildList().get(0);
+	public PhenotypeBuilder separateOn(List<PhenotypeAttribute> factors) {
+		for (PhenotypeAttribute attr : factors) {
+			if (!attr.isTypeCompatible(ATTRIBUTE_TYPE.factor)) {
+				String msg = "One of the attributes in factors is not a CategoricalAttribute. Only CategoricalAttributes (factors) can be used to separate Phenotype observations.";
+				throw new IllegalArgumentException(msg);
+			}
+		}
+		separateByList = factors;
+		actionList.add(ACTION.separate);
+		return this;
 	}
 	
 	/**
 	 * @return	a list of new Phenotypes built with the supplied parameters
 	 */
-	public List<Phenotype> buildList() {
+	public List<Phenotype> build() {
 		for (ACTION action : actionList) {
 			performAction(action);
 		}
@@ -273,9 +285,8 @@ public class PhenotypeBuilder {
 		case separate:
 			separateByFactors();
 			break;
-		case pivot:
-			separateByFactors();
-			unionJoin();
+		case buildFromAttributes:
+			createPhenotypeFromLists();
 			break;
 		}
 	}
@@ -721,33 +732,38 @@ public class PhenotypeBuilder {
 	}
 	
 	private List<Phenotype> separatePhenotypeByFactors(Phenotype base) {
-		//TODO implement
-		return null;
+		List<Phenotype> phenotypeList = new ArrayList<Phenotype>();
+		phenotypeList.add(base);
+		for (PhenotypeAttribute factor:separateByList) {
+			List<Phenotype> subsettedPhenotypeList = new ArrayList<Phenotype>();
+			for (Phenotype pheno : phenotypeList) subsettedPhenotypeList.addAll(subsetPhenotypeByOneFactor(pheno, (CategoricalAttribute) factor));
+			phenotypeList = subsettedPhenotypeList;
+		}
+		return phenotypeList;
 	}
 	
-	private void sep(Phenotype base) {
-		//temp code to try separate method
-		PhenotypeAttribute factor = separateByList.get(0);
-		CategoricalAttribute cat = (CategoricalAttribute) factor;
-		int whichAttribute = base.attributeIndexForName(cat.name());
-		int nlevels = cat.numberOfLevels();
-		int nattr = base.numberOfAttributes();
-		List<Phenotype> separatePhenotypes = new ArrayList<Phenotype>();
+	private List<Phenotype> subsetPhenotypeByOneFactor(Phenotype base, CategoricalAttribute byFactor) {
+		List<Phenotype> phenoList = new ArrayList<Phenotype>();
+		int nlevels = byFactor.numberOfLevels();
 		for (int i = 0; i < nlevels; i++) {
-			List<PhenotypeAttribute> levelattrList = new ArrayList<PhenotypeAttribute>();
-			List<ATTRIBUTE_TYPE> leveltypeList = new ArrayList<Phenotype.ATTRIBUTE_TYPE>();
-			int[] obsThisLevel = cat.whichObservations(i);
-			String levelName = cat.name() + "." + cat.attributeLabelForIndex(i);
-			for (int a = 0; a < nattr; a++) {
-				if (a != whichAttribute) {
-					PhenotypeAttribute baseAttribute = base.attribute(a);
-					String attrName = baseAttribute.name() + "_" + levelName;
-					levelattrList.add(baseAttribute.subset(obsThisLevel, attrName));
-					leveltypeList.add(base.attributeType(a));
-				}
+			int[] subset = byFactor.whichObservations(i);
+			
+			//create attribute and type lists, then create a new Phenotype
+			List<PhenotypeAttribute> newAttr = new ArrayList<PhenotypeAttribute>();
+			List<ATTRIBUTE_TYPE> newTypes = new ArrayList<Phenotype.ATTRIBUTE_TYPE>();
+			String factorLevelName = byFactor.name() + "." + byFactor.labelList().get(i);
+			String newPhenoName = base.name() + "_" + factorLevelName;
+			for (int j = 0; j < base.numberOfAttributes(); j++) {
+				if (!base.attribute(j).equals(byFactor)) {
+					String newName = null;
+					if (base.attributeType(j) == ATTRIBUTE_TYPE.data) newName = base.attribute(j).name() + "_" + factorLevelName;
+					newAttr.add(base.attribute(j).subset(subset, newName));
+					newTypes.add(base.attributeType(j));
+				} 
 			}
-			separatePhenotypes.add(new PhenotypeBuilder().fromAttributeList(levelattrList, leveltypeList).build());
+			phenoList.add(new CorePhenotype(newAttr, newTypes, newPhenoName));
 		}
+		return phenoList;
 	}
 	
 	private void applyAttributeChangeMap() {
@@ -1093,8 +1109,4 @@ public class PhenotypeBuilder {
 		
 	}
 	
-	private Phenotype pivotPhenotype() {
-		return null;
-	}
-
 }
