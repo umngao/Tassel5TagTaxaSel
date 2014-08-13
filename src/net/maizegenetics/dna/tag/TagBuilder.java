@@ -69,28 +69,6 @@ class Tag2Long extends AbstractTag {
         return length;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        Tag2Long tag2Long = (Tag2Long) o;
-
-        if (length != tag2Long.length) return false;
-        if (val0 != tag2Long.val0) return false;
-        if (val1 != tag2Long.val1) return false;
-
-        return true;
-    }
-
-    @Override
-    public int hashCode() {
-        int result = (int) (val0 ^ (val0 >>> 32));
-        result = 31 * result + (int) (val1 ^ (val1 >>> 32));
-        result = 31 * result + (int) length;
-        return result;
-    }
-
 }
 
 class Tag3Long extends AbstractTag {
@@ -116,29 +94,6 @@ class Tag3Long extends AbstractTag {
         return length;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        Tag3Long tag3Long = (Tag3Long) o;
-
-        if (length != tag3Long.length) return false;
-        if (val0 != tag3Long.val0) return false;
-        if (val1 != tag3Long.val1) return false;
-        if (val2 != tag3Long.val2) return false;
-
-        return true;
-    }
-
-    @Override
-    public int hashCode() {
-        int result = (int) (val0 ^ (val0 >>> 32));
-        result = 31 * result + (int) (val1 ^ (val1 >>> 32));
-        result = 31 * result + (int) (val2 ^ (val2 >>> 32));
-        result = 31 * result + (int) length;
-        return result;
-    }
 }
 
 class TagVarLong extends AbstractTag {
@@ -161,23 +116,4 @@ class TagVarLong extends AbstractTag {
         return length;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        TagVarLong that = (TagVarLong) o;
-
-        if (length != that.length) return false;
-        if (!Arrays.equals(val, that.val)) return false;
-
-        return true;
-    }
-
-    @Override
-    public int hashCode() {
-        int result = Arrays.hashCode(val);
-        result = 31 * result + (int) length;
-        return result;
-    }
 }
