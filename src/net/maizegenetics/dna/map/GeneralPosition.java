@@ -341,6 +341,7 @@ public final class GeneralPosition implements Position {
     @Override
     public String[] getKnownVariants() {
         if((myVariantsAndAnno==null)||(myVariantsAndAnno[0]==null)) return new String[0];
+        if(myVariantsAndAnno[0].getValue().isEmpty()) return new String[0];
         return myVariantsAndAnno[0].getValue().replace("[", "").replace("]", "").split("/");
     }
 
