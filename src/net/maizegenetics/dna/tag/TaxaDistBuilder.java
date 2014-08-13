@@ -144,20 +144,20 @@ abstract class AbstractTaxaDistribution implements TaxaDistribution {
     @Override
     public byte[] encodeTaxaDepth() {
         int[][] tds=taxaWithDepths();
-        ByteBuffer bb=ByteBuffer.allocate(8+maxTaxa()*2);
+        ByteBuffer bb=ByteBuffer.allocate(8+(maxTaxa()/64)+(2*tds[0].length)+(totalDepth()/64));
         bb.putInt(maxTaxa());  //maximum number of taxa with depth
         bb.putInt(tds[0].length);  //number of taxa with depth
         bb.put(UnsignedBytes.checkedCast(tds[0][0]));
         for (int i = 1; i < tds[0].length; i++) {
             int space=tds[0][i]-tds[0][i-1];
-            while(space>0) {
+            while(space>=0) {
                 bb.put(UnsignedBytes.saturatedCast(space));
                 space-=255;
             }
         }
         for (int i = 0; i < tds[1].length; i++) {
             int depth=tds[1][i];
-            while(depth>0) {
+            while(depth>=0) {
                 bb.put(UnsignedBytes.saturatedCast(depth));
                 depth-=255;
             }
