@@ -81,8 +81,8 @@ public class LinkageDisequilibriumComponent extends JComponent {
         int jumpValue = 0;
         for (int i = 0; i< jump.length; i++) {
             if (!locus.equals(theAA.chromosomeName(i+jumpValue))) {
-                jumpValue--;
-                locus = theAA.chromosomeName(i);
+                locus = theAA.chromosomeName(i+jumpValue);
+                jumpValue--;            
                 jump[i] = 1;
             } else {
                 jump[i] = jumpValue;

@@ -212,7 +212,7 @@ class LinkageDiseqDisplayDialog extends JDialog {
 
         this.theLinkageDiseqDisplayPlugin = theQAF;
         this.theLinkageDisequilibrium = theLinkageDisequilibrium;
-        maxWindowSize = theLinkageDisequilibrium.getSiteCount() + theLinkageDisequilibrium.getAlignment().numChromosomes() - 1;
+        maxWindowSize = theLinkageDisequilibrium.getSiteCount();
 
         myXPos = (int)Math.ceil(maxWindowSize/2.0);
         myYPos = (int)Math.ceil(maxWindowSize/2.0);
