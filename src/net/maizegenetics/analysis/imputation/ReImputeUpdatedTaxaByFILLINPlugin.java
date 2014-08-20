@@ -67,13 +67,6 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
         .description("Directory containing donor haplotype files from output of the FILLINFindHaplotypesPlugin. "
                     +"All files with '.gc' in the filename will be read in, only those with matching sites are used")
         .build();
-    private PluginParameter<String> positionSourceHDF5GenoFile 
-        = new PluginParameter.Builder<>("pos", null, String.class)
-        .guiName("Position Source HDF5 Geno File")
-        .required(false)
-        .inFile()
-        .description("Finished (built) HDF5 (*.h5) file to be used as a PositionList source (containing a small number of [ignored] taxa)")
-        .build();
     private PluginParameter<Integer> preferredHaplotypeSize
         = new PluginParameter.Builder<>("hapSize", 8000, Integer.class)
         .guiName("Preferred haplotype size")
@@ -198,12 +191,12 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
         myLogger.info("Creating temporary HDF5 file to hold raw genos for modified taxa (input for FILLIN)");
         String tempRawGenosFileName = "tempRawGenos" + new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss_Z").format(new Date()) + ".h5";
         PositionList positionList;
-        if (positionSourceHDF5GenoFile() == null) {
+//        if (positionSourceHDF5GenoFile() == null) {
             positionList = PositionListBuilder.getInstance(rawGenosReader);
-        } else {
-            IHDF5Reader posListReader = HDF5Factory.openForReading(positionSourceHDF5GenoFile());
-            positionList = PositionListBuilder.getInstance(posListReader);
-        }
+//        } else {
+//            IHDF5Reader posListReader = HDF5Factory.openForReading(positionSourceHDF5GenoFile());
+//            positionList = PositionListBuilder.getInstance(posListReader);
+//        }
         GenotypeTableBuilder gtb =  GenotypeTableBuilder.getTaxaIncremental(positionList, tempPath+tempRawGenosFileName);
         for (Taxon modTaxon : modifiedTaxa) {
             gtb.addTaxon(modTaxon, HDF5Utils.getHDF5GenotypesCalls(rawGenosReader, modTaxon.getName()));
@@ -371,30 +364,6 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
      */
     public ReImputeUpdatedTaxaByFILLINPlugin donorDir(String value) {
         donorDir = new PluginParameter<>(donorDir, value);
-        return this;
-    }
-
-    /**
-     * Finished (built) HDF5 (*.h5) file to be used as a PositionList
-     * source (containing a small number of [ignored] taxa)
-     *
-     * @return Position Source HDF5 Geno File
-     */
-    public String positionSourceHDF5GenoFile() {
-        return positionSourceHDF5GenoFile.value();
-    }
-
-    /**
-     * Set Position Source HDF5 Geno File. Finished (built)
-     * HDF5 (*.h5) file to be used as a PositionList source
-     * (containing a small number of [ignored] taxa)
-     *
-     * @param value Position Source HDF5 Geno File
-     *
-     * @return this plugin
-     */
-    public ReImputeUpdatedTaxaByFILLINPlugin positionSourceHDF5GenoFile(String value) {
-        positionSourceHDF5GenoFile = new PluginParameter<>(positionSourceHDF5GenoFile, value);
         return this;
     }
 
