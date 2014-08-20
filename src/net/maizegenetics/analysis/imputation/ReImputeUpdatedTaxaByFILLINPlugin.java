@@ -3,37 +3,33 @@
  */
 package net.maizegenetics.analysis.imputation;
 
-// standard imports for plugins
 import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
-import net.maizegenetics.plugindef.AbstractPlugin;
-import org.apache.log4j.Logger;
-import net.maizegenetics.plugindef.DataSet;
-import javax.swing.*;
 import java.awt.*;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
-import net.maizegenetics.plugindef.PluginParameter;
-//import net.maizegenetics.plugindef.GeneratePluginCode;
-
-
-// imports specifically needed for this plugin
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import javax.swing.*;
+import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.map.PositionListBuilder;
+import net.maizegenetics.dna.snp.GenotypeTableBuilder;
+import net.maizegenetics.plugindef.AbstractPlugin;
+import net.maizegenetics.plugindef.DataSet;
+//import net.maizegenetics.plugindef.GeneratePluginCode;
+import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.HDF5Utils;
-import java.util.List;
-import java.util.Map;
-import net.maizegenetics.dna.map.PositionList;
-import net.maizegenetics.dna.map.PositionListBuilder;
-import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.util.Utils;
+import org.apache.log4j.Logger;
 
 /**
  * Compares an unfinished HDF5 file containing raw genotypes to a corresponding 
@@ -54,14 +50,14 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
         .guiName("Raw HDF5 Genotype File")
         .required(true)
         .inFile()
-        .description("Input HDF5 (*.h5) file containing raw (unimputed) genotypes")
+        .description("Input, unfinished HDF5 (*.h5) file containing raw (unimputed) genotypes")
         .build();
     private PluginParameter<String> imputedHDF5GenotypeFile 
         = new PluginParameter.Builder<>("imp", null, String.class)
         .guiName("Imputed HDF5 Genotype File")
         .required(true)
         .inFile()
-        .description("Target HDF5 (*.h5) file containing imputed genotypes to be updated")
+        .description("Target, unfinished HDF5 (*.h5) file containing imputed genotypes to be updated")
         .build();
     private PluginParameter<String> donorDir 
         = new PluginParameter.Builder<>("d", null, String.class)
@@ -70,6 +66,13 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
         .required(true)
         .description("Directory containing donor haplotype files from output of the FILLINFindHaplotypesPlugin. "
                     +"All files with '.gc' in the filename will be read in, only those with matching sites are used")
+        .build();
+    private PluginParameter<String> positionSourceHDF5GenoFile 
+        = new PluginParameter.Builder<>("pos", null, String.class)
+        .guiName("Position Source HDF5 Geno File")
+        .required(false)
+        .inFile()
+        .description("Finished (built) HDF5 (*.h5) file to be used as a PositionList source (containing a small number of [ignored] taxa)")
         .build();
     private PluginParameter<Integer> preferredHaplotypeSize
         = new PluginParameter.Builder<>("hapSize", 8000, Integer.class)
@@ -194,7 +197,13 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
     private String createTempInputFileForFILLIN(TaxaList modifiedTaxa) {
         myLogger.info("Creating temporary HDF5 file to hold raw genos for modified taxa (input for FILLIN)");
         String tempRawGenosFileName = "tempRawGenos" + new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss_Z").format(new Date()) + ".h5";
-        PositionList positionList = PositionListBuilder.getInstance(rawGenosReader);
+        PositionList positionList;
+        if (positionSourceHDF5GenoFile() == null) {
+            positionList = PositionListBuilder.getInstance(rawGenosReader);
+        } else {
+            IHDF5Reader posListReader = HDF5Factory.openForReading(positionSourceHDF5GenoFile());
+            positionList = PositionListBuilder.getInstance(posListReader);
+        }
         GenotypeTableBuilder gtb =  GenotypeTableBuilder.getTaxaIncremental(positionList, tempPath+tempRawGenosFileName);
         for (Taxon modTaxon : modifiedTaxa) {
             gtb.addTaxon(modTaxon, HDF5Utils.getHDF5GenotypesCalls(rawGenosReader, modTaxon.getName()));
@@ -362,6 +371,30 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
      */
     public ReImputeUpdatedTaxaByFILLINPlugin donorDir(String value) {
         donorDir = new PluginParameter<>(donorDir, value);
+        return this;
+    }
+
+    /**
+     * Finished (built) HDF5 (*.h5) file to be used as a PositionList
+     * source (containing a small number of [ignored] taxa)
+     *
+     * @return Position Source HDF5 Geno File
+     */
+    public String positionSourceHDF5GenoFile() {
+        return positionSourceHDF5GenoFile.value();
+    }
+
+    /**
+     * Set Position Source HDF5 Geno File. Finished (built)
+     * HDF5 (*.h5) file to be used as a PositionList source
+     * (containing a small number of [ignored] taxa)
+     *
+     * @param value Position Source HDF5 Geno File
+     *
+     * @return this plugin
+     */
+    public ReImputeUpdatedTaxaByFILLINPlugin positionSourceHDF5GenoFile(String value) {
+        positionSourceHDF5GenoFile = new PluginParameter<>(positionSourceHDF5GenoFile, value);
         return this;
     }
 
