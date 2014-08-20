@@ -5,7 +5,6 @@
  */
 package net.maizegenetics.util;
 
-import com.google.common.base.Joiner;
 
 import java.io.BufferedWriter;
 
@@ -51,8 +50,7 @@ public class TableReportBuilder {
         myWriter = Utils.getBufferedWriter(filename);
         myInMemory = false;
         try {
-            myWriter.write(Joiner.on(DELIMITER).join(myColumnNames));
-            myWriter.write("\n");
+            writeRow(columnNames);
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
             throw new IllegalStateException("TableReportBuilder: init: Problem adding headers to file: " + myFilename + ": " + e.getMessage());
@@ -80,15 +78,24 @@ public class TableReportBuilder {
         if (myInMemory) {
             myData.add(row);
         } else {
-            try {
-                myWriter.write(Joiner.on(DELIMITER).join(row));
-                myWriter.write("\n");
-            } catch (Exception e) {
-                myLogger.debug(e.getMessage(), e);
-                throw new IllegalStateException("TableReportBuilder: add: Problem adding row to file: " + myFilename + ": " + e.getMessage());
-            }
+            writeRow(row);
         }
 
+    }
+
+    private void writeRow(Object[] row) {
+        try {
+            for (int i = 0; i < row.length; i++) {
+                if (i != 0) {
+                    myWriter.write(DELIMITER);
+                }
+                myWriter.write(row[i].toString());
+            }
+            myWriter.write("\n");
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("TableReportBuilder: writeRow: Problem adding row to file: " + myFilename + ": " + e.getMessage());
+        }
     }
 
     public TableReport build() {
@@ -104,5 +111,5 @@ public class TableReportBuilder {
             return null;
         }
     }
-
+    
 }
