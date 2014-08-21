@@ -889,7 +889,15 @@ public class GenotypeTableBuilder {
     }
     
     public static void annotateHDF5FileWithGeneralAnnotations(IHDF5Writer writer, GeneralAnnotationStorage annotations) {
-        // TODO
+        String[] DataSetNames = annotations.getTextAnnotation(GenotypeTable.ANNOTATION_DATA_SET_NAME);
+        if (DataSetNames.length > 0) {
+            writer.setStringAttribute(Tassel5HDF5Constants.ROOT, Tassel5HDF5Constants.DATA_SET_NAME, DataSetNames[0]);
+        }
+
+        String[] DataSetDescriptions = annotations.getTextAnnotation(GenotypeTable.ANNOTATION_DATA_SET_DESCRIPTION);
+        if (DataSetDescriptions.length > 0) {
+            writer.setStringAttribute(Tassel5HDF5Constants.ROOT, Tassel5HDF5Constants.DATA_SET_DESCRIPTION, DataSetDescriptions[0]);
+        }
     }
 
     private static enum BuildType {

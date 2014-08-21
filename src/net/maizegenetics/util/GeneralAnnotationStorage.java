@@ -17,6 +17,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import net.maizegenetics.dna.snp.GenotypeTable;
 
 /**
  *
@@ -58,7 +59,12 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
     }
 
     public static GeneralAnnotationStorage getFromHDF5(IHDF5Reader reader) {
-        return null;
+        Builder builder = new Builder();
+        String dataSetName = reader.getStringAttribute(Tassel5HDF5Constants.ROOT, Tassel5HDF5Constants.DATA_SET_NAME);
+        builder.addAnnotation(GenotypeTable.ANNOTATION_DATA_SET_NAME, dataSetName);
+        String dataSetDescrip = reader.getStringAttribute(Tassel5HDF5Constants.ROOT, Tassel5HDF5Constants.DATA_SET_DESCRIPTION);
+        builder.addAnnotation(GenotypeTable.ANNOTATION_DATA_SET_DESCRIPTION, dataSetDescrip);
+        return builder.build();
     }
 
     @Override

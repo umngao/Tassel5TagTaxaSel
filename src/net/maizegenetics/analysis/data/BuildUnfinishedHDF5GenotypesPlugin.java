@@ -70,9 +70,9 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
     
     @Override
     protected void preProcessParameters(DataSet input) {
-        date = "_" + new SimpleDateFormat("yyyyMMdd").format(new Date());
+        date = new SimpleDateFormat("yyyyMMdd").format(new Date());
         String outfile = outputFile();
-        outputFile(outfile.replace("__DATE__", date));
+        outputFile(outfile.replace("__DATE__", "_"+date));
     }
 
     @Override
@@ -122,7 +122,7 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
     }
     
     private String parseDataSetName(String dataSetName) {
-        return dataSetName.replace("__DATE__", date);
+        return dataSetName.replace("__DATE__", "_"+date);
     }
     
     private String parseDataSetDescription(String dataSetDescrip) {
