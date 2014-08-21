@@ -52,12 +52,12 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
     private PluginParameter<String> dataSetName = new PluginParameter.Builder<>("name", null, String.class)
         .guiName("Data set name")
         .required(false)
-        .description("(Optional) Short data set name to be added as an root level annotation under \"/DataSetName\"")
+        .description("(Optional) Short data set name to be added as an root level annotation under \"dataSetName\"")
         .build();
     private PluginParameter<String> dataSetDescription = new PluginParameter.Builder<>("desc", null, String.class)
         .guiName("Data set description")
         .required(false)
-        .description("(Optional) Short data set description to be added as an root level annotation under \"/DataSetDescription\"")
+        .description("(Optional) Short data set description to be added as an root level annotation under \"dataSetDescription\"")
         .build();
 
     public BuildUnfinishedHDF5GenotypesPlugin() {
@@ -228,7 +228,7 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
 
     /**
      * Set Data set name. (Optional) Short data set name to
-     * be added as an root level annotation under "/DataSetName"
+     * be added as an root level annotation under "dataSetName"
      *
      * @param value Data set name
      *
@@ -241,7 +241,7 @@ public class BuildUnfinishedHDF5GenotypesPlugin extends AbstractPlugin {
 
     /**
      * (Optional) Short data set description to be added as
-     * an root level annotation under "/DataSetDescription"
+     * an root level annotation under "dataSetDescription"
      *
      * @return Data set description
      */

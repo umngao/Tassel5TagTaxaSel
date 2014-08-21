@@ -649,7 +649,7 @@ public class GenotypeTableBuilder {
             }
             String name = writer.getFile().getAbsolutePath();
             annotateHDF5File(writer);
-            annotateHDF5FileWithGeneralAnnotations(writer, myAnnotationBuilder.build());
+            GeneralAnnotationStorage.writeToHDF5(writer, Tassel5HDF5Constants.ROOT, myAnnotationBuilder.build());
             HDF5Utils.lockHDF5GenotypeModule(writer);
             HDF5Utils.lockHDF5TaxaModule(writer);
             writer.close();
@@ -888,20 +888,7 @@ public class GenotypeTableBuilder {
     public static void annotateHDF5FileWithRefAllele(IHDF5Writer writer, byte[] refAlleles) {
     }
 
-    public static void annotateHDF5FileWithGeneralAnnotations(IHDF5Writer writer, GeneralAnnotationStorage annotations) {
-        String[] DataSetNames = annotations.getTextAnnotation(GenotypeTable.ANNOTATION_DATA_SET_NAME);
-        if (DataSetNames.length > 0) {
-            writer.setStringAttribute(Tassel5HDF5Constants.ROOT, GenotypeTable.ANNOTATION_DATA_SET_NAME, DataSetNames[0]);
-        }
-
-        String[] DataSetDescriptions = annotations.getTextAnnotation(GenotypeTable.ANNOTATION_DATA_SET_DESCRIPTION);
-        if (DataSetDescriptions.length > 0) {
-            writer.setStringAttribute(Tassel5HDF5Constants.ROOT, GenotypeTable.ANNOTATION_DATA_SET_DESCRIPTION, DataSetDescriptions[0]);
-        }
-    }
-
     private static enum BuildType {
-
         TAXA_INC, SITE_INC
     }
 

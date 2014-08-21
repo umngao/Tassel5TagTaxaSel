@@ -48,8 +48,8 @@ public interface GenotypeTable {
     /**
      * Annotations
      */
-    public static final String ANNOTATION_DATA_SET_NAME = "DATA_SET_NAME";
-    public static final String ANNOTATION_DATA_SET_DESCRIPTION = "DATA_SET_DESCRIPTION";
+    public static final String ANNOTATION_DATA_SET_NAME = "dataSetName";
+    public static final String ANNOTATION_DATA_SET_DESCRIPTION = "dataSetDescription";
 
     public static final String[] GENOTYPE_TABLE_ANNOTATIONS = new String[]{ANNOTATION_DATA_SET_NAME, ANNOTATION_DATA_SET_DESCRIPTION};
 
