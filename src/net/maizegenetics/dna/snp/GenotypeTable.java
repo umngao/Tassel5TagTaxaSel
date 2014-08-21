@@ -44,12 +44,14 @@ public interface GenotypeTable {
     public static String UNKNOWN_ALLELE_STR = "N";
     public static String UNKNOWN_DIPLOID_ALLELE_STR = "N:N";
     public static char UNKNOWN_ALLELE_CHAR = 'N';
-    
+
     /**
      * Annotations
      */
     public static final String ANNOTATION_DATA_SET_NAME = "DATA_SET_NAME";
     public static final String ANNOTATION_DATA_SET_DESCRIPTION = "DATA_SET_DESCRIPTION";
+
+    public static final String[] GENOTYPE_TABLE_ANNOTATIONS = new String[]{ANNOTATION_DATA_SET_NAME, ANNOTATION_DATA_SET_DESCRIPTION};
 
     /**
      * This defines the possible allele scope types.
@@ -892,10 +894,10 @@ public interface GenotypeTable {
      * @return BitStorage
      */
     public BitStorage bitStorage(WHICH_ALLELE allele);
-    
+
     /**
      * Annotations of this Genotype Table. Null if there are none.
-     * 
+     *
      * @return Annotations or null
      */
     public GeneralAnnotationStorage annotations();

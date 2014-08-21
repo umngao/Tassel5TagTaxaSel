@@ -425,7 +425,7 @@ public class GenotypeTableBuilder {
         PositionList pL = PositionListBuilder.getInstance(reader);
         GenotypeCallTable geno = GenotypeCallTableBuilder.buildHDF5(reader);
         AlleleDepth depth = AlleleDepthBuilder.getExistingHDF5Instance(reader);
-        return GenotypeTableBuilder.getInstance(geno, pL, tL, depth, null, null, GeneralAnnotationStorage.getFromHDF5(reader));
+        return GenotypeTableBuilder.getInstance(geno, pL, tL, depth, null, null, GeneralAnnotationStorage.readFromHDF5(reader, Tassel5HDF5Constants.ROOT, GenotypeTable.GENOTYPE_TABLE_ANNOTATIONS));
     }
 
     public static GenotypeTable getInstanceOnlyMajorMinor(GenotypeTable alignment) {
@@ -887,16 +887,16 @@ public class GenotypeTableBuilder {
      */
     public static void annotateHDF5FileWithRefAllele(IHDF5Writer writer, byte[] refAlleles) {
     }
-    
+
     public static void annotateHDF5FileWithGeneralAnnotations(IHDF5Writer writer, GeneralAnnotationStorage annotations) {
         String[] DataSetNames = annotations.getTextAnnotation(GenotypeTable.ANNOTATION_DATA_SET_NAME);
         if (DataSetNames.length > 0) {
-            writer.setStringAttribute(Tassel5HDF5Constants.ROOT, Tassel5HDF5Constants.DATA_SET_NAME, DataSetNames[0]);
+            writer.setStringAttribute(Tassel5HDF5Constants.ROOT, GenotypeTable.ANNOTATION_DATA_SET_NAME, DataSetNames[0]);
         }
 
         String[] DataSetDescriptions = annotations.getTextAnnotation(GenotypeTable.ANNOTATION_DATA_SET_DESCRIPTION);
         if (DataSetDescriptions.length > 0) {
-            writer.setStringAttribute(Tassel5HDF5Constants.ROOT, Tassel5HDF5Constants.DATA_SET_DESCRIPTION, DataSetDescriptions[0]);
+            writer.setStringAttribute(Tassel5HDF5Constants.ROOT, GenotypeTable.ANNOTATION_DATA_SET_DESCRIPTION, DataSetDescriptions[0]);
         }
     }
 
@@ -914,12 +914,12 @@ public class GenotypeTableBuilder {
         myAnnotationBuilder.addAnnotation(key, value);
         return this;
     }
-    
+
     public GenotypeTableBuilder dataSetName(String dataSetName) {
         myAnnotationBuilder.addAnnotation(GenotypeTable.ANNOTATION_DATA_SET_NAME, dataSetName);
         return this;
     }
-    
+
     public GenotypeTableBuilder dataSetDescription(String dataSetDescription) {
         myAnnotationBuilder.addAnnotation(GenotypeTable.ANNOTATION_DATA_SET_DESCRIPTION, dataSetDescription);
         return this;

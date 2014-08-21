@@ -6,6 +6,7 @@
 package net.maizegenetics.util;
 
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
+import ch.systemsx.cisd.hdf5.IHDF5Writer;
 
 import com.google.common.collect.SetMultimap;
 
@@ -17,7 +18,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import net.maizegenetics.dna.snp.GenotypeTable;
 
 /**
  *
@@ -58,13 +58,27 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
         return new Builder();
     }
 
-    public static GeneralAnnotationStorage getFromHDF5(IHDF5Reader reader) {
+    public static GeneralAnnotationStorage readFromHDF5(IHDF5Reader reader, String annotationRootPath, String[] annotationKeys) {
         Builder builder = new Builder();
-        String dataSetName = reader.getStringAttribute(Tassel5HDF5Constants.ROOT, Tassel5HDF5Constants.DATA_SET_NAME);
-        builder.addAnnotation(GenotypeTable.ANNOTATION_DATA_SET_NAME, dataSetName);
-        String dataSetDescrip = reader.getStringAttribute(Tassel5HDF5Constants.ROOT, Tassel5HDF5Constants.DATA_SET_DESCRIPTION);
-        builder.addAnnotation(GenotypeTable.ANNOTATION_DATA_SET_DESCRIPTION, dataSetDescrip);
+        for (String annotation : annotationKeys) {
+            builder.addAnnotation(annotation, reader.getStringAttribute(annotationRootPath, annotation));
+        }
         return builder.build();
+    }
+
+    public static void writeToHDF5(IHDF5Writer writer, String annotationRootPath, String[] annotationKeys, String[] values) {
+        if (annotationKeys.length != values.length) {
+            throw new IllegalArgumentException("GeneralAnnotationStorage: writeToHDF5: annotation keys length: " + annotationKeys.length + " should match values length: " + values.length);
+        }
+        for (int i = 0; i < annotationKeys.length; i++) {
+            writer.setStringAttribute(annotationRootPath, annotationKeys[i], values[i]);
+        }
+    }
+
+    public static void writeToHDF5(IHDF5Writer writer, String annotationRootPath, GeneralAnnotationStorage annotations) {
+        for (Map.Entry<String, String> current : annotations.getAllAnnotationEntries()) {
+            writer.setStringAttribute(annotationRootPath, current.getKey(), current.getValue());
+        }
     }
 
     @Override

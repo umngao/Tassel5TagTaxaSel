@@ -16,8 +16,6 @@ import ch.systemsx.cisd.hdf5.HDF5IntStorageFeatures;
 public final class Tassel5HDF5Constants {
 
     public static final String ROOT = "/";
-    public static final String DATA_SET_NAME = "DataSetName";
-    public static final String DATA_SET_DESCRIPTION = "DataSetDescription";
 
     // Genotypes Module
     public static final String GENOTYPES_MODULE = "Genotypes";
