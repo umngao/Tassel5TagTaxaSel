@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.zip.GZIPInputStream;
@@ -188,6 +189,51 @@ public final class Utils {
 
         }
         return packages;
+    }
+
+    public static Set<String> getTasselClasses() {
+
+        String classpath = System.getProperty("java.class.path");
+        String[] paths = classpath.split(File.pathSeparator);
+        String tasselPath = null;
+        for (String path : paths) {
+            if (path.trim().length() != 0) {
+                File file = new File(path);
+                if (file.exists()) {
+                    tasselPath = file.getAbsolutePath();
+                    if (tasselPath.endsWith("sTASSEL.jar")) {
+                        break;
+                    }
+                }
+            }
+
+        }
+
+        Set<String> classes = new LinkedHashSet<>();
+        ZipFile zFile = null;
+        try {
+            zFile = new ZipFile(tasselPath);
+            Enumeration<? extends ZipEntry> entries = zFile.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                if (!entry.isDirectory()) {
+                    String name = entry.getName().replace(File.separator, ".");
+                    if ((name.endsWith(".class")) && (!name.contains("$"))) {
+                        name = name.substring(0, name.lastIndexOf(".class"));
+                        classes.add(name);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                zFile.close();
+            } catch (Exception e) {
+                // do nothing
+            }
+        }
+        return classes;
     }
 
     public static Set<String> readDirectory(String path) {
