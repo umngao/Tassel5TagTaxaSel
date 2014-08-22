@@ -27,7 +27,7 @@ import org.w3c.dom.NodeList;
 
 /**
  *
- * @author terry
+ * @author Terry Casstevens
  */
 public class TasselPipelineXMLUtil {
 
@@ -174,6 +174,10 @@ public class TasselPipelineXMLUtil {
     }
 
     private static boolean isSelfDescribingPlugin(String str) {
+
+        if (str.startsWith("-")) {
+            str = str.substring(1);
+        }
 
         List<String> matches = Utils.getFullyQualifiedClassNames(str);
         for (String current : matches) {
