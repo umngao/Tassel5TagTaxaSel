@@ -52,9 +52,7 @@ import net.maizegenetics.util.Utils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
-import java.awt.*;
 import java.io.BufferedReader;
-import java.lang.reflect.Constructor;
 import java.util.*;
 import java.util.List;
 import java.util.regex.Pattern;
