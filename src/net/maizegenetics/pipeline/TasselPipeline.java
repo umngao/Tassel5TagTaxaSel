@@ -65,9 +65,28 @@ import net.maizegenetics.util.LoggingUtils;
 
 /**
  *
- * @author terryc
+ * @author Terry Casstevens
  */
 public class TasselPipeline implements PluginListener {
+
+    public static enum FLAGS {
+
+        t, s, k, q, h, h5, hdf5Schema, r, plink, fasta, geneticMap,
+        table, vcf, readSerialAlignment, importGuess, projection,
+        convertTOPMtoHDF5, retainRareAlleles, union, intersect, separate,
+        homozygous, synonymizer, mergeGenotypeTables, mergeAlignmentsSameSites,
+        excludeLastTrait, mlm, glm, td_csv, td_tab, td_gui, diversity, ld, ldd,
+        ck, tree, gs, distanceMatrix, distMatrixRanges, genotypeSummary,
+        export, filterAlign, numericalGenoTransform, includeTaxa,
+        includeTaxaInFile, excludeTaxa, excludeTaxaInFile, includeSiteNames,
+        includeSiteNamesInFile, excludeSiteNames, excludeSiteNamesInFile,
+        subsetSites, subsetTaxa, newCoordinates;
+
+        @Override
+        public String toString() {
+            return "-" + super.toString();
+        }
+    };
 
     private static final Logger myLogger = Logger.getLogger(TasselPipeline.class);
     private final TASSELMainFrame myMainFrame;
@@ -164,6 +183,7 @@ public class TasselPipeline implements PluginListener {
         }
 
         args = addForkFlagsIfNeeded(args);
+        myLogger.info("Tassel Pipeline Arguments: " + Arrays.deepToString(args));
         int index = 0;
         while (index < args.length) {
 
