@@ -411,7 +411,8 @@ abstract public class AbstractPlugin implements Plugin {
         myLogger.info(builder.toString());
     }
 
-    private String getUsage() {
+    @Override
+    public String getUsage() {
 
         StringBuilder builder = new StringBuilder();
         builder.append(Utils.getBasename(getClass().getName()));

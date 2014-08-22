@@ -1275,14 +1275,14 @@ public class TasselPipeline implements PluginListener {
                         String possibleClassName = current.substring(1);
                         List<String> matches = Utils.getFullyQualifiedClassNames(possibleClassName);
                         for (String match : matches) {
-                            plugin = getPluginInstance(match);
+                            plugin = Plugin.getPluginInstance(match, myMainFrame);
                             if (plugin != null) {
                                 break;
                             }
                         }
 
                         if (plugin == null) {
-                            plugin = getPluginInstance(possibleClassName);
+                            plugin = Plugin.getPluginInstance(possibleClassName, myMainFrame);
                         }
 
                         if (plugin != null) {
@@ -1342,29 +1342,6 @@ public class TasselPipeline implements PluginListener {
             myLogger.warn("parseArgs: no arguments specified.");
         }
 
-    }
-
-    private Plugin getPluginInstance(String className) {
-        try {
-            Class currentMatch = Class.forName(className);
-            Constructor constructor = currentMatch.getConstructor(Frame.class);
-            return (Plugin) constructor.newInstance(myMainFrame);
-        } catch (Exception ex) {
-            try {
-                Class currentMatch = Class.forName(className);
-                Constructor constructor = currentMatch.getConstructor(Frame.class, boolean.class);
-                return (Plugin) constructor.newInstance(myMainFrame, false);
-            } catch (NoSuchMethodException nsme) {
-                myLogger.warn("Self-describing Plugins should implement this constructor: " + className);
-                myLogger.warn("public Plugin(Frame parentFrame, boolean isInteractive) {");
-                myLogger.warn("   super(parentFrame, isInteractive);");
-                myLogger.warn("}");
-                return null;
-            } catch (Exception e) {
-                e.printStackTrace();
-                return null;
-            }
-        }
     }
 
     public static String[] addForkFlagsIfNeeded(String[] args) {

@@ -8,10 +8,12 @@ import net.maizegenetics.util.ProgressListener;
 
 import javax.swing.*;
 import java.awt.*;
+import java.lang.reflect.Constructor;
+import org.apache.log4j.Logger;
 
 /**
  *
- * @author terryc
+ * @author Terry Casstevens
  */
 public interface Plugin extends PluginListener, ProgressListener, Runnable {
 
@@ -182,4 +184,64 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
      * @return description
      */
     public String pluginDescription();
+
+    /**
+     * Gets the Usage Statement for this Plugin.
+     *
+     * @return Usage Statement
+     */
+    public String getUsage();
+
+    static final Logger myLogger = Logger.getLogger(Plugin.class);
+
+    /**
+     * Gets instance of Plugin
+     *
+     * @param className class name
+     * @param frame frame (can be null)
+     *
+     * @return Plugin
+     */
+    public static Plugin getPluginInstance(String className, Frame frame) {
+        try {
+            Class currentMatch = Class.forName(className);
+            Constructor constructor = currentMatch.getConstructor(Frame.class);
+            return (Plugin) constructor.newInstance(frame);
+        } catch (Exception ex) {
+            try {
+                Class currentMatch = Class.forName(className);
+                Constructor constructor = currentMatch.getConstructor(Frame.class, boolean.class);
+                return (Plugin) constructor.newInstance(frame, false);
+            } catch (NoSuchMethodException nsme) {
+                myLogger.warn("Self-describing Plugins should implement this constructor: " + className);
+                myLogger.warn("public Plugin(Frame parentFrame, boolean isInteractive) {");
+                myLogger.warn("   super(parentFrame, isInteractive);");
+                myLogger.warn("}");
+                return null;
+            } catch (Exception e) {
+                myLogger.debug(e.getMessage(), e);
+                return null;
+            }
+        }
+    }
+    
+    /**
+     * Returns whether given class name is Plugin.
+     * 
+     * @param className class name
+     * 
+     * @return true if class is Plugin
+     */
+    public static boolean isPlugin(String className) {
+        try {
+            Class currentMatch = Class.forName(className);
+            if (!currentMatch.isInterface() && Plugin.class.isAssignableFrom(currentMatch)) {
+                return true;
+            } else {
+                return false;
+            }
+        } catch (Exception ex) {
+            return false;
+        }
+    }
 }

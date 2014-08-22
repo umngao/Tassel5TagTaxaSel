@@ -64,7 +64,7 @@ public class ExtractHapmapSubsetPlugin extends AbstractPlugin {
 		}
 	}
 
-	public static String getUsage() {
+	public String getUsage() {
 		StringBuilder usage = new StringBuilder("The ExtractHapmapSubsetPlugin requires the following parameter:\n");
 		usage.append("-h or -inputfile : a hapmap file containing the full data set.\n");
 		usage.append("-o or -outputfile : the name of the file that will contain the subset specified by the pedfile.\n");
