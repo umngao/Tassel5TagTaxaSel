@@ -1,5 +1,5 @@
 /**
- * Data structures for holding raw sequence data, including Illumina, PacBio, Nanapore, etc.
+ * Data structures for holding raw sequence data (only Fastq currently), including Illumina, PacBio, Nanapore, etc.
  * This package provides methods for quality control, reformatting and contiging pair end sequence.
  *<p>
  * Definitions:
