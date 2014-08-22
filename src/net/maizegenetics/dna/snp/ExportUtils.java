@@ -143,6 +143,7 @@ public class ExportUtils {
                         } catch (Exception e) {
                             String[] b = alignment.genotypeAsStringArray(taxa, site);
                             bw.close();
+                            myLogger.debug(e.getMessage(), e);
                             throw new IllegalArgumentException("There is no String representation for diploid values: " + b[0] + ":" + b[1] + " getBase(): 0x" + Integer.toHexString(alignment.genotype(taxa, site)) + "\nTry Exporting as Diploid Values.");
                         }
                         if ((baseIUPAC == null) || baseIUPAC.equals("?")) {
@@ -173,7 +174,7 @@ public class ExportUtils {
             }
             return fullFileName;
         } catch (Exception e) {
-            e.printStackTrace();
+            myLogger.debug(e.getMessage(), e);
             throw new IllegalArgumentException("Error writing Hapmap file: " + filename + ": " + ExceptionUtils.getExceptionCauses(e));
         } finally {
             try {
