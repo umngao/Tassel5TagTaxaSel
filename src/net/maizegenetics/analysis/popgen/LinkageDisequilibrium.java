@@ -168,27 +168,27 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
     }
 
     private void initMatrices() {
-        int numSites = myAlignment.numberOfSites();
+        long numSites = myAlignment.numberOfSites();
         if (myCurrDesign == testDesign.All) {
-            myTotalTests = numSites * (numSites - 1) / 2;
+            myTotalTests = numSites * (numSites - 1l) / 2l;
         } else if (myCurrDesign == testDesign.SlidingWindow) {
-            long n = Math.min(numSites - 1, myWindowSize);
-            myTotalTests = ((n * (n + 1)) / 2) + (numSites - n - 1) * n;
+            long n = Math.min(numSites - 1l, myWindowSize);
+            myTotalTests = ((n * (n + 1l)) / 2l) + (numSites - n - 1l) * n;
         } else if (myCurrDesign == testDesign.SiteByAll) {
-            myTotalTests = numSites - 1;
+            myTotalTests = numSites - 1l;
         } else if (myCurrDesign == testDesign.SiteList) {
             long n = mySiteList.length;
-            myTotalTests = ((n * (n + 1)) / 2) + (numSites - n - 1) * n;
+            myTotalTests = ((n * (n + 1l)) / 2l) + (numSites - n - 1l) * n;
         }
         if (myIsAccumulativeReport) {
             myAccumulativeInterval = 1.0f / (float) myNumAccumulativeBins;
             myAccumulativeRValueBins = new int[myNumAccumulativeBins + 1];
         } else {
-            myMapResults = new OpenLongObjectHashMap(numSites);
+            myMapResults = new OpenLongObjectHashMap((int)numSites);
         }
 
     }
-
+    
     private long getMapKey(int r, int c) {
         return (c < r) ? (((long) c * myAlignment.numberOfSites()) + r) : (((long) r * myAlignment.numberOfSites()) + c);
     }
@@ -213,7 +213,7 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
         for (long currTest = 0; currTest < myTotalTests; currTest++) {
             int r = getRowFromIndex(currTest);
             int c = getColFromIndex(currTest);
-            int currentProgress = (int) ((double) 100.0 * ((double) currTest / (double) myTotalTests));
+            int currentProgress = (int) (100.0 * ((double) currTest / (double) myTotalTests));
             fireProgress(currentProgress);
             BitSet rMj = workingAlignment.allelePresenceForAllTaxa(r, WHICH_ALLELE.Major);
             BitSet rMn = workingAlignment.allelePresenceForAllTaxa(r, WHICH_ALLELE.Minor);
@@ -516,7 +516,7 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
         }
         sw.write("\n");
 
-        for (int r = 0; r < myTotalTests; r++) {
+        for (long r = 0; r < myTotalTests; r++) {
             Object[] theRow = getRow(r);
             for (int i = 0; i < theRow.length; i++) {
                 sw.write(theRow[i].toString());
@@ -612,7 +612,7 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
         if (myIsAccumulativeReport) {
             return myNumAccumulativeBins + 1;
         } else {
-            return (int) myTotalTests;
+            return myTotalTests;
         }
     }
 

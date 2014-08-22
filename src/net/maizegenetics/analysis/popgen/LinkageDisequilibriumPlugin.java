@@ -120,14 +120,14 @@ public class LinkageDisequilibriumPlugin extends AbstractPlugin {
 
     private DataSet processDatum(Datum input) {
         GenotypeTable aa = (GenotypeTable) input.getData();
-        LinkageDisequilibrium theLD = new LinkageDisequilibrium(aa, myWindowSize, myLDType, myTestSite, this, myIsAccumulateResults, myNumAccumulateIntervals, myPossibleSiteList, myHetTreatment);
         try {
+            LinkageDisequilibrium theLD = new LinkageDisequilibrium(aa, myWindowSize, myLDType, myTestSite, this, myIsAccumulateResults, myNumAccumulateIntervals, myPossibleSiteList, myHetTreatment);
             theLD.run();
             Datum td = new Datum("LD:" + input.getName(), theLD, "LD Analysis");
             DataSet tds = new DataSet(td, this);
             return tds;
         } catch (Exception e) {
-            e.printStackTrace();
+            myLogger.error(e.getMessage(), e);
             StringBuilder builder = new StringBuilder();
             builder.append("Unable to run Linkage Disequilibrium analysis ");
             builder.append(e.getMessage());
