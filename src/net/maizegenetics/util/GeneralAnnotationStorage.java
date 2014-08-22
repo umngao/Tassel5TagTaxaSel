@@ -61,7 +61,9 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
     public static GeneralAnnotationStorage readFromHDF5(IHDF5Reader reader, String annotationRootPath, String[] annotationKeys) {
         Builder builder = new Builder();
         for (String annotation : annotationKeys) {
-            builder.addAnnotation(annotation, reader.getStringAttribute(annotationRootPath, annotation));
+            if (reader.hasAttribute(annotationRootPath, annotation)) {
+                builder.addAnnotation(annotation, reader.getStringAttribute(annotationRootPath, annotation));
+            }
         }
         return builder.build();
     }
@@ -76,6 +78,9 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
     }
 
     public static void writeToHDF5(IHDF5Writer writer, String annotationRootPath, GeneralAnnotationStorage annotations) {
+        if (annotations == null) {
+            return;
+        }
         for (Map.Entry<String, String> current : annotations.getAllAnnotationEntries()) {
             writer.setStringAttribute(annotationRootPath, current.getKey(), current.getValue());
         }
