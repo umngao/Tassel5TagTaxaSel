@@ -166,6 +166,11 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 	}
 
 	@Override
+	public PhenotypeAttribute changeName(String newName) {
+		return new CategoricalAttribute(newName, allLabels());
+	}
+
+	@Override
 	public boolean isMissing(int obs) {
 		return missing.fastGet(obs);
 	}

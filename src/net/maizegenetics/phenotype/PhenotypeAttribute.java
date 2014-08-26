@@ -20,15 +20,17 @@ public interface PhenotypeAttribute {
 	Object allValues();
 	
 	/**
-	 * @param obs	an array of observation numbers
-	 * @return	an attribute equivalent to this one but with a subset of observations specified by obs
-	 */
-	/**
 	 * @param obs		an array of observation numbers
 	 * @param newName	The name for the new PhenotypeAttribute
 	 * @return			a new PhenotypeAttribute equivalent to this one but with a subset of observations specified by obs
 	 */
 	PhenotypeAttribute subset(int[] obs, String newName);
+	
+	/**
+	 * @param newName	a new name for this PhenotypeAttribute
+	 * @return			a copy of this PhenotypeAttribute with newName as its name
+	 */
+	PhenotypeAttribute changeName(String newName);
 	
 	/**
 	 * @param obs	the observation number
@@ -62,4 +64,5 @@ public interface PhenotypeAttribute {
 	 * @return	true if type is compatible with this attribute
 	 */
 	boolean isTypeCompatible(ATTRIBUTE_TYPE type);
+	
 }

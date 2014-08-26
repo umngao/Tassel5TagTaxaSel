@@ -21,7 +21,9 @@ import org.apache.log4j.Logger;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Multiset;
 
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
@@ -55,6 +57,8 @@ public class PhenotypeBuilder {
 	private List<Taxon> taxaToRemove = null;
   	private int[] indexOfAttributesToKeep = null;
 	private Map<PhenotypeAttribute, ATTRIBUTE_TYPE> attributeChangeMap = null;
+	
+	private boolean addSourceDataFactor = false;
 	
 	public PhenotypeBuilder() {
 		
@@ -797,18 +801,24 @@ public class PhenotypeBuilder {
 	private void joinPhenotypes(ACTION joinAction) {
 		if (phenotypeList.size() < 2) throw new IllegalArgumentException("No join will be made because joining phenotypes requires at least two phenotypes.");
 		
-		Iterator<Phenotype> phenoIter = phenotypeList.iterator();
-		Phenotype firstPhenotype = phenoIter.next();
-		Phenotype secondPhenotype = phenoIter.next();
-		Phenotype mergedPhenotype = mergeTwoPhenotypes(firstPhenotype, secondPhenotype, joinAction);
-		while (phenoIter.hasNext()) mergedPhenotype = mergeTwoPhenotypes(mergedPhenotype, phenoIter.next(), joinAction);
-		phenotypeList.clear();
-		phenotypeList.add(mergedPhenotype);
+		if (addSourceDataFactor) {
+			mergePhenotypesWithDataSourceFactor();
+		} else {
+//			phenotypeList = makeAttributeNamesDifferent(phenotypeList);
+			Iterator<Phenotype> phenoIter = phenotypeList.iterator();
+			Phenotype firstPhenotype = phenoIter.next();
+			Phenotype secondPhenotype = phenoIter.next();
+			Phenotype mergedPhenotype = mergeTwoPhenotypes(firstPhenotype, secondPhenotype, joinAction);
+			while (phenoIter.hasNext()) mergedPhenotype = mergeTwoPhenotypes(mergedPhenotype, phenoIter.next(), joinAction);
+			phenotypeList.clear();
+			phenotypeList.add(mergedPhenotype);
+		}
+		
 	}
 	
 	private void concatenatePhenotypes() {
 		int nPheno = phenotypeList.size();
-		if (nPheno < 2) throw new IllegalArgumentException("No phenotypes to join.");
+		if (nPheno < 2) throw new IllegalArgumentException("No phenotypes to join: must specify at least two phenotypes.");
 		attributeList = new ArrayList<PhenotypeAttribute>();
 		attributeTypeList = new ArrayList<Phenotype.ATTRIBUTE_TYPE>();
 		
@@ -893,6 +903,7 @@ public class PhenotypeBuilder {
 	private Phenotype mergeTwoPhenotypes(Phenotype pheno1, Phenotype pheno2, ACTION thisAction) {
 		
 		//build attribute name list for the new phenotype
+		//use a TreeSet so that each name is used once and so that the names are sorted
 		TreeSet<String> attributeNameSet = new TreeSet<>();
 		
 		int nAttributes1 = pheno1.numberOfAttributes();
@@ -909,11 +920,12 @@ public class PhenotypeBuilder {
 		ArrayList<ATTRIBUTE_TYPE> typeList = new ArrayList<>();
 		
 		//create a type list for these attribute names
+		//if a name is used in both phenotypes, and the attribute types do not match, throw an error
 		for (String name : attributeNameList) {
-			 int ndx = pheno1.attributeIndexForName(name);
-			 if (ndx > -1) typeList.add(pheno1.attributeType(ndx));
-			 else {
-				 typeList.add(pheno2.attributeType(pheno2.attributeIndexForName(name)));
+				 int ndx = pheno1.attributeIndexForName(name);
+				 if (ndx > -1) typeList.add(pheno1.attributeType(ndx));
+				 else {
+					 typeList.add(pheno2.attributeType(pheno2.attributeIndexForName(name)));
 			 }
 		}
 		
@@ -936,21 +948,14 @@ public class PhenotypeBuilder {
 		//create a list of new observations
 		//first find the factors (if any) in common
 		//for each factor in common record index in pheno1 and pheno2
+		
+		//  if pheno1 and pheno2 have any factors with the same name then these become merge factors
+		//  only merge observations that have the same Taxa name and the same values for merge factors
 		ArrayList<String> mergeFactors = new ArrayList<String>();
 		ArrayList<int[]> mergeFactorIndex = new ArrayList<>();
 		int numberOfMergeFactors;
-		if (pheno1.numberOfAttributesOfType(ATTRIBUTE_TYPE.factor) == 0 || pheno2.numberOfAttributesOfType(ATTRIBUTE_TYPE.factor) == 0) numberOfMergeFactors = 0;
-		else {
-			int[] factorIndex = pheno1.attributeIndicesOfType(ATTRIBUTE_TYPE.factor);
-			for (int ndx1:factorIndex) {
-				String factorName = pheno1.attributeName(ndx1);
-				int ndx2 = pheno2.attributeIndexForName(factorName);
-				if (ndx2 > -1 && pheno2.attributeType(ndx2) == ATTRIBUTE_TYPE.factor) {
-					mergeFactors.add(factorName);
-					mergeFactorIndex.add(new int[]{ndx1, ndx2});
-				}
-			}
-		}
+		mergeFactors.addAll(listCommonNames(pheno1.attributeListOfType(ATTRIBUTE_TYPE.factor), pheno2.attributeListOfType(ATTRIBUTE_TYPE.factor)));
+		mergeFactors.addAll(listCommonNames(pheno1.attributeListOfType(ATTRIBUTE_TYPE.covariate), pheno2.attributeListOfType(ATTRIBUTE_TYPE.covariate)));
 		numberOfMergeFactors = mergeFactors.size();
 		
 		if (numberOfMergeFactors > 0) {
@@ -982,6 +987,7 @@ public class PhenotypeBuilder {
 						wasPheno2ObsUsed[obs2Count] = true;
 						mergeObservation.add(new int[]{obs1, obs2});
 						listOfTaxaForObservations.add(taxon);
+						break;
 					}
 					obs2Count++;
 				}
@@ -989,6 +995,7 @@ public class PhenotypeBuilder {
 					mergeObservation.add(new int[]{obs1, -1});
 					listOfTaxaForObservations.add(taxon);
 				}
+					
 			}
 			int obs2Count = 0;
 			for (Integer obs2:pheno2obs) {
@@ -1018,6 +1025,7 @@ public class PhenotypeBuilder {
 			
 			switch(myType) {
 			case data:
+				
 			case covariate:
 				float[] myFloatData = new float[nObs];
 				BitSet myMissing = new OpenBitSet(nObs);
@@ -1069,6 +1077,163 @@ public class PhenotypeBuilder {
 		}
 		
 		return new CorePhenotype(newAttributes, newTypes, phenotypeName);
+	}
+	
+	private List<Phenotype> makeAttributeNamesDifferent(List<Phenotype> phenoList) {
+		int npheno = phenoList.size();
+		
+		//add all attribute names from phenoList to attrNameSet
+		Multiset<String> attrNameSet = HashMultiset.create();
+		for (Phenotype pheno : phenoList) {
+			for (int i = 0; i < pheno.numberOfAttributes(); i++) {
+				if (pheno.attributeType(i) != ATTRIBUTE_TYPE.taxa) attrNameSet.add(pheno.attributeName(i));
+			}
+		}
+
+		//if an attribute name appears in more than one of phenotypes, append the phenotype number to it for each phenotype that uses it
+		ArrayList<HashMap<String, String>> attrNameMapList = new ArrayList<>();
+		for ( int i = 0; i < npheno; i++) {
+			attrNameMapList.add(new HashMap<>());
+		}
+		
+		for (String attrName : attrNameSet) {
+			if (attrNameSet.count(attrName) > 1) {
+				for ( int i = 0; i < npheno; i++) {
+					int ndx = phenoList.get(i).attributeIndexForName(attrName);
+					if (ndx > -1) {
+						attrNameMapList.get(i).put(attrName, attrName + "." + i);
+					}
+				}
+			}
+		}
+		
+		//create a new phenotype with changed names as necessary
+		List<Phenotype> newPhenotypeList = new ArrayList<Phenotype>();
+		for ( int i = 0; i < npheno; i++) {
+			if (attrNameMapList.get(i).size() > 0) {
+				List<PhenotypeAttribute> attrList = phenoList.get(i).attributeListCopy();
+				List<ATTRIBUTE_TYPE> typeList = phenoList.get(i).typeListCopy();
+				for (String oldname : attrNameMapList.get(i).keySet()) {
+					int ndx = phenoList.get(i).attributeIndexForName(oldname);
+					if (ndx > -1) {
+						PhenotypeAttribute newAttr = phenoList.get(i).attribute(ndx).changeName(attrNameMapList.get(i).get(oldname));
+						attrList.set(ndx, newAttr);
+					}
+				}
+				newPhenotypeList.add(new CorePhenotype(attrList, typeList, phenoList.get(i).name()));
+			} else {
+				newPhenotypeList.add(phenoList.get(i));
+			}
+		}
+		
+		return newPhenotypeList;
+	}
+	
+	private void mergePhenotypesWithDataSourceFactor() {
+		//create lists of attribute names and types
+		HashMap<String, ATTRIBUTE_TYPE> typeMap = new HashMap<>();
+		for (Phenotype pheno : phenotypeList) {
+			for (int i = 0; i < pheno.numberOfAttributes(); i++) {
+				if (pheno.attributeType(i) != ATTRIBUTE_TYPE.taxa) typeMap.put(pheno.attributeName(i), pheno.attributeType(i));
+			}
+		}
+		
+		ArrayList<String> attrNames = new ArrayList<>(typeMap.keySet());
+		Collections.sort(attrNames);
+		List<ATTRIBUTE_TYPE> newTypeList = new ArrayList<Phenotype.ATTRIBUTE_TYPE>();
+		for (String aname : attrNames) newTypeList.add(typeMap.get(aname));
+		
+		//number of observations in resulting Phenotype
+		int totalObservations = 0;
+		for (Phenotype ph :phenotypeList) totalObservations += ph.numberOfObservations();
+
+		ArrayList<Object> attrData = new ArrayList<>();
+		ArrayList<OpenBitSet> missingData = new ArrayList<>();
+		for (String aname:attrNames) {
+			missingData.add(new OpenBitSet(totalObservations)); 
+			ATTRIBUTE_TYPE atype = typeMap.get(aname);
+			if (atype == ATTRIBUTE_TYPE.covariate || atype == ATTRIBUTE_TYPE.data) {
+				attrData.add(new float[0]);
+			} else {
+				attrData.add(new String[0]);
+			}
+		}
+		
+		List<Taxon> taxaList = new ArrayList<Taxon>();
+		ArrayList<String> dataSourceNames = new ArrayList<>();
+		int startObs = 0;
+		for (int p = 0; p < phenotypeList.size(); p++) {
+			Phenotype pheno = phenotypeList.get(p);
+			int nobs = pheno.numberOfObservations();
+			taxaList.addAll(pheno.taxa());
+			String sourceName = pheno.name();
+			for (int i = 0; i < pheno.numberOfObservations(); i++) dataSourceNames.add(sourceName);
+			for (int a = 0; a < attrNames.size(); a++) {
+				String aname = attrNames.get(a);
+				int ndx = pheno.attributeIndexForName(aname);
+				OpenBitSet md = missingData.get(a);
+				Object data = attrData.get(a);
+				if (ndx > -1) {
+					if (data instanceof String[]) {
+						String[] stringData = (String[]) data;
+						for (int i = startObs; i < nobs; i++) {
+							int origObs = i - startObs;
+							if (pheno.isMissing(origObs, ndx)) md.fastSet(i);
+							stringData[i] = (String) pheno.value(origObs, ndx);
+						}
+					} else {
+						float[] floatData = (float[]) data;
+						for (int i = startObs; i < nobs; i++) {
+							int origObs = i - startObs;
+							if (pheno.isMissing(origObs, ndx)) md.fastSet(i);
+							floatData[i] = (Float) pheno.value(origObs, ndx);;
+						}
+					}
+				} else {
+					if (data instanceof String[]) {
+						String[] stringData = (String[]) data;
+						for (int i = startObs; i < nobs; i++) {
+							md.fastSet(i);
+							stringData[i] = CategoricalAttribute.missingValue;
+						}
+					} else {
+						float[] floatData = (float[]) data;
+						for (int i = startObs; i < nobs; i++) {
+							md.fastSet(i);
+							floatData[i] = Float.NaN;
+						}
+					}
+				}
+			}
+		}
+		
+		List<PhenotypeAttribute> newAttrList = new ArrayList<PhenotypeAttribute>();
+		for (int a = 0; a < attrNames.size(); a++) {
+			Object data = attrData.get(a);
+			if (data instanceof String[]) {
+				newAttrList.add(new CategoricalAttribute(attrNames.get(a), (String[]) data));
+			} else {
+				newAttrList.add(new NumericAttribute(attrNames.get(a), (float[]) data, missingData.get(a)));
+			}
+		}
+		phenotypeList.clear();
+		StringBuilder newPhenotypeName = new StringBuilder();
+		for (Phenotype pheno : phenotypeList) {
+			if (newPhenotypeName.length() > 0) newPhenotypeName.append("+");
+			newPhenotypeName.append(pheno.name());
+		}
+		phenotypeList.add(new CorePhenotype(newAttrList, newTypeList, newPhenotypeName.toString()));
+	}
+	
+	private List<String> listCommonNames(List<PhenotypeAttribute> list1, List<PhenotypeAttribute> list2) {
+		List<String> outlist = new ArrayList<String>();
+		for (PhenotypeAttribute attr1 : list1) {
+			String name1 = attr1.name();
+			for (PhenotypeAttribute attr2 : list2) {
+				if (name1.equalsIgnoreCase(attr2.name())) outlist.add(name1);
+			}
+		}
+		return outlist;
 	}
 	
 	private void sortAttributes() {

@@ -68,6 +68,11 @@ public class TaxaAttribute implements PhenotypeAttribute {
 	}
 
 	@Override
+	public PhenotypeAttribute changeName(String newName) {
+		return new TaxaAttribute(taxaList, newName);
+	}
+
+	@Override
 	public boolean isMissing(int obs) {
 		return false;
 	}

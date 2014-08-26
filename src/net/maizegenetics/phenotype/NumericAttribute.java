@@ -59,6 +59,11 @@ public class NumericAttribute implements PhenotypeAttribute {
 	}
 
 	@Override
+	public PhenotypeAttribute changeName(String newName) {
+		return new NumericAttribute(newName, values, missing);
+	}
+
+	@Override
 	public boolean isMissing(int obs) {
 		return missing.fastGet(obs);
 	}
