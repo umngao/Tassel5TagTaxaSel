@@ -78,6 +78,7 @@ public class PEFastqChunk {
      * @param ifPrintAlignment 
      */
     public void merge (boolean ifPrintAlignment) {
+        System.out.println("Merging PE reads");
         int cnt = 0;
         for (int i = 0; i < this.getPEReadNum(); i++) {
             if (peReads[i].merge(ifPrintAlignment)) cnt++;
@@ -99,7 +100,7 @@ public class PEFastqChunk {
             readsR2[i] = this.getPERead(i).getBackwardRead();
         }
         new FastqChunk(readsR1).writeFastq(fastqR1FileS, format);
-        new FastqChunk(readsR1).writeFastq(fastqR2FileS, format);
+        new FastqChunk(readsR2).writeFastq(fastqR2FileS, format);
     }
     
     /**

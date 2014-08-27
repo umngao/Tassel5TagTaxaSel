@@ -23,6 +23,8 @@ public class PERead {
     Read rf;
     Read rb;
     Read pContig = null;
+    int overlapLength = Integer.MIN_VALUE;
+    float identity = Float.MIN_VALUE;
     
     public PERead (Read rf, Read rb) {
         this.rf = rf;
@@ -59,7 +61,9 @@ public class PERead {
         if (queryEnd < queryS.length()-5) return false;
         if (overlap < minOverlap) return false;
         double iden = (double)idenNum/overlap;
-        //if (iden < minIden) return false;
+        this.overlapLength = overlap;
+        this.identity = (float)iden;
+        if (iden < minIden) return false;
         StringBuilder sbSeq = new StringBuilder();
         StringBuilder sbQual = new StringBuilder();
         sbSeq.append(queryS.substring(0, queryEnd));
@@ -117,5 +121,21 @@ public class PERead {
      */
     public Read getPContig () {
         return pContig;
+    }
+    
+    /**
+     * Return length of overlap of PE
+     * @return 
+     */
+    public int getOverlapLength () {
+        return this.overlapLength;
+    }
+    
+    /**
+     * Return identity of overlap of PE
+     * @return 
+     */
+    public float getOverlapIdentity () {
+        return this.identity;
     }
 }
