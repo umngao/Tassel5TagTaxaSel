@@ -15,7 +15,6 @@
     
     <property name="tassel" location="${dist}\sTASSEL.jar"/>
     <property name="test" location="test"/>
-    <property name="keystore_dir" value="${basedir}/common"/>
     <property name="javadoc" value="${basedir}/javadoc"/>
     
     
@@ -98,7 +97,7 @@
         <mkdir dir="${javadoc}"/>
         
         <javadoc packagenames="net.*"
-                 source="1.7"
+                 source="1.8"
                  destdir="${javadoc}"
                  author="true"
                  version="true"
