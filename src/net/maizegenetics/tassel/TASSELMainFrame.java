@@ -100,7 +100,7 @@ import net.maizegenetics.analysis.imputation.FSFHapImputationPlugin;
 public class TASSELMainFrame extends JFrame implements ActionListener {
 
     private static final Logger myLogger = Logger.getLogger(TASSELMainFrame.class);
-    public static final String version = "5.0.10";
+    public static final String version = "5.1.0";
     public static final String versionDate = "August 28, 2014";
     private DataTreePanel myDataTreePanel;
     private String tasselDataFile = "TasselDataFile";
