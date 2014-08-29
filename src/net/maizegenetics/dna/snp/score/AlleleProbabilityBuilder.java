@@ -24,21 +24,16 @@ public class AlleleProbabilityBuilder {
     private final Map<SiteScore.SITE_SCORE_TYPE, Byte2DBuilder> myBuilders = new LinkedHashMap<>();
     private final int myNumSites;
 
-    private static final SiteScore.SITE_SCORE_TYPE[] ALLELE_PROBABILITY_TYPES = new SiteScore.SITE_SCORE_TYPE[]{
-        SiteScore.SITE_SCORE_TYPE.ProbA, SiteScore.SITE_SCORE_TYPE.ProbC,
-        SiteScore.SITE_SCORE_TYPE.ProbG, SiteScore.SITE_SCORE_TYPE.ProbT,
-        SiteScore.SITE_SCORE_TYPE.ProbGap, SiteScore.SITE_SCORE_TYPE.ProbInsertion};
-
     private AlleleProbabilityBuilder(int numTaxa, int numSites, TaxaList taxaList) {
-        for (int i = 0; i < ALLELE_PROBABILITY_TYPES.length; i++) {
-            myBuilders.put(ALLELE_PROBABILITY_TYPES[i], Byte2DBuilder.getInstance(numTaxa, numSites, ALLELE_PROBABILITY_TYPES[i], taxaList));
+        for (int i = 0; i < AlleleProbability.ALLELE_PROBABILITY_TYPES.length; i++) {
+            myBuilders.put(AlleleProbability.ALLELE_PROBABILITY_TYPES[i], Byte2DBuilder.getInstance(numTaxa, numSites, AlleleProbability.ALLELE_PROBABILITY_TYPES[i], taxaList));
         }
         myNumSites = numSites;
     }
 
     private AlleleProbabilityBuilder(IHDF5Writer writer, int numTaxa, int numSites, TaxaList taxaList) {
-        for (int i = 0; i < ALLELE_PROBABILITY_TYPES.length; i++) {
-            myBuilders.put(ALLELE_PROBABILITY_TYPES[i], Byte2DBuilder.getInstance(writer, numSites, ALLELE_PROBABILITY_TYPES[i], taxaList));
+        for (int i = 0; i < AlleleProbability.ALLELE_PROBABILITY_TYPES.length; i++) {
+            myBuilders.put(AlleleProbability.ALLELE_PROBABILITY_TYPES[i], Byte2DBuilder.getInstance(writer, numSites, AlleleProbability.ALLELE_PROBABILITY_TYPES[i], taxaList));
         }
         myNumSites = numSites;
     }
