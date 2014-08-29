@@ -437,10 +437,10 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
                     //compute additive and dominance terms
                     if (reportAdditive) {
                         //additive only model
-                        SweepFastNestedModel sfnmAddOnly = new SweepFastNestedModel(modelAdditiveEffects, y);
-                        markerAddSSdf = sfnmAddOnly.getMarkerSSdf();
-                        errorAddSSdf = sfnmAddOnly.getErrorSSdf();
-                        modelAddSSdf = sfnmAddOnly.getModelcfmSSdf();
+                        SweepFastLinearModel sflmAddOnly = new SweepFastLinearModel(modelAdditiveEffects, y);
+                        markerAddSSdf = sflmAddOnly.getMarginalSSdf(markerEffectNumber);
+                        errorAddSSdf = sflmAddOnly.getResidualSSdf();
+                        modelAddSSdf = sflmAddOnly.getModelcfmSSdf();
                         FAdd = markerAddSSdf[0] / markerAddSSdf[1] / errorSSdf[0] * errorSSdf[1];
                         try {
                             pAdd = LinearModelUtils.Ftest(FAdd, markerAddSSdf[1], errorSSdf[1]);
