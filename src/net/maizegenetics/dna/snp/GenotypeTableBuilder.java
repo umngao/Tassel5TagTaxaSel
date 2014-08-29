@@ -18,6 +18,8 @@ import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeMergeRule;
 import net.maizegenetics.dna.snp.score.AlleleProbabilityBuilder;
 import net.maizegenetics.dna.snp.score.AlleleProbability;
+import net.maizegenetics.dna.snp.score.ReferenceProbabilityBuilder;
+import net.maizegenetics.dna.snp.score.ReferenceProbability;
 import net.maizegenetics.dna.snp.score.DosageBuilder;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
@@ -88,6 +90,7 @@ public class GenotypeTableBuilder {
     private ArrayList<byte[]> incGeno = null;
     private ArrayList<byte[][]> incDepth = null;
     private AlleleProbabilityBuilder myAlleleProbabilityBuilder = null;
+    private ReferenceProbabilityBuilder myReferenceProbabilityBuilder = null;
     private DosageBuilder myDosageBuilder = null;
     private HashMap<Taxon, Integer> incTaxonIndex = null;
     private boolean sortAlphabetically = false;
@@ -339,7 +342,7 @@ public class GenotypeTableBuilder {
      *
      * @return new genotype table
      */
-    public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, Dosage dosage, GeneralAnnotationStorage annotations) {
+    public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, ReferenceProbability referenceProbability, Dosage dosage, GeneralAnnotationStorage annotations) {
         int numTaxa = genotype.numberOfTaxa();
         int numSites = genotype.numberOfSites();
 
@@ -363,6 +366,15 @@ public class GenotypeTableBuilder {
                 throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + numTaxa + " doesn't equal number of taxa in allele probability: " + alleleProbability.numTaxa());
             }
         }
+        
+        if (referenceProbability != null) {
+            if (numSites != referenceProbability.numSites()) {
+                throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of sites in genotype: " + numSites + " doesn't equal number of sites in reference probability: " + referenceProbability.numSites());
+            }
+            if (numTaxa != referenceProbability.numTaxa()) {
+                throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + numTaxa + " doesn't equal number of taxa in reference probability: " + referenceProbability.numTaxa());
+            }
+        }
 
         if (dosage != null) {
             if (numSites != dosage.numSites()) {
@@ -373,15 +385,15 @@ public class GenotypeTableBuilder {
             }
         }
 
-        return new CoreGenotypeTable(genotype, positionList, taxaList, alleleDepth, alleleProbability, dosage, annotations);
+        return new CoreGenotypeTable(genotype, positionList, taxaList, alleleDepth, alleleProbability, referenceProbability, dosage, annotations);
     }
 
     public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth) {
-        return getInstance(genotype, positionList, taxaList, alleleDepth, null, null, null);
+        return getInstance(genotype, positionList, taxaList, alleleDepth, null, null, null, null);
     }
 
     public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList) {
-        return getInstance(genotype, positionList, taxaList, null, null, null, null);
+        return getInstance(genotype, positionList, taxaList, null, null, null, null, null);
     }
 
     /**
@@ -425,7 +437,7 @@ public class GenotypeTableBuilder {
         PositionList pL = PositionListBuilder.getInstance(reader);
         GenotypeCallTable geno = GenotypeCallTableBuilder.buildHDF5(reader);
         AlleleDepth depth = AlleleDepthBuilder.getExistingHDF5Instance(reader);
-        return GenotypeTableBuilder.getInstance(geno, pL, tL, depth, null, null, GeneralAnnotationStorage.readFromHDF5(reader, Tassel5HDF5Constants.ROOT, GenotypeTable.GENOTYPE_TABLE_ANNOTATIONS));
+        return GenotypeTableBuilder.getInstance(geno, pL, tL, depth, null, null, null, GeneralAnnotationStorage.readFromHDF5(reader, Tassel5HDF5Constants.ROOT, GenotypeTable.GENOTYPE_TABLE_ANNOTATIONS));
     }
 
     public static GenotypeTable getInstanceOnlyMajorMinor(GenotypeTable alignment) {
@@ -500,6 +512,11 @@ public class GenotypeTableBuilder {
 
     public GenotypeTableBuilder addAlleleProbability(AlleleProbabilityBuilder alleleProbabilityBuilder) {
         myAlleleProbabilityBuilder = alleleProbabilityBuilder;
+        return this;
+    }
+    
+    public GenotypeTableBuilder addReferenceProbability(ReferenceProbabilityBuilder referenceProbabilityBuilder) {
+        myReferenceProbabilityBuilder = referenceProbabilityBuilder;
         return this;
     }
 
@@ -676,13 +693,18 @@ public class GenotypeTableBuilder {
                 if (myAlleleProbabilityBuilder != null) {
                     alleleProbability = myAlleleProbabilityBuilder.build();
                 }
+                
+                ReferenceProbability referenceProbability = null;
+                if (myReferenceProbabilityBuilder != null) {
+                    referenceProbability = myReferenceProbabilityBuilder.build();
+                }
 
                 Dosage dosage = null;
                 if (myDosageBuilder != null) {
                     dosage = myDosageBuilder.build();
                 }
 
-                return getInstance(gB.build(), positionList, tl, ad, alleleProbability, dosage, myAnnotationBuilder.build());
+                return getInstance(gB.build(), positionList, tl, ad, alleleProbability, referenceProbability, dosage, myAnnotationBuilder.build());
             }
             case SITE_INC: {
                 GenotypeCallTableBuilder gB = GenotypeCallTableBuilder.getInstance(taxaList.numberOfTaxa(), posListBuilder.size());

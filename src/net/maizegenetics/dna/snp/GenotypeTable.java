@@ -10,6 +10,7 @@ import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.bit.BitStorage;
 import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.dna.snp.score.Dosage;
+import net.maizegenetics.dna.snp.score.ReferenceProbability;
 import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.BitSet;
@@ -512,6 +513,10 @@ public interface GenotypeTable {
     public AlleleProbability alleleProbability();
 
     public float alleleProbability(int taxon, int site, SITE_SCORE_TYPE type);
+    
+    public ReferenceProbability referenceProbability();
+
+    public float referenceProbability(int taxon, int site);
 
     public Dosage dosage();
 

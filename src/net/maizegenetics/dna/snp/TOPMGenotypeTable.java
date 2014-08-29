@@ -24,6 +24,7 @@ import net.maizegenetics.dna.snp.depth.AlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.dna.snp.score.Dosage;
+import net.maizegenetics.dna.snp.score.ReferenceProbability;
 import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
@@ -725,6 +726,16 @@ public class TOPMGenotypeTable implements GenotypeTable {
 
     @Override
     public GeneralAnnotationStorage annotations() {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public ReferenceProbability referenceProbability() {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public float referenceProbability(int taxon, int site) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 

@@ -42,14 +42,14 @@ public class CoreGenotypeTable implements GenotypeTable {
     private final PositionList myPositionList;
     private final TaxaList myTaxaList;
     private final AlleleProbability myAlleleProbability;
-    private final ReferenceProbability myReferenceProbabily = null;
+    private final ReferenceProbability myReferenceProbabily;
     private final AlleleDepth myAlleleDepth;
     private final Dosage myDosage;
     private final int mySiteCount;
     private final int myTaxaCount;
     private final GeneralAnnotationStorage myAnnotations;
 
-    CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, Dosage dosage, GeneralAnnotationStorage annotations) {
+    CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, ReferenceProbability referenceProbability, Dosage dosage, GeneralAnnotationStorage annotations) {
         if (genotype.numberOfTaxa() != taxaList.numberOfTaxa()) {
             throw new IllegalArgumentException("CoreGenotypeTable: init: genotype number of taxa: " + genotype.numberOfTaxa() + " doesn't match taxa list: " + taxaList.numberOfTaxa());
         }
@@ -61,6 +61,7 @@ public class CoreGenotypeTable implements GenotypeTable {
         myTaxaList = taxaList;
         myAlleleDepth = alleleDepth;
         myAlleleProbability = alleleProbability;
+        myReferenceProbabily = referenceProbability;
         myDosage = dosage;
         mySiteCount = myPositionList.numberOfSites();
         myTaxaCount = myTaxaList.numberOfTaxa();
@@ -68,7 +69,7 @@ public class CoreGenotypeTable implements GenotypeTable {
     }
 
     CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList) {
-        this(genotype, positionList, taxaList, null, null, null, null);
+        this(genotype, positionList, taxaList, null, null, null, null, null);
     }
 
     @Override
@@ -528,6 +529,16 @@ public class CoreGenotypeTable implements GenotypeTable {
     @Override
     public float alleleProbability(int taxon, int site, SITE_SCORE_TYPE type) {
         return myAlleleProbability.value(taxon, site, type);
+    }
+    
+    @Override
+    public ReferenceProbability referenceProbability() {
+        return myReferenceProbabily;
+    }
+
+    @Override
+    public float referenceProbability(int taxon, int site) {
+        return myReferenceProbabily.value(taxon, site);
     }
 
     @Override

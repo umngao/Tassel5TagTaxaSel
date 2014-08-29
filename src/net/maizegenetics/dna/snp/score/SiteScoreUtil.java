@@ -11,12 +11,14 @@ import java.util.Arrays;
 public class SiteScoreUtil {
 
     private static final float[] BYTE_TO_FLOAT = new float[256];
+    public static final byte BYTE_REPRESENTING_NAN = (byte) 255;
 
     static {
         Arrays.fill(BYTE_TO_FLOAT, -1);
-        for (int i = 0; i < 256; i++) {
+        for (int i = 0; i < 255; i++) {
             BYTE_TO_FLOAT[i] = decode(i);
         }
+        BYTE_TO_FLOAT[255] = Float.NaN;
     }
 
     private SiteScoreUtil() {
@@ -31,7 +33,11 @@ public class SiteScoreUtil {
             throw new IllegalArgumentException("SiteScoreUtil: floatToBytePercentage: value must be between 0.0 and 1.0");
         }
 
-        return (byte) Math.round(255.0f * value);
+        if (value == Float.NaN) {
+            return BYTE_REPRESENTING_NAN;
+        } else {
+            return (byte) Math.round(254.0f * value);
+        }
     }
 
     public static byte[] floatToBytePercentage(float[] values) {
@@ -66,7 +72,7 @@ public class SiteScoreUtil {
     }
 
     private static float decode(int value) {
-        return value / 255f;
+        return value / 254f;
     }
 
 }

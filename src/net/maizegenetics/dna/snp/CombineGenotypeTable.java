@@ -13,11 +13,12 @@ import net.maizegenetics.taxa.TaxaListUtils;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.score.AlleleProbability;
+import net.maizegenetics.dna.snp.score.ReferenceProbability;
 import net.maizegenetics.dna.snp.score.Dosage;
 import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 
 import java.util.*;
-import net.maizegenetics.util.GeneralAnnotationStorage;
 
 /**
  * Combines multiple GenotypeTables together.
@@ -921,6 +922,17 @@ public class CombineGenotypeTable implements GenotypeTable {
     public float alleleProbability(int taxon, int site, SITE_SCORE_TYPE type) {
         int translate = translateSite(site);
         return myAlignments[translate].alleleProbability(taxon, site - mySiteOffsets[translate], type);
+    }
+    
+    @Override
+    public ReferenceProbability referenceProbability() {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public float referenceProbability(int taxon, int site) {
+        int translate = translateSite(site);
+        return myAlignments[translate].referenceProbability(taxon, site - mySiteOffsets[translate]);
     }
 
     @Override
