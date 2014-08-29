@@ -16,6 +16,8 @@ import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.dna.snp.score.AlleleProbabilityBuilder;
+import net.maizegenetics.dna.snp.score.ReferenceProbability;
+import net.maizegenetics.dna.snp.score.ReferenceProbabilityBuilder;
 import net.maizegenetics.dna.snp.score.Dosage;
 import net.maizegenetics.dna.snp.score.DosageBuilder;
 import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
@@ -1086,6 +1088,21 @@ public class FilterGenotypeTable implements GenotypeTable {
             return Float.NaN;
         } else {
             return myBaseAlignment.alleleProbability(taxaIndex, translateSite(site), type);
+        }
+    }
+    
+    @Override
+    public ReferenceProbability referenceProbability() {
+        return ReferenceProbabilityBuilder.getFilteredInstance(myBaseAlignment.referenceProbability(), this);
+    }
+
+    @Override
+    public float referenceProbability(int taxon, int site) {
+        int taxaIndex = translateTaxon(taxon);
+        if (taxaIndex == -1) {
+            return Float.NaN;
+        } else {
+            return myBaseAlignment.referenceProbability(taxaIndex, translateSite(site));
         }
     }
 
