@@ -17,4 +17,8 @@ public interface Tag {
 
     public short seqLength();
 
+    default String toCSVString() {
+        return sequence() + "," + seqLength();
+    }
+
 }

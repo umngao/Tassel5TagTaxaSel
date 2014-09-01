@@ -12,14 +12,14 @@ import java.util.Arrays;
 public abstract class AbstractTag implements Tag, Comparable<Tag> {
     @Override
     public String sequence() {
-        //System.out.println(BaseEncoder.getSequenceFromLong(seq2Bit(),seqLength()));
-        return BaseEncoder.getSequenceFromLong(seq2Bit()).substring(0,seqLength());
+        return getSequenceFromLong(seq2Bit(),seqLength());
     }
 
     @Override
     public byte[] seq2BitAsBytes() {
-        ByteBuffer b= ByteBuffer.allocate(16);
-        for (long l : seq2Bit()) {
+        long[] seqInLong=seq2Bit();
+        ByteBuffer b= ByteBuffer.allocate(seqInLong.length*8);
+        for (long l : seqInLong) {
             b.putLong(l);
         }
         return b.array();
@@ -56,5 +56,43 @@ public abstract class AbstractTag implements Tag, Comparable<Tag> {
         return result;
     }
 
+    @Override
+    public String toString() {
+        return "Tag{" +
+                "seq=" + sequence() +
+                ", length=" + seqLength() +
+                "}";
+    }
+
+
+
+    /**
+     * Return a string representation of an array of 2-bit encoded longs.
+     * @param val array of 2-bit encoded sequences
+     * @return DNA sequence as a string
+     */
+    protected static String getSequenceFromLong(long[] val, int length) {
+        StringBuilder seq = new StringBuilder();
+        for (long v : val) {
+            //System.out.println(BaseEncoder.getSequenceFromLong(v));
+            seq.append(BaseEncoder.getSequenceFromLong(v));
+        }
+        return seq.toString().substring(0,length);
+    }
+
+    /**
+     * @param seq A String containing a DNA sequence.
+     * @return result A array of Long containing the binary representation of the sequence.
+     * null if sequence length is not a multiple of BaseEncoder.chunksize.
+     */
+    protected static long[] getLongArrayFromSeq(String seq) {
+        final int chunkSize=32;
+        int longsNeeded = (seq.length() + chunkSize - 1) / chunkSize;  //this is doing the integer version of Math.ceil
+        long[] result = new long[longsNeeded];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = BaseEncoder.getLongFromSeq(seq.substring(i * chunkSize, Math.min((i + 1) * chunkSize,seq.length())));
+        }
+        return result;
+    }
 
 }
