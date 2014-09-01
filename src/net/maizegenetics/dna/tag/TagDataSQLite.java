@@ -6,10 +6,13 @@ import net.maizegenetics.dna.map.*;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.snp.SimpleAllele;
 import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import org.sqlite.SQLiteConfig;
 
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -57,7 +60,8 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         // create a database connection
 
         try {
-            String schema= CharStreams.toString(new InputStreamReader(TagDataSQLite.class.getResourceAsStream("TagSchema.sql")));
+            boolean doesDBExist= Files.exists(Paths.get(filename));
+
             SQLiteConfig config=new SQLiteConfig();
             //config.setSynchronous(SQLiteConfig.SynchronousMode.OFF);
             /*Optimization ideas
@@ -68,14 +72,18 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
              */
             //config.setTempStore(SQLiteConfig.TempStore.MEMORY);
             connection = DriverManager.getConnection("jdbc:sqlite:"+filename,config.toProperties());
-            connection.setAutoCommit(false);  //This has massive performance effects
+            connection.setAutoCommit(true);  //This has massive performance effects
             Statement statement = connection.createStatement();
             statement.setQueryTimeout(30);  // set timeout to 30 sec.
 //            System.out.println(schema);
-            statement.executeUpdate(schema);
+            if(doesDBExist==false) {
+                String schema = CharStreams.toString(new InputStreamReader(TagDataSQLite.class.getResourceAsStream("TagSchema.sql")));
+                statement.executeUpdate(schema);
+            }
             initPreparedStatements();
             loadTagHash();
             loadMappingApproachHash();
+            loadTaxaList();
         }
         catch(Exception e)
         {
@@ -206,6 +214,22 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         }
     }
 
+    private void loadTaxaList() {
+        try{
+            ResultSet rs=connection.createStatement().executeQuery("select count(*) from taxa");
+            int size=rs.getInt(1);
+            System.out.println("size of all taxa in taxa table="+size);
+            TaxaListBuilder tlb=new TaxaListBuilder();
+            rs=connection.createStatement().executeQuery("select * from taxa");
+            while(rs.next()) {
+                tlb.add(new Taxon(rs.getString("name")));
+            }
+            myTaxaList=tlb.build();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     public boolean putAllTag(Set<Tag> tags) {
         int batchCount=0, totalCount=0;
@@ -239,17 +263,18 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     @Override
     public void putTaxaList(TaxaList taxaList) {
         try {
-            connection.createStatement().execute("delete * from taxa");
+            connection.createStatement().execute("delete from taxa");
             connection.setAutoCommit(false);
-            PreparedStatement tagInsertPS=connection.prepareStatement("insert into taxa (taxonid, name) values(?,?)");
+            PreparedStatement taxaInsertPS=connection.prepareStatement("insert into taxa (taxonid, name) values(?,?)");
             for (int i = 0; i < taxaList.size(); i++) {
-                tagInsertPS.setInt(1,i);
-                tagInsertPS.setString(2, taxaList.get(i).getName());
-                tagInsertPS.addBatch();
+                taxaInsertPS.setInt(1, i);
+                taxaInsertPS.setString(2, taxaList.get(i).getName());
+                taxaInsertPS.addBatch();
 
             }
-            tagInsertPS.executeBatch();
+            taxaInsertPS.executeBatch();
             connection.setAutoCommit(true);
+            loadTaxaList();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -259,11 +284,13 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     public void putTaxaDistribution(Map<Tag, TaxaDistribution> tagTaxaDistributionMap) {
         int batchCount=0;
         try {
+            int numTaxa=myTaxaList.numberOfTaxa();
             connection.setAutoCommit(false);
             PreparedStatement tagInsertPS=connection.prepareStatement("insert into tagtaxadistribution (tagid, depthsRLE, totalDepth) values(?,?,?)");
             for (Map.Entry<Tag, TaxaDistribution> entry : tagTaxaDistributionMap.entrySet()) {
                 int tagID=tagTagIDMap.get(entry.getKey());
                 tagInsertPS.setInt(1,tagID);
+                if(entry.getValue().maxTaxa()!=numTaxa) throw new IllegalStateException("Number of taxa does not agree with taxa distribution");
                 tagInsertPS.setBytes(2, entry.getValue().encodeTaxaDepth());
                 tagInsertPS.setInt(3, entry.getValue().totalDepth());
                 tagInsertPS.addBatch();
@@ -287,12 +314,8 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     public void putTagAlignments(Multimap<Tag, Position> tagAnnotatedPositionMap) {
         int batchCount=0;
         try {
-
-
-
             putAllTag(tagAnnotatedPositionMap.keySet());
             putCutPositionsIfAbsent(tagAnnotatedPositionMap.values());
-
             connection.setAutoCommit(false);
             for (Map.Entry<Tag, Position> entry : tagAnnotatedPositionMap.entries()) {
                 Position p=entry.getValue();
@@ -305,13 +328,17 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 try{
                     cigarValue=p.getTextAnnotation("cigar")[0];
                 } catch (Exception e) {
+                    System.err.println(p.toString());
                     System.err.println("Error with cigar");
                     //no valid cigarValue
                 }
                 posTagInsertPS.setString(ind++, cigarValue);
-                byte supportVal=0;
+                short supportVal=0;
                 try{
-                    supportVal=Byte.parseByte(p.getTextAnnotation("supportvalue")[0]);
+                    String[] svS=p.getTextAnnotation("supportvalue");
+                    if(svS.length>0) {
+                        supportVal=Short.parseShort(svS[0]);
+                    }
                 } catch (Exception e) {
                     System.err.println("Error with supportVal");
                     //no valid supportVal
@@ -497,6 +524,21 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     @Override
     public Map<Tag, Integer> getTagDepth(Taxon taxon, Position position) {
         return null;
+    }
+
+    @Override
+    public Map<Tag, Integer> getTagsWithDepth(int minimumDepth) {
+        ImmutableMap.Builder<Tag, Integer> tagBuilder=new ImmutableMap.Builder<>();
+        try {
+            ResultSet rs=connection.createStatement().executeQuery(
+                    "select tagid, totalDepth from tagtaxadistribution where totalDepth >= "+minimumDepth);
+            while(rs.next()) {
+                tagBuilder.put(tagTagIDMap.inverse().get(rs.getInt(1)),rs.getInt(2));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return tagBuilder.build();
     }
 
     @Override

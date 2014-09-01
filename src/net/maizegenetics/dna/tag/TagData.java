@@ -88,6 +88,11 @@ public interface TagData {
      */
     Map<Tag, Integer> getTagDepth(Taxon taxon, Position position);
 
+    /*
+     * Return a map of Tags (keys) and depth (value) greater or equal to a minimum depth
+     */
+    Map<Tag, Integer> getTagsWithDepth(int minimumDepth);
+
 
     /**
      * Get all of the genomic cut positions associated with all tags.  Positions in the position list are annotated with
