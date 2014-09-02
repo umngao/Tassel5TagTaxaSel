@@ -13,6 +13,7 @@ import net.maizegenetics.dna.snp.ImportUtils;
 import net.maizegenetics.trait.ReadPhenotypeUtils;
 import net.maizegenetics.dna.snp.ReadPolymorphismUtils;
 import net.maizegenetics.dna.snp.ReadSequenceAlignmentUtils;
+import net.maizegenetics.dna.snp.io.ReadNumericMarkerUtils;
 import net.maizegenetics.taxa.distance.ReadDistanceMatrix;
 import net.maizegenetics.util.*;
 import net.maizegenetics.plugindef.AbstractPlugin;
@@ -53,7 +54,7 @@ public class FileLoadPlugin extends AbstractPlugin {
 
         SqrMatrix, Sequence, Unknown, Fasta,
         Hapmap, Plink, Phenotype, ProjectionAlignment, ProjectPCsandRunModelSelection, Phylip_Seq, Phylip_Inter, GeneticMap, Table,
-        Serial, HapmapDiploid, Text, VCF, HDF5, TOPM, HDF5Schema, Filter
+        Serial, HapmapDiploid, Text, VCF, HDF5, TOPM, HDF5Schema, Filter, NumericGenotype
     };
     public static final String FILE_EXT_HAPMAP = ".hmp.txt";
     public static final String FILE_EXT_HAPMAP_GZ = ".hmp.txt.gz";
@@ -266,8 +267,10 @@ public class FileLoadPlugin extends AbstractPlugin {
                         }
                     }
                 }
-                if (isTrait || (isMarker && isNumeric)) {
+                if (isTrait) {
                     guess = TasselFileType.Phenotype;
+                } else if (isMarker && isNumeric) {
+                	guess = TasselFileType.NumericGenotype;
                 } else if (isMap) {
                     guess = TasselFileType.GeneticMap;
                 } else {
@@ -353,6 +356,10 @@ public class FileLoadPlugin extends AbstractPlugin {
                 case GeneticMap: {
                     result = ReadPolymorphismUtils.readGeneticMapFile(inFile);
                     break;
+                }
+                case NumericGenotype: {
+                	result = ReadNumericMarkerUtils.readNumericMarkerFile(inFile);
+                	break;
                 }
                 case Table: {
                     result = TableReportUtils.readDelimitedTableReport(inFile, "\t");
