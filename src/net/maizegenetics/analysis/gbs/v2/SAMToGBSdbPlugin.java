@@ -6,24 +6,18 @@ package net.maizegenetics.analysis.gbs.v2;
 import java.awt.Frame;
 
 import java.io.*;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.swing.ImageIcon;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
-import com.sun.tools.doclets.internal.toolkit.taglets.TagletWriter;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.GeneralPosition;
 import net.maizegenetics.dna.map.Position;
-import net.maizegenetics.dna.map.TagsOnPhysicalMap;
 import net.maizegenetics.dna.tag.*;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.Utils;
 
