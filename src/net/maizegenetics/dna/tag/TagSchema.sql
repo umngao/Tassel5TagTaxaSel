@@ -1,8 +1,9 @@
 -- Table: tag
 CREATE TABLE tag (
     tagid    INTEGER PRIMARY KEY,
-    sequence BLOB NOT NULL UNIQUE,
-    seqlen INTEGER NOT NULL
+    sequence BLOB NOT NULL,
+    seqlen INTEGER NOT NULL,
+    UNIQUE (sequence, seqlen)
 );
 
 -- Table: tagPosition

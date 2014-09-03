@@ -40,6 +40,7 @@ public class TagBuilder {
 
     public static Tag instance(String sequence) {
         long[] seq2Bit= AbstractTag.getLongArrayFromSeq(sequence);
+        if(seq2Bit==null) return null;
         int length=sequence.length();
         return instance(seq2Bit,(short)length);
     }

@@ -83,7 +83,7 @@ public abstract class AbstractTag implements Tag, Comparable<Tag> {
     /**
      * @param seq A String containing a DNA sequence.
      * @return result A array of Long containing the binary representation of the sequence.
-     * null if sequence length is not a multiple of BaseEncoder.chunksize.
+     * null if sequence length has any non-DNA characters
      */
     protected static long[] getLongArrayFromSeq(String seq) {
         final int chunkSize=32;
@@ -91,6 +91,7 @@ public abstract class AbstractTag implements Tag, Comparable<Tag> {
         long[] result = new long[longsNeeded];
         for (int i = 0; i < result.length; i++) {
             result[i] = BaseEncoder.getLongFromSeq(seq.substring(i * chunkSize, Math.min((i + 1) * chunkSize,seq.length())));
+            if(result[i]==-1) return null;
         }
         return result;
     }

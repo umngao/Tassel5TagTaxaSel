@@ -10,6 +10,7 @@ import org.xerial.snappy.Snappy;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.stream.Collectors;
 
 
 /**
@@ -75,6 +76,34 @@ public class TaxaDistBuilder {
             }
         }
         return dstTD;
+    }
+
+    /**
+     * Combines a TaxaDistribution to an expandable TaxaDistribution.  Can be used to convert a single TaxaDistribution
+     * to an expandable version
+     * @param taxaDist1
+     * @return
+     */
+    public static TaxaDistribution combine(TaxaDistribution taxaDist1, TaxaDistribution taxaDist2) {
+        if(taxaDist1.maxTaxa()!=taxaDist2.maxTaxa()) throw new IllegalStateException("TaxaDistributions not of same size");
+        int[] depths1=taxaDist1.depths();
+        int[] depths2=taxaDist2.depths();
+        int taxaWithDepth=0;
+        for (int i = 0; i < depths1.length; i++) {
+            depths1[i]+=depths2[i];
+            if(depths1[i]>0) taxaWithDepth++;
+        }
+        int[] taxaWithTags=new int[taxaWithDepth];
+        int[] depthOfTags=new int[taxaWithDepth];
+        taxaWithDepth=0;
+        for (int i = 0; i < depths1.length; i++) {
+            if(depths1[i]>0) {
+                taxaWithTags[taxaWithDepth]=i;
+                depthOfTags[taxaWithDepth]=depths1[i];
+                taxaWithDepth++;
+            }
+        }
+        return create(taxaDist1.maxTaxa(),taxaWithTags,depthOfTags);
     }
 
     /**
