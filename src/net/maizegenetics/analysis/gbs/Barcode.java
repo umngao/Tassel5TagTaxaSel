@@ -21,6 +21,8 @@ public class Barcode implements Comparable<Barcode> {
     String flowcell;
      /**Flowcell lane name */
     String lane;
+    /**Barcode with overhang sequence*/
+    String[] barWOverhangS;
     /**Barcode  encoded in 2-bit long*/
     long[] barOverLong;
     /**Length of barcode plus overhang*/
@@ -49,8 +51,10 @@ public class Barcode implements Comparable<Barcode> {
         this.taxaName = taxa;
         this.taxaIndex=globalTaxaIndex;
         barOverLong = new long[overhangS.length];
+        barWOverhangS = new String[overhangS.length];
         for (int i = 0; i < overhangS.length; i++) {
-            barOverLong[i] = BaseEncoder.getLongFromSeq(barcodeS + overhangS[i]);
+            barWOverhangS[i]=barcodeS + overhangS[i];
+            barOverLong[i] = BaseEncoder.getLongFromSeq(barWOverhangS[i]);
         }
         barOverLength = barcodeS.length() + overhangS[0].length();
         barLength = barcodeS.length();
@@ -87,5 +91,41 @@ public class Barcode implements Comparable<Barcode> {
 
     public String getTaxaName() {
         return taxaName;
+    }
+
+    public String getBarcodeString() {
+        return barcodeS;
+    }
+
+    public long[] getBarWOverHangLong() {
+        return barOverLong;
+    }
+
+    public String[] getBarWOverHang() {
+        return barWOverhangS;
+    }
+
+    public int getBarWithOverHangLength() {
+        return barOverLength;
+    }
+
+    public int getBarLength() {
+        return barLength;
+    }
+
+    public int getTaxaIndex() {
+        return taxaIndex;
+    }
+
+    @Override
+    public String toString() {
+        return "Barcode{" +
+                "barcodeS='" + barcodeS + '\'' +
+                ", overhangS=" + Arrays.toString(overhangS) +
+                ", taxaName='" + taxaName + '\'' +
+                ", flowcell='" + flowcell + '\'' +
+                ", lane='" + lane + '\'' +
+                ", taxaIndex=" + taxaIndex +
+                '}';
     }
 }
