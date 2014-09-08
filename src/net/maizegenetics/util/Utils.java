@@ -5,20 +5,13 @@
  */
 package net.maizegenetics.util;
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
+import java.io.*;
 
 import java.net.URL;
 
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -26,6 +19,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
@@ -387,26 +381,7 @@ public final class Utils {
     }
 
     public static BufferedReader getBufferedReader(String inSourceName) {
-
-        try {
-            if (inSourceName.startsWith("http")) {
-                if (inSourceName.endsWith(".gz")) {
-                    return new BufferedReader(new InputStreamReader(new GZIPInputStream((new URL(inSourceName)).openStream())));
-                } else {
-                    return new BufferedReader(new InputStreamReader((new URL(inSourceName)).openStream()));
-                }
-            } else {
-                if (inSourceName.endsWith(".gz")) {
-                    return new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(inSourceName))));
-                } else {
-                    return new BufferedReader(new InputStreamReader(new FileInputStream(inSourceName)));
-                }
-            }
-        } catch (Exception e) {
-            myLogger.error("getBufferedReader: Error getting reader for: " + inSourceName);
-            e.printStackTrace();
-        }
-        return null;
+        return getBufferedReader(inSourceName, 8192);
     }
 
     public static BufferedReader getBufferedReader(String inSourceName, int bufSize) {
@@ -438,6 +413,74 @@ public final class Utils {
 
     public static BufferedReader getBufferedReader(File file, int bufSize) {
         return getBufferedReader(file.getAbsolutePath(), bufSize);
+    }
+
+    /**
+     * Read all lines from a file as a {@code Stream}. Unlike Path.readAllLines, this method does not read
+     * all lines into a {@code List}, but instead populates lazily as the stream
+     * is consumed.
+     *
+     * <p> Bytes from the file are decoded into characters using the specified
+     * charset and the same line terminators as specified by {@code
+     * readAllLines} are supported.
+     *
+     * <p> After this method returns, then any subsequent I/O exception that
+     * occurs while reading from the file or when a malformed or unmappable byte
+     * sequence is read, is wrapped in an {@link java.io.UncheckedIOException} that will
+     * be thrown from the
+     * {@link java.util.stream.Stream} method that caused the read to take
+     * place. In case an {@code IOException} is thrown when closing the file,
+     * it is also wrapped as an {@code UncheckedIOException}.
+     *
+     * <p> The returned stream encapsulates a {@link java.io.Reader}.  If timely
+     * disposal of file system resources is required, the try-with-resources
+     * construct should be used to ensure that the stream's
+     * {@link java.util.stream.Stream#close close} method is invoked after the stream operations
+     * are completed.
+     *
+     *
+     * @param   path
+     *          the path to the file
+     *
+     * @return  the lines from the file as a {@code Stream}
+     *
+     * @throws  IOException
+     *          if an I/O error occurs opening the file
+     * @throws  SecurityException
+     *          In the case of the default provider, and a security manager is
+     *          installed, the {@link SecurityManager#checkRead(String) checkRead}
+     *          method is invoked to check read access to the file
+     * @see     java.io.BufferedReader#lines()
+     * @since   1.8
+     */
+    public static Stream<String> lines(Path path, int bufSize) throws IOException {
+        BufferedReader br = getBufferedReader(path.toString(),bufSize);
+        try {
+            return br.lines().onClose(asUncheckedRunnable(br));
+        } catch (Error|RuntimeException e) {
+            try {
+                br.close();
+            } catch (IOException ex) {
+                try {
+                    e.addSuppressed(ex);
+                } catch (Throwable ignore) {}
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Convert a Closeable to a Runnable by converting checked IOException
+     * to UncheckedIOException
+     */
+    private static Runnable asUncheckedRunnable(Closeable c) {
+        return () -> {
+            try {
+                c.close();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        };
     }
 
     public static BufferedWriter getBufferedWriter(String filename) {
