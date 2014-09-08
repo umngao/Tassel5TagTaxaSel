@@ -10,6 +10,24 @@ import java.util.Arrays;
  * Created by edbuckler on 7/26/14.
  */
 public abstract class AbstractTag implements Tag, Comparable<Tag> {
+    private final short length;
+    private final boolean reference;
+
+    protected AbstractTag(short length, boolean reference) {
+        this.length=length;
+        this.reference=reference;
+    }
+
+    @Override
+    public short seqLength() {
+        return length;
+    }
+
+    @Override
+    public boolean isReference() {
+        return reference;
+    }
+
     @Override
     public String sequence() {
         return getSequenceFromLong(seq2Bit(),seqLength());
@@ -61,6 +79,7 @@ public abstract class AbstractTag implements Tag, Comparable<Tag> {
         return "Tag{" +
                 "seq=" + sequence() +
                 ", length=" + seqLength() +
+                ", Ref=" + isReference() +
                 "}";
     }
 

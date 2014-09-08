@@ -127,7 +127,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             if(tagTagIDMap==null || size/(tagTagIDMap.size()+1)>3) tagTagIDMap=HashBiMap.create(size);
             rs=connection.createStatement().executeQuery("select * from tag");
             while(rs.next()) {
-                tagTagIDMap.putIfAbsent(TagBuilder.instance(rs.getBytes("sequence"),rs.getShort("seqlen")),rs.getInt("tagid"));
+                tagTagIDMap.putIfAbsent(TagBuilder.instance(rs.getBytes("sequence"),rs.getShort("seqlen")).build(),rs.getInt("tagid"));
             }
         } catch (SQLException e) {
             e.printStackTrace();

@@ -60,7 +60,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
             while((inputLine=bw.readLine())!=null) {
                 if(inputLine.startsWith("@")) continue;
                 String[] s=inputLine.split("\\s");
-                Tag tag= TagBuilder.instance(s[tagS]);
+                Tag tag= TagBuilder.instance(s[tagS]).build();
                 Chromosome chromosome=new Chromosome(s[chr].replace("chr", ""));
                 String alignmentScore=s[alignScoreIndex].split(":")[2];
                 Position position=new GeneralPosition

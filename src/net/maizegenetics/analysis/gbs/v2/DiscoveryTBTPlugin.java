@@ -165,7 +165,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                 if(minQual>0) {
                     if(BaseEncoder.getFirstLowQualityPos(seqAndQual[1],minQual)<(barcode.getBarLength()+preferredTagLength)) continue;
                 }
-                Tag tg=TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength()+preferredTagLength));
+                Tag tg=TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength()+preferredTagLength)).build();
                 if(tg==null) continue;
                 if (tg != null) {
                     goodBarcodedReads++;
@@ -235,7 +235,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                     continue;
                 }
                 TaxaDistribution currentTaxaDist=tagCntMap.remove(origTag);
-                Tag t = TagBuilder.instance(origTag.sequence().substring(0, minCutSite + enzyme.readEndCutSiteRemnantLength()));
+                Tag t = TagBuilder.instance(origTag.sequence().substring(0, minCutSite + enzyme.readEndCutSiteRemnantLength())).build();
                 TaxaDistribution existingTD=shortTags.get(t);
                 if(existingTD!=null) {
                     if(currentTaxaDist==null || existingTD==null) {
