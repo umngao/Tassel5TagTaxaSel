@@ -6,6 +6,8 @@
  */
 package net.maizegenetics.analysis.filter;
 
+import com.google.common.collect.Range;
+
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.taxa.TaxaList;
@@ -13,29 +15,30 @@ import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.PluginEvent;
 import net.maizegenetics.prefs.TasselPrefs;
+import net.maizegenetics.plugindef.PluginParameter;
+
 import org.apache.log4j.Logger;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.FocusAdapter;
-import java.awt.event.FocusEvent;
 import java.net.URL;
 import java.util.List;
 
 /**
  *
- * @author Terry
+ * @author Terry Casstevens
  */
 public class FilterTaxaPropertiesPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(FilterTaxaPropertiesPlugin.class);
-    private double myMinNotMissing = TasselPrefs.FILTER_TAXA_PROPS_PLUGIN_MIN_NOT_MISSING_DEFAULT;
-    private double myMinHeterozygous = TasselPrefs.FILTER_TAXA_PROPS_PLUGIN_MIN_HET_DEFAULT;
-    private double myMaxHeterozygous = TasselPrefs.FILTER_TAXA_PROPS_PLUGIN_MAX_HET_DEFAULT;
+
+    private PluginParameter<Double> myMinNotMissing = new PluginParameter.Builder<Double>("minNotMissing", TasselPrefs.FILTER_TAXA_PROPS_PLUGIN_MIN_NOT_MISSING_DEFAULT, Double.class)
+            .guiName("Min Proportion of Sites Present").range(Range.closed(0.0, 1.0)).build();
+    private PluginParameter<Double> myMinHeterozygous = new PluginParameter.Builder<Double>("minHeterozygous", TasselPrefs.FILTER_TAXA_PROPS_PLUGIN_MIN_HET_DEFAULT, Double.class)
+            .guiName("Min Heterozygous Proportion").range(Range.closed(0.0, 1.0)).build();
+    private PluginParameter<Double> myMaxHeterozygous = new PluginParameter.Builder<Double>("maxHeterozygous", TasselPrefs.FILTER_TAXA_PROPS_PLUGIN_MAX_HET_DEFAULT, Double.class)
+            .guiName("Max Heterozygous Proportion").range(Range.closed(0.0, 1.0)).build();
 
     /**
      * Creates a new instance of FilterTaxaPropertiesPlugin
@@ -45,67 +48,33 @@ public class FilterTaxaPropertiesPlugin extends AbstractPlugin {
     }
 
     @Override
-    public DataSet performFunction(DataSet input) {
+    protected void preProcessParameters(DataSet input) {
 
-        try {
+        List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
 
-            List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
-
-            if (alignInList.size() != 1) {
-                String gpMessage = "Invalid selection.  Please Select One Genotype Alignment.";
-                if (isInteractive()) {
-                    JOptionPane.showMessageDialog(getParentFrame(), gpMessage);
-                } else {
-                    myLogger.error(gpMessage);
-                }
-                return null;
-            }
-            Datum current = alignInList.get(0);
-            Datum result = processDatum(current, isInteractive());
-
-            if (result != null) {
-                DataSet output = new DataSet(result, this);
-                fireDataSetReturned(new PluginEvent(output, FilterTaxaPropertiesPlugin.class));
-                return output;
-            } else {
-                return null;
-            }
-
-        } finally {
-            fireProgress(100);
+        if (alignInList.size() != 1) {
+            throw new IllegalArgumentException("FilterTaxaPropertiesPlugin: preProcessParameters: Must select one Genotype Table.");
         }
-
     }
 
-    private Datum processDatum(Datum inDatum, boolean isInteractive) {
+    @Override
+    public DataSet processData(DataSet input) {
+
+        List<Datum> datumList = input.getDataOfType(GenotypeTable.class);
+        Datum inDatum = datumList.get(0);
         GenotypeTable aa = (GenotypeTable) inDatum.getData();
-
-        if (isInteractive) {
-            FilterTaxaPropertiesDialog theDialog = new FilterTaxaPropertiesDialog();
-            theDialog.setLocationRelativeTo(getParentFrame());
-            theDialog.setVisible(true);
-            if (theDialog.isCancel()) {
-                return null;
-            }
-
-            myMinNotMissing = theDialog.getMinNotMissingProportion();
-            myMinHeterozygous = theDialog.getMinHeterozygousProportion();
-            myMaxHeterozygous = theDialog.getMaxHeterozygousProportion();
-
-            theDialog.dispose();
-        }
 
         GenotypeTable result = getFilteredAlignment(aa);
 
         StringBuilder builder = new StringBuilder();
         builder.append("Filter Alignment by Taxa Properties...\n");
         builder.append("   Min. Proportion of Sites Present: ");
-        builder.append(myMinNotMissing);
+        builder.append(minProportionOfSitesPresent());
         builder.append("\n");
         builder.append("   Heterozygous Proportion: ");
-        builder.append(myMinHeterozygous);
+        builder.append(minHeterozygousProportion());
         builder.append(" - ");
-        builder.append(myMaxHeterozygous);
+        builder.append(maxHeterozygousProportion());
         builder.append("\n");
         String theComment = builder.toString();
 
@@ -120,7 +89,7 @@ public class FilterTaxaPropertiesPlugin extends AbstractPlugin {
         if (result.numberOfTaxa() != 0) {
             String theName = inDatum.getName() + "_" + result.numberOfTaxa() + "Taxa";
             myLogger.info("Resulting Number Sequences: " + result.numberOfTaxa());
-            return new Datum(theName, result, theComment);
+            return new DataSet(new Datum(theName, result, theComment), this);
         } else {
             if (isInteractive()) {
                 JOptionPane.showMessageDialog(getParentFrame(), "No remaining Taxa given filter parameters.");
@@ -142,19 +111,19 @@ public class FilterTaxaPropertiesPlugin extends AbstractPlugin {
 
             progress((int) ((double) t / (double) numTaxa * 100.0), null);
 
-            if (myMinNotMissing != 0.0) {
+            if (minProportionOfSitesPresent() != 0.0) {
                 int totalNotMissing = alignment.totalNonMissingForTaxon(t);
                 double percentNotMissing = (double) totalNotMissing / (double) numSites;
-                if (percentNotMissing < myMinNotMissing) {
+                if (percentNotMissing < minProportionOfSitesPresent()) {
                     continue;
                 }
             }
 
-            if ((myMinHeterozygous != 0.0) || (myMaxHeterozygous != 1.0)) {
+            if ((minHeterozygousProportion() != 0.0) || (maxHeterozygousProportion() != 1.0)) {
                 int numHeterozygous = alignment.heterozygousCountForTaxon(t);
                 int totalSitesNotMissing = alignment.totalNonMissingForTaxon(t);
                 double percentHets = (double) numHeterozygous / (double) totalSitesNotMissing;
-                if ((percentHets < myMinHeterozygous) || (percentHets > myMaxHeterozygous)) {
+                if ((percentHets < minHeterozygousProportion()) || (percentHets > maxHeterozygousProportion())) {
                     continue;
                 }
             }
@@ -164,37 +133,73 @@ public class FilterTaxaPropertiesPlugin extends AbstractPlugin {
         return FilterGenotypeTable.getInstance(alignment, keepTaxaList.build(), false);
     }
 
-    public double getMinNotMissing() {
-        return myMinNotMissing;
+    // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(FilterTaxaPropertiesPlugin.class);
+    // }
+    /**
+     * Min Proportion of Sites Present
+     *
+     * @return Min Proportion of Sites Present
+     */
+    public Double minProportionOfSitesPresent() {
+        return myMinNotMissing.value();
     }
 
-    public void setMinNotMissing(int minNotMissing) {
-        if ((minNotMissing < 0.0) || (minNotMissing > 1.0)) {
-            throw new IllegalArgumentException("FilterTaxaPropertiesPlugin: setMinNotMissing: Value must be between 0.0 and 1.0: " + minNotMissing);
-        }
-        myMinNotMissing = minNotMissing;
+    /**
+     * Set Min Proportion of Sites Present. Min Proportion of Sites Present
+     *
+     * @param value Min Proportion of Sites Present
+     *
+     * @return this plugin
+     */
+    public FilterTaxaPropertiesPlugin minProportionOfSitesPresent(Double value) {
+        myMinNotMissing = new PluginParameter<>(myMinNotMissing, value);
+        return this;
     }
 
-    public double getMinHeterozygous() {
-        return myMinHeterozygous;
+    /**
+     * Min Heterozygous Proportion
+     *
+     * @return Min Heterozygous Proportion
+     */
+    public Double minHeterozygousProportion() {
+        return myMinHeterozygous.value();
     }
 
-    public void setMinHeterozygous(double minHeterozygous) {
-        if ((minHeterozygous < 0.0) || (minHeterozygous > 1.0)) {
-            throw new IllegalArgumentException("FilterTaxaPropertiesPlugin: setMinHeterozygous: Value must be between 0.0 and 1.0: " + minHeterozygous);
-        }
-        myMinHeterozygous = minHeterozygous;
+    /**
+     * Set Min Heterozygous Proportion. Min Heterozygous Proportion
+     *
+     * @param value Min Heterozygous Proportion
+     *
+     * @return this plugin
+     */
+    public FilterTaxaPropertiesPlugin minHeterozygousProportion(Double value) {
+        myMinHeterozygous = new PluginParameter<>(myMinHeterozygous, value);
+        return this;
     }
 
-    public double getMaxHeterozygous() {
-        return myMaxHeterozygous;
+    /**
+     * Max Heterozygous Proportion
+     *
+     * @return Max Heterozygous Proportion
+     */
+    public Double maxHeterozygousProportion() {
+        return myMaxHeterozygous.value();
     }
 
-    public void setMaxHeterozygous(double maxHeterozygous) {
-        if ((maxHeterozygous < 0.0) || (maxHeterozygous > 1.0)) {
-            throw new IllegalArgumentException("FilterTaxaPropertiesPlugin: setMaxHeterozygous: Value must be between 0.0 and 1.0: " + maxHeterozygous);
-        }
-        myMaxHeterozygous = maxHeterozygous;
+    /**
+     * Set Max Heterozygous Proportion. Max Heterozygous Proportion
+     *
+     * @param value Max Heterozygous Proportion
+     *
+     * @return this plugin
+     */
+    public FilterTaxaPropertiesPlugin maxHeterozygousProportion(Double value) {
+        myMaxHeterozygous = new PluginParameter<>(myMaxHeterozygous, value);
+        return this;
     }
 
     /**
@@ -227,149 +232,5 @@ public class FilterTaxaPropertiesPlugin extends AbstractPlugin {
      */
     public String getToolTipText() {
         return "Filter Alignment Based Taxa Properties";
-    }
-}
-
-class FilterTaxaPropertiesDialog extends JDialog {
-
-    private static final int TEXT_FIELD_WIDTH = 10;
-    private JTabbedPane myTabbedPane = new JTabbedPane();
-    private JTextField myMinNotMissingField = new JTextField(TEXT_FIELD_WIDTH);
-    private JTextField myMinHeterozygousField = new JTextField(TEXT_FIELD_WIDTH);
-    private JTextField myMaxHeterozygousField = new JTextField(TEXT_FIELD_WIDTH);
-    private double myMinNotMissing = TasselPrefs.getFilterTaxaPropsMinNotMissingFreq();
-    private double myMinHeterozygous = TasselPrefs.getFilterTaxaPropsMinHetFreq();
-    private double myMaxHeterozygous = TasselPrefs.getFilterTaxaPropsMaxHetFreq();
-    private boolean myIsCancel = true;
-    private boolean myIsOkToContinue = true;
-
-    public FilterTaxaPropertiesDialog() {
-        super((Frame) null, null, true);
-
-        JButton okButton = new JButton();
-        okButton.setActionCommand("Ok");
-        okButton.setText("Ok");
-        okButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                if (myIsOkToContinue) {
-                    myIsCancel = false;
-                    setVisible(false);
-                } else {
-                    myIsOkToContinue = true;
-                }
-            }
-        });
-        JButton closeButton = new JButton();
-        closeButton.setText("Close");
-        closeButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                myIsCancel = true;
-                setVisible(false);
-            }
-        });
-
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-
-        panel.add(getLine("Min Proportion of Sites Present", myMinNotMissingField));
-        panel.add(getLine("Min Heterozygous Proportion", myMinHeterozygousField));
-        panel.add(getLine("Max Heterozygous Proportion", myMaxHeterozygousField));
-
-        myMinNotMissingField.setText(String.valueOf(myMinNotMissing));
-        myMinNotMissingField.addFocusListener(new FocusAdapter() {
-            @Override
-            public void focusLost(FocusEvent e) {
-                myMinNotMissing = focusLostParseFreq(myMinNotMissingField, myMinNotMissing);
-                TasselPrefs.putFilterTaxaPropsMinNotMissingFreq(myMinNotMissing);
-            }
-        });
-
-        myMinHeterozygousField.setText(String.valueOf(myMinHeterozygous));
-        myMinHeterozygousField.addFocusListener(new FocusAdapter() {
-            @Override
-            public void focusLost(FocusEvent e) {
-                myMinHeterozygous = focusLostParseFreq(myMinHeterozygousField, myMinHeterozygous);
-                TasselPrefs.putFilterTaxaPropsMinHetFreq(myMinHeterozygous);
-            }
-        });
-
-        myMaxHeterozygousField.setText(String.valueOf(myMaxHeterozygous));
-        myMaxHeterozygousField.addFocusListener(new FocusAdapter() {
-            @Override
-            public void focusLost(FocusEvent e) {
-                myMaxHeterozygous = focusLostParseFreq(myMaxHeterozygousField, myMaxHeterozygous);
-                TasselPrefs.putFilterTaxaPropsMaxHetFreq(myMaxHeterozygous);
-            }
-        });
-
-        myTabbedPane.add(panel, "Filter Taxa by Properties");
-
-        JPanel pnlButtons = new JPanel();
-        pnlButtons.setLayout(new FlowLayout());
-        pnlButtons.add(okButton);
-        pnlButtons.add(closeButton);
-        getContentPane().add(myTabbedPane, BorderLayout.CENTER);
-        getContentPane().add(pnlButtons, BorderLayout.SOUTH);
-
-        pack();
-    }
-
-    public boolean isCancel() {
-        return myIsCancel;
-    }
-
-    public double getMinNotMissingProportion() {
-        return myMinNotMissing;
-    }
-
-    public double getMinHeterozygousProportion() {
-        return myMinHeterozygous;
-    }
-
-    public double getMaxHeterozygousProportion() {
-        return myMaxHeterozygous;
-    }
-
-    private double focusLostParseFreq(JTextField field, double lastValue) {
-
-        myIsOkToContinue = true;
-
-        double freq = -0.1;
-        try {
-            String input = field.getText().trim();
-
-            if (input != null) {
-                freq = Double.parseDouble(input);
-            }
-            if ((freq > 1.0) || (freq < 0.0)) {
-                myIsOkToContinue = false;
-                JOptionPane.showMessageDialog(this, "Please enter a value between 0.0 and 1.0");
-                freq = lastValue;
-            }
-
-        } catch (NumberFormatException nfe) {
-            myIsOkToContinue = false;
-            JOptionPane.showMessageDialog(this, "Please enter a value between 0.0 and 1.0");
-            freq = lastValue;
-        }
-
-        field.setText(String.valueOf(freq));
-        return freq;
-    }
-
-    private JPanel getLine(String label, JTextField ref) {
-
-        JPanel result = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-
-        result.add(new JLabel(label));
-        ref.setEditable(true);
-        ref.setHorizontalAlignment(JTextField.LEFT);
-        ref.setAlignmentX(JTextField.CENTER_ALIGNMENT);
-        ref.setAlignmentY(JTextField.CENTER_ALIGNMENT);
-        ref.setMaximumSize(ref.getPreferredSize());
-        result.add(ref);
-
-        return result;
-
     }
 }
