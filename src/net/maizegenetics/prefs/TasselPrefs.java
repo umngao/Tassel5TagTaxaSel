@@ -55,7 +55,7 @@ public class TasselPrefs {
     public static final String FILTER_TAXA_PROPS_PLUGIN_TOP = "/tassel/plugins/filterTaxaAlign";
     // Min. Not Missing Gametes Proportion
     public static final String FILTER_TAXA_PROPS_PLUGIN_MIN_NOT_MISSING = "minNotMissingFreq";
-    public static final double FILTER_TAXA_PROPS_PLUGIN_MIN_NOT_MISSING_DEFAULT = 0.1;
+    public static final double FILTER_TAXA_PROPS_PLUGIN_MIN_NOT_MISSING_DEFAULT = 0.0;
     //Min. Heterozygotes Proportion
     public static final String FILTER_TAXA_PROPS_PLUGIN_MIN_HET = "minHetFreq";
     public static final double FILTER_TAXA_PROPS_PLUGIN_MIN_HET_DEFAULT = 0.0;
