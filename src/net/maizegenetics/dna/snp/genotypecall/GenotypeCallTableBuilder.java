@@ -55,7 +55,7 @@ public class GenotypeCallTableBuilder {
     }
     
     public static GenotypeCallTable getInstanceUnknownValues(int numTaxa, int numSites) {
-        return new GenotypeCallTableBuilder(SuperByteMatrixBuilder.getInstanceSingleValue(numSites, numSites, GenotypeTable.UNKNOWN_DIPLOID_ALLELE)).build();
+        return new GenotypeCallTableBuilder(SuperByteMatrixBuilder.getInstanceSingleValue(numTaxa, numSites, GenotypeTable.UNKNOWN_DIPLOID_ALLELE)).build();
     }
 
     /**
