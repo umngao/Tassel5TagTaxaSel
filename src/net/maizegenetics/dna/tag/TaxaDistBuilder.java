@@ -227,7 +227,8 @@ abstract class AbstractTaxaDistribution implements TaxaDistribution {
     @Override
     public String toString() {
         return "TaxaDist{" +
-                "totalDepth=" + totalDepth() +
+                "taxaWithRead=" + numberOfTaxaWithTag() +
+                ", totalDepth=" + totalDepth() +
                 ", maxTaxa=" + maxTaxa() +
                 ", "+taxaDepthMap().toString()+
                 '}';
@@ -313,6 +314,11 @@ class TaxaDistExpandable extends AbstractTaxaDistribution  {
     }
 
     @Override
+    public int numberOfTaxaWithTag() {
+        return taxaWithDepths()[0].length;
+    }
+
+    @Override
     public int memorySize() {
         //minimal size 8 (object) + 12 (outer short array) + 12 (sizeArray) + 4+ 4 = 40
         int size=40;
@@ -383,12 +389,8 @@ class TaxaDistSingleTaxon extends AbstractTaxaDistribution {
     }
 
     @Override
-    public String toString() {
-        return "TaxaDist{" +
-                "totalDepth=" + 1 +
-                ", maxTaxa=" + maxTaxa +
-                ", "+taxaDepthMap().toString()+
-                '}';
+    public int numberOfTaxaWithTag() {
+        return 1;
     }
 }
 
@@ -466,19 +468,13 @@ class TaxaDistFixed extends AbstractTaxaDistribution  {
     }
 
     @Override
+    public int numberOfTaxaWithTag() {
+        return numTaxaWithTags;
+    }
+
+    @Override
     public int memorySize() {
         //minimal size 8 (object) + 12 (sizeArray) + 4+ 4 = 40
         return 28+compTaxaSize.length;
     }
-
-    @Override
-    public String toString() {
-        return "TaxaDist{" +
-                "totalDepth=" + totalDepth +
-                ", maxTaxa=" + maxTaxa +
-                ", "+taxaDepthMap().toString()+
-                '}';
-    }
-
-
 }
