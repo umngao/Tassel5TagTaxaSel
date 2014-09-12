@@ -144,6 +144,7 @@ public class SeqViewerPanel extends JPanel implements ComponentListener, TableMo
         myTable.setUI(new MyTableUI());
         myTable.setDefaultRenderer(myTable.getColumnClass(0), myTableCellRenderer);
         myTable.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
+        myTable.getTableHeader().setReorderingAllowed(false);
         JList rowHeaders = new JList(new TableRowHeaderListModel(myTableModel.getRowHeaders())) {
             public String getToolTipText(MouseEvent evt) {
 

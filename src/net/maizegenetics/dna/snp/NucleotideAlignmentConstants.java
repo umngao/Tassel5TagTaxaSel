@@ -29,6 +29,7 @@ public final class NucleotideAlignmentConstants {
     // String Values for Nucleotide Alleles
     public static final String INSERT_ALLELE_STR = "+";
     public static final String GAP_ALLELE_STR = "-";
+    public static final char GAP_ALLELE_CHAR = '-';
     public static final String UNDEFINED_ALLELE_STR = "X";
 
     public static final String[][] NUCLEOTIDE_ALLELES = new String[][]{{"A", "C", "G", "T", "+", "-",

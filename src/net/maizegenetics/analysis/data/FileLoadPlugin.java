@@ -13,6 +13,7 @@ import net.maizegenetics.dna.snp.ImportUtils;
 import net.maizegenetics.trait.ReadPhenotypeUtils;
 import net.maizegenetics.dna.snp.ReadPolymorphismUtils;
 import net.maizegenetics.dna.snp.ReadSequenceAlignmentUtils;
+import net.maizegenetics.dna.snp.io.ReadNumericMarkerUtils;
 import net.maizegenetics.taxa.distance.ReadDistanceMatrix;
 import net.maizegenetics.util.*;
 import net.maizegenetics.plugindef.AbstractPlugin;
@@ -20,6 +21,7 @@ import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginEvent;
 import net.maizegenetics.prefs.TasselPrefs;
+import net.maizegenetics.dna.map.TOPMUtils;
 
 import org.apache.log4j.Logger;
 
@@ -33,7 +35,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
-import net.maizegenetics.dna.map.TOPMUtils;
 
 /**
  *
@@ -46,13 +47,14 @@ public class FileLoadPlugin extends AbstractPlugin {
     private TasselFileType myFileType = TasselFileType.Unknown;
     private PlinkLoadPlugin myPlinkLoadPlugin = null;
     private ProjectionLoadPlugin myProjectionLoadPlugin = null;
+    private ProjectPcsAndRunModelSelectionPlugin myProjectPcsAndRunModelSelectionPlugin = null;
     private JFileChooser myOpenFileChooser = new JFileChooser(TasselPrefs.getOpenDir());
 
     public enum TasselFileType {
 
         SqrMatrix, Sequence, Unknown, Fasta,
-        Hapmap, Plink, Phenotype, ProjectionAlignment, Phylip_Seq, Phylip_Inter, GeneticMap, Table,
-        Serial, HapmapDiploid, Text, VCF, HDF5, TOPM, HDF5Schema
+        Hapmap, Plink, Phenotype, ProjectionAlignment, ProjectPCsandRunModelSelection, Phylip_Seq, Phylip_Inter, GeneticMap, Table,
+        Serial, HapmapDiploid, Text, VCF, HDF5, TOPM, HDF5Schema, Filter, NumericGenotype
     };
     public static final String FILE_EXT_HAPMAP = ".hmp.txt";
     public static final String FILE_EXT_HAPMAP_GZ = ".hmp.txt.gz";
@@ -72,10 +74,12 @@ public class FileLoadPlugin extends AbstractPlugin {
         super(parentFrame, isInteractive);
     }
 
-    public FileLoadPlugin(Frame parentFrame, boolean isInteractive, PlinkLoadPlugin plinkLoadPlugin, ProjectionLoadPlugin projectionLoadPlugin) {
+    public FileLoadPlugin(Frame parentFrame, boolean isInteractive, PlinkLoadPlugin plinkLoadPlugin,
+            ProjectionLoadPlugin projectionLoadPlugin, ProjectPcsAndRunModelSelectionPlugin projectPcsAndRunModelSelectionPlugin) {
         super(parentFrame, isInteractive);
         myPlinkLoadPlugin = plinkLoadPlugin;
         myProjectionLoadPlugin = projectionLoadPlugin;
+        myProjectPcsAndRunModelSelectionPlugin = projectPcsAndRunModelSelectionPlugin;
     }
 
     public DataSet performFunction(DataSet input) {
@@ -98,7 +102,11 @@ public class FileLoadPlugin extends AbstractPlugin {
                 if (myFileType == TasselFileType.ProjectionAlignment) {
                     return myProjectionLoadPlugin.performFunction(input);
                 }
-                
+
+                if (myFileType == TasselFileType.ProjectPCsandRunModelSelection) {
+                    return myProjectPcsAndRunModelSelectionPlugin.performFunction(input);
+                }
+
                 setOpenFiles(getOpenFilesByChooser());
                 theDialog.dispose();
             }
@@ -259,8 +267,10 @@ public class FileLoadPlugin extends AbstractPlugin {
                         }
                     }
                 }
-                if (isTrait || (isMarker && isNumeric)) {
+                if (isTrait) {
                     guess = TasselFileType.Phenotype;
+                } else if (isMarker && isNumeric) {
+                	guess = TasselFileType.NumericGenotype;
                 } else if (isMap) {
                     guess = TasselFileType.GeneticMap;
                 } else {
@@ -346,6 +356,10 @@ public class FileLoadPlugin extends AbstractPlugin {
                 case GeneticMap: {
                     result = ReadPolymorphismUtils.readGeneticMapFile(inFile);
                     break;
+                }
+                case NumericGenotype: {
+                	result = ReadNumericMarkerUtils.readNumericMarkerFile(inFile);
+                	break;
                 }
                 case Table: {
                     result = TableReportUtils.readDelimitedTableReport(inFile, "\t");
@@ -497,6 +511,7 @@ class FileLoadPluginDialog extends JDialog {
     JRadioButton loadMatrixRadioButton = new JRadioButton("Load Square Numerical Matrix (i.e. kinship)");
     JRadioButton guessRadioButton = new JRadioButton("Make Best Guess");
     JRadioButton projectionAlignmentRadioButton = new JRadioButton("Load Projection Alignment");
+    JRadioButton projectPCsandRunModelSelectionRadioButton = new JRadioButton("Load Files for Projecting PCs onto NAM");
     JRadioButton geneticMapRadioButton = new JRadioButton("Load a Genetic Map");
     JRadioButton tableReportRadioButton = new JRadioButton("Load a Table Report");
     JRadioButton topmRadioButton = new JRadioButton("Load a TOPM (Tags on Physical Map)");
@@ -518,7 +533,6 @@ class FileLoadPluginDialog extends JDialog {
         setUndecorated(false);
         getRootPane().setWindowDecorationStyle(JRootPane.NONE);
 
-
         Container contentPane = getContentPane();
 
         BoxLayout layout = new BoxLayout(contentPane, BoxLayout.Y_AXIS);
@@ -533,6 +547,7 @@ class FileLoadPluginDialog extends JDialog {
         setResizable(false);
 
         conversionButtonGroup.add(projectionAlignmentRadioButton);
+        conversionButtonGroup.add(projectPCsandRunModelSelectionRadioButton);
         conversionButtonGroup.add(hapMapRadioButton);
         conversionButtonGroup.add(hdf5RadioButton);
         conversionButtonGroup.add(hdf5SchemaRadioButton);
@@ -604,6 +619,7 @@ class FileLoadPluginDialog extends JDialog {
         result.add(vcfRadioButton);
         result.add(plinkRadioButton);
         result.add(projectionAlignmentRadioButton);
+        //result.add(projectPCsandRunModelSelectionRadioButton);
         result.add(sequenceAlignRadioButton);
         result.add(fastaRadioButton);
         result.add(numericalRadioButton);
@@ -666,7 +682,10 @@ class FileLoadPluginDialog extends JDialog {
         }
         if (projectionAlignmentRadioButton.isSelected()) {
             return FileLoadPlugin.TasselFileType.ProjectionAlignment;
-        }        
+        }
+        if (projectPCsandRunModelSelectionRadioButton.isSelected()) {
+            return FileLoadPlugin.TasselFileType.ProjectPCsandRunModelSelection;
+        }
         if (sequenceAlignRadioButton.isSelected()) {
             return FileLoadPlugin.TasselFileType.Sequence;
         }

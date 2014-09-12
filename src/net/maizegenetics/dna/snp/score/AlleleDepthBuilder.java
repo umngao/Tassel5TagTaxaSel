@@ -24,21 +24,16 @@ public class AlleleDepthBuilder {
     private final Map<SiteScore.SITE_SCORE_TYPE, Byte2DBuilder> myBuilders = new LinkedHashMap<>();
     private final int myNumSites;
 
-    private static final SiteScore.SITE_SCORE_TYPE[] ALLELE_DEPTH_TYPES = new SiteScore.SITE_SCORE_TYPE[]{
-        SiteScore.SITE_SCORE_TYPE.DepthA, SiteScore.SITE_SCORE_TYPE.DepthC,
-        SiteScore.SITE_SCORE_TYPE.DepthG, SiteScore.SITE_SCORE_TYPE.DepthT,
-        SiteScore.SITE_SCORE_TYPE.DepthGap, SiteScore.SITE_SCORE_TYPE.DepthInsertion};
-
     private AlleleDepthBuilder(int numTaxa, int numSites, TaxaList taxaList) {
-        for (int i = 0; i < ALLELE_DEPTH_TYPES.length; i++) {
-            myBuilders.put(ALLELE_DEPTH_TYPES[i], Byte2DBuilder.getInstance(numTaxa, numSites, ALLELE_DEPTH_TYPES[i], taxaList));
+        for (int i = 0; i < AlleleDepth.ALLELE_DEPTH_TYPES.length; i++) {
+            myBuilders.put(AlleleDepth.ALLELE_DEPTH_TYPES[i], Byte2DBuilder.getInstance(numTaxa, numSites, AlleleDepth.ALLELE_DEPTH_TYPES[i], taxaList));
         }
         myNumSites = numSites;
     }
 
     private AlleleDepthBuilder(IHDF5Writer writer, int numTaxa, int numSites, TaxaList taxaList) {
-        for (int i = 0; i < ALLELE_DEPTH_TYPES.length; i++) {
-            myBuilders.put(ALLELE_DEPTH_TYPES[i], Byte2DBuilder.getInstance(writer, numSites, ALLELE_DEPTH_TYPES[i], taxaList));
+        for (int i = 0; i < AlleleDepth.ALLELE_DEPTH_TYPES.length; i++) {
+            myBuilders.put(AlleleDepth.ALLELE_DEPTH_TYPES[i], Byte2DBuilder.getInstance(writer, numSites, AlleleDepth.ALLELE_DEPTH_TYPES[i], taxaList));
         }
         myNumSites = numSites;
     }

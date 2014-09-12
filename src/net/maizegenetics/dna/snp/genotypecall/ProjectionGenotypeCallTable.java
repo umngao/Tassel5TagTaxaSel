@@ -89,6 +89,21 @@ public class ProjectionGenotypeCallTable extends AbstractGenotypeCallTable {
 //        if(currMode==BaseMode.Taxa) {return getBaseTaxon(taxon, site);}
         return getBaseGeneral(taxon, site);
     }
+    
+    public int[] taxonDonors(int taxon, int site) {
+        int primPos = taxon << 2;
+        if ((site < primDSH[primPos++]) || (site > primDSH[primPos++])) {
+            DonorSiteHaps currentDSH = breakMaps.get(taxon).get(site);
+            primPos = taxon << 2;
+            primDSH[primPos++] = currentDSH.getStartSite(); //NOTE:-used to be currentDSH.getStartSite(), but it threw an exception
+            primDSH[primPos++] = currentDSH.getStartSite(); //NOTE:-used to be currentDSH.getEndSite(), but it threw an exception
+            primDSH[primPos++] = currentDSH.getParent1index();
+            primDSH[primPos++] = currentDSH.getParent2index();
+            primPos = (taxon << 2) + 2;
+            //TODO consider null
+        }
+        return new int[]{primDSH[primPos], primDSH[primPos + 1]};
+    }
 
     /**
      * Returns the high density base genotypeTable of the projection genotypeTable.

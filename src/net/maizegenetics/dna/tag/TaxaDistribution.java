@@ -46,6 +46,11 @@ public interface TaxaDistribution {
      */
     int totalDepth();
 
+    /**
+     * Number of taxa with at least one read
+     */
+    int numberOfTaxaWithTag();
+
 
     /**
      * Number of taxa that depth is being recorded for.  Maximum taxa index = (maxTaxa-1)
