@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
+import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 
 public class ModelEffectUtils {
@@ -155,7 +156,17 @@ public class ModelEffectUtils {
     		}
     	}
     	return values;
-    	
     }
     
+    public static double[] getNumericCodingForAdditiveModel(byte[] marker, byte allele) {
+    	int nmarkers = marker.length;
+    	double[] values = new double[nmarkers];
+    	
+    	for (int m = 0; m < nmarkers; m++) {
+    		byte[] markerval = GenotypeTableUtils.getDiploidValues(marker[m]);
+    		for (byte alleleval : markerval) if (alleleval == allele) values[m] += 1.0; 
+    	}
+    	return values;
+    }
+
 }

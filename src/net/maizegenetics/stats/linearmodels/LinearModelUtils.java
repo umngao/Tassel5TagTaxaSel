@@ -121,4 +121,20 @@ public class LinearModelUtils {
 		}
 	}
 
+	public static void shuffle(DoubleMatrix columnMatrix, Random randomizer) {
+		int n = columnMatrix.numberOfRows();
+		//the following algorithm from http://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle (3/11/2011)
+//		To shuffle an array a of n elements:
+//			  for i from n - 1 down to 1 do
+//			       j = random integer with 0 <= j <= i
+//			       exchange a[j] and a[i]
+		
+		for (int i = n - 1; i > 0; i--) {
+			int j = randomizer.nextInt(i + 1);
+			double temp = columnMatrix.get(j, 0);
+			columnMatrix.set(j, 0, columnMatrix.get(i, 0));
+			columnMatrix.set(i, 0, temp);
+		}
+
+	}
 }
