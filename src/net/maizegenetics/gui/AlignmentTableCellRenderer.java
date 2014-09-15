@@ -360,13 +360,13 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
     private static Color[] generateColors(int n) {
         Color[] cols = new Color[n];
         for (int i = 0; i < n; i++) {
-            cols[i] = Color.getHSBColor((float) i / (float) n, 0.85f, 1.0f);
+            cols[i] = Color.getHSBColor(((float) i / (float) n * 0.66f), 0.85f, 1.0f);
         }
         return cols;
     }
 
     private static Map<String, Color> generateNucleotideColors() {
-        Map<String, Color> result = new HashMap<String, Color>();
+        Map<String, Color> result = new HashMap<>();
         Iterator itr = NucleotideAlignmentConstants.NUCLEOTIDE_IUPAC_HASH.entrySet().iterator();
         while (itr.hasNext()) {
             Map.Entry current = (Map.Entry) itr.next();
