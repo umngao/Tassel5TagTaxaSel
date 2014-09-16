@@ -9,6 +9,8 @@ import net.maizegenetics.stats.linearmodels.CovariateModelEffect;
 import net.maizegenetics.stats.linearmodels.LinearModelUtils;
 import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.SweepFastLinearModel;
+import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.OpenBitSet;
 import net.maizegenetics.util.TableReportBuilder;
 
 public class AlleleProbabilityFELM extends AbstractFixedEffectLM {
@@ -37,10 +39,10 @@ public class AlleleProbabilityFELM extends AbstractFixedEffectLM {
 	}
 
 	@Override
-	protected void analyzeSite(int siteNumber, ArrayList<ModelEffect> baseEffects) {
-		String siteName = myGenoPheno.genotypeTable().siteName(siteNumber);
+	protected void analyzeSite() {
+		String siteName = myGenoPheno.genotypeTable().siteName(myCurrentSite);
 		SweepFastLinearModel markerModel = null;
-		ArrayList<ModelEffect> modelPlusMarkers = new ArrayList<>(baseEffects);
+		ArrayList<ModelEffect> modelPlusMarkers = new ArrayList<>(myBaseModel);
 
 		//retrieve values at this site, get A,C,G, and T, gap, insertion values
 		//delete any that are monomorphic
@@ -52,7 +54,7 @@ public class AlleleProbabilityFELM extends AbstractFixedEffectLM {
 		ArrayList<float[]> probList = new ArrayList<>();
 		ArrayList<SITE_SCORE_TYPE> typeList = new ArrayList<>();
 		for (SITE_SCORE_TYPE type : AlleleProbability.ALLELE_PROBABILITY_TYPES) {
-			float[] values = alleleProbsOfType(type, siteNumber);
+			float[] values = myGenoPheno.alleleProbsOfType(type, myCurrentSite);
 			if (!isMonomorphic(values)) {
 				probList.add(values);
 				typeList.add(type);
@@ -111,8 +113,8 @@ public class AlleleProbabilityFELM extends AbstractFixedEffectLM {
         int columnCount = 0;
         rowData[columnCount++] = currentTraitName;
         rowData[columnCount++] = siteName;	
-        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(siteNumber);
-        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(siteNumber);
+        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(myCurrentSite);
+        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(myCurrentSite);
         rowData[columnCount++] = new Double(F);
         rowData[columnCount++] = new Double(p);
         rowData[columnCount++] = new Double(rsq);
@@ -132,8 +134,8 @@ public class AlleleProbabilityFELM extends AbstractFixedEffectLM {
             columnCount = 0;
             rowData[columnCount++] = currentTraitName;
             rowData[columnCount++] = siteName;
-            rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(siteNumber);
-            rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(siteNumber);
+            rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(myCurrentSite);
+            rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(myCurrentSite);
             rowData[columnCount++] = typeNameMap.get(typeList.get(a));
             if (a < numberOfAllelesInModel) rowData[columnCount++] = new Double(beta[firstEstimateIndex + a]);
             else rowData[columnCount++] = new Double(0.0);
@@ -141,5 +143,16 @@ public class AlleleProbabilityFELM extends AbstractFixedEffectLM {
         }
      
 	}
+
+	@Override
+	protected void getGenotypeAndUpdateMissing(BitSet missingObsBeforeSite) {
+		float[] allSiteProbs = myGenoPheno.alleleProbsOfType(SITE_SCORE_TYPE.ProbA, myCurrentSite);
+		int n = allSiteProbs.length;
+		missingObsForSite = new OpenBitSet(missingObsBeforeSite);
+		for (int i = 0; i < n; i++) {
+			if (Float.isNaN(allSiteProbs[i])) missingObsForSite.fastSet(i);
+		}
+	}
+
 
 }

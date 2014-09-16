@@ -1,6 +1,9 @@
 package net.maizegenetics.phenotype;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.score.SiteScore;
+import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
+import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.TableReport;
 
@@ -45,7 +48,7 @@ public class GenotypePhenotype implements TableReport {
 	 * The GenotypeTable backing this object may hold both types of data. The boolean indicates which is to be used in an analysis.
 	 */
 	public boolean areGenotypeValuesDiscrete() {
-		//TODO implement
+		//TODO implement once hasGenotype is implemented
 		return true;
 	}
 	
@@ -53,7 +56,7 @@ public class GenotypePhenotype implements TableReport {
 	 * @return	true if taxa are replicated (more observations than taxa), false otherwise
 	 */
 	public boolean areTaxaReplicated() {
-		//TODO implement
+		myPhenotype.areTaxaReplicated();
 		return true;
 	}
 	
@@ -62,27 +65,29 @@ public class GenotypePhenotype implements TableReport {
 	 * @return	the genotypes corresponding to every row of the phenotype table as String values
 	 */
 	public String[] getStringGenotype(int site) {
-		//TODO implement
-		return null;
+		TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
+		TaxaList myTaxaList = myGenotype.taxa();
+		int numberOfObs = myPhenotype.numberOfObservations();
+		String[] geno = new String[numberOfObs];
+		for (int obs = 0; obs < numberOfObs; obs++) {
+			int ndx = myTaxaList.indexOf(myTaxaAttr.taxon(obs));
+			geno[obs] = myGenotype.genotypeAsString(ndx, site);
+		}
+		return geno;
 	}
 	
-	/**
-	 * @param site	the site in the GenotypeTable
-	 * @return	the genotypes corresponding to every row of the phenotype table as double values
-	 */
-	public double[] getNumericGenotype(int site) {
-		//TODO implement
-		return null;
+	public float[] alleleProbsOfType(SiteScore.SITE_SCORE_TYPE type, int site) {
+		TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
+		TaxaList myTaxaList = myGenotype.taxa();
+		int numberOfObs = myPhenotype.numberOfObservations();
+		float[] values = new float[numberOfObs];
+		for (int obs = 0; obs < numberOfObs; obs++) {
+			int ndx = myTaxaList.indexOf(myTaxaAttr.taxon(obs));
+			values[obs] = myGenotype.alleleProbability(ndx, site, type);
+		}
+		return values;
 	}
 
-	/**
-	 * @param site	the site in the GenotypeTable
-	 * @return	a BitSet that returns true for observations that have a missing genotype for this site, false otherwise
-	 */
-	public BitSet missingGenotypes(int site) {
-		//TODO implement
-		return null;
-	}
 	
 	//implement TableReport methods
 	@Override

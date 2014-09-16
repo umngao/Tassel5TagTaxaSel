@@ -1,9 +1,9 @@
 package net.maizegenetics.phenotype;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.TreeSet;
-
 
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
@@ -116,12 +116,17 @@ public class FilterPhenotype implements Phenotype {
 
 	@Override
 	public List<PhenotypeAttribute> attributeListCopy() {
-		return basePhenotype.attributeListCopy();
+		List<PhenotypeAttribute> attrList = new ArrayList<PhenotypeAttribute>();
+		for (int i = 0; i < numberOfAttributes(); i++) attrList.add(attribute(i));
+		return attrList;
 	}
 
 	@Override
 	public List<PhenotypeAttribute> attributeListOfType(ATTRIBUTE_TYPE type) {
-		return basePhenotype.attributeListOfType(type);
+		int[] indices = attributeIndicesOfType(type);
+		ArrayList<PhenotypeAttribute> attrList = new ArrayList<>();
+		for (int ndx:indices) attrList.add(attribute(ndx));
+		return attrList;
 	}
 
 	@Override
@@ -188,6 +193,12 @@ public class FilterPhenotype implements Phenotype {
 	@Override
 	public int attributeIndexForName(String name) {
 		return basePhenotype.attributeIndexForName(name);
+	}
+
+	@Override
+	public boolean areTaxaReplicated() {
+		int numberOfUniqueTaxa = taxa().size();
+		return (numberOfUniqueTaxa > numberOfObservations);
 	}
 
 }

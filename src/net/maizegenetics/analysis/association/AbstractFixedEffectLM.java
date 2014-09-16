@@ -12,6 +12,7 @@ import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.score.SiteScore;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.phenotype.GenotypePhenotype;
+import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.phenotype.PhenotypeAttribute;
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.plugindef.Datum;
@@ -37,7 +38,8 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	protected final List<PhenotypeAttribute> myCovariateAttributes;
 	protected TableReportBuilder siteReportBuilder;
 	protected TableReportBuilder alleleReportBuilder;
-	protected double[] allData;
+	protected float[] allData;
+	protected int myCurrentSite;
 	protected double[] siteData;
 	protected OpenBitSet missingObsForSite;
 	protected String currentTraitName;
@@ -105,19 +107,19 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 			OpenBitSet missingObs = new OpenBitSet(dataAttribute.missing());
 			for (PhenotypeAttribute attr:myFactorAttributes) missingObs.or(attr.missing());
 			for (PhenotypeAttribute attr:myCovariateAttributes) missingObs.or(attr.missing());
-			allData = (double[]) dataAttribute.allValues();
+			allData = (float[]) dataAttribute.allValues();
 			if (permute) {
 				missingObsForSite = missingObs;
 				createPermutedData();
 			}
 			for (int s = 0; s < numberOfSites; s++) {
 				//updata missing obs for this site
-				missingObsForSite = new OpenBitSet(missingObs);
-				missingObsForSite.or(myGenoPheno.missingGenotypes(s));
+				myCurrentSite = s;
+				getGenotypeAndUpdateMissing(missingObs);
 				siteData = getNonMissingDoubles(allData, missingObsForSite);
 				myBaseModel = baseModel();
 				numberOfBaseEffects = myBaseModel.size();
-				analyzeSite(s, myBaseModel);
+				analyzeSite();
 				if (permute) updateMinP();
 			}
 			
@@ -149,10 +151,15 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	}
 
 	/**
+	 * @param missingObsBeforeSite	a BitSet with bits set for observations missing in model covariates and data
+	 */
+	protected abstract void getGenotypeAndUpdateMissing(BitSet missingObsBeforeSite);
+	
+	/**
 	 * @param siteNumber		a site number
 	 * This method tests the significance of this site and estimates the allele effects then appends the results to the site and allele reports.
 	 */
-	protected abstract void analyzeSite(int siteNumber, ArrayList<ModelEffect> baseModel);
+	protected abstract void analyzeSite();
 	
 	protected ArrayList<ModelEffect> baseModel() {
 		int numberOfNonmissingObs = numberOfObservations - (int) missingObsForSite.cardinality();
@@ -199,16 +206,6 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		
 		minP = new double[numberOfPermutations];
 		Arrays.fill(minP, 1.0);
-	}
-
-	protected float[] alleleProbsOfType(SiteScore.SITE_SCORE_TYPE type, int site) {
-		GenotypeTable myGenotypes = myGenoPheno.genotypeTable();
-		int numberOfTaxa = myGenotypes.numberOfTaxa();
-		float[] values = new float[numberOfTaxa];
-		for (int t = 0; t < numberOfTaxa; t++) {
-			values[t] = myGenotypes.alleleProbability(t, site, type);
-		}
-		return values;
 	}
 
 	protected void updateReportsWithPermutationP() {

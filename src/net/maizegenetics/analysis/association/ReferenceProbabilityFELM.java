@@ -10,11 +10,14 @@ import net.maizegenetics.stats.linearmodels.CovariateModelEffect;
 import net.maizegenetics.stats.linearmodels.LinearModelUtils;
 import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.SweepFastLinearModel;
+import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.OpenBitSet;
 import net.maizegenetics.util.TableReportBuilder;
 
 public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
 	int numberOfSiteReportColumns;
 	int numberOfAlleleReportColumns;
+	double[] myProbabilities;
 
 	public ReferenceProbabilityFELM(Datum data) {
 		super(data);
@@ -37,13 +40,11 @@ public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
 	}
 	
 	@Override
-	protected void analyzeSite(int siteNumber, ArrayList<ModelEffect> baseEffects) {
-		myModel = new ArrayList<ModelEffect>(baseEffects);
-		String siteName = myGenoPheno.genotypeTable().siteName(siteNumber);
+	protected void analyzeSite() {
+		myModel = new ArrayList<ModelEffect>(myBaseModel);
+		String siteName = myGenoPheno.genotypeTable().siteName(myCurrentSite);
 
-		float[] probs = alleleProbsOfType(SITE_SCORE_TYPE.ReferenceProbablity, siteNumber);
-		double[] covar = getNonMissingDoubles(probs, missingObsForSite);
-		myModel.add(new CovariateModelEffect(covar));
+		myModel.add(new CovariateModelEffect(myProbabilities));
 		
 		if (areTaxaReplicated) myModel.add(taxaEffect());
 		
@@ -74,8 +75,8 @@ public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
         int columnCount = 0;
         rowData[columnCount++] = currentTraitName;
         rowData[columnCount++] = siteName;	
-        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(siteNumber);
-        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(siteNumber);
+        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(myCurrentSite);
+        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(myCurrentSite);
         rowData[columnCount++] = new Double(F);
         rowData[columnCount++] = new Double(p);
         if (permute) rowData[columnCount++] = "";
@@ -94,10 +95,21 @@ public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
         columnCount = 0;
         rowData[columnCount++] = currentTraitName;
         rowData[columnCount++] = siteName;
-        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(siteNumber);
-        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(siteNumber);
+        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(myCurrentSite);
+        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(myCurrentSite);
         rowData[columnCount++] = beta[estimateIndex];
         alleleReportBuilder.add(rowData);
+	}
+
+	@Override
+	protected void getGenotypeAndUpdateMissing(BitSet missingObsBeforeSite) {
+		float[] allSiteProbs = myGenoPheno.alleleProbsOfType(SITE_SCORE_TYPE.ReferenceProbablity, myCurrentSite);
+		int n = allSiteProbs.length;
+		missingObsForSite = new OpenBitSet(missingObsBeforeSite);
+		for (int i = 0; i < n; i++) {
+			if (Float.isNaN(allSiteProbs[i])) missingObsForSite.fastSet(i);
+		}
+		myProbabilities = getNonMissingDoubles(allSiteProbs, missingObsForSite);
 	}
 
 }

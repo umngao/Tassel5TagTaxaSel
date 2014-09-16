@@ -198,6 +198,12 @@ public class CorePhenotype implements Phenotype {
 		return Index.intValue();
 	}
 
+	@Override
+	public boolean areTaxaReplicated() {
+		int numberOfUniqueTaxa = taxa().size();
+		return (numberOfUniqueTaxa > numberOfObservations);
+	}
+
 	public static boolean areAttributeAndTypeListsCompatible(List<PhenotypeAttribute> attributes, List<ATTRIBUTE_TYPE> types) {
 		if (attributes.size() != types.size()) return false;
 		boolean compatible = true;

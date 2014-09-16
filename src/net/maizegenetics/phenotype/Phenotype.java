@@ -118,4 +118,10 @@ public interface Phenotype  extends TableReport {
 	 * @return	the index of the attribute with this name, -1 if there is no attribute with this name
 	 */
 	public int attributeIndexForName(String name);
+	
+	/**
+	 * @return true, if the number of observations is greater than the number of unique taxa, false otherwise
+	 */
+	public boolean areTaxaReplicated();
+	
 }

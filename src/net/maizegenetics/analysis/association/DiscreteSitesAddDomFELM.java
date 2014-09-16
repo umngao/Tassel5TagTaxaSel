@@ -12,12 +12,15 @@ import net.maizegenetics.stats.linearmodels.LinearModelUtils;
 import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.ModelEffectUtils;
 import net.maizegenetics.stats.linearmodels.SweepFastLinearModel;
+import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.OpenBitSet;
 import net.maizegenetics.util.TableReportBuilder;
 
 public class DiscreteSitesAddDomFELM extends AbstractFixedEffectLM {
 	protected int numberOfSiteReportColumns;
 	protected int numberOfAlleleReportColumns;
-	
+	String[] siteGenotypes;
+
 	public DiscreteSitesAddDomFELM(Datum dataset) {
 		super(dataset);
 	}
@@ -40,16 +43,16 @@ public class DiscreteSitesAddDomFELM extends AbstractFixedEffectLM {
 	}
 
 	@Override
-	protected void analyzeSite(int siteNumber, ArrayList<ModelEffect> model) {
-		myModel = new ArrayList<ModelEffect>(model);
+	protected void analyzeSite() {
+		myModel = new ArrayList<ModelEffect>(myBaseModel);
 		GenotypeTable myGenotype = myGenoPheno.genotypeTable();
 		
 		//solve the full model
 		//add the marker to the model
-        String[] siteGenotypes = getNonMissingValues(myGenoPheno.getStringGenotype(siteNumber), missingObsForSite);
+        String[] siteGenotypes = getNonMissingValues(myGenoPheno.getStringGenotype(myCurrentSite), missingObsForSite);
         ArrayList<String> markerIds = new ArrayList<>();
         int[] markerLevels = ModelEffectUtils.getIntegerLevels(siteGenotypes, markerIds);
-        String siteName = myGenotype.siteName(siteNumber);
+        String siteName = myGenotype.siteName(myCurrentSite);
         FactorModelEffect markerEffect = new FactorModelEffect(markerLevels, true, siteName);
         myModel.add(markerEffect);
         
@@ -78,11 +81,11 @@ public class DiscreteSitesAddDomFELM extends AbstractFixedEffectLM {
 		if (permute) G = sflm.getInverseOfXtX();
  
 		//calculate additive and dominance F and p
-		ArrayList<ModelEffect> myAdditiveModel = new ArrayList<>(model);
-		byte[] alleles = myGenotype.alleles(siteNumber);
+		ArrayList<ModelEffect> myAdditiveModel = new ArrayList<>(myBaseModel);
+		byte[] alleles = myGenotype.alleles(myCurrentSite);
 		int nAlleles = alleles.length;
 		for (int a = 0; a < nAlleles - 1; a++) {
-			byte[] allMarker = myGenotype.genotypeAllTaxa(siteNumber);
+			byte[] allMarker = myGenotype.genotypeAllTaxa(myCurrentSite);
 			byte[] marker = getNonMissingBytes(allMarker, missingObsForSite);
 			myAdditiveModel.add(new CovariateModelEffect(ModelEffectUtils.getNumericCodingForAdditiveModel(marker, alleles[a])));
 		}
@@ -132,8 +135,8 @@ public class DiscreteSitesAddDomFELM extends AbstractFixedEffectLM {
         int columnCount = 0;
         rowData[columnCount++] = currentTraitName;
         rowData[columnCount++] = siteName;
-        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(siteNumber);
-        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(siteNumber);
+        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(myCurrentSite);
+        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(myCurrentSite);
         rowData[columnCount++] = new Double(F);
         rowData[columnCount++] = new Double(p);
         if (permute) rowData[columnCount++] = "";
@@ -160,8 +163,8 @@ public class DiscreteSitesAddDomFELM extends AbstractFixedEffectLM {
             columnCount = 0;
             rowData[columnCount++] = currentTraitName;
             rowData[columnCount++] = siteName;
-            rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(siteNumber);
-            rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(siteNumber);
+            rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(myCurrentSite);
+            rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(myCurrentSite);
             rowData[columnCount++] = new Integer(alleleCounts[a]);
             rowData[columnCount++] = markerIds.get(a);
             if (a == numberOfAlleles - 1) rowData[columnCount++] = new Double(beta[firstEstimateIndex + a]);
@@ -169,6 +172,18 @@ public class DiscreteSitesAddDomFELM extends AbstractFixedEffectLM {
             alleleReportBuilder.add(rowData);
         }
 
+	}
+
+	@Override
+	protected void getGenotypeAndUpdateMissing(BitSet missingObsBeforeSite) {
+		String[] allSiteGenotypes = myGenoPheno.getStringGenotype(myCurrentSite);
+		int n = allSiteGenotypes.length;
+		missingObsForSite = new OpenBitSet(missingObsBeforeSite);
+		for (int i = 0; i < n; i++) {
+			if (allSiteGenotypes[i].contains("N")) missingObsForSite.fastSet(i);
+		}
+		siteGenotypes = getNonMissingValues(allSiteGenotypes, missingObsForSite);
+		
 	}
 
 }
