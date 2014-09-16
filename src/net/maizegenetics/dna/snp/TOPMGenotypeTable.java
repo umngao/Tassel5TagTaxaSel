@@ -365,7 +365,7 @@ public class TOPMGenotypeTable implements GenotypeTable {
 
     @Override
     public boolean hasReference() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return false;
     }
 
     @Override
@@ -459,28 +459,33 @@ public class TOPMGenotypeTable implements GenotypeTable {
     }
 
     @Override
+    public boolean hasGenotype() {
+        return true;
+    }
+
+    @Override
     public boolean hasDepth() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return false;
     }
 
     @Override
     public Set<SITE_SCORE_TYPE> siteScoreTypes() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return null;
     }
 
     @Override
     public boolean hasAlleleProbabilities() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return false;
     }
 
     @Override
     public boolean hasReferenceProbablity() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return false;
     }
 
     @Override
     public boolean hasDosage() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return false;
     }
 
     @Override

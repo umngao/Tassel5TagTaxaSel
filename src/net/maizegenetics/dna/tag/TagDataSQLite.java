@@ -96,7 +96,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        System.err.println("Closing SQLDB");
+        System.out.println("Closing SQLDB");
         connection.close();
     }
 

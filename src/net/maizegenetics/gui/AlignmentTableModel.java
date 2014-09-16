@@ -11,17 +11,28 @@ import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.table.AbstractTableModel;
+
 import java.text.NumberFormat;
+
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.log4j.Logger;
+
 /**
  *
- * @author  terryc
+ * @author Terry Casstevens
  */
 public class AlignmentTableModel extends AbstractTableModel implements ChangeListener {
 
+    private static final Logger myLogger = Logger.getLogger(AlignmentTableModel.class);
+
     private static final NumberFormat NUMBER_FORMAT = NumberFormat.getPercentInstance();
+    private static final NumberFormat DECIMAL_FORMAT = NumberFormat.getNumberInstance();
+
+    static {
+        DECIMAL_FORMAT.setMaximumFractionDigits(2);
+    }
 
     public enum COLUMN_NAME_TYPE {
 
@@ -30,6 +41,7 @@ public class AlignmentTableModel extends AbstractTableModel implements ChangeLis
     private COLUMN_NAME_TYPE myColumnNameType = COLUMN_NAME_TYPE.physicalPosition;
     private boolean myIsPhysicalPosition = true;
     private final GenotypeTable myAlignment;
+    private AlignmentTableCellRenderer.RENDERING_TYPE myRenderingType = AlignmentTableCellRenderer.RENDERING_TYPE.Nucleotide;
     // Left and Right variables
     private int myHorizontalPageSize = 0;
     private int myHorizontalCenter = 0;
@@ -55,30 +67,40 @@ public class AlignmentTableModel extends AbstractTableModel implements ChangeLis
     }
 
     // Return values appropriate for the visible table part
+    @Override
     public int getRowCount() {
         return myAlignment.numberOfTaxa();
     }
 
+    @Override
     public int getColumnCount() {
         return myHorizontalPageSize;
     }
+    
+    public int getColumnWidth() {
+        if (myRenderingType == AlignmentTableCellRenderer.RENDERING_TYPE.ReferenceProbability) {
+            return 31;
+        } else {
+            return 17;
+        }
+    }
 
     // Only works on the visible part of the table
+    @Override
     public Object getValueAt(int row, int col) {
 
-        Object result = null;
         int realColumn = 0;
 
         try {
             realColumn = col + myHorizontalStart;
-            result = myAlignment.genotypeAsString(row, realColumn);
+            if (myRenderingType == AlignmentTableCellRenderer.RENDERING_TYPE.ReferenceProbability) {
+                return DECIMAL_FORMAT.format(myAlignment.referenceProbability().value(row, realColumn));
+            }
+            return myAlignment.genotypeAsString(row, realColumn);
         } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("row: " + row + "   col: " + col + "   realColumn: " + realColumn);
-            throw new IllegalStateException("AlignmentTableModel: getValueAt: row: " + row + "   col: " + col + "   realColumn: " + realColumn);
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("AlignmentTableModel: getValueAt: row: " + row + "   col: " + col + "   realColumn: " + realColumn + "\n" + e.getMessage());
         }
-
-        return result;
 
     }
 
@@ -86,10 +108,7 @@ public class AlignmentTableModel extends AbstractTableModel implements ChangeLis
         return col + myHorizontalStart;
     }
 
-    public Object getRealValueAt(int row, int col) {
-        return myAlignment.genotype(row, col);
-    }
-
+    @Override
     public String getColumnName(int col) {
 
         int realColumn = col + myHorizontalStart;
@@ -153,7 +172,7 @@ public class AlignmentTableModel extends AbstractTableModel implements ChangeLis
         return myHorizontalPageSize;
     }
 
-    public void setHorizontalPageSize(int horizontalSize) {
+    final public void setHorizontalPageSize(int horizontalSize) {
 
         if (horizontalSize == myHorizontalPageSize) {
             return;
@@ -223,8 +242,7 @@ public class AlignmentTableModel extends AbstractTableModel implements ChangeLis
     }
 
     /**
-     * Resets the table backing this matrix table model to
-     * an empty table.
+     * Resets the table backing this matrix table model to an empty table.
      */
     public void resetTable() {
     }
@@ -232,6 +250,7 @@ public class AlignmentTableModel extends AbstractTableModel implements ChangeLis
     /**
      * Always returns false.
      */
+    @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
         return false;
     }
@@ -239,6 +258,7 @@ public class AlignmentTableModel extends AbstractTableModel implements ChangeLis
     /**
      * No operation.
      */
+    @Override
     public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
         // NO OPERATION
     }
@@ -260,11 +280,16 @@ public class AlignmentTableModel extends AbstractTableModel implements ChangeLis
         fireTableStructureChanged();
     }
 
+    @Override
     public void stateChanged(ChangeEvent e) {
 
         JSlider source = (JSlider) e.getSource();
-        int position = (int) source.getValue();
+        int position = source.getValue();
         adjustPosition(position);
 
+    }
+
+    public void setRenderingType(AlignmentTableCellRenderer.RENDERING_TYPE type) {
+        myRenderingType = type;
     }
 }

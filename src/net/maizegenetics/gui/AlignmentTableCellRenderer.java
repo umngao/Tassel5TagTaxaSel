@@ -16,12 +16,15 @@ import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableCellRenderer;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
+import org.apache.log4j.Logger;
 
 /**
  *
  * @author Terry Casstevens
  */
 public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
+
+    private static final Logger myLogger = Logger.getLogger(AlignmentTableCellRenderer.class);
 
     private static int[] NUCLEOTIDE_COLORS = new int[16];
 
@@ -42,15 +45,18 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
 
     public static enum RENDERING_TYPE {
 
-        Nucleotide, NucleotideHeterozygous, MajorAllele, MinorAllele, MajorMinorAllele, Heterozygous, ReferenceMasks, GeneticDistanceMasks, None, TOPM, SNPs
+        Nucleotide, NucleotideHeterozygous, MajorAllele, MinorAllele, MajorMinorAllele,
+        Heterozygous, ReferenceMasks, GeneticDistanceMasks, None, TOPM, SNPs,
+        ReferenceProbability
     };
-    private static RENDERING_TYPE[] SUPPORTED_RENDERING_TYPES = new RENDERING_TYPE[]{RENDERING_TYPE.Nucleotide, RENDERING_TYPE.NucleotideHeterozygous,
-        RENDERING_TYPE.MajorAllele, RENDERING_TYPE.MinorAllele, RENDERING_TYPE.MajorMinorAllele, RENDERING_TYPE.Heterozygous,
+    private static final RENDERING_TYPE[] GENOTYPE_RENDERING_TYPES = new RENDERING_TYPE[]{RENDERING_TYPE.MajorMinorAllele,
+        RENDERING_TYPE.MajorAllele, RENDERING_TYPE.MinorAllele, RENDERING_TYPE.Heterozygous,
         RENDERING_TYPE.ReferenceMasks, RENDERING_TYPE.GeneticDistanceMasks, RENDERING_TYPE.None};
     protected final AlignmentTableModel myAlignmentTableModel;
     private final GenotypeTable myAlignment;
     private GenotypeTableMask[] myMasks;
-    private RENDERING_TYPE myRenderingType = RENDERING_TYPE.Nucleotide;
+    private final RENDERING_TYPE[] mySupportedRenderingTypes;
+    private RENDERING_TYPE myRenderingType = RENDERING_TYPE.MajorMinorAllele;
     private final Map<Integer, byte[]> myCachedAlleles = new LinkedHashMap<Integer, byte[]>() {
         protected boolean removeEldestEntry(Map.Entry eldest) {
             return size() > 100;
@@ -61,6 +67,37 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
         myAlignmentTableModel = model;
         myAlignment = alignment;
         myMasks = masks;
+
+        List<RENDERING_TYPE> temp = new ArrayList<>();
+
+        if (myAlignment.hasGenotype()) {
+            for (int i = 0; i < GENOTYPE_RENDERING_TYPES.length; i++) {
+                temp.add(GENOTYPE_RENDERING_TYPES[i]);
+            }
+
+            try {
+                if (NucleotideAlignmentConstants.isNucleotideEncodings(myAlignment.alleleDefinitions())) {
+                    temp.add(RENDERING_TYPE.Nucleotide);
+                    temp.add(RENDERING_TYPE.NucleotideHeterozygous);
+                }
+            } catch (Exception e) {
+                myLogger.debug(e.getMessage(), e);
+            }
+        }
+
+        if (myAlignment.hasReferenceProbablity()) {
+            temp.add(RENDERING_TYPE.ReferenceProbability);
+        }
+
+        mySupportedRenderingTypes = new RENDERING_TYPE[temp.size()];
+        for (int i = 0; i < temp.size(); i++) {
+            mySupportedRenderingTypes[i] = temp.get(i);
+        }
+
+        if (mySupportedRenderingTypes.length != 0) {
+            setRenderingType(mySupportedRenderingTypes[0]);
+        }
+
     }
 
     @Override
@@ -81,6 +118,8 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
                 return getMajorMinorAlleleRendering(table, value, isSelected, hasFocus, row, col);
             case ReferenceMasks:
                 return getReferenceMasksRendering(table, value, isSelected, hasFocus, row, col);
+            case ReferenceProbability:
+                return getReferenceProbabilityRendering(table, value, isSelected, hasFocus, row, col);
             case GeneticDistanceMasks:
                 return getGeneticDistanceMasksRendering(table, value, isSelected, hasFocus, row, col);
             case None:
@@ -329,6 +368,23 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
 
     }
 
+    public Component getReferenceProbabilityRendering(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
+
+        Component comp = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col);
+
+        setHorizontalAlignment(SwingConstants.CENTER);
+
+        if (isSelected) {
+            comp.setBackground(Color.DARK_GRAY);
+        } else {
+            int site = myAlignmentTableModel.getRealColumnIndex(col);
+            comp.setBackground(COLORS_256[255 - getHeatColor(row, site)]);
+        }
+
+        return comp;
+
+    }
+
     public Component getGeneticDistanceMasksRendering(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
 
         Component comp = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col);
@@ -360,13 +416,13 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
     private static Color[] generateColors(int n) {
         Color[] cols = new Color[n];
         for (int i = 0; i < n; i++) {
-            cols[i] = Color.getHSBColor((float) i / (float) n, 0.85f, 1.0f);
+            cols[i] = Color.getHSBColor(((float) i / (float) n * 0.66f), 0.85f, 1.0f);
         }
         return cols;
     }
 
     private static Map<String, Color> generateNucleotideColors() {
-        Map<String, Color> result = new HashMap<String, Color>();
+        Map<String, Color> result = new HashMap<>();
         Iterator itr = NucleotideAlignmentConstants.NUCLEOTIDE_IUPAC_HASH.entrySet().iterator();
         while (itr.hasNext()) {
             Map.Entry current = (Map.Entry) itr.next();
@@ -388,7 +444,7 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
         if ((myMasks == null) || (myMasks.length == 0)) {
             return null;
         }
-        List<GenotypeTableMask> masks = new ArrayList<GenotypeTableMask>();
+        List<GenotypeTableMask> masks = new ArrayList<>();
         for (int i = 0; i < myMasks.length; i++) {
             if (type.isInstance(myMasks[i])) {
                 masks.add(myMasks[i]);
@@ -403,8 +459,9 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
         return myRenderingType;
     }
 
-    public void setRenderingType(RENDERING_TYPE type) {
+    final public void setRenderingType(RENDERING_TYPE type) {
         myRenderingType = type;
+        myAlignmentTableModel.setRenderingType(type);
     }
 
     public void setMasks(GenotypeTableMask[] masks) {
@@ -412,6 +469,15 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
     }
 
     public RENDERING_TYPE[] getRenderingTypes() {
-        return SUPPORTED_RENDERING_TYPES;
+        return mySupportedRenderingTypes;
+    }
+
+    private int getHeatColor(int row, int site) {
+        if (myAlignment.hasReferenceProbablity()) {
+            float value = myAlignment.referenceProbability().value(row, site);
+            return Math.round(value * 255.0f);
+        } else {
+            return 0;
+        }
     }
 }

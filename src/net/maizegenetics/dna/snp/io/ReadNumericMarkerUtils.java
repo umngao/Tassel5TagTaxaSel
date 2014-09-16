@@ -10,11 +10,8 @@ import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
-import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
-import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.dna.snp.score.ReferenceProbability;
 import net.maizegenetics.dna.snp.score.ReferenceProbabilityBuilder;
-import net.maizegenetics.dna.snp.score.SiteScore;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.util.Utils;
@@ -118,13 +115,12 @@ public class ReadNumericMarkerUtils {
         // Build PositionList for GenotypeTable
         PositionListBuilder posBuilder=new PositionListBuilder();       
         for (int mNum = 0; mNum < numberOfColumns; mNum++){
-            posBuilder.add(new GeneralPosition.Builder(Chromosome.UNKNOWN,0).snpName(markerName[mNum]).build());
+            posBuilder.add(new GeneralPosition.Builder(Chromosome.UNKNOWN, mNum).snpName(markerName[mNum]).build());
         }
  
         PositionList pl = posBuilder.build();
  
-        GenotypeCallTable emptyCallTable = GenotypeCallTableBuilder.getInstanceUnknownValues(tL.numberOfTaxa(), pl.numberOfSites());
-        return GenotypeTableBuilder.getInstance(emptyCallTable, pl, tL, null, null, rp, null, null);
+        return GenotypeTableBuilder.getInstance(null, pl, tL, null, null, rp, null, null);
 	}
 	
 	private static String[] processHeader(int numberOfColumns, String[] parsedline, String filename) {

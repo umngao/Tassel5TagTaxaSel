@@ -68,6 +68,7 @@ public class TagExportToFastqPlugin extends AbstractPlugin {
                         count.incrementAndGet();
                     });
             bw.close();
+            ((TagDataSQLite)tagData).close();  //todo autocloseable should do this but it is not working.
 
             myLogger.info("Finished converting binary tag count file to fastq."
                     + "\nTotal number of tags written: " + count.get() + " (above minCount of " + minCount() + ")"

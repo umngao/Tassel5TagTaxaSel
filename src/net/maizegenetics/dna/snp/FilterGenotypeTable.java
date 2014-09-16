@@ -895,6 +895,11 @@ public class FilterGenotypeTable implements GenotypeTable {
     }
 
     @Override
+    public boolean hasGenotype() {
+        return myBaseAlignment.hasGenotype();
+    }
+
+    @Override
     public boolean hasDepth() {
         return myBaseAlignment.hasDepth();
     }
