@@ -844,6 +844,17 @@ public class CombineGenotypeTable implements GenotypeTable {
     }
 
     @Override
+    public boolean hasGenotype() {
+        boolean result = true;
+        for (GenotypeTable current : myAlignments) {
+            if (!current.hasGenotype()) {
+                result = false;
+            }
+        }
+        return result;
+    }
+    
+    @Override
     public boolean hasDepth() {
         boolean result = true;
         for (GenotypeTable current : myAlignments) {

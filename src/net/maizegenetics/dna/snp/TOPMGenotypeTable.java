@@ -459,6 +459,11 @@ public class TOPMGenotypeTable implements GenotypeTable {
     }
 
     @Override
+    public boolean hasGenotype() {
+        return true;
+    }
+
+    @Override
     public boolean hasDepth() {
         throw new UnsupportedOperationException("Not supported yet.");
     }

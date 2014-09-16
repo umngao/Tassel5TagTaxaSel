@@ -50,21 +50,23 @@ public class CoreGenotypeTable implements GenotypeTable {
     private final GeneralAnnotationStorage myAnnotations;
 
     CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, ReferenceProbability referenceProbability, Dosage dosage, GeneralAnnotationStorage annotations) {
-        if (genotype.numberOfTaxa() != taxaList.numberOfTaxa()) {
-            throw new IllegalArgumentException("CoreGenotypeTable: init: genotype number of taxa: " + genotype.numberOfTaxa() + " doesn't match taxa list: " + taxaList.numberOfTaxa());
-        }
-        if (genotype.numberOfSites() != positionList.numberOfSites()) {
-            throw new IllegalArgumentException("CoreGenotypeTable: init: genotype number of sites: " + genotype.numberOfSites() + " doesn't match position list: " + positionList.numberOfSites());
-        }
-        myGenotype = genotype;
         myPositionList = positionList;
         myTaxaList = taxaList;
+        mySiteCount = myPositionList.numberOfSites();
+        myTaxaCount = myTaxaList.numberOfTaxa();
+
+        if ((genotype != null) && (genotype.numberOfTaxa() != myTaxaCount)) {
+            throw new IllegalArgumentException("CoreGenotypeTable: init: genotype number of taxa: " + genotype.numberOfTaxa() + " doesn't match taxa list: " + myTaxaCount);
+        }
+        if ((genotype != null) && (genotype.numberOfSites() != mySiteCount)) {
+            throw new IllegalArgumentException("CoreGenotypeTable: init: genotype number of sites: " + genotype.numberOfSites() + " doesn't match position list: " + mySiteCount);
+        }
+
+        myGenotype = genotype;
         myAlleleDepth = alleleDepth;
         myAlleleProbability = alleleProbability;
         myReferenceProbabily = referenceProbability;
         myDosage = dosage;
-        mySiteCount = myPositionList.numberOfSites();
-        myTaxaCount = myTaxaList.numberOfTaxa();
         myAnnotations = annotations;
     }
 
@@ -453,6 +455,11 @@ public class CoreGenotypeTable implements GenotypeTable {
     }
 
     @Override
+    public boolean hasGenotype() {
+        return myGenotype != null;
+    }
+
+    @Override
     public boolean hasDepth() {
         return myAlleleDepth != null;
     }
@@ -530,7 +537,7 @@ public class CoreGenotypeTable implements GenotypeTable {
     public float alleleProbability(int taxon, int site, SITE_SCORE_TYPE type) {
         return myAlleleProbability.value(taxon, site, type);
     }
-    
+
     @Override
     public ReferenceProbability referenceProbability() {
         return myReferenceProbabily;

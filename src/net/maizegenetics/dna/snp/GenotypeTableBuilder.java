@@ -337,25 +337,30 @@ public class GenotypeTableBuilder {
      * @param taxaList
      * @param alleleDepth
      * @param alleleProbability
+     * @param referenceProbability
      * @param dosage
      * @param annotations
      *
      * @return new genotype table
      */
     public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, ReferenceProbability referenceProbability, Dosage dosage, GeneralAnnotationStorage annotations) {
-        int numTaxa = genotype.numberOfTaxa();
-        int numSites = genotype.numberOfSites();
 
         if (positionList == null) {
             throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: position list is required.");
-        } else if (numSites != positionList.numberOfSites()) {
-            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of sites in genotype: " + numSites + " doesn't equal number of sites in position list: " + positionList.numberOfSites());
+        }
+        int numSites = positionList.numberOfSites();
+
+        if ((genotype != null) && (numSites != genotype.numberOfSites())) {
+            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of sites in genotype: " + genotype.numberOfSites() + " doesn't equal number of sites in position list: " + numSites);
         }
 
         if (taxaList == null) {
             throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: taxa list is required.");
-        } else if (numTaxa != taxaList.numberOfTaxa()) {
-            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + numTaxa + " doesn't equal number of taxa in taxa list: " + taxaList.numberOfTaxa());
+        }
+        int numTaxa = taxaList.numberOfTaxa();
+
+        if ((genotype != null) && (numTaxa != genotype.numberOfTaxa())) {
+            throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + genotype.numberOfTaxa() + " doesn't equal number of taxa in taxa list: " + numTaxa);
         }
 
         if (alleleProbability != null) {
@@ -366,7 +371,7 @@ public class GenotypeTableBuilder {
                 throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of taxa in genotype: " + numTaxa + " doesn't equal number of taxa in allele probability: " + alleleProbability.numTaxa());
             }
         }
-        
+
         if (referenceProbability != null) {
             if (numSites != referenceProbability.numSites()) {
                 throw new IllegalArgumentException("GenotypeTableBuilder: getInstance: number of sites in genotype: " + numSites + " doesn't equal number of sites in reference probability: " + referenceProbability.numSites());
@@ -514,7 +519,7 @@ public class GenotypeTableBuilder {
         myAlleleProbabilityBuilder = alleleProbabilityBuilder;
         return this;
     }
-    
+
     public GenotypeTableBuilder addReferenceProbability(ReferenceProbabilityBuilder referenceProbabilityBuilder) {
         myReferenceProbabilityBuilder = referenceProbabilityBuilder;
         return this;
@@ -693,7 +698,7 @@ public class GenotypeTableBuilder {
                 if (myAlleleProbabilityBuilder != null) {
                     alleleProbability = myAlleleProbabilityBuilder.build();
                 }
-                
+
                 ReferenceProbability referenceProbability = null;
                 if (myReferenceProbabilityBuilder != null) {
                     referenceProbability = myReferenceProbabilityBuilder.build();
@@ -911,6 +916,7 @@ public class GenotypeTableBuilder {
     }
 
     private static enum BuildType {
+
         TAXA_INC, SITE_INC
     }
 

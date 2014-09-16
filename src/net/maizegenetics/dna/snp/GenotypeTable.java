@@ -79,6 +79,13 @@ public interface GenotypeTable {
          */
         Reference
     };
+    
+    /**
+     * Returns whether this Genotype Table has Genotype values.
+     * 
+     * @return has genotype values.
+     */
+    public boolean hasGenotype();
 
     /**
      * Returns the immutable Genotype matrix. Taxa and Positions are not part of
