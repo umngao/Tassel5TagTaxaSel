@@ -25,7 +25,7 @@ public interface TaxaDistribution {
     int[] depths();
 
     /**
-     * Two arrays with the list of taxa with the tag int[0], and the depth of the taxa in the second array int[1]
+     * Two arrays with the list of taxa with the tag (i.e. depth>0) int[0], and the depth of the taxa in the second array int[1]
      */
     int[][] taxaWithDepths();
 

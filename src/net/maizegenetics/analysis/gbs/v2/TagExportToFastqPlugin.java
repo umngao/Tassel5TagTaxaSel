@@ -3,24 +3,20 @@
  */
 package net.maizegenetics.analysis.gbs.v2;
 
-import java.awt.Frame;
-
-import java.io.*;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.swing.ImageIcon;
-
-import net.maizegenetics.dna.BaseEncoder;
 import net.maizegenetics.dna.tag.Tag;
 import net.maizegenetics.dna.tag.TagData;
 import net.maizegenetics.dna.tag.TagDataSQLite;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.Utils;
-
 import org.apache.log4j.Logger;
+
+import javax.swing.*;
+import java.awt.*;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Converts a TagCounts binary (*.cnt) file (presumably a master tag list) to a fastq file that can be used as input
@@ -61,17 +57,17 @@ public class TagExportToFastqPlugin extends AbstractPlugin {
         try {
             BufferedWriter bw=Utils.getBufferedWriter(outputFile());
             TagData tagData=new TagDataSQLite(inputDB());
-            final AtomicInteger count=new AtomicInteger();
+            LongAdder count=new LongAdder();
             tagData.getTagsWithDepth(minCount())
-                    .forEach((tag,depth) -> {
-                        writeFASTQ(bw,tag,depth);
-                        count.incrementAndGet();
+                    .forEach((tag, depth)->{
+                        writeFASTQ(bw, tag, depth);
+                        count.increment();
                     });
             bw.close();
             ((TagDataSQLite)tagData).close();  //todo autocloseable should do this but it is not working.
 
             myLogger.info("Finished converting binary tag count file to fastq."
-                    + "\nTotal number of tags written: " + count.get() + " (above minCount of " + minCount() + ")"
+                    + "\nTotal number of tags written: " + count.longValue() + " (above minCount of " + minCount() + ")"
                     + "\nOuput fastq file: " + outputFile() + "\n\n");
         } catch (Exception e) {
             myLogger.info("Catch in reading TagCount file e=" + e);

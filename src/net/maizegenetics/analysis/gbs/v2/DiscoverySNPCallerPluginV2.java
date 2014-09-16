@@ -4,11 +4,15 @@
 package net.maizegenetics.analysis.gbs.v2;
 
 import com.google.common.collect.*;
-import net.maizegenetics.dna.map.*;
-import net.maizegenetics.dna.snp.*;
+import net.maizegenetics.dna.map.Chromosome;
+import net.maizegenetics.dna.map.GeneralPosition;
+import net.maizegenetics.dna.map.Position;
+import net.maizegenetics.dna.snp.Allele;
+import net.maizegenetics.dna.snp.SimpleAllele;
 import net.maizegenetics.dna.tag.*;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.Tuple;
 import org.apache.log4j.Logger;
 import org.biojava3.alignment.Alignments;
@@ -25,7 +29,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import net.maizegenetics.plugindef.PluginParameter;
 import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.*;
 
 /**
@@ -95,7 +98,8 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                     continue;
                 }
             }
-            discoverSNPsOnChromosome(chr);
+            tagDataWriter.getCutPositionTagTaxaMap(new Chromosome("" + chr), -1, -1).entrySet().stream()
+                    .forEach(emp -> findAlleleByAlignment(emp.getKey(),emp.getValue()));
             myLogger.info("Finished processing chromosome " + chr + "\n\n");
         }
         ConcurrencyTools.shutdown();
@@ -142,13 +146,6 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
     @Override
     public String getToolTipText() {
         return "Discovery SNP Caller";
-    }
-
-    public void discoverSNPsOnChromosome(int targetChromo) {
-        int siteCnt = 0;
-        tagDataWriter.getCutPositionTagTaxaMap(new Chromosome("" + targetChromo), -1, -1).entrySet().stream()
-                .forEach(emp -> findAlleleByAlignment(emp.getKey(),emp.getValue()));
-        myLogger.info("Number of marker sites recorded for chr" + targetChromo + ": " + siteCnt);
     }
 
     Table<Position, Byte, List<TagTaxaDistribution>> findAlleleByAlignment(Position cutPosition, Map<Tag,TaxaDistribution> tagTaxaMap) {

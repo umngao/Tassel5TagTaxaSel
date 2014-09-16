@@ -3,13 +3,6 @@
  */
 package net.maizegenetics.analysis.gbs.v2;
 
-import java.awt.Frame;
-
-import java.io.*;
-import java.util.Set;
-
-import javax.swing.ImageIcon;
-
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import net.maizegenetics.dna.map.Chromosome;
@@ -20,14 +13,18 @@ import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.Utils;
-
 import org.apache.log4j.Logger;
+
+import javax.swing.*;
+import java.awt.*;
+import java.io.BufferedReader;
+import java.util.Set;
 
 /**
  * This class can read in a CBSU TagMapFile into the gbs.TagsOnPhysicalMap data
  * structure.
  *
- * @author harriman
+ * @author Ed Buckler
  *
  */
 public final class SAMToGBSdbPlugin extends AbstractPlugin {

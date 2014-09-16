@@ -4,7 +4,10 @@ import com.google.common.collect.ImmutableMap;
 import net.maizegenetics.analysis.gbs.Barcode;
 import net.maizegenetics.dna.BaseEncoder;
 import net.maizegenetics.dna.tag.*;
-import net.maizegenetics.plugindef.*;
+import net.maizegenetics.plugindef.AbstractPlugin;
+import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListIOUtils;
 import net.maizegenetics.taxa.Taxon;
@@ -18,7 +21,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -164,21 +168,20 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                 Barcode barcode=barcodeTrie.longestPrefix(seqAndQual[0]);
                 if(barcode==null) continue;
                 if(minQual>0) {
+                    //todo move getFirstLowQualityPos into this class?
                     if(BaseEncoder.getFirstLowQualityPos(seqAndQual[1],minQual)<(barcode.getBarLength()+preferredTagLength)) continue;
                 }
-                Tag tg=TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength()+preferredTagLength)).build();
-                if(tg==null) continue;
-                if (tg != null) {
-                    goodBarcodedReads++;
-                    TaxaDistribution iC=masterTagTaxaMap.get(tg);
-                    if(iC==null) {
-                        masterTagTaxaMap.put(tg,TaxaDistBuilder.create(maxTaxaNumber,barcode.getTaxaIndex()));
-                    }
-                    else if(iC.totalDepth()==1) {
-                        masterTagTaxaMap.put(tg,TaxaDistBuilder.create(iC).increment(barcode.getTaxaIndex()));
-                    } else {
-                        iC.increment(barcode.getTaxaIndex());
-                    }
+                Tag tag=TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength()+preferredTagLength)).build();
+                if(tag==null) continue;   //null occurs when any base was not A, C, G, T
+                goodBarcodedReads++;
+                TaxaDistribution taxaDistribution=masterTagTaxaMap.get(tag);
+                if(taxaDistribution==null) {
+                    masterTagTaxaMap.put(tag,TaxaDistBuilder.create(maxTaxaNumber,barcode.getTaxaIndex()));
+                }
+                else if(taxaDistribution.totalDepth()==1) { //need to go from singleton to expandable TaxaDistribution
+                    masterTagTaxaMap.put(tag,TaxaDistBuilder.create(taxaDistribution).increment(barcode.getTaxaIndex()));
+                } else {
+                    taxaDistribution.increment(barcode.getTaxaIndex());
                 }
                 if (allReads % 1000000 == 0) {
                     myLogger.info("Total Reads:" + allReads + " Reads with barcode and cut site overhang:" + goodBarcodedReads
@@ -499,6 +502,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
     static class TagDistributionMap extends ConcurrentHashMap<Tag,TaxaDistribution> {
         private final long maxMemorySize;
         private int minDepthToRetainInMap=1;
+        //todo change AtomicLong to LongAdder
         private AtomicLong putCntSinceMemoryCheck=new AtomicLong(0L);  //since we don't need an exact count of the puts,
         //this may be overkill
         private long checkFreq;  //numbers of puts to check size
@@ -529,7 +533,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
         public synchronized void removeTagByCount(int minCnt) {
             entrySet().parallelStream()
                     .filter(e -> e.getValue().totalDepth()<minCnt)
-                    .forEach(e -> remove(e));
+                    .forEach(e -> remove(e.getKey()));
         }
 
         private synchronized void reduceMapSize() {
