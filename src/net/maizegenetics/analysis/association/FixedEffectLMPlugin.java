@@ -274,7 +274,8 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
 
                 //number of observations in this data set
                 int numberOfObs = nonmissingRows.length;
-
+                if (numberOfObs == 0) break; //skip the marker if there is no data
+                
                 //the phenotype data
                 double[] y = new double[numberOfObs];
                 for (int i = 0; i < numberOfObs; i++) {
