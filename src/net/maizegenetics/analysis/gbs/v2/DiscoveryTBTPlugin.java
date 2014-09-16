@@ -24,7 +24,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Develops a discovery TBT file from a set of GBS sequence files.
@@ -502,8 +502,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
     static class TagDistributionMap extends ConcurrentHashMap<Tag,TaxaDistribution> {
         private final long maxMemorySize;
         private int minDepthToRetainInMap=1;
-        //todo change AtomicLong to LongAdder
-        private AtomicLong putCntSinceMemoryCheck=new AtomicLong(0L);  //since we don't need an exact count of the puts,
+        private LongAdder putCntSinceMemoryCheck=new LongAdder();  //since we don't need an exact count of the puts,
         //this may be overkill
         private long checkFreq;  //numbers of puts to check size
 
@@ -515,9 +514,10 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
 
         @Override
         public TaxaDistribution put(Tag key, TaxaDistribution value) {
-            if(putCntSinceMemoryCheck.incrementAndGet()>checkFreq) {
+            putCntSinceMemoryCheck.increment();
+            if(putCntSinceMemoryCheck.longValue()>checkFreq) {
                 checkMemoryAndReduceIfNeeded();
-                putCntSinceMemoryCheck.set(0);
+                putCntSinceMemoryCheck.reset();
             }
             return super.put(key, value);
         }
