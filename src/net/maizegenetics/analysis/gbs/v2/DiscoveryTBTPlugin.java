@@ -101,6 +101,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
             tdw.putTaxaList(masterTaxaList);
             tdw.putAllTag(tagCntMap.keySet());
             tdw.putTaxaDistribution(tagCntMap);
+            ((TagDataSQLite)tdw).close();  //todo autocloseable should do this but it is not working.
 
         } catch(Exception e) {
             e.printStackTrace();

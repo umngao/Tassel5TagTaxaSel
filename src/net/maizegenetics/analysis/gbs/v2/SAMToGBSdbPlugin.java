@@ -74,6 +74,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
             }
             bw.close();
             tagData.putTagAlignments(tagPositions);
+            ((TagDataSQLite)tagData).close();  //todo autocloseable should do this but it is not working.
 
 //            myLogger.info("Finished converting binary tag count file to fastq."
 //                    + "\nTotal number of tags written: " + count.get() + " (above minCount of " + minCount() + ")"

@@ -9,7 +9,6 @@ import net.maizegenetics.dna.snp.*;
 import net.maizegenetics.dna.tag.*;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.util.Tuple;
 import org.apache.log4j.Logger;
 import org.biojava3.alignment.Alignments;
@@ -42,10 +41,8 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(DiscoverySNPCallerPluginV2.class);
 
-    private PluginParameter<String> myGBSdb = new PluginParameter.Builder<>("i", null, String.class).guiName("Input Tags by Taxa File").required(true).inFile()
-            .description("Input TagsByTaxa file (if hdf5 format, use .hdf or .h5 extension)").build();
-    private PluginParameter<String> myLogFile = new PluginParameter.Builder<>("log", null, String.class).guiName("Log File").outFile()
-            .description("TagLocus log file name. (Default: TagLocusLog.txt)").build();
+    private PluginParameter<String> myInputDB = new PluginParameter.Builder<>("i", null, String.class).guiName("Input GBS Database").required(true).inFile()
+            .description("Input Database file if using SQLite").build();
     private PluginParameter<Double> myMinMinorAlleleFreq = new PluginParameter.Builder<>("mnMAF", 0.01, Double.class).guiName("Min Minor Allele Freq")
             .description("Minimum minor allele frequency").build();
     private PluginParameter<Double> myMinLocusCoverage = new PluginParameter.Builder<>("mnLCov", 0.1, Double.class).guiName("Min Locus Coverage")
@@ -83,7 +80,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
 
     @Override
     public DataSet processData(DataSet input) {
-        myLogger.info("Finding SNPs in " + inputTagsByTaxaFile() + ".");
+        myLogger.info("Finding SNPs in " + inputDB() + ".");
         myLogger.info(String.format("StartChr:%d EndChr:%d %n", startChromosome(), endChromosome()));
         //DataOutputStream locusLogDOS = openLocusLog(logFile());
         if (customSNPLogging) {
@@ -108,13 +105,13 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
     @Override
     public void postProcessParameters() {
 
-        if (myGBSdb.isEmpty()) {
+        if (myInputDB.isEmpty()) {
             throw new IllegalArgumentException("DiscoverySNPCallerPlugin: postProcessParameters: Input Tags by Taxa File not Set.");
         } else {
-            tagDataWriter =new TagDataSQLite(inputTagsByTaxaFile());
+            tagDataWriter =new TagDataSQLite(inputDB());
         }
         if (tagDataWriter == null) {
-            throw new IllegalArgumentException("DiscoverySNPCallerPlugin: postProcessParameters: Problem reading Tags by Taxa File: " + inputTagsByTaxaFile());
+            throw new IllegalArgumentException("DiscoverySNPCallerPlugin: postProcessParameters: Problem reading Tags by Taxa File: " + inputDB());
         }
         if (!myRefGenome.isEmpty()) {
             includeReference = true;
@@ -155,9 +152,14 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
     }
 
     Table<Position, Byte, List<TagTaxaDistribution>> findAlleleByAlignment(Position cutPosition, Map<Tag,TaxaDistribution> tagTaxaMap) {
+        System.out.println("cutPosition = [" + cutPosition + "], tagTaxaMap = [" + tagTaxaMap + "]");
+        if(tagTaxaMap.isEmpty()) return null;  //todo why would this be empty?
         final int numberOfTaxa=tagTaxaMap.values().stream().findFirst().get().maxTaxa();
         if(tagTaxaMap.size()<2) {//homozygous
             return null;  //consider reporting homozygous
+        }
+        if(!tagTaxaMap.keySet().stream().anyMatch(Tag::isReference)) {
+            tagTaxaMap=setCommonToReference(tagTaxaMap);
         }
         final double taxaCoverage=tagTaxaMap.values().stream().mapToInt(TaxaDistribution::numberOfTaxaWithTag).sum()/(double)numberOfTaxa;  //todo this could be changed to taxa with tag
         if(taxaCoverage < myMinLocusCoverage.value()) {
@@ -185,6 +187,21 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         }
         tagDataWriter.putTagAlleles(tagAllelemap);
         return tAlign;
+    }
+
+    private static Map<Tag,TaxaDistribution> setCommonToReference(Map<Tag,TaxaDistribution> tagTaxaMap) {
+        Tag commonTag=tagTaxaMap.entrySet().stream()
+                .max(Comparator.comparingInt(e -> e.getValue().numberOfTaxaWithTag()))
+                .map(e -> e.getKey())
+                .get();
+        TaxaDistribution commonTD=tagTaxaMap.get(commonTag);
+        Tag refTag=TagBuilder.instance(commonTag.seq2Bit(),commonTag.seqLength()).reference().build();
+        ImmutableMap.Builder<Tag, TaxaDistribution> tagTaxaMapBuilder=new ImmutableMap.Builder<>();
+        for (Map.Entry<Tag, TaxaDistribution> entry : tagTaxaMap.entrySet()) {
+            if(entry!=commonTag) {tagTaxaMapBuilder.put(entry);}
+            else {tagTaxaMapBuilder.put(refTag,commonTD);}
+        }
+        return tagTaxaMapBuilder.build();
     }
 
     private static List<Tuple<Byte,Integer>> alleleTaxaCounts(Map<Byte, List<TagTaxaDistribution>> alleleDistMap) {
@@ -321,8 +338,8 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      *
      * @return Input Tags by Taxa File
      */
-    public String inputTagsByTaxaFile() {
-        return myGBSdb.value();
+    public String inputDB() {
+        return myInputDB.value();
     }
 
     /**
@@ -333,29 +350,8 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public DiscoverySNPCallerPluginV2 inputTagsByTaxaFile(String value) {
-        myGBSdb = new PluginParameter<>(myGBSdb, value);
-        return this;
-    }
-
-    /**
-     * TagLocus log file name. (Default: TagLocusLog.txt)
-     *
-     * @return Log File
-     */
-    public String logFile() {
-        return myLogFile.value();
-    }
-
-    /**
-     * Set Log File. TagLocus log file name. (Default: TagLocusLog.txt)
-     *
-     * @param value Log File
-     *
-     * @return this plugin
-     */
-    public DiscoverySNPCallerPluginV2 logFile(String value) {
-        myLogFile = new PluginParameter<>(myLogFile, value);
+    public DiscoverySNPCallerPluginV2 inputDB(String value) {
+        myInputDB = new PluginParameter<>(myInputDB, value);
         return this;
     }
 
