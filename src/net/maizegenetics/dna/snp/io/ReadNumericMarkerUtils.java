@@ -115,7 +115,7 @@ public class ReadNumericMarkerUtils {
         // Build PositionList for GenotypeTable
         PositionListBuilder posBuilder=new PositionListBuilder();       
         for (int mNum = 0; mNum < numberOfColumns; mNum++){
-            posBuilder.add(new GeneralPosition.Builder(Chromosome.UNKNOWN,0).snpName(markerName[mNum]).build());
+            posBuilder.add(new GeneralPosition.Builder(Chromosome.UNKNOWN, mNum).snpName(markerName[mNum]).build());
         }
  
         PositionList pl = posBuilder.build();
