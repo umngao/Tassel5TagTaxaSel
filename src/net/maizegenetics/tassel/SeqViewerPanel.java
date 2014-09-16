@@ -69,8 +69,6 @@ public class SeqViewerPanel extends JPanel implements ComponentListener, TableMo
     private static final Map<Object, Object[]> INSTANCES = new WeakHashMap<>();
     private static final int ROW_HEADER_WIDTH = 150;
     private static final int SCROLL_BAR_WIDTH = 25;
-    private static final int TABLE_COLUMN_WIDTH = 10;
-    private static final int TABLE_COLUMN_MARGIN = 5;
     private static final int SLIDER_TEXT_WIDTH = 125;
     private JSlider mySlider;
     private JButton myLeftButton;
@@ -91,21 +89,22 @@ public class SeqViewerPanel extends JPanel implements ComponentListener, TableMo
     private int siteCount;
     private final DataTreePanel myDataTreePanel;
     private final AlignmentTableCellRenderer myTableCellRenderer;
-    private final JComboBox myHighlightingComboBox;
+    private final JComboBox<AlignmentTableCellRenderer.RENDERING_TYPE> myHighlightingComboBox;
 
     private SeqViewerPanel(GenotypeTable alignment, GenotypeTableMask[] masks, DataTreePanel dataTreePanel) {
-        this(alignment, masks, dataTreePanel, -1, AlignmentTableCellRenderer.RENDERING_TYPE.MajorMinorAllele);
+        this(alignment, masks, dataTreePanel, -1);
     }
 
     private SeqViewerPanel(TOPMGenotypeTable alignment, DataTreePanel dataTreePanel) {
-        this(alignment, null, dataTreePanel, 0, AlignmentTableCellRenderer.RENDERING_TYPE.TOPM);
+        this(alignment, null, dataTreePanel, 0);
     }
 
-    private SeqViewerPanel(GenotypeTable alignment, GenotypeTableMask[] masks, DataTreePanel dataTreePanel, int sliderPosition, AlignmentTableCellRenderer.RENDERING_TYPE type) {
+    private SeqViewerPanel(GenotypeTable alignment, GenotypeTableMask[] masks, DataTreePanel dataTreePanel, int sliderPosition) {
 
         setLayout(new BorderLayout());
         myAlignment = alignment;
         myDataTreePanel = dataTreePanel;
+
         myTableModel = new AlignmentTableModel(alignment);
 
         if (myAlignment instanceof TOPMGenotypeTable) {
@@ -114,16 +113,17 @@ public class SeqViewerPanel extends JPanel implements ComponentListener, TableMo
             myTableCellRenderer = new AlignmentTableCellRenderer(myTableModel, myAlignment, masks);
         }
 
-        myHighlightingComboBox = new JComboBox(myTableCellRenderer.getRenderingTypes());
+        myHighlightingComboBox = new JComboBox<>(myTableCellRenderer.getRenderingTypes());
         myHighlightingComboBox.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 AlignmentTableCellRenderer.RENDERING_TYPE type = (AlignmentTableCellRenderer.RENDERING_TYPE) myHighlightingComboBox.getSelectedItem();
                 myTableCellRenderer.setRenderingType(type);
+                myTableModel.setHorizontalPageSize(calculateNumColumns());
                 myTableModel.fireTableChanged();
             }
         });
-        myHighlightingComboBox.setSelectedItem(type);
+        myHighlightingComboBox.setSelectedItem(myTableCellRenderer.getRenderingType());
 
         siteCount = myAlignment.numberOfSites();
         start = 0;
@@ -318,13 +318,13 @@ public class SeqViewerPanel extends JPanel implements ComponentListener, TableMo
         siteName.setActionCommand(AlignmentTableModel.COLUMN_NAME_TYPE.siteName.toString());
         siteName.addActionListener(radioListener);
 
-        JRadioButton alleles = new JRadioButton("Alleles");
-        alleles.setActionCommand(AlignmentTableModel.COLUMN_NAME_TYPE.alleles.toString());
-        alleles.addActionListener(radioListener);
+        JRadioButton alleles = null;
+        if (myAlignment.hasGenotype()) {
+            alleles = new JRadioButton("Alleles");
+            alleles.setActionCommand(AlignmentTableModel.COLUMN_NAME_TYPE.alleles.toString());
+            alleles.addActionListener(radioListener);
+        }
 
-        //JRadioButton allelesRetained = new JRadioButton("Alleles Retained");
-        //allelesRetained.setActionCommand(AlignmentTableModel.COLUMN_NAME_TYPE.allelesRetained.toString());
-        //allelesRetained.addActionListener(radioListener);
         searchLabel = new JLabel();
         searchLabel.setPreferredSize(new Dimension(70, 25));
         searchField = new JTextField();
@@ -384,8 +384,10 @@ public class SeqViewerPanel extends JPanel implements ComponentListener, TableMo
         buttonGroup.add(siteNumber);
         buttonGroup.add(locus);
         buttonGroup.add(siteName);
-        buttonGroup.add(alleles);
-        //buttonGroup.add(allelesRetained);
+        if (myAlignment.hasGenotype()) {
+            buttonGroup.add(alleles);
+        }
+
         if (multipleAlignments) {
             buttonGroup.setSelected(siteNumber.getModel(), true);
         } else {
@@ -398,8 +400,9 @@ public class SeqViewerPanel extends JPanel implements ComponentListener, TableMo
         selectColumnHeadings.add(siteNumber);
         selectColumnHeadings.add(locus);
         selectColumnHeadings.add(siteName);
-        selectColumnHeadings.add(alleles);
-        //selectColumnHeadings.add(allelesRetained);
+        if (myAlignment.hasGenotype()) {
+            selectColumnHeadings.add(alleles);
+        }
 
         JLabel blankSpace = new JLabel();
         blankSpace.setPreferredSize(new Dimension(25, 25));
@@ -603,22 +606,22 @@ public class SeqViewerPanel extends JPanel implements ComponentListener, TableMo
     }
 
     public void componentResized(ComponentEvent e) {
-        Dimension size = e.getComponent().getSize();
-        int width = (int) size.getWidth() - ROW_HEADER_WIDTH - SCROLL_BAR_WIDTH;
-        int columnWidth = TABLE_COLUMN_WIDTH + TABLE_COLUMN_MARGIN * 2;
-        try {
-            columnWidth = myAlignment.genotypeAsString(0, 0).length() * TABLE_COLUMN_WIDTH + TABLE_COLUMN_MARGIN * 2;
-        } catch (Exception ex) {
-            // do nothing
-        }
-        int numColumns = width / columnWidth;
-        myTableModel.setHorizontalPageSize(numColumns);
+        myTableModel.setHorizontalPageSize(calculateNumColumns());
 
         if (myTableModel.isPhysicalPosition()) {
             updateSliderPhysicalPositions();
         } else if (!myTableModel.isPhysicalPosition()) {
             updateSliderSiteNumbers();
         }
+    }
+
+    private int calculateNumColumns() {
+        if (myScrollPane == null) {
+            return 10;
+        }
+        Dimension size = myScrollPane.getSize();
+        int width = (int) size.getWidth() - ROW_HEADER_WIDTH - SCROLL_BAR_WIDTH;
+        return width / myTableModel.getColumnWidth();
     }
 
     public void componentMoved(ComponentEvent e) {
@@ -677,10 +680,6 @@ public class SeqViewerPanel extends JPanel implements ComponentListener, TableMo
                 myTableModel.setColumnNameType(AlignmentTableModel.COLUMN_NAME_TYPE.siteName);
                 hideSearchFunction();
             }
-            //} else if (e.getActionCommand().equals(AlignmentTableModel.COLUMN_NAME_TYPE.allelesRetained.toString())) {
-            //    myTableModel.setColumnNameType(AlignmentTableModel.COLUMN_NAME_TYPE.allelesRetained);
-            //    hideSearchFunction();
-            //}
         }
     }
 

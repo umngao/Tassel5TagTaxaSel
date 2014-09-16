@@ -23,6 +23,7 @@ public class TOPMGenotypeTableCellRenderer extends AlignmentTableCellRenderer {
     public TOPMGenotypeTableCellRenderer(AlignmentTableModel model, TOPMGenotypeTable genotypeTable) {
         super(model, genotypeTable, null);
         myGenotypeTable = genotypeTable;
+        setRenderingType(RENDERING_TYPE.TOPM);
     }
 
     @Override
