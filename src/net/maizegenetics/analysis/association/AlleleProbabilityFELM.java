@@ -22,23 +22,6 @@ public class AlleleProbabilityFELM extends AbstractFixedEffectLM {
 	}
 	
 	@Override
-	public void initializeReportBuilders() {
-		String tableName = "GLM Site Tests - " + myDatum.getName();
-		String[] columnNames;
-		if (permute) columnNames = new String[]{"Trait","Marker","Chr","Position","marker_F","marker_p","perm_p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
-		else columnNames = new String[]{"Trait","Marker","Chr","Position","marker_F","marker_p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
-		numberOfSiteReportColumns = columnNames.length;
-		siteReportBuilder = TableReportBuilder.getInstance(tableName, columnNames);
-		
-		tableName = "GLM Allele Estimates - " + myDatum.getName();
-		columnNames = new String[]{"Trait","Marker","Chr","Position","Allele","Estimate"};
-		numberOfAlleleReportColumns = columnNames.length;
-		alleleReportBuilder = TableReportBuilder.getInstance(tableName, columnNames);
-		permpvalueColumn = 6;
-		markerpvalueColumn = 5;
-	}
-
-	@Override
 	protected void analyzeSite() {
 		String siteName = myGenoPheno.genotypeTable().siteName(myCurrentSite);
 		SweepFastLinearModel markerModel = null;

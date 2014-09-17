@@ -34,7 +34,23 @@ public interface FixedEffectLM {
 	
 	/**
 	 * @param permute	if true, conduct an experiment-wise permutation test
+	 * @param nperm		the number of permutations to be run
 	 */
-	public void permutationTest(boolean permute);
+	public void permutationTest(boolean permute, int nperm);
+	
+	/**
+	 * @param maxP		test results with p > maxP will not be reported.
+	 */
+	public void maxP(double maxP);
+	
+	/**
+	 * @param savefile	results will be saved to this file instead of memory
+	 */
+	public void siteReportFilepath(String savefile);
+	
+	/**
+	 * @param savefile	results will be saved to this file instead of memory
+	 */
+	public void alleleReportFilepath(String savefile);
 
 }

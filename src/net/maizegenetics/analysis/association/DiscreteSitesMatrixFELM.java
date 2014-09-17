@@ -55,7 +55,11 @@ public class DiscreteSitesMatrixFELM extends AbstractFixedEffectLM {
 		byte minor = myGenoPheno.genotypeTable().minorAllele(myCurrentSite);
 		double[] coding = ModelEffectUtils.getNumericCodingForAdditiveModel(geno, minor);
 		double[] normalGeno = normalizeVector(coding, true);
+		
+		for (int iter = 0; iter < 100; iter++) { //start for loop for testing
+
 		double F,p;
+		p = Double.NaN;
 		int markerdf = 1;
 		if (normalGeno.length == 0) {	//genotype df = 0, do not test
 			F = 0;
@@ -66,11 +70,11 @@ public class DiscreteSitesMatrixFELM extends AbstractFixedEffectLM {
 			for (int i = 0; i < normalGeno.length; i++) corr += normalGeno[i] * normalizedData[i];
 			double corrsq = corr * corr;
 			F = errordf * corrsq / (1 - corrsq );
-	        try {
-	        	p = LinearModelUtils.Ftest(F, 1, errordf);
-	        } catch (Exception e) {
-	        	p = Double.NaN;
-	        }
+//	        try {
+//	        	p = LinearModelUtils.Ftest(F, 1, errordf);
+//	        } catch (Exception e) {
+//	        	p = Double.NaN;
+//	        }
 		}
 
 		
@@ -91,6 +95,8 @@ public class DiscreteSitesMatrixFELM extends AbstractFixedEffectLM {
         rowData[columnCount++] = new Integer(errordf);
         rowData[columnCount++] = new Integer(modeldf - 1);
         siteReportBuilder.add(rowData);
+        
+		}//end for loop
 	}
 
 	public void calculateBasis() {

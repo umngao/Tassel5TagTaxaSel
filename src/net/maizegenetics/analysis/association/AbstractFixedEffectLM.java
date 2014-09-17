@@ -44,6 +44,10 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	protected OpenBitSet missingObsForSite;
 	protected String currentTraitName;
 	protected boolean areTaxaReplicated;
+	protected boolean saveToFile = false;
+	protected String siteReportFilename;
+	protected String alleleReportFilename;
+	protected double maxP = 1.0;
 	
 	//fields used for permutation testing
 	protected boolean permute = false;
@@ -91,11 +95,12 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	@Override
 	public void initializeReportBuilders() {
 		String tableName = "GLM Site Tests - " + myDatum.getName();
-		String[] columnNames = new String[]{"Trait","Marker","Chr","Position","marker_F","marker_p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
-		siteReportBuilder = TableReportBuilder.getInstance(tableName, columnNames);
+		if (saveToFile) siteReportBuilder = TableReportBuilder.getInstance(tableName, siteReportColumnNames(), siteReportFilename);
+		else siteReportBuilder = TableReportBuilder.getInstance(tableName, siteReportColumnNames());
+		 
 		tableName = "GLM Allele Estimates - " + myDatum.getName();
-		columnNames = new String[]{"Trait","Marker","Chr","Position","Obs","Allele","Estimate"};
-		alleleReportBuilder = TableReportBuilder.getInstance(tableName, columnNames);
+		if (saveToFile) alleleReportBuilder = TableReportBuilder.getInstance(tableName, alleleReportColumnNames(), alleleReportFilename);
+		else alleleReportBuilder = TableReportBuilder.getInstance(tableName, alleleReportColumnNames());
 	}
 	
 	@Override
@@ -146,8 +151,9 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	}
 	
 	@Override
-	public void permutationTest(boolean permute) {
+	public void permutationTest(boolean permute, int nperm) {
 		this.permute = permute;
+		numberOfPermutations = nperm;
 	}
 
 	/**
@@ -160,6 +166,15 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	 * This method tests the significance of this site and estimates the allele effects then appends the results to the site and allele reports.
 	 */
 	protected abstract void analyzeSite();
+	
+	protected String[] siteReportColumnNames() {
+		if (permute) return new String[]{"Trait","Marker","Chr","Position","marker_F","marker_p","perm_p","marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
+		return new String[] {"Trait","Marker","Chr","Position","marker_F","marker_p","marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
+	}
+	
+	protected String[] alleleReportColumnNames() {
+		return new String[]{"Trait","Marker","Chr","Position","Obs","Allele","Estimate"};
+	}
 	
 	protected ArrayList<ModelEffect> baseModel() {
 		int numberOfNonmissingObs = numberOfObservations - (int) missingObsForSite.cardinality();
@@ -238,9 +253,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 			//if taxa are replicated
 			int iter = 0;
 			for (DoubleMatrix pdata : permutedData) {
-		        double[] modelSSdf;
-		        SweepFastLinearModel sflm = new SweepFastLinearModel(myModel, siteData);
-		        modelSSdf = sflm.getModelcfmSSdf();
+		        SweepFastLinearModel sflm = new SweepFastLinearModel(myModel, pdata.to1DArray());
 		        markerSSdf = sflm.getIncrementalSSdf(numberOfBaseEffects);
 		        errorSSdf = sflm.getIncrementalSSdf(taxaEffectNumber);
 		        double F = markerSSdf[0] / markerSSdf[1] / errorSSdf[0] * errorSSdf[1];
@@ -274,6 +287,22 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		}
 		
 	}
+	
+	@Override
+	public void maxP(double maxP) {
+		this.maxP = maxP;
+	}
+
+	@Override
+	public void siteReportFilepath(String savefile) {
+		siteReportFilename = savefile;
+	}
+
+	@Override
+	public void alleleReportFilepath(String savefile) {
+		alleleReportFilename = savefile;
+	}
+	
 
 	//protected static methods
 	protected static double[] getNonMissingDoubles(double[] allData, BitSet missing) {
@@ -353,5 +382,5 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		}
 		return true;
 	}
-	
+
 }
