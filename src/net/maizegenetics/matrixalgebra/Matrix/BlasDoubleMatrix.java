@@ -556,6 +556,24 @@ public class BlasDoubleMatrix implements DoubleMatrix {
 	}
 	
 	@Override
+	public double[] to1DArray() {
+		if (ncols == 1) return Arrays.copyOf(myMatrix, size);
+		if (nrows == 1) return Arrays.copyOf(myMatrix, size);
+		return transpose().to1DArray();
+	}
+	
+	@Override
+	public double[][] toArray() {
+		double[][] array = new double[nrows][ncols];
+		for (int r = 0; r < nrows;  r++) {
+			for (int c = 0; c < ncols; c++) {
+				array[r][c] = get(r,c);
+			}
+		}
+		return array;
+	}
+	
+	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		int maxrow = Math.min(20,nrows);

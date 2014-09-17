@@ -252,4 +252,14 @@ public interface DoubleMatrix {
 	 */
 	int columnRank();
 	
+	/**
+	 * @return	the matrix as a one dimensional, row-major primitive array
+	 */
+	double[] to1DArray();
+	
+	/**
+	 * @return	the matrix as a primitive array
+	 */
+	double[][] toArray();
+	
 }

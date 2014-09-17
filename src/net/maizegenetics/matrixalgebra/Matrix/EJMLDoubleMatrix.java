@@ -464,4 +464,22 @@ public class EJMLDoubleMatrix implements DoubleMatrix {
 		return CommonOps.elementSum(vector);
 	}
 
+	@Override
+	public double[] to1DArray() {
+		return myMatrix.data;
+	}
+
+	@Override
+	public double[][] toArray() {
+		int nrows = myMatrix.getNumCols();
+		int ncols = myMatrix.getNumRows();
+		double[][] array = new double[nrows][ncols];
+		for (int r = 0; r < nrows; r++) {
+			for (int c = 0; c < ncols; c++) {
+				array[r][c] = myMatrix.get(r,c);
+			}
+		}
+		return array;
+	}
+
 }

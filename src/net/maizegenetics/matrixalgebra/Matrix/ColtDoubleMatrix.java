@@ -326,6 +326,26 @@ public class ColtDoubleMatrix implements DoubleMatrix {
 	}
 
 	@Override
+	public double[] to1DArray() {
+		int nrows = myMatrix.rows();
+		int ncols = myMatrix.columns();
+		int nelements = nrows * ncols;
+		double[] array = new double[nelements];
+		int count = 0;
+		for (int r = 0; r < nrows; r++) {
+			for (int c = 0; c < ncols; c++) {
+				array[count++] = myMatrix.getQuick(r, c);
+			}
+		}
+		return array;
+	}
+
+	@Override
+	public double[][] toArray() {
+		return myMatrix.toArray();
+	}
+
+	@Override
 	public String toString() {
 		return myMatrix.toString();
 	}
