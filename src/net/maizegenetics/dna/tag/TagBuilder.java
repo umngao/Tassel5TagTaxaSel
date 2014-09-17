@@ -1,11 +1,6 @@
 package net.maizegenetics.dna.tag;
 
-import com.google.common.collect.ComparisonChain;
-import net.maizegenetics.dna.BaseEncoder;
-
-import java.io.Serializable;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 /**
  * Builder for tags that optimizes the memory footprint.
