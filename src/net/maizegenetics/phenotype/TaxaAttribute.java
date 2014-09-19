@@ -24,14 +24,14 @@ public class TaxaAttribute implements PhenotypeAttribute {
 		myAllowedTypes.add(ATTRIBUTE_TYPE.taxa);
 	}
 
-	TaxaAttribute(List<Taxon> taxa, String name) {
+	public TaxaAttribute(List<Taxon> taxa, String name) {
 		this.name = name;
 		if (taxa instanceof ArrayList) taxaList = (ArrayList<Taxon>) taxa;
 		else taxaList = new ArrayList<>(taxa);
 		numberOfTaxa = taxa.size();
 	}
 	
-	TaxaAttribute(List<Taxon> taxa) {
+	public TaxaAttribute(List<Taxon> taxa) {
 		this(taxa, DEFAULT_NAME);
 	}
 	
