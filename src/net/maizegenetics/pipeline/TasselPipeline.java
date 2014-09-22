@@ -163,9 +163,27 @@ public class TasselPipeline implements PluginListener {
             }
             System.out.println("");
         } else if ((args.length >= 1) && (args[0].equalsIgnoreCase("-debug"))) {
-            LoggingUtils.setupDebugLogging();
-            String[] temp = new String[args.length - 1];
-            System.arraycopy(args, 1, temp, 0, temp.length);
+            String filename = null;
+            if (args.length >= 2) {
+                filename = args[1].trim();
+            }
+
+            String[] temp = null;
+            if ((filename != null) && (!filename.startsWith("-"))) {
+                try {
+                    LoggingUtils.setupDebugLogfile(filename);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    myLogger.error("Problem with debug file: " + filename);
+                }
+                temp = new String[args.length - 2];
+                System.arraycopy(args, 2, temp, 0, temp.length);
+            } else {
+                LoggingUtils.setupDebugLogging();
+                temp = new String[args.length - 1];
+                System.arraycopy(args, 1, temp, 0, temp.length);
+            }
+
             new TasselPipeline(temp, null);
         } else {
             new TasselPipeline(args, null);
