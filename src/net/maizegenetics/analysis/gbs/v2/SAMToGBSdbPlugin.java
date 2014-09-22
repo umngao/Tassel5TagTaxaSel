@@ -12,17 +12,18 @@ import net.maizegenetics.dna.tag.*;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.util.Tuple;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 
 import javax.swing.*;
 import java.awt.*;
 import java.io.BufferedReader;
+import java.util.Optional;
 import java.util.Set;
 
 /**
- * This class can read in a CBSU TagMapFile into the gbs.TagsOnPhysicalMap data
- * structure.
+ * Reads SAM file formats to determine the potential positions of Tags against the reference genome.
  *
  * @author Ed Buckler
  *
@@ -47,7 +48,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
 
     @Override
     public DataSet processData(DataSet input) {
-        final int name = 0, flag = 1, chr = 2, pos = 3, cigar = 5, tagS = 9, alignScoreIndex=11; // column indices in inputLine
+        int tagsNotFoundInDB=0, tagsNotMapped=0;
         try {
             BufferedReader bw=Utils.getBufferedReader(sAMInputFile());
             TagDataWriter tagData=new TagDataSQLite(gBSDBFile());
@@ -56,32 +57,66 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
             String inputLine;
             while((inputLine=bw.readLine())!=null) {
                 if(inputLine.startsWith("@")) continue;
-                String[] s=inputLine.split("\\s");
-                Tag tag= TagBuilder.instance(s[tagS]).build();
-                Chromosome chromosome=new Chromosome(s[chr].replace("chr", ""));
-                String alignmentScore=s[alignScoreIndex].split(":")[2];
-                Position position=new GeneralPosition
-                        .Builder(chromosome,Integer.parseInt(s[pos]))
-                        .addAnno("mappingapproach", "Bowtie")
-                        .addAnno("cigar", s[cigar])
-                        .addAnno("supportvalue", alignmentScore)  //todo include again
-                        .build();
-                //System.out.println(inputLine);
-                tagPositions.put(tag,position);
+                Tuple<Tag,Optional<Position>> tagPositionTuple=parseRow(inputLine);
+                if(!knownTags.contains(tagPositionTuple.x)) tagsNotFoundInDB++;
+                if(tagPositionTuple.y.isPresent()) {
+                    tagPositions.put(tagPositionTuple.x,tagPositionTuple.y.get());
+                } else {
+                    tagsNotMapped++;
+                }
             }
             bw.close();
-            tagData.putTagAlignments(tagPositions);
+            if(tagsNotFoundInDB==0) {tagData.putTagAlignments(tagPositions);
+                myLogger.info("Finished reading SAM file and adding tags to DB."
+                    + "\nTotal number of tags mapped: " + tagPositions.keySet().size() + " (total mappings " + tagPositions.size() + ")"
+                        + "\nTags not mapped: " + tagsNotMapped + "\n\n");}
+            else {
+                System.out.println("Unobserved tags were found in the SAM file count= " + tagsNotFoundInDB);
+                myLogger.info("Finished reading SAM file.  No Tags added to DB as "+tagsNotFoundInDB+" unobserved tags were found.\n" +
+                        "Please ensure all tags in the SAM file already exist in the DB.\n\n");
+            }
             ((TagDataSQLite)tagData).close();  //todo autocloseable should do this but it is not working.
 
-//            myLogger.info("Finished converting binary tag count file to fastq."
-//                    + "\nTotal number of tags written: " + count.get() + " (above minCount of " + minCount() + ")"
-//                    + "\nOuput fastq file: " + outputFile() + "\n\n");
+
         } catch (Exception e) {
             myLogger.info("Catch in reading TagCount file e=" + e);
             e.printStackTrace();
         }
         return null;
     }
+
+
+    private Tuple<Tag,Optional<Position>> parseRow(String inputLine) {
+        final int name = 0, flag = 1, chr = 2, pos = 3, cigar = 5, tagS = 9, alignScoreIndex=11; // column indices in inputLine
+        String[] s=inputLine.split("\\s");
+        Tag tag= TagBuilder.instance(s[tagS]).build();
+        if (!hasAlignment(s[flag])) return new Tuple<>(tag,Optional.<Position>empty());
+        Chromosome chromosome=new Chromosome(s[chr].replace("chr", ""));
+        String alignmentScore=s[alignScoreIndex].split(":")[2];
+        boolean forwardStrand=isForwardStrand(s[flag]);
+        if(!forwardStrand) tag=TagBuilder.reverseComplement(tag).build();
+        Position position=new GeneralPosition
+                .Builder(chromosome,Integer.parseInt(s[pos]))
+                .addAnno("mappingapproach", "Bowtie")
+                .addAnno("cigar", s[cigar])
+                .addAnno("supportvalue", alignmentScore)  //todo include again
+                .build();
+        return new Tuple<>(tag,Optional.of(position));
+    }
+
+
+    /**Bit 3 of the flag (16) indicates whether forward strand*/
+    private boolean hasAlignment(String samFlag){
+        int flag=Integer.parseInt(samFlag);
+        return ((flag & 4) == 0);
+    }
+
+    /**Bit 5 of the flag (16) indicates whether forward strand*/
+    private boolean isForwardStrand(String samFlag){
+        int flag=Integer.parseInt(samFlag);
+        return ((flag & 16) == 0);
+    }
+
 
     /**
      * Reads SAM files output from BWA or bowtie2

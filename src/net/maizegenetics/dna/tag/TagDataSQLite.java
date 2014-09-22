@@ -8,6 +8,7 @@ import net.maizegenetics.dna.snp.SimpleAllele;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.Tuple;
 import org.sqlite.SQLiteConfig;
 
 import java.io.InputStreamReader;
@@ -16,6 +17,7 @@ import java.nio.file.Paths;
 import java.sql.*;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Defines xxxx
@@ -581,10 +583,11 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     @Override
     public Map<Position, Map<Tag, TaxaDistribution>> getCutPositionTagTaxaMap(Chromosome chromosome, int firstPosition, int lastPosition) {
-        //consider doing this all by SQL is performance suffers
+        //consider doing this all by SQL if performance suffers
         PositionList pl=getTagCutPositions(chromosome,firstPosition,lastPosition,true);
         ImmutableMap.Builder<Position, Map<Tag, TaxaDistribution>> positionMapBuilder=new ImmutableMap.Builder<>();
         pl.stream().forEach(p -> positionMapBuilder.put(p,getTagsTaxaMap(p)));
+        //this is slow as each position is a separate transaction
         return positionMapBuilder.build();
     }
 

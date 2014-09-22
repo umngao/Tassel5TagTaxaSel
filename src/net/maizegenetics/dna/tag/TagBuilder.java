@@ -1,5 +1,7 @@
 package net.maizegenetics.dna.tag;
 
+import net.maizegenetics.dna.BaseEncoder;
+
 import java.nio.ByteBuffer;
 
 /**
@@ -54,6 +56,12 @@ public class TagBuilder {
         long[] seq2Bit = AbstractTag.getLongArrayFromSeq(sequence);
         if (seq2Bit == null) return null;
         return new TagBuilder(seq2Bit,(short)sequence.length());
+    }
+
+    public static TagBuilder reverseComplement(Tag tag) {
+        String revSequence = BaseEncoder.getReverseComplement(tag.sequence());
+        if (revSequence == null) return null;
+        return instance(revSequence);
     }
 }
 
