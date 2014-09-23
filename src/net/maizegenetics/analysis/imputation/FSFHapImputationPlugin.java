@@ -81,7 +81,9 @@ public class FSFHapImputationPlugin extends AbstractPlugin {
 	@Override
 	public String pluginDescription() {
 		return "The FSFHapImputation Plugin infers parental haplotypes for a full sib family then uses those haplotypes in an HMM to impute variants. "
-				+ "It is effective at correctly imputing heterzygotes in GBS data.";
+				+ "It is effective at correctly imputing heterzygotes in GBS data. To use from the command line, use TASSEL's default syntax that " +
+                "passes data from one plugin to another (Note that this creates 2 files, one of just parental calls (A/C) and one of imputed genotypes):\n\n" +
+                "\trun_pipeline.pl -h input.hmp.txt -FSFHapImputationPlugin [options] -endPLugin -export output.hmp.txt";
 	}
 
 	public DataSet processData(DataSet input) {
