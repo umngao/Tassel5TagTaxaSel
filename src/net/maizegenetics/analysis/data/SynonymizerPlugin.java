@@ -7,7 +7,7 @@
 package net.maizegenetics.analysis.data;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.trait.Phenotype;
+import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.taxa.IdentifierSynonymizer;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.plugindef.AbstractPlugin;
@@ -60,7 +60,7 @@ public class SynonymizerPlugin extends AbstractPlugin {
                     Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
                     data.add(idGroupDatum);
                 } else if (currentData instanceof Phenotype) {
-                    TaxaList idGroup = ((Phenotype) currentData).getTaxa();
+                    TaxaList idGroup = ((Phenotype) currentData).taxa();
                     Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
                     data.add(idGroupDatum);
                 } else {

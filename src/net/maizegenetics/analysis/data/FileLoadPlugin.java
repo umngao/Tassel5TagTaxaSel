@@ -10,7 +10,8 @@ import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import net.maizegenetics.gui.DialogUtils;
 import net.maizegenetics.dna.snp.ImportUtils;
-import net.maizegenetics.trait.ReadPhenotypeUtils;
+import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.PhenotypeBuilder;
 import net.maizegenetics.dna.snp.ReadPolymorphismUtils;
 import net.maizegenetics.dna.snp.ReadSequenceAlignmentUtils;
 import net.maizegenetics.dna.snp.io.ReadNumericMarkerUtils;
@@ -39,6 +40,7 @@ import java.util.regex.Pattern;
 /**
  *
  * @author Ed Buckler
+ * @author Terry Casstevens
  */
 public class FileLoadPlugin extends AbstractPlugin {
 
@@ -270,7 +272,7 @@ public class FileLoadPlugin extends AbstractPlugin {
                 if (isTrait) {
                     guess = TasselFileType.Phenotype;
                 } else if (isMarker && isNumeric) {
-                	guess = TasselFileType.NumericGenotype;
+                    guess = TasselFileType.NumericGenotype;
                 } else if (isMap) {
                     guess = TasselFileType.GeneticMap;
                 } else {
@@ -310,15 +312,15 @@ public class FileLoadPlugin extends AbstractPlugin {
                     break;
                 }
                 case HDF5: {
-                    IHDF5Reader reader=HDF5Factory.openForReading(inFile);
-                    boolean t4HDF5=HDF5Utils.isTASSEL4HDF5Format(HDF5Factory.openForReading(inFile));
+                    IHDF5Reader reader = HDF5Factory.openForReading(inFile);
+                    boolean t4HDF5 = HDF5Utils.isTASSEL4HDF5Format(HDF5Factory.openForReading(inFile));
                     reader.close();
-                    if(t4HDF5) {
-                        DialogUtils.showError("This file is TASSEL4 HDF5 format. It will be converted to TASSEL5 " +
-                                "HDF5 format with the t5.h5 suffix added.  This may take a few minutes.",getParentFrame());
-                        String newInfile=inFile.replace(".h5",".t5.h5");
-                        MigrateHDF5FromT4T5.copyGenotypes(inFile,newInfile);
-                        inFile=newInfile;
+                    if (t4HDF5) {
+                        DialogUtils.showError("This file is TASSEL4 HDF5 format. It will be converted to TASSEL5 "
+                                + "HDF5 format with the t5.h5 suffix added.  This may take a few minutes.", getParentFrame());
+                        String newInfile = inFile.replace(".h5", ".t5.h5");
+                        MigrateHDF5FromT4T5.copyGenotypes(inFile, newInfile);
+                        inFile = newInfile;
                     }
                     suffix = FILE_EXT_HDF5;
                     result = ImportUtils.readGuessFormat(inFile);
@@ -350,7 +352,11 @@ public class FileLoadPlugin extends AbstractPlugin {
                     break;
                 }
                 case Phenotype: {
-                    result = ReadPhenotypeUtils.readGenericFile(inFile);
+                    List<Phenotype> phenotypes = new PhenotypeBuilder().fromFile(inFile).build();
+                    if (phenotypes.size() != 1) {
+                        throw new IllegalStateException("FileLoadPlugin: processDatum: problem loading phenotype file: " + inFile);
+                    }
+                    result = phenotypes.get(0);
                     break;
                 }
                 case GeneticMap: {
@@ -358,8 +364,8 @@ public class FileLoadPlugin extends AbstractPlugin {
                     break;
                 }
                 case NumericGenotype: {
-                	result = ReadNumericMarkerUtils.readNumericMarkerFile(inFile);
-                	break;
+                    result = ReadNumericMarkerUtils.readNumericMarkerFile(inFile);
+                    break;
                 }
                 case Table: {
                     result = TableReportUtils.readDelimitedTableReport(inFile, "\t");
