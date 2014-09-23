@@ -1,10 +1,8 @@
 package net.maizegenetics.phenotype;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import net.maizegenetics.taxa.TaxaList;
-import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.TableReport;
 
 /**

@@ -17,8 +17,7 @@ import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.taxa.distance.WriteDistanceMatrix;
 import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.tassel.TASSELMainFrame;
-import net.maizegenetics.trait.Phenotype;
-import net.maizegenetics.trait.PhenotypeUtils;
+import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.util.*;
 import org.apache.log4j.Logger;
 
@@ -35,7 +34,7 @@ import java.net.URL;
 
 /**
  *
- * @author terry
+ * @author Terry Casstevens
  */
 public class ExportPlugin extends AbstractPlugin {
 
@@ -176,7 +175,8 @@ public class ExportPlugin extends AbstractPlugin {
             theFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".txt"));
             fw = new FileWriter(theFile);
             pw = new PrintWriter(fw);
-            PhenotypeUtils.saveAs(input, pw);
+            // TODO - replace with new export method.
+            // PhenotypeUtils.saveAs(input, pw);
             return theFile.getCanonicalPath();
         } catch (Exception e) {
             e.printStackTrace();
@@ -438,7 +438,7 @@ public class ExportPlugin extends AbstractPlugin {
         private JRadioButton myPhylipInterRadioButton = new JRadioButton("Write Phylip (Interleaved)");
         private JRadioButton myTabTableRadioButton = new JRadioButton("Write Tab Delimited");
 
-        private JCheckBox myKeepDepthCheck = new JCheckBox("Keep Depth (VCF or HDF5)",true);
+        private JCheckBox myKeepDepthCheck = new JCheckBox("Keep Depth (VCF or HDF5)", true);
 
         public ExportPluginDialog() {
             super((Frame) null, "Export...", true);
@@ -475,8 +475,8 @@ public class ExportPlugin extends AbstractPlugin {
         }
 
         private JPanel getMain() {
-            JPanel inputs=new JPanel();
-            BoxLayout layout=new BoxLayout(inputs, BoxLayout.Y_AXIS);
+            JPanel inputs = new JPanel();
+            BoxLayout layout = new BoxLayout(inputs, BoxLayout.Y_AXIS);
             inputs.setLayout(layout);
             inputs.setAlignmentX(JPanel.CENTER_ALIGNMENT);
             inputs.add(Box.createRigidArea(new Dimension(1, 10)));
@@ -754,151 +754,151 @@ class DiploidOptionDialog extends JDialog {
 
 class ReportOptionDialog extends JDialog {
 
-        private boolean myIsCancel = true;
-        private ButtonGroup myButtonGroup = new ButtonGroup();
-        private JRadioButton myReportRadioButton = new JRadioButton("Write As Report");
-        private JRadioButton myTextRadioButton = new JRadioButton("Write As Text");
+    private boolean myIsCancel = true;
+    private ButtonGroup myButtonGroup = new ButtonGroup();
+    private JRadioButton myReportRadioButton = new JRadioButton("Write As Report");
+    private JRadioButton myTextRadioButton = new JRadioButton("Write As Text");
 
-        public ReportOptionDialog() {
-            super((Frame) null, "Export Report...", true);
-            try {
-                jbInit();
-                pack();
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        }
-
-        private void jbInit() throws Exception {
-
-            setTitle("Export Report...");
-            setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE);
-            setUndecorated(false);
-            getRootPane().setWindowDecorationStyle(JRootPane.NONE);
-
-            Container contentPane = getContentPane();
-
-            BoxLayout layout = new BoxLayout(contentPane, BoxLayout.Y_AXIS);
-            contentPane.setLayout(layout);
-
-            JPanel main = getMain();
-
-            contentPane.add(main);
-
+    public ReportOptionDialog() {
+        super((Frame) null, "Export Report...", true);
+        try {
+            jbInit();
             pack();
-
-            setResizable(false);
-
-            myButtonGroup.add(myReportRadioButton);
-            myButtonGroup.add(myTextRadioButton);
-            myReportRadioButton.setSelected(true);
-
-        }
-
-        private JPanel getMain() {
-
-            JPanel inputs = new JPanel();
-            BoxLayout layout = new BoxLayout(inputs, BoxLayout.Y_AXIS);
-            inputs.setLayout(layout);
-            inputs.setAlignmentX(JPanel.CENTER_ALIGNMENT);
-
-            inputs.add(Box.createRigidArea(new Dimension(1, 10)));
-
-            inputs.add(getLabel());
-
-            inputs.add(Box.createRigidArea(new Dimension(1, 10)));
-
-            inputs.add(getOptionPanel());
-
-            inputs.add(Box.createRigidArea(new Dimension(1, 10)));
-
-            inputs.add(getButtons());
-
-            inputs.add(Box.createRigidArea(new Dimension(1, 10)));
-
-            return inputs;
-
-        }
-
-        private JPanel getLabel() {
-
-            JPanel result = new JPanel();
-            BoxLayout layout = new BoxLayout(result, BoxLayout.Y_AXIS);
-            result.setLayout(layout);
-            result.setAlignmentX(JPanel.CENTER_ALIGNMENT);
-
-            JLabel jLabel1 = new JLabel("Choose File Type to Export.");
-            jLabel1.setFont(new Font("Dialog", Font.BOLD, 18));
-            result.add(jLabel1);
-
-            return result;
-
-        }
-
-        private JPanel getOptionPanel() {
-
-            JPanel result = new JPanel();
-            BoxLayout layout = new BoxLayout(result, BoxLayout.Y_AXIS);
-            result.setLayout(layout);
-            result.setAlignmentX(JPanel.CENTER_ALIGNMENT);
-            result.setBorder(BorderFactory.createEtchedBorder());
-
-            result.add(myReportRadioButton);
-            result.add(myTextRadioButton);
-
-            result.add(Box.createRigidArea(new Dimension(1, 20)));
-
-            return result;
-
-        }
-
-        private JPanel getButtons() {
-
-            JButton okButton = new JButton();
-            JButton cancelButton = new JButton();
-
-            cancelButton.setText("Cancel");
-            cancelButton.addActionListener(new ActionListener() {
-                public void actionPerformed(ActionEvent e) {
-                    cancelButton_actionPerformed(e);
-                }
-            });
-
-            okButton.setText("OK");
-            okButton.addActionListener(new ActionListener() {
-                public void actionPerformed(ActionEvent e) {
-                    okButton_actionPerformed(e);
-                }
-            });
-
-            JPanel result = new JPanel(new FlowLayout(FlowLayout.CENTER));
-
-            result.add(okButton);
-
-            result.add(cancelButton);
-
-            return result;
-
-        }
-
-        public FileLoadPlugin.TasselFileType getTasselFileType() {
-            if (myTextRadioButton.isSelected()) {
-                return FileLoadPlugin.TasselFileType.Text;
-            }
-            return null;
-        }
-
-        private void okButton_actionPerformed(ActionEvent e) {
-            myIsCancel = false;
-            setVisible(false);
-        }
-
-        private void cancelButton_actionPerformed(ActionEvent e) {
-            myIsCancel = true;
-            setVisible(false);
-        }
-
-        public boolean isCancel() {
-            return myIsCancel;
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
     }
+
+    private void jbInit() throws Exception {
+
+        setTitle("Export Report...");
+        setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE);
+        setUndecorated(false);
+        getRootPane().setWindowDecorationStyle(JRootPane.NONE);
+
+        Container contentPane = getContentPane();
+
+        BoxLayout layout = new BoxLayout(contentPane, BoxLayout.Y_AXIS);
+        contentPane.setLayout(layout);
+
+        JPanel main = getMain();
+
+        contentPane.add(main);
+
+        pack();
+
+        setResizable(false);
+
+        myButtonGroup.add(myReportRadioButton);
+        myButtonGroup.add(myTextRadioButton);
+        myReportRadioButton.setSelected(true);
+
+    }
+
+    private JPanel getMain() {
+
+        JPanel inputs = new JPanel();
+        BoxLayout layout = new BoxLayout(inputs, BoxLayout.Y_AXIS);
+        inputs.setLayout(layout);
+        inputs.setAlignmentX(JPanel.CENTER_ALIGNMENT);
+
+        inputs.add(Box.createRigidArea(new Dimension(1, 10)));
+
+        inputs.add(getLabel());
+
+        inputs.add(Box.createRigidArea(new Dimension(1, 10)));
+
+        inputs.add(getOptionPanel());
+
+        inputs.add(Box.createRigidArea(new Dimension(1, 10)));
+
+        inputs.add(getButtons());
+
+        inputs.add(Box.createRigidArea(new Dimension(1, 10)));
+
+        return inputs;
+
+    }
+
+    private JPanel getLabel() {
+
+        JPanel result = new JPanel();
+        BoxLayout layout = new BoxLayout(result, BoxLayout.Y_AXIS);
+        result.setLayout(layout);
+        result.setAlignmentX(JPanel.CENTER_ALIGNMENT);
+
+        JLabel jLabel1 = new JLabel("Choose File Type to Export.");
+        jLabel1.setFont(new Font("Dialog", Font.BOLD, 18));
+        result.add(jLabel1);
+
+        return result;
+
+    }
+
+    private JPanel getOptionPanel() {
+
+        JPanel result = new JPanel();
+        BoxLayout layout = new BoxLayout(result, BoxLayout.Y_AXIS);
+        result.setLayout(layout);
+        result.setAlignmentX(JPanel.CENTER_ALIGNMENT);
+        result.setBorder(BorderFactory.createEtchedBorder());
+
+        result.add(myReportRadioButton);
+        result.add(myTextRadioButton);
+
+        result.add(Box.createRigidArea(new Dimension(1, 20)));
+
+        return result;
+
+    }
+
+    private JPanel getButtons() {
+
+        JButton okButton = new JButton();
+        JButton cancelButton = new JButton();
+
+        cancelButton.setText("Cancel");
+        cancelButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                cancelButton_actionPerformed(e);
+            }
+        });
+
+        okButton.setText("OK");
+        okButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                okButton_actionPerformed(e);
+            }
+        });
+
+        JPanel result = new JPanel(new FlowLayout(FlowLayout.CENTER));
+
+        result.add(okButton);
+
+        result.add(cancelButton);
+
+        return result;
+
+    }
+
+    public FileLoadPlugin.TasselFileType getTasselFileType() {
+        if (myTextRadioButton.isSelected()) {
+            return FileLoadPlugin.TasselFileType.Text;
+        }
+        return null;
+    }
+
+    private void okButton_actionPerformed(ActionEvent e) {
+        myIsCancel = false;
+        setVisible(false);
+    }
+
+    private void cancelButton_actionPerformed(ActionEvent e) {
+        myIsCancel = true;
+        setVisible(false);
+    }
+
+    public boolean isCancel() {
+        return myIsCancel;
+    }
+}

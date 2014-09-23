@@ -14,7 +14,7 @@ CREATE TABLE tagCutPosition (
     mapappid    INTEGER NOT NULL,
     bestmapping BOOLEAN,
     cigar       TEXT,
-    supportval  INTEGER(1),
+    supportval  INTEGER(2),
     PRIMARY KEY (tagid, positionid, mapappid)
 );
 

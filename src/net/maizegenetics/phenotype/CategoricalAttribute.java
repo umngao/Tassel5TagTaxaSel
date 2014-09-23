@@ -10,7 +10,6 @@ import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
 
-import com.google.common.collect.ImmutableBiMap;
 
 public class CategoricalAttribute implements PhenotypeAttribute {
 

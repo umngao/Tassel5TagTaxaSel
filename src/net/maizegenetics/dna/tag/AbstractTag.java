@@ -114,5 +114,4 @@ public abstract class AbstractTag implements Tag, Comparable<Tag> {
         }
         return result;
     }
-
 }

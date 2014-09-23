@@ -8,9 +8,11 @@ package net.maizegenetics.analysis.data;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.CombineGenotypeTable;
-import net.maizegenetics.trait.Phenotype;
-import net.maizegenetics.trait.MarkerPhenotype;
-import net.maizegenetics.trait.CombinePhenotype;
+import net.maizegenetics.phenotype.GenotypePhenotype;
+import net.maizegenetics.phenotype.GenotypePhenotypeBuilder;
+import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.PhenotypeBuilder;
+
 import java.awt.Frame;
 
 import net.maizegenetics.plugindef.AbstractPlugin;
@@ -81,12 +83,21 @@ public class UnionAlignmentPlugin extends AbstractPlugin {
             }
             for (int i = 1; i < caVector.size(); i++) {
                 Phenotype ta = (Phenotype) caVector.get(i).getData();
-                ca = CombinePhenotype.getInstance(ca, ta, isUnion);
+                if (isUnion) {
+                    ca = new PhenotypeBuilder().fromPhenotype(ca).fromPhenotype(ta).unionJoin().build().get(0);
+                } else {
+                    ca = new PhenotypeBuilder().fromPhenotype(ca).fromPhenotype(ta).intersectJoin().build().get(0);
+                }
                 result = ca;
             }
             if ((ca != null) && (aa != null)) {
                 //then make a concatenated alignment
-                MarkerPhenotype aac = MarkerPhenotype.getInstance(aa, ca, isUnion);
+                GenotypePhenotype aac = null;
+                if (isUnion) {
+                    aac = new GenotypePhenotypeBuilder().genotype(aa).phenotype(ca).union().build();
+                } else {
+                    aac = new GenotypePhenotypeBuilder().genotype(aa).phenotype(ca).intersect().build();
+                }
                 result = aac;
             }
             String theName = this.getConcatenatedName(input);

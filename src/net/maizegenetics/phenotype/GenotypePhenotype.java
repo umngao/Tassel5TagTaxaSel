@@ -2,9 +2,7 @@ package net.maizegenetics.phenotype;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.score.SiteScore;
-import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
-import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.TableReport;
 
 /**
