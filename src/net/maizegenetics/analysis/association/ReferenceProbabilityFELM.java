@@ -2,9 +2,7 @@ package net.maizegenetics.analysis.association;
 
 import java.util.ArrayList;
 
-import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
-import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.stats.linearmodels.CovariateModelEffect;
 import net.maizegenetics.stats.linearmodels.LinearModelUtils;
@@ -12,11 +10,8 @@ import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.SweepFastLinearModel;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
-import net.maizegenetics.util.TableReportBuilder;
 
 public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
-	int numberOfSiteReportColumns;
-	int numberOfAlleleReportColumns;
 	double[] myProbabilities;
 
 	public ReferenceProbabilityFELM(Datum data) {

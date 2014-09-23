@@ -38,6 +38,8 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	protected final List<PhenotypeAttribute> myCovariateAttributes;
 	protected TableReportBuilder siteReportBuilder;
 	protected TableReportBuilder alleleReportBuilder;
+	protected int numberOfSiteReportColumns;
+	protected int numberOfAlleleReportColumns;
 	protected float[] allData;
 	protected int myCurrentSite;
 	protected double[] siteData;
@@ -66,6 +68,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	protected ArrayList<ModelEffect> myBaseModel;
 	protected int numberOfBaseEffects;
 	protected int taxaEffectNumber;
+	protected int randomSeed;
 
     protected static final Map<SiteScore.SITE_SCORE_TYPE, String> typeNameMap;
     static {
@@ -95,12 +98,16 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	@Override
 	public void initializeReportBuilders() {
 		String tableName = "GLM Site Tests - " + myDatum.getName();
-		if (saveToFile) siteReportBuilder = TableReportBuilder.getInstance(tableName, siteReportColumnNames(), siteReportFilename);
-		else siteReportBuilder = TableReportBuilder.getInstance(tableName, siteReportColumnNames());
+		String[] columnNames = siteReportColumnNames();
+		numberOfSiteReportColumns = columnNames.length;
+		if (saveToFile) siteReportBuilder = TableReportBuilder.getInstance(tableName, columnNames, siteReportFilename);
+		else siteReportBuilder = TableReportBuilder.getInstance(tableName, columnNames);
 		 
 		tableName = "GLM Allele Estimates - " + myDatum.getName();
-		if (saveToFile) alleleReportBuilder = TableReportBuilder.getInstance(tableName, alleleReportColumnNames(), alleleReportFilename);
-		else alleleReportBuilder = TableReportBuilder.getInstance(tableName, alleleReportColumnNames());
+		columnNames = alleleReportColumnNames();
+		numberOfAlleleReportColumns = columnNames.length;
+		if (saveToFile) alleleReportBuilder = TableReportBuilder.getInstance(tableName, columnNames, alleleReportFilename);
+		else alleleReportBuilder = TableReportBuilder.getInstance(tableName, columnNames);
 	}
 	
 	@Override

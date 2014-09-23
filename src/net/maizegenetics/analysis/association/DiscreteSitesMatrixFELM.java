@@ -2,13 +2,9 @@ package net.maizegenetics.analysis.association;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
 
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
-import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
 import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.stats.linearmodels.LinearModelUtils;
 import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.ModelEffectUtils;
 import net.maizegenetics.util.BitSet;
@@ -56,7 +52,7 @@ public class DiscreteSitesMatrixFELM extends AbstractFixedEffectLM {
 		double[] coding = ModelEffectUtils.getNumericCodingForAdditiveModel(geno, minor);
 		double[] normalGeno = normalizeVector(coding, true);
 		
-		for (int iter = 0; iter < 100; iter++) { //start for loop for testing
+		for (int iter = 0; iter < 1; iter++) { //start for loop for testing
 
 		double F,p;
 		p = Double.NaN;

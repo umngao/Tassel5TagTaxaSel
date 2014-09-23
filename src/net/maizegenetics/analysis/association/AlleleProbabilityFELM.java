@@ -11,11 +11,8 @@ import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.SweepFastLinearModel;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
-import net.maizegenetics.util.TableReportBuilder;
 
 public class AlleleProbabilityFELM extends AbstractFixedEffectLM {
-	int numberOfSiteReportColumns;
-	int numberOfAlleleReportColumns;
 
 	public AlleleProbabilityFELM(Datum data) {
 		super(data);

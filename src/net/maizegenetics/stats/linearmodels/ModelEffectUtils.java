@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
+import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 
@@ -134,8 +135,10 @@ public class ModelEffectUtils {
     }
     
     public static double[] getNumericCodingForAdditiveModel(Object[] marker, String allele) {
-    	String firstMarker = ((String) marker[0]);
     	int nmarkers = marker.length;
+    	if (allele.equals(GenotypeTable.UNKNOWN_ALLELE_STR)) return new double[nmarkers];
+    	
+    	String firstMarker = ((String) marker[0]);
     	double[] values = new double[nmarkers];
     	
     	if (firstMarker.contains(":")) {
@@ -152,7 +155,7 @@ public class ModelEffectUtils {
     			String markerval = (String) marker[m];
     			if (markerval.equals(allele)) values[m] = 2;
     			else if (nuc.matcher((String) marker[m]).matches()) values[m] = 1;
-    			else marker[m] = 0;
+    			else values[m] = 0;
     		}
     	}
     	return values;
