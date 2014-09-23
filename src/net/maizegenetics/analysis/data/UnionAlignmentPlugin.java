@@ -11,6 +11,7 @@ import net.maizegenetics.dna.snp.CombineGenotypeTable;
 import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.phenotype.GenotypePhenotypeBuilder;
 import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.PhenotypeBuilder;
 
 import java.awt.Frame;
 
@@ -82,8 +83,11 @@ public class UnionAlignmentPlugin extends AbstractPlugin {
             }
             for (int i = 1; i < caVector.size(); i++) {
                 Phenotype ta = (Phenotype) caVector.get(i).getData();
-                // TODO - replace CombinePhenotype with equivalent
-                //ca = CombinePhenotype.getInstance(ca, ta, isUnion);
+                if (isUnion) {
+                    ca = new PhenotypeBuilder().fromPhenotype(ca).fromPhenotype(ta).unionJoin().build().get(0);
+                } else {
+                    ca = new PhenotypeBuilder().fromPhenotype(ca).fromPhenotype(ta).intersectJoin().build().get(0);
+                }
                 result = ca;
             }
             if ((ca != null) && (aa != null)) {
