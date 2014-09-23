@@ -10,8 +10,9 @@ import net.maizegenetics.gui.SelectFromAvailableDialog;
 import net.maizegenetics.gui.TaxaAvailableListModel;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
-import net.maizegenetics.trait.FilterPhenotype;
-import net.maizegenetics.trait.Phenotype;
+import net.maizegenetics.phenotype.FilterPhenotype;
+import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.PhenotypeBuilder;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
@@ -99,7 +100,7 @@ public class FilterTaxaAlignmentPlugin extends AbstractPlugin {
                 dialog = new SelectFromAvailableDialog(getParentFrame(), "Taxa Filter", listModel);
             } else if (theData instanceof Phenotype) {
                 final Phenotype phenotype = (Phenotype) theData;
-                taxaList = phenotype.getTaxa();
+                taxaList = phenotype.taxa();
                 TaxaAvailableListModel listModel = new TaxaAvailableListModel(taxaList);
                 dialog = new SelectFromAvailableDialog(getParentFrame(), "Taxa Filter", listModel);
             } else {
@@ -136,9 +137,9 @@ public class FilterTaxaAlignmentPlugin extends AbstractPlugin {
             count = ((GenotypeTable) result).numberOfTaxa();
         } else if (theData instanceof Phenotype) {
             if (myIdsToKeep != null) {
-                result = FilterPhenotype.getInstance((Phenotype) theData, myIdsToKeep, null);
+                result = new PhenotypeBuilder().fromPhenotype((Phenotype) theData).keepTaxa(myIdsToKeep).build();
             } else if (myIdsToRemove != null) {
-                result = FilterPhenotype.getInstanceRemoveIDs((Phenotype) theData, myIdsToRemove);
+                result = new PhenotypeBuilder().fromPhenotype((Phenotype) theData).removeTaxa(myIdsToRemove).build();
             }
             count = ((FilterPhenotype) result).getRowCount();
         } else {
