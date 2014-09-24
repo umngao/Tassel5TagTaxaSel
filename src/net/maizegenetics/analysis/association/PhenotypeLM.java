@@ -112,7 +112,7 @@ public class PhenotypeLM {
 			missingObs.or(dataAttribute.missing());
 			
 			float[] allData = (float[]) dataAttribute.allValues();
-			double[] y = AbstractFixedEffectLM.getNonMissingDoubles(allData, missingObs);
+			double[] y = AssociationUtils.getNonMissingDoubles(allData, missingObs);
 			ArrayList<ModelEffect> myModel = model(missingModelObs);
 			SweepFastLinearModel sflm = new SweepFastLinearModel(myModel, y);
 			
@@ -206,20 +206,20 @@ public class PhenotypeLM {
 		
 		//add factors to model
 		for (PhenotypeAttribute attr:myFactorAttributes) {
-			String[] factorLabels = AbstractFixedEffectLM.getNonMissingValues((String[]) attr.allValues(), missingObs);
+			String[] factorLabels = AssociationUtils.getNonMissingValues((String[]) attr.allValues(), missingObs);
 			FactorModelEffect fme = new FactorModelEffect(ModelEffectUtils.getIntegerLevels(factorLabels), true, attr.name());
 			modelEffects.add(fme);
 		}
 
 		//add covariates to model
 		for (PhenotypeAttribute attr:myCovariateAttributes) {
-			double[] values = AbstractFixedEffectLM.getNonMissingDoubles((double[]) attr.allValues(), missingObs);
+			double[] values = AssociationUtils.getNonMissingDoubles((double[]) attr.allValues(), missingObs);
 			CovariateModelEffect cme = new CovariateModelEffect(values, attr.name());
 			modelEffects.add(cme);
 		}
 
 		//add Taxa to model
-		Taxon[] taxa = AbstractFixedEffectLM.getNonMissingValues(myTaxa, missingObs);
+		Taxon[] taxa = AssociationUtils.getNonMissingValues(myTaxa, missingObs);
 		taxaInModel = new ArrayList<Taxon>();
 		int[] taxaLevels = ModelEffectUtils.getIntegerLevels(taxa, taxaInModel);
 		FactorModelEffect taxaEffect = new FactorModelEffect(taxaLevels, true);

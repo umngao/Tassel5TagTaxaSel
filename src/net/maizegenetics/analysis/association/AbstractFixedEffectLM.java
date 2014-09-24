@@ -128,7 +128,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 				//updata missing obs for this site
 				myCurrentSite = s;
 				getGenotypeAndUpdateMissing(missingObs);
-				siteData = getNonMissingDoubles(allData, missingObsForSite);
+				siteData = AssociationUtils.getNonMissingDoubles(allData, missingObsForSite);
 				myBaseModel = baseModel();
 				numberOfBaseEffects = myBaseModel.size();
 				analyzeSite();
@@ -192,14 +192,14 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		
 		//add factors to model
 		for (PhenotypeAttribute attr:myFactorAttributes) {
-			String[] factorLabels = getNonMissingValues((String[]) attr.allValues(), missingObsForSite);
+			String[] factorLabels = AssociationUtils.getNonMissingValues((String[]) attr.allValues(), missingObsForSite);
 			FactorModelEffect fme = new FactorModelEffect(ModelEffectUtils.getIntegerLevels(factorLabels), true, attr.name());
 			modelEffects.add(fme);
 		}
 
 		//add covariates to model
 		for (PhenotypeAttribute attr:myCovariateAttributes) {
-			double[] values = getNonMissingDoubles((double[]) attr.allValues(), missingObsForSite);
+			double[] values = AssociationUtils.getNonMissingDoubles((double[]) attr.allValues(), missingObsForSite);
 			CovariateModelEffect cme = new CovariateModelEffect(values, attr.name());
 			modelEffects.add(cme);
 		}
@@ -209,7 +209,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	
 	protected void createPermutedData() {
 		permutedData = new LinkedList<>();
-		double[] y = getNonMissingDoubles(allData, missingObsForSite);
+		double[] y = AssociationUtils.getNonMissingDoubles(allData, missingObsForSite);
 		SweepFastLinearModel sflm = new SweepFastLinearModel(baseModel(), y);
 		DoubleMatrix residuals = sflm.getResiduals();
 		DoubleMatrix predicted = sflm.getPredictedValues();
@@ -242,7 +242,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 
 	protected ModelEffect taxaEffect() {
         Taxon[] myTaxa = myGenoPheno.phenotype().taxaAttribute().allTaxa();
-        Taxon[] myNonMissingTaxa = getNonMissingValues(myTaxa, missingObsForSite);
+        Taxon[] myNonMissingTaxa = AssociationUtils.getNonMissingValues(myTaxa, missingObsForSite);
         int[] taxaLevels = ModelEffectUtils.getIntegerLevels(myNonMissingTaxa);
         FactorModelEffect taxaEffect = new FactorModelEffect(taxaLevels, true, "Taxon");
         return taxaEffect;
@@ -275,7 +275,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		} else {
 			int iter = 0;
 			for (DoubleMatrix pdata : permutedData) {
-				DoubleMatrix thisData = getNonMissingValues(pdata, missingObsForSite);
+				DoubleMatrix thisData = AssociationUtils.getNonMissingValues(pdata, missingObsForSite);
 				double yty = pdata.crossproduct(thisData).get(0, 0);
 				DoubleMatrix Xty = myModel.get(0).getX().crossproduct(thisData);
 				double ssmodel = Xty.crossproduct(G).mult(Xty).get(0, 0);
@@ -308,86 +308,6 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	@Override
 	public void alleleReportFilepath(String savefile) {
 		alleleReportFilename = savefile;
-	}
-	
-
-	//protected static methods
-	protected static double[] getNonMissingDoubles(double[] allData, BitSet missing) {
-		int originalLength = allData.length;
-		int resultLength = originalLength - (int) missing.cardinality();
-		double[] result = new double[resultLength];
-		int resultCount = 0;
-		for (int i = 0; i < originalLength;i++) {
-			if (!missing.fastGet(i)) result[resultCount++] = allData[i];
-		}
-		return result;
-	}
-
-	protected static double[] getNonMissingDoubles(float[] allData, BitSet missing) {
-		int originalLength = allData.length;
-		int resultLength = originalLength - (int) missing.cardinality();
-		double[] result = new double[resultLength];
-		int resultCount = 0;
-		for (int i = 0; i < originalLength;i++) {
-			if (!missing.fastGet(i)) result[resultCount++] = allData[i];
-		}
-		return result;
-	}
-
-	protected static byte[] getNonMissingBytes(byte[] allData, BitSet missing) {
-		int originalLength = allData.length;
-		int resultLength = originalLength - (int) missing.cardinality();
-		byte[] result = new byte[resultLength];
-		int resultCount = 0;
-		for (int i = 0; i < originalLength;i++) {
-			if (!missing.fastGet(i)) result[resultCount++] = allData[i];
-		}
-		return result;
-	}
-	
-	protected static <T> T[] getNonMissingValues(T[] allData, BitSet missing) {
-		int originalLength = allData.length;
-		int resultLength = originalLength - (int) missing.cardinality();
-		T[] result = Arrays.copyOf(allData, resultLength);
-		int resultCount = 0;
-		for (int i = 0; i < originalLength;i++) {
-			if (!missing.fastGet(i)) result[resultCount++] = allData[i];
-		}
-		return result;
-	}
-	
-	protected static DoubleMatrix getNonMissingValues(DoubleMatrix allData, BitSet missing) {
-		int originalLength = allData.numberOfRows();
-		int numberMissing = (int) missing.cardinality();
-		if (numberMissing == 0) return allData;
-		if (originalLength > 1) {
-			int[] select = new int[originalLength - numberMissing];
-			int notMissingCount = 0;
-			for (int i = 0; i < originalLength; i++) {
-				if (!missing.fastGet(i)) select[notMissingCount++] = i;
-			}
-			return allData.getSelection(select, null);
-		} else {
-			originalLength = allData.numberOfColumns();
-			int[] select = new int[originalLength - numberMissing];
-			int notMissingCount = 0;
-			for (int i = 0; i < originalLength; i++) {
-				if (!missing.fastGet(i)) select[notMissingCount++] = i;
-			}
-			return allData.getSelection(null, select);
-		}
-	}
-	
-	protected static boolean isMonomorphic(float[] probs) {
-		float first = Float.NaN;
-		int n = probs.length;
-		for (int i = 0; i < n; i++) {
-			if (!Float.isNaN(probs[i])) {
-				if (Float.isNaN(first)) first = probs[i];
-				else if (probs[i] != first) return false;
-			}
-		}
-		return true;
 	}
 
 }

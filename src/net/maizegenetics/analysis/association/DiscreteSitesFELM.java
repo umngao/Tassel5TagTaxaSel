@@ -29,7 +29,7 @@ public class DiscreteSitesFELM extends AbstractFixedEffectLM {
 		
 		//solve the full model
 		//add the marker to the model
-        String[] siteGenotypes = getNonMissingValues(myGenoPheno.getStringGenotype(myCurrentSite), missingObsForSite);
+        String[] siteGenotypes = AssociationUtils.getNonMissingValues(myGenoPheno.getStringGenotype(myCurrentSite), missingObsForSite);
         ArrayList<String> markerIds = new ArrayList<>();
         int[] markerLevels = ModelEffectUtils.getIntegerLevels(siteGenotypes, markerIds);
         String siteName = myGenotype.siteName(myCurrentSite);
@@ -175,7 +175,7 @@ public class DiscreteSitesFELM extends AbstractFixedEffectLM {
 		for (int i = 0; i < n; i++) {
 			if (allSiteGenotypes[i].contains("N")) missingObsForSite.fastSet(i);
 		}
-		siteGenotypes = getNonMissingValues(allSiteGenotypes, missingObsForSite);
+		siteGenotypes = AssociationUtils.getNonMissingValues(allSiteGenotypes, missingObsForSite);
 		
 	}
 

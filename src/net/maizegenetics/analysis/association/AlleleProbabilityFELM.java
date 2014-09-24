@@ -35,7 +35,7 @@ public class AlleleProbabilityFELM extends AbstractFixedEffectLM {
 		ArrayList<SITE_SCORE_TYPE> typeList = new ArrayList<>();
 		for (SITE_SCORE_TYPE type : AlleleProbability.ALLELE_PROBABILITY_TYPES) {
 			float[] values = myGenoPheno.alleleProbsOfType(type, myCurrentSite);
-			if (!isMonomorphic(values)) {
+			if (!AssociationUtils.isMonomorphic(values)) {
 				probList.add(values);
 				typeList.add(type);
 				for (int t = 0; t < ntaxa; t++) sumOfValues[t] += values[t];
@@ -57,7 +57,7 @@ public class AlleleProbabilityFELM extends AbstractFixedEffectLM {
 		int numberOfAllelesInModel = numberOfAlleles;
 		if (sumsToOne) numberOfAllelesInModel--;
 		for (int a = 0; a < numberOfAllelesInModel; a++) {
-			double[] covar = getNonMissingDoubles(probList.get(a), missingObsForSite);
+			double[] covar = AssociationUtils.getNonMissingDoubles(probList.get(a), missingObsForSite);
 			modelPlusMarkers.add(new CovariateModelEffect(covar));
 		}
 

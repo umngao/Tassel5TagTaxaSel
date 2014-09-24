@@ -88,7 +88,7 @@ public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
 		for (int i = 0; i < n; i++) {
 			if (Float.isNaN(allSiteProbs[i])) missingObsForSite.fastSet(i);
 		}
-		myProbabilities = getNonMissingDoubles(allSiteProbs, missingObsForSite);
+		myProbabilities = AssociationUtils.getNonMissingDoubles(allSiteProbs, missingObsForSite);
 	}
 
 }

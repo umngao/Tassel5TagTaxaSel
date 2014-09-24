@@ -125,7 +125,7 @@ public class DiscreteSitesFullModelOnlyFELM extends AbstractFixedEffectLM {
 		for (int i = 0; i < n; i++) {
 			if (allSiteGenotypes[i].contains("N")) missingObsForSite.fastSet(i);
 		}
-		siteGenotypes = getNonMissingValues(allSiteGenotypes, missingObsForSite);
+		siteGenotypes = AssociationUtils.getNonMissingValues(allSiteGenotypes, missingObsForSite);
 	}
 
 }
