@@ -13,6 +13,7 @@ CREATE TABLE tagCutPosition (
     positionid  INTEGER NOT NULL,
     mapappid    INTEGER NOT NULL,
     bestmapping BOOLEAN,
+    forward     BOOLEAN,
     cigar       TEXT,
     supportval  INTEGER(2),
     PRIMARY KEY (tagid, positionid, mapappid)
@@ -27,6 +28,7 @@ CREATE TABLE cutposition (
     strand     INTEGER(1)  NOT NULL
 );
 CREATE UNIQUE INDEX cutpos_idx ON cutposition(chromosome,position,strand);
+CREATE INDEX cutchrpos_idx ON cutposition(chromosome);
 
 -- Table: mappingApproach
 CREATE TABLE mappingApproach (

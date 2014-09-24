@@ -105,8 +105,8 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     private void initPreparedStatements() {
         try{
             posTagInsertPS=connection.prepareStatement(
-                    "INSERT OR IGNORE into tagCutPosition (tagid, positionid, mapappid, bestmapping, cigar, supportval)" +
-                            " values(?,?,?,?,?,?)");
+                    "INSERT OR IGNORE into tagCutPosition (tagid, positionid, mapappid, bestmapping, forward, cigar, supportval)" +
+                            " values(?,?,?,?,?,?,?)");
             tagTaxaDistPS=connection.prepareStatement("select depthsRLE from tagtaxadistribution where tagid=?");
             tagAlleleWhereTagPS=connection.prepareStatement("select * from tagallele where tagid=?");
             tagidWhereSNPidPS=connection.prepareStatement(
@@ -181,7 +181,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             loadSNPPositionHash();
             ResultSet rs=connection.createStatement().executeQuery("select count(*) from allele");
             int size=rs.getInt(1);
-            System.out.println("size of all positions in snpPosition table="+size);
+            System.out.println("size of all alleles in allele table="+size);
             if(alleleToIDMap==null) {alleleToIDMap=HashBiMap.create(size);}
             if(size==alleleToIDMap.size()) return;
             rs=connection.createStatement().executeQuery("select * from allele");
@@ -326,6 +326,15 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 posTagInsertPS.setInt(ind++, cutPosToIDMap.get(p));
                 posTagInsertPS.setInt(ind++, getMappingApproachID(p));
                 posTagInsertPS.setBoolean(ind++, true);  //todo this needs to be derived from the position or set later.
+                boolean forward=true;
+                try{
+                    if(p.getTextAnnotation("forward")[0].toLowerCase().equals("false")) forward=false;
+                } catch (Exception e) {
+                    System.err.println(p.toString());
+                    System.err.println("Error with forward annotation");
+                    //no valid cigarValue
+                }
+                posTagInsertPS.setBoolean(ind++,forward);
                 String cigarValue="";
                 try{
                     cigarValue=p.getTextAnnotation("cigar")[0];
@@ -556,16 +565,18 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     @Override
     public PositionList getTagCutPositions(Chromosome chromosome, int firstPosition, int lastPosition, boolean onlyBest) {
-        if(cutPosToIDMap ==null) loadCutPositionHash();
-        Position startPos=new GeneralPosition.Builder(chromosome,firstPosition).build();
-        if(lastPosition<0) lastPosition=Integer.MAX_VALUE;
-        Position lastPos=new GeneralPosition.Builder(chromosome,lastPosition).build();
         PositionListBuilder plb=new PositionListBuilder();
-        plb.addAll(cutPosToIDMap.subMap(startPos,lastPos).keySet());  //todo only best not implemented here
+        plb.addAll(getPositionSubMap(chromosome,firstPosition,lastPosition).keySet());  //todo only best not implemented here
         return plb.build();
     }
 
-
+    private Map<Position,Integer> getPositionSubMap(Chromosome chromosome, int firstPosition, int lastPosition) {
+        if(cutPosToIDMap==null) loadCutPositionHash();
+        Position startPos=new GeneralPosition.Builder(chromosome,firstPosition).build();
+        if(lastPosition<0) lastPosition=Integer.MAX_VALUE;
+        Position lastPos=new GeneralPosition.Builder(chromosome,lastPosition).build();
+        return cutPosToIDMap.subMap(startPos,lastPos);
+    }
 
     @Override
     public Map<String, String> getTagAlignmentApproaches() {
@@ -581,15 +592,43 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         return appBuilder.build();
     }
 
+//    @Override
+//    public Map<Position, Map<Tag, TaxaDistribution>> getCutPositionTagTaxaMapX(Chromosome chromosome, int firstPosition, int lastPosition) {
+//        //consider doing this all by SQL if performance suffers
+//        PositionList pl=getTagCutPositions(chromosome,firstPosition,lastPosition,true);
+//        ImmutableMap.Builder<Position, Map<Tag, TaxaDistribution>> positionMapBuilder=new ImmutableMap.Builder<>();
+//        pl.stream().forEach(p -> positionMapBuilder.put(p,getTagsTaxaMap(p)));
+//        //this is slow as each position is a separate transaction
+//        return positionMapBuilder.build();
+//    }
+
     @Override
     public Map<Position, Map<Tag, TaxaDistribution>> getCutPositionTagTaxaMap(Chromosome chromosome, int firstPosition, int lastPosition) {
-        //consider doing this all by SQL if performance suffers
-        PositionList pl=getTagCutPositions(chromosome,firstPosition,lastPosition,true);
-        ImmutableMap.Builder<Position, Map<Tag, TaxaDistribution>> positionMapBuilder=new ImmutableMap.Builder<>();
-        pl.stream().forEach(p -> positionMapBuilder.put(p,getTagsTaxaMap(p)));
-        //this is slow as each position is a separate transaction
-        return positionMapBuilder.build();
+        String sqlQuery="select p.positionid, forward, chromosome, position, strand, t.tagid, depthsRLE  " +
+                "from tag t, cutposition p, tagCutPosition tc, tagtaxadistribution ttd " +
+                "where p.positionid=tc.positionid and tc.tagid=t.tagid and t.tagid=ttd.tagid " +
+                "and chromosome="+chromosome.toString()+//" and position>"+firstPosition+" " + //todo position would need to be index to make fast
+                " order by position";
+        Map<Position, Map<Tag, TaxaDistribution>> positionTagTaxaMap=new HashMap<>();
+        Map<Integer,Position> tempPositionMap=new HashMap<>();  //reverse the map
+        getPositionSubMap(chromosome,firstPosition,lastPosition).entrySet().stream()
+                .forEach(entry -> tempPositionMap.put(entry.getValue(),entry.getKey()));
+        try{
+            ResultSet rs=connection.createStatement().executeQuery(sqlQuery);
+            while(rs.next()) {
+                Position position=tempPositionMap.get(rs.getInt("positionid"));
+                Tag tag=tagTagIDMap.inverse().get(rs.getInt("tagid"));
+                TaxaDistribution taxaDistribution=TaxaDistBuilder.create(rs.getBytes("depthsRLE"));
+                Map<Tag, TaxaDistribution> tagTaxaMap=positionTagTaxaMap.computeIfAbsent(position, k -> new HashMap<>());
+                tagTaxaMap.put(tag,taxaDistribution);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        System.out.println("positionTagTaxaMap = " + positionTagTaxaMap.size());
+        return positionTagTaxaMap;
     }
+
 
     @Override
     public Map<Tag, TaxaDistribution> getTagsTaxaMap(Position cutPosition) {

@@ -36,7 +36,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
     private PluginParameter<String> myInputFile = new PluginParameter.Builder<String>("i", null, String.class).guiName("SAM Input File").required(true).inFile()
             .description("Name of input file in SAM text format").build();
     private PluginParameter<String> myOutputFile = new PluginParameter.Builder<String>("o", null, String.class).guiName("GBS DB File").required(true).outFile()
-            .description("Name of output file (Default: output.topm.bin)").build();
+            .description("Name of output file (e.g. GBSv2.db)").build();
 
     public SAMToGBSdbPlugin() {
         super(null, false);
@@ -86,6 +86,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
     }
 
 
+    //should this be converted to a stream?
     private Tuple<Tag,Optional<Position>> parseRow(String inputLine) {
         final int name = 0, flag = 1, chr = 2, pos = 3, cigar = 5, tagS = 9, alignScoreIndex=11; // column indices in inputLine
         String[] s=inputLine.split("\\s");
@@ -97,6 +98,8 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         if(!forwardStrand) tag=TagBuilder.reverseComplement(tag).build();
         Position position=new GeneralPosition
                 .Builder(chromosome,Integer.parseInt(s[pos]))
+                .strand((byte)1)
+                .addAnno("forward", forwardStrand?"true":"false")
                 .addAnno("mappingapproach", "Bowtie")
                 .addAnno("cigar", s[cigar])
                 .addAnno("supportvalue", alignmentScore)  //todo include again

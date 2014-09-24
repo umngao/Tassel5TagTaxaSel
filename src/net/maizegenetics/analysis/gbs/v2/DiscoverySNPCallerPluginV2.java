@@ -89,6 +89,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         if (customSNPLogging) {
 //            myCustomSNPLog = new CustomSNPLog(logFile());
         }
+        //ConcurrencyTools.setThreadPoolSize(1);
         for (int chr = startChromosome(); chr <= endChromosome(); chr++) {
             myLogger.info("\n\nProcessing chromosome " + chr + "...");
             if (includeReference) {
@@ -99,7 +100,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 }
             }
             tagDataWriter.getCutPositionTagTaxaMap(new Chromosome("" + chr), -1, -1).entrySet().stream()
-                    .forEach(emp -> findAlleleByAlignment(emp.getKey(),emp.getValue()));
+                    .forEach(emp -> findAlleleByAlignment(emp.getKey(), emp.getValue()));
             myLogger.info("Finished processing chromosome " + chr + "\n\n");
         }
         ConcurrencyTools.shutdown();
@@ -149,13 +150,14 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
     }
 
     Table<Position, Byte, List<TagTaxaDistribution>> findAlleleByAlignment(Position cutPosition, Map<Tag,TaxaDistribution> tagTaxaMap) {
-        System.out.println("cutPosition = [" + cutPosition + "], tagTaxaMap = [" + tagTaxaMap + "]");
+//        System.out.println("cutPosition = [" + cutPosition + "], tagTaxaMap = [" + tagTaxaMap + "]");
         if(tagTaxaMap.isEmpty()) return null;  //todo why would this be empty?
         final int numberOfTaxa=tagTaxaMap.values().stream().findFirst().get().maxTaxa();
         if(tagTaxaMap.size()<2) {//homozygous
             return null;  //consider reporting homozygous
         }
         if(!tagTaxaMap.keySet().stream().anyMatch(Tag::isReference)) {
+//            System.out.println("Reference was set cutPosition = " + cutPosition);
             tagTaxaMap=setCommonToReference(tagTaxaMap);
         }
         final double taxaCoverage=tagTaxaMap.values().stream().mapToInt(TaxaDistribution::numberOfTaxaWithTag).sum()/(double)numberOfTaxa;  //todo this could be changed to taxa with tag
@@ -172,6 +174,10 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 })
                 .map(Map.Entry::getKey) //get Position
                 .collect(Collectors.toList());
+        if(positionToKeep.size()>4) {
+            System.out.println("More than 4 SNPS:"+cutPosition.toString());
+            alignedTags.forEach((t, s) -> System.out.println(t.sequence() + ":" + s));
+        }
         //todo convert to stream
         Multimap<Tag,Allele> tagAllelemap= HashMultimap.create();
         for (Position position: positionToKeep) {
@@ -182,7 +188,8 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 }
             }
         }
-        tagDataWriter.putTagAlleles(tagAllelemap);
+        //tagDataWriter.putTagAlleles(tagAllelemap);
+        System.out.println(cutPosition.toString());
         return tAlign;
     }
 
@@ -195,7 +202,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         Tag refTag=TagBuilder.instance(commonTag.seq2Bit(),commonTag.seqLength()).reference().build();
         ImmutableMap.Builder<Tag, TaxaDistribution> tagTaxaMapBuilder=new ImmutableMap.Builder<>();
         for (Map.Entry<Tag, TaxaDistribution> entry : tagTaxaMap.entrySet()) {
-            if(entry!=commonTag) {tagTaxaMapBuilder.put(entry);}
+            if(entry.getKey()!=commonTag) {tagTaxaMapBuilder.put(entry);}
             else {tagTaxaMapBuilder.put(refTag,commonTD);}
         }
         return tagTaxaMapBuilder.build();
@@ -245,7 +252,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         final List<Optional<Position>> referencePositions=referencePositions(refStartPosition,alignedTags);
         alignedTags.forEach((t,s) -> {
             TagTaxaDistribution td=new TagTaxaDistribution(t,tagTaxaDistMap.get(t));
-            System.out.println("convertAlignmentToTagTable:"+td);
+            //System.out.println("convertAlignmentToTagTable:"+td);
             for (int i = 0; i < s.length(); i++) {
                 byte allele=getNucleotideAlleleByte(s.charAt(i));
                 Optional<Position> p=referencePositions.get(i);

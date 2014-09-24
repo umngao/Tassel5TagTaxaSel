@@ -31,7 +31,8 @@ public interface TagDataWriter extends TagData {
     /**
      * Associates the specified Tag (key) with the specified cut site Position (value).  Multiple associations are allowed, as
      * Tags can map to multiple locations.  Each tag should only have one best annotation.
-     * @param tagAnnotatedPositionMap Map of specific tag with Annotated Position of the tag cut site.  Annotations should cigarAlignment, isBest, alignmentApproach, and supportValue
+     * @param tagAnnotatedPositionMap Map of specific tag with Annotated Position of the tag cut site.
+     *                                Annotations should be cigarAlignment, isBest, alignmentApproach, forward, and supportValue
      */
     void putTagAlignments(Multimap<Tag, Position> tagAnnotatedPositionMap);
 
