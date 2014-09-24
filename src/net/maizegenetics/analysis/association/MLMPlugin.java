@@ -1,36 +1,68 @@
 package net.maizegenetics.analysis.association;
 
+import java.awt.BorderLayout;
+import java.awt.Container;
+import java.awt.Dimension;
+import java.awt.Frame;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.ButtonGroup;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JRadioButton;
+import javax.swing.JTextField;
+
+import org.apache.log4j.Logger;
+
+import net.maizegenetics.gui.ReportDestinationDialog;
+import net.maizegenetics.phenotype.GenotypePhenotype;
+import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginEvent;
-import net.maizegenetics.dna.snp.GeneticMap;
-import net.maizegenetics.trait.MarkerPhenotype;
-import net.maizegenetics.trait.Phenotype;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
-import net.maizegenetics.gui.ReportDestinationDialog;
 
-import javax.swing.*;
-
-import java.net.URL;
-import java.util.*;
-import java.util.List;
-import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-
-
-
-
-import org.apache.log4j.Logger;
-
-/**
- * Author: Peter Bradbury
- * Date: Jan 17, 2010
- */
 public class MLMPlugin extends AbstractPlugin {
 
-    private static final Logger myLogger = Logger.getLogger(MLMPlugin.class);
+    public boolean isUseP3D() {
+		return useP3D;
+	}
+
+	public void setUseP3D(boolean useP3D) {
+		this.useP3D = useP3D;
+	}
+
+	public boolean isUseGenotype() {
+		return useGenotype;
+	}
+
+	public void setUseGenotype(boolean useGenotype) {
+		this.useGenotype = useGenotype;
+	}
+
+	public boolean isUseRefProb() {
+		return useRefProb;
+	}
+
+	public void setUseRefProb(boolean useRefProb) {
+		this.useRefProb = useRefProb;
+	}
+
+	private static final Logger myLogger = Logger.getLogger(MLMPlugin.class);
     protected DistanceMatrix kinshipMatrix;
     protected boolean analyzeByColumn;
     protected boolean useP3D = true;
@@ -40,9 +72,11 @@ public class MLMPlugin extends AbstractPlugin {
     private String outputName = null;
     private boolean filterOutput = false;
     private double maxp = 1;
+    private boolean useGenotype = true;
+    private boolean useRefProb = false;
+    private boolean useAlleleProb = false;
 
     public enum CompressionType {
-
         Optimum, Custom, None
     };
 
@@ -54,23 +88,15 @@ public class MLMPlugin extends AbstractPlugin {
     public DataSet performFunction(DataSet input) {
 
         try {
-            //import a genetic map, if there is one
-            GeneticMap myMap;
-            List<Datum> maps = input.getDataOfType(GeneticMap.class);
-            if (maps.size() > 0) {
-                myMap = (GeneticMap) maps.get(0).getData();
-            } else {
-                myMap = null;
-            }
 
-            java.util.List<Datum> alignInList = input.getDataOfType(MarkerPhenotype.class);
+            java.util.List<Datum> alignInList = input.getDataOfType(GenotypePhenotype.class);
             if (alignInList.size() == 0) {
                 alignInList = input.getDataOfType(Phenotype.class);
             }
             java.util.List<Datum> kinshipList = input.getDataOfType(DistanceMatrix.class);
 
-            if (alignInList.size() < 1) {
-                String message = "Invalid selection. Please select sequence alignment or marker and trait data.";
+            if (alignInList.size() != 1) {
+                String message = "Invalid selection. Please select one dataset with marker and trait data.";
                 if (isInteractive()) {
                     JOptionPane.showMessageDialog(getParentFrame(), message);
                 } else {
@@ -78,6 +104,7 @@ public class MLMPlugin extends AbstractPlugin {
                 }
                 return null;
             }
+            
             if (kinshipList.size() != 1) {
                 String message = "Please select exactly one kinship matrix.";
                 if (isInteractive()) {
@@ -92,7 +119,8 @@ public class MLMPlugin extends AbstractPlugin {
             Iterator<Datum> itr = alignInList.iterator();
 
             if (isInteractive()) {
-                MLMOptionDialog theOptions = new MLMOptionDialog(getParentFrame());
+            	GenotypePhenotype gp = (GenotypePhenotype) alignInList.get(0).getData();
+                MLMOptionDialog theOptions = new MLMOptionDialog(getParentFrame(), hasDataTypes(gp));
 
                 if (theOptions.runClicked) {
                     useP3D = theOptions.useP3D();
@@ -132,28 +160,29 @@ public class MLMPlugin extends AbstractPlugin {
                 DataSet tds = null;
 
                 try {
+                	CompressedMLMusingDoubleMatrix theAnalysis;
                     if (useP3D) {
                         if (compressionType.equals(CompressionType.Optimum)) {
-                            CompressedMLMusingDoubleMatrix theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, true, Double.NaN, myMap);
-                            tds = new DataSet(theAnalysis.solve(), this);
+                            theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, true, Double.NaN);
                         } else if (compressionType.equals(CompressionType.Custom)) {
-                            CompressedMLMusingDoubleMatrix theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, true, compression, myMap);
-                            tds = new DataSet(theAnalysis.solve(), this);
+                            theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, true, compression);
                         } else {
-                            CompressedMLMusingDoubleMatrix theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, false, true, Double.NaN, myMap);
-                            tds = new DataSet(theAnalysis.solve(), this);
+                            theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, false, true, Double.NaN);
                         }
                     } else {
                         if (compressionType.equals(CompressionType.Optimum)) {
-                            CompressedMLMusingDoubleMatrix theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, false, Double.NaN, myMap);
-                            tds = new DataSet(theAnalysis.solve(), this);
+                            theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, false, Double.NaN);
                         } else if (compressionType.equals(CompressionType.Custom)) {
-                            CompressedMLMusingDoubleMatrix theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, false, compression, myMap);
-                            tds = new DataSet(theAnalysis.solve(), this);
+                            theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, false, compression);
                         } else {
-                            CompressedMLMusingDoubleMatrix theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, false, false, Double.NaN, myMap);
-                            tds = new DataSet(theAnalysis.solve(), this);
+                            theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, false, false, Double.NaN);
                         }
+                        
+                        theAnalysis.useGenotypeCalls(useGenotype);
+                        theAnalysis.useReferenceProbability(useRefProb);
+                        theAnalysis.useAlleleProbabilities(useAlleleProb);
+                        tds = new DataSet(theAnalysis.solve(), this);
+
                     }
                 } catch (Exception e) {
                     if (isInteractive()) {
@@ -179,6 +208,14 @@ public class MLMPlugin extends AbstractPlugin {
 
     }
 
+    private boolean[] hasDataTypes(GenotypePhenotype gp) {
+    	boolean[] hasTypes = new boolean[]{false, false, false};
+    	if (gp.genotypeTable().hasGenotype()) hasTypes[0] = true;
+    	if (gp.genotypeTable().hasReference()) hasTypes[1] = true;
+    	if (gp.genotypeTable().hasAlleleProbabilities()) hasTypes[2] = true;
+    	return hasTypes;
+    }
+    
     public ImageIcon getIcon() {
         URL imageURL = MLMPlugin.class.getResource("/net/maizegenetics/analysis/images/Mix.gif");
         if (imageURL == null) {
@@ -285,19 +322,41 @@ public class MLMPlugin extends AbstractPlugin {
     public void setCustomCompression(double value) {
         compression = value;
     }
+    
+    public void useGenotypeCalls() {
+        useGenotype = true;
+        useRefProb = false;
+        useAlleleProb = false;
+    }
+    
+    public void useReferenceProbability() {
+        useGenotype = false;
+        useRefProb = true;
+        useAlleleProb = false;
+    }
+    
+    public void useAlleleProbabilities() {
+        useGenotype = false;
+        useRefProb = false;
+        useAlleleProb = true;
+    }
+
 }
 
 class MLMOptionDialog extends JDialog implements ActionListener {
 
     JRadioButton btnOptimum, btnCustom, btnNoCompression, btnEachMarker, btnP3D;
-    ButtonGroup bgCompress, bgVariance;
+    ButtonGroup bgCompress, bgVariance, bgType;
     JTextField txtCustom;
     boolean runClicked = false;
     boolean useP3D = true;
     MLMPlugin.CompressionType compressionType = MLMPlugin.CompressionType.Optimum;
     JPanel distancePanel;
+    boolean useDiscrete = true;
+    boolean useRefprob = false;
+    boolean useAlleleprob = false;
     
-    MLMOptionDialog(Frame parentFrame) {
+    MLMOptionDialog(Frame parentFrame, boolean[] hasTypes) {
         super(parentFrame, true);
         final Frame pframe = parentFrame;
         setTitle("MLM Options");
@@ -369,6 +428,48 @@ class MLMOptionDialog extends JDialog implements ActionListener {
         variancePanel.add(btnEachMarker, gbc);
         theContentPane.add(variancePanel, BorderLayout.CENTER);
 
+        //panel for choosing a data type, if there is more than one
+        int numberOfTypes = 0;
+        for (boolean b : hasTypes) if (b) numberOfTypes++;
+        if (numberOfTypes > 1) {
+        	bgType = new ButtonGroup();
+        	JPanel typePanel = new JPanel(new GridBagLayout());
+        	typePanel.setBorder(BorderFactory.createTitledBorder("Choose genotype data"));
+        	gbc.gridy = 0;
+        	boolean initialValue = true;
+        	
+        	if (hasTypes[0]) {
+        		JRadioButton btnDiscrete = new JRadioButton("Discrete type, e.g. SNP", initialValue);
+                btnDiscrete.setActionCommand("discrete");
+                btnDiscrete.addActionListener(this);
+                initialValue = false;
+                bgType.add(btnDiscrete);
+                typePanel.add(btnDiscrete);
+                gbc.gridy++;
+        	}
+        	if (hasTypes[1]) {
+        		JRadioButton btnRef = new JRadioButton("Numeric genotype", initialValue);
+        		btnRef.setActionCommand("reference");
+        		btnRef.addActionListener(this);
+                initialValue = false;
+                bgType.add(btnRef);
+                typePanel.add(btnRef);
+                gbc.gridy++;
+        	}
+        	if (hasTypes[2]) {
+        		JRadioButton btnAllele = new JRadioButton("Allele probabilities", initialValue);
+        		btnAllele.setActionCommand("allele");
+        		btnAllele.addActionListener(this);
+                initialValue = false;
+                bgType.add(btnAllele);
+                typePanel.add(btnAllele);
+                gbc.gridy++;
+        	}
+ 
+        	
+        }
+        
+        
         //the help me button
         JButton btnHelpme = new JButton("Help Me Choose");
         final String msg = "For faster analysis, impute marker values before running MLM and use P3D.\n"
@@ -417,6 +518,10 @@ class MLMOptionDialog extends JDialog implements ActionListener {
         return compressionType;
     }
 
+    public boolean useDiscrete() { return useDiscrete; }
+    public boolean useRefProb() { return useRefprob; }
+    public boolean useAlleleProb() { return useAlleleprob; }
+    
     double getCompressionLevel() {
         double comp;
         try {
@@ -444,270 +549,23 @@ class MLMOptionDialog extends JDialog implements ActionListener {
             useP3D = false;
         } else if (e.getActionCommand().equals("P3D")) {
             useP3D = true;
+        } else if (e.getActionCommand().equals("discrete")) {
+            useDiscrete = true;
+            useRefprob = false;
+            useAlleleprob = false;
+        } else if (e.getActionCommand().equals("reference")) {
+            useDiscrete = false;
+            useRefprob = true;
+            useAlleleprob = false;
+        } else if (e.getActionCommand().equals("allele")) {
+            useDiscrete = false;
+            useRefprob = false;
+            useAlleleprob = true;
         }
-
+    }
+    
+    public static void main(String[] args) {
+    	MLMOptionDialog mod = new MLMOptionDialog(null, new boolean[]{true, true, true});
+    	mod.dispose();
     }
 }
-
-class MLMNewOptionDialog extends JDialog implements ActionListener {
-	JCheckBox chkP3D = new JCheckBox("P3D (Compute variance estimates once)", true);
-	JCheckBox chkCompression = new JCheckBox("Compression", true);
-	JCheckBox chkNoMarkers = new JCheckBox("Do not test markers", false);
-	JCheckBox chkUPGMA = new JCheckBox("UPGMA", true);
-	JCheckBox chkNJ = new JCheckBox("Neighbor Joining", false);
-	JCheckBox chkAvg = new JCheckBox("Average", true);
-	JCheckBox chkMin = new JCheckBox("Minimum", false);
-	JCheckBox chkMax = new JCheckBox("Maximum", false);
-	JCheckBox chkMedian = new JCheckBox("Median", false);
-
-	JTextField txtGroupFrom = new JTextField(5);
-	JTextField txtGroupTo = new JTextField(5);
-	JTextField txtGroupBy = new JTextField(5);
-	JTextField txtGroupNumberList = new JTextField(30);
-	
-	JTextField txtCompFrom = new JTextField(5);
-	JTextField txtCompTo = new JTextField(5);
-	JTextField txtCompBy = new JTextField(5);
-	JTextField txtCompNumberList = new JTextField(30);
-	
-	JTextField txtCompressionFrom = new JTextField(5);
-	JTextField txtCompressionTo = new JTextField(5);
-	JTextField txtCompressionLevels = new JTextField(5);
-	
-	JRadioButton radioGroupRange = new JRadioButton("Range", false);
-	JRadioButton radioGroupList = new JRadioButton("List (comma-separated numbers)", false);
-	JRadioButton radioCompRange = new JRadioButton("Range", true);
-	JRadioButton radioCompList = new JRadioButton("List (comma-separated numbers)", false);
-	
-    MLMNewOptionDialog(Frame parentFrame) {
-        super(parentFrame, true);
-        setTitle("MLM Options");
-        setSize(new Dimension(350, 300));
-        setLocationRelativeTo(getParent());
-        Container theContentPane = getContentPane();
-        theContentPane.setLayout(new BorderLayout());
-        JPanel optionPanel = new JPanel(new GridBagLayout());
-        optionPanel.setBorder(BorderFactory.createTitledBorder("MLM Options"));
-        JPanel compressionPanel = new JPanel(new GridBagLayout());
-        JPanel groupNumberPanel = new JPanel(new GridBagLayout());
-        JPanel centerPanel = new JPanel(new BorderLayout());
-        JPanel buttonPanel = new JPanel(new GridBagLayout());
-
-        String gnPanelTitle = "Specify Compression Levels or Group Sizes to Test";
-        compressionPanel.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createEmptyBorder(5, 2, 4, 2), BorderFactory.createTitledBorder("Compression Options")));
-        groupNumberPanel.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createEmptyBorder(4, 2, 8, 2), BorderFactory.createTitledBorder(gnPanelTitle)));
-
-        chkCompression.addActionListener(this);
-        chkCompression.setActionCommand("compress");
-        chkNoMarkers.addActionListener(this);
-        chkNoMarkers.setActionCommand("nomarkers");
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.insets = new Insets(2,2,2,2);
-        optionPanel.add(chkP3D, gbc);
-        gbc.gridy = 1;
-        optionPanel.add(chkCompression, gbc);
-        gbc.gridy = 2;
-        optionPanel.add(chkNoMarkers, gbc);
-		
-        theContentPane.add(optionPanel, BorderLayout.NORTH);
-        
-        ButtonGroup numberGroup = new ButtonGroup();
-        numberGroup.add(radioGroupRange);
-        numberGroup.add(radioGroupList);
-        numberGroup.add(radioCompRange);
-        numberGroup.add(radioCompList);
-        
-        gbc.gridy = 0;
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.insets = new Insets(2,4,2,4);
-        compressionPanel.add(new JLabel("Clustering Algorithm"), gbc);
-        gbc.gridx++;
-        compressionPanel.add(chkUPGMA, gbc);
-        gbc.gridy++;
-        compressionPanel.add(chkNJ, gbc);
-        gbc.gridx = 0;
-        gbc.gridy++;
-        compressionPanel.add(new JLabel("Group Kinship"), gbc);
-        gbc.gridx++;
-        compressionPanel.add(chkAvg, gbc);
-        gbc.gridy++;
-        compressionPanel.add(chkMin, gbc);
-        gbc.gridy++;
-        compressionPanel.add(chkMax, gbc);
-        gbc.gridy++;
-        compressionPanel.add(chkMedian, gbc);
-        
-        gbc.gridy = 0;
-        gbc.gridx = 0;
-        gbc.weightx = 0;
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.insets = new Insets(6,4,6,4);
-        groupNumberPanel.add(new JLabel("Compression Levels"), gbc);
-        gbc.gridx++;
-        gbc.weightx = 0;
-        gbc.insets = new Insets(6,4,6,4);
-        groupNumberPanel.add(radioCompRange, gbc);
-        gbc.gridx++;
-        gbc.anchor = GridBagConstraints.EAST;
-        groupNumberPanel.add(new JLabel("From"), gbc);
-        gbc.gridx++;
-        gbc.anchor = GridBagConstraints.WEST;
-        groupNumberPanel.add(txtCompFrom, gbc);
-        gbc.gridx++;
-        gbc.anchor = GridBagConstraints.EAST;
-        groupNumberPanel.add(new JLabel("To"), gbc);
-        gbc.gridx++;
-        gbc.anchor = GridBagConstraints.WEST;
-        groupNumberPanel.add(txtCompTo, gbc);
-        gbc.gridx++;
-        gbc.anchor = GridBagConstraints.EAST;
-        groupNumberPanel.add(new JLabel("By"), gbc);
-        gbc.gridx++;
-        gbc.weightx = 1;
-        gbc.anchor = GridBagConstraints.WEST;
-        groupNumberPanel.add(txtCompBy, gbc);
-        gbc.gridx = 1;
-        gbc.gridy++;
-        groupNumberPanel.add(radioCompList, gbc);
-        gbc.gridx++;
-        gbc.gridwidth = 6;
-        groupNumberPanel.add(txtCompNumberList, gbc);
-
-        gbc.gridy++;
-        gbc.gridx = 0;
-        gbc.gridwidth = 1;
-        gbc.weightx = 0;
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.insets = new Insets(6,4,6,4);
-        groupNumberPanel.add(new JLabel("Group Sizes"), gbc);
-        gbc.gridx++;
-        gbc.weightx = 0;
-        gbc.insets = new Insets(6,4,6,4);
-        groupNumberPanel.add(radioGroupRange, gbc);
-        gbc.gridx++;
-        gbc.anchor = GridBagConstraints.EAST;
-        groupNumberPanel.add(new JLabel("From"), gbc);
-        gbc.gridx++;
-        gbc.anchor = GridBagConstraints.WEST;
-        groupNumberPanel.add(txtGroupFrom, gbc);
-        gbc.gridx++;
-        gbc.anchor = GridBagConstraints.EAST;
-        groupNumberPanel.add(new JLabel("To"), gbc);
-        gbc.gridx++;
-        gbc.anchor = GridBagConstraints.WEST;
-        groupNumberPanel.add(txtGroupTo, gbc);
-        gbc.gridx++;
-        gbc.anchor = GridBagConstraints.EAST;
-        groupNumberPanel.add(new JLabel("By"), gbc);
-        gbc.gridx++;
-        gbc.weightx = 1;
-        gbc.anchor = GridBagConstraints.WEST;
-        groupNumberPanel.add(txtGroupBy, gbc);
-        gbc.gridx = 1;
-        gbc.gridy++;
-        groupNumberPanel.add(radioGroupList, gbc);
-        gbc.gridx++;
-        gbc.gridwidth = 6;
-        groupNumberPanel.add(txtGroupNumberList, gbc);
-
-        
-        centerPanel.add(compressionPanel, BorderLayout.NORTH);
-        centerPanel.add(groupNumberPanel, BorderLayout.CENTER);
-        theContentPane.add(centerPanel, BorderLayout.CENTER);
-        
-        JButton btnOK = new JButton("Run");
-        btnOK.addActionListener(this);
-        btnOK.setActionCommand("OK");
-        JButton btnCancel = new JButton("Cancel");
-        btnCancel.addActionListener(this);
-        btnCancel.setActionCommand("Cancel");
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.weightx = 0;
-        gbc.gridwidth = 1;
-        gbc.anchor = GridBagConstraints.CENTER;
-        gbc.insets = new Insets(5,4,8,4);
-        buttonPanel.add(btnOK, gbc);
-        gbc.gridx++;
-        buttonPanel.add(btnCancel, gbc);
-        theContentPane.add(buttonPanel, BorderLayout.SOUTH);
-        pack();
-	}
-    
-	@Override
-	public void actionPerformed(ActionEvent evt) {
-		if (evt.getActionCommand().equals("OK")) {
-			this.setVisible(false);
-		} else if (evt.getActionCommand().equals("Cancel")) {
-			this.setVisible(false);
-		} else if (evt.getActionCommand().equals("nomarkers")) {
-			if (chkNoMarkers.isSelected()) {
-				chkP3D.setEnabled(false);
-			} else {
-				chkP3D.setEnabled(true);
-			}
-		} else if (evt.getActionCommand().equals("compress")) {
-			if (chkCompression.isSelected()) {
-				chkUPGMA.setEnabled(true);
-				chkNJ.setEnabled(true);
-				chkAvg.setEnabled(true);
-				chkMin.setEnabled(true);
-				chkMax.setEnabled(true);
-				chkMedian.setEnabled(true);
-				radioGroupRange.setEnabled(true);
-				radioGroupList.setEnabled(true);
-				txtGroupBy.setEnabled(true);
-				txtGroupFrom.setEnabled(true);
-				txtGroupNumberList.setEnabled(true);
-				txtGroupTo.setEnabled(true);
-//				radioComp.setEnabled(true);
-//				txtCompressionFrom.setEnabled(true);
-//				txtCompressionTo.setEnabled(true);
-//				txtCompressionLevels.setEnabled(true);
-			} else {
-				chkUPGMA.setEnabled(false);
-				chkNJ.setEnabled(false);
-				chkAvg.setEnabled(false);
-				chkMin.setEnabled(false);
-				chkMax.setEnabled(false);
-				chkMedian.setEnabled(false);
-//				radioFromTo.setEnabled(false);
-//				radioList.setEnabled(false);
-//				txtBy.setEnabled(false);
-//				txtFrom.setEnabled(false);
-//				txtGroupNumberList.setEnabled(false);
-//				txtTo.setEnabled(false);
-//				radioComp.setEnabled(false);
-//				txtCompressionFrom.setEnabled(false);
-//				txtCompressionTo.setEnabled(false);
-//				txtCompressionLevels.setEnabled(false);
-			}
-		}
-		
-	}
-	
-	ArrayList<Integer> getListOfGroups() {
-		ArrayList<Integer> groupList = new ArrayList<Integer>();
-		if (radioGroupList.isSelected()) {
-			String[] groups = txtGroupNumberList.getText().split(",");
-			int n = groups.length;
-			try {
-				for (int i = 0; i < n; i++) groupList.add(Integer.parseInt(groups[i]));
-			} catch (Exception e) {
-				String msg = "Illegal character in group list.";
-				JOptionPane.showMessageDialog(getParent(), msg, "Illegal List", JOptionPane.ERROR_MESSAGE);
-				return null;
-			}
-		}
-		return null;
-	}
-	
-	public static void main(String[] args) {
-		MLMNewOptionDialog mod = new MLMNewOptionDialog(null);
-		mod.setVisible(true);
-		System.exit(-1);
-	}
-}
-

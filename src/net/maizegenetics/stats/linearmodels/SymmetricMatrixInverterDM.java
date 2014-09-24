@@ -3,6 +3,7 @@ package net.maizegenetics.stats.linearmodels;
 import org.apache.log4j.Logger;
 
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
+import net.maizegenetics.util.BitSet;
 
 
 public class SymmetricMatrixInverterDM {
@@ -63,5 +64,22 @@ public class SymmetricMatrixInverterDM {
 
 		return inverse;
 	}
-		
+	
+	/**
+	 * Calculates a new inverse when rows/columns of the original matrix have been removed. 
+	 * Each element of exclude corresponds to a row/column of the matrix. If exclude is true, 
+	 * then that row/column in removed.
+	 * @param exclude	a BitSet with number of elements equal to the dimension of the original matrix.
+	 * @param size		the number of elements
+	 * @return the inverse of the original matrix as updated by removing excluded rows and columns
+	 */
+	public DoubleMatrix getInverse(BitSet exclude, int size) {
+		boolean[] boolExclude = new boolean[size];
+		for (int i = 0; i < size; i++) {
+			if (exclude.fastGet(i)) boolExclude[i] = true;
+			else boolExclude[i] = false;
+		}
+		return getInverse(boolExclude);
+	}
+
 }

@@ -1,18 +1,23 @@
 package net.maizegenetics.analysis.association;
 
 import net.maizegenetics.analysis.data.ExportPlugin;
-import net.maizegenetics.dna.snp.GeneticMap;
+import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
+import net.maizegenetics.phenotype.GenotypePhenotype;
+import net.maizegenetics.phenotype.NumericAttribute;
+import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.PhenotypeAttribute;
+import net.maizegenetics.phenotype.PhenotypeBuilder;
+import net.maizegenetics.phenotype.TaxaAttribute;
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.trait.MarkerPhenotypeAdapterUtils;
-import net.maizegenetics.trait.Phenotype;
-import net.maizegenetics.trait.MarkerPhenotypeAdapter;
-import net.maizegenetics.trait.MarkerPhenotype;
-import net.maizegenetics.trait.Trait;
-import net.maizegenetics.trait.SimplePhenotype;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
+import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.OpenBitSet;
 import net.maizegenetics.util.SimpleTableReport;
+import net.maizegenetics.util.TableReportBuilder;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
@@ -46,107 +51,114 @@ public class CompressedMLMusingDoubleMatrix {
     private final double compression;
     private boolean outputResiduals = true;
     
-//    private DoubleMatrix ZKZ;
-    private final MarkerPhenotypeAdapter theAdapter;
+    private final GenotypePhenotype myGenoPheno;
+    private final Phenotype myPhenotype;
+    private final GenotypeTable myGenotype;
+    private final boolean hasGenotype;
     private final MLMPlugin parentPlugin;
     private final DistanceMatrix kinshipMatrix;
     private double resvar, genvar, lnlk;
     private boolean testMarkers = true;
-    private final ArrayList<Object[]> compressionResults = new ArrayList<Object[]>();
-    private final ArrayList<Object[]> resultsMain = new ArrayList<Object[]>();
-    private final ArrayList<Object[]> resultsAlleles = new ArrayList<Object[]>();
-    private final ArrayList<Object[]> resultsBlups = new ArrayList<Object[]>();
-    private boolean[] prevMissing = null;
     private SymmetricMatrixInverterDM Vminus = null;
     private String datasetName;
-    private final String[] headerMain;
-    private final String[] headerAlleles;
-    private final String[] headerBlups = new String[]{};
-    private final String[] headerCompression = new String[]{"Trait", "# groups", "Compression", "-2LnLk", "Var_genetic", "Var_error"};
-    private GeneticMap myGeneticMap;
+	private List<PhenotypeAttribute> factorAttributeList;
+	private List<PhenotypeAttribute> covariateAttributeList;
 
-    public CompressedMLMusingDoubleMatrix(MLMPlugin parentPlugin, Datum dataset, DistanceMatrix kinshipMatrix, boolean useCompression, boolean useP3D, double compression, GeneticMap map) {
+    private final TableReportBuilder siteReportBuilder;
+    private final TableReportBuilder alleleReportBuilder;
+    private final TableReportBuilder compressionReportBuilder;
+    
+    private boolean useGenotypeCalls = true;
+    private boolean useReferenceProbability = false;
+    private boolean useAlleleProbabilities = false;
+    
+    public CompressedMLMusingDoubleMatrix(MLMPlugin parentPlugin, Datum dataset, DistanceMatrix kinshipMatrix, boolean useCompression, boolean useP3D, double compression) {
         this.parentPlugin = parentPlugin;
-        if (dataset.getData().getClass().equals(MarkerPhenotype.class)) {
-            theAdapter = new MarkerPhenotypeAdapter((MarkerPhenotype) dataset.getData());
-        } else if (dataset.getData() instanceof Phenotype) {
-            theAdapter = new MarkerPhenotypeAdapter((Phenotype) dataset.getData());
-//			testMarkers = false;
-        } else {
-            theAdapter = null;
-        }
         this.kinshipMatrix = kinshipMatrix;
         this.useCompression = useCompression;
         this.useP3D = useP3D;
         this.compression = compression;
         datasetName = dataset.getName();
-        myGeneticMap = map;
-        if (myGeneticMap == null) {
-            headerMain = new String[]{"Trait", "Marker", "Locus", "Site", "df", "F", "p", "errordf", "markerR2", "Genetic Var", "Residual Var", "-2LnLikelihood"};
-            headerAlleles = new String[]{"Trait", "Marker", "Locus", "Site", "Allele", "Effect", "Obs"};
+        
+        if (dataset.getData().getClass().equals(GenotypePhenotype.class)) {
+            myGenoPheno = (GenotypePhenotype) dataset.getData();
+            myPhenotype = myGenoPheno.phenotype();
+            myGenotype = myGenoPheno.genotypeTable();
+            hasGenotype = true;
+        } else if (dataset.getData() instanceof Phenotype) {
+            myGenoPheno = null;
+            myPhenotype = (Phenotype) dataset.getData();
+            myGenotype = null;
+            hasGenotype = false;
         } else {
-            headerMain = new String[]{"Trait", "Marker", "Chr", "Pos", "Locus", "Site", "df", "F", "p", "errordf", "markerR2", "Genetic Var", "Residual Var", "-2LnLikelihood"};
-            headerAlleles = new String[]{"Trait", "Marker", "Chr", "Pos", "Locus", "Site", "Allele", "Effect", "Obs"};
+            myGenoPheno = null;
+            myPhenotype = null;
+            myGenotype = null;
+            hasGenotype = false;
         }
+        
+        String[] headerMain = new String[]{"Trait", "Marker", "Locus", "Site", "df", "F", "p", "errordf", "markerR2", "Genetic Var", "Residual Var", "-2LnLikelihood"};
+        String[] headerAlleles = new String[]{"Trait", "Marker", "Locus", "Site", "Allele", "Effect", "Obs"};
+        String[] headerCompression = new String[]{"Trait", "# groups", "Compression", "-2LnLk", "Var_genetic", "Var_error"};
+        
+        if (parentPlugin.isWriteOutputToFile()) {
+        	String outputbase = parentPlugin.getOutputName();
+        	String datasetNameNoSpace = datasetName.trim().replaceAll("\\ ", "_");
+        	StringBuilder sb = new StringBuilder();
+        	sb.append(outputbase).append("_").append(datasetNameNoSpace).append("_stats.txt");
+            siteReportBuilder = TableReportBuilder.getInstance("Marker Statistics - " + datasetName, headerMain, sb.toString());
+        	sb = new StringBuilder();
+        	sb.append(outputbase).append("_").append(datasetNameNoSpace).append("_effects.txt");
+            alleleReportBuilder = TableReportBuilder.getInstance("Allele Estimates - " + datasetName, headerAlleles, sb.toString());
+        } else {
+            siteReportBuilder = TableReportBuilder.getInstance("Marker Statistics - " + datasetName, headerMain);
+            alleleReportBuilder = TableReportBuilder.getInstance("Allele Estimates - " + datasetName, headerAlleles);
+        }
+
+        if (useCompression) compressionReportBuilder = TableReportBuilder.getInstance("Compression - " + datasetName, headerCompression);
+        else compressionReportBuilder = null;
     }
 
+    public void useGenotypeCalls(boolean use) {
+    	useGenotypeCalls = use;
+    }
+
+    public void useReferenceProbability(boolean use) {
+    	useGenotypeCalls = use;
+    }
+
+    public void useAlleleProbabilities(boolean use) {
+    	useGenotypeCalls = use;
+    }
+    
     public List<Datum> solve() {
     	List<Datum> results = new LinkedList<Datum>();
-        int numberOfMarkers = theAdapter.getNumberOfMarkers();
-        int numberOfPhenotypes = theAdapter.getNumberOfPhenotypes();
+
+    	int numberOfMarkers = 0;
+    	if (hasGenotype) numberOfMarkers = myGenotype.numberOfSites();
+    	List<PhenotypeAttribute> dataAttributeList =  myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data);
+    	factorAttributeList =  myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor);
+    	covariateAttributeList =  myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.covariate);
+    	TaxaAttribute myTaxaAttribute = myPhenotype.taxaAttribute();
+    	
+        int numberOfPhenotypes = dataAttributeList.size();
 
         //calculate total iterations
         int expectedIterations = numberOfPhenotypes * numberOfMarkers;
         int iterationsSofar = 0;
 
-        //open output files and write headers, if that is where data should go
-        BufferedWriter mainOutputWriter = null;
-        BufferedWriter alleleOutputWriter = null;
-        BufferedWriter blupOutputWriter = null;
-        if (parentPlugin.isWriteOutputToFile()) {
-            String outputbase = parentPlugin.getOutputName();
-            if (outputbase.endsWith(".txt")) {
-                int index = outputbase.lastIndexOf(".");
-                outputbase = outputbase.substring(0, index);
-            }
-            String datasetNameNoSpace = datasetName.trim().replaceAll("\\ ", "_");
-            File mainFile = new File(outputbase + "_" + datasetNameNoSpace + "_stats.txt");
-            File alleleFile = new File(outputbase + "_" + datasetNameNoSpace + "_effects.txt");
-            File blupFile = new File(outputbase + "_" + datasetNameNoSpace + "_blups.txt");
-            try {
-                mainOutputWriter = new BufferedWriter(new FileWriter(mainFile));
-                mainOutputWriter.write(getTabbedStringFromArray(headerMain));
-                mainOutputWriter.newLine();
-
-                alleleOutputWriter = new BufferedWriter(new FileWriter(alleleFile));
-                alleleOutputWriter.write(getTabbedStringFromArray(headerAlleles));
-                alleleOutputWriter.newLine();
-
-                //blups are not implemented
-
-            } catch (IOException e) {
-                myLogger.error("Failed to open file for output.");
-                myLogger.error(e);
-                return null;
-            }
-        }
-
         //cycle through the phenotypes
-        for (int ph = 0; ph < numberOfPhenotypes; ph++) {
+        for (PhenotypeAttribute attr : dataAttributeList) {
             //get phenotype data
-            double[] phenotypeData = theAdapter.getPhenotypeValues(ph);
+            double[] phenotypeData = doubleDataFromAttribute(attr);
 
             //get the taxa
-            Taxon[] theTaxa = theAdapter.getTaxa(ph);
+            Taxon[] theTaxa = myTaxaAttribute.allTaxa();
 
             //keep track of missing rows
-            boolean[] missing = theAdapter.getMissingPhenotypes(ph);
-
-            //get factors
-            ArrayList<String[]> factorList = MarkerPhenotypeAdapterUtils.getFactorList(theAdapter, ph, missing);
-
-            //get covariates
-            ArrayList<double[]> covariateList = MarkerPhenotypeAdapterUtils.getCovariateList(theAdapter, ph, missing);
+            OpenBitSet missing = new OpenBitSet(attr.missing());
+            for (PhenotypeAttribute factorAttribute : factorAttributeList) missing.or(factorAttribute.missing());
+            for (PhenotypeAttribute covariateAttribute : covariateAttributeList) missing.or(covariateAttribute.missing());
 
             //update missing for taxa not in the kinship matrix or the distance matrix.
             //Create kinship and distance matrices with taxa in phenotype
@@ -154,41 +166,24 @@ public class CompressedMLMusingDoubleMatrix {
             DistanceMatrix kin = new DistanceMatrix(kinshipMatrix, nonmissingIds);
 
             //calculate the number of nonmissing observations
-            int totalObs = missing.length;
-            int nonMissingObs = 0;
-            for (boolean m : missing) {
-                if (!m) {
-                    nonMissingObs++;
-                }
-            }
+            int totalObs = attr.size();
+            int nonMissingObs = totalObs - (int) missing.cardinality();
 
             //create phenotype matrix
-            int count = 0;
-            DoubleMatrix y = DoubleMatrixFactory.DEFAULT.make(nonMissingObs, 1);
-            Taxon[] nonmissingTaxa = new Taxon[nonMissingObs];
-            for (int i = 0; i < totalObs; i++) {
-                if (!missing[i]) {
-                    y.set(count, 0, phenotypeData[i]);
-                    nonmissingTaxa[count] = theTaxa[i];
-                    count++;
-                }
-            }
+            double[] nonMissingData = AssociationUtils.getNonMissingDoubles(phenotypeData, missing);
+            DoubleMatrix y = DoubleMatrixFactory.DEFAULT.make(nonMissingObs,1, nonMissingData);
 
             //create the Z matrix
-            count = 0;
             DoubleMatrix Z = DoubleMatrixFactory.DEFAULT.make(nonMissingObs, kin.numberOfTaxa());
-            for (int i = 0; i < totalObs; i++) {
-                if (!missing[i]) {
-                    Z.set(count++, kin.whichIdNumber(theTaxa[i]), 1);
-                }
+            for (int i = 0; i < nonMissingObs; i++) {
+                   Z.set(i, kin.whichIdNumber(nonmissingIds.get(i)), 1);
             }
 
             //fixed effects matrix
-            DoubleMatrix fixed = LinearModelUtils.createFixedEffectsArray(factorList, covariateList, missing);
+            DoubleMatrix fixed = AssociationUtils.createFixedEffectsArray(factorAttributeList, covariateAttributeList, missing, nonMissingObs);
 
             //fit data without markers
-            DoubleMatrix[] zk = computeZKZ(y, fixed, Z, kin, theAdapter.getPhenotypeName(ph));
-//            EMMAforDoubleMatrix emlm = new EMMAforDoubleMatrix(y, fixed, zk[0], zk[1], 0, Double.NaN);
+            DoubleMatrix[] zk = computeZKZ(y, fixed, Z, kin, attr.name());
             EMMAforDoubleMatrix emlm = new EMMAforDoubleMatrix(y, fixed, zk[1], zk[0], 0, Double.NaN);
             emlm.solve();
             genvar = emlm.getVarRan();
@@ -198,7 +193,7 @@ public class CompressedMLMusingDoubleMatrix {
 
             //record the results
             if (outputResiduals) {
-                Datum residuals = createResPhenotype(emlm, nonmissingIds, new Trait(theAdapter.getPhenotypeName(ph), false, Trait.TYPE_DATA));
+                Datum residuals = createResPhenotype(emlm, nonmissingIds, attr.name());
                 results.add(residuals);
                 if(parentPlugin.isWriteOutputToFile()){
                     ExportPlugin exporter = new ExportPlugin(null, false);
@@ -209,45 +204,23 @@ public class CompressedMLMusingDoubleMatrix {
             }
             
             Object[] tableRow;
-            if (myGeneticMap != null) {
-                //{"Trait","Marker","Chr","Pos","Locus","Site","df","F","p","errordf","MarkerR2","Genetic Var","Residual Var", "-2LnLikelihood"}
-                tableRow = new Object[]{theAdapter.getPhenotypeName(ph),
-                            "None",
-                            "",
-                            "",
-                            "",
-                            "",
-                            new Integer(0),
-                            new Double(Double.NaN),
-                            new Double(Double.NaN),
-                            new Double(nonMissingObs - baseModeldf),
-                            new Double(Double.NaN),
-                            new Double(genvar),
-                            new Double(resvar),
-                            new Double(-2 * lnlk)};
-            } else {
-                //{"Trait","Marker","Locus","Site","df","F","p","errordf","MarkerR2","Genetic Var","Residual Var", "-2LnLikelihood"}
-                tableRow = new Object[]{theAdapter.getPhenotypeName(ph),
-                            "None",
-                            "",
-                            "",
-                            new Integer(0),
-                            new Double(Double.NaN),
-                            new Double(Double.NaN),
-                            new Double(nonMissingObs - baseModeldf),
-                            new Double(Double.NaN),
-                            new Double(genvar),
-                            new Double(resvar),
-                            new Double(-2 * lnlk)};
-            }
+            //{"Trait","Marker","Chr","Pos","Locus","Site","df","F","p","errordf","MarkerR2","Genetic Var","Residual Var", "-2LnLikelihood"}
+            tableRow = new Object[]{attr.name(),
+            		"None",
+            		"",
+            		"",
+            		"",
+            		"",
+            		new Integer(0),
+            		new Double(Double.NaN),
+            		new Double(Double.NaN),
+            		new Double(nonMissingObs - baseModeldf),
+            		new Double(Double.NaN),
+            		new Double(genvar),
+            		new Double(resvar),
+            		new Double(-2 * lnlk)};
 
-            if (parentPlugin.isWriteOutputToFile()) {
-                if (!writeObjectToFile(mainOutputWriter, tableRow)) {
-                    return null;
-                }
-            } else {
-                resultsMain.add(tableRow);
-            }
+            siteReportBuilder.add(tableRow);
 
             //the BLUPs
             //not implemented
@@ -260,98 +233,62 @@ public class CompressedMLMusingDoubleMatrix {
             //iterate markers
             if (testMarkers) {
                 for (int m = 0; m < numberOfMarkers; m++) {
-                    Object[] markerData = theAdapter.getMarkerValue(ph, m);
-                    boolean[] missingMarkers = theAdapter.getMissingMarkers(ph, m);
-                    boolean[] finalMissing = new boolean[missing.length];
-                    System.arraycopy(missing, 0, finalMissing, 0, missing.length);
-                    MarkerPhenotypeAdapterUtils.updateMissing(finalMissing, missingMarkers);
-                    boolean[] additionalMissing = new boolean[nonMissingObs];
-
+                	OpenBitSet missingObsForSite = new OpenBitSet(missing);
+                	missingObsForSite.or(missingForSite(m));
+                	
                     //only data for which missing=false are in the Z matrix
                     //the block below finds the rows of Z that have no marker data.
                     //Those rows/columns will need to be removed from ZKZ or from V, depending on the analysis method.
-                    int missingCount = 0;
+                	OpenBitSet missingFromZ = new OpenBitSet(nonMissingObs);
+                	
+                    int nonMissingCount = 0;
                     for (int i = 0; i < totalObs; i++) {
-                        if (!missing[i]) {
-                            if (finalMissing[i]) {
-                                additionalMissing[missingCount] = true;
-                            } else {
-                                additionalMissing[missingCount] = false;
+                        if (!missing.fastGet(i)) {
+                            if (missingObsForSite.fastGet(i)) {
+                            	missingFromZ.fastSet(nonMissingCount);
                             }
-                            missingCount++;
+                            nonMissingCount++;
                         }
                     }
 
                     //adjust y for missing data
-                    int numberOfRowsKept = 0;
-                    for (boolean miss : additionalMissing) {
-                        if (!miss) {
-                            numberOfRowsKept++;
-                        }
-                    }
-                    int[] keepIndex = new int[numberOfRowsKept];
-                    count = 0;
-                    for (int i = 0; i < nonMissingObs; i++) {
-                        if (!additionalMissing[i]) {
-                            keepIndex[count++] = i;
-                        }
-                    }
-
-                    DoubleMatrix ymarker = y.getSelection(keepIndex, null);
-                    count = 0;
-                    for (int i = 0; i < totalObs; i++) {
-                        if (!finalMissing[i]) {
-                            ymarker.set(count++, 0, phenotypeData[i]);
-                        }
-                    }
+                    DoubleMatrix ymarker = AssociationUtils.getNonMissingValues(y, missingFromZ);
 
                     //adjust the fixed effects
-                    DoubleMatrix fixed2 = fixed.getSelection(keepIndex, null);
+                    DoubleMatrix fixed2 = AssociationUtils.getNonMissingValues(fixed, missingFromZ);
 
                     //add marker data to fixed effects
-                    ArrayList<Object> markerIds = new ArrayList<Object>();
-                    boolean markerIsDiscrete = theAdapter.isMarkerDiscrete(m);
-                    int nAlleles;
-                    int markerdf;
+                    ArrayList<String> markerIds = new ArrayList<>();
+                    int nAlleles = 0;
+                    int markerdf = 0;
                     DoubleMatrix X;
                     int[] alleleCounts = null;
 
-                    if (markerIsDiscrete) {
-                        Object[] finalMarkerData = new Object[numberOfRowsKept];
-                        count = 0;
-                        int n = markerData.length;
-                        for (int i = 0; i < n; i++) {
-                            if (!finalMissing[i]) {
-                                finalMarkerData[count++] = markerData[i];
-                            }
-                        }
-                        FactorModelEffect markerEffect = new FactorModelEffect(ModelEffectUtils.getIntegerLevels(finalMarkerData, markerIds), true);
+                    if (useGenotypeCalls) {
+                    	String[] genotypes = AssociationUtils.getNonMissingValues(myGenoPheno.getStringGenotype(m), missingObsForSite);
+                        FactorModelEffect markerEffect = new FactorModelEffect(ModelEffectUtils.getIntegerLevels(genotypes, markerIds), true);
                         X = fixed2.concatenate(markerEffect.getX(), false);
                         nAlleles = markerEffect.getNumberOfLevels();
                         alleleCounts = markerEffect.getLevelCounts();
                         markerdf = nAlleles - 1;
-                    } else {
-                        double[] finalMarkerValues = new double[numberOfRowsKept];
-                        count = 0;
-                        int n = markerData.length;
-                        for (int i = 0; i < n; i++) {
-                            if (!finalMissing[i]) {
-                                finalMarkerValues[count++] = (Double) markerData[i];
-                            }
-                        }
-                        X = fixed2.concatenate(DoubleMatrixFactory.DEFAULT.make(numberOfRowsKept, 1, finalMarkerValues), false);
+                    } else if (useReferenceProbability) { 
+                        double[] genotypes = AssociationUtils.getNonMissingDoubles(myGenoPheno.alleleProbsOfType(SITE_SCORE_TYPE.ReferenceProbablity, m), missingObsForSite);
+                        int nrows = genotypes.length;
+                        X = fixed2.concatenate(DoubleMatrixFactory.DEFAULT.make(nrows, 1, genotypes), false);
                         nAlleles = 1;
-                        alleleCounts = new int[]{numberOfRowsKept};
+                        alleleCounts = new int[]{nrows};
                         markerdf = 1;
+                    } else {
+                    	X = null;
                     }
-
+                    
                     CompressedMLMResult result = new CompressedMLMResult();
                     //need to add marker information to result once Alignment is stable
 
                     if (useP3D) {
-                        testMarkerUsingP3D(result, ymarker, X, Vminus.getInverse(additionalMissing), markerdf);
+                        testMarkerUsingP3D(result, ymarker, X, Vminus.getInverse(missingFromZ, nonMissingObs), markerdf);
                     } else {
-                    	DoubleMatrix Zsel = zk[0].getSelection(keepIndex, null);
+                    	DoubleMatrix Zsel = AssociationUtils.getNonMissingValues(zk[0], missingFromZ);
                         testMarkerUsingEMMA(result, ymarker, X, zk[1], Zsel, nAlleles);
                         markerdf = result.modeldf - baseModeldf;
                     }
@@ -365,91 +302,42 @@ public class CompressedMLMusingDoubleMatrix {
                     if (recordTheseResults) {
                         //add result to main
                         //{"Trait","Marker","Chr","Pos","Locus","Site","df","F","p","errordf","MarkerR2","Genetic Var","Residual Var", "-2LnLikelihood"};
-                        String markername = theAdapter.getMarkerName(m);
+                        String markername = myGenotype.siteName(m);
                         String chr = "";
                         String pos = "";
-                        String locus = theAdapter.getLocusName(m);
-                        String site = Integer.toString(theAdapter.getLocusPosition(m));
-                        if (myGeneticMap != null) {
-                            int ndx = myGeneticMap.getMarkerIndex(markername);
-                            if (ndx >= 0) {
-                                chr = myGeneticMap.getChromosome(ndx);
-                                pos = Double.toString(myGeneticMap.getGeneticPosition(ndx));
-                            }
-                        }
+                        String locus = myGenotype.chromosomeName(m);
+                        String site = Integer.toString(myGenotype.chromosomalPosition(m));
                         double errordf = (double) (ymarker.numberOfRows() - result.modeldf);
 
-                        if (myGeneticMap != null) {
-                            tableRow = new Object[]{theAdapter.getPhenotypeName(ph),
-                                        markername,
-                                        chr,
-                                        pos,
-                                        locus,
-                                        site,
-                                        new Integer(markerdf),
-                                        new Double(result.F),
-                                        new Double(result.p),
-                                        new Double(errordf),
-                                        new Double(result.r2),
-                                        new Double(genvar),
-                                        new Double(resvar),
-                                        new Double(-2 * lnlk)};
-                        } else {
-                            tableRow = new Object[]{theAdapter.getPhenotypeName(ph),
-                                        markername,
-                                        locus,
-                                        site,
-                                        new Integer(markerdf),
-                                        new Double(result.F),
-                                        new Double(result.p),
-                                        new Double(errordf),
-                                        new Double(result.r2),
-                                        new Double(genvar),
-                                        new Double(resvar),
-                                        new Double(-2 * lnlk)};
-                        }
-                        if (parentPlugin.isWriteOutputToFile()) {
-                            if (!writeObjectToFile(mainOutputWriter, tableRow)) {
-                                return null;
-                            }
-                        } else {
-                            resultsMain.add(tableRow);
-                        }
+                        tableRow = new Object[]{attr.name(),
+                        		markername,
+                        		locus,
+                        		site,
+                        		new Integer(markerdf),
+                        		new Double(result.F),
+                        		new Double(result.p),
+                        		new Double(errordf),
+                        		new Double(result.r2),
+                        		new Double(genvar),
+                        		new Double(resvar),
+                        		new Double(-2 * lnlk)};
+                        siteReportBuilder.add(tableRow);
 
                         //add result to alleles
-                        //"Trait","Marker","Chr","Pos","Locus","Site","Allele","Effect"
+                        //"Trait","Marker","Chr","Pos","Allele","Effect", obs
+                        int numberOfRowsKept = totalObs - (int) missingObsForSite.cardinality();
+                        if (useGenotypeCalls) {
+                        	tableRow = new Object[]{attr.name(),
+                        			markername,
+                        			locus,
+                        			site,
+                        			"",
+                        			result.beta.get(result.beta.numberOfRows() - 1, 0),
+                        			numberOfRowsKept
+                        	};
 
-                        if (!markerIsDiscrete) {
-                            if (myGeneticMap != null) {
-                                tableRow = new Object[]{theAdapter.getPhenotypeName(ph),
-                                            markername,
-                                            chr,
-                                            pos,
-                                            locus,
-                                            site,
-                                            "",
-                                            result.beta.get(result.beta.numberOfRows() - 1, 0),
-                                            numberOfRowsKept
-                                        };
-                            } else {
-                                tableRow = new Object[]{theAdapter.getPhenotypeName(ph),
-                                            markername,
-                                            locus,
-                                            site,
-                                            "",
-                                            result.beta.get(result.beta.numberOfRows() - 1, 0),
-                                            numberOfRowsKept
-                                        };
-                            }
                             //record the results
-                            if (parentPlugin.isWriteOutputToFile()) {
-                                if (!writeObjectToFile(alleleOutputWriter, tableRow)) {
-                                    return null;
-                                }
-                            } else {
-                                resultsAlleles.add(tableRow);
-                            }
-
+                        	alleleReportBuilder.add(tableRow);
                         } else if (nAlleles > 1) {
                             for (int a = 0; a < nAlleles; a++) {
                                 Double estimate;
@@ -458,35 +346,17 @@ public class CompressedMLMusingDoubleMatrix {
                                 } else {
                                     estimate = 0.0;
                                 }
-                                if (myGeneticMap != null) {
-                                    tableRow = new Object[]{theAdapter.getPhenotypeName(ph),
-                                                markername,
-                                                chr,
-                                                pos,
-                                                locus,
-                                                site,
-                                                markerIds.get(a),
-                                                estimate,
-                                                alleleCounts[a]
-                                            };
-                                } else {
-                                    tableRow = new Object[]{theAdapter.getPhenotypeName(ph),
-                                                markername,
-                                                locus,
-                                                site,
-                                                markerIds.get(a),
-                                                estimate,
-                                                alleleCounts[a]
-                                            };
-                                }
+                                tableRow = new Object[]{attr.name(),
+                                		markername,
+                                		locus,
+                                		site,
+                                		markerIds.get(a),
+                                		estimate,
+                                		alleleCounts[a]
+                                };
+
                                 //record the results
-                                if (parentPlugin.isWriteOutputToFile()) {
-                                    if (!writeObjectToFile(alleleOutputWriter, tableRow)) {
-                                        return null;
-                                    }
-                                } else {
-                                    resultsAlleles.add(tableRow);
-                                }
+                            	alleleReportBuilder.add(tableRow);
                             }
                         }
 
@@ -500,25 +370,28 @@ public class CompressedMLMusingDoubleMatrix {
         }
 
         parentPlugin.updateProgress(0);
-        if (parentPlugin.isWriteOutputToFile()) {
-            try {
-                mainOutputWriter.close();
-                alleleOutputWriter.close();
-            } catch (IOException e) {
-            }
-        }
 
-        if (parentPlugin.isWriteOutputToFile()) {
-            if (useCompression) {
-                writeCompressionResultsToFile();
-            }
-            return null;
-        }
-        
         results.addAll(formatResults());
         return results;
     }
 
+    private BitSet missingForSite(int site) {
+    	byte[] siteGenotype = myGenotype.genotypeAllTaxa(site);
+    	int nsites = siteGenotype.length;
+    	OpenBitSet missing = new OpenBitSet(nsites);
+    	byte missingByte = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+    	for (int i = 0; i < nsites; i++) if (siteGenotype[i] == missingByte) missing.fastSet(i);
+    	return missing;
+    }
+    
+    private double[] doubleDataFromAttribute(PhenotypeAttribute attribute) {
+    	float[] floatData = (float[]) ((NumericAttribute) attribute).allValues();
+    	int n = floatData.length;
+    	double[] doubleData = new double[n];
+    	for (int i = 0; i < n; i++) doubleData[i] = floatData[i];
+    	return doubleData;
+    }
+    
     private String getTabbedStringFromArray(Object[] array) {
         StringBuffer sb = new StringBuffer();
         sb.append(array[0]);
@@ -527,22 +400,6 @@ public class CompressedMLMusingDoubleMatrix {
             sb.append("\t").append(array[i]);
         }
         return sb.toString();
-    }
-
-    private boolean writeObjectToFile(BufferedWriter bw, Object[] row) {
-        try {
-            bw.write(getTabbedStringFromArray(row));
-            bw.newLine();
-        } catch (IOException e) {
-            String msg = "Unable to write main output to file in MLM. Application ending.";
-            myLogger.error(msg);
-            e.printStackTrace();
-            if (parentPlugin.isInteractive()) {
-                JOptionPane.showInternalMessageDialog(parentPlugin.getParentFrame(), msg, "IO Error", JOptionPane.ERROR_MESSAGE);
-            }
-            return false;
-        }
-        return true;
     }
 
     public List<Datum> formatResults() {
@@ -563,93 +420,52 @@ public class CompressedMLMusingDoubleMatrix {
 
         StringBuilder model = new StringBuilder();
         model.append("Model: trait = mean + ");
-        int nFactors = theAdapter.getNumberOfFactors();
-        for (int f = 0; f < nFactors; f++) {
-            model.append(theAdapter.getFactorName(f)).append(" + ");
+        int nFactors = factorAttributeList.size();
+        for (PhenotypeAttribute factor:factorAttributeList) {
+            model.append(factor.name()).append(" + ");
         }
-        int nCovar = theAdapter.getNumberOfCovariates();
-        for (int c = 0; c < nCovar; c++) {
-            model.append(theAdapter.getCovariateName(c)).append(" + ");
+        int nCovar = covariateAttributeList.size();
+        for (PhenotypeAttribute cov : covariateAttributeList) {
+            model.append(cov.name()).append(" + ");
         }
         model.append("marker\n");
 
-        if (resultsMain.size() > 0) {
-            Object[][] theTable = new Object[resultsMain.size()][];
-            resultsMain.toArray(theTable);
-            String reportName = "MLM_statistics_for_" + datasetName;
-            StringBuilder comment = new StringBuilder();
-            comment.append("MLM statistics for compressed MLM\n");
-            comment.append("Dataset: ").append(datasetName).append("\n");
-            comment.append(options).append(model);
-            SimpleTableReport str = new SimpleTableReport(reportName, headerMain, theTable);
-            output.add(new Datum(reportName, str, comment.toString()));
-        }
+        String reportName = "MLM_statistics_for_" + datasetName;
+        StringBuilder comment = new StringBuilder();
+        comment.append("MLM statistics for compressed MLM\n");
+        comment.append("Dataset: ").append(datasetName).append("\n");
+        comment.append(options).append(model);
+        output.add(new Datum(reportName, siteReportBuilder.build(), comment.toString()));
 
-        if (resultsAlleles.size() > 0) {
-            Object[][] theTable = new Object[resultsAlleles.size()][];
-            resultsAlleles.toArray(theTable);
-            String reportName = "MLM_effects_for_" + datasetName;
-            StringBuilder comment = new StringBuilder();
-            comment.append("MLM SNP effect estimates\n");
-            comment.append("Dataset: ").append(datasetName).append("\n");
-            comment.append(options).append(model);
-            SimpleTableReport str = new SimpleTableReport(reportName, headerAlleles, theTable);
-            output.add(new Datum(reportName, str, comment.toString()));
-        }
+        reportName = "MLM_effects_for_" + datasetName;
+        comment = new StringBuilder();
+        comment.append("MLM SNP effect estimates\n");
+        comment.append("Dataset: ").append(datasetName).append("\n");
+        comment.append(options).append(model);
+        output.add(new Datum(reportName, alleleReportBuilder.build(), comment.toString()));
 
-        if (resultsBlups.size() > 0) {
-            Object[][] theTable = new Object[resultsBlups.size()][];
-            resultsBlups.toArray(theTable);
-            String reportName = "MLM_BLUPs_for_" + datasetName;
-            StringBuilder comment = new StringBuilder();
-            comment.append("MLM BLUPs\n");
-            comment.append("Dataset: ").append(datasetName).append("\n");
-            comment.append(options).append(model);
-            SimpleTableReport str = new SimpleTableReport(reportName, headerBlups, theTable);
-            output.add(new Datum(reportName, str, comment.toString()));
-        }
+        //        if (resultsBlups.size() > 0) {
+        //            Object[][] theTable = new Object[resultsBlups.size()][];
+        //            resultsBlups.toArray(theTable);
+        //            String reportName = "MLM_BLUPs_for_" + datasetName;
+        //            StringBuilder comment = new StringBuilder();
+        //            comment.append("MLM BLUPs\n");
+        //            comment.append("Dataset: ").append(datasetName).append("\n");
+        //            comment.append(options).append(model);
+        //            SimpleTableReport str = new SimpleTableReport(reportName, headerBlups, theTable);
+        //            output.add(new Datum(reportName, str, comment.toString()));
+        //        }
 
-        if (compressionResults.size() > 0) {
-            Object[][] theTable = new Object[compressionResults.size()][];
-            compressionResults.toArray(theTable);
-            String reportName = "MLM_compression_for_" + datasetName;
-            StringBuilder comment = new StringBuilder();
-            comment.append("MLM compression report\n");
-            comment.append("Dataset: ").append(datasetName).append("\n");
-            comment.append(options).append(model);
-            SimpleTableReport str = new SimpleTableReport(reportName, headerCompression, theTable);
-            output.add(new Datum(reportName, str, comment.toString()));
+        if (useCompression) {
+        	reportName = "MLM_compression_for_" + datasetName;
+        	comment = new StringBuilder();
+        	comment.append("MLM compression report\n");
+        	comment.append("Dataset: ").append(datasetName).append("\n");
+        	comment.append(options).append(model);
+        	output.add(new Datum(reportName, compressionReportBuilder.build(), comment.toString()));
         }
-
+        
         return output;
-    }
-
-    public boolean writeCompressionResultsToFile() {
-        try {
-            String outputbase = parentPlugin.getOutputName();
-            if (outputbase.endsWith(".txt")) {
-                int index = outputbase.lastIndexOf(".");
-                outputbase = outputbase.substring(0, index);
-            }
-            String datasetNameNoSpace = datasetName.trim().replaceAll("\\ ", "_");
-            BufferedWriter bw = new BufferedWriter(new FileWriter(outputbase + "_" + datasetNameNoSpace + "_compression.txt"));
-            bw.write(getTabbedStringFromArray(headerCompression));
-            bw.newLine();
-            for (Object[] row : compressionResults) {
-                bw.write(getTabbedStringFromArray(row));
-                bw.newLine();
-            }
-            bw.close();
-        } catch (IOException e) {
-            String msg = "Unable to write compression results to file in MLM.";
-            myLogger.error(msg);
-            e.printStackTrace();
-            if (parentPlugin.isInteractive()) {
-                JOptionPane.showInternalMessageDialog(parentPlugin.getParentFrame(), msg, "IO Error", JOptionPane.ERROR_MESSAGE);
-            }
-            return false;
-        }
-        return true;
     }
 
     /**
@@ -716,7 +532,7 @@ public class CompressedMLMusingDoubleMatrix {
                     emlm.solve();
 
                     //output number of groups, compression level (= number of taxa / number of groups), -2L, genvar, resvar
-                    compressionResults.add(new Object[]{traitname, g,
+                    compressionReportBuilder.add(new Object[]{traitname, g,
                                 ((double) nkin) / ((double) g),
                                 -2 * emlm.getLnLikelihood(),
                                 emlm.getVarRan(),
@@ -752,7 +568,7 @@ public class CompressedMLMusingDoubleMatrix {
                 double errvar = ssres / errordf;
                 double lnlk = (errordf * Math.log(2 * Math.PI * errvar) + errordf);
 
-                compressionResults.add(new Object[]{traitname, g,
+                compressionReportBuilder.add(new Object[]{traitname, g,
                             ((double) nkin) / ((double) g),
                             lnlk,
                             new Double(0.0),
@@ -913,52 +729,36 @@ public class CompressedMLMusingDoubleMatrix {
     }
 
     /**
-     * @param missing a boolean[] equal true when a value is missing in that row
-     * @param phenotypeTaxa the taxa
-     * @return an IdGroup with the taxa that are in both the kinship matrix and the phenotype
+     * @param missing			a BitSet with bits equal set when a value is missing in that row
+     * @param phenotypeTaxa 	the taxa
+     * @return 					a TaxaList with the taxa that are in both the kinship matrix and the phenotype
      */
-    public TaxaList updateMissingWithKinship(boolean[] missing, Taxon[] phenotypeTaxa) {
-        int n = missing.length;
-        TreeSet<Taxon> kinSet = new TreeSet<Taxon>();
-        for (int i = 0; i < n; i++) {
-//            int col = kinshipMatrix.whichIdNumber(phenotypeTaxa[i]);
-        	TaxaList kinshipTaxa = kinshipMatrix.getTaxaList();
-            int thisTaxon = kinshipTaxa.indexOf(phenotypeTaxa[i]);
-            if (!missing[i]) {
-                if (thisTaxon<0) {
-                    missing[i] = true;
-                } else {
-                    kinSet.add(phenotypeTaxa[i]);
-                }
-            }
-        }
-
-        Taxon[] taxa = new Taxon[kinSet.size()];
-        kinSet.toArray(taxa);
-        return new TaxaListBuilder().addAll(taxa).build();
+    public TaxaList updateMissingWithKinship(BitSet missing, Taxon[] phenotypeTaxa) {
+    	Taxon[] nonMissingTaxa = AssociationUtils.getNonMissingValues(phenotypeTaxa, missing);
+        return new TaxaListBuilder().addAll(nonMissingTaxa).build();
     }
 
-    public Datum createResPhenotype(EMMAforDoubleMatrix emma, TaxaList taxaIds, Trait trait) {
-        String resReportName = "Residuals_for_" + trait.getName() + "_" + datasetName;
-        
-        String resComments = "Residuals for taxa, trait = " + trait.getName();
+    public Datum createResPhenotype(EMMAforDoubleMatrix emma, List<Taxon> taxa, String traitName) {
  
-    	LinkedList<Trait> traits = new LinkedList<Trait>();
-    	traits.add(trait);
-    	
     	emma.calculateBlupsPredictedResiduals();
         DoubleMatrix res = emma.getRes();
         int nres = res.numberOfRows();
         
-        double[][] resarray = new double[nres][1];
+        float[] resarray = new float[nres];
         
-    	for (int i = 0; i < nres; i++) resarray[i][0] = res.get(i,0);
+    	for (int i = 0; i < nres; i++) resarray[i] = (float) res.get(i,0);
         
-        SimplePhenotype resPheno = new SimplePhenotype(taxaIds, traits, resarray);
+    	List<PhenotypeAttribute> attrList = new ArrayList<PhenotypeAttribute>();
+    	List<ATTRIBUTE_TYPE> typeList = new ArrayList<Phenotype.ATTRIBUTE_TYPE>();
+    	attrList.add(new TaxaAttribute(taxa));
+    	typeList.add(ATTRIBUTE_TYPE.taxa);
+    	attrList.add(new NumericAttribute(traitName, resarray, new OpenBitSet(nres)));
+    	typeList.add(ATTRIBUTE_TYPE.data);
+        Phenotype residualPheno = new PhenotypeBuilder().fromAttributeList(attrList, typeList).build().get(0);
         
-        String name = String.format("Residuals for %s.", trait.getName());
-        String comment = "";
-        Datum output = new Datum(name, resPheno, comment);
+        String name = String.format("Residuals for %s.", traitName);
+        String comment = String.format("Residuals for %s calculated by MLM, no markers fit\nDataset: %s\n", traitName, datasetName);
+        Datum output = new Datum(name, residualPheno, comment);
         return output;
      }
     
@@ -976,7 +776,4 @@ public class CompressedMLMusingDoubleMatrix {
         this.testMarkers = testMarkers;
     }
 
-    public void setMyGeneticMap(GeneticMap myGeneticMap) {
-        this.myGeneticMap = myGeneticMap;
-    }
 }
