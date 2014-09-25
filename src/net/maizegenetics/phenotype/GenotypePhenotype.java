@@ -46,8 +46,7 @@ public class GenotypePhenotype implements TableReport {
 	 * The GenotypeTable backing this object may hold both types of data. The boolean indicates which is to be used in an analysis.
 	 */
 	public boolean areGenotypeValuesDiscrete() {
-		//TODO implement once hasGenotype is implemented
-		return true;
+		return myGenotype.hasGenotype();
 	}
 	
 	/**
@@ -94,7 +93,7 @@ public class GenotypePhenotype implements TableReport {
 		Object[] colNames = new Object[numberOfPhenotypeColumns + 1];
 		System.arraycopy(myPhenotype.getTableColumnNames(), 0, colNames, 0, numberOfPhenotypeColumns);
 		colNames[numberOfPhenotypeColumns] = "Genotype";
-		return null;
+		return colNames;
 	}
 
 	@Override
