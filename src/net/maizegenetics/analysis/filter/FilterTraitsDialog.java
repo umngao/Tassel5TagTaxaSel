@@ -3,8 +3,11 @@ package net.maizegenetics.analysis.filter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
 
 import javax.swing.DefaultCellEditor;
 import javax.swing.JButton;
@@ -17,8 +20,9 @@ import javax.swing.event.TableModelListener;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableColumn;
 
-import net.maizegenetics.trait.Phenotype;
-import net.maizegenetics.trait.Trait;
+import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
+import net.maizegenetics.phenotype.PhenotypeAttribute;
 
 public class FilterTraitsDialog extends JDialog implements ActionListener, TableModelListener {
 
@@ -34,7 +38,6 @@ public class FilterTraitsDialog extends JDialog implements ActionListener, Table
     public final static String CMD_OK = "ok";
     public final static String CMD_CANCEL = "cancel";
     public final static String CMD_CHANGE_DATA = "change2data";
-    public final static String CMD_CHANGE_MARKER = "change2marker";
     public final static String CMD_CHANGE_COV = "change2cov";
 
     public FilterTraitsDialog(Frame parent, Phenotype aPhenotype) {
@@ -58,11 +61,10 @@ public class FilterTraitsDialog extends JDialog implements ActionListener, Table
         jsp = new JScrollPane(traitTable);
 
         //create a combo box editor for type
-        JComboBox comboType = new JComboBox();
-        comboType.addItem(Trait.TYPE_DATA);
-        comboType.addItem(Trait.TYPE_COVARIATE);
-        comboType.addItem(Trait.TYPE_FACTOR);
-        comboType.addItem(Trait.TYPE_MARKER);
+        JComboBox<ATTRIBUTE_TYPE> comboType = new JComboBox();
+        comboType.addItem(ATTRIBUTE_TYPE.data);
+//        comboType.addItem(ATTRIBUTE_TYPE.factor);
+        comboType.addItem(ATTRIBUTE_TYPE.covariate);
         int typeColNumber = traitModel.getTypeColumnNumber();
 
         TableColumn typeColumn = traitTable.getColumnModel().getColumn(typeColNumber);
@@ -94,9 +96,6 @@ public class FilterTraitsDialog extends JDialog implements ActionListener, Table
         JButton btnChangeCov = new JButton("Change Selected Type to Covariate");
         btnChangeCov.setActionCommand(CMD_CHANGE_COV);
         btnChangeCov.addActionListener(this);
-        JButton btnChangeMarker = new JButton("Change Selected Type to Marker");
-        btnChangeMarker.setActionCommand(CMD_CHANGE_MARKER);
-        btnChangeMarker.addActionListener(this);
         
         JButton btnOK = new JButton("OK");
         btnOK.setActionCommand(CMD_OK);
@@ -142,21 +141,16 @@ public class FilterTraitsDialog extends JDialog implements ActionListener, Table
         gbc.insets = new Insets(5, 5, 5, 5); //top, left, bottom, right
         gbc.anchor = GridBagConstraints.CENTER;
         contentPane.add(btnChangeCov, gbc);
-        gbc.gridx = 0;
-        gbc.gridy = 5;
-        gbc.insets = new Insets(5, 5, 15, 5); //top, left, bottom, right
-        gbc.anchor = GridBagConstraints.CENTER;
-        contentPane.add(btnChangeMarker, gbc);
         
         gbc.gridx = 0;
-        gbc.gridy = 6;
+        gbc.gridy = 5;
         gbc.gridwidth = 1;
         gbc.insets = new Insets(5, 5, 5, 5); //top, left, bottom, right
         gbc.anchor = GridBagConstraints.EAST;
         contentPane.add(btnOK, gbc);
 
         gbc.gridx = 1;
-        gbc.gridy = 6;
+        gbc.gridy = 5;
         gbc.insets = new Insets(5, 5, 5, 5); //top, left, bottom, right
         gbc.anchor = GridBagConstraints.WEST;
         contentPane.add(btnCancel, gbc);
@@ -170,34 +164,16 @@ public class FilterTraitsDialog extends JDialog implements ActionListener, Table
             return null;
         }
         Boolean[] isIncluded = traitModel.include;
-        int howmany = 0;
-        for (Boolean include : isIncluded) {
-            if (include) {
-                howmany++;
-            }
-        }
-        int[] includedTrait = new int[howmany];
-        int traitCount = 0;
+        int nOrig = isIncluded.length;
+        int[] includedTrait = new int[nOrig];
+        
         int includedCount = 0;
-        for (Boolean include : isIncluded) {
-            if (include) {
-                includedTrait[includedCount++] = traitCount;
+        for (int i = 0; i < nOrig; i++) {
+            if (isIncluded[i]) {
+                includedTrait[includedCount++] = i;
             }
-            traitCount++;
         }
-        return includedTrait;
-    }
-
-    /**
-     * @return trait types for all the traits in the original phenotype, not just the included ones
-     */
-    public String[] getTraitTypes() {
-        int n = traitModel.traitList.size();
-        String[] types = new String[n];
-        for (int i = 0; i < n; i++) {
-            types[i] = traitModel.traitList.get(i).getType();
-        }
-        return types;
+        return Arrays.copyOf(includedTrait, includedCount);
     }
 
     @Override
@@ -217,16 +193,14 @@ public class FilterTraitsDialog extends JDialog implements ActionListener, Table
             setVisible(false);
             clickedOK = false;
         } else if (e.getActionCommand().equals(CMD_CHANGE_DATA)) {
-        	changeSelectedType("data");
+        	changeSelectedType(ATTRIBUTE_TYPE.data);
         } else if (e.getActionCommand().equals(CMD_CHANGE_COV)) {
-        	changeSelectedType("covariate");
-        } else if (e.getActionCommand().equals(CMD_CHANGE_MARKER)) {
-        	changeSelectedType("marker");
+        	changeSelectedType(ATTRIBUTE_TYPE.covariate);
         }
         
     }
 
-    private void changeSelectedType(String toNewType) {
+    private void changeSelectedType(ATTRIBUTE_TYPE toNewType) {
     	for (int i : traitTable.getSelectedRows()) {
     		traitModel.setValueAt(toNewType, i, traitModel.getTypeColumnNumber());
     	}
@@ -241,34 +215,42 @@ public class FilterTraitsDialog extends JDialog implements ActionListener, Table
     public boolean getClickedOK() {
         return clickedOK;
     }
+    
+    public  Map<PhenotypeAttribute, ATTRIBUTE_TYPE> getTypeChangeMap() {
+    	Map<PhenotypeAttribute, ATTRIBUTE_TYPE> typeChangeMap = new HashMap<>();
+    	for (int trait : getIncludedTraits()) {
+    		if (traitModel.types[trait] != myPhenotype.attributeType(trait)) {
+    			typeChangeMap.put(myPhenotype.attribute(trait), traitModel.types[trait]);
+    		}
+    	}
+    	return typeChangeMap;
+    }
 }
 
 class TraitTableModel extends AbstractTableModel {
 
-    ArrayList<Trait> traitList;
+//    ArrayList<Trait> traitList;
+    List<PhenotypeAttribute> attributeList;
     Phenotype myPhenotype;
     Boolean[] include;
+    ATTRIBUTE_TYPE[] types;
     String[] colName;
     int numberOfTraits;
-    int numberOfFactors;
     int numberOfColumns;
     int typeColumnNumber;
 
     TraitTableModel(Phenotype aPhenotype) {
         super();
         myPhenotype = aPhenotype;
-        traitList = new ArrayList<Trait>();
-        List<Trait> oldList = myPhenotype.getTraits();
-        for (Trait trait : oldList) {
-            traitList.add(Trait.getInstance(trait));
-        }
-        numberOfTraits = traitList.size();
-        numberOfFactors = myPhenotype.getNumberOfFactors();
-        numberOfColumns = 4 + numberOfFactors;
+        attributeList = myPhenotype.attributeListCopy();
+        numberOfTraits = attributeList.size();
+        numberOfColumns = 3;
         setColumnNames();
         include = new Boolean[numberOfTraits];
+        types = new ATTRIBUTE_TYPE[numberOfTraits];
         for (int i = 0; i < numberOfTraits; i++) {
             include[i] = true;
+            types[i] = myPhenotype.attributeType(i);
         }
     }
 
@@ -276,13 +258,9 @@ class TraitTableModel extends AbstractTableModel {
         colName = new String[numberOfColumns];
         int col = 0;
         colName[col++] = "Trait";
-        for (String factorname : myPhenotype.getFactorNameCopy()) {
-            colName[col++] = factorname;
-        }
-        typeColumnNumber = col;
         colName[col++] = "Type";
-        colName[col++] = "Discrete";
         colName[col++] = "Include";
+        typeColumnNumber = 1;
     }
 
     @Override
@@ -297,30 +275,15 @@ class TraitTableModel extends AbstractTableModel {
 
     @Override
     public Object getValueAt(int row, int col) {
-        if (col == 3 + numberOfFactors) {
-            return include[row];
-        }
-        if (col == 0) {
-            return traitList.get(row).getName();
-        }
-        if (col == 1 + numberOfFactors) {
-            return traitList.get(row).getType();
-        }
-        if (col == 2 + numberOfFactors) {
-            return traitList.get(row).isDiscrete();
-        } else {
-            String factorName = myPhenotype.getFactorName(col - 1);
-            Object factorValue = myPhenotype.getTrait(row).getProperty(factorName);
-            if (factorValue == null) {
-                return "";
-            }
-            return factorValue;
-        }
+    	if (col == 0) return myPhenotype.attribute(row).name();
+    	if (col == 1) return types[row];
+    	if (col == 2) return include[row];
+    	else return "";
     }
 
     @Override
     public Class<?> getColumnClass(int columnIndex) {
-        if (columnIndex < 2 + numberOfFactors) {
+        if (columnIndex < 2) {
             return String.class;
         } else {
             return Boolean.class;
@@ -334,19 +297,19 @@ class TraitTableModel extends AbstractTableModel {
 
     @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
-        if (columnIndex == typeColumnNumber || columnIndex == typeColumnNumber + 2) {
-            return true;
-        }
+    	if (myPhenotype.attributeType(rowIndex) == ATTRIBUTE_TYPE.taxa) return false;
+    	else if (myPhenotype.attributeType(rowIndex) == ATTRIBUTE_TYPE.factor) return false;
+    	else if (columnIndex > 0)  return true;
         return false;
     }
 
     @Override
     public void setValueAt(Object value, int rowIndex, int columnIndex) {
-        if (columnIndex == 3 + numberOfFactors) {
+        if (columnIndex == 2) {
             include[rowIndex] = (Boolean) value;
         }
-        if (columnIndex == 1 + numberOfFactors) {
-            traitList.get(rowIndex).setType(value.toString());
+        if (columnIndex == 1 && value instanceof ATTRIBUTE_TYPE) {
+            types[rowIndex] = (ATTRIBUTE_TYPE) value;
         }
     }
 

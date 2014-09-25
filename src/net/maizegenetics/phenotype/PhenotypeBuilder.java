@@ -783,6 +783,7 @@ public class PhenotypeBuilder {
 				}
 				newList.add(new CorePhenotype(attrList, typeList, "retyped_" + pheno.name()));
 			}
+			phenotypeList = newList;
 		}
 	}
 	
