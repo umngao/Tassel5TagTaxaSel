@@ -4,6 +4,8 @@ import com.google.common.collect.Range;
 
 import static net.maizegenetics.plugindef.AbstractPlugin.convert;
 
+import org.apache.log4j.Logger;
+
 /**
  * Defines the attributes of parameters to be used in the plugins
  *
@@ -13,28 +15,30 @@ import static net.maizegenetics.plugindef.AbstractPlugin.convert;
  * @author Terry Casstevens
  *
  */
-public final class PluginParameter<T extends Comparable<T>> {
+public final class PluginParameter<T> {
+
+    private static final Logger myLogger = Logger.getLogger(PluginParameter.class);
 
     private final String myGuiName;
     private final String myUnits;
     private final String myCmdLineName;
     private final String myDescription;
-    private final Range<T> myRange;
+    private final Range<Comparable<T>> myRange;
     private final T myDefaultValue;
     private final T myValue;
     private final boolean myRequired;
     private final Class<T> myClass;
     private final PluginParameter<?> myDependentOnParameter;
-    private final Comparable<?> myDependentOnParameterValue;
+    private final Object myDependentOnParameterValue;
 
-    public enum FILE_TYPE {
+    public enum PARAMETER_TYPE {
 
-        NA, IN_FILE, OUT_FILE, IN_DIR, OUT_DIR
+        NA, IN_FILE, OUT_FILE, IN_DIR, OUT_DIR, GENOTYPE_TABLE, TAXA_LIST, POSITION_LIST
     };
-    private final FILE_TYPE myFileType;
+    private final PARAMETER_TYPE myParameterType;
 
     private PluginParameter(String guiName, String guiUnits, String cmdLineName,
-            String description, Range<T> range, T defaultValue, T value, boolean required, FILE_TYPE fileType, PluginParameter<?> dependentOnParameter, Comparable<?> dependentOnParameterValue, Class<T> type) {
+            String description, Range<Comparable<T>> range, T defaultValue, T value, boolean required, PARAMETER_TYPE fileType, PluginParameter<?> dependentOnParameter, Object dependentOnParameterValue, Class<T> type) {
         myGuiName = guiName;
         myUnits = guiUnits;
         myCmdLineName = cmdLineName;
@@ -47,23 +51,25 @@ public final class PluginParameter<T extends Comparable<T>> {
             myValue = value;
         }
 
-        if (!acceptsValue(myValue)) {
-            StringBuilder builder = new StringBuilder();
-            builder.append("PluginParameter: init: " + myCmdLineName + " value: " + value.toString() + " outside range: ");
-            if (valueType().isEnum()) {
-                builder.append(" [");
-                Comparable[] values = valueType().getEnumConstants();
-                for (int i = 0; i < values.length; i++) {
-                    if (i != 0) {
-                        builder.append(" ");
+        if ((myRange != null) && (myValue != null)) {
+            if (!acceptsValue((Comparable<T>) myValue)) {
+                StringBuilder builder = new StringBuilder();
+                builder.append("PluginParameter: init: " + myCmdLineName + " value: " + value.toString() + " outside range: ");
+                if (valueType().isEnum()) {
+                    builder.append(" [");
+                    T[] values = valueType().getEnumConstants();
+                    for (int i = 0; i < values.length; i++) {
+                        if (i != 0) {
+                            builder.append(" ");
+                        }
+                        builder.append(values[i].toString());
                     }
-                    builder.append(values[i].toString());
+                    builder.append("]");
+                } else {
+                    builder.append(myRange.toString());
                 }
-                builder.append("]");
-            } else {
-                builder.append(myRange.toString());
+                throw new IllegalArgumentException(builder.toString());
             }
-            throw new IllegalArgumentException(builder.toString());
         }
 
         myRequired = required;
@@ -71,7 +77,7 @@ public final class PluginParameter<T extends Comparable<T>> {
             throw new IllegalArgumentException("PluginParameter: init: " + myCmdLineName + " shouldn't have default value and be required.");
         }
         myClass = type;
-        myFileType = fileType;
+        myParameterType = fileType;
         myDependentOnParameter = dependentOnParameter;
         myDependentOnParameterValue = dependentOnParameterValue;
     }
@@ -86,7 +92,7 @@ public final class PluginParameter<T extends Comparable<T>> {
     public PluginParameter(PluginParameter<T> oldParameter, T newValue) {
         this(oldParameter.myGuiName, oldParameter.myUnits, oldParameter.myCmdLineName,
                 oldParameter.myDescription, oldParameter.myRange, oldParameter.myDefaultValue, newValue,
-                oldParameter.myRequired, oldParameter.myFileType, oldParameter.dependentOnParameter(),
+                oldParameter.myRequired, oldParameter.myParameterType, oldParameter.dependentOnParameter(),
                 oldParameter.dependentOnParameterValue(), oldParameter.myClass);
     }
 
@@ -106,16 +112,21 @@ public final class PluginParameter<T extends Comparable<T>> {
         return myDescription;
     }
 
-    public Range<T> range() {
+    public Range<Comparable<T>> range() {
         return myRange;
     }
 
-    public boolean acceptsValue(T value) {
-        return (myRange == null) || (myRange.contains(value));
+    public boolean acceptsValue(Object value) {
+        try {
+            return (myRange == null) || (myRange.contains((Comparable<T>) value));
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            return false;
+        }
     }
 
     public boolean acceptsValue(String input) {
-        T value = convert(input, valueType());
+        Comparable<T> value = (Comparable<T>) convert(input, valueType());
         return (myRange == null) || (myRange.contains(value));
     }
 
@@ -135,42 +146,38 @@ public final class PluginParameter<T extends Comparable<T>> {
         return myClass;
     }
 
-    public FILE_TYPE fileType() {
-        return myFileType;
+    public PARAMETER_TYPE parameterType() {
+        return myParameterType;
     }
 
     public PluginParameter<?> dependentOnParameter() {
         return myDependentOnParameter;
     }
 
-    public Comparable<?> dependentOnParameterValue() {
+    public Object dependentOnParameterValue() {
         return myDependentOnParameterValue;
     }
 
     public boolean isEmpty() {
-        if ((myValue == null) || (myValue.toString().trim().length() == 0)) {
-            return true;
-        } else {
-            return false;
-        }
+        return (myValue == null) || (myValue.toString().trim().length() == 0);
     }
 
-    public static class Builder<T extends Comparable<T>> {
+    public static class Builder<T> {
 
         private String myGuiName;
         private String myUnits = "";
         private final String myCmdLineName;
         private String myDescription = "";
-        private Range<T> myRange = null;
+        private Range<Comparable<T>> myRange = null;
         private final T myDefaultValue;
         private boolean myIsRequired = false;
         private final Class<T> myClass;
-        private FILE_TYPE myFileType = FILE_TYPE.NA;
+        private PARAMETER_TYPE myParameterType = PARAMETER_TYPE.NA;
         private PluginParameter<?> myDependentOnParameter = null;
-        private Comparable<?> myDependentOnParameterValue = null;
+        private Object myDependentOnParameterValue = null;
 
         public Builder(String cmdLineName, T defaultValue, Class<T> type) {
-            myCmdLineName = cmdLineName.toString();
+            myCmdLineName = cmdLineName;
             myDefaultValue = defaultValue;
             myClass = type;
         }
@@ -185,7 +192,7 @@ public final class PluginParameter<T extends Comparable<T>> {
             return this;
         }
 
-        public Builder<T> range(Range<T> range) {
+        public Builder<T> range(Range<Comparable<T>> range) {
             myRange = range;
             return this;
         }
@@ -201,22 +208,37 @@ public final class PluginParameter<T extends Comparable<T>> {
         }
 
         public Builder<T> inFile() {
-            myFileType = FILE_TYPE.IN_FILE;
+            myParameterType = PARAMETER_TYPE.IN_FILE;
             return this;
         }
 
         public Builder<T> outFile() {
-            myFileType = FILE_TYPE.OUT_FILE;
+            myParameterType = PARAMETER_TYPE.OUT_FILE;
             return this;
         }
 
         public Builder<T> inDir() {
-            myFileType = FILE_TYPE.IN_DIR;
+            myParameterType = PARAMETER_TYPE.IN_DIR;
             return this;
         }
 
         public Builder<T> outDir() {
-            myFileType = FILE_TYPE.OUT_DIR;
+            myParameterType = PARAMETER_TYPE.OUT_DIR;
+            return this;
+        }
+
+        public Builder<T> genotypeTable() {
+            myParameterType = PARAMETER_TYPE.GENOTYPE_TABLE;
+            return this;
+        }
+
+        public Builder<T> taxaList() {
+            myParameterType = PARAMETER_TYPE.TAXA_LIST;
+            return this;
+        }
+
+        public Builder<T> positionList() {
+            myParameterType = PARAMETER_TYPE.POSITION_LIST;
             return this;
         }
 
@@ -228,7 +250,7 @@ public final class PluginParameter<T extends Comparable<T>> {
             }
         }
 
-        public Builder<T> dependentOnParameter(PluginParameter<?> parameter, Comparable<?> value) {
+        public Builder<T> dependentOnParameter(PluginParameter<?> parameter, Object value) {
             myDependentOnParameter = parameter;
             myDependentOnParameterValue = value;
             return this;
@@ -252,7 +274,7 @@ public final class PluginParameter<T extends Comparable<T>> {
             }
             return new PluginParameter<>(myGuiName, myUnits, myCmdLineName,
                     myDescription, myRange, myDefaultValue, null, myIsRequired,
-                    myFileType, myDependentOnParameter,
+                    myParameterType, myDependentOnParameter,
                     myDependentOnParameterValue, myClass);
         }
     }

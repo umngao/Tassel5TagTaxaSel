@@ -55,6 +55,14 @@ public interface GenotypeTable {
     public static final String[] GENOTYPE_TABLE_ANNOTATIONS = new String[]{ANNOTATION_DATA_SET_NAME, ANNOTATION_DATA_SET_DESCRIPTION};
 
     /**
+     * Possible Components of a Genotype Table.
+     */
+    public static enum GENOTYPE_TABLE_COMPONENT {
+
+        Genotype, ReferenceProbability, Dosage, Depth, AlleleProbability
+    };
+
+    /**
      * This defines the possible allele scope types.
      */
     public static enum ALLELE_SORT_TYPE {
@@ -79,10 +87,10 @@ public interface GenotypeTable {
          */
         Reference
     };
-    
+
     /**
      * Returns whether this Genotype Table has Genotype values.
-     * 
+     *
      * @return has genotype values.
      */
     public boolean hasGenotype();
@@ -520,7 +528,7 @@ public interface GenotypeTable {
     public AlleleProbability alleleProbability();
 
     public float alleleProbability(int taxon, int site, SITE_SCORE_TYPE type);
-    
+
     public ReferenceProbability referenceProbability();
 
     public float referenceProbability(int taxon, int site);

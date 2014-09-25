@@ -51,7 +51,7 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
      *
      * @return value
      */
-    public Comparable getParameter(Enum key);
+    public Object getParameter(Enum key);
 
     /**
      * Returns parameter value for given parameter key.
@@ -60,7 +60,7 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
      *
      * @return value
      */
-    public Comparable getParameter(String key);
+    public Object getParameter(String key);
 
     /**
      * Sets parameter value for a given plugin
@@ -70,7 +70,7 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
      *
      * @return this plugin
      */
-    public Plugin setParameter(PluginParameter param, Object value);
+    public Plugin setParameter(PluginParameter<?> param, Object value);
 
     /**
      * Sets parameter value for given parameter key.
@@ -80,7 +80,7 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
      *
      * @return this plugin
      */
-    public Plugin setParameter(String key, Comparable value);
+    public Plugin setParameter(String key, Object value);
 
     /**
      * Sets parameter value for given parameter key.
@@ -224,12 +224,12 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
             }
         }
     }
-    
+
     /**
      * Returns whether given class name is Plugin.
-     * 
+     *
      * @param className class name
-     * 
+     *
      * @return true if class is Plugin
      */
     public static boolean isPlugin(String className) {

@@ -25,8 +25,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.gui.DialogUtils;
+import net.maizegenetics.gui.SelectFromAvailableDialog;
+import net.maizegenetics.gui.SiteNamesAvailableListModel;
+import net.maizegenetics.gui.TaxaAvailableListModel;
 import net.maizegenetics.prefs.TasselPrefs;
+import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.ExceptionUtils;
 import net.maizegenetics.util.Utils;
 
@@ -42,6 +48,7 @@ abstract public class AbstractPlugin implements Plugin {
 
     private final List<PluginListener> myListeners = new ArrayList<>();
     private final List<Plugin> myInputs = new ArrayList<>();
+    private DataSet myCurrentInputData = null;
     private final Frame myParentFrame;
     private final boolean myIsInteractive;
     private boolean myTrace = false;
@@ -64,6 +71,8 @@ abstract public class AbstractPlugin implements Plugin {
 
     @Override
     public DataSet performFunction(DataSet input) {
+
+        myCurrentInputData = input;
 
         try {
 
@@ -192,6 +201,7 @@ abstract public class AbstractPlugin implements Plugin {
                 return input == null ? null : outputClass.getConstructor(String.class).newInstance(input);
             }
         } catch (Exception nfe) {
+            myLogger.debug(nfe.getMessage(), nfe);
             throw new IllegalArgumentException("Problem converting: " + input + " to " + outputClass.getName());
         }
     }
@@ -275,7 +285,7 @@ abstract public class AbstractPlugin implements Plugin {
 
         for (PluginParameter<?> current : getParameterInstances()) {
 
-            if (current.fileType() == PluginParameter.FILE_TYPE.IN_FILE) {
+            if (current.parameterType() == PluginParameter.PARAMETER_TYPE.IN_FILE) {
                 if (!current.isEmpty()) {
                     String filename = current.value().toString();
                     File theFile = new File(filename);
@@ -300,7 +310,7 @@ abstract public class AbstractPlugin implements Plugin {
                 }
             }
 
-            if (current.fileType() == PluginParameter.FILE_TYPE.OUT_FILE) {
+            if (current.parameterType() == PluginParameter.PARAMETER_TYPE.OUT_FILE) {
                 if (!current.isEmpty()) {
                     String filename = current.value().toString();
                     String outFolder = Utils.getDirectory(filename);
@@ -317,8 +327,8 @@ abstract public class AbstractPlugin implements Plugin {
                 }
             }
 
-            if ((current.fileType() == PluginParameter.FILE_TYPE.IN_DIR)
-                    || (current.fileType() == PluginParameter.FILE_TYPE.OUT_DIR)) {
+            if ((current.parameterType() == PluginParameter.PARAMETER_TYPE.IN_DIR)
+                    || (current.parameterType() == PluginParameter.PARAMETER_TYPE.OUT_DIR)) {
                 if (!current.isEmpty()) {
                     String dirname = current.value().toString();
                     File directory = new File(dirname);
@@ -384,7 +394,7 @@ abstract public class AbstractPlugin implements Plugin {
             if (current.range() != null) {
                 if (current.valueType().isEnum()) {
                     builder.append(" [");
-                    Comparable[] values = current.valueType().getEnumConstants();
+                    Object[] values = current.valueType().getEnumConstants();
                     for (int i = 0; i < values.length; i++) {
                         if (i != 0) {
                             builder.append(" ");
@@ -431,7 +441,7 @@ abstract public class AbstractPlugin implements Plugin {
             if (current.range() != null) {
                 if (current.valueType().isEnum()) {
                     builder.append(" [");
-                    Comparable[] values = current.valueType().getEnumConstants();
+                    Object[] values = current.valueType().getEnumConstants();
                     for (int i = 0; i < values.length; i++) {
                         if (i != 0) {
                             builder.append(" ");
@@ -459,39 +469,38 @@ abstract public class AbstractPlugin implements Plugin {
     }
 
     @Override
-    public Comparable getParameter(Enum key) {
+    public Object getParameter(Enum key) {
         return getParameterInstance(key.toString()).value();
     }
 
     @Override
-    public Comparable getParameter(String key) {
+    public Object getParameter(String key) {
         return getParameterInstance(key).value();
     }
 
     @Override
-    public Plugin setParameter(PluginParameter param, Object value) {
-        if (value instanceof String) {
+    public Plugin setParameter(PluginParameter<?> param, Object value) {
+        if (value == null) {
+            setParameter(param.cmdLineName(), value);
+        } else if (value instanceof String) {
             setParameter(param.cmdLineName(), (String) value);
-        } else if (value instanceof Comparable) {
-            setParameter(param.cmdLineName(), (Comparable) value);
         } else {
-            throw new IllegalArgumentException("AbstractPlugin: setParameter: illegal value type: " + value.getClass().getName());
+            setParameter(param.cmdLineName(), value);
         }
         return this;
     }
 
     @Override
-    public Plugin setParameter(String key, Comparable value) {
+    public Plugin setParameter(String key, Object value) {
 
-        PluginParameter parameter = null;
         try {
 
             Field field = getParameterField(key);
-            parameter = (PluginParameter) field.get(this);
+            PluginParameter parameter = (PluginParameter) field.get(this);
             if (parameter == null) {
                 throw new IllegalArgumentException("setParameter: Unknown Parameter: " + key);
             }
-            if ((parameter.range() != null) && (!parameter.range().contains(value))) {
+            if ((parameter.range() != null) && (!parameter.acceptsValue(value))) {
                 throw new IllegalArgumentException("setParameter: " + parameter.cmdLineName() + " value: " + value.toString() + " outside range: " + parameter.range().toString());
             }
             PluginParameter newParameter = new PluginParameter<>(parameter, value);
@@ -502,11 +511,12 @@ abstract public class AbstractPlugin implements Plugin {
                 try {
                     throw e;
                 } catch (IllegalAccessException ex) {
-                    ex.printStackTrace();
+                    myLogger.error(ex.getMessage(), ex);
                 }
             } else {
                 myLogger.error(key + ": " + e.getMessage());
                 printUsage();
+                myLogger.debug(e.getMessage(), e);
                 System.exit(1);
             }
         }
@@ -520,7 +530,7 @@ abstract public class AbstractPlugin implements Plugin {
         PluginParameter parameter = null;
         try {
             parameter = getParameterInstance(key);
-            return setParameter(key, (Comparable) convert(value, parameter.valueType()));
+            return setParameter(key, convert(value, parameter.valueType()));
         } catch (Exception e) {
             if (isInteractive()) {
                 throw new IllegalArgumentException(getParameterInstance(key).guiName() + ": " + e.getMessage());
@@ -540,11 +550,9 @@ abstract public class AbstractPlugin implements Plugin {
     /**
      * Generates dialog based on this plugins define parameters.
      *
-     * @param <T>
-     *
      * @return true if OK clicked, false if canceled
      */
-    private <T extends Comparable<T>> boolean setParametersViaGUI() {
+    private boolean setParametersViaGUI() {
 
         final List<PluginParameter<?>> parameterInstances = getParameterInstances();
         if (parameterInstances.isEmpty()) {
@@ -573,7 +581,10 @@ abstract public class AbstractPlugin implements Plugin {
                 try {
                     for (final PluginParameter<?> current : parameterInstances) {
                         JComponent component = parameterFields.get(current.cmdLineName());
-                        if (component instanceof JTextField) {
+                        if (current.parameterType() == PluginParameter.PARAMETER_TYPE.GENOTYPE_TABLE) {
+                            GenotypeWrapper input = (GenotypeWrapper) ((JComboBox) component).getSelectedItem();
+                            setParameter(current.cmdLineName(), input.myObj);
+                        } else if (component instanceof JTextField) {
                             String input = ((JTextField) component).getText().trim();
                             setParameter(current.cmdLineName(), input);
                         } else if (component instanceof JCheckBox) {
@@ -624,10 +635,41 @@ abstract public class AbstractPlugin implements Plugin {
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         for (final PluginParameter<?> current : getParameterInstances()) {
-            if (current.valueType().isEnum()) {
+            if (current.parameterType() == PluginParameter.PARAMETER_TYPE.GENOTYPE_TABLE) {
+                Datum datum = getGenotypeTable();
                 JComboBox menu = new JComboBox();
-                Comparable[] values = current.valueType().getEnumConstants();
-                for (Comparable item : values) {
+                if (datum != null) {
+                    String name = datum.getName();
+                    GenotypeTable table = (GenotypeTable) datum.getData();
+
+                    if (table.hasGenotype()) {
+                        menu.addItem(new GenotypeWrapper(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype, "Genotype (" + name + ")"));
+                    }
+                    if (table.hasReferenceProbablity()) {
+                        menu.addItem(new GenotypeWrapper(GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability, "Reference Probability (" + name + ")"));
+                    }
+                    if (table.hasAlleleProbabilities()) {
+                        menu.addItem(new GenotypeWrapper(GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability, "Allele Probability (" + name + ")"));
+                    }
+                    if (table.hasDepth()) {
+                        menu.addItem(new GenotypeWrapper(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Depth, "Depth (" + name + ")"));
+                    }
+                    if (table.hasDosage()) {
+                        menu.addItem(new GenotypeWrapper(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Dosage, "Dosage (" + name + ")"));
+                    }
+                    menu.setSelectedIndex(0);
+                }
+                createEnableDisableAction(current, parameterFields, menu);
+                JPanel temp = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                temp.add(new JLabel(current.guiName()));
+                temp.add(menu);
+                temp.setToolTipText(getToolTip(current));
+                panel.add(temp);
+                parameterFields.put(current.cmdLineName(), menu);
+            } else if (current.valueType().isEnum()) {
+                JComboBox menu = new JComboBox();
+                Object[] values = current.valueType().getEnumConstants();
+                for (Object item : values) {
                     menu.addItem(item);
                 }
                 menu.setSelectedItem(current.value());
@@ -638,7 +680,7 @@ abstract public class AbstractPlugin implements Plugin {
                 temp.setToolTipText(getToolTip(current));
                 panel.add(temp);
                 parameterFields.put(current.cmdLineName(), menu);
-            } else if (current.valueType().isAssignableFrom(Boolean.class)) {
+            } else if (Boolean.class.isAssignableFrom(current.valueType())) {
                 JCheckBox check = new JCheckBox(current.guiName());
                 check.setToolTipText(getToolTip(current));
                 if (current.value() == Boolean.TRUE) {
@@ -651,9 +693,37 @@ abstract public class AbstractPlugin implements Plugin {
                 temp.add(check);
                 panel.add(temp);
                 parameterFields.put(current.cmdLineName(), check);
+            } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.TAXA_LIST) {
+                TaxaList taxa = getTaxaList();
+                JTextField field;
+                if (taxa == null) {
+                    field = new JTextField(TEXT_FIELD_WIDTH);
+                } else {
+                    field = new JTextField(TEXT_FIELD_WIDTH - 7);
+                }
+                if (current.value() != null) {
+                    field.setText(current.value().toString());
+                }
+                JPanel taxaPanel = getTaxaListPanel(current.guiName(), field, current.description(), dialog, taxa);
+                panel.add(taxaPanel);
+                parameterFields.put(current.cmdLineName(), field);
+            } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.POSITION_LIST) {
+                PositionList positions = getPositionList();
+                JTextField field;
+                if (positions == null) {
+                    field = new JTextField(TEXT_FIELD_WIDTH);
+                } else {
+                    field = new JTextField(TEXT_FIELD_WIDTH - 7);
+                }
+                if (current.value() != null) {
+                    field.setText(current.value().toString());
+                }
+                JPanel positionsPanel = getPositionListPanel(current.guiName(), field, current.description(), dialog, positions);
+                panel.add(positionsPanel);
+                parameterFields.put(current.cmdLineName(), field);
             } else {
                 final JTextField field;
-                if (current.fileType() != PluginParameter.FILE_TYPE.NA) {
+                if (current.parameterType() != PluginParameter.PARAMETER_TYPE.NA) {
                     field = new JTextField(TEXT_FIELD_WIDTH - 8);
                 } else {
                     field = new JTextField(TEXT_FIELD_WIDTH);
@@ -687,19 +757,19 @@ abstract public class AbstractPlugin implements Plugin {
                 }
 
                 JPanel line = null;
-                if (current.fileType() == PluginParameter.FILE_TYPE.IN_FILE) {
+                if (current.parameterType() == PluginParameter.PARAMETER_TYPE.IN_FILE) {
                     JButton browse = getOpenFile(dialog, field);
                     line = getLine(label, field, browse, getToolTip(current));
                     createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse});
-                } else if (current.fileType() == PluginParameter.FILE_TYPE.OUT_FILE) {
+                } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.OUT_FILE) {
                     JButton browse = getSaveFile(dialog, field);
                     line = getLine(label, field, browse, getToolTip(current));
                     createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse});
-                } else if (current.fileType() == PluginParameter.FILE_TYPE.IN_DIR) {
+                } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.IN_DIR) {
                     JButton browse = getOpenDir(dialog, field);
                     line = getLine(label, field, browse, getToolTip(current));
                     createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse});
-                } else if (current.fileType() == PluginParameter.FILE_TYPE.OUT_DIR) {
+                } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.OUT_DIR) {
                     JButton browse = getSaveDir(dialog, field);
                     line = getLine(label, field, browse, getToolTip(current));
                     createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse});
@@ -752,7 +822,7 @@ abstract public class AbstractPlugin implements Plugin {
         for (final PluginParameter<?> current : parameterInstances) {
             JComponent component = parameterFields.get(current.cmdLineName());
             if (component instanceof JTextField) {
-                Comparable defaultValue = current.defaultValue();
+                Object defaultValue = current.defaultValue();
                 if (defaultValue == null) {
                     ((JTextField) component).setText(null);
                 } else {
@@ -812,6 +882,7 @@ abstract public class AbstractPlugin implements Plugin {
                         component.setEnabled(true);
                     } else {
                         component.setEnabled(false);
+                        setParameter(current.cmdLineName(), current.defaultValue());
                     }
                 }
 
@@ -824,6 +895,7 @@ abstract public class AbstractPlugin implements Plugin {
                                 component.setEnabled(true);
                             } else {
                                 component.setEnabled(false);
+                                setParameter(current.cmdLineName(), current.defaultValue());
                             }
                         }
                     }
@@ -893,6 +965,92 @@ abstract public class AbstractPlugin implements Plugin {
         result.add(ref);
         if (button != null) {
             result.add(button);
+        }
+
+        return result;
+
+    }
+
+    private JPanel getTaxaListPanel(String label, final JTextField ref, String description, final JDialog parent, final TaxaList taxa) {
+
+        JPanel result = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        result.setToolTipText(description);
+
+        result.add(new JLabel(label));
+        ref.setEditable(true);
+        ref.setHorizontalAlignment(JTextField.LEFT);
+        ref.setAlignmentX(JTextField.CENTER_ALIGNMENT);
+        ref.setAlignmentY(JTextField.CENTER_ALIGNMENT);
+        ref.setMaximumSize(ref.getPreferredSize());
+        result.add(ref);
+
+        if (taxa != null) {
+            final SelectFromAvailableDialog dialog = new SelectFromAvailableDialog(getParentFrame(), "Taxa Filter", new TaxaAvailableListModel(taxa));
+            JButton taxaButton = new JButton(new AbstractAction() {
+
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    dialog.setLocationRelativeTo(parent);
+                    dialog.setVisible(true);
+                    if (!dialog.isCanceled()) {
+                        int[] indicesToKeep = dialog.getDesiredIndices();
+                        StringBuilder builder = new StringBuilder();
+                        for (int i = 0; i < indicesToKeep.length; i++) {
+                            if (i != 0) {
+                                builder.append(",");
+                            }
+                            builder.append(taxa.taxaName(indicesToKeep[i]));
+                        }
+                        ref.setText(builder.toString());
+                    }
+                    dialog.setVisible(false);
+                }
+            });
+            taxaButton.setText("Select");
+            result.add(taxaButton);
+        }
+
+        return result;
+
+    }
+
+    private JPanel getPositionListPanel(String label, final JTextField ref, String description, final JDialog parent, final PositionList positions) {
+
+        JPanel result = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        result.setToolTipText(description);
+
+        result.add(new JLabel(label));
+        ref.setEditable(true);
+        ref.setHorizontalAlignment(JTextField.LEFT);
+        ref.setAlignmentX(JTextField.CENTER_ALIGNMENT);
+        ref.setAlignmentY(JTextField.CENTER_ALIGNMENT);
+        ref.setMaximumSize(ref.getPreferredSize());
+        result.add(ref);
+
+        if (positions != null) {
+            final SelectFromAvailableDialog dialog = new SelectFromAvailableDialog(getParentFrame(), "Site Name Filter", new SiteNamesAvailableListModel(positions));
+            JButton taxaButton = new JButton(new AbstractAction() {
+
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    dialog.setLocationRelativeTo(parent);
+                    dialog.setVisible(true);
+                    if (!dialog.isCanceled()) {
+                        int[] indicesToKeep = dialog.getDesiredIndices();
+                        StringBuilder builder = new StringBuilder();
+                        for (int i = 0; i < indicesToKeep.length; i++) {
+                            if (i != 0) {
+                                builder.append(",");
+                            }
+                            builder.append(positions.siteName(indicesToKeep[i]));
+                        }
+                        ref.setText(builder.toString());
+                    }
+                    dialog.setVisible(false);
+                }
+            });
+            taxaButton.setText("Select");
+            result.add(taxaButton);
         }
 
         return result;
@@ -987,6 +1145,79 @@ abstract public class AbstractPlugin implements Plugin {
         });
 
         return result;
+    }
+
+    private class GenotypeWrapper {
+
+        private final Object myObj;
+        private final String myName;
+
+        public GenotypeWrapper(Object obj, String name) {
+            myObj = obj;
+            myName = name;
+        }
+
+        @Override
+        public String toString() {
+            return myName;
+        }
+
+        public Object getObject() {
+            return myObj;
+        }
+
+    }
+
+    private Datum getGenotypeTable() {
+
+        if (myCurrentInputData == null) {
+            return null;
+        }
+
+        List<Datum> genotypeTables = myCurrentInputData.getDataOfType(GenotypeTable.class);
+        if (!genotypeTables.isEmpty()) {
+            return genotypeTables.get(0);
+        }
+
+        return null;
+    }
+
+    private TaxaList getTaxaList() {
+
+        if (myCurrentInputData == null) {
+            return null;
+        }
+
+        List<Datum> taxaList = myCurrentInputData.getDataOfType(TaxaList.class);
+        if (!taxaList.isEmpty()) {
+            return (TaxaList) taxaList.get(0).getData();
+        }
+
+        taxaList = myCurrentInputData.getDataOfType(GenotypeTable.class);
+        if (!taxaList.isEmpty()) {
+            return ((GenotypeTable) taxaList.get(0).getData()).taxa();
+        }
+
+        return null;
+    }
+
+    private PositionList getPositionList() {
+
+        if (myCurrentInputData == null) {
+            return null;
+        }
+
+        List<Datum> positionList = myCurrentInputData.getDataOfType(PositionList.class);
+        if (!positionList.isEmpty()) {
+            return (PositionList) positionList.get(0).getData();
+        }
+
+        positionList = myCurrentInputData.getDataOfType(GenotypeTable.class);
+        if (!positionList.isEmpty()) {
+            return ((GenotypeTable) positionList.get(0).getData()).positions();
+        }
+
+        return null;
     }
 
     /**
