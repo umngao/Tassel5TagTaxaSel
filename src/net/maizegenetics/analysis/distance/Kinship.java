@@ -2,13 +2,20 @@ package net.maizegenetics.analysis.distance;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
+import net.maizegenetics.dna.snp.score.ReferenceProbability;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
+import net.maizegenetics.phenotype.NumericAttribute;
+import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.PhenotypeAttribute;
+import net.maizegenetics.phenotype.TaxaAttribute;
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
+import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
-import net.maizegenetics.trait.SimplePhenotype;
 
-import java.awt.*;
+import java.awt.Frame;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by IntelliJ IDEA.
@@ -22,7 +29,7 @@ public class Kinship extends DistanceMatrix {
     Frame parentFrame;
     DistanceMatrix dm;
     GenotypeTable mar;
-    SimplePhenotype ped;
+    Phenotype ped;
     int[][] parents;
     private double kMin = 99999;
     private double kMax = -99999;
@@ -31,7 +38,7 @@ public class Kinship extends DistanceMatrix {
     private double cutOff = 2;
     private int numSeqs;
     private KINSHIP_TYPE kinshipType = KINSHIP_TYPE.IBS;
-    public static double matrixMultiplier = 2; //scale the numeric matrix produced by the transform function which codes phenotypes as {1,0.5,0}
+    public static double matrixMultiplier = 2; //scale the numeric matrix produced by the transform function or from probabilities which code phenotypes as {1,0.5,0}
     
     public enum KINSHIP_TYPE {Endelman, IBS};
     
@@ -55,9 +62,9 @@ public class Kinship extends DistanceMatrix {
     	System.out.printf("Built Kinship in %d millisec.\n", System.currentTimeMillis() - start);
     }
     
-    public Kinship(SimplePhenotype ped) {
+    public Kinship(Phenotype ped) {
         this.ped = ped;
-        buildFromPhenotype();
+        buildFromPed();
     }
 
     public Kinship(DistanceMatrix dm) {
@@ -72,40 +79,38 @@ public class Kinship extends DistanceMatrix {
         	dm = new DistanceMatrix(adm.getDistances(), mar.taxa());
         	toSimilarity();
         	getKStatistics();
-//        	pullBackExtrem();
+        	//pullBackExtrem();
         	//cutOff();
         	rescale();
         	System.out.println("Kinship was built from markers");
     	}
     }
 
-    public void buildFromPhenotype() {
-    	// if there are two traits assume pedigree
-    	//if there are more assume they are numeric markers
-    	
-    	int ntraits = ped.getNumberOfTraits();
-    	if (ntraits > 2) calculateRelationshipKinshipFromPhenotype();
-    	else buildFromPed();
-    }
-    
     public void buildFromPed() {
-        // get data from ped (SimplePhenotype) to parents (int[][]);
+        // get data from ped (Phenotype) to parents (int[][]);
     	
         System.out.println("Building Kinship From pedigree");
-        parents = new int[ped.getNumberOfTaxa()][ped.getNumberOfTraits()];
+        TaxaAttribute myTaxaAttribute = ped.taxaAttribute();
+        int ntaxa = myTaxaAttribute.size();
+        List<PhenotypeAttribute> dataAttributeList = ped.attributeListOfType(ATTRIBUTE_TYPE.data);
+        int ntraits = dataAttributeList.size();
+        
+        parents = new int[ntaxa][ntraits];
         try {
-            for (int row = 0; row < ped.getNumberOfTaxa(); row++) {
-                for (int col = 0; col < ped.getNumberOfTraits(); col++) {
-                    parents[row][col] = (int) ped.getData(row, col);
+            for (int row = 0; row < ntaxa; row++) {
+            	int attrNumber = 0;
+                for (PhenotypeAttribute attr : dataAttributeList) {
+                	NumericAttribute na = (NumericAttribute) attr;
+                    parents[row][attrNumber++] = (int) na.floatValue(row);
                 }
             }
         } catch (NumberFormatException e) {
             e.printStackTrace();
         }
 
-        dm = new DistanceMatrix(kinshipRelation(parents), ped.getTaxa());
+        dm = new DistanceMatrix(kinshipRelation(parents), new TaxaListBuilder().addAll(myTaxaAttribute.allTaxaAsList()).build());
 
-        System.out.println("Kinship was build from pedigree");
+        System.out.println("Kinship was built from pedigree");
     }
 
     public static double[][] kinshipRelation(int[][] ped) {
@@ -307,14 +312,19 @@ public class Kinship extends DistanceMatrix {
     	dm = new DistanceMatrix(distance, mar.taxa());
     }
 
-    public void calculateRelationshipKinshipFromPhenotype() {
-    	double[][] W = ped.getData(); 
+
+    public void calculateRelationshipKinshipFromReferenceProbability() {
+    	ReferenceProbability referenceP = mar.referenceProbability();
     	
     	//calculate the column averages and sumpq, center W
-    	int ncol = W[0].length;
-    	int nrow = W.length;
+    	int nrow = referenceP.numTaxa();
+    	int ncol = referenceP.numSites();
+    	double[][] W = new double[nrow][ncol]; 
+    	
     	for (int r = 0; r < nrow; r++) {
-    		for (int c = 0; c < ncol; c++) W[r][c] *= matrixMultiplier;
+    		for (int c = 0; c < ncol; c++) {
+    			W[r][c] = referenceP.value(r, c) * matrixMultiplier;
+    		}
     	}
     	
     	double sumpq = 0;
@@ -344,8 +354,11 @@ public class Kinship extends DistanceMatrix {
     	for (int r = 0; r < nrow; r++) {
     		for (int c = 0; c < nrow; c++) scaledIBS[r][c] = WWt.get(r, c) / sumpq /2 ;
     	}
-    	dm = new DistanceMatrix(scaledIBS, ped.getTaxa());
-    	
+    	dm = new DistanceMatrix(scaledIBS, mar.taxa());
+    }
+    
+    public void calculateRelationshipKinshipFromAlleleProbabilities() {
+    	//TODO implement
     }
     
     public DistanceMatrix getDm() {
