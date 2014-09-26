@@ -31,6 +31,7 @@ import net.maizegenetics.gui.DialogUtils;
 import net.maizegenetics.gui.SelectFromAvailableDialog;
 import net.maizegenetics.gui.SiteNamesAvailableListModel;
 import net.maizegenetics.gui.TaxaAvailableListModel;
+import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.ExceptionUtils;
@@ -391,21 +392,9 @@ abstract public class AbstractPlugin implements Plugin {
             }
             builder.append(" : ");
             builder.append(current.description());
-            if (current.range() != null) {
-                if (current.valueType().isEnum()) {
-                    builder.append(" [");
-                    Object[] values = current.valueType().getEnumConstants();
-                    for (int i = 0; i < values.length; i++) {
-                        if (i != 0) {
-                            builder.append(" ");
-                        }
-                        builder.append(values[i].toString());
-                    }
-                    builder.append("]");
-                } else {
-                    builder.append(" ");
-                    builder.append(current.range().toString());
-                }
+            if (current.hasRange()) {
+                builder.append(" ");
+                builder.append(current.rangeToString());
             }
             if (current.defaultValue() != null) {
                 builder.append(" (Default: ");
@@ -438,21 +427,9 @@ abstract public class AbstractPlugin implements Plugin {
             builder.append(current.guiName());
             builder.append(" : ");
             builder.append(current.description());
-            if (current.range() != null) {
-                if (current.valueType().isEnum()) {
-                    builder.append(" [");
-                    Object[] values = current.valueType().getEnumConstants();
-                    for (int i = 0; i < values.length; i++) {
-                        if (i != 0) {
-                            builder.append(" ");
-                        }
-                        builder.append(values[i].toString());
-                    }
-                    builder.append("]");
-                } else {
-                    builder.append(" ");
-                    builder.append(current.range().toString());
-                }
+            if (current.hasRange()) {
+                builder.append(" ");
+                builder.append(current.rangeToString());
             }
             if (current.defaultValue() != null) {
                 builder.append(" (Default: ");
@@ -500,8 +477,8 @@ abstract public class AbstractPlugin implements Plugin {
             if (parameter == null) {
                 throw new IllegalArgumentException("setParameter: Unknown Parameter: " + key);
             }
-            if ((parameter.range() != null) && (!parameter.acceptsValue(value))) {
-                throw new IllegalArgumentException("setParameter: " + parameter.cmdLineName() + " value: " + value.toString() + " outside range: " + parameter.range().toString());
+            if ((parameter.hasRange()) && (!parameter.acceptsValue(value))) {
+                throw new IllegalArgumentException("setParameter: " + parameter.cmdLineName() + " value: " + value.toString() + " outside range: " + parameter.rangeToString());
             }
             PluginParameter newParameter = new PluginParameter<>(parameter, value);
             field.set(this, newParameter);
@@ -640,21 +617,28 @@ abstract public class AbstractPlugin implements Plugin {
                 JComboBox menu = new JComboBox();
                 if (datum != null) {
                     String name = datum.getName();
-                    GenotypeTable table = (GenotypeTable) datum.getData();
+                    GenotypeTable table;
+                    if (datum.getData() instanceof GenotypeTable) {
+                        table = (GenotypeTable) datum.getData();
+                    } else if (datum.getData() instanceof GenotypePhenotype) {
+                        table = ((GenotypePhenotype) datum.getData()).genotypeTable();
+                    } else {
+                        throw new IllegalStateException("AbstractPlugin: setParametersViaGUI: unknown GenotypeTable type: " + datum.getData().getClass().getName());
+                    }
 
-                    if (table.hasGenotype()) {
+                    if (current.acceptsValue(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype) && table.hasGenotype()) {
                         menu.addItem(new GenotypeWrapper(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype, "Genotype (" + name + ")"));
                     }
-                    if (table.hasReferenceProbablity()) {
+                    if (current.acceptsValue(GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability) && table.hasReferenceProbablity()) {
                         menu.addItem(new GenotypeWrapper(GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability, "Reference Probability (" + name + ")"));
                     }
-                    if (table.hasAlleleProbabilities()) {
+                    if (current.acceptsValue(GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability) && table.hasAlleleProbabilities()) {
                         menu.addItem(new GenotypeWrapper(GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability, "Allele Probability (" + name + ")"));
                     }
-                    if (table.hasDepth()) {
+                    if (current.acceptsValue(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Depth) && table.hasDepth()) {
                         menu.addItem(new GenotypeWrapper(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Depth, "Depth (" + name + ")"));
                     }
-                    if (table.hasDosage()) {
+                    if (current.acceptsValue(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Dosage) && table.hasDosage()) {
                         menu.addItem(new GenotypeWrapper(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Dosage, "Dosage (" + name + ")"));
                     }
                     menu.setSelectedIndex(0);
@@ -739,7 +723,7 @@ abstract public class AbstractPlugin implements Plugin {
                         String input = field.getText().trim();
                         try {
                             if (!current.acceptsValue(input)) {
-                                JOptionPane.showMessageDialog(dialog, current.guiName() + " range: " + current.range().toString());
+                                JOptionPane.showMessageDialog(dialog, current.guiName() + " range: " + current.rangeToString());
                                 field.setText(getParameterInstance(current.cmdLineName()).value().toString());
                             }
                         } catch (Exception ex) {
@@ -1175,6 +1159,11 @@ abstract public class AbstractPlugin implements Plugin {
         }
 
         List<Datum> genotypeTables = myCurrentInputData.getDataOfType(GenotypeTable.class);
+        if (!genotypeTables.isEmpty()) {
+            return genotypeTables.get(0);
+        }
+
+        genotypeTables = myCurrentInputData.getDataOfType(GenotypePhenotype.class);
         if (!genotypeTables.isEmpty()) {
             return genotypeTables.get(0);
         }
