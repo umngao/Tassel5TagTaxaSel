@@ -123,5 +123,19 @@ public class AssociationUtils {
 		}
 		return true;
 	}
-
+	
+	public static double[] convertFloatArrayToDouble(float[] floatArray) {
+		int n = floatArray.length;
+		double[] doubleArray = new double[n];
+		for (int i = 0; i < n; i++) doubleArray[i] = floatArray[i];
+		return doubleArray;
+	}
+	
+	public static float[] convertDoubleArrayToFloat(double[] doubleArray) {
+		int n = doubleArray.length;
+		float[] floatArray = new float[n];
+		for (int i = 0; i < n; i++) floatArray[i] = (float) doubleArray[i];
+		return floatArray;
+	}
+	
 }

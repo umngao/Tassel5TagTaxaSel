@@ -1,18 +1,19 @@
 package net.maizegenetics.analysis.association;
 
 import net.maizegenetics.stats.linearmodels.FactorModelEffect;
-import net.maizegenetics.stats.linearmodels.ModelEffectUtils;
-import net.maizegenetics.trait.MarkerPhenotypeAdapterUtils;
-import net.maizegenetics.trait.Phenotype;
-import net.maizegenetics.trait.MarkerPhenotypeAdapter;
-import net.maizegenetics.trait.MarkerPhenotype;
-import net.maizegenetics.trait.Trait;
-import net.maizegenetics.trait.SimplePhenotype;
+import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
+import net.maizegenetics.util.OpenBitSet;
 import net.maizegenetics.util.SimpleTableReport;
-import net.maizegenetics.taxa.TaxaListBuilder;
-import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.phenotype.CategoricalAttribute;
+import net.maizegenetics.phenotype.GenotypePhenotype;
+import net.maizegenetics.phenotype.NumericAttribute;
+import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
+import net.maizegenetics.phenotype.PhenotypeAttribute;
+import net.maizegenetics.phenotype.PhenotypeBuilder;
+import net.maizegenetics.phenotype.TaxaAttribute;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -38,7 +39,7 @@ public class RidgeRegressionEmmaPlugin extends AbstractPlugin {
     @Override
     public DataSet performFunction(DataSet input) {
         try {
-            List<Datum> datasets = input.getDataOfType(Phenotype.class);
+            List<Datum> datasets = input.getDataOfType(GenotypePhenotype.class);
             if (datasets.size() < 1) {
                 String msg = "No datasets of an appropriate type were selected for the GS analysis.";
                 myLogger.error(msg);
@@ -79,67 +80,47 @@ public class RidgeRegressionEmmaPlugin extends AbstractPlugin {
         DoubleMatrix genotype;
         DoubleMatrix fixedEffects;
         LinkedList<Datum> theResults = new LinkedList<Datum>();
-
-        MarkerPhenotypeAdapter theAdapter;
-        if (dataset.getDataType().equals(MarkerPhenotype.class)) {
-            String msg = "Ridge Regression has only been implemented for numeric genotypes. No analysis will be run on this data.";
-            if (isInteractive()) {
-                JOptionPane.showMessageDialog(getParentFrame(), msg, "Ridge Regression Error", JOptionPane.ERROR_MESSAGE);
-            } else {
-                myLogger.error(msg);
-            }
-            return null;
-        } else {
-            theAdapter = new MarkerPhenotypeAdapter((Phenotype) dataset.getData());
+        GenotypePhenotype myGenoPheno = (GenotypePhenotype) dataset.getData();
+        GenotypeTable myGenotype = myGenoPheno.genotypeTable();
+        Phenotype myPhenotype = myGenoPheno.phenotype();
+        
+        if (!myGenotype.hasReference()) {
+        	throw new IllegalArgumentException("Incorrect data type. A numeric genotype was not found.");
         }
-
+        
         //numbers of different things
-        int numberOfMarkers = theAdapter.getNumberOfMarkers();
-        int numberOfPhenotypes = theAdapter.getNumberOfPhenotypes();
-
+        int numberOfMarkers = myGenotype.numberOfSites();
+        List<PhenotypeAttribute> dataAttributeList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data);
+        List<PhenotypeAttribute> factorAttributeList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor);
+        List<PhenotypeAttribute> covariateAttributeList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.covariate);
+        TaxaAttribute myTaxaAttribute = myPhenotype.taxaAttribute();
+        
         //iterate through the phenotypes
-        for (int ph = 0; ph < numberOfPhenotypes; ph++) {
-
+        for (PhenotypeAttribute attr : dataAttributeList) {
+        	NumericAttribute dataAttribute = (NumericAttribute) attr;
+        	
             //get phenotype data
-            double[] phenotypeData = theAdapter.getPhenotypeValues(ph);
+            double[] phenotypeData = AssociationUtils.convertFloatArrayToDouble(dataAttribute.floatValues());
             int nObs = phenotypeData.length;
             phenotype = DoubleMatrixFactory.DEFAULT.make(nObs, 1, phenotypeData);
 
-            //get the taxa
-            Taxon[] taxaIDs = theAdapter.getTaxa(ph);
-
-            //keep track of missing rows
-            boolean[] missing = theAdapter.getMissingPhenotypes(ph);
-
-            //get factors
-            ArrayList<String[]> factorList = MarkerPhenotypeAdapterUtils.getFactorList(theAdapter, ph, missing);
-
-            //get covariates
-            ArrayList<double[]> covariateList = MarkerPhenotypeAdapterUtils.getCovariateList(theAdapter, ph, missing);
-
             //make the fixed effect matrix
-            int numberOfFactors;
-            if (factorList == null) {
-                numberOfFactors = 0;
-            } else {
-                numberOfFactors = factorList.size();
-            }
-            int numberOfCovariates;
-            if (covariateList == null) {
-                numberOfCovariates = 0;
-            } else {
-                numberOfCovariates = covariateList.size();
-            }
+            int numberOfFactors = factorAttributeList.size();
+            int numberOfCovariates = covariateAttributeList.size();
             int numberOfEffects = numberOfFactors + numberOfCovariates + 1;
+            
             if (numberOfEffects > 1) {
                 DoubleMatrix[][] effects = new DoubleMatrix[1][numberOfEffects];
                 effects[0][0] = DoubleMatrixFactory.DEFAULT.make(nObs, 1, 1);
                 for (int i = 0; i < numberOfFactors; i++) {
-                    FactorModelEffect fme = new FactorModelEffect(ModelEffectUtils.getIntegerLevels(factorList.get(i)), true);
+                	CategoricalAttribute fa = (CategoricalAttribute) factorAttributeList.get(i);
+                    FactorModelEffect fme = new FactorModelEffect(fa.allIntValues(), true);
                     effects[0][i + 1] = fme.getX();
                 }
                 for (int i = 0; i < numberOfCovariates; i++) {
-                    effects[0][i + numberOfFactors + 1] = DoubleMatrixFactory.DEFAULT.make(nObs, 1, covariateList.get(i));
+                	NumericAttribute na = (NumericAttribute) covariateAttributeList.get(i);
+                	double[] values = AssociationUtils.convertFloatArrayToDouble(na.floatValues());
+                    effects[0][i + numberOfFactors + 1] = DoubleMatrixFactory.DEFAULT.make(nObs, 1, values);
                 }
                 fixedEffects = DoubleMatrixFactory.DEFAULT.compose(effects);
             } else {
@@ -150,34 +131,38 @@ public class RidgeRegressionEmmaPlugin extends AbstractPlugin {
             genotype = DoubleMatrixFactory.DEFAULT.make(nObs, numberOfMarkers);
             String[] markerNames = new String[numberOfMarkers];
             for (int m = 0; m < numberOfMarkers; m++) {
-                Object[] markerValue = theAdapter.getMarkerValue(ph, m);
                 for (int i = 0; i < nObs; i++) {
-                    genotype.set(i, m, ((Double) markerValue[i]).doubleValue());
+                    genotype.set(i, m, myGenotype.referenceProbability(i, m));
                 }
-                markerNames[m] = theAdapter.getMarkerName(m);
+                markerNames[m] = myGenotype.siteName(m);
             }
 
             RegRidgeEmmaDoubleMatrix ridgeRegression = new RegRidgeEmmaDoubleMatrix(phenotype, fixedEffects, genotype);
             ridgeRegression.solve();
 
             //output the gebv's for the taxa
-            double[] gebv = ridgeRegression.getBlups();
-            double[][] traitTable = new double[nObs][1];
-            for (int i = 0; i < nObs; i++) {
-                traitTable[i][0] = gebv[i];
-            }
-            LinkedList<Trait> traitList = new LinkedList<Trait>();
-            String phenoName = theAdapter.getPhenotypeName(ph);
-            traitList.add(new Trait(phenoName + "_GEBV", false, Trait.TYPE_DATA));
-            Phenotype outGebv = new SimplePhenotype(new TaxaListBuilder().addAll(taxaIDs).build(),
-                    traitList, traitTable);
-            String datumName = dataset.getName() + "_GEBVs_" + phenoName;
+            float[] gebv = AssociationUtils.convertDoubleArrayToFloat(ridgeRegression.getBlups());
+            String phenoName = attr.name();
+            ArrayList<PhenotypeAttribute> attributeList = new ArrayList<>();
+            ArrayList<ATTRIBUTE_TYPE> typeList = new ArrayList<>();
+            
+            attributeList.add(myTaxaAttribute);
+            typeList.add(ATTRIBUTE_TYPE.taxa);
+            
+            attributeList.add(new NumericAttribute(phenoName + "_GEBV", gebv, new OpenBitSet(nObs)));
+            typeList.add(ATTRIBUTE_TYPE.data);
+            
+            Phenotype gebvPheno = new PhenotypeBuilder().assignName("GEBV_" + phenoName)
+            		.fromAttributeList(attributeList, typeList)
+            		.build().get(0);
+            
+            String datumName = "GEBVs_" + phenoName + "_" + dataset.getName();
             StringBuilder comment = new StringBuilder("Ridge Regression from ");
             comment.append(dataset.getName()).append(":\n");
             comment.append("Genomic Estimated Breeding Values (GEBVs)\n");
             comment.append("trait = ").append(phenoName).append("\n");
             comment.append(nObs).append(" lines");
-            theResults.add(new Datum(datumName, outGebv, comment.toString()));
+            theResults.add(new Datum(datumName, gebvPheno, comment.toString()));
 
             //output the marker blups for the markers as a report
             double[] markerBlups = ridgeRegression.getMrkBlups();
@@ -194,7 +179,6 @@ public class RidgeRegressionEmmaPlugin extends AbstractPlugin {
             comment.append("trait = ").append(phenoName).append("\n");
             comment.append(numberOfMarkers).append(" markers");
             theResults.add(new Datum(datumName, str, comment.toString()));
-
         }
 
 
