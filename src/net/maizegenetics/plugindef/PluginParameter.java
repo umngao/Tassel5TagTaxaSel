@@ -2,6 +2,9 @@ package net.maizegenetics.plugindef;
 
 import com.google.common.collect.Range;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static net.maizegenetics.plugindef.AbstractPlugin.convert;
 
 import org.apache.log4j.Logger;
@@ -23,7 +26,7 @@ public final class PluginParameter<T> {
     private final String myUnits;
     private final String myCmdLineName;
     private final String myDescription;
-    private final Range<Comparable<T>> myRange;
+    private final List<Range<Comparable<T>>> myRanges;
     private final T myDefaultValue;
     private final T myValue;
     private final boolean myRequired;
@@ -38,12 +41,12 @@ public final class PluginParameter<T> {
     private final PARAMETER_TYPE myParameterType;
 
     private PluginParameter(String guiName, String guiUnits, String cmdLineName,
-            String description, Range<Comparable<T>> range, T defaultValue, T value, boolean required, PARAMETER_TYPE fileType, PluginParameter<?> dependentOnParameter, Object dependentOnParameterValue, Class<T> type) {
+            String description, List<Range<Comparable<T>>> ranges, T defaultValue, T value, boolean required, PARAMETER_TYPE fileType, PluginParameter<?> dependentOnParameter, Object dependentOnParameterValue, Class<T> type) {
         myGuiName = guiName;
         myUnits = guiUnits;
         myCmdLineName = cmdLineName;
         myDescription = description;
-        myRange = range;
+        myRanges = ranges;
         myDefaultValue = defaultValue;
         if (value == null) {
             myValue = defaultValue;
@@ -51,23 +54,11 @@ public final class PluginParameter<T> {
             myValue = value;
         }
 
-        if ((myRange != null) && (myValue != null)) {
+        if ((hasRange()) && (myValue != null)) {
             if (!acceptsValue((Comparable<T>) myValue)) {
                 StringBuilder builder = new StringBuilder();
-                builder.append("PluginParameter: init: " + myCmdLineName + " value: " + value.toString() + " outside range: ");
-                if (valueType().isEnum()) {
-                    builder.append(" [");
-                    T[] values = valueType().getEnumConstants();
-                    for (int i = 0; i < values.length; i++) {
-                        if (i != 0) {
-                            builder.append(" ");
-                        }
-                        builder.append(values[i].toString());
-                    }
-                    builder.append("]");
-                } else {
-                    builder.append(myRange.toString());
-                }
+                builder.append("PluginParameter: init: " + myCmdLineName + " value: " + myValue.toString() + " outside range: ");
+                builder.append(rangeToString());
                 throw new IllegalArgumentException(builder.toString());
             }
         }
@@ -91,7 +82,7 @@ public final class PluginParameter<T> {
      */
     public PluginParameter(PluginParameter<T> oldParameter, T newValue) {
         this(oldParameter.myGuiName, oldParameter.myUnits, oldParameter.myCmdLineName,
-                oldParameter.myDescription, oldParameter.myRange, oldParameter.myDefaultValue, newValue,
+                oldParameter.myDescription, oldParameter.myRanges, oldParameter.myDefaultValue, newValue,
                 oldParameter.myRequired, oldParameter.myParameterType, oldParameter.dependentOnParameter(),
                 oldParameter.dependentOnParameterValue(), oldParameter.myClass);
     }
@@ -112,13 +103,66 @@ public final class PluginParameter<T> {
         return myDescription;
     }
 
-    public Range<Comparable<T>> range() {
-        return myRange;
+    public boolean hasRange() {
+        if ((myRanges == null) || myRanges.isEmpty()) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+    public String rangeToString() {
+        if (hasRange()) {
+            StringBuilder builder = new StringBuilder();
+
+            if (myRanges.size() == 1) {
+                Range<Comparable<T>> current = myRanges.get(0);
+                if ((current.hasLowerBound() && current.hasUpperBound())
+                        && (current.lowerEndpoint().equals(current.upperEndpoint()))) {
+                    builder.append("[");
+                    builder.append(current.lowerEndpoint().toString());
+                    builder.append("]");
+                } else {
+                    builder.append(current.toString());
+                }
+            } else {
+                boolean first = true;
+                builder.append("[");
+                for (Range<Comparable<T>> current : myRanges) {
+                    if (!first) {
+                        builder.append(", ");
+                    } else {
+                        first = false;
+                    }
+
+                    if ((current.hasLowerBound() && current.hasUpperBound())
+                            && (current.lowerEndpoint().equals(current.upperEndpoint()))) {
+                        builder.append(current.lowerEndpoint().toString());
+                    } else {
+                        builder.append(current.toString());
+                    }
+                }
+                builder.append("]");
+            }
+
+            return builder.toString();
+        } else {
+            return "";
+        }
     }
 
     public boolean acceptsValue(Object value) {
         try {
-            return (myRange == null) || (myRange.contains((Comparable<T>) value));
+            if (hasRange()) {
+                for (Range<Comparable<T>> current : myRanges) {
+                    if (current.contains((Comparable<T>) value)) {
+                        return true;
+                    }
+                }
+                return false;
+            } else {
+                return true;
+            }
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
             return false;
@@ -127,7 +171,7 @@ public final class PluginParameter<T> {
 
     public boolean acceptsValue(String input) {
         Comparable<T> value = (Comparable<T>) convert(input, valueType());
-        return (myRange == null) || (myRange.contains(value));
+        return acceptsValue(value);
     }
 
     public T value() {
@@ -168,7 +212,7 @@ public final class PluginParameter<T> {
         private String myUnits = "";
         private final String myCmdLineName;
         private String myDescription = "";
-        private Range<Comparable<T>> myRange = null;
+        private List<Range<Comparable<T>>> myRanges = new ArrayList<>();
         private final T myDefaultValue;
         private boolean myIsRequired = false;
         private final Class<T> myClass;
@@ -193,7 +237,18 @@ public final class PluginParameter<T> {
         }
 
         public Builder<T> range(Range<Comparable<T>> range) {
-            myRange = range;
+            if (range != null) {
+                myRanges.add(range);
+            }
+            return this;
+        }
+
+        public Builder<T> range(Comparable<T>[] values) {
+            if (values != null) {
+                for (Comparable<T> current : values) {
+                    myRanges.add(Range.singleton(current));
+                }
+            }
             return this;
         }
 
@@ -273,7 +328,7 @@ public final class PluginParameter<T> {
                 myDescription = myGuiName;
             }
             return new PluginParameter<>(myGuiName, myUnits, myCmdLineName,
-                    myDescription, myRange, myDefaultValue, null, myIsRequired,
+                    myDescription, myRanges, myDefaultValue, null, myIsRequired,
                     myParameterType, myDependentOnParameter,
                     myDependentOnParameterValue, myClass);
         }
