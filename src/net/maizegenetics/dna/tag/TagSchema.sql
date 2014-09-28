@@ -55,6 +55,7 @@ CREATE TABLE allele (
   allelecall         INTEGER(1) NOT NULL,
   qualityscore INTEGER (1)
 );
+CREATE UNIQUE INDEX snpidallcall_idx on allele (snpid, allelecall);
 
 
 -- Table: SNP Position

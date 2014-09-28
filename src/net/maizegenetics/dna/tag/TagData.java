@@ -8,6 +8,7 @@ import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.tag.Tag;
 import net.maizegenetics.dna.tag.TaxaDistribution;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.Tuple;
 
 import java.util.Map;
 import java.util.Set;
@@ -117,14 +118,14 @@ public interface TagData {
     Map<String,String> getTagAlignmentApproaches();
 
     /**
-     * Map of positions and with associated map of Tags and their taxa distribution.  Warning:  This can be a very large
-     * data structure for entire chromosomes. Only the best positions are returned.
+     * Map of positions and with associated map of Tags and their taxa distribution and their alignment direction.
+     * Warning:  This can be a very large data structure for entire chromosomes. Only the best positions are returned.
      * @param chromosome chromosome
      * @param firstPosition first physical position in genome (value <0 will return physical >=0)
      * @param lastPosition inclusive last physical position (value <0 will assume Integer.MAX)
-     * @return  Map of maps for position (key) to Map of Tag(key) TaxaDistribution(Value)
+     * @return  Map of maps for position (key) to Map of Tag(key) to the Tuple(Direction,TaxaDistribution)(Value)
      */
-    Map<Position, Map<Tag,TaxaDistribution>> getCutPositionTagTaxaMap(Chromosome chromosome, int firstPosition, int lastPosition);
+    Map<Position, Map<Tag, Tuple<Boolean,TaxaDistribution>>> getCutPositionTagTaxaMap(Chromosome chromosome, int firstPosition, int lastPosition);
 
 
     /**

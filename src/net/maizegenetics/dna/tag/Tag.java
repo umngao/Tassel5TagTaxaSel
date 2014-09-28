@@ -1,5 +1,7 @@
 package net.maizegenetics.dna.tag;
 
+import net.maizegenetics.dna.BaseEncoder;
+
 import java.io.Serializable;
 
 /**
@@ -21,6 +23,10 @@ public interface Tag {
 
     default String toCSVString() {
         return sequence() + "," + seqLength();
+    }
+
+    default String toReverseComplement() {
+        return BaseEncoder.getReverseComplement(sequence());
     }
 
 }

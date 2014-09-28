@@ -602,14 +602,17 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 //        return positionMapBuilder.build();
 //    }
 
+    //TODO need to add the forward direction to the resulting map somehow.  Perhaps  Map<Position, Map<Tag, Tuple<Boolean,TaxaDistribution>>>
+    //alternatively there could be a tag alignment object.
+
     @Override
-    public Map<Position, Map<Tag, TaxaDistribution>> getCutPositionTagTaxaMap(Chromosome chromosome, int firstPosition, int lastPosition) {
+    public Map<Position, Map<Tag, Tuple<Boolean,TaxaDistribution>>> getCutPositionTagTaxaMap(Chromosome chromosome, int firstPosition, int lastPosition) {
         String sqlQuery="select p.positionid, forward, chromosome, position, strand, t.tagid, depthsRLE  " +
                 "from tag t, cutposition p, tagCutPosition tc, tagtaxadistribution ttd " +
                 "where p.positionid=tc.positionid and tc.tagid=t.tagid and t.tagid=ttd.tagid " +
                 "and chromosome="+chromosome.toString()+//" and position>"+firstPosition+" " + //todo position would need to be index to make fast
                 " order by position";
-        Map<Position, Map<Tag, TaxaDistribution>> positionTagTaxaMap=new HashMap<>();
+        Map<Position, Map<Tag, Tuple<Boolean,TaxaDistribution>>> positionTagTaxaMap=new HashMap<>();
         Map<Integer,Position> tempPositionMap=new HashMap<>();  //reverse the map
         getPositionSubMap(chromosome,firstPosition,lastPosition).entrySet().stream()
                 .forEach(entry -> tempPositionMap.put(entry.getValue(),entry.getKey()));
@@ -619,8 +622,9 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 Position position=tempPositionMap.get(rs.getInt("positionid"));
                 Tag tag=tagTagIDMap.inverse().get(rs.getInt("tagid"));
                 TaxaDistribution taxaDistribution=TaxaDistBuilder.create(rs.getBytes("depthsRLE"));
-                Map<Tag, TaxaDistribution> tagTaxaMap=positionTagTaxaMap.computeIfAbsent(position, k -> new HashMap<>());
-                tagTaxaMap.put(tag,taxaDistribution);
+                Boolean forwardAlignDirection=rs.getBoolean("forward");
+                Map<Tag, Tuple<Boolean,TaxaDistribution>> tagTaxaMap=positionTagTaxaMap.computeIfAbsent(position, k -> new HashMap<>());
+                tagTaxaMap.put(tag,new Tuple<>(forwardAlignDirection,taxaDistribution));
             }
         } catch (SQLException e) {
             e.printStackTrace();
