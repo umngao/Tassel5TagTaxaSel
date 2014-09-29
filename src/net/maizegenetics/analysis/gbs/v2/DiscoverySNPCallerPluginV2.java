@@ -24,10 +24,14 @@ import org.biojava3.core.util.ConcurrencyTools;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.*;
 
@@ -85,47 +89,38 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
     public DataSet processData(DataSet input) {
         myLogger.info("Finding SNPs in " + inputDB() + ".");
         myLogger.info(String.format("StartChr:%d EndChr:%d %n", startChromosome(), endChromosome()));
-        //DataOutputStream locusLogDOS = openLocusLog(logFile());
-        if (customSNPLogging) {
-//            myCustomSNPLog = new CustomSNPLog(logFile());
-        }
-        //ConcurrencyTools.setThreadPoolSize(1);
-        for (int chr = startChromosome(); chr <= endChromosome(); chr++) {
-            myLogger.info("\n\nProcessing chromosome " + chr + "...");
-            if (includeReference) {
-                //refGenomeChr = readReferenceGenomeChr(referenceGenomeFile(), chr);
-                if (refGenomeChr == null) {
-                    myLogger.info("  WARNING: chromosome " + chr + " not found in the reference genome file. Skipping this chromosome.");
-                    continue;
-                }
-            }
-            tagDataWriter.getCutPositionTagTaxaMap(new Chromosome("" + chr), -1, -1).entrySet().stream()
-                    .forEach(emp -> findAlleleByAlignment(emp.getKey(), emp.getValue()));
-            myLogger.info("Finished processing chromosome " + chr + "\n\n");
-        }
+        tagDataWriter =new TagDataSQLite(inputDB());
+        IntStream.rangeClosed(startChromosome(), endChromosome()).unordered()
+            .forEach(chr -> {
+                        Multimap<Tag, Allele> chromosomeAllelemap = HashMultimap.create();
+                        tagDataWriter.getCutPositionTagTaxaMap(new Chromosome("" + chr), -1, -1).entrySet().stream()
+                                .forEach(emp -> {
+                                    Multimap<Tag, Allele> tm = findAlleleByAlignment(emp.getKey(), emp.getValue());
+                                    if (tm != null) chromosomeAllelemap.putAll(tm);
+                                });
+                        myLogger.info("Finished processing chromosome " + chr + "\n\n");
+                        tagDataWriter.putTagAlleles(chromosomeAllelemap);
+                    }
+            );
         ConcurrencyTools.shutdown();
+        try{
+            ((TagDataSQLite)tagDataWriter).close();
+        } catch (Exception ex) {ex.printStackTrace();}
         return null;
     }
 
     @Override
     public void postProcessParameters() {
 
-        if (myInputDB.isEmpty()) {
-            throw new IllegalArgumentException("DiscoverySNPCallerPlugin: postProcessParameters: Input Tags by Taxa File not Set.");
-        } else {
-            tagDataWriter =new TagDataSQLite(inputDB());
-        }
-        if (tagDataWriter == null) {
-            throw new IllegalArgumentException("DiscoverySNPCallerPlugin: postProcessParameters: Problem reading Tags by Taxa File: " + inputDB());
+        if (myInputDB.isEmpty() || !Files.exists(Paths.get(inputDB()))) {
+            throw new IllegalArgumentException("DiscoverySNPCallerPlugin: postProcessParameters: Input DB not set or found");
         }
         if (!myRefGenome.isEmpty()) {
             includeReference = true;
         }
-
         if (callBiallelicSNPsWithGap() && includeGaps()) {
             throw new IllegalArgumentException("The callBiSNPsWGap option is mutually exclusive with the inclGaps option.");
         }
-
         if (endChromosome() - startChromosome() < 0) {
             throw new IllegalArgumentException("The start chromosome is larger than the end chromosome.");
         }
@@ -149,22 +144,21 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         return "Discovery SNP Caller";
     }
 
-    Table<Position, Byte, List<TagTaxaDistribution>> findAlleleByAlignment(Position cutPosition, Map<Tag,TaxaDistribution> tagTaxaMap) {
-//        System.out.println("cutPosition = [" + cutPosition + "], tagTaxaMap = [" + tagTaxaMap + "]");
+    Multimap<Tag,Allele> findAlleleByAlignment(Position cutPosition,
+                                                            Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap) {
         if(tagTaxaMap.isEmpty()) return null;  //todo why would this be empty?
-        final int numberOfTaxa=tagTaxaMap.values().stream().findFirst().get().maxTaxa();
+        final int numberOfTaxa=tagTaxaMap.values().stream().findFirst().get().y.maxTaxa();
         if(tagTaxaMap.size()<2) {//homozygous
             return null;  //consider reporting homozygous
         }
         if(!tagTaxaMap.keySet().stream().anyMatch(Tag::isReference)) {
-//            System.out.println("Reference was set cutPosition = " + cutPosition);
             tagTaxaMap=setCommonToReference(tagTaxaMap);
         }
-        final double taxaCoverage=tagTaxaMap.values().stream().mapToInt(TaxaDistribution::numberOfTaxaWithTag).sum()/(double)numberOfTaxa;  //todo this could be changed to taxa with tag
+        final double taxaCoverage=tagTaxaMap.values().stream().mapToInt(t -> t.y.numberOfTaxaWithTag()).sum()/(double)numberOfTaxa;  //todo this could be changed to taxa with tag
         if(taxaCoverage < myMinLocusCoverage.value()) {
             return null;  //consider reporting low coverage
         }
-        Map<Tag,String> alignedTags=alignTags(tagTaxaMap.keySet());
+        Map<Tag,String> alignedTags=alignTags(tagTaxaMap);
         Table<Position, Byte, List<TagTaxaDistribution>> tAlign=convertAlignmentToTagTable(alignedTags, tagTaxaMap,  cutPosition);
         List<Position> positionToKeep=tAlign.rowMap().entrySet().stream()
                 .filter(entry -> (double) numberTaxaAtSiteIgnoreGaps(entry.getValue()) / (double) numberOfTaxa > minLocusCoverage())
@@ -174,10 +168,6 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 })
                 .map(Map.Entry::getKey) //get Position
                 .collect(Collectors.toList());
-        if(positionToKeep.size()>4) {
-            System.out.println("More than 4 SNPS:"+cutPosition.toString());
-            alignedTags.forEach((t, s) -> System.out.println(t.sequence() + ":" + s));
-        }
         //todo convert to stream
         Multimap<Tag,Allele> tagAllelemap= HashMultimap.create();
         for (Position position: positionToKeep) {
@@ -188,20 +178,19 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 }
             }
         }
-        //tagDataWriter.putTagAlleles(tagAllelemap);
-        System.out.println(cutPosition.toString());
-        return tAlign;
+        System.out.printf("%s SNPNum:%d \n",cutPosition.toString(),tagAllelemap.size());
+        return tagAllelemap;
     }
 
-    private static Map<Tag,TaxaDistribution> setCommonToReference(Map<Tag,TaxaDistribution> tagTaxaMap) {
+    private static Map<Tag,Tuple<Boolean,TaxaDistribution>> setCommonToReference(Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap) {
         Tag commonTag=tagTaxaMap.entrySet().stream()
-                .max(Comparator.comparingInt(e -> e.getValue().numberOfTaxaWithTag()))
+                .max(Comparator.comparingInt(e -> e.getValue().y.numberOfTaxaWithTag()))
                 .map(e -> e.getKey())
                 .get();
-        TaxaDistribution commonTD=tagTaxaMap.get(commonTag);
+        Tuple<Boolean,TaxaDistribution> commonTD=tagTaxaMap.get(commonTag);
         Tag refTag=TagBuilder.instance(commonTag.seq2Bit(),commonTag.seqLength()).reference().build();
-        ImmutableMap.Builder<Tag, TaxaDistribution> tagTaxaMapBuilder=new ImmutableMap.Builder<>();
-        for (Map.Entry<Tag, TaxaDistribution> entry : tagTaxaMap.entrySet()) {
+        ImmutableMap.Builder<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMapBuilder=new ImmutableMap.Builder<>();
+        for (Map.Entry<Tag, Tuple<Boolean, TaxaDistribution>> entry : tagTaxaMap.entrySet()) {
             if(entry.getKey()!=commonTag) {tagTaxaMapBuilder.put(entry);}
             else {tagTaxaMapBuilder.put(refTag,commonTD);}
         }
@@ -221,15 +210,14 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      * Aligns a set of tags anchored to the same reference position.
      * @return map with tag(values) mapping to String with alignment
      */
-    static Map<Tag,String> alignTags(Collection<Tag> tags) {
-        List<DNASequence> lst;
-        lst = tags.stream()
-                .map(t -> {
-                    DNASequence ds=new DNASequence(t.sequence());
-                    ds.setUserCollection(ImmutableList.of(t));
-                    return ds;
-                })
-                .collect(Collectors.toList());
+    private static Map<Tag,String> alignTags(Map<Tag,Tuple<Boolean,TaxaDistribution>> tags) {
+        List<DNASequence> lst=new ArrayList<>();
+        tags.forEach((tag, dir) -> {
+            String sequence = (dir.x) ? tag.sequence() : tag.toReverseComplement();
+            DNASequence ds = new DNASequence(sequence);
+            ds.setUserCollection(ImmutableList.of(tag));
+            lst.add(ds);
+        });
         Profile<DNASequence, NucleotideCompound> profile = Alignments.getMultipleSequenceAlignment(lst);
         ImmutableMap.Builder<Tag,String> result=new ImmutableMap.Builder<>();
         for (AlignedSequence<DNASequence, NucleotideCompound> compounds : profile) {
@@ -246,13 +234,12 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      * @param refStartPosition
      * @return
      */
-    static Table<Position, Byte, List<TagTaxaDistribution>> convertAlignmentToTagTable(Map<Tag,String> alignedTags,
-                        Map<Tag,TaxaDistribution> tagTaxaDistMap, Position refStartPosition) {
+    private static Table<Position, Byte, List<TagTaxaDistribution>> convertAlignmentToTagTable(Map<Tag,String> alignedTags,
+                        Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaDistMap, Position refStartPosition) {
         Table<Position, Byte, List<TagTaxaDistribution>> alignT= TreeBasedTable.create(); //These could be sorted by depth
         final List<Optional<Position>> referencePositions=referencePositions(refStartPosition,alignedTags);
         alignedTags.forEach((t,s) -> {
-            TagTaxaDistribution td=new TagTaxaDistribution(t,tagTaxaDistMap.get(t));
-            //System.out.println("convertAlignmentToTagTable:"+td);
+            TagTaxaDistribution td=new TagTaxaDistribution(t,tagTaxaDistMap.get(t).y);
             for (int i = 0; i < s.length(); i++) {
                 byte allele=getNucleotideAlleleByte(s.charAt(i));
                 Optional<Position> p=referencePositions.get(i);
@@ -269,7 +256,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         return alignT;
     }
 
-    public static String toString(Table<Position, Byte, List<TagTaxaDistribution>> snpTagTable) {
+    private static String toString(Table<Position, Byte, List<TagTaxaDistribution>> snpTagTable) {
         StringBuilder sb=new StringBuilder();
         sb.append(String.format("Rows %d Columns %d\n", snpTagTable.rowKeySet().size(), snpTagTable.columnKeySet().size()));
         sb.append("Columns bases:");
@@ -305,10 +292,6 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 .mapToInt(tag -> tag.taxaDist().numberOfTaxaWithTag())
                 .sum();
     }
-
-//    private void removePosition(Table<Position, Byte, List<TagTaxaDistribution>> table, Position posToRemove){
-//        table.row(posToRemove).forEach((b,ttd) -> table.remove(posToRemove,b));
-//    }
 
     private static List<Optional<Position>> referencePositions(Position refStartPosition, Map<Tag,String> alignedTags){
         Tag refTag=alignedTags.keySet().stream()
