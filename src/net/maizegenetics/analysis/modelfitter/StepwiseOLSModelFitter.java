@@ -8,23 +8,33 @@ import net.maizegenetics.stats.linearmodels.ModelEffectUtils;
 import net.maizegenetics.stats.linearmodels.NestedCovariateModelEffect;
 import net.maizegenetics.stats.linearmodels.PartitionedLinearModel;
 import net.maizegenetics.stats.linearmodels.SweepFastLinearModel;
-import net.maizegenetics.trait.MarkerPhenotypeAdapter;
-import net.maizegenetics.trait.MarkerPhenotypeAdapterUtils;
+import net.maizegenetics.util.OpenBitSet;
 import net.maizegenetics.util.SimpleTableReport;
 import net.maizegenetics.util.TableReport;
+import net.maizegenetics.analysis.association.AssociationUtils;
 import net.maizegenetics.dna.map.Chromosome;
+import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTableUtils;
+import net.maizegenetics.phenotype.CategoricalAttribute;
+import net.maizegenetics.phenotype.GenotypePhenotype;
+import net.maizegenetics.phenotype.NumericAttribute;
+import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
+import net.maizegenetics.phenotype.PhenotypeAttribute;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
+
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
 import net.maizegenetics.stats.linearmodels.BasicShuffler;
 
 public class StepwiseOLSModelFitter {
-	private MarkerPhenotypeAdapter myData;
+	private GenotypePhenotype myData;
 
 	//settable parameters
 	private double[] enterlimits = null;
@@ -46,10 +56,9 @@ public class StepwiseOLSModelFitter {
 	private int currentPhenotypeIndex;
 	private int numberOfBaseModelEffects;
 	private double[] y;
-	private boolean[] missing;
+	private OpenBitSet missing;
 	int numberNotMissing;
-	private ArrayList<String[]> factorList;
-	private ArrayList<double[]> covariateList;
+	int totalNumber;
 	private LinkedList<Object[]> resultRowsAnova = new LinkedList<Object[]>();
 	private LinkedList<Object[]> resultRowsAnovaWithCI = new LinkedList<Object[]>();        
 	private LinkedList<Object[]> rowsSiteEffectTable = new LinkedList<Object[]>();
@@ -70,78 +79,57 @@ public class StepwiseOLSModelFitter {
 
 	private final String[] anovaReportHeader = new String[]{"Trait", "Name","Locus","Position","df","SS","MS", "F", "pr>F", "BIC", "mBIC", "AIC"};
     private final String[] anovaReportWithCIHeader = new String[]{"Trait", "Name","Locus","Position","df","SS","MS", "F", "pr>F", "BIC", "mBIC", "AIC", "SuppLeft", "SuppRight"};
+    
+	GenotypeTable myGenotype;
+	Phenotype myPhenotype;
+	List<PhenotypeAttribute> dataAttributeList;
+	List<PhenotypeAttribute> factorAttributeList;
+	List<PhenotypeAttribute> covariateAttributeList;
+
 	public void setModelType(MODEL_TYPE modelType){
 		this.modelType = modelType;
 	}
 
-	public StepwiseOLSModelFitter(MarkerPhenotypeAdapter anAdapter, String datasetName) {
-		myData = anAdapter;
+	public StepwiseOLSModelFitter(GenotypePhenotype genoPheno, String datasetName) {
+		myData = genoPheno;
 		this.datasetName = datasetName;
 	}
 
 	public DataSet runAnalysis() {
 		//numbers of various model components
-		int numberOfPhenotypes = myData.getNumberOfPhenotypes();
+		myGenotype = myData.genotypeTable();
+		myPhenotype = myData.phenotype();
+		dataAttributeList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data);
+		factorAttributeList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data);
+		covariateAttributeList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data);
+
+		int numberOfPhenotypes = dataAttributeList.size();
 
 		//cycle through the phenotypes
 		//notation: 
 		//X is the design matrix without the markers, rows of X will be deleted if marker data is missing
 		//Xm is the design matrix with markers
 		//y is the data
-
-		for (int ph = 0; ph < numberOfPhenotypes; ph++) {
-			currentPhenotypeIndex = ph;
-			if (enterlimits != null) enterlimit = enterlimits[ph];
-			if (exitlimits != null) exitlimit = exitlimits[ph];
+		currentPhenotypeIndex = -1;
+		for (PhenotypeAttribute attr : dataAttributeList) {
+			NumericAttribute currentTrait = (NumericAttribute) attr;
+			currentPhenotypeIndex++;
+			if (enterlimits != null) enterlimit = enterlimits[currentPhenotypeIndex];
+			if (exitlimits != null) exitlimit = exitlimits[currentPhenotypeIndex];
 
 			//get phenotype data
-			double[] phenotypeData = myData.getPhenotypeValues(ph);
+			float[] phenotypeData = currentTrait.floatValues();
 
 			//keep track of missing rows
-			missing = myData.getMissingPhenotypes(ph);
-
-			//get factors
-			factorList = MarkerPhenotypeAdapterUtils.getFactorList(myData, ph, missing);
-
-			//get covariates
-			covariateList = MarkerPhenotypeAdapterUtils.getCovariateList(myData, ph, missing);
+			missing = new OpenBitSet(currentTrait.missing());
+			for (PhenotypeAttribute factor : factorAttributeList) missing.or(factor.missing());
+			for (PhenotypeAttribute cov : covariateAttributeList) missing.or(cov.missing());
 
 			//remove missing values from the arrays
-			numberNotMissing = 0;
-			int totalNumber = missing.length;
-			for (boolean b:missing) if (!b) numberNotMissing++;
+			totalNumber = phenotypeData.length;
+			numberNotMissing = totalNumber - (int) missing.cardinality();
 
-			int ptr = 0;
-			y = new double[numberNotMissing];
-			for (int i = 0; i < totalNumber; i++) {
-				if (!missing[i]) y[ptr++] = phenotypeData[i];
-			}
-
-			if (factorList != null) {
-				int n = factorList.size();
-				for (int f = 0 ; f < n; f++) {
-					String[] newfactor = new String[numberNotMissing];
-					String[] oldfactor = factorList.get(f);
-					ptr = 0;
-					for (int i = 0; i < totalNumber; i++) {
-						if (!missing[i]) newfactor[ptr++] = oldfactor[i];
-					}
-					factorList.set(f, newfactor);
-				}
-			}
-
-			if (covariateList != null) {
-				int n = covariateList.size();
-				for (int f = 0 ; f < n; f++) {
-					double[] newcov = new double[numberNotMissing];
-					double[] oldcov = covariateList.get(f);
-					ptr = 0;
-					for (int i = 0; i < totalNumber; i++) {
-						if (!missing[i]) newcov[ptr++] = oldcov[i];
-					}
-					covariateList.set(f, newcov);
-				}
-			}
+			y = AssociationUtils.getNonMissingDoubles(phenotypeData, missing);
 			fitModel();
 			scanAndFindCI();
 		}
@@ -159,26 +147,24 @@ public class StepwiseOLSModelFitter {
 		meanEffect.setID("mean");
 		currentModel.add(meanEffect);
 
-		//add the factor effects
-		if (factorList != null) {
-			for (int f = 0; f < factorList.size(); f++) {
-				ArrayList<String> ids = new ArrayList<String>();
-				int[] levels = ModelEffectUtils.getIntegerLevels(factorList.get(f), ids);
-				FactorModelEffect fme = new FactorModelEffect(levels, true, new Object[]{myData.getFactorName(f), ids});
-				currentModel.add(fme);
-				if (isNested && f == nestingFactorIndex) {
-					nestingEffect = fme;
-					nestingFactorNames = ids; 
-				}
+		for (PhenotypeAttribute factor:factorAttributeList) {
+			ArrayList<String> ids = new ArrayList<String>();
+			CategoricalAttribute ca = (CategoricalAttribute) factor;
+			String[] factorLabels = AssociationUtils.getNonMissingValues(ca.allLabels(), missing);
+			int[] levels = ModelEffectUtils.getIntegerLevels(factorLabels, ids);
+			FactorModelEffect fme = new FactorModelEffect(levels, true, new Object[]{ca.name(), ids});
+			if (isNested && myPhenotype.indexOfAttribute(factor) == nestingFactorIndex) {
+				nestingEffect = fme;
+				nestingFactorNames = ids; 
 			}
 		}
-
+		
 		//add the covariate effects
-		if (covariateList != null) {
-			for (int c = 0; c < covariateList.size(); c++) {
-				CovariateModelEffect cme = new CovariateModelEffect(covariateList.get(c), myData.getCovariateName(c));
-				currentModel.add(cme);
-			}
+		for (PhenotypeAttribute cov:covariateAttributeList) {
+			NumericAttribute na = (NumericAttribute) cov;
+			double[] covData = AssociationUtils.getNonMissingDoubles(na.floatValues(), missing);
+			CovariateModelEffect cme = new CovariateModelEffect(covData, cov.name());
+			currentModel.add(cme);
 		}
 		numberOfBaseModelEffects = currentModel.size();
 		
@@ -380,13 +366,9 @@ public class StepwiseOLSModelFitter {
         SweepFastLinearModel sflm;
         int numberOfTerms = currentModel.size();
         int firstMarkerIndex = 1;
-        if (factorList != null){
-            firstMarkerIndex = firstMarkerIndex+factorList.size();
-        }
-        if (covariateList != null){
-            firstMarkerIndex = firstMarkerIndex+covariateList.size();
-        }        
-
+        firstMarkerIndex += factorAttributeList.size();
+        firstMarkerIndex += covariateAttributeList.size();
+        
         System.out.println("firstMarkerIndex " + firstMarkerIndex);
         int[] upperbound = new int[numberOfTerms - firstMarkerIndex];
         int[] lowerbound = new int[numberOfTerms - firstMarkerIndex];
@@ -413,40 +395,47 @@ public class StepwiseOLSModelFitter {
             			//NEW CODE: create the appropriate marker effect
             for (int m = lowerbound[t - firstMarkerIndex]; m <= upperbound[t - firstMarkerIndex]; m++) {
                 ModelEffect markerEffect = null;
-                SNP testsnp = new SNP(myData.getMarkerName(m), new Chromosome(myData.getLocusName(m)), (int) myData.getMarkerChromosomePosition(m), m);
-                Object[] markerValues = myData.getMarkerValue(currentPhenotypeIndex, m);
-                Object[] markersForNonMissing = new Object[numberNotMissing];
-                int allCount = 0;
-                int nonmissingCount = 0;
-                for (Object marker:markerValues) {
-                        if (!missing[allCount++]) markersForNonMissing[nonmissingCount++] = marker;
-                }
+                SNP testsnp = new SNP(myGenotype.siteName(m), myGenotype.chromosome(m), myGenotype.chromosomalPosition(m), m);
+                
+                //if the Genotype has a reference allele use that, else if genotype use that else nothing, allele probability not implemented
+                //for genotype use an additive model for now
+                if (myGenotype.hasReferenceProbablity()) {
+                	double[] cov = new double[numberNotMissing];
+                	int count = 0;
+                	for (int i = 0; i < totalNumber; i++) {
+                		if (!missing.fastGet(i)) cov[count++] = myGenotype.referenceProbability(i, m);
+                	}
 
-                if (myData.isMarkerDiscrete(t)) {
-                        ArrayList<Object> markerIds = new ArrayList<Object>();
-                        int[] levels = ModelEffectUtils.getIntegerLevels(markersForNonMissing, markerIds);
-                        testsnp.alleles = markerIds;
-
-                        if (isNested) {
-                                //not implemented yet
-                                markerEffect = new FactorModelEffect(levels, true, testsnp);
-                        } else {
-                                markerEffect = new FactorModelEffect(levels, true, testsnp);
-                        }
+                	if (isNested) {
+                		CovariateModelEffect cme = new CovariateModelEffect(cov);
+                		markerEffect = new NestedCovariateModelEffect(cme, nestingEffect);
+                		markerEffect.setID(testsnp);
+                	} else {
+                		markerEffect = new CovariateModelEffect(cov, testsnp);
+                	}
+ 
+                } else if (myGenotype.hasGenotype()) {
+                	byte minor = myGenotype.minorAllele(m);
+                	double[] cov = new double[numberNotMissing];
+                	byte[] siteGeno = AssociationUtils.getNonMissingBytes(myGenotype.genotypeAllTaxa(m), missing);
+                	for (int i = 0; i < numberNotMissing; i++) {
+                		byte[] diploidAlleles = GenotypeTableUtils.getDiploidValues(siteGeno[i]);
+                		if (diploidAlleles[0] == minor) cov[i] += 0.5;
+                		if (diploidAlleles[0] == minor) cov[i] += 0.5;
+                	}
+                	
+                	if (isNested) {
+                		CovariateModelEffect cme = new CovariateModelEffect(cov);
+                		markerEffect = new NestedCovariateModelEffect(cme, nestingEffect);
+                		markerEffect.setID(testsnp);
+                	} else {
+                		markerEffect = new CovariateModelEffect(cov, testsnp);
+                	}
+               	
                 } else {
-                        //int n = markerValues.length;
-                        double[] cov = new double[numberNotMissing];
-                        for (int i = 0; i < numberNotMissing; i++) cov[i] = ((Double) markersForNonMissing[i]).doubleValue();
-
-                        if (isNested) {
-                                CovariateModelEffect cme = new CovariateModelEffect(cov);
-                                markerEffect = new NestedCovariateModelEffect(cme, nestingEffect);
-                                markerEffect.setID(testsnp);
-                        } else {
-                        markerEffect = new CovariateModelEffect(cov, testsnp);
-                        }
-                       }
-
+                	throw new IllegalArgumentException("No genotypes or reference probabilities in the data set.");
+                }
+                
                 plm.testNewModelEffect(markerEffect);
                 double modelss = plm.getModelSS();
                 if (modelss > bestss) {
@@ -488,97 +477,104 @@ public class StepwiseOLSModelFitter {
   
     
     private int scanASide(boolean left, int whichModelTerm) {
-       
-        double alpha = 0.05;
-        int minIndex = 0;
-        int maxIndex = myData.getNumberOfMarkers() - 1;
-        int incr;
-        if (left) {
-            incr = -1;
-        } else {
-            incr = 1;
-        }
 
-        SNP modelsnp = (SNP) currentModel.get(whichModelTerm).getID();
-        int markerIndex = modelsnp.index;
-        Chromosome chr = modelsnp.locus;
-        int chrAsInt = chr.getChromosomeNumber();
-        boolean boundfound = false;
-        int testIndex = markerIndex;
-        int lastterm = currentModel.size();
-        
-        ///
-        do{
-            testIndex += incr;
-            if(testIndex < minIndex || testIndex > maxIndex){
-                testIndex -= incr;
-                boundfound = true;
-                break;
-            }
-            ModelEffect markerEffect = null;
-            SNP snp = new SNP(myData.getMarkerName(testIndex), new Chromosome(myData.getLocusName(testIndex)), (int) myData.getMarkerChromosomePosition(testIndex), testIndex);
-            Chromosome chrOfTestedSnp = snp.locus;
-            int chrOfTestedSnpAsInt = chrOfTestedSnp.getChromosomeNumber();
-            if (snp == null || chrOfTestedSnpAsInt != chrAsInt) {
-                testIndex -= incr;
-                boundfound = true;
-            } else {
- 		//create the appropriate marker effect
+    	double alpha = 0.05;
+    	int minIndex = 0;
+    	int maxIndex = myGenotype.numberOfSites() - 1;
+    	int incr;
+    	if (left) {
+    		incr = -1;
+    	} else {
+    		incr = 1;
+    	}
 
-		Object[] markerValues = myData.getMarkerValue(currentPhenotypeIndex, testIndex);
-		Object[] markersForNonMissing = new Object[numberNotMissing];
-		int allCount = 0;
-		int nonmissingCount = 0;
-		for (Object marker:markerValues) {
-			if (!missing[allCount++]) markersForNonMissing[nonmissingCount++] = marker;
-		}
-		
-		if (myData.isMarkerDiscrete(testIndex)) {
-			ArrayList<Object> markerIds = new ArrayList<Object>();
-			int[] levels = ModelEffectUtils.getIntegerLevels(markersForNonMissing, markerIds);
-			snp.alleles = markerIds;
-			
-			if (isNested) {
-			//not implemented yet
-                		markerEffect = new FactorModelEffect(levels, true, snp);
-			} else {
-				markerEffect = new FactorModelEffect(levels, true, snp);
-			}
-		} else {
-			//int n = markerValues.length;
-			double[] cov = new double[numberNotMissing];
-			for (int i = 0; i < numberNotMissing; i++) cov[i] = ((Double) markersForNonMissing[i]).doubleValue();
+    	SNP modelsnp = (SNP) currentModel.get(whichModelTerm).getID();
+    	int markerIndex = modelsnp.index;
+    	Chromosome chr = modelsnp.locus;
+    	int chrAsInt = chr.getChromosomeNumber();
+    	boolean boundfound = false;
+    	int testIndex = markerIndex;
+    	int lastterm = currentModel.size();
 
-			if (isNested) {
-				CovariateModelEffect cme = new CovariateModelEffect(cov);
-				markerEffect = new NestedCovariateModelEffect(cme, nestingEffect);
-				markerEffect.setID(snp);
-			} else {
-				markerEffect = new CovariateModelEffect(cov, snp);
-			}
-		}
-     
-               ///
-                currentModel.add(markerEffect);
-                SweepFastLinearModel sflm = new SweepFastLinearModel(currentModel, y);
-                double[] snpssdf = sflm.getMarginalSSdf(whichModelTerm);
-                double[] errorssdf = sflm.getResidualSSdf();
-                double F = snpssdf[0] / snpssdf[1] / errorssdf[0] * errorssdf[1];
-                double p;
-                try {
-                    p = LinearModelUtils.Ftest(F, snpssdf[1], errorssdf[1]);
-                } catch(Exception e) {
-                    p = 1;
-                }     
-           
-                if(p < alpha){
-                    boundfound = true;
+    	///
+    	do{
+    		testIndex += incr;
+    		if(testIndex < minIndex || testIndex > maxIndex){
+    			testIndex -= incr;
+    			boundfound = true;
+    			break;
+    		}
+    		ModelEffect markerEffect = null;
+    		SNP snp = new SNP(myGenotype.siteName(testIndex), myGenotype.chromosome(testIndex), myGenotype.chromosomalPosition(testIndex), testIndex);
+    		Chromosome chrOfTestedSnp = snp.locus;
+    		int chrOfTestedSnpAsInt = chrOfTestedSnp.getChromosomeNumber();
+    		if (snp == null || chrOfTestedSnpAsInt != chrAsInt) {
+    			testIndex -= incr;
+    			boundfound = true;
+    		} else {
+    			//create the appropriate marker effect
+
+    			
+                //if the Genotype has a reference allele use that, else if genotype use that else nothing, allele probability not implemented
+                //for genotype use an additive model for now
+                if (myGenotype.hasReferenceProbablity()) {
+                	double[] cov = new double[numberNotMissing];
+                	int count = 0;
+                	for (int i = 0; i < totalNumber; i++) {
+                		if (!missing.fastGet(i)) cov[count++] = myGenotype.referenceProbability(i, testIndex);
+                	}
+
+                	if (isNested) {
+                		CovariateModelEffect cme = new CovariateModelEffect(cov);
+                		markerEffect = new NestedCovariateModelEffect(cme, nestingEffect);
+                		markerEffect.setID(snp);
+                	} else {
+                		markerEffect = new CovariateModelEffect(cov, snp);
+                	}
+ 
+                } else if (myGenotype.hasGenotype()) {
+                	byte minor = myGenotype.minorAllele(testIndex);
+                	double[] cov = new double[numberNotMissing];
+                	byte[] siteGeno = AssociationUtils.getNonMissingBytes(myGenotype.genotypeAllTaxa(testIndex), missing);
+                	for (int i = 0; i < numberNotMissing; i++) {
+                		byte[] diploidAlleles = GenotypeTableUtils.getDiploidValues(siteGeno[i]);
+                		if (diploidAlleles[0] == minor) cov[i] += 0.5;
+                		if (diploidAlleles[0] == minor) cov[i] += 0.5;
+                	}
+                	
+                	if (isNested) {
+                		CovariateModelEffect cme = new CovariateModelEffect(cov);
+                		markerEffect = new NestedCovariateModelEffect(cme, nestingEffect);
+                		markerEffect.setID(snp);
+                	} else {
+                		markerEffect = new CovariateModelEffect(cov, snp);
+                	}
+               	
+                } else {
+                	throw new IllegalArgumentException("No genotypes or reference probabilities in the data set.");
                 }
-                currentModel.remove(lastterm);
-            }    
-       }  while (!boundfound && testIndex > minIndex && testIndex < maxIndex);      
-        ////      
-        return testIndex;
+
+    			///
+    			currentModel.add(markerEffect);
+    			SweepFastLinearModel sflm = new SweepFastLinearModel(currentModel, y);
+    			double[] snpssdf = sflm.getMarginalSSdf(whichModelTerm);
+    			double[] errorssdf = sflm.getResidualSSdf();
+    			double F = snpssdf[0] / snpssdf[1] / errorssdf[0] * errorssdf[1];
+    			double p;
+    			try {
+    				p = LinearModelUtils.Ftest(F, snpssdf[1], errorssdf[1]);
+    			} catch(Exception e) {
+    				p = 1;
+    			}     
+
+    			if(p < alpha){
+    				boundfound = true;
+    			}
+    			currentModel.remove(lastterm);
+    		}    
+    	}  while (!boundfound && testIndex > minIndex && testIndex < maxIndex);      
+    	////      
+    	return testIndex;
     }      
         
 	public boolean forwardStep() {
@@ -590,7 +586,7 @@ public class StepwiseOLSModelFitter {
 
 		SweepFastLinearModel sflm = new SweepFastLinearModel(currentModel, y);
 		PartitionedLinearModel plm = new PartitionedLinearModel(currentModel, sflm);
-		int numberOfSites = myData.getNumberOfMarkers();
+		int numberOfSites = myGenotype.numberOfSites();
 
 		System.out.println("We are in forwardStep()");
 
@@ -598,42 +594,47 @@ public class StepwiseOLSModelFitter {
 		System.out.println("The value of errorss before the loop in forwardStep() is: " + temperrorssdf[0]);
 		for (int s = 0; s < numberOfSites; s++) if (!excludedSNPs.contains(s)) {
 			//create the appropriate marker effect
-
 			ModelEffect markerEffect = null;
-			SNP snp = new SNP(myData.getMarkerName(s), new Chromosome(myData.getLocusName(s)), (int) myData.getMarkerChromosomePosition(s), s);
-			Object[] markerValues = myData.getMarkerValue(currentPhenotypeIndex, s);
-			Object[] markersForNonMissing = new Object[numberNotMissing];
-			int allCount = 0;
-			int nonmissingCount = 0;
-			for (Object marker:markerValues) {
-				if (!missing[allCount++]) markersForNonMissing[nonmissingCount++] = marker;
-			}
-			
-			if (myData.isMarkerDiscrete(s)) {
-				ArrayList<Object> markerIds = new ArrayList<Object>();
-				int[] levels = ModelEffectUtils.getIntegerLevels(markersForNonMissing, markerIds);
-				snp.alleles = markerIds;
-				
-				if (isNested) {
-					//not implemented yet
-					markerEffect = new FactorModelEffect(levels, true, snp);
-				} else {
-					markerEffect = new FactorModelEffect(levels, true, snp);
-				}
-			} else {
-				//int n = markerValues.length;
-				double[] cov = new double[numberNotMissing];
-				for (int i = 0; i < numberNotMissing; i++) cov[i] = ((Double) markersForNonMissing[i]).doubleValue();
+			SNP snp = new SNP(myGenotype.siteName(s), myGenotype.chromosome(s), myGenotype.chromosomalPosition(s), s);
 
-				if (isNested) {
-					CovariateModelEffect cme = new CovariateModelEffect(cov);
-					markerEffect = new NestedCovariateModelEffect(cme, nestingEffect);
-					markerEffect.setID(snp);
-				} else {
-					markerEffect = new CovariateModelEffect(cov, snp);
-				}
-			}
+            //if the Genotype has a reference allele use that, else if genotype use that else nothing, allele probability not implemented
+            //for genotype use an additive model for now
+            if (myGenotype.hasReferenceProbablity()) {
+            	double[] cov = new double[numberNotMissing];
+            	int count = 0;
+            	for (int i = 0; i < totalNumber; i++) {
+            		if (!missing.fastGet(i)) cov[count++] = myGenotype.referenceProbability(i, s);
+            	}
 
+            	if (isNested) {
+            		CovariateModelEffect cme = new CovariateModelEffect(cov);
+            		markerEffect = new NestedCovariateModelEffect(cme, nestingEffect);
+            		markerEffect.setID(snp);
+            	} else {
+            		markerEffect = new CovariateModelEffect(cov, snp);
+            	}
+
+            } else if (myGenotype.hasGenotype()) {
+            	byte minor = myGenotype.minorAllele(s);
+            	double[] cov = new double[numberNotMissing];
+            	byte[] siteGeno = AssociationUtils.getNonMissingBytes(myGenotype.genotypeAllTaxa(s), missing);
+            	for (int i = 0; i < numberNotMissing; i++) {
+            		byte[] diploidAlleles = GenotypeTableUtils.getDiploidValues(siteGeno[i]);
+            		if (diploidAlleles[0] == minor) cov[i] += 0.5;
+            		if (diploidAlleles[0] == minor) cov[i] += 0.5;
+            	}
+            	
+            	if (isNested) {
+            		CovariateModelEffect cme = new CovariateModelEffect(cov);
+            		markerEffect = new NestedCovariateModelEffect(cme, nestingEffect);
+            		markerEffect.setID(snp);
+            	} else {
+            		markerEffect = new CovariateModelEffect(cov, snp);
+            	}
+           	
+            } else {
+            	throw new IllegalArgumentException("No genotypes or reference probabilities in the data set.");
+            }
 
 			plm.testNewModelEffect(markerEffect);
 			double modelss = plm.getModelSS();
@@ -742,7 +743,7 @@ public class StepwiseOLSModelFitter {
 		double bestaic = Double.MAX_VALUE;
 
 		int n = y.length;
-		int numberOfSites = myData.getNumberOfMarkers();
+		int numberOfSites = myGenotype.numberOfSites();
 
 		SweepFastLinearModel sflm0 = new SweepFastLinearModel(currentModel, y);
 
@@ -889,7 +890,7 @@ public class StepwiseOLSModelFitter {
 
 		int indexOfThreshold = (int) (alpha*numberOfPermutations);
 
-		int numberOfSites = myData.getNumberOfMarkers();
+		int numberOfSites = myGenotype.numberOfSites();
 		DoubleMatrix[][] Xmatrices;
 		System.out.println("-----------------Running permutations...----------------");
 
@@ -903,38 +904,33 @@ public class StepwiseOLSModelFitter {
 		int[] mean = new int[numberOfObs];
 		FactorModelEffect meanME = new FactorModelEffect(mean, false, "mean");
 		int columnNumber = 2;
-		if(covariateList != null){
-			columnNumber = columnNumber + covariateList.size();
-			//(any other covariates)+one marker = currentModel.size()+1
-		}if(factorList != null){
-			columnNumber = columnNumber + factorList.size();                
-		}
+		columnNumber += covariateAttributeList.size();
+		columnNumber += factorAttributeList.size();
 
 		Xmatrices = new DoubleMatrix[1][columnNumber];//Intercept+family term+                
 
 		Xmatrices[0][0] = meanME.getX();
 		int effectCount = 1;
-		if(factorList != null){
-			for (int f = 0; f < factorList.size(); f++) {
-				ArrayList<String> ids = new ArrayList<String>();
-				int[] levels = ModelEffectUtils.getIntegerLevels(factorList.get(f), ids);
-				FactorModelEffect fme = new FactorModelEffect(levels, true, new Object[]{myData.getFactorName(f), ids});
-				if (isNested && f == nestingFactorIndex) {
-					nestingEffect = fme;
-					nestingFactorNames = ids; 
-				}
-				Xmatrices[0][effectCount++] = fme.getX();
-			}                                   
-		}
-		if(covariateList != null){
-			// covariateList.size()+1 because java starts indices at 0; not 1
-			for(int i=0;  i < covariateList.size(); i++){
-				CovariateModelEffect cme = new CovariateModelEffect(covariateList.get(i), 
-						myData.getCovariateName(i));
-				Xmatrices[0][effectCount++] = cme.getX();
+		
+		for (PhenotypeAttribute attr : factorAttributeList) {
+			CategoricalAttribute ca = (CategoricalAttribute) attr;
+			ArrayList<String> ids = new ArrayList<String>();
+			String[] labels = AssociationUtils.getNonMissingValues(ca.allLabels(), missing);
+			int[] levels = ModelEffectUtils.getIntegerLevels(labels, ids);
+			FactorModelEffect fme = new FactorModelEffect(levels, true, new Object[]{attr.name(), ids});
+			if (isNested && myPhenotype.indexOfAttribute(attr) == nestingFactorIndex) {
+				nestingEffect = fme;
+				nestingFactorNames = ids; 
 			}
-			//(any other covariates)+one marker = currentModel.size()+1
-		}            
+			Xmatrices[0][effectCount++] = fme.getX();
+		}
+
+		for (PhenotypeAttribute attr : covariateAttributeList) {
+			NumericAttribute na = (NumericAttribute) attr;
+			double[] cov = AssociationUtils.getNonMissingDoubles(na.floatValues(), missing);
+			CovariateModelEffect cme = new CovariateModelEffect(cov, na.name());
+			Xmatrices[0][effectCount++] = cme.getX();
+		}
 
 		SweepFastLinearModel baseSflm = new SweepFastLinearModel(currentModel, y);
 
@@ -972,42 +968,50 @@ public class StepwiseOLSModelFitter {
 
 
 		for (int m = 0; m < numberOfSites; m++) {
-			if (m % 50 == 0) System.out.println("Testing marker " + m);                   
-			ModelEffect markerEffect = null;                      
-			SNP snp = new SNP(myData.getMarkerName(m), new Chromosome(myData.getLocusName(m)), (int) myData.getMarkerChromosomePosition(m), m);;
-			Object[] markerValues = myData.getMarkerValue(currentPhenotypeIndex, m);
-			Object[] markersForNonMissing = new Object[numberNotMissing];
-			int allCount = 0;
-			int nonmissingCount = 0;
-			for (Object marker:markerValues) {
-				if (!missing[allCount++]) markersForNonMissing[nonmissingCount++] = marker;
-			}
 
-			if (myData.isMarkerDiscrete(m)) {
-				ArrayList<Object> markerIds = new ArrayList<Object>();
-				int[] levels = ModelEffectUtils.getIntegerLevels(markersForNonMissing, markerIds);
-				snp.alleles = markerIds;
+			//create the appropriate marker effect
+			ModelEffect markerEffect = null;
+			SNP snp = new SNP(myGenotype.siteName(m), myGenotype.chromosome(m), myGenotype.chromosomalPosition(m), m);
 
-				if (isNested) {
-					//not implemented yet
-					markerEffect = new FactorModelEffect(levels, true, snp);
-				} else {
-					markerEffect = new FactorModelEffect(levels, true, snp);
-				}
-			} else {
-				//int n = markerValues.length;
-				double[] cov = new double[numberNotMissing];
-				for (int i = 0; i < numberNotMissing; i++) cov[i] = ((Double) markersForNonMissing[i]).doubleValue();
+            //if the Genotype has a reference allele use that, else if genotype use that else nothing, allele probability not implemented
+            //for genotype use an additive model for now
+            if (myGenotype.hasReferenceProbablity()) {
+            	double[] cov = new double[numberNotMissing];
+            	int count = 0;
+            	for (int i = 0; i < totalNumber; i++) {
+            		if (!missing.fastGet(i)) cov[count++] = myGenotype.referenceProbability(i, m);
+            	}
 
-				if (isNested) {
-					CovariateModelEffect cme = new CovariateModelEffect(cov);
-					markerEffect = new NestedCovariateModelEffect(cme, nestingEffect);
-					markerEffect.setID(snp);
-				} else {
-					markerEffect = new CovariateModelEffect(cov, snp);
-				}
-			}
+            	if (isNested) {
+            		CovariateModelEffect cme = new CovariateModelEffect(cov);
+            		markerEffect = new NestedCovariateModelEffect(cme, nestingEffect);
+            		markerEffect.setID(snp);
+            	} else {
+            		markerEffect = new CovariateModelEffect(cov, snp);
+            	}
 
+            } else if (myGenotype.hasGenotype()) {
+            	byte minor = myGenotype.minorAllele(m);
+            	double[] cov = new double[numberNotMissing];
+            	byte[] siteGeno = AssociationUtils.getNonMissingBytes(myGenotype.genotypeAllTaxa(m), missing);
+            	for (int i = 0; i < numberNotMissing; i++) {
+            		byte[] diploidAlleles = GenotypeTableUtils.getDiploidValues(siteGeno[i]);
+            		if (diploidAlleles[0] == minor) cov[i] += 0.5;
+            		if (diploidAlleles[0] == minor) cov[i] += 0.5;
+            	}
+            	
+            	if (isNested) {
+            		CovariateModelEffect cme = new CovariateModelEffect(cov);
+            		markerEffect = new NestedCovariateModelEffect(cme, nestingEffect);
+            		markerEffect.setID(snp);
+            	} else {
+            		markerEffect = new CovariateModelEffect(cov, snp);
+            	}
+           	
+            } else {
+            	throw new IllegalArgumentException("No genotypes or reference probabilities in the data set.");
+            }
+			
 			Xmatrices[0][columnNumber-1] = markerEffect.getX(); //columnNumber-1 because java
 			//starts counting things from 0
 			DoubleMatrix X = DoubleMatrixFactory.DEFAULT.compose(Xmatrices);
@@ -1080,7 +1084,6 @@ public class StepwiseOLSModelFitter {
 		System.out.println("--------------indexOfThreshold is " + indexOfThreshold); 
 	}
 
-        
  	public TableReport getPermutationReport() {
 		if (numberOfPermutations == 0) return null;
                 
@@ -1105,12 +1108,12 @@ public class StepwiseOLSModelFitter {
         
         
 	public LinkedList<Object[]> createReportRowsFromCurrentModel(SweepFastLinearModel sflm) {
-		String traitname = myData.getPhenotypeName(currentPhenotypeIndex);
+		String traitname = dataAttributeList.get(currentPhenotypeIndex).name();
 		int ncol = anovaReportHeader.length;
 		LinkedList<Object[]> reportTable = new LinkedList<Object[]>();
 		double[] residualSSdf = sflm.getResidualSSdf();
 		int n = y.length;
-		int numberOfSites = myData.getNumberOfMarkers();
+		int numberOfSites = myGenotype.numberOfSites();
 
 
 		//Calcualte the BIC
@@ -1191,21 +1194,18 @@ public class StepwiseOLSModelFitter {
 		return reportTable;
 	}
 
-        public LinkedList<Object[]> createReportRowsFromCurrentModelAfterScanCI(SweepFastLinearModel sflm) {
-		String traitname = myData.getPhenotypeName(currentPhenotypeIndex);
+	public LinkedList<Object[]> createReportRowsFromCurrentModelAfterScanCI(SweepFastLinearModel sflm) {
+		String traitname = dataAttributeList.get(currentPhenotypeIndex).name();
 		int ncol = anovaReportWithCIHeader.length;
 		LinkedList<Object[]> reportTable = new LinkedList<Object[]>();
 		double[] residualSSdf = sflm.getResidualSSdf();
 		int n = y.length;
-		int numberOfSites = myData.getNumberOfMarkers();
-                int firstMarkerIndex = 1;
-                if (factorList != null){
-                    firstMarkerIndex = firstMarkerIndex+factorList.size();
-                }
-                if (covariateList != null){
-                    firstMarkerIndex = firstMarkerIndex+covariateList.size();
-                }  
+		int numberOfSites = myGenotype.numberOfSites();
+		int firstMarkerIndex = 1;
 
+		for (PhenotypeAttribute factor : factorAttributeList) firstMarkerIndex += factor.size();
+		for (PhenotypeAttribute cov : covariateAttributeList) firstMarkerIndex += cov.size();
+		
 		//Calcualte the BIC
 		double [] errorss = sflm.getResidualSSdf();
 		double [] modeldf = sflm.getFullModelSSdf();
@@ -1265,12 +1265,12 @@ public class StepwiseOLSModelFitter {
 			reportRow[ptr++] = new Double(bic);
 			reportRow[ptr++] = new Double(mbic);
 			reportRow[ptr++] = new Double(aic);
-                        //System.out.println("The value of effectPtr is "+effectPtr);
+			//System.out.println("The value of effectPtr is "+effectPtr);
 
-                        if (me.getID() instanceof SNP) {
-				reportRow[ptr++] = new String(myData.getMarkerName(theUpperAndLowerBound[effectPtr-firstMarkerIndex][0]));
-				reportRow[ptr++] = new String(myData.getMarkerName(theUpperAndLowerBound[effectPtr-firstMarkerIndex][1]));
-				
+			if (me.getID() instanceof SNP) {
+				reportRow[ptr++] = new String(myGenotype.siteName(theUpperAndLowerBound[effectPtr-firstMarkerIndex][0]));
+				reportRow[ptr++] = new String(myGenotype.siteName(theUpperAndLowerBound[effectPtr-firstMarkerIndex][1]));
+
 			} else {
 				reportRow[ptr++] = "--";
 				reportRow[ptr++] = "--";
@@ -1295,7 +1295,7 @@ public class StepwiseOLSModelFitter {
 	}
 
 	public Datum createReportFromCurrentModel(SweepFastLinearModel sflm) {
-		String traitname = myData.getPhenotypeName(currentPhenotypeIndex);
+		String traitname = dataAttributeList.get(currentPhenotypeIndex).name();
 		LinkedList<Object[]> reportTable = createReportRowsFromCurrentModel(sflm);
 		Object[][] table = new Object[reportTable.size()][];
 		reportTable.toArray(table);
@@ -1305,7 +1305,7 @@ public class StepwiseOLSModelFitter {
 	}
 
 	public Datum createReportFromCurrentModelWithCI(SweepFastLinearModel sflm) {
-		String traitname = myData.getPhenotypeName(currentPhenotypeIndex);
+		String traitname = dataAttributeList.get(currentPhenotypeIndex).name();
 		LinkedList<Object[]> reportTable = createReportRowsFromCurrentModelAfterScanCI(sflm);
 		Object[][] table = new Object[reportTable.size()][];
 		reportTable.toArray(table);
@@ -1360,7 +1360,7 @@ public class StepwiseOLSModelFitter {
 
 		//columns are trait, snp name, locus, position, factor value, estimate
 		int nBaseModelParameters = 0;
-		String traitname = myData.getPhenotypeName(currentPhenotypeIndex);
+		String traitname = dataAttributeList.get(currentPhenotypeIndex).name();
 		for (int i = 0; i < numberOfBaseModelEffects; i++) {
 			nBaseModelParameters += currentModel.get(i).getEffectSize();
 		}
@@ -1406,7 +1406,7 @@ public class StepwiseOLSModelFitter {
 
 		//columns are trait, snp name, locus, position, factor value, estimate
 		int nBaseModelParameters = 0;
-		String traitname = myData.getPhenotypeName(currentPhenotypeIndex);
+		String traitname = dataAttributeList.get(currentPhenotypeIndex).name();
 		for (int i = 0; i < numberOfBaseModelEffects; i++) {
 			nBaseModelParameters += currentModel.get(i).getEffectSize();
 		}

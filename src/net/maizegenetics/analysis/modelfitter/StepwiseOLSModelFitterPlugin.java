@@ -11,10 +11,11 @@ import javax.swing.JOptionPane;
 
 import org.apache.log4j.Logger;
 
-import net.maizegenetics.trait.MarkerPhenotype;
-import net.maizegenetics.trait.MarkerPhenotypeAdapter;
-import net.maizegenetics.trait.Phenotype;
 import net.maizegenetics.util.TableReport;
+import net.maizegenetics.phenotype.GenotypePhenotype;
+import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.PhenotypeAttribute;
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -39,7 +40,7 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
 
 	@Override
 	public DataSet performFunction(DataSet input) {
-		List<Datum> datasets = input.getDataOfType(new Class[]{MarkerPhenotype.class, Phenotype.class});
+		List<Datum> datasets = input.getDataOfType(new Class[]{GenotypePhenotype.class});
 		if (datasets.size() < 1) {
 			String msg = "Error in performFunction: No appropriate dataset selected.";
 			myLogger.error(msg);
@@ -61,21 +62,23 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
 			return null;
 		}
 
-		MarkerPhenotypeAdapter theAdapter;
-		if (datasets.get(0).getData() instanceof MarkerPhenotype) {
-			MarkerPhenotype mp = (MarkerPhenotype) datasets.get(0).getData();
-			theAdapter = new MarkerPhenotypeAdapter(mp);
-		} else {
-			theAdapter = new MarkerPhenotypeAdapter((Phenotype) datasets.get(0).getData());
-		}
-
+//		MarkerPhenotypeAdapter theAdapter;
+//		if (datasets.get(0).getData() instanceof MarkerPhenotype) {
+//			MarkerPhenotype mp = (MarkerPhenotype) datasets.get(0).getData();
+//			theAdapter = new MarkerPhenotypeAdapter(mp);
+//		} else {
+//			theAdapter = new MarkerPhenotypeAdapter((Phenotype) datasets.get(0).getData());
+//		}
+		GenotypePhenotype myGenoPheno = (GenotypePhenotype) datasets.get(0).getData();
+		Phenotype myPhenotype = myGenoPheno.phenotype();
 		if (isInteractive()) {
-			int nfactors = theAdapter.getNumberOfFactors();
+			List<PhenotypeAttribute> factorList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor);
+			int nfactors = factorList.size();
 			String[] mainEffects;
 			if (nfactors == 0) mainEffects = null;
 			else {
 				mainEffects = new String[nfactors];
-				for (int i = 0; i < nfactors; i++) mainEffects[i] = theAdapter.getFactorName(i);
+				for (int i = 0; i < nfactors; i++) mainEffects[i] = factorList.get(i).name();
 			}
 			StepwiseOLSModelFitterDialog myDialog = new StepwiseOLSModelFitterDialog(mainEffects, getParentFrame());
 
@@ -100,17 +103,14 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
                         alpha = myDialog.getAlpha();
 
 			if (nestMarkers) {
-				String blahblah = myDialog.getNestedEffect();
-				int ptr = 0;
-				while (!theAdapter.getFactorName(ptr).equals(blahblah) && ptr < nfactors) ptr++;
-				nestingFactorIndex = ptr;
+				nestingFactorIndex = myPhenotype.attributeIndexForName(myDialog.getNestedEffect());
 			}
 
 			maxNumberOfMarkers = myDialog.getMaxNumberOfMarkers();
 			myDialog.dispose();
 		}
 
-		StepwiseOLSModelFitter modelFitter = new StepwiseOLSModelFitter(theAdapter, datasets.get(0).getName());
+		StepwiseOLSModelFitter modelFitter = new StepwiseOLSModelFitter(myGenoPheno, datasets.get(0).getName());
 		modelFitter.setEnterlimit(enterlimit);
 		modelFitter.setExitlimit(exitlimit);
 		modelFitter.setEnterlimits(enterlimits);
