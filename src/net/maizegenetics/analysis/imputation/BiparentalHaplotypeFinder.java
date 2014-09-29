@@ -390,7 +390,10 @@ public class BiparentalHaplotypeFinder {
 		for (int s = 0; s < nsites; s++) {
 			int notmiss = filterGeno.totalNonMissingForSite(s);
 			int hetcount = filterGeno.heterozygousCount(s);
-			pHet[s] = ((double) hetcount) / notmiss;
+			if (notmiss < 1) {
+				pHet[s] = 0;
+			}
+			else pHet[s] = ((double) hetcount) / notmiss;
 		}
 
 		double meanPhet = StatUtils.mean(pHet);
@@ -419,7 +422,6 @@ public class BiparentalHaplotypeFinder {
 				numberNotBiallelic++;
 			}
 		}
-
 		
 		//select sites based on minR2
 		if (minR2 > 0) {

@@ -1808,16 +1808,30 @@ public class NucleotideImputationUtils {
 			int[] selectedSites = new int[nOriginalSites];
 			int ntaxa = a.numberOfTaxa();
 
-			selectedSites[0] = 0;
+			//start at the first site with sufficient data
+			int headSite = -1;
+			double maf, pmissing, phet;
+			int npresent, nhet;
+			do {
+				headSite++;
+				maf = a.minorAlleleFrequency(headSite);
+				npresent = a.totalNonMissingForSite(headSite);
+				nhet = a.heterozygousCount(headSite);
+				pmissing = ((double) (ntaxa - npresent)) /((double) ntaxa);
+				if (npresent == 0) phet = 0; 
+				else phet = ((double) nhet) / ((double) npresent);
+			} while (maf < minMaf || pmissing > maxMissing || phet > maxHet);
+				
+			selectedSites[0] = headSite;
 			int selectedCount = 1;
-			int headSite = 0;
 			for (int s = 1; s < nOriginalSites; s++) {
 				int dist = a.chromosomalPosition(s) - a.chromosomalPosition(headSite);
-				double maf = a.minorAlleleFrequency(s);
-				int npresent = a.totalNonMissingForSite(s);
-				int nhet = a.heterozygousCount(s);
-				double pmissing = ((double) (ntaxa - npresent)) /((double) ntaxa);
-				double phet = ((double) nhet) / ((double) npresent);
+				maf = a.minorAlleleFrequency(s);
+				npresent = a.totalNonMissingForSite(s);
+				nhet = a.heterozygousCount(s);
+				pmissing = ((double) (ntaxa - npresent)) /((double) ntaxa);
+				if (npresent == 0) phet = 0; 
+				else phet = ((double) nhet) / ((double) npresent);
 				if ((dist >= 64 || computeRForMissingness(headSite, s, a) < 0.7) && maf >= minMaf && pmissing <= maxMissing && phet <= maxHet) {
 					selectedSites[selectedCount++] = s;
 					headSite = s;
