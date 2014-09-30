@@ -235,7 +235,7 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
             }
 
         } //end of currTest
-        myMapResults.trimToSize();
+        if (myMapResults != null) myMapResults.trimToSize();
     }
 
     private void calculateBitLDWithHets() {
