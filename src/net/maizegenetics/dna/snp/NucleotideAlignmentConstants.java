@@ -304,6 +304,27 @@ public final class NucleotideAlignmentConstants {
     }
 
     /**
+     * Returns char allele for allele byte encoding.  THis is called
+     * from junit tests in ReferenceGenomeSequenceTest.java
+     *
+     * @param value haploid allele byte value
+     *
+     * @return nucleotide haploid allele byte value
+     */
+    public static Object getNucleotideAlleleValue(byte value) {
+        try {
+        	for (Object alleleObject: NUCLEOTIDE_ALLELE_HASH.keySet() ) {
+        		if (NUCLEOTIDE_ALLELE_HASH.get(alleleObject).equals(value))
+        			return alleleObject;
+        	}
+            return null;
+        } catch (NullPointerException e) {
+            throw new IllegalArgumentException("NucleotideAlignmentConstants: getNucleotideAlleleByte: unknown allele value: " + value);
+        }
+    }
+ 
+    
+    /**
      * Returns haploid byte value for given nucleotide value. Only right-most
      * four bits used.
      *
@@ -466,4 +487,5 @@ public final class NucleotideAlignmentConstants {
         return isNucleotide;
 
     }
+    
 }

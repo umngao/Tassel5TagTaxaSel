@@ -527,7 +527,30 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         myCallBiSNPsWGap = new PluginParameter<>(myCallBiSNPsWGap, value);
         return this;
     }
+    
+    private static Map<String,Integer> keyFileStringToInt = null;
 
+    // For junit testing.  Used for ReferenceGenomeSequence:readReferenceGenomeChr() tests
+    // that want to read from a key file.
+    public static void setKeyFileStringToInt (Map<String,Integer> inputKeyFile) {
+        keyFileStringToInt = inputKeyFile;
+    }
+
+    /**
+     * GIven a chromosome string value, search for it's corresponding
+     * number from the keyFileStringToInt map
+     *
+     * @return integer version of Chromosome
+     */
+    public static int keyFileReturnChromInt(String chromosome) {
+        if (keyFileStringToInt != null) {
+                if (keyFileStringToInt.containsKey(chromosome))
+                        return(keyFileStringToInt.get(chromosome));
+        } else {
+                System.out.println("LCJ - DiscoverySNP .. keyFileStringToInt is NULL");
+        }
+        return -1; // failure case
+    }
 
 
 }
