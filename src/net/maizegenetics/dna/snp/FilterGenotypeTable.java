@@ -86,11 +86,14 @@ public class FilterGenotypeTable implements GenotypeTable {
             myChromosomes = original.chromosomes();
             myChromosomeOffsets = original.chromosomesOffsets();
         }
-
-        if (myIsSiteFilter) {
+        
+        GenotypeCallTable myCallTable = myBaseAlignment.genotypeMatrix();
+        if (myIsSiteFilter && myCallTable != null) {
             myGenotype = GenotypeCallTableBuilder.getFilteredInstance(myBaseAlignment.genotypeMatrix(), numberOfTaxa(), myTaxaRedirect, numberOfSites(), mySiteRedirect);
-        } else {
+        } else if (myCallTable != null) {
             myGenotype = GenotypeCallTableBuilder.getFilteredInstance(myBaseAlignment.genotypeMatrix(), numberOfTaxa(), myTaxaRedirect, numberOfSites(), myRangeStart, myRangeEnd);
+        } else {
+        	myGenotype = null;
         }
 
     }
