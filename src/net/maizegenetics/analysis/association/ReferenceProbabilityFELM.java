@@ -36,7 +36,7 @@ public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
         if (areTaxaReplicated) errorSSdf = markerModel.getIncrementalSSdf(numberOfBaseEffects + 1);
         else errorSSdf = markerModel.getResidualSSdf();
         
-        double rsq = markerSSdf[0] / (modelSSdf[0] + errorSSdf[0]);
+        double rsq = markerSSdf[0] / (modelSSdf[0] + markerModel.getResidualSSdf()[0]);
         
         double F = markerSSdf[0] / markerSSdf[1] / errorSSdf[0] * errorSSdf[1];
         double p;
@@ -66,6 +66,7 @@ public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
         rowData[columnCount++] = new Double(errorSSdf[0] / errorSSdf[1]);
         rowData[columnCount++] = new Double(modelSSdf[1]);
         rowData[columnCount++] = new Double(modelSSdf[0] / modelSSdf[1]);
+        siteReportBuilder.add(rowData);
         
         //add results to allele report
         //{"Trait","Marker","Chr","Position","Estimate"}
@@ -82,13 +83,26 @@ public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
 
 	@Override
 	protected void getGenotypeAndUpdateMissing(BitSet missingObsBeforeSite) {
-		float[] allSiteProbs = myGenoPheno.alleleProbsOfType(SITE_SCORE_TYPE.ReferenceProbablity, myCurrentSite);
+		float[] allSiteProbs = myGenoPheno.referenceProb(myCurrentSite);
+		
 		int n = allSiteProbs.length;
 		missingObsForSite = new OpenBitSet(missingObsBeforeSite);
 		for (int i = 0; i < n; i++) {
 			if (Float.isNaN(allSiteProbs[i])) missingObsForSite.fastSet(i);
 		}
 		myProbabilities = AssociationUtils.getNonMissingDoubles(allSiteProbs, missingObsForSite);
+	}
+
+	@Override
+	protected String[] siteReportColumnNames() {
+		if (permute) return new String[]{"Trait","Marker","Chr","Position","marker_F","marker_p","perm_p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
+		return new String[] {"Trait","Marker","Chr","Position","marker_F","marker_p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
+	}
+
+	@Override
+	protected String[] alleleReportColumnNames() {
+		// TODO Auto-generated method stub
+		return new String[]{"Trait","Marker","Chr","Position","Estimate"};
 	}
 
 }
