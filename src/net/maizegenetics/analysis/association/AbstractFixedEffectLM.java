@@ -97,13 +97,13 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 
 	@Override
 	public void initializeReportBuilders() {
-		String tableName = "GLM Site Tests - " + myDatum.getName();
+		String tableName = "GLM Statistics - " + myDatum.getName();
 		String[] columnNames = siteReportColumnNames();
 		numberOfSiteReportColumns = columnNames.length;
 		if (saveToFile) siteReportBuilder = TableReportBuilder.getInstance(tableName, columnNames, siteReportFilename);
 		else siteReportBuilder = TableReportBuilder.getInstance(tableName, columnNames);
 		 
-		tableName = "GLM Allele Estimates - " + myDatum.getName();
+		tableName = "GLM Genotype Effects - " + myDatum.getName();
 		columnNames = alleleReportColumnNames();
 		numberOfAlleleReportColumns = columnNames.length;
 		if (saveToFile) alleleReportBuilder = TableReportBuilder.getInstance(tableName, columnNames, alleleReportFilename);
@@ -152,8 +152,14 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	@Override
 	public List<Datum> datumList() {
 		List<Datum> dataList = new ArrayList<Datum>();
-		dataList.add(new Datum("", siteReport(), ""));
-		dataList.add(new Datum("", alleleReport(), ""));
+		StringBuilder comment = new StringBuilder();
+		comment.append("GLM Output\nStatistical Tests for individual variants.\n");
+		comment.append("Input data: " + myDatum.getName()).append("\n");
+		dataList.add(new Datum("GLM_Stats_" + myDatum.getName(), siteReport(), comment.toString()));
+		comment = new StringBuilder();
+		comment.append("GLM Output\nGenotype Effect Estimates\n");
+		comment.append("Input data: " + myDatum.getName()).append("\n");
+		dataList.add(new Datum("GLM_Genotypes_" + myDatum.getName(), alleleReport(), comment.toString()));
 		return dataList;
 	}
 	

@@ -239,6 +239,8 @@ public class FileLoadPlugin extends AbstractPlugin {
                         isNumeric = true;
                     } else if (info1[1].toUpperCase().startsWith("MAP")) {
                         isMap = true;
+                    } else if (info1[1].toUpperCase().startsWith("PHENO")) {
+                        isTrait = true;
                     }
                 }
                 if (info2.length > 1) {
