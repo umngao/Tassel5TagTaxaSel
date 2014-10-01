@@ -85,6 +85,17 @@ public class GenotypePhenotype implements TableReport {
 		return values;
 	}
 
+	public float[] referenceProb(int site) {
+		TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
+		TaxaList myTaxaList = myGenotype.taxa();
+		int numberOfObs = myPhenotype.numberOfObservations();
+		float[] values = new float[numberOfObs];
+		for (int obs = 0; obs < numberOfObs; obs++) {
+			int ndx = myTaxaList.indexOf(myTaxaAttr.taxon(obs));
+			values[obs] = myGenotype.referenceProbability(ndx, site);
+		}
+		return values;
+	}
 	
 	//implement TableReport methods
 	@Override
