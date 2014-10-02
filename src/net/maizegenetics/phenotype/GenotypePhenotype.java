@@ -2,6 +2,7 @@ package net.maizegenetics.phenotype;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.score.SiteScore;
+import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.TableReport;
 
@@ -147,11 +148,45 @@ public class GenotypePhenotype implements TableReport {
 		int genotypeRow = indexOfGenotype(row);
         int siteCount = Math.min(myGenotype.numberOfSites(), 10);
         StringBuilder builder = new StringBuilder();
-        builder.append(myGenotype.genotypeAsStringRange(genotypeRow, 0, siteCount));
+        
+        if (myGenotype.hasGenotype()) builder.append(myGenotype.genotypeAsStringRange(genotypeRow, 0, siteCount));
+        else if (myGenotype.hasReferenceProbablity()) {
+        	siteCount = Math.min(myGenotype.numberOfSites(), 5);
+        	for (int i = 0; i < siteCount; i++) {
+        		if (i > 0) builder.append(";");
+        		builder.append(myGenotype.referenceProbability(genotypeRow, i));
+        	}
+        } else if (myGenotype.hasAlleleProbabilities()) {
+        	for (int i = 0 ; i < siteCount; i++) builder.append(mostProbableAllele(genotypeRow, i));
+        } else {
+        	builder.append("???");
+        }
+        
         if (myGenotype.numberOfSites() > 10) {
             builder.append("...");
         }
         return builder.toString();
+	}
+	
+	private String mostProbableAllele(int taxon, int site) {
+		String allele = "A";
+		float maxP = myGenotype.alleleProbability(taxon, site, SITE_SCORE_TYPE.ProbA);
+		float prC = myGenotype.alleleProbability(taxon, site, SITE_SCORE_TYPE.ProbC);
+		float prG = myGenotype.alleleProbability(taxon, site, SITE_SCORE_TYPE.ProbG);
+		float prT = myGenotype.alleleProbability(taxon, site, SITE_SCORE_TYPE.ProbT);
+		
+		if (prC > maxP) {
+			allele = "C";
+			maxP = prC;
+		}
+		if (prG > maxP) {
+			allele = "G";
+			maxP = prG;
+		}
+		if (prT > maxP) {
+			allele = "T";
+		}
+		return allele;
 	}
 	
 	private int indexOfGenotype(int phenotypeRow) {
