@@ -2,6 +2,7 @@ package net.maizegenetics.analysis.association;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -81,8 +82,6 @@ public class PhenotypeLM {
 	protected void initialize() {
 		myTaxaList = myPhenotype.taxa();
 		myTaxa = myPhenotype.taxaAttribute().allTaxa();
-		myTaxaList.sort(null);
-		testTaxaReplication();
 
 		String[] columns = new String[]{"Trait", "F", "p", "taxaDF", "taxaMS", "errorDF", "errorMS", "modelDF", "modelMS"};
 		String name = "Phenotype analysis for " + myDatum.getName();
@@ -108,12 +107,19 @@ public class PhenotypeLM {
 		//iterate through phenotypes, create blues, add to report
 		for (PhenotypeAttribute dataAttribute : myDataAttributes) {
 			String currentTraitName = dataAttribute.name();
-			OpenBitSet missingObs = new OpenBitSet(missingModelObs);
-			missingObs.or(dataAttribute.missing());
 			
+			//determine which observations have missing data
+			OpenBitSet missingObs = new OpenBitSet(dataAttribute.missing());
+			for (PhenotypeAttribute attr:myFactorAttributes) missingObs.or(attr.missing());
+			for (PhenotypeAttribute attr:myCovariateAttributes) missingObs.or(attr.missing());
+			
+			//get y
 			float[] allData = (float[]) dataAttribute.allValues();
 			double[] y = AssociationUtils.getNonMissingDoubles(allData, missingObs);
-			ArrayList<ModelEffect> myModel = model(missingModelObs);
+			
+			//build the model
+			ArrayList<ModelEffect> myModel = model(missingObs, y.length);
+			
 			SweepFastLinearModel sflm = new SweepFastLinearModel(myModel, y);
 			
 			//save BLUEs
@@ -123,7 +129,7 @@ public class PhenotypeLM {
             // first calculate the average of the level estimates for all other factors (including the mean)
             double overallMean = beta[0]; //the mean
             int nEffects = myModel.size();
-            int start = 0;
+            int start = 1;
             for (int i = 1; i < nEffects - 1; i++) {
                 ModelEffect me = myModel.get(i);
                 if (me instanceof FactorModelEffect) {
@@ -149,11 +155,14 @@ public class PhenotypeLM {
 
             float[] attrValues = new float[myTaxaList.size()];
             OpenBitSet missing = new OpenBitSet(myTaxaList.size());
+            int lastTaxon = taxaInModel.size() - 1;
             for (int t = 0; t < myTaxaList.size(); t++) {
             	Integer ndx = taxaInModelMap.get(myTaxaList.get(t));
             	if (ndx == null) {
             		attrValues[t] = Float.NaN;
             		missing.fastSet(t);
+            	} else if (ndx == lastTaxon) {
+            		attrValues[t] = (float) overallMean; 
             	} else {
             		attrValues[t] = (float) (beta[ndx + start] + overallMean) ;
             	}
@@ -197,11 +206,10 @@ public class PhenotypeLM {
 		if (myTaxaList.numberOfTaxa() < myPhenotype.numberOfObservations()) areTaxaReplicated = true;
 		else areTaxaReplicated = false;
 	}
-	protected ArrayList<ModelEffect> model(BitSet missingObs) {
-		int numberOfNonmissingObs = numberOfObservations - (int) missingObs.cardinality();
+	
+	protected ArrayList<ModelEffect> model(BitSet missingObs, int numberOfNonmissingObs) {
 		ArrayList<ModelEffect> modelEffects = new ArrayList<ModelEffect>();
-		FactorModelEffect meanEffect = new FactorModelEffect(new int[numberOfNonmissingObs], false);
-		meanEffect.setID("mean");
+		FactorModelEffect meanEffect = new FactorModelEffect(new int[numberOfNonmissingObs], false, "mean");
 		modelEffects.add(meanEffect);
 		
 		//add factors to model

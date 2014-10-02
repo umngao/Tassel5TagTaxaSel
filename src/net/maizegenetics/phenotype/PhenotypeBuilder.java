@@ -298,34 +298,32 @@ public class PhenotypeBuilder {
 	//private methods  ------------------------------------------------------
 	
 	private void importFile() {
-		if (filenameList.size() < 1) {
-			myLogger.info("WARNING: fewer file names than expected in PhenotypeBuilder.");
-			return;
-		}
+		while (filenameList.size() > 0) {
+			File phenotypeFile = new File(filenameList.remove(0));
 
-		File phenotypeFile = new File(filenameList.remove(0));
+			try {
+				BufferedReader br = new BufferedReader(new FileReader(phenotypeFile));
+				String topline = br.readLine();
+				Phenotype myPhenotype;
+				if (phenotypeName.equals("Phenotype")) {
+					phenotypeName = phenotypeFile.getName();
+					if (phenotypeName.endsWith(".txt")) phenotypeName = phenotypeName.substring(0, phenotypeName.length() - 4);
+				}
 
-		try {
-			BufferedReader br = new BufferedReader(new FileReader(phenotypeFile));
-			String topline = br.readLine();
-			Phenotype myPhenotype;
-			if (phenotypeName.equals("Phenotype")) {
-				phenotypeName = phenotypeFile.getName();
-				if (phenotypeName.endsWith(".txt")) phenotypeName = phenotypeName.substring(0, phenotypeName.length() - 4);
+				if (topline.toLowerCase().startsWith("<phenotype")) {
+					myPhenotype = importPhenotypeFile(phenotypeFile);
+				} else {
+					myPhenotype = importTraits(phenotypeFile);
+				}
+				br.close();
+				phenotypeList.add(myPhenotype);
+			} catch (IOException e) {
+				String errorMsg = "Error reading " + phenotypeFile.getPath() + " in PhenotypeBuilder.importFile()." ;
+				myLogger.error(errorMsg);
+				e.printStackTrace();
+				throw new IllegalArgumentException(errorMsg);
 			}
-
-			if (topline.toLowerCase().startsWith("<phenotype")) {
-				myPhenotype = importPhenotypeFile(phenotypeFile);
-			} else {
-				myPhenotype = importTraits(phenotypeFile);
-			}
-			br.close();
-			phenotypeList.add(myPhenotype);
-		} catch (IOException e) {
-			String errorMsg = "Error reading " + phenotypeFile.getPath() + " in PhenotypeBuilder.importFile()." ;
-			myLogger.error(errorMsg);
-			e.printStackTrace();
-			throw new IllegalArgumentException(errorMsg);
+			
 		}
 
 	}
@@ -787,7 +785,7 @@ public class PhenotypeBuilder {
 		}
 	}
 	
-	private Phenotype createPhenotypeFromLists() {
+	private void createPhenotypeFromLists() {
 		if (attributeList.size() != attributeTypeList.size()) throw new IllegalArgumentException("Error building Phenotype: attribute list size not equal to type list size.");
 		Iterator<ATTRIBUTE_TYPE> typeIter = attributeTypeList.iterator();
 		for (PhenotypeAttribute attr : attributeList) {
@@ -796,7 +794,8 @@ public class PhenotypeBuilder {
 				throw new IllegalArgumentException("Error building Phenotype: types not compatible with attributes.");
 			}
 		}
-		return new CorePhenotype(attributeList, attributeTypeList, phenotypeName);
+		Phenotype newPhenotype = new CorePhenotype(attributeList, attributeTypeList, phenotypeName);
+		phenotypeList.add(newPhenotype);
 	}
 	
 	private void joinPhenotypes(ACTION joinAction) {
