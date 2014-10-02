@@ -24,7 +24,7 @@ import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.util.Utils;
 
 /**
- * ReferenceTenomeSequence class.  This class is used to read chromosome sequences
+ * ReferenceGenomeSequence class.  This class is used to read chromosome sequences
  * from fasta files.  Data is stored as half-bytes packed into a byte array.
  * This byte array comprises the "value" for a hash map whose key is an int
  * indicating a chromosome.
@@ -56,18 +56,14 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 	public byte[] chromosomeSequence(Chromosome chrom) {
 		// Return all genome sequence bytes for specified chromosome
 		int chromNumber = chrom.getChromosomeNumber();
-		byte[] sequence = null;
 
 		for (Map.Entry<String, byte[]> chromEntry : chromPositionMap.entrySet()) {
 			int mapChromeNo = Integer.parseInt(chromEntry.getKey());
 			if (mapChromeNo == chromNumber) {
-				sequence = new byte[chromEntry.getValue().length];
-				ByteBuffer bBuf = ByteBuffer.wrap(sequence);
-				bBuf.put(chromEntry.getValue());
-				break;
+				return chromEntry.getValue();
 			}
 		}
-		return sequence;
+		return null;
 	}
 
 	@Override

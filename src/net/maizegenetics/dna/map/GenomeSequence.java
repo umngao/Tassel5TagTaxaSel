@@ -16,16 +16,16 @@ import java.util.Set;
 public interface GenomeSequence {
 	
 	// Returns a set of chromosomes
-	Set<Chromosome> chromosomes();
+	public Set<Chromosome> chromosomes();
     
     //Returns complete sequence for the specified chromosome    
-    byte[] chromosomeSequence(Chromosome chrom);
+    public byte[] chromosomeSequence(Chromosome chrom);
     
     //Returns a chromosome's genomic sequence contained by indicated start/end positions  
-    byte[] chromosomeSequence(Chromosome chrom, int startSite, int endSite);
+    public byte[] chromosomeSequence(Chromosome chrom, int startSite, int endSite);
     
     
     // Read fasta file in compressed (.gz) or uncompressed format
-    byte[] readReferenceGenomeChr (String fastaFileName, int targetChr);
+    public byte[] readReferenceGenomeChr (String fastaFileName, int targetChr);
 
 }
