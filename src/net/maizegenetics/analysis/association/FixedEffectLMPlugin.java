@@ -1,6 +1,7 @@
 package net.maizegenetics.analysis.association;
 
 import java.awt.Frame;
+import java.io.File;
 import java.net.URL;
 import java.util.List;
 
@@ -25,6 +26,7 @@ import com.google.common.collect.Range;
 public class FixedEffectLMPlugin extends AbstractPlugin {
 	
     private static final Logger myLogger = Logger.getLogger(FixedEffectLMPlugin.class);
+    String baseOutFileName = "";
     
 	enum GENOTYPE_DATA_TYPE { genotype, probability, allele_probabilities, none };
 	private GenotypeTable.GENOTYPE_TABLE_COMPONENT[] GENOTYPE_COMP = new GenotypeTable.GENOTYPE_TABLE_COMPONENT[]{
@@ -112,7 +114,11 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
     		} else  throw new IllegalArgumentException("GLM can only process one data set at a time.");
     	} 
     	else if (genoPhenoList.size() > 1)  throw new IllegalArgumentException("GLM can only process one data set at a time.");
-    			
+    	else {
+        	//code to handle Tassel 4 pipeline style commands
+    		
+    	}
+    	
     }
     
     public DataSet processData(DataSet data) {
@@ -141,6 +147,23 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
         	else return new DataSet(myLM.datumList(), this);
     	} 
     	
+    }
+    
+    //setters needed for compatability with Tassel 4.0 pipeline commands
+    public void setOutputFile(String name) {
+
+    }
+    
+    public void setMaxP(double maxp) {
+    	maxPValue(maxp);
+    }
+    
+    public void setPermute(boolean permute) {
+    	runPermutations(permute);
+    }
+    
+    public void setNumberOfPermutations(int nperm) {
+    	numberOfPermutations(nperm);
     }
     
     // The following getters and setters were auto-generated.
