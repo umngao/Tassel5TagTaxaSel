@@ -100,8 +100,8 @@ public class StepwiseOLSModelFitter {
 		myGenotype = myData.genotypeTable();
 		myPhenotype = myData.phenotype();
 		dataAttributeList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data);
-		factorAttributeList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data);
-		covariateAttributeList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data);
+		factorAttributeList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor);
+		covariateAttributeList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.covariate);
 
 		int numberOfPhenotypes = dataAttributeList.size();
 
