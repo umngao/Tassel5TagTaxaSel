@@ -69,6 +69,9 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	protected int numberOfBaseEffects;
 	protected int taxaEffectNumber;
 	protected int randomSeed;
+	protected boolean useRandomSeed = false;
+	protected Random rand = null;
+
 
     protected static final Map<SiteScore.SITE_SCORE_TYPE, String> typeNameMap;
     static {
@@ -225,7 +228,11 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		totalcfmSSdf[0] = baseErrorSSdf[0] + modelSSdf[0];
 		totalcfmSSdf[1] = baseErrorSSdf[1] + modelSSdf[1];
 		
-		Random rand = new Random();
+		if (rand == null) {
+			if (useRandomSeed) rand = new Random(randomSeed);
+			else rand = new Random();
+		}
+		
 		for (int p = 0; p < numberOfPermutations; p++) {
 			LinearModelUtils.shuffle(residuals, rand);
 			DoubleMatrix permdm = predicted.plus(residuals);
@@ -316,4 +323,13 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		alleleReportFilename = savefile;
 	}
 
+	/**
+	 * This method is used mainly for testing in order to generate reproducible permutation results. 
+	 * If the seed is not set, the current time is used to initialize the random number generator.
+	 * @param seed	the seed used to initialize the random number generator used by permutation
+	 */
+	public void setRandomSeed(int seed) {
+		randomSeed = seed;
+		useRandomSeed = true;
+	}
 }
