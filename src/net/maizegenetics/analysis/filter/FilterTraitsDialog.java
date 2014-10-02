@@ -315,7 +315,7 @@ class TraitTableModel extends AbstractTableModel {
 
     public void excludeAll() {
         for (int i = 0; i < numberOfTraits; i++) {
-            include[i] = Boolean.FALSE;
+            if (types[i] != ATTRIBUTE_TYPE.taxa) include[i] = Boolean.FALSE;
         }
         fireTableDataChanged();
     }
@@ -329,7 +329,7 @@ class TraitTableModel extends AbstractTableModel {
 
     public void excludeSome(int[] index) {
         for (int i : index) {
-            include[i] = Boolean.FALSE;
+        	if (types[i] != ATTRIBUTE_TYPE.taxa) include[i] = Boolean.FALSE;
         }
         fireTableDataChanged();
     }
