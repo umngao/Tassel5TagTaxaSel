@@ -7,12 +7,15 @@ import java.util.List;
 import javax.swing.ImageIcon;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTable.GENOTYPE_TABLE_COMPONENT;
 import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.util.TableReport;
 
 import org.apache.log4j.Logger;
 
@@ -32,22 +35,22 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
 			.description("Should the phenotype be analyzed with no markers and BLUEs generated? (BLUE = best linear unbiased estimate)")
 			.guiName("Analyze Phenotype Only")
 			.build();
-    private PluginParameter<Boolean> saveToFile = new PluginParameter.Builder<>("saveToFile", false, Boolean.class)
+    private PluginParameter<Boolean> saveAsFile = new PluginParameter.Builder<>("saveToFile", false, Boolean.class)
     		.description("Should the results be saved to a file rather than stored in memory? It true, the results will be written to a file as each SNP is analyzed in order to reduce memory requirements"
     				+ "and the results will NOT be saved to the data tree. Default = false.")
-    		.guiName("Save to file?")
+    		.guiName("Save to file")
     		.build();
     private PluginParameter<String> siteReportFilename = new PluginParameter.Builder<>("siteFile", null, String.class)
     		.outFile()
-    		.dependentOnParameter(saveToFile)
+    		.dependentOnParameter(saveAsFile)
     		.description("The name of the file to which these results will be saved.")
-    		.guiName("Save filename")
+    		.guiName("Statistics File")
     		.build();
     private PluginParameter<String> alleleReportFilename = new PluginParameter.Builder<>("alleleFile", null, String.class)
     		.outFile()
-    		.dependentOnParameter(saveToFile)
+    		.dependentOnParameter(saveAsFile)
     		.description("The name of the file to which these results will be saved.")
-    		.guiName("Save filename")
+    		.guiName("Genotype Effect File")
     		.build();
     private PluginParameter<Double> maxPvalue = new PluginParameter.Builder<>("maxP", 1.0, Double.class)
     		.description("Only results with p <= maxPvalue will be reported. Default = 1.0.")
@@ -128,15 +131,228 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
         		myLM = new AlleleProbabilityFELM(myDatum);
         	} else return null;
         	if (permute.value()) myLM.permutationTest(true, numberOfPermutations.value());
-        	if (saveToFile.value()) {
+        	if (saveAsFile.value()) {
         		myLM.siteReportFilepath(siteReportFilename.value());
         		myLM.alleleReportFilepath(alleleReportFilename.value());
         	}
         	myLM.maxP(maxPvalue.value());
         	myLM.solve();
-        	if (saveToFile.value()) return null;
+        	if (saveAsFile.value()) return null;
         	else return new DataSet(myLM.datumList(), this);
     	} 
     	
     }
+    
+    // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(FixedEffectLMPlugin.class);
+    // }
+
+    /**
+     * Convenience method to run plugin with one return object.
+     */
+    public TableReport runPlugin(DataSet input) {
+        return (TableReport) performFunction(input).getData(0).getData();
+    }
+
+    /**
+     * Should the phenotype be analyzed with no markers and
+     * BLUEs generated? (BLUE = best linear unbiased estimate)
+     *
+     * @return Analyze Phenotype Only
+     */
+    public Boolean analyzePhenotypeOnly() {
+        return phenotypeOnly.value();
+    }
+
+    /**
+     * Set Analyze Phenotype Only. Should the phenotype be
+     * analyzed with no markers and BLUEs generated? (BLUE
+     * = best linear unbiased estimate)
+     *
+     * @param value Analyze Phenotype Only
+     *
+     * @return this plugin
+     */
+    public FixedEffectLMPlugin analyzePhenotypeOnly(Boolean value) {
+        phenotypeOnly = new PluginParameter<>(phenotypeOnly, value);
+        return this;
+    }
+
+    /**
+     * Should the results be saved to a file rather than stored
+     * in memory? It true, the results will be written to
+     * a file as each SNP is analyzed in order to reduce memory
+     * requirementsand the results will NOT be saved to the
+     * data tree. Default = false.
+     *
+     * @return Save to file
+     */
+    public Boolean saveToFile() {
+        return saveAsFile.value();
+    }
+
+    /**
+     * Set Save to file. Should the results be saved to a
+     * file rather than stored in memory? It true, the results
+     * will be written to a file as each SNP is analyzed in
+     * order to reduce memory requirementsand the results
+     * will NOT be saved to the data tree. Default = false.
+     *
+     * @param value Save to file
+     *
+     * @return this plugin
+     */
+    public FixedEffectLMPlugin saveToFile(Boolean value) {
+        saveAsFile = new PluginParameter<>(saveAsFile, value);
+        return this;
+    }
+
+    /**
+     * The name of the file to which these results will be
+     * saved.
+     *
+     * @return Statistics File
+     */
+    public String statisticsFile() {
+        return siteReportFilename.value();
+    }
+
+    /**
+     * Set Statistics File. The name of the file to which
+     * these results will be saved.
+     *
+     * @param value Statistics File
+     *
+     * @return this plugin
+     */
+    public FixedEffectLMPlugin statisticsFile(String value) {
+        siteReportFilename = new PluginParameter<>(siteReportFilename, value);
+        return this;
+    }
+
+    /**
+     * The name of the file to which these results will be
+     * saved.
+     *
+     * @return Genotype Effect File
+     */
+    public String genotypeEffectFile() {
+        return alleleReportFilename.value();
+    }
+
+    /**
+     * Set Genotype Effect File. The name of the file to which
+     * these results will be saved.
+     *
+     * @param value Genotype Effect File
+     *
+     * @return this plugin
+     */
+    public FixedEffectLMPlugin genotypeEffectFile(String value) {
+        alleleReportFilename = new PluginParameter<>(alleleReportFilename, value);
+        return this;
+    }
+
+    /**
+     * Only results with p <= maxPvalue will be reported.
+     * Default = 1.0.
+     *
+     * @return max P value
+     */
+    public Double maxPValue() {
+        return maxPvalue.value();
+    }
+
+    /**
+     * Set max P value. Only results with p <= maxPvalue will
+     * be reported. Default = 1.0.
+     *
+     * @param value max P value
+     *
+     * @return this plugin
+     */
+    public FixedEffectLMPlugin maxPValue(Double value) {
+        maxPvalue = new PluginParameter<>(maxPvalue, value);
+        return this;
+    }
+
+    /**
+     * Should a permutation analysis be run? The permutation
+     * analysis controls the experiment-wise error rate for
+     * individual phenotypes.
+     *
+     * @return Run Permutations
+     */
+    public Boolean runPermutations() {
+        return permute.value();
+    }
+
+    /**
+     * Set Run Permutations. Should a permutation analysis
+     * be run? The permutation analysis controls the experiment-wise
+     * error rate for individual phenotypes.
+     *
+     * @param value Run Permutations
+     *
+     * @return this plugin
+     */
+    public FixedEffectLMPlugin runPermutations(Boolean value) {
+        permute = new PluginParameter<>(permute, value);
+        return this;
+    }
+
+    /**
+     * The number of permutations to be run for the permutation
+     * analysis.
+     *
+     * @return Number of Permutations
+     */
+    public Integer numberOfPermutations() {
+        return numberOfPermutations.value();
+    }
+
+    /**
+     * Set Number of Permutations. The number of permutations
+     * to be run for the permutation analysis.
+     *
+     * @param value Number of Permutations
+     *
+     * @return this plugin
+     */
+    public FixedEffectLMPlugin numberOfPermutations(Integer value) {
+        numberOfPermutations = new PluginParameter<>(numberOfPermutations, value);
+        return this;
+    }
+
+    /**
+     * If the genotype table contains more than one type of
+     * genotype data, choose the type to use for the analysis.
+     *
+     * @return Genotype Component
+     */
+    public GENOTYPE_TABLE_COMPONENT genotypeComponent() {
+        return myGenotypeTable.value();
+    }
+
+    /**
+     * Set Genotype Component. If the genotype table contains
+     * more than one type of genotype data, choose the type
+     * to use for the analysis.
+     *
+     * @param value Genotype Component
+     *
+     * @return this plugin
+     */
+    public FixedEffectLMPlugin genotypeComponent(GENOTYPE_TABLE_COMPONENT value) {
+        myGenotypeTable = new PluginParameter<>(myGenotypeTable, value);
+        return this;
+    }
+
+
+
 }
+
+
