@@ -972,4 +972,70 @@ public class GenotypeTableUtils {
         }
         return result;
     }
+    
+    public static float[][] convertGenotypeToFloatProbability(GenotypeTable genotype, boolean sitesByTaxa) {
+    	int nsites = genotype.numberOfSites();
+    	int ntaxa = genotype.numberOfTaxa();
+    	float[][] out = null;
+    	if (sitesByTaxa) {
+    		out = new float[nsites][ntaxa];
+    		for (int s = 0; s < nsites; s++) {
+    			byte minor = genotype.minorAllele(s);
+    			for (int t = 0; t < ntaxa; t++) {
+    				byte geno = genotype.genotype(t, s);
+    				if (geno == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) out[s][t] = Float.NaN;
+    				byte[] alleles = GenotypeTableUtils.getDiploidValues(geno);
+    				if (alleles[0] == minor) out[s][t] += 0.5;
+    				if (alleles[1] == minor) out[s][t] += 0.5;
+    			}
+    		} 
+    	}
+    	if (!sitesByTaxa) {
+    		out = new float[ntaxa][nsites];
+    		for (int s = 0; s < nsites; s++) {
+    			byte minor = genotype.minorAllele(s);
+    			for (int t = 0; t < ntaxa; t++) {
+    				byte geno = genotype.genotype(t, s);
+    				if (geno == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) out[t][s] = Float.NaN;
+    				byte[] alleles = GenotypeTableUtils.getDiploidValues(geno);
+    				if (alleles[0] == minor) out[t][s] += 0.5;
+    				if (alleles[1] == minor) out[t][s] += 0.5;
+    			}
+    		} 
+    	}
+    	return out;    	
+    }
+
+    public static double[][] convertGenotypeToDoubleProbability(GenotypeTable genotype, boolean sitesByTaxa) {
+    	int nsites = genotype.numberOfSites();
+    	int ntaxa = genotype.numberOfTaxa();
+    	double[][] out = null;
+    	if (sitesByTaxa) {
+    		out = new double[nsites][ntaxa];
+    		for (int s = 0; s < nsites; s++) {
+    			byte minor = genotype.minorAllele(s);
+    			for (int t = 0; t < ntaxa; t++) {
+    				byte geno = genotype.genotype(t, s);
+    				if (geno == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) out[s][t] = Double.NaN;
+    				byte[] alleles = GenotypeTableUtils.getDiploidValues(geno);
+    				if (alleles[0] == minor) out[s][t] += 0.5;
+    				if (alleles[1] == minor) out[s][t] += 0.5;
+    			}
+    		} 
+    	}
+    	if (!sitesByTaxa) {
+    		out = new double[ntaxa][nsites];
+    		for (int s = 0; s < nsites; s++) {
+    			byte minor = genotype.minorAllele(s);
+    			for (int t = 0; t < ntaxa; t++) {
+    				byte geno = genotype.genotype(t, s);
+    				if (geno == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) out[t][s] = Double.NaN;
+    				byte[] alleles = GenotypeTableUtils.getDiploidValues(geno);
+    				if (alleles[0] == minor) out[t][s] += 0.5;
+    				if (alleles[1] == minor) out[t][s] += 0.5;
+    			}
+    		} 
+    	}
+    	return out;
+    }
 }
