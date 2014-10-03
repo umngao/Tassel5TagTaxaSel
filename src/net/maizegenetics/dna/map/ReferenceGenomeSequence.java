@@ -41,15 +41,15 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 	private static final Logger myLogger = Logger.getLogger(ReferenceGenomeSequence.class);
 
 	// Map to store chromosomes and sequence bytes 	
-	private Map<String, byte[]> chromPositionMap = new LinkedHashMap<String, byte[]>();
-
-	// Using HashSet for performance.  If we need an order maintained, this should be
-	// changed to TreeSet
-	private Set<Chromosome> chromosomeList = new HashSet<Chromosome>();
+	//private Map<String, byte[]> chromPositionMap = new LinkedHashMap<String, byte[]>();
+	private Map<Chromosome, byte[]> chromPositionMap = new LinkedHashMap<Chromosome, byte[]>();
 
 	@Override
 	public Set<Chromosome> chromosomes() {
-		return chromosomeList;
+		if (!chromPositionMap.isEmpty()) {
+			return chromPositionMap.keySet();
+		}
+		return null;
 	}
 
 	@Override
@@ -57,8 +57,8 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 		// Return all genome sequence bytes for specified chromosome
 		int chromNumber = chrom.getChromosomeNumber();
 
-		for (Map.Entry<String, byte[]> chromEntry : chromPositionMap.entrySet()) {
-			int mapChromeNo = Integer.parseInt(chromEntry.getKey());
+		for (Map.Entry<Chromosome, byte[]> chromEntry : chromPositionMap.entrySet()) {
+			int mapChromeNo = chromEntry.getKey().getChromosomeNumber();
 			if (mapChromeNo == chromNumber) {
 				return chromEntry.getValue();
 			}
@@ -87,15 +87,15 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 			sequence = new byte[nBytes];
 			ByteBuffer bBuf = ByteBuffer.wrap(sequence);
 
-			for (Map.Entry<String, byte[]> chromEntry : chromPositionMap.entrySet()) {
-				int mapChromNo = Integer.parseInt(chromEntry.getKey());
+			for (Map.Entry<Chromosome, byte[]> chromEntry : chromPositionMap.entrySet()) {
+				int mapChromNo = chromEntry.getKey().getChromosomeNumber();
 
 				if (mapChromNo == chromNumber) {
 					byte[] chromBytes = chromEntry.getValue();
 					int seqLength = chromBytes.length;
 
 					if (!evenStart) {
-						// Start site is odd, we'll grabbing a full byte to start
+						// Start site is odd, we're grabbing a full byte to start
 						// ex: user wants to start at position 5 in sequence.
 						// sequence is stored as halfbyte, position 5 is the top
 						// half of byte 2 in a 0-based byte array.  So offset is 5/2 = 2
@@ -246,8 +246,8 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 
 					while (currentStrPos < sLine.length()-1) {
 						// store encoded alleles as half bytes in the byte array
-						byte halfByteUpper = getAlleleEncoding(sLine.charAt(currentStrPos));						
-						byte halfByteLower = getAlleleEncoding(sLine.charAt(currentStrPos+1));
+						byte halfByteUpper = NucleotideAlignmentConstants.getNucleotideAlleleByte(sLine.charAt(currentStrPos));
+						byte halfByteLower = NucleotideAlignmentConstants.getNucleotideAlleleByte(sLine.charAt(currentStrPos+1));
 						byte positionByte = (byte) ( (halfByteUpper << 4) | (halfByteLower));
 
 						lineSeq[byteBufferPos] = positionByte;
@@ -260,7 +260,7 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 					// stored with the beginning of the next one.  I'm guessing we will
 					// have even number of bytes except perhaps for last line of chromosome sequence
 					if (currentStrPos < sLine.length()) {
-						byte halfByteUpper = getAlleleEncoding(sLine.charAt(currentStrPos));
+						byte halfByteUpper = NucleotideAlignmentConstants.getNucleotideAlleleByte(sLine.charAt(currentStrPos));
 						byte positionByte = (byte) (halfByteUpper << 4);
 						lineSeq[byteBufferPos] = positionByte;
 					}
@@ -269,11 +269,8 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 
 				// Add chromosome to Set of Chromosomes.  
 				Chromosome chrObj = new Chromosome(String.valueOf(currChrom));
-				if (!chromosomeList.contains(chrObj)) {
-					chromosomeList.add(chrObj);
-				}
-				String chromNumber = Integer.toString(currChrom);
-				chromPositionMap.put(chromNumber, sequence); // store chromosome and bytes in the map			
+				
+				chromPositionMap.put(chrObj, sequence); // store chromosome and bytes in the map			
 				return sequence;
 			}
 
@@ -283,43 +280,6 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 			e.printStackTrace();
 		}
 		return null;
-	}
-
-	/**
-	 * returns NucleotideAlignmentConstant encoding for a particular byte
-	 */
-	private byte getAlleleEncoding(char myChar) {
-		byte myByte = 0x00;
-
-		switch (myChar) {
-		case 'A':
-		case 'a':
-			myByte = NucleotideAlignmentConstants.A_ALLELE;
-			break;
-		case 'C':
-		case 'c':
-			myByte = NucleotideAlignmentConstants.C_ALLELE;
-			break;
-		case 'G':
-		case 'g':
-			myByte = NucleotideAlignmentConstants.G_ALLELE;
-			break;
-		case 'T':
-		case 't':
-			myByte = NucleotideAlignmentConstants.T_ALLELE;
-			break;
-		case '+':
-			myByte = NucleotideAlignmentConstants.INSERT_ALLELE;
-		case '-':
-			myByte = NucleotideAlignmentConstants.GAP_ALLELE;
-		case 'N':
-		case 'n':
-			myByte = GenotypeTable.UNKNOWN_ALLELE_CHAR;
-		default:
-			myByte = NucleotideAlignmentConstants.UNDEFINED_ALLELE;
-			break;
-		}
-		return myByte;
 	}
 
 }
