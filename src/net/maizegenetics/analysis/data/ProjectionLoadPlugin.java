@@ -8,7 +8,6 @@ import net.maizegenetics.dna.snp.io.ProjectionGenotypeIO;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.PluginEvent;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.Utils;
 
@@ -60,8 +59,6 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
             return loadFile(myRecombinationBreakpoints.value(), myHighDensityMarkersGenotypeTable);
         } catch (Exception e) {
             throw new IllegalStateException("ProjectionLoadPlugin: processData: Problem loading: " + myRecombinationBreakpoints.value() + "\n" + e.getMessage());
-        } finally {
-            fireProgress(100);
         }
 
     }
@@ -107,10 +104,7 @@ public class ProjectionLoadPlugin extends AbstractPlugin {
         }
 
         Datum td = new Datum(Utils.getFilename(theRecombinationBreakpoints, FileLoadPlugin.FILE_EXT_HAPMAP), theAlignmentForGenotype, null);
-        DataSet tds = new DataSet(td, this);
-        fireDataSetReturned(new PluginEvent(tds, ProjectionLoadPlugin.class));
-
-        return tds;
+        return new DataSet(td, this);
 
     }
 
