@@ -193,6 +193,13 @@ public class TasselLogging extends AbstractPlugin {
         return "Logging";
     }
 
+    public static void basicLoggingInfo() {
+        myLogger.info("Tassel Version: " + TASSELMainFrame.version + "  Date: " + TASSELMainFrame.versionDate);
+        myLogger.info("Max Available Memory Reported by JVM: " + Utils.getMaxHeapSizeMB() + " MB");
+        myLogger.info("Java Version: " + System.getProperty("java.version"));
+        myLogger.info("OS: " + System.getProperty("os.name"));
+    }
+
     class TextAreaOutputStream extends OutputStream {
 
         private final byte[] myByteArray = new byte[1];
@@ -205,9 +212,7 @@ public class TasselLogging extends AbstractPlugin {
         public synchronized void clear() {
             if (myTextAppender != null) {
                 myTextAppender.clear();
-                myLogger.info("Tassel Version: " + TASSELMainFrame.version + "  Date: " + TASSELMainFrame.versionDate);
-                myLogger.info("Max Available Memory Reported by JVM: " + Utils.getMaxHeapSizeMB() + " MB");
-                myLogger.info("Java Version: " + System.getProperty("java.version"));
+                basicLoggingInfo();
             }
         }
 
