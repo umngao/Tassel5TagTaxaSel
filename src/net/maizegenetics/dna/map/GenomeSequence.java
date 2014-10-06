@@ -10,22 +10,42 @@ import java.util.Set;
 /**
  * Defines the genome sequence of a chromosome
  * 
- * @author lcj34
+ * @author Lynn Johnson
  *
  */
 public interface GenomeSequence {
 	
-	// Returns a set of chromosomes
+	/**
+	 * Returns a list of chromosomes whose sequences have been
+	 * stored in the chromsomeSequence map of the class implementing
+	 * this interface.
+	 * 
+	 * @return  a Set of Chromosome objects
+	 */
 	public Set<Chromosome> chromosomes();
     
-    //Returns complete sequence for the specified chromosome    
+	/**
+	 * Takes a Chromosome object and returns the stored byte array representing
+	 * the genomic sequence for the specified chromosome.
+	 * 
+	 * @param chrom; a Chromosome object representing the chromosome whose
+	 * 				sequence will be returned
+	 * @return  A byte array containing the chromosome alleles in NucleotideAlignmentConstant
+	 * 			form packed in half bytes
+	 */
     public byte[] chromosomeSequence(Chromosome chrom);
     
-    //Returns a chromosome's genomic sequence contained by indicated start/end positions  
+    /**
+     * Returns the partial genomic sequence for a  chromosome, from the specified start
+     * position to the specified end position.  THe start/end positions are inclusive and
+     * the request is 1-based (though the alleles are stored in a 0-based byte array).
+     * 
+     * @param chrom:  the chromosome whose partial sequence will be returned.
+     * @param startSite:  the 1-based position in the sequence to start the pull.
+     * @param endSite:  the 1-based position in the sequence that will be the last allele in the pull
+     * @return A byte array of alleles in NucleotideAlignmentConstant form that is packed into
+     * 			half bytes.
+     */
     public byte[] chromosomeSequence(Chromosome chrom, int startSite, int endSite);
-    
-    
-    // Read fasta file in compressed (.gz) or uncompressed format
-    public byte[] readReferenceGenomeChr (String fastaFileName, int targetChr);
 
 }
