@@ -26,12 +26,11 @@ import net.maizegenetics.util.Utils;
 /**
  * ReferenceGenomeSequence class.  This class is used to read chromosome sequences
  * from fasta files.  Data is stored as half-bytes packed into a byte array.
- * This byte array comprises the "value" for a hash map whose key is an int
- * indicating a chromosome.
+ * This byte array comprises the "value" for a hash map whose key is a
+ * Chromosome object.
  * 
- * The class also provides a Java Set that contains a list of chromosomes
- * for which we have stored a sequence, and methods to obtain a full or
- * partial genome sequence for a specified stored chromosome.
+ * The class also  methods to obtain a full or partial genome sequence for a
+ * specified stored chromosome.
  * 
  * @author Lynn Johnson
  *
@@ -40,10 +39,12 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 
 	private static final Logger myLogger = Logger.getLogger(ReferenceGenomeSequence.class);
 
-	// Map to store chromosomes and sequence bytes 	
-	//private Map<String, byte[]> chromPositionMap = new LinkedHashMap<String, byte[]>();
-	private Map<Chromosome, byte[]> chromPositionMap = new LinkedHashMap<Chromosome, byte[]>();
+	private Map<Chromosome, byte[]> chromPositionMap;
 
+	ReferenceGenomeSequence(Map<Chromosome, byte[]>chromMap){
+		this.chromPositionMap = chromMap;
+	}
+	
 	@Override
 	public Set<Chromosome> chromosomes() {
 		if (!chromPositionMap.isEmpty()) {
@@ -59,8 +60,20 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 
 		for (Map.Entry<Chromosome, byte[]> chromEntry : chromPositionMap.entrySet()) {
 			int mapChromeNo = chromEntry.getKey().getChromosomeNumber();
+
 			if (mapChromeNo == chromNumber) {
-				return chromEntry.getValue();
+				byte[] packedBytes = chromEntry.getValue();
+				int fullBytesLength = packedBytes.length * 2;
+				byte[] fullBytes = new byte[fullBytesLength];
+				int fIndex = 0, pIndex = 0;
+
+				while (fIndex < fullBytesLength - 1){
+					fullBytes[fIndex] = (byte) (packedBytes[pIndex] >> 4);
+					fullBytes[fIndex+1] = (byte)(packedBytes[pIndex] & 0x0F);
+					fIndex += 2;
+					pIndex++;					
+				}	
+				return fullBytes;
 			}
 		}
 		return null;
@@ -71,112 +84,83 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 		// Return specified portion of a chromosome's sequence	
 		// This code written assuming caller sent in 1 based number
 
+		if (startSite < 1 || startSite > endSite)
+			return null;
+		
 		int chromNumber = chrom.getChromosomeNumber();
-		int numSites = endSite - startSite + 1;  // assume start/end site values are inclusive
+		int numSites = endSite - startSite + 1;  // start/end site values are inclusive
 		boolean evenStart = startSite % 2 == 0 ? true: false;
 		boolean evenNumSites = numSites % 2 == 0 ? true: false;
-		int nBytes = numSites/2;
-		if (evenStart) {
-			nBytes++;
-		} else if (!evenNumSites)  {
-			nBytes++;			
-		}
 
-		byte[] sequence = null;
-		if (nBytes > 0) {			
-			sequence = new byte[nBytes];
-			ByteBuffer bBuf = ByteBuffer.wrap(sequence);
-
+		byte[] fullBytes = null;
+		if (numSites > 0) {			
+			fullBytes = new byte[numSites];
 			for (Map.Entry<Chromosome, byte[]> chromEntry : chromPositionMap.entrySet()) {
 				int mapChromNo = chromEntry.getKey().getChromosomeNumber();
-
 				if (mapChromNo == chromNumber) {
-					byte[] chromBytes = chromEntry.getValue();
-					int seqLength = chromBytes.length;
+					byte[] packedBytes = chromEntry.getValue();
 
+					if (startSite > packedBytes.length*2 ||
+						endSite > packedBytes.length*2 ) {
+						return null;
+					}
+	
 					if (!evenStart) {
 						// Start site is odd, we're grabbing a full byte to start
 						// ex: user wants to start at position 5 in sequence.
 						// sequence is stored as halfbyte, position 5 is the top
 						// half of byte 2 in a 0-based byte array.  So offset is 5/2 = 2
-						int offset = startSite / 2;  // For 0 based array, this gets us to correct beginning entry
-						int endPull = offset + numSites;
 
-						// Verify range is valid
-						if (( offset < seqLength) && ( endPull <= seqLength ))  {
-							bBuf.put(chromEntry.getValue(),offset,nBytes-1);
-							// last byte is either half byte or whole, depending on an even or odd number of bytes
-							if (numSites %2 == 0) {
-								// add the full last byte
-								bBuf.put(chromBytes, offset+nBytes-1,1);
-							} else {
-								// we only want the top half of the last byte 
-								byte lastByte = chromBytes[offset+nBytes-1];
-								byte byteToStore = (byte) ((lastByte & 0xF0));
-								bBuf.put(byteToStore);
-							}
-						} else {
-							System.out.println("ReferenceGenomeSequence:chromosomeSequence: requested bytes are out of range for Chromosome");
-							return null;
-						}
-						return sequence;
+                        int fIndex = 0; // index into new full bytes array
+                        int pIndex = startSite/2; // index into stored pack bytes array
+
+                        while (fIndex < numSites - 1){
+                                fullBytes[fIndex] = (byte) (packedBytes[pIndex] >> 4);
+                                fullBytes[fIndex+1] = (byte)(packedBytes[pIndex] & 0x0F);
+                                fIndex += 2;
+                                pIndex++;                               
+                        }       
+ 
+                        if (numSites %2 != 0) {
+                        	fullBytes[fIndex] = (byte)((packedBytes[pIndex] & 0xF0) >> 4);                        	
+                        }
+						return fullBytes;
 
 					} else {
 						// start site is even number, we're starting in the lower half of a stored byte
 						// ex: user wants to pull from position 4 in the sequence
 						// Position 4 is stored in the lower half of byte 1 in the 0-based byte array
 						// 4/2 - 1 = 1
-						// All bytes have to be shifted for the return array
-						int offset = startSite / 2 - 1;
-						int endPull = offset + numSites;
-						if (( offset < seqLength) && ( endPull <= seqLength ))  {
-							byte[] firstByteArray = new byte[nBytes];
-							ByteBuffer b2Buf = ByteBuffer.wrap(firstByteArray);
-							b2Buf.put(chromBytes, offset,nBytes);
+						int pIndex = startSite/2 -1;
+						int fIndex = 0;
 
-							int shiftedNBytes = evenNumSites == true ? nBytes-1 : nBytes;
+						fullBytes[fIndex] = (byte)(packedBytes[pIndex] & 0x0F);
+						fIndex++; pIndex++;
+                        while (fIndex < numSites - 2){
+                            fullBytes[fIndex] = (byte) (packedBytes[pIndex] >> 4);
+                            fullBytes[fIndex+1] = (byte)(packedBytes[pIndex] & 0x0F);
+                            fIndex += 2;
+                            pIndex++;                               
+                        }       
 
-							byte[] shiftedByteArray = new byte[shiftedNBytes]; // source array has one extra byte
-							ByteBuffer b3Buf = ByteBuffer.wrap(shiftedByteArray);
-
-							// get first byte, then loop
-							int index= 0;
-
-							byte firstByte = firstByteArray[index];
-							byte secondByte = 0;
-							byte tempByte = 0;
-							for (index=1; index < nBytes; index++) {
-								// Grab bytes and shift.  Lower half of first byte and upper half
-								// of second byte make up a byte for the shifted array
-								secondByte = firstByteArray[index];
-								byte shiftArrayByte;
-								if (index == 1) {
-									shiftArrayByte = (byte) (((firstByte & 0x0F) << 4) | ((secondByte & 0xF0) >> 4));
-								} else {
-									shiftArrayByte = (byte) ((tempByte << 4) | ((secondByte & 0xF0) >> 4));
-								}
-
-								b3Buf.put(shiftArrayByte); 
-								tempByte = (byte) (secondByte & 0x0F);	// process lower 4 bits of the byte									
-							}
-							if (!evenNumSites) {
-								// One more byte to store
-								byte shiftArrayByte = (byte)(secondByte << 4);
-								b3Buf.put(shiftArrayByte);
-							}
-							return shiftedByteArray;
-						} else {
-							System.out.println("ReferenceGenomeSequence:chromosomeSequence: requested bytes are out of range for Chromosome");
+                        if (!evenNumSites){ // add last byte
+                            fullBytes[fIndex] = (byte) (packedBytes[pIndex] >> 4);
+                            fullBytes[fIndex+1] = (byte)(packedBytes[pIndex] & 0x0F);
+                        }
+ 
+						if (evenNumSites) {
+							// One more allele to store - top half of last byte 
+	                       	fullBytes[fIndex] = (byte)(packedBytes[pIndex] >> 4); 
 						}
-					} // end offset validation					
+						return fullBytes;
+					} 
 				}
 			}
 		}		
 		return null;
 	}
 
-	@Override
-	public  byte[] readReferenceGenomeChr(String fastaFileName, int targetChr) {
+	protected static byte[] readReferenceGenomeChr(String fastaFileName, int targetChr) {
 		// Read specified file, return entire sequence for requested chromosome 
 		int nBases = 0;
 		int basesPerByte = 2;
@@ -232,7 +216,6 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 			myLogger.info("\n\nFinished reading target chromosome " + targetChr + "\n");
 			// Process the chromosome sequence data
 			if (mySequence.size() > 0){
-
 				int nBytes = (nBases % basesPerByte == 0) ? nBases/basesPerByte : (nBases / basesPerByte) + 1;
 				byte[] sequence = new byte[nBytes];
 				ByteBuffer bBuf = ByteBuffer.wrap(sequence);
@@ -257,7 +240,7 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 										
 					// Catch the last byte if line contained an odd number of bytes
 					// if lines all have odd number of bytes, the end of each should be
-					// stored with the beginning of the next one.  I'm guessing we will
+					// stored with the beginning of the next one. Code assume file will
 					// have even number of bytes except perhaps for last line of chromosome sequence
 					if (currentStrPos < sLine.length()) {
 						byte halfByteUpper = NucleotideAlignmentConstants.getNucleotideAlleleByte(sLine.charAt(currentStrPos));
@@ -266,11 +249,6 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 					}
 					bBuf.put(lineSeq); // add to return buffer
 				}
-
-				// Add chromosome to Set of Chromosomes.  
-				Chromosome chrObj = new Chromosome(String.valueOf(currChrom));
-				
-				chromPositionMap.put(chrObj, sequence); // store chromosome and bytes in the map			
 				return sequence;
 			}
 
