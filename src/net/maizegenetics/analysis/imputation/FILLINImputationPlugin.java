@@ -89,7 +89,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     private PluginParameter<Integer> minMinorCnt= new PluginParameter.Builder<>("minMnCnt",20,Integer.class).guiName("Min num of minor alleles to compare")
             .description("Minimum number of informative minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major)").build();
     private PluginParameter<Integer> maxDonorHypotheses= new PluginParameter.Builder<>("mxDonH",20,Integer.class).guiName("Max donor hypotheses")
-            .description("Maximum number of donor hypotheses to be explored").build();
+            .description("Maximum number of donor hypotheses to be explored. (Note: For heterozygous samples this number should be very large, up to including _all_ donor haplotypes.)").build();
     private PluginParameter<Boolean> imputeAllHets= new PluginParameter.Builder<>("impAllHets",false,Boolean.class).guiName("Impute all het calls")
             .description("Write all imputed heterozygous calls as such, even if the original file has a homozygous call. (Not recommended for inbred lines.)").build();
 
