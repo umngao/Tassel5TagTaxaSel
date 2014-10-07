@@ -7,6 +7,7 @@ import net.maizegenetics.dna.map.DonorHaplotypes;
 import net.maizegenetics.dna.snp.*;
 import net.maizegenetics.dna.snp.io.ProjectionGenotypeIO;
 import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
 import org.apache.commons.lang.ArrayUtils;
@@ -89,7 +90,10 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
             .description("Minimum number of informative minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major)").build();
     private PluginParameter<Integer> maxDonorHypotheses= new PluginParameter.Builder<>("mxDonH",20,Integer.class).guiName("Max donor hypotheses")
             .description("Maximum number of donor hypotheses to be explored").build();
-    
+    private PluginParameter<Boolean> imputeAllHets= new PluginParameter.Builder<>("impAllHets",false,Boolean.class).guiName("Impute all het calls")
+            .description("Write all imputed heterozygous calls as such, even if the original file has a homozygous call. (Not recommended for inbred lines.)").build();
+
+
         //if true, uses combination mode in focus block, else set don't impute (default is true)
     private PluginParameter<Boolean> hybridNN= new PluginParameter.Builder<>("hybNN",true,Boolean.class).guiName("Combine two haplotypes as heterozygote")
             .description("If true, uses combination mode in focus block, else does not impute").build();
@@ -168,6 +172,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
         maxInbredErrFocusHet= .1*maximumInbredError.value();//.001;//the error rate for imputing one haplotype in focus block for a het taxon
         maxSmashErrFocusHet= maximumInbredError.value();//.01;
         maxHybridErrFocusHomo= .3333*maxHybridErrorRate.value();
+        resolveHetIfUndercalled = imputeAllHets.value();
         if (nonverboseOutput.value()) verboseOutput= false;
         if (byMAF.value()==false) MAFClass= null;
     }
@@ -307,7 +312,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
             ImputedTaxon impTaxon=new ImputedTaxon(taxon, unimpAlign.genotypeAllSites(taxon),isOutputProjection.value());
             boolean het= (focusHybridErr==0)?true:false;
             int[] unkHets=FILLINImputationUtils.countUnknownAndHeterozygotes(impTaxon.getOrigGeno());
-            sb.append(String.format("Imputing %d:%s AsHet:%b Mj:%d, Mn:%d Unk:%d Hets:%d... ", taxon,name,het,
+            sb.append(String.format("Imputed %d:%s AsHet:%b Mj:%d, Mn:%d Unk:%d Hets:%d... ", taxon,name,het,
                     unimpAlign.allelePresenceForAllSites(taxon, Major).cardinality(),
                     unimpAlign.allelePresenceForAllSites(taxon, Minor).cardinality(), unkHets[0], unkHets[1]));
             boolean enoughData=(unimpAlign.totalNonMissingForTaxon(taxon)>minSitesPresent);
@@ -807,20 +812,21 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     public String getToolTipText() {
         return "Imputation that relies on a combination of HMM and Nearest Neighbor using donors derived from FILLINFindHaplotypesPlugin";
     }
-    
+
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
     //
-    // public static void main(String[] args) {
-    //     GeneratePluginCode.generate(FILLINImputationPlugin.class);
-    // }
+     public static void main(String[] args) {
+         GeneratePluginCode.generate(FILLINImputationPlugin.class);
+     }
 
     /**
      * Convenience method to run plugin with one return object.
      */
-    public Boolean runPlugin(DataSet input) {
-        return (Boolean) performFunction(input).getData(0).getData();
-    }
+    /*// TODO: Replace <Type> with specific type.
+    public <Type> runPlugin(DataSet input) {
+        return (<Type>) performFunction(input).getData(0).getData();
+    }*/
 
     /**
      * Input HapMap file of target genotypes to impute. Accepts
@@ -846,26 +852,28 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     }
 
     /**
-     * Donor haplotype files from output of FILLINFindHaplotypesPlugin.
-     * Use .gX in the input filename to denote the substring
-     * .gc#s# found in donor files
+     * Directory containing donor haplotype files from output
+     * of FILLINFindHaplotypesPlugin. All files with '.gc'
+     * in the filename will be read in, only those with matching
+     * sites are used
      *
-     * @return Donor file
+     * @return Donor Dir
      */
-    public String donorFile() {
+    public String donorDir() {
         return donorFile.value();
     }
 
     /**
-     * Set Donor file. Donor haplotype files from output of
-     * FILLINFindHaplotypesPlugin. Use .gX in the input filename
-     * to denote the substring .gc#s# found in donor files
+     * Set Donor Dir. Directory containing donor haplotype
+     * files from output of FILLINFindHaplotypesPlugin. All
+     * files with '.gc' in the filename will be read in, only
+     * those with matching sites are used
      *
-     * @param value Donor file
+     * @param value Donor Dir
      *
      * @return this plugin
      */
-    public FILLINImputationPlugin donorFile(String value) {
+    public FILLINImputationPlugin donorDir(String value) {
         donorFile = new PluginParameter<>(donorFile, value);
         return this;
     }
@@ -1057,6 +1065,31 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     }
 
     /**
+     * Write all imputed heterozygous calls as such, even
+     * if the original file has a homozygous call. (Not recommended
+     * for inbred lines.)
+     *
+     * @return Impute all het calls
+     */
+    public Boolean imputeAllHetCalls() {
+        return imputeAllHets.value();
+    }
+
+    /**
+     * Set Impute all het calls. Write all imputed heterozygous
+     * calls as such, even if the original file has a homozygous
+     * call. (Not recommended for inbred lines.)
+     *
+     * @param value Impute all het calls
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin imputeAllHetCalls(Boolean value) {
+        imputeAllHets = new PluginParameter<>(imputeAllHets, value);
+        return this;
+    }
+
+    /**
      * If true, uses combination mode in focus block, else
      * does not impute
      *
@@ -1124,24 +1157,170 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     }
 
     /**
-     * False supresses system out
+     * Supress system out
      *
-     * @return False supresses system out
+     * @return Supress system out
      */
-    public Boolean trueSupressesSystemOut() {
+    public Boolean supressSystemOut() {
         return nonverboseOutput.value();
     }
 
     /**
-     * Set False supresses system out. False supresses system
-     * out
+     * Set Supress system out. Supress system out
      *
-     * @param value False supresses system out
+     * @param value Supress system out
      *
      * @return this plugin
      */
-    public FILLINImputationPlugin falseSupressesSystemOut(Boolean value) {
+    public FILLINImputationPlugin supressSystemOut(Boolean value) {
         nonverboseOutput = new PluginParameter<>(nonverboseOutput, value);
+        return this;
+    }
+
+    /**
+     * Masks input file before imputation and calculates accuracy
+     * based on masked genotypes
+     *
+     * @return Calculate accuracy
+     */
+    public Boolean calculateAccuracy() {
+        return accuracy.value();
+    }
+
+    /**
+     * Set Calculate accuracy. Masks input file before imputation
+     * and calculates accuracy based on masked genotypes
+     *
+     * @param value Calculate accuracy
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin calculateAccuracy(Boolean value) {
+        accuracy = new PluginParameter<>(accuracy, value);
+        return this;
+    }
+
+    /**
+     * Proportion of genotypes to mask for accuracy calculation
+     * if depth not available
+     *
+     * @return Proportion of genotypes to mask if no depth
+     */
+    public Double proportionOfGenotypesToMaskIfNoDepth() {
+        return propSitesMask.value();
+    }
+
+    /**
+     * Set Proportion of genotypes to mask if no depth. Proportion
+     * of genotypes to mask for accuracy calculation if depth
+     * not available
+     *
+     * @param value Proportion of genotypes to mask if no depth
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin proportionOfGenotypesToMaskIfNoDepth(Double value) {
+        propSitesMask = new PluginParameter<>(propSitesMask, value);
+        return this;
+    }
+
+    /**
+     * Depth of genotypes to mask for accuracy calculation
+     * if depth information available
+     *
+     * @return Depth of genotypes to mask
+     */
+    public Integer depthOfGenotypesToMask() {
+        return depthToMask.value();
+    }
+
+    /**
+     * Set Depth of genotypes to mask. Depth of genotypes
+     * to mask for accuracy calculation if depth information
+     * available
+     *
+     * @param value Depth of genotypes to mask
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin depthOfGenotypesToMask(Integer value) {
+        depthToMask = new PluginParameter<>(depthToMask, value);
+        return this;
+    }
+
+    /**
+     * Proportion of genotypes of given depth to mask for
+     * accuracy calculation if depth available
+     *
+     * @return Proportion of depth genotypes to mask
+     */
+    public Double proportionOfDepthGenotypesToMask() {
+        return propDepthSitesMask.value();
+    }
+
+    /**
+     * Set Proportion of depth genotypes to mask. Proportion
+     * of genotypes of given depth to mask for accuracy calculation
+     * if depth available
+     *
+     * @param value Proportion of depth genotypes to mask
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin proportionOfDepthGenotypesToMask(Double value) {
+        propDepthSitesMask = new PluginParameter<>(propDepthSitesMask, value);
+        return this;
+    }
+
+    /**
+     * Key to calculate accuracy. Genotypes missing (masked)
+     * in target file should be present in key, with all other
+     * sites set to missing. Overrides otheraccuracy options
+     * if present and all sites and taxa present in target
+     * file present
+     *
+     * @return Optional key to calculate accuracy
+     */
+    public String optionalKeyToCalculateAccuracy() {
+        return maskKey.value();
+    }
+
+    /**
+     * Set Optional key to calculate accuracy. Key to calculate
+     * accuracy. Genotypes missing (masked) in target file
+     * should be present in key, with all other sites set
+     * to missing. Overrides otheraccuracy options if present
+     * and all sites and taxa present in target file present
+     *
+     * @param value Optional key to calculate accuracy
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin optionalKeyToCalculateAccuracy(String value) {
+        maskKey = new PluginParameter<>(maskKey, value);
+        return this;
+    }
+
+    /**
+     * Calculate R2 accuracy within MAF categories based on
+     * donor file
+     *
+     * @return Calculate accuracy within MAF categories
+     */
+    public Boolean calculateAccuracyWithinMAFCategories() {
+        return byMAF.value();
+    }
+
+    /**
+     * Set Calculate accuracy within MAF categories. Calculate
+     * R2 accuracy within MAF categories based on donor file
+     *
+     * @param value Calculate accuracy within MAF categories
+     *
+     * @return this plugin
+     */
+    public FILLINImputationPlugin calculateAccuracyWithinMAFCategories(Boolean value) {
+        byMAF = new PluginParameter<>(byMAF, value);
         return this;
     }
 }
