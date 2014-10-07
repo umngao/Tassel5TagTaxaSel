@@ -19,6 +19,7 @@ import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JRootPane;
+import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 
 
@@ -58,7 +59,10 @@ public class StepwiseOLSModelFitterDialog extends JDialog implements ActionListe
         JPanel myPanel = new JPanel();
         myPanel.setLayout(new BoxLayout(myPanel, BoxLayout.Y_AXIS));
         myPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        contentPane.add(myPanel);
+        JScrollPane myScrollPane = new JScrollPane(myPanel);
+       
+//        contentPane.add(myPanel);
+        contentPane.add(myScrollPane);
         
         modelSelectionButtonGroup.add(PvalueRadioButton);
         modelSelectionButtonGroup.add(mBICRadioButton);

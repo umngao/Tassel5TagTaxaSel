@@ -132,9 +132,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
             this.setTitle("TASSEL (Trait Analysis by aSSociation, Evolution, and Linkage) " + version);
 
-            myLogger.info("Tassel Version: " + version + "  Date: " + versionDate);
-            myLogger.info("Max Available Memory Reported by JVM: " + Utils.getMaxHeapSizeMB() + " MB");
-            myLogger.info("Java Version: " + System.getProperty("java.version"));
+            TasselLogging.basicLoggingInfo();
         } catch (Exception e) {
             e.printStackTrace();
         }
