@@ -77,7 +77,7 @@ public class GenomeSequenceBuilder {
 					int fIndex = 0, pIndex = 0;
 
 					while (fIndex < fullBytesLength - 1){
-						fullBytes[fIndex] = (byte) (packedBytes[pIndex] >> 4);
+						fullBytes[fIndex] = (byte) ((packedBytes[pIndex] & 0xF0) >> 4); // without 0xF0, "F" shows up as "FF"
 						fullBytes[fIndex+1] = (byte)(packedBytes[pIndex] & 0x0F);
 						fIndex += 2;
 						pIndex++;					
@@ -124,13 +124,13 @@ public class GenomeSequenceBuilder {
 							int pIndex = startSite/2; // index into stored pack bytes array
 
 							while (fIndex < numSites - 1){
-								fullBytes[fIndex] = (byte) (packedBytes[pIndex] >> 4);
+								fullBytes[fIndex] = (byte) ((packedBytes[pIndex] & 0xF0) >> 4); // without 0xF0, "F" shows up as "FF"
 								fullBytes[fIndex+1] = (byte)(packedBytes[pIndex] & 0x0F);
 								fIndex += 2;
 								pIndex++;                               
 							}         
 							if (numSites %2 != 0) {
-								fullBytes[fIndex] = (byte)((packedBytes[pIndex] & 0xF0) >> 4);                        	
+								fullBytes[fIndex] = (byte)((packedBytes[pIndex] & 0xF0) >> 4); 								
 							}
 							return fullBytes;
 						} else {
@@ -144,7 +144,7 @@ public class GenomeSequenceBuilder {
 							fullBytes[fIndex] = (byte)(packedBytes[pIndex] & 0x0F);
 							fIndex++; pIndex++;
 							while (fIndex < numSites - 2){
-								fullBytes[fIndex] = (byte) (packedBytes[pIndex] >> 4);
+								fullBytes[fIndex] = (byte) ((packedBytes[pIndex] & 0xF0) >> 4);
 								fullBytes[fIndex+1] = (byte)(packedBytes[pIndex] & 0x0F);
 								fIndex += 2;
 								pIndex++;                               
@@ -152,7 +152,7 @@ public class GenomeSequenceBuilder {
 							if (evenNumSites) {
 								fullBytes[fIndex] = (byte)(packedBytes[pIndex] >> 4); // store last allele, top half last byte
 							} else { // store last byte
-								fullBytes[fIndex] = (byte) (packedBytes[pIndex] >> 4); 
+								fullBytes[fIndex] = (byte) ((packedBytes[pIndex] & 0xF0) >> 4);
 								fullBytes[fIndex+1] = (byte)(packedBytes[pIndex] & 0x0F);
 							}
 							return fullBytes;
@@ -212,6 +212,7 @@ public class GenomeSequenceBuilder {
 			while (fIndex < unpkSequence.length -1) {
 				byte halfByteUpper = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[fIndex]);
 				byte halfByteLower = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[fIndex+1]);
+
 				packedSequence[pIndex] = (byte) ( (halfByteUpper << 4) | (halfByteLower));
 				fIndex +=2;
 				pIndex++;
