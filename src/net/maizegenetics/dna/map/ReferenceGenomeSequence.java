@@ -4,24 +4,17 @@
 package net.maizegenetics.dna.map;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.log4j.Logger;
-
-import net.maizegenetics.analysis.gbs.DiscoverySNPCallerPlugin;
 import net.maizegenetics.analysis.gbs.v2.DiscoverySNPCallerPluginV2;
-import net.maizegenetics.dna.BaseEncoder;
-import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.util.Utils;
+
+import org.apache.log4j.Logger;
 
 /**
  * ReferenceGenomeSequence class.  This class is used to read chromosome sequences
@@ -39,11 +32,13 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 
 	private static final Logger myLogger = Logger.getLogger(ReferenceGenomeSequence.class);
 
-	private Map<Chromosome, byte[]> chromPositionMap;
-
+	//private static Map<Chromosome, byte[]> chromPositionMap = new HashMap<Chromosome, byte[]>();
+	private static Map<Chromosome, byte[]> chromPositionMap = new HashMap<Chromosome, byte[]>();
+	/*
 	ReferenceGenomeSequence(Map<Chromosome, byte[]>chromMap){
 		this.chromPositionMap = chromMap;
 	}
+	*/
 	
 	@Override
 	public Set<Chromosome> chromosomes() {
@@ -160,104 +155,100 @@ public class ReferenceGenomeSequence implements GenomeSequence{
 		return null;
 	}
 
-	protected static byte[] readReferenceGenomeChr(String fastaFileName, int targetChr) {
+	protected static Map<Chromosome, byte[]> readReferenceGenomeChr(String fastaFileName) {
 		// Read specified file, return entire sequence for requested chromosome 
-		int nBases = 0;
-		int basesPerByte = 2;
 
 		myLogger.info("\n\nReading from the reference genome fasta file: " + fastaFileName);
+		
+		//Change back to readBuffer, then process, move as a nested class into
+		// Builder. remove keyFile stuff
+		Chromosome currChr = null;		
+		ByteArrayOutputStream currSeq = new ByteArrayOutputStream();
+		System.out.println("\nLCJ - RGS:readRef - before big try");
 		String line = null;
-		try {
-			boolean found = false;
-			ArrayList<String> mySequence = new ArrayList<String>();
-			BufferedReader br = Utils.getBufferedReader(fastaFileName); // this takes care of .gz
-			int currChrom = Integer.MIN_VALUE;
-			
-			while ((line = br.readLine()) != null && !found) {
-				line = line.trim();
+        try {
+            boolean found = false;
+            BufferedReader br = Utils.getBufferedReader(fastaFileName); // this takes care of .gz
 
-				if (line.startsWith(">")) {
-					String chrS = line.replace(">", "");
-					chrS = chrS.replace("chromosome ", ""); // either chromosome, or chr or just number in file
-					chrS = chrS.replace("chr", "");
-					try {
-						currChrom = Integer.parseInt(chrS);
-					} catch (NumberFormatException e) {
-						// If it fails, look for  keyFile data translation from DiscoverySNPCallerPlugin
-						currChrom = DiscoverySNPCallerPluginV2.keyFileReturnChromInt(line);
-						if (currChrom == -1) {
-							myLogger.error("\n\nTagsToSNPByAlignment detected a non-numeric chromosome name in the reference genome sequence fasta file: " + chrS
-									+ "\n\nPlease change the FASTA headers in your reference genome sequence to integers "
-									+ "(>1, >2, >3, etc.) OR to 'chr' followed by an integer (>chr1, >chr2, >chr3, etc.)\n\n"
-									+ "Alternately, you may supply a tab-separated key file that maps each chromosome name to a number\n\n");
-						}
-					}
-					myLogger.info("Currently reading chromosome " + currChrom +  ")");
-				} else if (currChrom == targetChr) {
-					mySequence.add(line);
-					found = true;
-					nBases += line.length();
+            while ((line = br.readLine()) != null && !found) {
+                    line = line.trim();
+                    
+    				if (line.startsWith(">")) {
+    					if (currChr != null) {
+    						// end processing current chromosome sequence
+    						System.out.println("LCJ - RGS:readReference, putting data to chromPositionMap");
+    						chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
+    						myLogger.info("Finished reading chromosome " + currChr.getChromosomeNumber() +  ")");
+    					}
+    					System.out.println("LCJ - setting currChr to a value");
+    					currChr = parseChromosome(line); 
+    					currSeq = new ByteArrayOutputStream();
+    				} else {
+    					currSeq.write(line.getBytes());
+    				}
 
-					while ((line = br.readLine()) != null) {
-						line = line.trim();
-
-						if (line.startsWith(">")) {
-							break; // end of chromosome sequence
-						} else {
-							// Store the bases for requested chromosome
-							nBases += line.length();
-							mySequence.add(line);
-						}						
-					}
-				}
-			}
-
-			br.close();
-			myLogger.info("\n\nFinished reading target chromosome " + targetChr + "\n");
-			// Process the chromosome sequence data
-			if (mySequence.size() > 0){
-				int nBytes = (nBases % basesPerByte == 0) ? nBases/basesPerByte : (nBases / basesPerByte) + 1;
-				byte[] sequence = new byte[nBytes];
-				ByteBuffer bBuf = ByteBuffer.wrap(sequence);
-				for (int sIndex = 0; sIndex < mySequence.size(); sIndex++) {
-					String sLine = mySequence.get(sIndex);
-					int currentStrPos = 0; 
-					int byteBufferPos = 0;
-					
-					int nLineBytes = (sLine.length() % basesPerByte == 0) ? sLine.length()/basesPerByte : (sLine.length() / basesPerByte) + 1;
-					byte[] lineSeq = new byte[nLineBytes];
-
-					while (currentStrPos < sLine.length()-1) {
-						// store encoded alleles as half bytes in the byte array
-						byte halfByteUpper = NucleotideAlignmentConstants.getNucleotideAlleleByte(sLine.charAt(currentStrPos));
-						byte halfByteLower = NucleotideAlignmentConstants.getNucleotideAlleleByte(sLine.charAt(currentStrPos+1));
-						byte positionByte = (byte) ( (halfByteUpper << 4) | (halfByteLower));
-
-						lineSeq[byteBufferPos] = positionByte;
-						currentStrPos += 2;
-						byteBufferPos++;
-					}
-										
-					// Catch the last byte if line contained an odd number of bytes
-					// if lines all have odd number of bytes, the end of each should be
-					// stored with the beginning of the next one. Code assume file will
-					// have even number of bytes except perhaps for last line of chromosome sequence
-					if (currentStrPos < sLine.length()) {
-						byte halfByteUpper = NucleotideAlignmentConstants.getNucleotideAlleleByte(sLine.charAt(currentStrPos));
-						byte positionByte = (byte) (halfByteUpper << 4);
-						lineSeq[byteBufferPos] = positionByte;
-					}
-					bBuf.put(lineSeq); // add to return buffer
-				}
-				return sequence;
-			}
-
-			br.close();
-		} catch (Exception e) {
-			myLogger.error("Exception caught while reading the reference genome fasta file at line.  Error=" + e);
-			e.printStackTrace();
+            }
+            // reached end of file - write last bytes
+            if (currSeq.size() > 0) {
+            	System.out.println("LCJ - RGS:readRef writing last chromsome");
+            	chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
+            }
+            br.close();
+		} catch (IOException ioe) {
+			System.out.println("LCJ - RGS: catch exception Stream");
 		}
-		return null;
+
+		return chromPositionMap;
+	}
+	
+	private static byte[] halfByteCompression(byte[] unpkSequence){
+		// Take mySequence byte array, turn bytes into NucleotideAlignmentConstant
+		// allele values, store as half bytes
+		
+		int nBytes = (unpkSequence.length % 2 == 0) ? unpkSequence.length/2 : (unpkSequence.length/2) + 1;
+		byte[] packedSequence = new byte[nBytes];
+		
+		int fIndex = 0, pIndex = 0; // fullbyte index, packed byte index
+		
+		while (fIndex < unpkSequence.length -1) {
+			byte halfByteUpper = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[fIndex]);
+			byte halfByteLower = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[fIndex+1]);
+			packedSequence[pIndex] = (byte) ( (halfByteUpper << 4) | (halfByteLower));
+			fIndex +=2;
+			pIndex++;
+		}
+		// Catch the last byte if line contained an odd number of bytes
+		// if lines all have odd number of bytes, the end of each should be
+		// stored with the beginning of the next one. Code assume file will
+		// have even number of bytes except perhaps for last line of chromosome sequence
+		if (fIndex < unpkSequence.length) {
+			byte halfByteUpper = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[fIndex]);
+			packedSequence[pIndex] = (byte) (halfByteUpper << 4);
+		}
+		return packedSequence;		
+	}
+
+	private static Chromosome parseChromosome (String chromString) {
+		int chromNumber = Integer.MAX_VALUE; // set to max int?
+		String chrS = chromString.replace(">","");
+		chrS = chrS.replace("chromosome ", ""); // either chromosome, or chr or just number in file
+		chrS = chrS.replace("chr", "");
+		Chromosome chromObject = null;
+		try {
+			chromNumber = Integer.parseInt(chrS);
+		} catch (NumberFormatException e) {
+			// If it fails, look for  keyFile data translation from DiscoverySNPCallerPlugin
+			chromNumber = DiscoverySNPCallerPluginV2.keyFileReturnChromInt(chromString);
+			chromObject = new Chromosome(Integer.toString(chromNumber));
+			if (chromNumber == -1) {
+				myLogger.error("\n\nTagsToSNPByAlignment detected a non-numeric chromosome name in the reference genome sequence fasta file: " + chrS
+						+ "\n\nPlease change the FASTA headers in your reference genome sequence to integers "
+						+ "(>1, >2, >3, etc.) OR to 'chr' followed by an integer (>chr1, >chr2, >chr3, etc.)\n\n"
+						+ "Alternately, you may supply a tab-separated key file that maps each chromosome name to a number\n\n");
+				chromNumber = Integer.MAX_VALUE;
+			}			
+		}
+		return chromObject;
 	}
 
 }
