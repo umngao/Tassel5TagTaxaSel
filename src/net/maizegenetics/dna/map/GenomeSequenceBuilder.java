@@ -25,21 +25,99 @@ import org.apache.log4j.Logger;
  *
  */
 public class GenomeSequenceBuilder {
-	private static Map<Chromosome, byte[]> chromPositionMap;
-
+	private static final Logger myLogger = Logger.getLogger(GenomeSequenceBuilder.class);
 	public GenomeSequence build() {
-		return new ReferenceGenomeSequence();
+		return new HalfByteGenomeSequence(null);
 	}
 
-	private GenomeSequenceBuilder(Map<Chromosome, byte[]> cMap) { 
-		GenomeSequenceBuilder.chromPositionMap = cMap;
+	public static GenomeSequence instance(String fastaFileName) {
+		Map<Chromosome, byte[]> chromPositionMap = readReferenceGenomeChr(fastaFileName);   	
+		return new HalfByteGenomeSequence(chromPositionMap);
 	}
 
-	public static GenomeSequenceBuilder instance(String fastaFileName) {
-		Map<Chromosome, byte[]> chromPositionMap = ReferenceGenomeSequence.readReferenceGenomeChr(fastaFileName);   	
-		return new GenomeSequenceBuilder(chromPositionMap);
+	protected static  Map<Chromosome, byte[]> readReferenceGenomeChr(String fastaFileName) {
+		// Read specified file, return entire sequence for requested chromosome 
+		Map<Chromosome, byte[]> chromPositionMap = new HashMap<Chromosome, byte[]>();
+		Chromosome currChr = null;		
+		ByteArrayOutputStream currSeq = new ByteArrayOutputStream();
+		String line = null;
+		try {
+			boolean found = false;
+			BufferedReader br = Utils.getBufferedReader(fastaFileName); // this takes care of .gz
+
+			while ((line = br.readLine()) != null && !found) {
+				line = line.trim();
+
+				if (line.startsWith(">")) {
+					if (currChr != null) {
+						// end processing current chromosome sequence
+						chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
+					}
+					currChr = parseChromosome(line); 
+					currSeq = new ByteArrayOutputStream();
+				} else {
+					currSeq.write(line.getBytes());
+				}
+			}
+			// reached end of file - write last bytes
+			if (currSeq.size() > 0) {
+				chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
+			}
+			br.close();
+		} catch (IOException ioe) {
+			System.out.println("ReferenceGenomeSequence: caught buffered read exception");
+		}
+		return chromPositionMap;
+	}
+	
+	private static byte[] halfByteCompression(byte[] unpkSequence){
+		// Take byte array, turn bytes into NucleotideAlignmentConstant
+		// allele values, store as half bytes
+
+		int nBytes = (unpkSequence.length % 2 == 0) ? unpkSequence.length/2 : (unpkSequence.length/2) + 1;
+		byte[] packedSequence = new byte[nBytes];
+
+		int fIndex = 0, pIndex = 0; // fullbyte index, packed byte index  		
+		while (fIndex < unpkSequence.length -1) {
+			byte halfByteUpper = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[fIndex]);
+			byte halfByteLower = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[fIndex+1]);
+
+			packedSequence[pIndex] = (byte) ( (halfByteUpper << 4) | (halfByteLower));
+			fIndex +=2;
+			pIndex++;
+		}
+		// Catch the last byte if unpkSequence contained an odd number of bytes
+		if (fIndex < unpkSequence.length) {
+			byte halfByteUpper = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[fIndex]);
+			packedSequence[pIndex] = (byte) (halfByteUpper << 4);
+		}
+		return packedSequence;		
 	}
 
+	private static  Chromosome parseChromosome (String chromString) {
+		int chromNumber = Integer.MAX_VALUE;
+		String chrS = chromString.replace(">","");
+		chrS = chrS.replace("chromosome ", ""); // either chromosome, or chr or just number in file
+		chrS = chrS.replace("chr", "");
+		Chromosome chromObject = null;
+		try {
+			chromNumber = Integer.parseInt(chrS);
+			chromObject = new Chromosome(chrS);
+		} catch (NumberFormatException e) {
+			// If it fails, look for  keyFile data translation from DiscoverySNPCallerPlugin
+			// This will be changed/deleted in favor of either (a) nothing or (b) data stored in database table
+			chromNumber = DiscoverySNPCallerPluginV2.keyFileReturnChromInt(chromString);  
+			if (chromNumber == -1) {
+				myLogger.error("\n\nTagsToSNPByAlignment detected a non-numeric chromosome name in the reference genome sequence fasta file: " + chrS
+						+ "\n\nPlease change the FASTA headers in your reference genome sequence to integers "
+						+ "(>1, >2, >3, etc.) OR to 'chr' followed by an integer (>chr1, >chr2, >chr3, etc.)\n\n");
+			} else {
+				chromObject = new Chromosome(Integer.toString(chromNumber));
+			}
+		}
+		return chromObject;
+	}
+   
 	/**
 	 * ReferenceGenomeSequence class.  This class is used to read chromosome sequences
 	 * from fasta files.  Data is stored as half-bytes packed into a byte array.
@@ -52,9 +130,11 @@ public class GenomeSequenceBuilder {
 	 * @author Lynn Johnson
 	 *
 	 */
-	protected static class ReferenceGenomeSequence implements GenomeSequence{
-		private static final Logger myLogger = Logger.getLogger(ReferenceGenomeSequence.class);
-
+	protected static class HalfByteGenomeSequence implements GenomeSequence{
+		private static Map<Chromosome, byte[]> chromPositionMap;
+		HalfByteGenomeSequence(Map<Chromosome, byte[]>chromPositionMap) {
+			HalfByteGenomeSequence.chromPositionMap = chromPositionMap;
+		}
 		@Override
 		public Set<Chromosome> chromosomes() {
 			if (!chromPositionMap.isEmpty()) {
@@ -89,6 +169,16 @@ public class GenomeSequenceBuilder {
 		}
 
 		@Override
+	/*
+		public byte[] chromosomeSequence(Chromosome chrom, int startSite, int lastSite) {
+			byte[] fullBytes = new byte[lastSite - startSite + 1];
+			byte[] packedBytes = chromPositionMap.get(chrom);
+			for (int i = startSite; i <= lastSite; i++)
+			{ fullBytes[i - startSite] = (byte) ((i % 2 == 0) ? ((packedBytes[i / 2] & 0xF0 ) >> 4) : (packedBytes[i / 2] & 0x0F)); }
+			//{ fullBytes[i - startSite] = (byte) ((i % 2 == 0) ? (packedBytes[i / 2] >>> 4) : (packedBytes[i / 2] & 0xF)); }
+			return fullBytes;
+			}
+*/
 		public byte[] chromosomeSequence(Chromosome chrom, int startSite, int endSite) {
 			// Return specified portion of a chromosome's sequence	
 			// Code assumes caller sent in 1 based number
@@ -162,91 +252,5 @@ public class GenomeSequenceBuilder {
 			}		
 			return null;
 		}
-
-		protected static  Map<Chromosome, byte[]> readReferenceGenomeChr(String fastaFileName) {
-			// Read specified file, return entire sequence for requested chromosome 
-			Map<Chromosome, byte[]> chromPositionMap = new HashMap<Chromosome, byte[]>();
-			myLogger.info("\n\nReading from the reference genome fasta file: " + fastaFileName);
-
-			Chromosome currChr = null;		
-			ByteArrayOutputStream currSeq = new ByteArrayOutputStream();
-			String line = null;
-			try {
-				boolean found = false;
-				BufferedReader br = Utils.getBufferedReader(fastaFileName); // this takes care of .gz
-
-				while ((line = br.readLine()) != null && !found) {
-					line = line.trim();
-
-					if (line.startsWith(">")) {
-						if (currChr != null) {
-							// end processing current chromosome sequence
-							chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
-							myLogger.info("Finished reading chromosome " + currChr.getChromosomeNumber() +  ")");
-						}
-						currChr = parseChromosome(line); 
-						currSeq = new ByteArrayOutputStream();
-					} else {
-						currSeq.write(line.getBytes());
-					}
-				}
-				// reached end of file - write last bytes
-				if (currSeq.size() > 0) {
-					chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
-				}
-				br.close();
-			} catch (IOException ioe) {
-				System.out.println("ReferenceGenomeSequence: caught buffered read exception");
-			}
-			return chromPositionMap;
-		}
-
-		private static byte[] halfByteCompression(byte[] unpkSequence){
-			// Take byte array, turn bytes into NucleotideAlignmentConstant
-			// allele values, store as half bytes
-
-			int nBytes = (unpkSequence.length % 2 == 0) ? unpkSequence.length/2 : (unpkSequence.length/2) + 1;
-			byte[] packedSequence = new byte[nBytes];
-
-			int fIndex = 0, pIndex = 0; // fullbyte index, packed byte index  		
-			while (fIndex < unpkSequence.length -1) {
-				byte halfByteUpper = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[fIndex]);
-				byte halfByteLower = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[fIndex+1]);
-
-				packedSequence[pIndex] = (byte) ( (halfByteUpper << 4) | (halfByteLower));
-				fIndex +=2;
-				pIndex++;
-			}
-			// Catch the last byte if unpkSequence contained an odd number of bytes
-			if (fIndex < unpkSequence.length) {
-				byte halfByteUpper = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[fIndex]);
-				packedSequence[pIndex] = (byte) (halfByteUpper << 4);
-			}
-			return packedSequence;		
-		}
-
-		private static  Chromosome parseChromosome (String chromString) {
-			int chromNumber = Integer.MAX_VALUE;
-			String chrS = chromString.replace(">","");
-			chrS = chrS.replace("chromosome ", ""); // either chromosome, or chr or just number in file
-			chrS = chrS.replace("chr", "");
-			Chromosome chromObject = null;
-			try {
-				chromNumber = Integer.parseInt(chrS);
-				chromObject = new Chromosome(chrS);
-			} catch (NumberFormatException e) {
-				// If it fails, look for  keyFile data translation from DiscoverySNPCallerPlugin
-				// This will be changed/deleted in favor of either (a) nothing or (b) data stored in database table
-				chromNumber = DiscoverySNPCallerPluginV2.keyFileReturnChromInt(chromString);  
-				if (chromNumber == -1) {
-					myLogger.error("\n\nTagsToSNPByAlignment detected a non-numeric chromosome name in the reference genome sequence fasta file: " + chrS
-							+ "\n\nPlease change the FASTA headers in your reference genome sequence to integers "
-							+ "(>1, >2, >3, etc.) OR to 'chr' followed by an integer (>chr1, >chr2, >chr3, etc.)\n\n");
-				} else {
-					chromObject = new Chromosome(Integer.toString(chromNumber));
-				}
-			}
-			return chromObject;
-		}
-	}    
+	}	
 }
