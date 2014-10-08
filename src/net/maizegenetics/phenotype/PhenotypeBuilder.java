@@ -689,6 +689,13 @@ public class PhenotypeBuilder {
 				newList.add( new CorePhenotype(attributeList, attributeTypeList, filterPhenotypeName(pheno.name())) );
 				
 			} else if (indexOfAttributesToKeep != null) {
+				if (indexOfAttributesToKeep.length == 1 && indexOfAttributesToKeep[0] == -1) {
+					int nattr = pheno.numberOfAttributes();
+					indexOfAttributesToKeep = new int[nattr - 1];
+					for (int i = 0; i < indexOfAttributesToKeep.length; i++) {
+						indexOfAttributesToKeep[i] = i;
+					}
+				}
 				attributeList = new ArrayList<PhenotypeAttribute>();
 				attributeTypeList = new ArrayList<ATTRIBUTE_TYPE>();
 				for (int attrnum : indexOfAttributesToKeep) {
