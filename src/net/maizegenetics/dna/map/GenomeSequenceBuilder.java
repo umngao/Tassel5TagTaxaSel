@@ -27,9 +27,6 @@ import org.apache.log4j.Logger;
  */
 public class GenomeSequenceBuilder {
 	private static final Logger myLogger = Logger.getLogger(GenomeSequenceBuilder.class);
-	public GenomeSequence build() {
-		return new HalfByteGenomeSequence(null);
-	}
 
 	public static GenomeSequence instance(String fastaFileName) {
 		Map<Chromosome, byte[]> chromPositionMap = readReferenceGenomeChr(fastaFileName);   	
