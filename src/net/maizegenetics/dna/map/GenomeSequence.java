@@ -18,7 +18,7 @@ public interface GenomeSequence {
 	/**
 	 * Returns a list of chromosomes whose sequences have been
 	 * stored in the chromsomeSequence map of the class implementing
-	 * this interface.
+	 * this interface.  Return empty set if empty.
 	 * 
 	 * @return  a Set of Chromosome objects
 	 */

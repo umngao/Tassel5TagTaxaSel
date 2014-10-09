@@ -147,10 +147,7 @@ class HalfByteGenomeSequence implements GenomeSequence{
     }
     @Override
     public Set<Chromosome> chromosomes() {
-        if (!chromPositionMap.isEmpty()) {
-            return chromPositionMap.keySet();
-        }
-        return null;
+        return chromPositionMap.keySet();
     }
 
     @Override
