@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import net.maizegenetics.analysis.gbs.v2.DiscoverySNPCallerPluginV2;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
@@ -51,6 +52,7 @@ public class GenomeSequenceBuilder {
 				if (line.startsWith(">")) {
 					if (currChr != null) {
 						// end processing current chromosome sequence
+                        currChr=new Chromosome(currChr.getName(),currSeq.size(),null);
 						chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
 					}
 					currChr = parseChromosome(line); 
@@ -61,6 +63,8 @@ public class GenomeSequenceBuilder {
 			}
 			// reached end of file - write last bytes
 			if (currSeq.size() > 0) {
+//                System.out.println(currSeq.size());
+                currChr=new Chromosome(currChr.getName(),currSeq.size(),null);
 				chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
 			}
 			br.close();
@@ -74,7 +78,7 @@ public class GenomeSequenceBuilder {
 		// Take byte array, turn bytes into NucleotideAlignmentConstant
 		// allele values, store as half bytes
 
-		int nBytes = (unpkSequence.length % 2 == 0) ? unpkSequence.length/2 : (unpkSequence.length/2) + 1;
+		int nBytes = (unpkSequence.length+1)/2;
 		byte[] packedSequence = new byte[nBytes];
 
 		int fIndex = 0, pIndex = 0; // fullbyte index, packed byte index  		
@@ -118,139 +122,54 @@ public class GenomeSequenceBuilder {
 		return chromObject;
 	}
    
-	/**
-	 * ReferenceGenomeSequence class.  This class is used to read chromosome sequences
-	 * from fasta files.  Data is stored as half-bytes packed into a byte array.
-	 * This byte array comprises the "value" for a hash map whose key is a
-	 * Chromosome object.
-	 * 
-	 * The class also contains methods to obtain a full or partial genome sequence for a
-	 * specified stored chromosome.
-	 * 
-	 * @author Lynn Johnson
-	 *
-	 */
-	protected static class HalfByteGenomeSequence implements GenomeSequence{
-		private static Map<Chromosome, byte[]> chromPositionMap;
-		HalfByteGenomeSequence(Map<Chromosome, byte[]>chromPositionMap) {
-			HalfByteGenomeSequence.chromPositionMap = chromPositionMap;
-		}
-		@Override
-		public Set<Chromosome> chromosomes() {
-			if (!chromPositionMap.isEmpty()) {
-				return chromPositionMap.keySet();
-			}
-			return null;
-		}
 
-		@Override
-		public byte[] chromosomeSequence(Chromosome chrom) {
-			// Return all genome sequence bytes for specified chromosome
-			int chromNumber = chrom.getChromosomeNumber();
+}
 
-			for (Map.Entry<Chromosome, byte[]> chromEntry : chromPositionMap.entrySet()) {
-				int mapChromeNo = chromEntry.getKey().getChromosomeNumber();
-				if (mapChromeNo == chromNumber) {
-					byte[] packedBytes = chromEntry.getValue();
-					int fullBytesLength = packedBytes.length * 2;
-					byte[] fullBytes = new byte[fullBytesLength];
-					int fIndex = 0, pIndex = 0;
+/**
+ * ReferenceGenomeSequence class.  This class is used to read chromosome sequences
+ * from fasta files.  Data is stored as half-bytes packed into a byte array.
+ * This byte array comprises the "value" for a hash map whose key is a
+ * Chromosome object.
+ *
+ * The class also contains methods to obtain a full or partial genome sequence for a
+ * specified stored chromosome.
+ *
+ * @author Lynn Johnson
+ *
+ */
+class HalfByteGenomeSequence implements GenomeSequence{
+    private Map<Chromosome, byte[]> chromPositionMap;
+    private Map<Chromosome, Integer> chromLengthLookup=new HashMap<>();
 
-					while (fIndex < fullBytesLength - 1){
-						fullBytes[fIndex] = (byte) ((packedBytes[pIndex] & 0xF0) >> 4); // without 0xF0, "F" shows up as "FF"
-						fullBytes[fIndex+1] = (byte)(packedBytes[pIndex] & 0x0F);
-						fIndex += 2;
-						pIndex++;					
-					}	
-					return fullBytes;
-				}
-			}
-			return null;
-		}
 
-		@Override
-	/*
-		public byte[] chromosomeSequence(Chromosome chrom, int startSite, int lastSite) {
-			byte[] fullBytes = new byte[lastSite - startSite + 1];
-			byte[] packedBytes = chromPositionMap.get(chrom);
-			for (int i = startSite; i <= lastSite; i++)
-			{ fullBytes[i - startSite] = (byte) ((i % 2 == 0) ? ((packedBytes[i / 2] & 0xF0 ) >> 4) : (packedBytes[i / 2] & 0x0F)); }
-			//{ fullBytes[i - startSite] = (byte) ((i % 2 == 0) ? (packedBytes[i / 2] >>> 4) : (packedBytes[i / 2] & 0xF)); }
-			return fullBytes;
-			}
-*/
-		public byte[] chromosomeSequence(Chromosome chrom, int startSite, int endSite) {
-			// Return specified portion of a chromosome's sequence	
-			// Code assumes caller sent in 1 based number
+    protected HalfByteGenomeSequence(Map<Chromosome, byte[]>chromPositionMap) {
+        this.chromPositionMap = chromPositionMap;
+        chromPositionMap.entrySet().stream()
+                .forEach(e -> chromLengthLookup.put(e.getKey(),e.getKey().getLength()));
 
-			if (startSite < 1 || startSite > endSite)
-				return null;
+    }
+    @Override
+    public Set<Chromosome> chromosomes() {
+        if (!chromPositionMap.isEmpty()) {
+            return chromPositionMap.keySet();
+        }
+        return null;
+    }
 
-			int chromNumber = chrom.getChromosomeNumber();
-			int numSites = endSite - startSite + 1;  // start/end site values are inclusive
-			boolean evenStart = startSite % 2 == 0 ? true: false;
-			boolean evenNumSites = numSites % 2 == 0 ? true: false;
+    @Override
+    public byte[] chromosomeSequence(Chromosome chrom) {
+        return chromosomeSequence(chrom,1,chromLengthLookup.get(chrom));
+    }
 
-			byte[] fullBytes = null;
-			if (numSites > 0) {			
-				fullBytes = new byte[numSites];
-
-				for (Map.Entry<Chromosome, byte[]> chromEntry : chromPositionMap.entrySet()) {
-					int mapChromNo = chromEntry.getKey().getChromosomeNumber();
-					if (mapChromNo == chromNumber) {
-						byte[] packedBytes = chromEntry.getValue();
-
-						if (startSite > packedBytes.length*2 ||
-								endSite > packedBytes.length*2 ) {
-							return null; // requested sequence is out of range
-						}
-
-						if (!evenStart) {
-							// Start site is odd, we're grabbing a full byte to start
-							// ex: user wants to start at position 5 in sequence.
-							// sequence is stored as halfbyte, position 5 is the top
-							// half of byte 2 in a 0-based byte array.  So offset is 5/2 = 2
-							int fIndex = 0; // index into new full bytes array
-							int pIndex = startSite/2; // index into stored pack bytes array
-
-							while (fIndex < numSites - 1){
-								fullBytes[fIndex] = (byte) ((packedBytes[pIndex] & 0xF0) >> 4); // without 0xF0, "F" shows up as "FF"
-								fullBytes[fIndex+1] = (byte)(packedBytes[pIndex] & 0x0F);
-								fIndex += 2;
-								pIndex++;                               
-							}         
-							if (numSites %2 != 0) {
-								fullBytes[fIndex] = (byte)((packedBytes[pIndex] & 0xF0) >> 4); 								
-							}
-							return fullBytes;
-						} else {
-							// start site is even number, we're starting in the lower half of a stored byte
-							// ex: user wants to pull from position 4 in the sequence
-							// Position 4 is stored in the lower half of byte 1 in the 0-based byte array
-							// 4/2 - 1 = 1
-							int pIndex = startSite/2 -1;
-							int fIndex = 0;
-
-							fullBytes[fIndex] = (byte)(packedBytes[pIndex] & 0x0F);
-							fIndex++; pIndex++;
-							while (fIndex < numSites - 2){
-								fullBytes[fIndex] = (byte) ((packedBytes[pIndex] & 0xF0) >> 4);
-								fullBytes[fIndex+1] = (byte)(packedBytes[pIndex] & 0x0F);
-								fIndex += 2;
-								pIndex++;                               
-							}       
-							if (evenNumSites) {
-								fullBytes[fIndex] = (byte)(packedBytes[pIndex] >> 4); // store last allele, top half last byte
-							} else { // store last byte
-								fullBytes[fIndex] = (byte) ((packedBytes[pIndex] & 0xF0) >> 4);
-								fullBytes[fIndex+1] = (byte)(packedBytes[pIndex] & 0x0F);
-							}
-							return fullBytes;
-						} 
-					}
-				}
-			}		
-			return null;
-		}
-	}	
+    @Override
+    public byte[] chromosomeSequence(Chromosome chrom, int startSite, int lastSite) {
+        startSite--;  //shift over to zero base
+        lastSite--;   //shift over to zero base
+        byte[] fullBytes = new byte[lastSite - startSite + 1];
+        byte[] packedBytes = chromPositionMap.get(chrom);
+        for (int i = startSite; i <= lastSite; i++) {
+            fullBytes[i - startSite] = (byte) ((i % 2 == 0) ? ((packedBytes[i / 2] & 0xF0) >> 4) : (packedBytes[i / 2] & 0x0F));
+        }
+        return fullBytes;
+    }
 }
