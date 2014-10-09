@@ -343,9 +343,11 @@ DROP TABLE IF EXISTS qtl_peak;
 CREATE TABLE qtl_peak (
     qtl_peak_id serial PRIMARY KEY,
     qtl_analysis_id int,
+    chromosome_id int,
     start_position int,
     peak_position int,
     end_position int,
     p_value real,
-    FOREIGN KEY (qtl_analysis_id) references qtl_analysis
+    FOREIGN KEY (qtl_analysis_id) references qtl_analysis,
+    FOREIGN KEY (chromosome_id) references chromosome
 );
