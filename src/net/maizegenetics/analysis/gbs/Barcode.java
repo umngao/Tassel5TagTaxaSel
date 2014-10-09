@@ -4,6 +4,7 @@ package net.maizegenetics.analysis.gbs;
 import java.util.Arrays;
 
 import net.maizegenetics.dna.BaseEncoder;
+import net.maizegenetics.taxa.Taxon;
 
 /**
  * Container class for storing information on GBS barcodes.
@@ -32,6 +33,8 @@ public class Barcode implements Comparable<Barcode> {
     /**Global index of taxa based on the key file (first time taxa encountered.*/
     int taxaIndex;
 
+    private Taxon taxon;
+
 
     /**
      * Constructor creating a barcode
@@ -49,6 +52,7 @@ public class Barcode implements Comparable<Barcode> {
         this.flowcell = flowcell;
         this.lane = lane;
         this.taxaName = taxa;
+        taxon=new Taxon(taxaName);
         this.taxaIndex=globalTaxaIndex;
         barOverLong = new long[overhangS.length];
         barWOverhangS = new String[overhangS.length];
@@ -115,6 +119,10 @@ public class Barcode implements Comparable<Barcode> {
 
     public int getTaxaIndex() {
         return taxaIndex;
+    }
+
+    public Taxon getTaxon() {
+        return taxon;
     }
 
     @Override
