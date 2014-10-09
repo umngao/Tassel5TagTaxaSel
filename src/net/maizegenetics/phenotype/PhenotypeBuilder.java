@@ -12,6 +12,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
@@ -689,6 +690,13 @@ public class PhenotypeBuilder {
 				newList.add( new CorePhenotype(attributeList, attributeTypeList, filterPhenotypeName(pheno.name())) );
 				
 			} else if (indexOfAttributesToKeep != null) {
+				if (indexOfAttributesToKeep.length == 1 && indexOfAttributesToKeep[0] == -1) {
+					int nattr = pheno.numberOfAttributes();
+					indexOfAttributesToKeep = new int[nattr - 1];
+					for (int i = 0; i < indexOfAttributesToKeep.length; i++) {
+						indexOfAttributesToKeep[i] = i;
+					}
+				}
 				attributeList = new ArrayList<PhenotypeAttribute>();
 				attributeTypeList = new ArrayList<ATTRIBUTE_TYPE>();
 				for (int attrnum : indexOfAttributesToKeep) {
@@ -904,7 +912,7 @@ public class PhenotypeBuilder {
 		
 		//build attribute name list for the new phenotype
 		//use a TreeSet so that each name is used once and so that the names are sorted
-		TreeSet<String> attributeNameSet = new TreeSet<>();
+		LinkedHashSet<String> attributeNameSet = new LinkedHashSet<>();
 		
 		int nAttributes1 = pheno1.numberOfAttributes();
 		for (int a = 0; a < nAttributes1; a++) {
@@ -1032,7 +1040,7 @@ public class PhenotypeBuilder {
 				int obsCount = 0;
 				for (int[] ndx : mergeObservation) {
 					boolean pheno1HasNonmissingValue = attrnum[0] > -1 && ndx[0] > -1 && !pheno1.isMissing(ndx[0], attrnum[0]);
-					boolean pheno2HasNonmissingValue = attrnum[1] > -1 && ndx[1] > -1 && !pheno1.isMissing(ndx[1], attrnum[1]);
+					boolean pheno2HasNonmissingValue = attrnum[1] > -1 && ndx[1] > -1 && !pheno2.isMissing(ndx[1], attrnum[1]);
 					if (pheno1HasNonmissingValue && pheno2HasNonmissingValue) {
 						throw new IllegalArgumentException("Data sets will not be joined because both phenotypes have values for " + attrName);
 					} else if (pheno1HasNonmissingValue) {

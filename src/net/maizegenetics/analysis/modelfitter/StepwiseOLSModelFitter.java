@@ -153,10 +153,11 @@ public class StepwiseOLSModelFitter {
 			String[] factorLabels = AssociationUtils.getNonMissingValues(ca.allLabels(), missing);
 			int[] levels = ModelEffectUtils.getIntegerLevels(factorLabels, ids);
 			FactorModelEffect fme = new FactorModelEffect(levels, true, new Object[]{ca.name(), ids});
-			if (isNested && myPhenotype.indexOfAttribute(factor) == nestingFactorIndex) {
+			if (isNested && myPhenotype.attributeIndexForName(factor.name()) == nestingFactorIndex) {
 				nestingEffect = fme;
 				nestingFactorNames = ids; 
 			}
+			currentModel.add(fme);
 		}
 		
 		//add the covariate effects
@@ -1203,8 +1204,8 @@ public class StepwiseOLSModelFitter {
 		int numberOfSites = myGenotype.numberOfSites();
 		int firstMarkerIndex = 1;
 
-		for (PhenotypeAttribute factor : factorAttributeList) firstMarkerIndex += factor.size();
-		for (PhenotypeAttribute cov : covariateAttributeList) firstMarkerIndex += cov.size();
+		firstMarkerIndex += factorAttributeList.size();
+		firstMarkerIndex += covariateAttributeList.size();
 		
 		//Calcualte the BIC
 		double [] errorss = sflm.getResidualSSdf();

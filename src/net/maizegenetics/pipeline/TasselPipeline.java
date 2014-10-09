@@ -47,6 +47,7 @@ import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.progress.ProgressPanel;
 import net.maizegenetics.tassel.DataTreePanel;
 import net.maizegenetics.tassel.TASSELMainFrame;
+import net.maizegenetics.tassel.TasselLogging;
 import net.maizegenetics.util.ExceptionUtils;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Level;
@@ -114,9 +115,7 @@ public class TasselPipeline implements PluginListener {
                 return;
             }
 
-            myLogger.info("Tassel Version: " + TASSELMainFrame.version + "  Date: " + TASSELMainFrame.versionDate);
-            myLogger.info("Max Available Memory Reported by JVM: " + Utils.getMaxHeapSizeMB() + " MB");
-            myLogger.info("Java Version: " + System.getProperty("java.version"));
+            TasselLogging.basicLoggingInfo();
 
             parseArgs(args);
 

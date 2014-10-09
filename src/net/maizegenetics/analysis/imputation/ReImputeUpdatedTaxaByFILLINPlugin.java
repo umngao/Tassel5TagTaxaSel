@@ -225,7 +225,7 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
         FILLINImputationPlugin fip = new FILLINImputationPlugin()
             .targetFile(tempPath+tempInFile)
             .outputFilename(tempPath+tempImpGenosFileName)
-            .donorFile(donorDir())
+            .donorDir(donorDir())
             .preferredHaplotypeSize(preferredHaplotypeSize())
         ;
         fip.performFunction(null);
