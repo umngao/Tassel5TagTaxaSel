@@ -9,9 +9,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
-
-import net.maizegenetics.analysis.gbs.v2.DiscoverySNPCallerPluginV2;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.util.Utils;
 
@@ -60,7 +57,6 @@ public class GenomeSequenceBuilder {
 			}
 			// reached end of file - write last bytes
 			if (currSeq.size() > 0) {
-//                System.out.println(currSeq.size());
                 currChr=new Chromosome(currChr.getName(),currSeq.size(),null);
 				chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
 			}
@@ -70,53 +66,25 @@ public class GenomeSequenceBuilder {
 		}
 		return chromPositionMap;
 	}
-	
-	private static byte[] halfByteCompression(byte[] unpkSequence){
-		// Take byte array, turn bytes into NucleotideAlignmentConstant
-		// allele values, store as half bytes
 
-		int nBytes = (unpkSequence.length+1)/2;
-		byte[] packedSequence = new byte[nBytes];
-
-		int fIndex = 0, pIndex = 0; // fullbyte index, packed byte index  		
-		while (fIndex < unpkSequence.length -1) {
-			byte halfByteUpper = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[fIndex]);
-			byte halfByteLower = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[fIndex+1]);
-
-			packedSequence[pIndex] = (byte) ( (halfByteUpper << 4) | (halfByteLower));
-			fIndex +=2;
-			pIndex++;
-		}
-		// Catch the last byte if unpkSequence contained an odd number of bytes
-		if (fIndex < unpkSequence.length) {
-			byte halfByteUpper = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[fIndex]);
-			packedSequence[pIndex] = (byte) (halfByteUpper << 4);
-		}
-		return packedSequence;		
-	}
+    private static byte[] halfByteCompression(byte[] unpkSequence){
+        // Take byte array, turn bytes into NucleotideAlignmentConstant
+        // allele values, store as half bytes
+        int nBytes = (unpkSequence.length+1)/2;
+        byte[] packedSequence = new byte[nBytes];
+        for (int i = 0; i < unpkSequence.length; i++) {
+            byte halfByte = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[i]);
+            if(i%2==0) halfByte<<=4;
+            packedSequence[i/2]|=halfByte;
+        }
+        return packedSequence;
+    }
 
 	private static  Chromosome parseChromosome (String chromString) {
-		int chromNumber = Integer.MAX_VALUE;
 		String chrS = chromString.replace(">","");
 		chrS = chrS.replace("chromosome ", ""); // either chromosome, or chr or just number in file
 		chrS = chrS.replace("chr", "");
-		Chromosome chromObject = null;
-		try {
-			chromNumber = Integer.parseInt(chrS);
-			chromObject = new Chromosome(chrS);
-		} catch (NumberFormatException e) {
-			// If it fails, look for  keyFile data translation from DiscoverySNPCallerPlugin
-			// This will be changed/deleted in favor of either (a) nothing or (b) data stored in database table
-			chromNumber = DiscoverySNPCallerPluginV2.keyFileReturnChromInt(chromString);  
-			if (chromNumber == -1) {
-				myLogger.error("\n\nTagsToSNPByAlignment detected a non-numeric chromosome name in the reference genome sequence fasta file: " + chrS
-						+ "\n\nPlease change the FASTA headers in your reference genome sequence to integers "
-						+ "(>1, >2, >3, etc.) OR to 'chr' followed by an integer (>chr1, >chr2, >chr3, etc.)\n\n");
-			} else {
-				chromObject = new Chromosome(Integer.toString(chromNumber));
-			}
-		}
-		return chromObject;
+		return new Chromosome(chrS);
 	}
    
 
