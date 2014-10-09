@@ -9,7 +9,11 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+
+import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
+import net.maizegenetics.util.GeneralAnnotation;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 import net.maizegenetics.util.Utils;
 
 import org.apache.log4j.Logger;
@@ -24,7 +28,7 @@ import org.apache.log4j.Logger;
  */
 public class GenomeSequenceBuilder {
 	private static final Logger myLogger = Logger.getLogger(GenomeSequenceBuilder.class);
-
+	
 	public static GenomeSequence instance(String fastaFileName) {
 		Map<Chromosome, byte[]> chromPositionMap = readReferenceGenomeChr(fastaFileName);   	
 		return new HalfByteGenomeSequence(chromPositionMap);
@@ -33,7 +37,7 @@ public class GenomeSequenceBuilder {
 	protected static  Map<Chromosome, byte[]> readReferenceGenomeChr(String fastaFileName) {
 		// Read specified file, return entire sequence for requested chromosome 
 		Map<Chromosome, byte[]> chromPositionMap = new HashMap<Chromosome, byte[]>();
-		Chromosome currChr = null;		
+		Chromosome currChr = null;	
 		ByteArrayOutputStream currSeq = new ByteArrayOutputStream();
 		String line = null;
 		try {
@@ -46,7 +50,7 @@ public class GenomeSequenceBuilder {
 				if (line.startsWith(">")) {
 					if (currChr != null) {
 						// end processing current chromosome sequence
-                        currChr=new Chromosome(currChr.getName(),currSeq.size(),null);
+                        currChr=new Chromosome(currChr.getName(),currSeq.size(),currChr.getMyGA());
 						chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
 					}
 					currChr = parseChromosome(line); 
@@ -57,7 +61,7 @@ public class GenomeSequenceBuilder {
 			}
 			// reached end of file - write last bytes
 			if (currSeq.size() > 0) {
-                currChr=new Chromosome(currChr.getName(),currSeq.size(),null);
+                currChr=new Chromosome(currChr.getName(),currSeq.size(),currChr.getMyGA());
 				chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
 			}
 			br.close();
@@ -84,10 +88,18 @@ public class GenomeSequenceBuilder {
 		String chrS = chromString.replace(">","");
 		chrS = chrS.replace("chromosome ", ""); // either chromosome, or chr or just number in file
 		chrS = chrS.replace("chr", "");
-		return new Chromosome(chrS);
+		GeneralAnnotation myAnnotations = null;
+		
+		String currChrDesc = null;
+		int spaceIndex = chrS.indexOf(" ");
+		if (spaceIndex > 0) {			
+			currChrDesc = chrS.substring(chrS.indexOf(" ") + 1);
+			myAnnotations = GeneralAnnotationStorage.getBuilder().addAnnotation("Description", currChrDesc).build();
+			chrS = chrS.substring(0,chrS.indexOf(" "));
+		} 
+		return new Chromosome(chrS, -1, myAnnotations);
 	}
    
-
 }
 
 /**
@@ -127,8 +139,11 @@ class HalfByteGenomeSequence implements GenomeSequence{
     public byte[] chromosomeSequence(Chromosome chrom, int startSite, int lastSite) {
         startSite--;  //shift over to zero base
         lastSite--;   //shift over to zero base
-        byte[] fullBytes = new byte[lastSite - startSite + 1];
         byte[] packedBytes = chromPositionMap.get(chrom);
+        if (startSite > packedBytes.length*2 || lastSite > packedBytes.length*2 ) {
+        	return null; // requested sequence is out of range
+        }
+        byte[] fullBytes = new byte[lastSite - startSite + 1];
         for (int i = startSite; i <= lastSite; i++) {
             fullBytes[i - startSite] = (byte) ((i % 2 == 0) ? ((packedBytes[i / 2] & 0xF0) >> 4) : (packedBytes[i / 2] & 0x0F));
         }

@@ -77,6 +77,10 @@ public class Chromosome implements Comparable<Chromosome>, GeneralAnnotation {
         return myLength;
     }
 
+    public GeneralAnnotation getMyGA() {
+    	return myGA; // used in GenomeSequenceBuilder
+    }
+    
     @Override
     public Object[] getAnnotation(String annoName) {
         return myGA.getAnnotation(annoName);
