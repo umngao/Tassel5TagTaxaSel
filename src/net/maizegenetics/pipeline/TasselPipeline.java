@@ -29,10 +29,13 @@ import net.maizegenetics.analysis.data.GenotypeSummaryPlugin;
 import net.maizegenetics.analysis.data.SeparatePlugin;
 import net.maizegenetics.analysis.data.SynonymizerPlugin;
 import net.maizegenetics.analysis.data.ExportMultiplePlugin;
+import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
+import net.maizegenetics.analysis.data.ProjectionLoadPlugin;
 import net.maizegenetics.analysis.filter.FilterTaxaAlignmentPlugin;
 import net.maizegenetics.analysis.filter.FilterSiteNamePlugin;
 import net.maizegenetics.analysis.filter.FilterAlignmentPlugin;
 import net.maizegenetics.analysis.filter.FilterTraitsPlugin;
+import net.maizegenetics.analysis.filter.FilterSubsetPlugin;
 import net.maizegenetics.analysis.tree.CreateTreePlugin;
 import net.maizegenetics.analysis.association.RidgeRegressionEmmaPlugin;
 import net.maizegenetics.dna.map.TagsOnPhysMapHDF5;
@@ -48,19 +51,20 @@ import net.maizegenetics.progress.ProgressPanel;
 import net.maizegenetics.tassel.DataTreePanel;
 import net.maizegenetics.tassel.TASSELMainFrame;
 import net.maizegenetics.tassel.TasselLogging;
+import net.maizegenetics.util.LoggingUtils;
 import net.maizegenetics.util.ExceptionUtils;
 import net.maizegenetics.util.Utils;
+
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import java.io.BufferedReader;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.regex.Pattern;
-import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
-import net.maizegenetics.analysis.data.ProjectionLoadPlugin;
-import net.maizegenetics.analysis.filter.FilterSubsetPlugin;
-import net.maizegenetics.util.LoggingUtils;
 
 /**
  *
@@ -89,12 +93,13 @@ public class TasselPipeline implements PluginListener {
 
     private static final Logger myLogger = Logger.getLogger(TasselPipeline.class);
     private final TASSELMainFrame myMainFrame;
-    private final Map<String, List> myForks = new LinkedHashMap<>();
+    private final Map<String, List<Plugin>> myForks = new LinkedHashMap<>();
     private String myCurrentFork = null;
     private List<Plugin> myCurrentPipe = null;
     private Plugin myFirstPlugin = null;
     private final List<ThreadedPluginListener> myThreads = new ArrayList<>();
     private final Map<Plugin, Integer> myProgressValues = new HashMap<>();
+    private final StringBuilder deprecatedWarning = new StringBuilder();
 
     /**
      * Creates a new instance of TasselPipeline
@@ -103,6 +108,8 @@ public class TasselPipeline implements PluginListener {
 
         myMainFrame = frame;
 
+        int numThreads = Runtime.getRuntime().availableProcessors() / 2;
+        ExecutorService pool = Executors.newFixedThreadPool(numThreads);
         try {
 
             if ((args.length == 1) && (args[0].equalsIgnoreCase("-versionComment"))) {
@@ -122,22 +129,37 @@ public class TasselPipeline implements PluginListener {
             if (myMainFrame != null) {
                 ProgressPanel progressPanel = myMainFrame.getProgressPanel();
                 if (progressPanel != null) {
-                    Iterator itr = myForks.keySet().iterator();
+                    Iterator<String> itr = myForks.keySet().iterator();
                     while (itr.hasNext()) {
-                        String key = (String) itr.next();
+                        String key = itr.next();
                         List<Plugin> current = myForks.get(key);
                         progressPanel.addPipelineSegment(current);
                     }
                 }
             }
 
-            for (int i = 0; i < myThreads.size(); i++) {
-                ThreadedPluginListener current = (ThreadedPluginListener) myThreads.get(i);
-                current.start();
+            List<Future<?>> futures = new ArrayList<>();
+
+            myThreads.stream().forEach((current) -> {
+                futures.add(pool.submit(current));
+            });
+
+            for (Future<?> future : futures) {
+                future.get();
+            }
+            pool.shutdown();
+
+            if (deprecatedWarning.length() != 0) {
+                myLogger.warn(deprecatedWarning.toString());
             }
 
         } catch (Exception e) {
+            myLogger.error(e.getMessage(), e);
             System.exit(1);
+        } finally {
+            if (pool != null) {
+                pool.shutdownNow();
+            }
         }
 
     }
@@ -192,7 +214,10 @@ public class TasselPipeline implements PluginListener {
 
     public void parseArgs(String[] args) {
 
-        if ((args.length >= 2) && (args[0].equalsIgnoreCase("-configFile"))) {
+        if ((args.length >= 1) && (args[0].equalsIgnoreCase("-configFile"))) {
+            if (args.length < 2) {
+                throw new IllegalArgumentException("TasselPipeline: parseArgs: a filename must follow -configFile flag.");
+            }
             String xmlFilename = args[1].trim();
             args = TasselPipelineXMLUtil.readXMLAsArgs(xmlFilename);
         }
@@ -214,41 +239,41 @@ public class TasselPipeline implements PluginListener {
 
                 if (current.startsWith("-runfork")) {
                     String key = current.replaceFirst("-runfork", "-fork");
-                    List specifiedPipe = (List) myForks.get(key);
+                    List<Plugin> specifiedPipe = myForks.get(key);
                     if (specifiedPipe == null) {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: unknown fork: " + current);
-                    } else if (specifiedPipe.size() == 0) {
+                    } else if (specifiedPipe.isEmpty()) {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: empty fork: " + current);
                     } else {
                         PluginEvent event = new PluginEvent(new DataSet((Datum) null, null));
-                        ThreadedPluginListener thread = new ThreadedPluginListener((Plugin) specifiedPipe.get(0), event);
+                        ThreadedPluginListener thread = new ThreadedPluginListener(specifiedPipe.get(0), event);
                         myThreads.add(thread);
                     }
                 } else if (current.startsWith("-fork")) {
-                    if ((myCurrentPipe != null) && (myCurrentPipe.size() != 0)) {
+                    if ((myCurrentPipe != null) && (!myCurrentPipe.isEmpty())) {
                         myCurrentPipe.get(myCurrentPipe.size() - 1).setThreaded(true);
                     }
                     myCurrentFork = current;
-                    myCurrentPipe = new ArrayList<Plugin>();
+                    myCurrentPipe = new ArrayList<>();
                     myForks.put(myCurrentFork, myCurrentPipe);
                 } else if (current.startsWith("-input")) {
                     String key = current.replaceFirst("-input", "-fork");
-                    List specifiedPipe = (List) myForks.get(key);
+                    List<Plugin> specifiedPipe = myForks.get(key);
                     if (specifiedPipe == null) {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: unknown input: " + current);
                     } else {
                         Plugin lastCurrentPipe = null;
                         try {
-                            lastCurrentPipe = (Plugin) myCurrentPipe.get(myCurrentPipe.size() - 1);
+                            lastCurrentPipe = myCurrentPipe.get(myCurrentPipe.size() - 1);
                         } catch (Exception e) {
                             throw new IllegalArgumentException("TasselPipeline: parseArgs: -input must come after plugin in current fork.");
                         }
-                        Plugin endSpecifiedPipe = (Plugin) specifiedPipe.get(specifiedPipe.size() - 1);
+                        Plugin endSpecifiedPipe = specifiedPipe.get(specifiedPipe.size() - 1);
                         lastCurrentPipe.receiveInput(endSpecifiedPipe);
                     }
                 } else if (current.startsWith("-inputOnce")) {
                     String key = current.replaceFirst("-input", "-fork");
-                    List specifiedPipe = (List) myForks.get(key);
+                    List<Plugin> specifiedPipe = myForks.get(key);
                     if (specifiedPipe == null) {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: unknown input: " + current);
                     } else {
@@ -267,7 +292,7 @@ public class TasselPipeline implements PluginListener {
                         myCurrentPipe.get(myCurrentPipe.size() - 1).setThreaded(true);
                     }
                     myCurrentFork = current;
-                    myCurrentPipe = new ArrayList<Plugin>();
+                    myCurrentPipe = new ArrayList<>();
                     myForks.put(myCurrentFork, myCurrentPipe);
                     integratePlugin(new CombineDataSetsPlugin(), false);
                 } else if (current.equalsIgnoreCase("-t")) {
@@ -476,6 +501,8 @@ public class TasselPipeline implements PluginListener {
                     }
                     plugin.setMaxp(maxP);
                 } else if (current.equalsIgnoreCase("-glm")) {
+                    deprecatedWarning.append("parseArgs: NOTE: The -glm flags are deprecated.\n");
+                    deprecatedWarning.append("parseArgs: PLEASE RUN THIS COMMAND TO GET USAGE: ./run_pipeline.pl -FixedEffectLMPlugin\n");
                     FixedEffectLMPlugin plugin = new FixedEffectLMPlugin(myMainFrame, false);
                     integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-glmOutputFile")) {
