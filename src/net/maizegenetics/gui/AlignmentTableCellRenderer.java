@@ -11,11 +11,15 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.swing.JTable;
 import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableCellRenderer;
+import net.maizegenetics.dna.map.DonorHaplotypes;
+import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
+import net.maizegenetics.dna.snp.genotypecall.ProjectionGenotypeCallTable;
 import org.apache.log4j.Logger;
 
 /**
@@ -46,8 +50,8 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
     public static enum RENDERING_TYPE {
 
         Nucleotide, NucleotideHeterozygous, MajorAllele, MinorAllele, MajorMinorAllele,
-        Heterozygous, ReferenceMasks, GeneticDistanceMasks, None, TOPM, SNPs,
-        ReferenceProbability
+        Heterozygous, ReferenceMasks, GeneticDistanceMasks, Depth, None, TOPM, SNPs,
+        ReferenceProbability, Projection
     };
     private static final RENDERING_TYPE[] GENOTYPE_RENDERING_TYPES = new RENDERING_TYPE[]{RENDERING_TYPE.MajorMinorAllele,
         RENDERING_TYPE.MajorAllele, RENDERING_TYPE.MinorAllele, RENDERING_TYPE.Heterozygous,
@@ -69,6 +73,10 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
         myMasks = masks;
 
         List<RENDERING_TYPE> temp = new ArrayList<>();
+
+        if (myAlignment.genotypeMatrix() instanceof ProjectionGenotypeCallTable) {
+            temp.add(RENDERING_TYPE.Projection);
+        }
 
         if (myAlignment.hasGenotype()) {
             for (int i = 0; i < GENOTYPE_RENDERING_TYPES.length; i++) {
@@ -120,6 +128,8 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
                 return getReferenceMasksRendering(table, value, isSelected, hasFocus, row, col);
             case ReferenceProbability:
                 return getReferenceProbabilityRendering(table, value, isSelected, hasFocus, row, col);
+            case Projection:
+                return getProjectionRendering(table, value, isSelected, hasFocus, row, col);
             case GeneticDistanceMasks:
                 return getGeneticDistanceMasksRendering(table, value, isSelected, hasFocus, row, col);
             case None:
@@ -366,6 +376,41 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
 
         return comp;
 
+    }
+
+    private static final int[] PROJECTION_MASKS = new int[]{0xFF, 0xFF00, 0xFF0000};
+
+    private Component getProjectionRendering(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
+
+        Component comp = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col);
+
+        setHorizontalAlignment(SwingConstants.CENTER);
+
+        int site = myAlignmentTableModel.getRealColumnIndex(col);
+
+        Optional<DonorHaplotypes> optional;
+        if (isSelected) {
+            comp.setBackground(Color.DARK_GRAY);
+        } else if ((optional = donorHaplotype(row, site)).isPresent()) {
+            DonorHaplotypes dh = optional.get();
+            int color = PROJECTION_MASKS[row % 3];
+            color = color | dh.getStartPosition() | dh.getEndPosition();
+            comp.setBackground(new Color(color));
+        } else {
+            comp.setBackground(null);
+        }
+
+        return comp;
+
+    }
+
+    private Optional<DonorHaplotypes> donorHaplotype(int taxon, int site) {
+        Position position = myAlignment.positions().get(site);
+        int physical = position.getPosition();
+        return ((ProjectionGenotypeCallTable) myAlignment.genotypeMatrix()).getDonorHaplotypes(taxon).stream()
+                .filter(dh -> dh.getChromosome().equals(position.getChromosome()))
+                .filter(dh -> (physical >= dh.getStartPosition() && physical <= dh.getEndPosition()))
+                .findFirst();
     }
 
     public Component getReferenceProbabilityRendering(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {

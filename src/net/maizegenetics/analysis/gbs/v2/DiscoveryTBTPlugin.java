@@ -15,13 +15,15 @@ import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 
-import javax.swing.*;
-import java.awt.*;
+
+import javax.swing.ImageIcon;
+import java.awt.Frame;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
@@ -62,11 +64,11 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
 
     private TagDistributionMap tagCntMap;
 
-    private static final String inputFileGlob="glob:*{.fq,fq.gz,fastq,fastq.txt,fastq.gz,fastq.txt.gz,_sequence.txt,_sequence.txt.gz}";
-    private static final String sampleNameField="FullSampleName";
-    private static final String flowcellField="Flowcell";
-    private static final String laneField="Lane";
-    private static final String barcodeField="Barcode";
+    static final String inputFileGlob="glob:*{.fq,fq.gz,fastq,fastq.txt,fastq.gz,fastq.txt.gz,_sequence.txt,_sequence.txt.gz}";
+    static final String sampleNameField="FullSampleName";
+    static final String flowcellField="Flowcell";
+    static final String laneField="Lane";
+    static final String barcodeField="Barcode";
 
     public DiscoveryTBTPlugin() {
         super(null, false);
@@ -82,7 +84,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
         try {
             //Get the list of fastq files
             Path keyPath= Paths.get(keyFile()).toAbsolutePath();
-            java.util.List<Path> inputSeqFiles= DirectoryCrawler.listPaths(inputFileGlob, Paths.get(myInputDir.value()).toAbsolutePath());
+            List<Path> inputSeqFiles= DirectoryCrawler.listPaths(inputFileGlob, Paths.get(myInputDir.value()).toAbsolutePath());
             if(inputSeqFiles.isEmpty()) {
                 myLogger.warn("No files matching:"+inputFileGlob);
                 return null;
@@ -93,13 +95,8 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                         processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),
                                 minimumQualityScore(), tagCntMap, maximumTagLength());
                     });
-            System.out.println("tagCntMap.size()="+tagCntMap.size());
             removeSecondCutSitesFromMap(new GBSEnzyme(enzyme()));
-            System.out.println("tagCntMap.size()="+tagCntMap.size());
-            System.out.println("Memory Size"+tagCntMap.estimateMapMemorySize());
             tagCntMap.removeTagByCount(myMinTagCount.value());
-            System.out.println("tagCntMap.size()="+tagCntMap.size());
-            System.out.println("Memory Size"+tagCntMap.estimateMapMemorySize());
 
             TagDataWriter tdw=new TagDataSQLite(myOutputDB.value());
             tdw.putTaxaList(masterTaxaList);
@@ -121,7 +118,14 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
         processFastQ(fastQPath,barcodeTrie,masterTaxaList,masterTagTaxaMap,preferredTagLength,minQuality);
     }
 
-    private BarcodeTrie initializeBarcodeTrie(TaxaList taxaList, TaxaList masterTaxaList, GBSEnzyme myEnzyme){
+    /**
+     * Produces a trie for sorting the read
+     * @param taxaList the taxaList of the current flowcell lanes that is annotated with barcode information
+     * @param masterTaxaList  the mastertaxaList provides the taxaIndex
+     * @param myEnzyme
+     * @return Barcode trie for examining the prefixes
+     */
+    static BarcodeTrie initializeBarcodeTrie(TaxaList taxaList, TaxaList masterTaxaList, GBSEnzyme myEnzyme){
         BarcodeTrie aTrie=new BarcodeTrie();
         for (Taxon taxon : taxaList) {
             int masterIndex=masterTaxaList.indexOf(taxon.getName());
@@ -132,7 +136,13 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
         return aTrie;
     }
 
-    private TaxaList getLaneAnnotatedTaxaList(Path keyPath, Path fastQpath) {
+    /**
+     * Returns an annotated taxaList based on a Keyfile for GBS
+     * @param keyPath
+     * @param fastQpath
+     * @return
+     */
+    static TaxaList getLaneAnnotatedTaxaList(Path keyPath, Path fastQpath) {
         String[] filenameField = fastQpath.getFileName().toString().split("_");
         TaxaList annoTL;
         if (filenameField.length == 3) {
@@ -200,7 +210,10 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
         }
     }
 
-    private String[] readFastQBlock(BufferedReader bw, int currentRead) throws IOException {
+    /**
+     * Method for reading FastQ four line structure, and returning a string array with [sequence, qualityScore]
+     */
+    static String[] readFastQBlock(BufferedReader bw, int currentRead) throws IOException {
         //consider converting this into a stream of String[]
         String[] result=new String[2];
         try{
