@@ -22,12 +22,11 @@ DROP TABLE IF EXISTS gene CASCADE;
 CREATE TABLE gene (
     gene_id serial PRIMARY KEY,
     gene_identifier varchar(64) UNIQUE,
-    gene_model_id varchar(64) UNIQUE,
-    gene_name varchar(128),
+    gene_name varchar,
     chromosome_id int,
-    strand boolean,
     start_position int,
     end_position int,
+    strand boolean,
     FOREIGN KEY (chromosome_id) references chromosome
 );
 
