@@ -259,7 +259,8 @@ public class BaseEncoder {
  //   }
 
     /**
-     * Return a string representation of the 2-bit encoded long. //    * @param val 2-bit encoded sequence
+     * Return a string representation of the 2-bit encoded long. 
+     * @param val 2-bit encoded sequence
      * @param len length of the sequence
      * @return DNA sequence as a string
      * Reworked from above. Using "append" vs "insert" results
