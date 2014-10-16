@@ -237,12 +237,14 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
         //this is a little tricky as you cannot add entries at the same time as removing entries to a map
         System.out.println("DiscoveryTBTPlugin.removeSecondCutSitesFromMap started Initial Size:"+tagCntMap.size());
         String[] likelyReadEnd=enzyme.likelyReadEnd();
+
         Map<Tag,TaxaDistribution> shortTags=new HashMap<>(tagCntMap.size()/5);
         int belowMinSize=0, shortExisting=0;
         for (Tag origTag : tagCntMap.keySet()) {
             int minCutSite=Integer.MAX_VALUE;
+            String origTagSequence = origTag.sequence();
             for (String potentialCutSite : likelyReadEnd) {
-                int p = origTag.sequence().indexOf(potentialCutSite, 1);
+            	int p = origTagSequence.indexOf(potentialCutSite, 1);
                 if(p>0) minCutSite=Math.min(minCutSite,p);
             }
             if (minCutSite!=Integer.MAX_VALUE && minCutSite > 1) {
@@ -252,7 +254,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                     continue;
                 }
                 TaxaDistribution currentTaxaDist=tagCntMap.remove(origTag);
-                Tag t = TagBuilder.instance(origTag.sequence().substring(0, minCutSite + enzyme.readEndCutSiteRemnantLength())).build();
+                Tag t = TagBuilder.instance(origTagSequence.substring(0, minCutSite + enzyme.readEndCutSiteRemnantLength())).build();
                 TaxaDistribution existingTD=shortTags.get(t);
                 if(existingTD!=null) {
                     if(currentTaxaDist==null || existingTD==null) {
