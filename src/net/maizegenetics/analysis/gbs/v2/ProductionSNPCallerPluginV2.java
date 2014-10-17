@@ -11,6 +11,7 @@ import net.maizegenetics.dna.map.*;
 import net.maizegenetics.dna.snp.*;
 import net.maizegenetics.dna.snp.depth.AlleleDepthUtil;
 import net.maizegenetics.dna.snp.genotypecall.BasicGenotypeMergeRule;
+import net.maizegenetics.dna.snp.genotypecall.GenotypeMergeRule;
 import net.maizegenetics.dna.tag.*;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
@@ -63,8 +64,8 @@ import java.util.concurrent.atomic.LongAdder;
  *
  * TODO add the Stacks likelihood method to BasicGenotypeMergeRule
  *
- * @author Jeff Glaubitz
  * @author Ed Buckler
+ * @author Jeff Glaubitz
  */
 public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
 
@@ -76,7 +77,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             .description("Key file listing barcodes distinguishing the samples").build();
     private PluginParameter<String> myEnzyme = new PluginParameter.Builder<>("e", null, String.class).guiName("Enzyme").required(true)
             .description("Enzyme used to create the GBS library").build();
-    private PluginParameter<String> myInputDB = new PluginParameter.Builder<>("i", null, String.class).guiName("Input GBS Database").required(true).inFile()
+    private PluginParameter<String> myInputDB = new PluginParameter.Builder<>("db", null, String.class).guiName("Input GBS Database").required(true).inFile()
             .description("Input Database file if using SQLite").build();
     private PluginParameter<String> myOutputGenotypes = new PluginParameter.Builder<>("o", null, String.class).guiName("Output HDF5 Genotypes File").required(true).outFile()
             .description("Output (target) HDF5 genotypes file to add new genotypes to (new file created if it doesn't exist)").build();
@@ -98,12 +99,12 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
 
     private GenotypeTableBuilder genos = null; //output genotype table
     private PositionList myPositionList = null;
-    
+
     //Documentation of read depth per sample (one recored per replicate)
     private Map<String, Integer> rawReadCountsForFullSampleName = new TreeMap<>();
     private Map<String, Integer> matchedReadCountsForFullSampleName = new TreeMap<>();
 
-    private BasicGenotypeMergeRule genoMergeRule = null;
+    private GenotypeMergeRule genoMergeRule = null;
 
     public ProductionSNPCallerPluginV2() {
         super(null, false);
@@ -120,6 +121,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         } catch (IOException e) {
             throw new IllegalStateException("Problem resolving output directory:" + e);
         }
+        genoMergeRule = new BasicGenotypeMergeRule(aveSeqErrorRate());
     }
 
     @Override
@@ -140,7 +142,6 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
                     processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),canonicalTag,64);
                 });
 
-        long previous, current;
         final PositionList positionList=tagDataReader.getSNPPositions();
 
         final Multimap<Tag,AlleleWithPosIndex> tagsToIndex=ArrayListMultimap.create();
@@ -149,36 +150,28 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
                     int posIndex=positionList.indexOf(e.getValue().position());
                     tagsToIndex.put(e.getKey(),new AlleleWithPosIndex(e.getValue(),posIndex));
                 });
+        GenotypeTableBuilder gtb=setUpGenotypeTableBuilder(outputHDF5GenotypesFile(),positionList, genoMergeRule);
         tagCntMap.asMap().entrySet().stream()
-                .map(e -> callGenotypes(e.getKey(), e.getValue(), tagsToIndex, positionList))
-                .forEach(e -> System.out.println(e.x.getName()));  //change this to a collector insert someplace
+                .map(e -> callGenotypes(e.getKey(), e.getValue(), tagsToIndex, positionList, genoMergeRule))
+                .forEach(e -> gtb.addTaxon(e.x,e.y));
+                //.forEach(e -> System.out.println(e.x.getName()+ Arrays.toString(Arrays.copyOfRange(e.y,0,10))));  //change this to a collector insert someplace
 
-//        readKeyFile();  // TODO: read/write full set of metadata
-//        matchKeyFileToAvailableRawSeqFiles();
-//        myPositionList = getUniquePositions();
-//        generateFastSiteLookup(myPositionList);
-//        setUpGenotypeTableBuilder();
-        int nFilesProcessed = 0;
 
-        //callGenotypes();
         if (keepGenotypesOpen()) {
-            previous = System.nanoTime();
-            genos.closeUnfinished();
-            current = System.nanoTime();
-            System.out.println("ProductionSNPCallerPlugin: performFunction: genos.closeUnfinished(): " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
+            gtb.closeUnfinished();
         } else {
-            previous = System.nanoTime();
-            genos.build();
-            current = System.nanoTime();
-            System.out.println("ProductionSNPCallerPlugin: performFunction: genos.build(): " + ((double) (current - previous) / 1_000_000_000.0) + " sec");
+            gtb.build();
         }
         writeReadsPerSampleReports();
         return null;
     }
 
-    private Tuple<Taxon,byte[]> callGenotypes(Taxon taxon, Collection<Tag> tags, Multimap<Tag,AlleleWithPosIndex> tagsToIndex,
-                                 PositionList positionList) {
-        return null;
+    private static Tuple<Taxon,byte[]> callGenotypes(Taxon taxon, Collection<Tag> tags, Multimap<Tag,AlleleWithPosIndex> tagsToIndex,
+                                 PositionList positionList, GenotypeMergeRule genoMergeRule) {
+        int[][] alleleDepths = new int[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][positionList.numberOfSites()];
+        tags.stream().map(t -> tagsToIndex.get(t)).flatMap(c -> c.stream())
+                .forEach(a -> alleleDepths[a.allele()][a.positionIndex()]++);
+        return new Tuple<>(taxon,resolveGenosForTaxon(alleleDepths, genoMergeRule));
     }
 
     private class AlleleWithPosIndex extends SimpleAllele {
@@ -263,16 +256,15 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     }
 
 
-    private void setUpGenotypeTableBuilder() {
-        genoMergeRule = new BasicGenotypeMergeRule(aveSeqErrorRate());
-        File hdf5File = new File(outputHDF5GenotypesFile());
+    private static GenotypeTableBuilder setUpGenotypeTableBuilder(String aHDF5File, PositionList positionList, GenotypeMergeRule mergeRule) {
+        File hdf5File = new File(aHDF5File);
         if (hdf5File.exists()) {
-            myLogger.info("\nGenotypes will be added to existing HDF5 file:\n  " + outputHDF5GenotypesFile() + "\n");
-            genos = GenotypeTableBuilder.mergeTaxaIncremental(outputHDF5GenotypesFile(), genoMergeRule);
+            myLogger.info("\nGenotypes will be added to existing HDF5 file:\n  " + aHDF5File + "\n");
+            return GenotypeTableBuilder.mergeTaxaIncremental(aHDF5File, mergeRule);
         } else {
-            myLogger.info("\nThe target HDF5 file:\n  " + outputHDF5GenotypesFile()
+            myLogger.info("\nThe target HDF5 file:\n  " + aHDF5File
                     + "\ndoes not exist. A new HDF5 file of that name will be created \nto hold the genotypes from this run.");
-            genos = GenotypeTableBuilder.getTaxaIncrementalWithMerging(outputHDF5GenotypesFile(), myPositionList, genoMergeRule);
+            return GenotypeTableBuilder.getTaxaIncrementalWithMerging(aHDF5File, positionList, mergeRule);
         }
     }
 
@@ -300,14 +292,6 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
 //        return taxaAL;
 //    }
 //
-//    private void generateFastSiteLookup(PositionList pl) {
-//        ImmutableTable.Builder ptsB = new ImmutableTable.Builder<Chromosome, Integer, Integer>();
-//        for (int i = 0; i < pl.numberOfSites(); i++) {
-//            Position position = pl.get(i);
-//            ptsB.put(position.getChromosome().getChromosomeNumber(), position.getPosition(), i);
-//        }
-//        positionToSite = ptsB.build();
-//    }
 
 
 //    private int findBestImperfectMatch(long[] read, int[] counters) {
@@ -378,9 +362,9 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
 //        myLogger.info("Finished calling genotypes for " + obsTagsForEachTaxon.length + " taxa\n");
 //    }
 
-    private byte[] resolveGenosForTaxon(byte[][] depthsForTaxon) {
+    private static byte[] resolveGenosForTaxon(int[][] depthsForTaxon, GenotypeMergeRule genoMergeRule) {
         int nAlleles = depthsForTaxon.length;
-        byte[] depthsAtSite = new byte[nAlleles];
+        int[] depthsAtSite = new int[nAlleles];
         int nSites = depthsForTaxon[0].length;
         byte[] genos = new byte[nSites];
         for (int site = 0; site < nSites; site++) {

@@ -82,6 +82,11 @@ public class BasicGenotypeMergeRule implements GenotypeMergeRule {
         return resolveHetGeno(AlleleDepthUtil.depthByteToInt(genoDepths));
     }
 
+    @Override
+    public byte callBasedOnDepth(int[] genoDepths) {
+        return resolveHetGeno(genoDepths);
+    }
+
     private byte resolveHetGeno(int[] depths) {
         int max = 0;
         byte maxAllele = GenotypeTable.UNKNOWN_ALLELE;

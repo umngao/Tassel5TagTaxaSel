@@ -35,4 +35,11 @@ public interface GenotypeMergeRule {
      * @return genotype call
      */
     byte callBasedOnDepth(byte[] genoDepths);
+
+    /**
+     * Makes a genotypic call based on allele depths
+     * @param genoDepths allele depth of taxa
+     * @return genotype call
+     */
+    byte callBasedOnDepth(int[] genoDepths);
 }
