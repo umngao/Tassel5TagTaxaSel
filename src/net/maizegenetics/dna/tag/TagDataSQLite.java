@@ -507,6 +507,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     @Override
     public PositionList getSNPPositions() {
+        if(snpPosToIDMap==null) loadSNPPositionHash();
         return new PositionListBuilder().addAll(snpPosToIDMap.keySet()).build();
     }
 
