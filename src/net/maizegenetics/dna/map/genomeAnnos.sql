@@ -40,21 +40,26 @@ CREATE TABLE transcript (
     FOREIGN KEY (gene_id) references gene
 );
 
-DROP TABLE IF EXISTS cds CASCADE;
-CREATE TABLE cds (
-    cds_id serial PRIMARY KEY,
+DROP TABLE IF EXISTS exon;
+CREATE TABLE exon (
+    exon_id serial PRIMARY KEY,
+    exon_identifier varchar(64),
     transcript_id int,
+    exon_number int,
     start_position int,
     end_position int,
     FOREIGN KEY (transcript_id) references transcript
 );
 
-DROP TABLE IF EXISTS exon;
-CREATE TABLE exon (
-    exon_id serial PRIMARY KEY,
+DROP TABLE IF EXISTS cds CASCADE;
+CREATE TABLE cds (
+    cds_id serial PRIMARY KEY,
     transcript_id int,
+    exon_number int,
+    protein_identifier varchar(64),
     start_position int,
     end_position int,
+    frame int,
     FOREIGN KEY (transcript_id) references transcript
 );
 
