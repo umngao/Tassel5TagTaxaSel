@@ -39,7 +39,7 @@ public class LinkageDisequilibriumPlugin extends AbstractPlugin {
     private FilterGenotypeTable myPossibleAlignmentForSiteList;
     private String myPossibleAlignmentName;
     private int[] myPossibleSiteList;
-    private LinkageDisequilibrium.HetTreatment myHetTreatment = LinkageDisequilibrium.HetTreatment.Haplotype;
+    private LinkageDisequilibrium.HetTreatment myHetTreatment = LinkageDisequilibrium.HetTreatment.Homozygous;
 
     /**
      * Creates a new instance of LinkageDisequilibriumPlugin
