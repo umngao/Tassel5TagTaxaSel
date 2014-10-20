@@ -277,6 +277,26 @@ public class ParseBarcodeRead {
             initialCutSiteRemnant=new String[]{"GTACC"};
             likelyReadEnd = new String[]{"GGTACC","GGTACAGAT"}; // full cut site (from partial digest or chimera) or common adapter start
             readEndCutSiteRemnantLength = 5;
+        } else if(enzyme.matches("(?i)sty[i1]")){
+            theEnzyme = "StyI";  // C^CWWGG
+            initialCutSiteRemnant=new String[]{"CAAGG","CATGG","CTAGG","CTTGG"};
+            likelyReadEnd = new String[]{"CCAAGG","CCATGG","CCTAGG","CCTTGG","CCAAGAGAT","CCATGAGAT","CCTAGAGAT","CCTTGAGAT"}; // full cut site (from partial digest or chimera) or common adapter start
+            readEndCutSiteRemnantLength = 5;
+        } else if(enzyme.matches("(?i)styi-msei|(?i)sty1-mse1")){
+            theEnzyme = "StyI-MseI";  // C^CWWGG & T^TAA
+            initialCutSiteRemnant=new String[]{"CAAGG","CATGG","CTAGG","CTTGG"};
+            likelyReadEnd = new String[]{"TTAA","CCAAGG","CCATGG","CCTAGG","CCTTGG","TTAAGAT"}; // full cut site (from partial digest or chimera) or common adapter start
+            readEndCutSiteRemnantLength = 3;
+        } else if(enzyme.matches("(?i)fse[i1]")){
+            theEnzyme = "FseI";  // GGCCGG^CC
+            initialCutSiteRemnant=new String[]{"CCGGCC"};
+            likelyReadEnd = new String[]{"GGCCGGCC","AGATCGGAAG"}; // full cut site (from partial digest or chimera) or Morishige et al (BMC Genomics, 2013) T adapter start
+            readEndCutSiteRemnantLength = 0;  // assumes that common T adapter is far more likely than a second full cut site
+        } else if(enzyme.matches("(?i)NgoMIV|(?i)NgoM4")){
+            theEnzyme = "NgoMIV";  // G^CCGGC
+            initialCutSiteRemnant=new String[]{"CCGGC"};
+            likelyReadEnd = new String[]{"GCCGGC","AGATCGGAAG"}; // full cut site (from partial digest or chimera) or Morishige et al (BMC Genomics, 2013) T adapter start
+            readEndCutSiteRemnantLength = 0;  // assumes that common T adapter is far more likely than a second full cut site
         } else if (enzyme.matches("(?i)RBSTA")) {
             theEnzyme = "RBSTA";
             initialCutSiteRemnant = new String[]{"TA"};
@@ -297,6 +317,7 @@ public class ParseBarcodeRead {
                     +"  CviQI"    +"\n"
                     +"  EcoRI"    +"\n"
                     +"  EcoT22I"  +"\n"
+                    +"  FseI"     +"\n"
                     +"  HindIII"  +"\n"
                     +"  HinP1I"   +"\n"
                     +"  HpaII"    +"\n"
@@ -304,6 +325,7 @@ public class ParseBarcodeRead {
                     +"  MseI"     +"\n"
                     +"  MspI"     +"\n"
                     +"  NdeI"     +"\n"
+                    +"  NgoMIV"   +"\n"
                     +"  NlaIII"   +"\n"
                     +"  NspI"     +"\n"
                     +"  PasI"     +"\n"
@@ -311,6 +333,7 @@ public class ParseBarcodeRead {
                     +"  Sau3AI"   +"\n"
                     +"  SbfI"     +"\n"
                     +"  SphI"     +"\n"
+                    +"  StyI"     +"\n"
                     +"  RBSTA"    +"\n"
                     +"  RBSCG"    +"\n"
                     +"Or the following for two-enzyme digests:\n"
@@ -335,6 +358,7 @@ public class ParseBarcodeRead {
                     +"  SalI-MspI"    +"\n"
                     +"  SbfI-MspI"    +"\n"
                     +"  SexAI-Sau3AI" +"\n"
+                    +"  StyI-MseI"    +"\n"
             );
             System.out.println("For two-enzyme digest, enzyme names should be separated by a dash, e.g. PstI-MspI ");
         }
