@@ -157,7 +157,7 @@ public abstract class AbstractTagsHDF5 extends AbstractTags {
     
     /**
      * Initialize a HDF5 file
-     * @param hdf5FileS 
+     * @param inputFileS 
      */
     public void initializeHDF5 (String inputFileS) {
         throw new UnsupportedOperationException("Not supported yet.");

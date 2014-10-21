@@ -11,6 +11,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.*;
 import java.util.ArrayList;
+import org.apache.commons.math.stat.correlation.PearsonsCorrelation;
 
 /**
  * Training data with M5Rules model, generate model file and training report files
@@ -97,7 +98,7 @@ public class PanAModelTrainingPlugin extends AbstractPlugin {
                     cnt++;
                 }
                 bw.write(String.valueOf(predictionCut[i]/1000)+"Kb\t"+String.valueOf((double)cnt/actualValue.length));
-                for (int j = 0; j < logPreCut.length; j++) {
+                for (int j = 0; j < logAccCut.length; j++) {
                     bw.write("\t"+String.valueOf((double)ratio[j]/cnt));
                 }
                 bw.newLine();
@@ -122,6 +123,8 @@ public class PanAModelTrainingPlugin extends AbstractPlugin {
         Runtime rt = Runtime.getRuntime();
         rt.gc();
         Process p;
+        ArrayList<Double> obList = new ArrayList();
+        ArrayList<Double> preList = new ArrayList();
         try {
             p = rt.exec(cmd);
             //p.waitFor();
@@ -140,6 +143,8 @@ public class PanAModelTrainingPlugin extends AbstractPlugin {
                 if(temp.isEmpty()) continue;
                 tem = temp.trim().split("\\s+");
                 bw.write(String.valueOf(cnt)+"\t"+tem[1]+"\t"+tem[2]+"\t"+tem[3]);
+                obList.add(Double.valueOf(tem[1]));
+                preList.add(Double.valueOf(tem[2]));
                 bw.newLine();
                 cnt++;
             }
@@ -150,6 +155,14 @@ public class PanAModelTrainingPlugin extends AbstractPlugin {
             e.printStackTrace();
             System.exit(1);
         }
+        double[] ob = new double[obList.size()];
+        double[] pre = new double[preList.size()];
+        for (int i = 0; i < ob.length; i++) {
+            ob[i] = obList.get(i);
+            pre[i] = preList.get(i);
+        }
+        double r = new PearsonsCorrelation().correlation(ob, pre);
+        System.out.println("Pearson correlation coefficient (observation Vs prediction):\t" + String.valueOf(r));
         System.out.println("Training model is generated in " + this.modelFileS);
         System.out.println("Ten fold cross validation prediction at " + this.predictionFileS);
     }
