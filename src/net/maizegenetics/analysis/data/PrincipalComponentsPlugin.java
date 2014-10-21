@@ -4,10 +4,15 @@ import java.awt.Frame;
 
 import javax.swing.ImageIcon;
 
+import org.apache.log4j.Logger;
+
+import net.maizegenetics.analysis.association.FixedEffectLMPlugin;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.util.LoggingUtils;
 
 public class PrincipalComponentsPlugin extends AbstractPlugin {
+    private static final Logger myLogger = Logger.getLogger(FixedEffectLMPlugin.class);
 
 	public PrincipalComponentsPlugin(Frame parentFrame, boolean isInteractive) {
 		super(parentFrame, isInteractive);
