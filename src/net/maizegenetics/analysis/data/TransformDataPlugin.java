@@ -29,7 +29,7 @@ import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.util.OpenBitSet;
 
 public class TransformDataPlugin extends AbstractPlugin {
-	private enum BASE {natural, base_2, base_10};
+	public enum BASE {natural, base_2, base_10};
 	
 	private double power = 1;
 	private List<CategoricalAttribute> byFactor;
@@ -80,10 +80,10 @@ public class TransformDataPlugin extends AbstractPlugin {
 	}
 
 	//method implementing transformation using stream method
-	public static NumericAttribute transformUsingStream(NumericAttribute original, DoubleUnaryOperator transformOp) {
-		double[] values = original.stream().map(transformOp).toArray();
-		return new NumericAttribute(original.name(), AssociationUtils.convertDoubleArrayToFloat(values), original.missing());
-	}
+//	public static NumericAttribute transformUsingStream(NumericAttribute original, DoubleUnaryOperator transformOp) {
+//		double[] values = original.stream().map(transformOp).toArray();
+//		return new NumericAttribute(original.name(), AssociationUtils.convertDoubleArrayToFloat(values), original.missing());
+//	}
 	
 	public NumericAttribute powerTransform(NumericAttribute original) {
 		float[] originalValues = original.floatValues();
