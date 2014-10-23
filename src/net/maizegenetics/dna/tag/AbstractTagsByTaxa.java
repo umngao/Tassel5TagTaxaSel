@@ -193,6 +193,7 @@ public abstract class AbstractTagsByTaxa extends AbstractTags implements TagsByT
             }
             rw.close();
         } catch (Exception e) {
+            e.printStackTrace();
             System.out.println("Catch in writing output file e=" + e);
         }
         System.out.println("Number of Taxa in file:" + taxaNum);

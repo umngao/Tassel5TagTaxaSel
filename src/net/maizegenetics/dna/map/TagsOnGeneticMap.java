@@ -77,6 +77,15 @@ public class TagsOnGeneticMap extends AbstractTags {
     }
     
     /**
+     * Set PAV value of tag
+     * @param index
+     * @param value 
+     */
+    public void setIfPAV (int index, int value) {
+        this.ifPAV[index] = (byte)value;
+    }
+    
+    /**
      * Read tagsOnGeneticMap file
      * @param infileS
      * @param format

@@ -127,7 +127,7 @@ public class PanABuildTrainingSetPlugin extends AbstractPlugin {
             e.printStackTrace();
             System.exit(1);
         }
-        String cmd = "rscript " + scriptFile.getAbsolutePath();
+        String cmd = this.rPath + " " + scriptFile.getAbsolutePath();
         Runtime rt = Runtime.getRuntime();
         Process p;
         try {

@@ -18,7 +18,7 @@ import net.maizegenetics.analysis.gbs.MergeMultipleTagCountPlugin;
 public class PanAUsageExample {
     
     public PanAUsageExample () {
-        //this.h5ToAnchorPlugin();
+        this.h5ToAnchorPlugin();
         //this.splitTBTPlugin();
         //this.buildTagBlockPositionPlugin();
         //this.splitTagBlockPositionPlugin();
