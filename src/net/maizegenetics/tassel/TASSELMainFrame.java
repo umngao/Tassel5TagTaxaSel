@@ -49,7 +49,6 @@ import net.maizegenetics.analysis.tree.ArchaeopteryxPlugin;
 import net.maizegenetics.analysis.chart.ChartDisplayPlugin;
 import net.maizegenetics.analysis.association.RidgeRegressionEmmaPlugin;
 import net.maizegenetics.analysis.modelfitter.StepwiseOLSModelFitterPlugin;
-import net.maizegenetics.analysis.numericaltransform.NumericalTransformPlugin;
 import net.maizegenetics.gui.PrintHeapAction;
 import net.maizegenetics.plugindef.*;
 import net.maizegenetics.prefs.TasselPrefs;
@@ -624,7 +623,6 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new GetTaxaListPlugin(this, true)));
         result.add(createMenuItem(new GetPositionListPlugin(this, true)));
         result.add(createMenuItem(new SortGenotypeFilePlugin(this, true)));
-        result.add(createMenuItem(new NumericalTransformPlugin(this, true)));
         result.add(createMenuItem(new SynonymizerPlugin(this, true)));
         result.add(createMenuItem(new IntersectionAlignmentPlugin(this, true)));
         result.add(createMenuItem(new UnionAlignmentPlugin(this, true)));
