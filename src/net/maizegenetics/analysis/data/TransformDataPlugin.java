@@ -4,20 +4,13 @@ import java.awt.Frame;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.function.DoubleUnaryOperator;
-import java.util.function.Function;
-import java.util.stream.Stream;
 
 import javax.swing.ImageIcon;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
-import net.maizegenetics.analysis.association.AssociationUtils;
-import net.maizegenetics.analysis.numericaltransform.NumericalTransformPlugin;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.NumericAttribute;
@@ -29,7 +22,7 @@ import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.util.OpenBitSet;
 
 public class TransformDataPlugin extends AbstractPlugin {
-	private enum BASE {natural, base_2, base_10};
+	public enum BASE {natural, base_2, base_10};
 	
 	private double power = 1;
 	private List<CategoricalAttribute> byFactor;
@@ -61,7 +54,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 
 	@Override
 	public ImageIcon getIcon() {
-        URL imageURL = NumericalTransformPlugin.class.getResource("Transform.gif");
+        URL imageURL = TransformDataPlugin.class.getResource("/net/maizegenetics/analysis/images/Transform.gif");
         if (imageURL == null) {
             return null;
         } else {
@@ -80,10 +73,10 @@ public class TransformDataPlugin extends AbstractPlugin {
 	}
 
 	//method implementing transformation using stream method
-	public static NumericAttribute transformUsingStream(NumericAttribute original, DoubleUnaryOperator transformOp) {
-		double[] values = original.stream().map(transformOp).toArray();
-		return new NumericAttribute(original.name(), AssociationUtils.convertDoubleArrayToFloat(values), original.missing());
-	}
+//	public static NumericAttribute transformUsingStream(NumericAttribute original, DoubleUnaryOperator transformOp) {
+//		double[] values = original.stream().map(transformOp).toArray();
+//		return new NumericAttribute(original.name(), AssociationUtils.convertDoubleArrayToFloat(values), original.missing());
+//	}
 	
 	public NumericAttribute powerTransform(NumericAttribute original) {
 		float[] originalValues = original.floatValues();

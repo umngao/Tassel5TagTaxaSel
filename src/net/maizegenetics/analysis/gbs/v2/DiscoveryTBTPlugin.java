@@ -1,6 +1,7 @@
 package net.maizegenetics.analysis.gbs.v2;
 
 import com.google.common.collect.ImmutableMap;
+
 import net.maizegenetics.analysis.gbs.Barcode;
 import net.maizegenetics.dna.BaseEncoder;
 import net.maizegenetics.dna.tag.*;
@@ -13,10 +14,11 @@ import net.maizegenetics.taxa.TaxaListIOUtils;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.util.Utils;
+
 import org.apache.log4j.Logger;
 
-
 import javax.swing.ImageIcon;
+
 import java.awt.Frame;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -89,19 +91,27 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                 myLogger.warn("No files matching:"+inputFileGlob);
                 return null;
             }
+            long time=System.nanoTime(); 
             TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), sampleNameField, new HashMap<>(), true);
             inputSeqFiles.parallelStream()
                     .forEach(inputSeqFile -> {
                         processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),
                                 minimumQualityScore(), tagCntMap, maximumTagLength());
                     });
+            System.out.printf("Total processQ time %g sec%n", (double) (System.nanoTime() - time) / 1e9);
+            time=System.nanoTime();
             removeSecondCutSitesFromMap(new GBSEnzyme(enzyme()));
+            System.out.printf("Total removeSecondCutSite time %g sec%n", (double) (System.nanoTime() - time) / 1e9);
+            time=System.nanoTime();
             tagCntMap.removeTagByCount(myMinTagCount.value());
 
+            System.out.printf("Total removeTagByCount time %g sec%n", (double) (System.nanoTime() - time) / 1e9);
+            time=System.nanoTime();
             TagDataWriter tdw=new TagDataSQLite(myOutputDB.value());
             tdw.putTaxaList(masterTaxaList);
             tdw.putAllTag(tagCntMap.keySet());
             tdw.putTaxaDistribution(tagCntMap);
+            System.out.printf("Total databasePut time %g sec%n", (double) (System.nanoTime() - time) / 1e9);
             ((TagDataSQLite)tdw).close();  //todo autocloseable should do this but it is not working.
 
         } catch(Exception e) {
@@ -186,6 +196,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                 Tag tag=tb.build(); // Call build separately as the null pointer exception kicks us out of the loop !
                 
                 goodBarcodedReads++;
+                
                 TaxaDistribution taxaDistribution=masterTagTaxaMap.get(tag);
                 if(taxaDistribution==null) {
                     masterTagTaxaMap.put(tag,TaxaDistBuilder.create(maxTaxaNumber,barcode.getTaxaIndex()));
@@ -194,12 +205,12 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                     masterTagTaxaMap.put(tag,TaxaDistBuilder.create(taxaDistribution).increment(barcode.getTaxaIndex()));
                 } else {
                     taxaDistribution.increment(barcode.getTaxaIndex());
-                }
+                }                            
                 if (allReads % 1000000 == 0) {
                     myLogger.info("Total Reads:" + allReads + " Reads with barcode and cut site overhang:" + goodBarcodedReads
                             + " rate:" + (System.nanoTime()-time)/allReads +" ns/read");
-                }
-            }
+                }               
+            }               
             myLogger.info("Total number of reads in lane=" + allReads);
             myLogger.info("Total number of good barcoded reads=" + goodBarcodedReads);
             myLogger.info("Timing process (sorting, collapsing, and writing TagCount to file).");
@@ -524,7 +535,8 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
         private long checkFreq;  //numbers of puts to check size
 
         TagDistributionMap(int initialCapacity, long maxMemorySize) {
-            super(initialCapacity);
+            super(initialCapacity); 
+        	//super(initialCapacity, 0.9f,1024); 
             this.maxMemorySize=maxMemorySize;
             checkFreq=(maxMemorySize/(100L*10L));  //this is checking roughly to keep the map within 10% of the max
         }
@@ -538,7 +550,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
             }
             return super.put(key, value);
         }
-
+        
         public synchronized void checkMemoryAndReduceIfNeeded() {
             System.out.println("TagDistributionMap.checkMemoryAndReduceIfNeeded"+estimateMapMemorySize());
             while(estimateMapMemorySize()>maxMemorySize) {

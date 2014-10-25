@@ -1,95 +1,11 @@
 package net.maizegenetics.analysis.numericaltransform;
 
-import net.maizegenetics.trait.Phenotype;
-import net.maizegenetics.trait.SimplePhenotype;
-import net.maizegenetics.trait.Trait;
-
-import java.math.BigDecimal;
-import java.util.ArrayList;
-
 /**
  * User: dkroon
  * Date: Aug 1, 2005
  * Time: 10:41:05 AM
  */
 public class Conversion {
-
-    /**
-     *
-     * @param tableReport
-     * @param colSelected Which column should be parsed and returned as a double[].
-     * @return
-     */
-    public static double[] parseColumnData(Phenotype tableReport, int colSelected) {
-
-        double[][] rawData = tableReport.getData();
-        //Object[][] rawData = tableReport.getTableData();
-        double[] tempData = new double[rawData.length];
-        int naNCount = 0;  // how many NaN are in the column
-        for (int i = 0; i < rawData.length; i++) {     // start with 1 because taxa names are in column 0
-            //tempData[i] = Double.valueOf(rawData[i][colSelected].toString()).doubleValue();
-            tempData[i] = rawData[i][colSelected];
-            if (Double.isNaN(tempData[i])) {
-                naNCount++;
-            }
-        }
-
-        // if there is not a single numeric value in the column, then go no further
-        if (naNCount == rawData.length) {
-            return null;
-        }
-
-        return tempData;
-    }
-
-    /**
-     * Does a simple conversion of the values in a TableReport into a double[][].
-     * @param theCharacterAlignment
-     * @param selectedCol Columns from the TableReport which are to be included in the returned double[][].  If
-     *          selectedCols == null, then it includes all columns.
-     * @return double[][] of the values in the TableReport
-     */
-    public static double[][] parseColumnData(Phenotype theCharacterAlignment, int[] selectedCol) {
-        //todo change to character alignment as tablereports aren't necessarily numeric
-        // create the appropriate array if the selectedCol == null
-        int[] includedColumn;
-        if (selectedCol == null) {
-            int colCount = theCharacterAlignment.getNumberOfTraits();
-            includedColumn = new int[colCount];
-            for (int i = 0; i < colCount; i++) {
-                includedColumn[i] = i;
-            }
-        } else {
-            includedColumn = selectedCol;
-        }
-        // do the simple conversion
-        double[][] tempData = new double[theCharacterAlignment.getNumberOfTaxa()][includedColumn.length];
-        for (int i = 0; i < theCharacterAlignment.getNumberOfTaxa(); i++) {
-            for (int j = 0; j < includedColumn.length; j++) {
-                tempData[i][j] = theCharacterAlignment.getData(i, includedColumn[j]);
-            }
-        }
-        return tempData;
-    }
-
-    /**
-     * 2D array version for iterating through the full raw data set and replaces the
-     * original data with the changed data for the appropriate columns.
-     * 
-     * @param originalSca
-     * @param colSelected
-     * @param changedData
-     * @return
-     */
-    public static SimplePhenotype reconstituteDataset(Phenotype originalSca, int[] colSelected, double[][] changedData) {
-    	
-    	ArrayList<Trait> newtraits = new ArrayList<Trait>();
-        for (int col : colSelected) {
-            newtraits.add(Trait.getInstance(originalSca.getTrait(col)));
-        }
-        
-        return new SimplePhenotype(originalSca.getTaxa(), newtraits, changedData);
-    }
 
     /**
      * Remove NaN values and resize the array.
@@ -131,39 +47,6 @@ public class Conversion {
         }
 
         return cleanData;
-    }
-
-    /**
-     * Determine the percentage of data which is NaN in the passed-in TableReport
-     * @param tableReportIn
-     * @param precision The number of desired significan digits after the decimal,
-     *          i.e., the significand or, more informally, the mantissa
-     * @return
-     */
-    public static Object[] getPercentMissingData(Phenotype tableReportIn, int precision) {
-
-        double[][] rawData = tableReportIn.getData();
-        double[] tempData = new double[rawData.length];
-
-
-        int colCount = rawData[0].length;   // assume that the first row has all columns
-        int rowCount = rawData.length;
-        BigDecimal hundred = new BigDecimal("100");
-        BigDecimal[] percentData = new BigDecimal[colCount];
-        for (int j = 0; j < colCount; j++) {
-            int naNCount = 0;  // how many NaN are in the column
-            for (int i = 0; i < rowCount; i++) {
-                tempData[i] = Double.valueOf(String.valueOf(rawData[i][j])).doubleValue();
-                if (Double.isNaN(tempData[i])) {
-                    naNCount++;
-                }
-            }
-            BigDecimal bd = new BigDecimal((double) naNCount / rowCount);
-            BigDecimal percentage = bd.multiply(hundred);
-            percentData[j] = percentage.setScale(precision, BigDecimal.ROUND_HALF_UP);
-        }
-
-        return percentData;
     }
 
     /**

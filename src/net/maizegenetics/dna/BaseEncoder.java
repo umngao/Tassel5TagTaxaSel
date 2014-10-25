@@ -340,11 +340,46 @@ public class BaseEncoder {
      * @param minQual minimum quality threshold
      * @return position of first low quality position (quality length is returned is not low 
      * quality base is found.
+     *
+     *  S - Sanger        Phred+33,  raw reads typically (0, 40)
+    X - Solexa        Solexa+64, raw reads typically (-5, 40)
+    I - Illumina 1.3+ Phred+64,  raw reads typically (0, 40)
+    J - Illumina 1.5+ Phred+64,  raw reads typically (3, 40)
+    with 0=unused, 1=unused, 2=Read Segment Quality Control Indicator (bold)
+    (Note: See discussion above).
+    L - Illumina 1.8+ Phred+33,  raw reads typically (0, 41)
      */
     public static int getFirstLowQualityPos(String quality, int minQual) {
         int qualInt = 0;
         for (int i = 0; i < quality.length(); i++) {
             qualInt = (int) quality.charAt(i) - 64;
+            if (qualInt < minQual) {
+                return i;
+            }
+        }
+        return quality.length();
+    }
+
+    /**
+     * Returns the position of the first low quality positions based on a quality
+     * fastq (?) string.
+     * @param quality fastq quality string
+     * @param minQual minimum quality threshold
+     * @return position of first low quality position (quality length is returned is not low
+     * quality base is found.
+     *
+     *  S - Sanger        Phred+33,  raw reads typically (0, 40)
+    X - Solexa        Solexa+64, raw reads typically (-5, 40)
+    I - Illumina 1.3+ Phred+64,  raw reads typically (0, 40)
+    J - Illumina 1.5+ Phred+64,  raw reads typically (3, 40)
+    with 0=unused, 1=unused, 2=Read Segment Quality Control Indicator (bold)
+    (Note: See discussion above).
+    L - Illumina 1.8+ Phred+33,  raw reads typically (0, 41)
+     */
+    public static int getFirstLowQualityPosSangerIllumina18(String quality, int minQual) {
+        int qualInt = 0;
+        for (int i = 0; i < quality.length(); i++) {
+            qualInt = (int) quality.charAt(i) - 33;
             if (qualInt < minQual) {
                 return i;
             }

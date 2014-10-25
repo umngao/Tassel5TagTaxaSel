@@ -48,6 +48,11 @@ public class LinkageDisequilibriumPlugin extends AbstractPlugin {
         super(parentFrame, isInteractive);
     }
 
+    /**
+     * Workhorse function to actually run LD on a dataset
+     * @param input A DataSet containing one or more GenotypeTable objects
+     * @return The input DataSet with the LinkageDisequilibrium object(s) added
+     */
     public DataSet performFunction(DataSet input) {
 
         try {

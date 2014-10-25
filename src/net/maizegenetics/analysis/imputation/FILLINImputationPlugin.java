@@ -70,7 +70,8 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     private int minMajorRatioToMinorCnt=10;  //refinement of minMinorCnt to account for regions with all major
     //Plugin parameters
     private PluginParameter<String> hmpFile= new PluginParameter.Builder<>("hmp",null,String.class).guiName("Target file").inFile().required(true)
-            .description("Input HapMap file of target genotypes to impute. Accepts all file types supported by TASSEL5").build();
+            .description("Input HapMap file of target genotypes to impute. Accepts all file types supported by TASSEL5. This file should include _ALL_ available sites, not " +
+                    "just those segregating in your material. (ie: don't filter the input)").build();
     private PluginParameter<String> donorFile= new PluginParameter.Builder<>("d",null,String.class).guiName("Donor Dir").inDir().required(true)
             .description("Directory containing donor haplotype files from output of FILLINFindHaplotypesPlugin. All files with '.gc' in the filename will be read in, only those with matching sites are used").build();
     private PluginParameter<String> outFileBase= new PluginParameter.Builder<>("o",null,String.class).guiName("Output filename").outFile().required(true)
@@ -89,7 +90,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     private PluginParameter<Integer> minMinorCnt= new PluginParameter.Builder<>("minMnCnt",20,Integer.class).guiName("Min num of minor alleles to compare")
             .description("Minimum number of informative minor alleles in the search window (or "+minMajorRatioToMinorCnt+"X major)").build();
     private PluginParameter<Integer> maxDonorHypotheses= new PluginParameter.Builder<>("mxDonH",20,Integer.class).guiName("Max donor hypotheses")
-            .description("Maximum number of donor hypotheses to be explored. (Note: For heterozygous samples this number should be very large, up to including _all_ donor haplotypes.)").build();
+            .description("Maximum number of donor hypotheses to be explored. (Note: For heterozygous samples you may want to set this number higher, but the computation load goes up quickly.)").build();
     private PluginParameter<Boolean> imputeAllHets= new PluginParameter.Builder<>("impAllHets",false,Boolean.class).guiName("Impute all het calls")
             .description("Write all imputed heterozygous calls as such, even if the original file has a homozygous call. (Not recommended for inbred lines.)").build();
 

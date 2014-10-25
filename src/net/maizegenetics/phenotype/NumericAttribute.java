@@ -93,4 +93,9 @@ public class NumericAttribute implements PhenotypeAttribute {
 		return myAllowedTypes.contains(type);
 	}
 
+	@Override
+	public String toString() {
+		return name();
+	}
+
 }
