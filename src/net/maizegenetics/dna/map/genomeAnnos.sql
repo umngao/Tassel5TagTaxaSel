@@ -75,20 +75,20 @@ CREATE TABLE intron (
 DROP TABLE IF EXISTS annotation_scope CASCADE;
 CREATE TABLE annotation_scope (
     annotation_scope_id serial PRIMARY KEY,
-    scope varchar(64)
+    scope varchar(64) UNIQUE
 );
 
 DROP TABLE IF EXISTS annotation_value_type CASCADE;
 CREATE TABLE annotation_value_type (
     annotation_value_type_id serial PRIMARY KEY,
-    value_type varchar(64)
+    value_type varchar(64) UNIQUE
 );
 
 DROP TABLE IF EXISTS annotation_name CASCADE;
 CREATE TABLE annotation_name (
     annotation_name_id serial PRIMARY KEY,
-    name varchar,
-    abbrev varchar(64),
+    name varchar UNIQUE,
+    abbrev varchar(64) UNIQUE,
     annotation_scope_id int,
     annotation_value_type_id int,
     FOREIGN KEY (annotation_scope_id) references annotation_scope,

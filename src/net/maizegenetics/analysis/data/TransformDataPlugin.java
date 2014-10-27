@@ -4,20 +4,13 @@ import java.awt.Frame;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.function.DoubleUnaryOperator;
-import java.util.function.Function;
-import java.util.stream.Stream;
 
 import javax.swing.ImageIcon;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
-import net.maizegenetics.analysis.association.AssociationUtils;
-import net.maizegenetics.analysis.numericaltransform.NumericalTransformPlugin;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.NumericAttribute;
@@ -61,7 +54,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 
 	@Override
 	public ImageIcon getIcon() {
-        URL imageURL = NumericalTransformPlugin.class.getResource("Transform.gif");
+        URL imageURL = TransformDataPlugin.class.getResource("/net/maizegenetics/analysis/images/Transform.gif");
         if (imageURL == null) {
             return null;
         } else {
