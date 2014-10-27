@@ -15,9 +15,8 @@ import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 
-
-import javax.swing.ImageIcon;
-import java.awt.Frame;
+import javax.swing.*;
+import java.awt.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -170,6 +169,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
         int maxTaxaNumber=masterTaxaList.size();
         try {
             BufferedReader br = Utils.getBufferedReader(fastqFile.toString(), 1 << 22);
+            //todo fastq 1.8 has 8-9 colons (:) in the names, while prior version has 4 colons.  Quality scores are base 64 for old, base 33 for new 1.8+
             long time=System.nanoTime();
             String[] seqAndQual;
             while ((seqAndQual=readFastQBlock(br,allReads)) != null) {
@@ -532,7 +532,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
         @Override
         public TaxaDistribution put(Tag key, TaxaDistribution value) {
             putCntSinceMemoryCheck.increment();
-            if(putCntSinceMemoryCheck.longValue()>checkFreq) {
+            if((putCntSinceMemoryCheck.longValue()+1)%checkFreq==0) {
                 checkMemoryAndReduceIfNeeded();
                 putCntSinceMemoryCheck.reset();
             }
@@ -540,7 +540,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
         }
 
         public synchronized void checkMemoryAndReduceIfNeeded() {
-            System.out.println("TagDistributionMap.checkMemoryAndReduceIfNeeded"+estimateMapMemorySize());
+            System.out.println("TagDistributionMap.checkMemoryAndReduceIfNeeded:"+estimateMapMemorySize());
             while(estimateMapMemorySize()>maxMemorySize) {
                 reduceMapSize();
             }
@@ -571,6 +571,17 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
             }
             long estSize=(size()/cnt)*size;
             return estSize;
+        }
+
+        public long[] depthDistribution() {
+            long[] base2bins=new long[34];
+            int cnt=0;
+            for (Map.Entry<Tag, TaxaDistribution> entry : entrySet()) {
+                base2bins[31-Integer.numberOfLeadingZeros(entry.getValue().totalDepth())]++;
+                cnt++;
+               // if(cnt>100000) break;
+            }
+            return base2bins;
         }
     }
 }
