@@ -18,6 +18,7 @@ import net.maizegenetics.taxa.distance.WriteDistanceMatrix;
 import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.tassel.TASSELMainFrame;
 import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.PhenotypeUtils;
 import net.maizegenetics.util.*;
 import org.apache.log4j.Logger;
 
@@ -168,26 +169,14 @@ public class ExportPlugin extends AbstractPlugin {
             return null;
         }
 
-        File theFile = null;
-        FileWriter fw = null;
-        PrintWriter pw = null;
+        String filename = "";
         try {
-            theFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".txt"));
-            fw = new FileWriter(theFile);
-            pw = new PrintWriter(fw);
-            // TODO - replace with new export method.
-            // PhenotypeUtils.saveAs(input, pw);
-            return theFile.getCanonicalPath();
+            filename = Utils.addSuffixIfNeeded(mySaveFile, ".txt");
+            PhenotypeUtils.write(input, filename);
+            return new File(filename).getCanonicalPath();
         } catch (Exception e) {
-            e.printStackTrace();
-            throw new IllegalStateException("ExportPlugin: performFunctionForPhenotype: Problem writing file: " + mySaveFile);
-        } finally {
-            try {
-                pw.close();
-                fw.close();
-            } catch (Exception e) {
-                // do nothing
-            }
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("ExportPlugin: performFunctionForPhenotype: Problem writing file: " + filename);
         }
 
     }
