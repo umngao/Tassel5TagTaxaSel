@@ -1,24 +1,20 @@
 package net.maizegenetics.dna.tag;
 
+import cern.colt.list.IntArrayList;
 import cern.colt.list.ShortArrayList;
-
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.common.primitives.Ints;
-import com.google.common.primitives.Shorts;
 import com.google.common.primitives.UnsignedBytes;
-
+import gnu.trove.iterator.TIntIntIterator;
+import gnu.trove.iterator.TShortIntIterator;
+import gnu.trove.map.hash.TIntIntHashMap;
+import gnu.trove.map.hash.TShortIntHashMap;
 import org.xerial.snappy.Snappy;
-
-import gnu.trove.iterator.TIntShortIterator;
-import gnu.trove.iterator.TShortShortIterator;
-import gnu.trove.map.hash.TIntShortHashMap;
-import gnu.trove.map.hash.TShortShortHashMap;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.stream.Collectors;
 
 
 /**
@@ -35,7 +31,8 @@ public class TaxaDistBuilder {
 	 * @return
 	 */
 	public static TaxaDistribution create(int maxTaxa, int taxaWithTag) {
-		return new TaxaDistSingleTaxon(maxTaxa,taxaWithTag);
+        TaxaDistribution td=create(maxTaxa);
+		return td.increment(taxaWithTag);
 	}
 
 	/**
@@ -44,8 +41,8 @@ public class TaxaDistBuilder {
 	 * @return
 	 */
 	public static TaxaDistribution create(int maxTaxa) {
-		return new TaxaDistExpandable(maxTaxa);
-
+        if(maxTaxa<Short.MAX_VALUE) return new TaxaDistShortExpandable(maxTaxa);
+        return new TaxaDistIntExpandable(maxTaxa);
 	}
 
 	/**
@@ -76,7 +73,7 @@ public class TaxaDistBuilder {
 	 * @return
 	 */
 	public static TaxaDistribution create(TaxaDistribution srcTaxaDist) {
-		TaxaDistribution dstTD=new TaxaDistExpandable(srcTaxaDist.maxTaxa());
+		TaxaDistribution dstTD=create(srcTaxaDist.maxTaxa());
 		int[] depths=srcTaxaDist.depths();
 		for (int taxaIndex = 0; taxaIndex < depths.length; taxaIndex++) {
 			for (int j = 0; j < depths[taxaIndex]; j++) {
@@ -122,7 +119,7 @@ public class TaxaDistBuilder {
 	 * @return
 	 */
 	public static TaxaDistribution create(int maxTaxa, int[] encodeTaxaDepths) {
-		TaxaDistribution dstTD=new TaxaDistExpandable(maxTaxa);
+		TaxaDistribution dstTD=create(maxTaxa);
 		for (int taxaDepth : encodeTaxaDepths) {
 			int taxa=taxaDepth>>>8;
 		int depth=UnsignedBytes.toInt((byte)taxaDepth);
@@ -177,6 +174,23 @@ public class TaxaDistBuilder {
 }
 
 abstract class AbstractTaxaDistribution implements TaxaDistribution {
+
+    @Override
+    public int[][] taxaWithDepths() {
+        int[] depths=depths();
+        int countNoZero=0;
+        for (int depth : depths) if(depth>0) countNoZero++;
+        int[][] taxaDepth=new int[2][countNoZero];
+        countNoZero=0;
+        for (int i = 0; i <depths.length ; i++) {
+            if(depths[i]>0) {
+                taxaDepth[0][countNoZero]=i;
+                taxaDepth[1][countNoZero]=depths[i];
+                countNoZero++;
+            }
+        }
+        return taxaDepth;
+    }
 
 	@Override
 	public byte[] encodeTaxaDepth() {
@@ -251,16 +265,15 @@ abstract class AbstractTaxaDistribution implements TaxaDistribution {
  * taxa scored out of the thousands.
  * @author Ed Buckler
  */
-class TaxaDistExpandable extends AbstractTaxaDistribution  {
+class TaxaDistShortExpandable extends AbstractTaxaDistribution  {
 
 	private ShortArrayList taxaWithTag;
-	private TShortShortHashMap taxaTagMapShort = null;
-	private TIntShortHashMap taxaTagMapInt = null;
+	private TShortIntHashMap taxaTagMap= null;
 	private int totalDepth;
 	private final int maxTaxa;
 	private boolean useIntTaxa = false;
 
-	public TaxaDistExpandable(int maxTaxa) {
+	public TaxaDistShortExpandable(int maxTaxa) {
 		this.maxTaxa=maxTaxa;
 		if (maxTaxa > Short.MAX_VALUE) {
 			useIntTaxa = true;
@@ -273,30 +286,20 @@ class TaxaDistExpandable extends AbstractTaxaDistribution  {
 		if (totalDepth < 1000 ) {
 			taxaWithTag.add((short)taxaNum);
 		} else { // add previous values to map
-			if (useIntTaxa) {
-				if (taxaTagMapInt == null) {
-					taxaTagMapInt = new TIntShortHashMap(maxTaxa);
-				}
-				for (int index = 0; index < taxaWithTag.size(); index++) {
-					int tagIndex = taxaWithTag.get(index);
-					// if not there, add it with value of 1.  Otherwise increment existing value by 1
-					taxaTagMapInt.adjustOrPutValue(tagIndex,(short)1, (short)1);
-
-				}
-			} else {
-				if (taxaTagMapShort == null) {
-					taxaTagMapShort = new TShortShortHashMap(maxTaxa);
-				}
-				for (int index = 0; index < taxaWithTag.size(); index++) {
-					short tagIndex = taxaWithTag.get(index);
-					taxaTagMapShort.adjustOrPutValue(tagIndex, (short)1, (short)1);
-				}
-			}
-			taxaWithTag.clear(); // no longer need the array
+			if(taxaTagMap==null) convertListToMap();
+            taxaTagMap.increment((short)taxaNum);
 		}
 		totalDepth++;
 		return this;
 	}
+
+    private void convertListToMap() {
+        taxaTagMap= new TShortIntHashMap(maxTaxa);
+        for (short taxaIndex : taxaWithTag.elements()) {
+            taxaTagMap.adjustOrPutValue(taxaIndex, (short) 1, (short) 1);
+        }
+        taxaWithTag=null;
+    }
 
 	@Override
 	public int[] depths() {
@@ -306,36 +309,12 @@ class TaxaDistExpandable extends AbstractTaxaDistribution  {
 				depths[tn]++;
 			}
 		} else {
-			if (useIntTaxa) {
-				for (TIntShortIterator ist = taxaTagMapInt.iterator(); ist.hasNext();) {
-					ist.advance();
-					depths[ist.key()] = ist.value();
-				}
-			} else {
-				for (TShortShortIterator sst = taxaTagMapShort.iterator(); sst.hasNext();) {
-					sst.advance();
-					depths[sst.key()] = sst.value();
-				}
-			}
+            for (TShortIntIterator sst = taxaTagMap.iterator(); sst.hasNext();) {
+                sst.advance();
+                depths[sst.key()]=sst.value();
+            }
 		}
 		return depths;
-	}
-
-	@Override
-	public int[][] taxaWithDepths() {
-		int[] depths=depths();
-		int countNoZero=0;
-		for (int depth : depths) if(depth>0) countNoZero++;
-		int[][] taxaDepth=new int[2][countNoZero];
-		countNoZero=0;
-		for (int i = 0; i <depths.length ; i++) {
-			if(depths[i]>0) {
-				taxaDepth[0][countNoZero]=i;
-				taxaDepth[1][countNoZero]=depths[i];
-				countNoZero++;
-			}
-		}
-		return taxaDepth;
 	}
 
 	@Override
@@ -357,11 +336,11 @@ class TaxaDistExpandable extends AbstractTaxaDistribution  {
 		//minimal size 8 (object) + 12 (outer short array) + 12 (sizeArray) + 4+ 4 = 40
 				int size=40;
 		size+=(taxaWithTag.size()*12);
-		if (taxaTagMapInt != null) {
-			size+= taxaTagMapInt.size() * 12; // 8 + 4
+		if (taxaWithTag != null) {
+			size+= taxaWithTag.size() * 8; // 8 + 4
 		}
-		if (taxaTagMapShort != null) {
-			size+= taxaTagMapShort.size() * 8; // 4 + 4
+		if (taxaTagMap!= null) {
+			size+= taxaTagMap.size() * 12; // 4 + 4
 		}
 		return size;
 	}
@@ -372,7 +351,6 @@ class TaxaDistExpandable extends AbstractTaxaDistribution  {
 	}
 }
 
-
 /**
  * This is a specialized multiset for recording the distribution of a single across taxa.
  *
@@ -380,54 +358,88 @@ class TaxaDistExpandable extends AbstractTaxaDistribution  {
  * taxa scored out of the thousands.
  * @author Ed Buckler
  */
-class TaxaDistSingleTaxon extends AbstractTaxaDistribution {
-	//minimal size 8 + 4 + 4  = 16
-	private final int maxTaxa;
-	private final int singleTaxa;
+class TaxaDistIntExpandable extends AbstractTaxaDistribution  {
 
+    private IntArrayList taxaWithTag;
+    private TIntIntHashMap taxaTagMap= null;
+    private int totalDepth;
+    private final int maxTaxa;
+    private boolean useIntTaxa = false;
 
-	public TaxaDistSingleTaxon(int maxTaxa, int taxaWithTag) {
-		this.maxTaxa=maxTaxa;
-		singleTaxa=taxaWithTag;
-	}
+    public TaxaDistIntExpandable(int maxTaxa) {
+        this.maxTaxa=maxTaxa;
+        if (maxTaxa > Short.MAX_VALUE) {
+            useIntTaxa = true;
+        }
+        taxaWithTag = new IntArrayList(1); // defaults to 10 items, we only want size of 1 initially
+    }
 
-	@Override
-	public synchronized TaxaDistribution increment(int taxaNum) {
-		throw new UnsupportedOperationException("TaxaDistSingleTaxon cannot be increment.  Expand first.");
-	}
+    @Override
+    public synchronized TaxaDistribution increment(int taxaNum) {
+        if (totalDepth < 1000 ) {
+            taxaWithTag.add(taxaNum);
+        } else { // add previous values to map
+            if(taxaTagMap==null) convertListToMap();
+            taxaTagMap.increment(taxaNum);
+        }
+        totalDepth++;
+        return this;
+    }
 
-	@Override
-	public int[] depths() {
-		int[] depths=new int[maxTaxa];
-		depths[singleTaxa]=1;
-		return depths;
-	}
+    private void convertListToMap() {
+        taxaTagMap= new TIntIntHashMap(maxTaxa);
+        for (int taxaIndex : taxaWithTag.elements()) {
+            taxaTagMap.adjustOrPutValue(taxaIndex, 1, 1);
+        }
+        taxaWithTag=null;
+    }
 
-	@Override
-	public int[][] taxaWithDepths() {
-		return new int[][]{{singleTaxa},{1}};
-	}
+    @Override
+    public int[] depths() {
+        int[] depths=new int[maxTaxa];
+        if (taxaWithTag!=null) {
+            for (int i=0; i<taxaWithTag.size(); i++) {
+                depths[taxaWithTag.getQuick(i)]++;
+            }
+        } else {
+            for (TIntIntIterator sst = taxaTagMap.iterator(); sst.hasNext();) {
+                sst.advance();
+                depths[sst.key()]=sst.value();
+            }
+        }
+        return depths;
+    }
 
-	@Override
-	public int totalDepth(){
-		return 1;
-	}
+    @Override
+    public int totalDepth(){
+        return totalDepth;
+    }
+    @Override
+    public int maxTaxa() {
+        return maxTaxa;
+    }
 
-	@Override
-	public int maxTaxa() {
-		return maxTaxa;
-	}
+    @Override
+    public int numberOfTaxaWithTag() {
+        return taxaWithDepths()[0].length;
+    }
 
-	@Override
-	public int memorySize() {
-		return 16;
-	}
+    @Override
+    public int memorySize() {
+        //minimal size 8 (object) + 12 (outer short array) + 12 (sizeArray) + 4+ 4 = 40
+        int size=40;
+        size+=(taxaWithTag.size()*12);
+        if (taxaWithTag != null) {
+            size+= taxaWithTag.size() * 8; // 8 + 4
+        }
+        if (taxaTagMap!= null) {
+            size+= taxaTagMap.size() * 12; // 4 + 4
+        }
+        return size;
+    }
 
-	@Override
-	public int numberOfTaxaWithTag() {
-		return 1;
-	}
 }
+
 
 /**
  * This is a specialized multiset for recording the distribution of a single across taxa.
@@ -479,7 +491,6 @@ class TaxaDistFixed extends AbstractTaxaDistribution  {
 
 	@Override
 	public int[][] taxaWithDepths() {
-
 		try {
 			int[][] taxaDepth=new int[2][numTaxaWithTags];
 			int[] taxaSize = Snappy.uncompressIntArray(compTaxaSize);
