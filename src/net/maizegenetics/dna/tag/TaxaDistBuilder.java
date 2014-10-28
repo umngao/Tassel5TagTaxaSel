@@ -271,13 +271,9 @@ class TaxaDistShortExpandable extends AbstractTaxaDistribution  {
 	private TShortIntHashMap taxaTagMap= null;
 	private int totalDepth;
 	private final int maxTaxa;
-	private boolean useIntTaxa = false;
 
 	public TaxaDistShortExpandable(int maxTaxa) {
 		this.maxTaxa=maxTaxa;
-		if (maxTaxa > Short.MAX_VALUE) {
-			useIntTaxa = true;
-		}
 		taxaWithTag = new ShortArrayList(1); // defaults to 10 items, we only want size of 1 initially
 	}
 
@@ -335,7 +331,6 @@ class TaxaDistShortExpandable extends AbstractTaxaDistribution  {
 	public int memorySize() {
 		//minimal size 8 (object) + 12 (outer short array) + 12 (sizeArray) + 4+ 4 = 40
 				int size=40;
-		size+=(taxaWithTag.size()*12);
 		if (taxaWithTag != null) {
 			size+= taxaWithTag.size() * 8; // 8 + 4
 		}
@@ -364,13 +359,9 @@ class TaxaDistIntExpandable extends AbstractTaxaDistribution  {
     private TIntIntHashMap taxaTagMap= null;
     private int totalDepth;
     private final int maxTaxa;
-    private boolean useIntTaxa = false;
 
     public TaxaDistIntExpandable(int maxTaxa) {
         this.maxTaxa=maxTaxa;
-        if (maxTaxa > Short.MAX_VALUE) {
-            useIntTaxa = true;
-        }
         taxaWithTag = new IntArrayList(1); // defaults to 10 items, we only want size of 1 initially
     }
 
@@ -428,7 +419,6 @@ class TaxaDistIntExpandable extends AbstractTaxaDistribution  {
     public int memorySize() {
         //minimal size 8 (object) + 12 (outer short array) + 12 (sizeArray) + 4+ 4 = 40
         int size=40;
-        size+=(taxaWithTag.size()*12);
         if (taxaWithTag != null) {
             size+= taxaWithTag.size() * 8; // 8 + 4
         }
