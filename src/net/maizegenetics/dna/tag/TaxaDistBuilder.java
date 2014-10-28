@@ -304,7 +304,7 @@ class TaxaDistShortExpandable extends AbstractTaxaDistribution  {
 	@Override
 	public int[] depths() {
 		int[] depths=new int[maxTaxa];
-		if (taxaWithTag.size() > 0) {
+		if (taxaWithTag != null && taxaWithTag.size() > 0) {
 			for (int tn: taxaWithTag.elements()) {
 				depths[tn]++;
 			}
