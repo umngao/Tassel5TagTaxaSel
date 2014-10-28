@@ -7,6 +7,7 @@ import org.apache.log4j.Logger;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -19,15 +20,56 @@ public class TableReportUtils {
 
     private static final Logger myLogger = Logger.getLogger(TableReportUtils.class);
 
+    /**
+     * Saves Table Report to file delimited by tabs.
+     *
+     * @param theTableReport table report
+     * @param saveFile file
+     */
+    public static void saveDelimitedTableReport(TableReport theTableReport, File saveFile) {
+        saveDelimitedTableReport(theTableReport, "\t", saveFile);
+    }
+
+    /**
+     * Saves Table Report to file delimited by specified delimiter.
+     *
+     * @param theTableSource table report
+     * @param delimit delimiter
+     * @param saveFile file
+     */
     public static void saveDelimitedTableReport(TableReport theTableSource, String delimit, File saveFile) {
-        if (saveFile == null) {
-            return;
-        }
         BufferedWriter bw = null;
         try {
-
             bw = Utils.getBufferedWriter(saveFile);
+            saveDelimitedTableReport(theTableSource, delimit, bw, true);
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("TableReportUtils: saveDelimitedTabeReport: problem saving file: " + saveFile.getName());
+        } finally {
+            if (bw != null) {
+                try {
+                    bw.close();
+                } catch (Exception ex) {
+                    // do nothing
+                }
+            }
+        }
+    }
 
+    /**
+     * Saves Table Report to file delimited by specified delimiter.
+     *
+     * @param theTableSource table report
+     * @param delimit delimiter
+     * @param bw writer
+     */
+    public static void saveDelimitedTableReport(TableReport theTableSource, String delimit, BufferedWriter bw, boolean includeHeader) throws IOException {
+
+        if (bw == null) {
+            throw new IllegalArgumentException("TableReportUtils: saveDelimitedTableReport: no buffered writer specified.");
+        }
+
+        if (includeHeader) {
             Object[] colNames = theTableSource.getTableColumnNames();
             for (int j = 0; j < colNames.length; j++) {
                 if (j != 0) {
@@ -36,33 +78,23 @@ public class TableReportUtils {
                 bw.write(colNames[j].toString());
             }
             bw.write("\n");
+        }
 
-            for (long r = 0, n = theTableSource.getRowCount(); r < n; r++) {
-                Object[] theRow = theTableSource.getRow(r);
-                for (int i = 0; i < theRow.length; i++) {
-                    if (i != 0) {
-                        bw.write(delimit);
-                    }
-                    if (theRow[i] == null) {
-                        // do nothing
-                    } else if (theRow[i] instanceof Double) {
-                        bw.write(DoubleFormat.format((Double) theRow[i]));
-                    } else {
-                        bw.write(theRow[i].toString());
-                    }
+        for (long r = 0, n = theTableSource.getRowCount(); r < n; r++) {
+            Object[] theRow = theTableSource.getRow(r);
+            for (int i = 0; i < theRow.length; i++) {
+                if (i != 0) {
+                    bw.write(delimit);
                 }
-                bw.write("\n");
+                if (theRow[i] == null) {
+                    // do nothing
+                } else if (theRow[i] instanceof Double) {
+                    bw.write(DoubleFormat.format((Double) theRow[i]));
+                } else {
+                    bw.write(theRow[i].toString());
+                }
             }
-
-        } catch (Exception e) {
-            myLogger.debug(e.getMessage(), e);
-            throw new IllegalStateException("TableReportUtils: writeReport: problem writing file: " + saveFile.getName() + "\n" + e.getMessage());
-        } finally {
-            try {
-                bw.close();
-            } catch (Exception e) {
-                myLogger.debug(e.getMessage(), e);
-            }
+            bw.write("\n");
         }
 
     }
@@ -130,13 +162,15 @@ public class TableReportUtils {
         }
     }
 
-    public static Table<Integer,String,Object> convertTableReportToGuavaTable(TableReport tr) {
-        ImmutableTable.Builder<Integer,String,Object> result=new ImmutableTable.Builder<>();
-        String[] colNames=new String[tr.getColumnCount()];
-        for (int i=0; i<colNames.length; i++) {colNames[i]=tr.getTableColumnNames()[i].toString();}
-        for (int i=0; i<tr.getRowCount(); i++) {
-            for (int j=0; j<tr.getColumnCount(); j++) {
-                result.put(i,colNames[j],tr.getValueAt(i,j));
+    public static Table<Integer, String, Object> convertTableReportToGuavaTable(TableReport tr) {
+        ImmutableTable.Builder<Integer, String, Object> result = new ImmutableTable.Builder<>();
+        String[] colNames = new String[tr.getColumnCount()];
+        for (int i = 0; i < colNames.length; i++) {
+            colNames[i] = tr.getTableColumnNames()[i].toString();
+        }
+        for (int i = 0; i < tr.getRowCount(); i++) {
+            for (int j = 0; j < tr.getColumnCount(); j++) {
+                result.put(i, colNames[j], tr.getValueAt(i, j));
             }
         }
         return result.build();
