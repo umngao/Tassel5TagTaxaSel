@@ -54,7 +54,9 @@ public class TagBuilder {
 
     public static TagBuilder instance(String sequence) {
         long[] seq2Bit = AbstractTag.getLongArrayFromSeq(sequence);
-        if (seq2Bit == null) return null;
+        if (seq2Bit == null) { 
+        	seq2Bit = new long[0];
+        }
         return new TagBuilder(seq2Bit,(short)sequence.length());
     }
 
