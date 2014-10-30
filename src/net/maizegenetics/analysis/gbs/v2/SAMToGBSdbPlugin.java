@@ -58,6 +58,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
             while((inputLine=bw.readLine())!=null) {
                 if(inputLine.startsWith("@")) continue;
                 Tuple<Tag,Optional<Position>> tagPositionTuple=parseRow(inputLine);
+                if (tagPositionTuple == null) continue;
                 if(!knownTags.contains(tagPositionTuple.x)) tagsNotFoundInDB++;
                 if(tagPositionTuple.y.isPresent()) {
                     tagPositions.put(tagPositionTuple.x,tagPositionTuple.y.get());
@@ -91,6 +92,9 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         final int name = 0, flag = 1, chr = 2, pos = 3, cigar = 5, tagS = 9, alignScoreIndex=11; // column indices in inputLine
         String[] s=inputLine.split("\\s");
         Tag tag= TagBuilder.instance(s[tagS]).build();
+        // A tag consisting of 32 T's become -1 in "getLongFromSequence", which results in a "null" tag
+        // This was seen in the Zea_mays.AGPv3 chromosome files
+        if (tag == null) return null; 
         if (!hasAlignment(s[flag])) return new Tuple<>(tag,Optional.<Position>empty());
         Chromosome chromosome=new Chromosome(s[chr].replace("chr", ""));
         String alignmentScore=s[alignScoreIndex].split(":")[2];
