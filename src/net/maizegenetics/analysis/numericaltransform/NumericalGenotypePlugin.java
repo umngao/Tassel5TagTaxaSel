@@ -7,14 +7,19 @@
 package net.maizegenetics.analysis.numericaltransform;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
-import net.maizegenetics.trait.SimplePhenotype;
-import net.maizegenetics.trait.Trait;
+import net.maizegenetics.dna.snp.score.ReferenceProbability;
+import net.maizegenetics.dna.snp.score.ReferenceProbabilityBuilder;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 
 import javax.swing.*;
+
+import org.apache.log4j.Logger;
+
+import java.awt.Frame;
 import java.util.*;
 
 /**
@@ -23,194 +28,135 @@ import java.util.*;
  * @author terryc
  */
 public class NumericalGenotypePlugin extends AbstractPlugin {
+    private static final Logger myLogger = Logger.getLogger(NumericalGenotypePlugin.class);
 
     public static enum TRANSFORM_TYPE {
-
-        collapse, separated
+        as_minor, as_major, as_missing, use_all_alleles
     };
-    private TRANSFORM_TYPE myTransformType = TRANSFORM_TYPE.collapse;
+    
+    private TRANSFORM_TYPE myTransformType = TRANSFORM_TYPE.as_minor;
 
-    /**
-     * Principle Components Transform Plugin.
-     */
-    public NumericalGenotypePlugin() {
-        super(null, false);
+    /** Creates a new instance of the NumericalGenotypePlugin */
+    public NumericalGenotypePlugin(Frame parentFrame, boolean isInteractive){
+        super(parentFrame, isInteractive);
     }
 
-    /**
-     *
-     */
-    public DataSet performFunction(DataSet dataSet) {
+    @Override
+    public DataSet processData(DataSet input) {
 
-        List data = dataSet.getDataOfType(GenotypeTable.class);
-        if ((data != null) && (data.size() == 1)) {
-            Datum datum = (Datum) data.get(0);
-            if (myTransformType == TRANSFORM_TYPE.collapse) {
-                GenotypeTable input = (GenotypeTable) datum.getData();
-                SimplePhenotype result = collapseTransform(input);
-                DataSet tds = new DataSet(new Datum(datum.getName() + "_Collapse", result, null), this);
-                fireDataSetReturned(tds);
-                return tds;
-            } else if (myTransformType == TRANSFORM_TYPE.separated) {
-                GenotypeTable input = (GenotypeTable) datum.getData();
-                SimplePhenotype result = separatedTransform(input);
-                DataSet tds = new DataSet(new Datum(datum.getName() + "_Separated", result, null), this);
-                fireDataSetReturned(tds);
-                return tds;
-            } else {
-                throw new IllegalArgumentException("NumericalGenotypePlugin: performFunction: unknown transform type.");
-            }
+        List<Datum> datumList = input.getDataOfType(GenotypeTable.class);
+
+        //check size of datumList, throw error if not equal to one
+        if (datumList.size() != 1){
+            throw new IllegalArgumentException("NumericalGenotypePlugin: select exactly one genotype dataset to transform.");
         }
 
-        return null;
+        //load the GenotypeTable.
+        GenotypeTable myGenotype = (GenotypeTable) datumList.get(0).getData();
+        GenotypeTable myNewGenotype;
+        StringBuilder nameBuilder = new StringBuilder(datumList.get(0).getName());
+        nameBuilder.append("_with_Probability");
+        StringBuilder commentBuilder = new StringBuilder(datumList.get(0).getComment());
+        
+        switch(myTransformType) {
+        case as_minor:
+        	myNewGenotype = setAlternateMinorAllelesToMinor(myGenotype);
+        	commentBuilder.append("\nReference Probability computed by setting alternate minor alleles");
+        	commentBuilder.append("\nto the most common minor allele.");
+        	break;
+        case as_major:
+        	myNewGenotype = setAlternateMinorAllelesToMajor(myGenotype);
+        	commentBuilder.append("\nReference Probability computed by setting alternate minor alleles");
+        	commentBuilder.append("\nto the major allele.");
+        	break;
+        case as_missing:
+        	myNewGenotype = setAlternateMinorAllelesToMissing(myGenotype);
+        	commentBuilder.append("\nReference Probability computed by setting alternate minor alleles");
+        	commentBuilder.append("\nto missing.");
+        	break;
+        case use_all_alleles:
+        	myNewGenotype = transformToAlleleProbability(myGenotype);
+        	commentBuilder.append("\nWith allele probabilities computed.");
+        default:
+        	return null;
+        }
+        
+        Datum newDatum = new Datum(nameBuilder.toString(), myNewGenotype, commentBuilder.toString());
+        return new DataSet(newDatum, this);
 
     }
 
-    public static SimplePhenotype separatedTransform(GenotypeTable input) {
+    private GenotypeTable setAlternateMinorAllelesToMinor(GenotypeTable myGenotype) {
+    	//TODO implement
+        int nsites = myGenotype.numberOfSites();
+        int ntaxa = myGenotype.numberOfTaxa();
 
-        int seqCount = input.numberOfTaxa();
-        int siteCount = input.numberOfSites();
-
-        Map[] alleleCounts = new Map[siteCount];
-
-        for (int i = 0; i < siteCount; i++) {
-
-            Map<Byte, Integer> charCount = new HashMap<Byte, Integer>();
-            for (int j = 0; j < seqCount; j++) {
-
-                byte[] current = input.genotypeArray(j, i);
-                byte orderedValue = GenotypeTableUtils.getUnphasedDiploidValue(current[0], current[1]);
-                if (orderedValue != GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
-                    Integer count = (Integer) charCount.get(orderedValue);
-                    if (count != null) {
-                        charCount.put(orderedValue, new Integer(count.intValue() + 1));
-                    } else {
-                        charCount.put(orderedValue, 1);
-                    }
-
-                }
-
-            }
-
-            alleleCounts[i] = charCount;
-
+        ReferenceProbability myProb;
+        double[][] data = null;
+        //if GenotypeTable has no ReferenceProbablity, compute the probabilities.
+        if (!myGenotype.hasReferenceProbablity()) {
+            data = GenotypeTableUtils.convertGenotypeToDoubleProbability(myGenotype, true);
         }
 
-        int columnCount = 0;
-        for (int i = 0; i < siteCount; i++) {
-            columnCount = columnCount + alleleCounts[i].size();
+        //build new ReferenceProbability
+        ReferenceProbabilityBuilder refBuilder = ReferenceProbabilityBuilder.getInstance(ntaxa, nsites, myGenotype.taxa());
+        for (int t = 0; t < ntaxa; t++) {
+            float[] values = new float[nsites];
+
+            for (int s = 0; s < nsites; s++) {
+                values[s] = (float) data[s][t];
+            }
+            refBuilder.addTaxon(t, values);
         }
 
-        double[][] pcValues = new double[seqCount][columnCount];
-        List<Trait> traitNames = new ArrayList<Trait>();
+        //build new GenotypeTable
+        GenotypeTable numGenotype = GenotypeTableBuilder.getInstance(myGenotype.genotypeMatrix(), myGenotype.positions(),
+                myGenotype.taxa(), myGenotype.depth(), myGenotype.alleleProbability(), refBuilder.build(), myGenotype.dosage(),
+                myGenotype.annotations());
 
-        int offset = 0;
-        for (int i = 0; i < siteCount; i++) {
-
-            Map<Byte, Integer> currentHash = alleleCounts[i];
-            int currentSize = currentHash.size();
-            byte[] sortChars = new byte[currentSize];
-            Iterator itr = currentHash.keySet().iterator();
-            int count = 0;
-            while (itr.hasNext()) {
-                sortChars[count++] = (Byte) itr.next();
-            }
-
-            boolean change = true;
-            while (change) {
-
-                change = false;
-
-                for (int k = 0; k < currentSize - 1; k++) {
-                    Integer first = (Integer) currentHash.get(sortChars[k]);
-                    Integer second = (Integer) currentHash.get(sortChars[k + 1]);
-                    if (first.compareTo(second) > 0) {
-                        byte temp = sortChars[k];
-                        sortChars[k] = sortChars[k + 1];
-                        sortChars[k + 1] = temp;
-                        change = true;
-                    }
-                }
-
-            }
-
-            for (int k = 0; k < currentSize; k++) {
-                traitNames.add(new Trait("S" + i, false, Trait.TYPE_DATA));
-                currentHash.put(sortChars[k], k);
-            }
-
-            for (int j = 0; j < seqCount; j++) {
-                byte[] current = input.genotypeArray(j, i);
-                byte orderedValue = GenotypeTableUtils.getUnphasedDiploidValue(current[0], current[1]);
-                if (orderedValue == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
-                    for (int k = 0; k < currentSize; k++) {
-                        pcValues[j][k + offset] = Double.NaN;
-                    }
-                } else {
-                    int position = ((Integer) currentHash.get(orderedValue)).intValue();
-                    pcValues[j][position + offset] = 1.0;
-                }
-            }
-
-            offset = offset + currentSize;
-
-        }
-
-        return new SimplePhenotype(input.taxa(), traitNames, pcValues);
+    	return numGenotype;
+    }
+    
+    private GenotypeTable setAlternateMinorAllelesToMajor(GenotypeTable myGenotype) {
+    	//TODO implement
+    	return null;
     }
 
-    public static SimplePhenotype collapseTransform(GenotypeTable input) {
-
-        int seqCount = input.numberOfTaxa();
-        int siteCount = input.numberOfSites();
-
-        double[][] pcValues = new double[seqCount][siteCount];
-        List<Trait> traitNames = new ArrayList<Trait>();
-
-        for (int i = 0; i < siteCount; i++) {
-
-            traitNames.add(new Trait("S" + i, false, Trait.TYPE_DATA));
-
-            byte[] allelesByFreq = input.alleles(i);
-
-            for (int j = 0; j < seqCount; j++) {
-                byte[] current = input.genotypeArray(j, i);
-                if ((current[0] == GenotypeTable.UNKNOWN_ALLELE) && (current[1] == GenotypeTable.UNKNOWN_ALLELE)) {
-                    pcValues[j][i] = Double.NaN;
-                } else {
-                    pcValues[j][i] = 1.0;
-                    if (current[0] == allelesByFreq[0]) {
-                        pcValues[j][i] -= 0.5;
-                    }
-                    if (current[1] == allelesByFreq[0]) {
-                        pcValues[j][i] -= 0.5;
-                    }
-                }
-            }
-
-        }
-
-        return new SimplePhenotype(input.taxa(), traitNames, pcValues);
-
+    private GenotypeTable setAlternateMinorAllelesToMissing(GenotypeTable myGenotype) {
+    	//TODO implement
+    	return null;
     }
 
-    public void setTransformType(TRANSFORM_TYPE type) {
-        myTransformType = type;
+    private GenotypeTable transformToAlleleProbability(GenotypeTable myGenotype) {
+    	//TODO implement
+    	return null;
     }
 
-    public TRANSFORM_TYPE getTransformType() {
-        return myTransformType;
+    @Override
+    public String pluginDescription(){
+        return "This plugin creates a  numerical genotype table for input genotype data";
     }
 
-    public String getToolTipText() {
-        return "";
-    }
-
-    public ImageIcon getIcon() {
+    @Override
+    public String getCitation(){
         return null;
     }
 
-    public String getButtonName() {
-        return "";
+    @Override
+    public  ImageIcon getIcon(){
+        return null;
     }
+
+    @Override
+    public String getButtonName(){
+        return "Numerical Genotype";
+    }
+
+
+    @Override
+    public String getToolTipText(){
+        return "Numerical Genotype";
+    }
+
+
 }
