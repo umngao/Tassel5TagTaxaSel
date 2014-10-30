@@ -1,21 +1,27 @@
-package net.maizegenetics.analysis.data;
+package net.maizegenetics.analysis.numericaltransform;
 
 import java.awt.Frame;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import javax.swing.ImageIcon;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
+import net.maizegenetics.analysis.data.NumericalGenotypePlugin;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.NumericAttribute;
 import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.phenotype.PhenotypeAttribute;
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
+import net.maizegenetics.phenotype.PhenotypeBuilder;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -24,10 +30,15 @@ import net.maizegenetics.util.OpenBitSet;
 public class TransformDataPlugin extends AbstractPlugin {
 	public enum BASE {natural, base_2, base_10};
 	
-	private double power = 1;
+	private List<NumericAttribute> traitsToTransform;
 	private List<CategoricalAttribute> byFactor;
+	private boolean logTransform = false;
+	private boolean powerTransform = false;
+	private boolean standardize = false;
 	private BASE myBase = BASE.natural;
-	
+	private double power = 1;
+	private static final double log2 = Math.log(2);
+		
 	public TransformDataPlugin(Frame parentFrame, boolean isInteractive) {
 		super(parentFrame, isInteractive);
 	}
@@ -45,13 +56,76 @@ public class TransformDataPlugin extends AbstractPlugin {
 
 		myData = input.getDataOfType(Phenotype.class);
 		if (myData.size() == 1) {
-//			PhenotypeTransformPlugin ptp = new PhenotypeTransformPlugin(getParentFrame(), isInteractive());
-//			return ptp.processData(input);
+			Phenotype myPhenotype = (Phenotype) myData.get(0);
+			if (isInteractive()) {
+				
+				List<NumericAttribute> numericAttributes = Stream.concat(myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data).stream(), 
+						myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor).stream())
+						.map(pa -> (NumericAttribute) pa)
+						.collect(Collectors.toList());
+				
+				List<CategoricalAttribute> catAttributes = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor).stream()
+						.map(pa -> (CategoricalAttribute) pa)
+						.collect(Collectors.toList());
+				
+				TransformDataDialog tdd = new TransformDataDialog(getParentFrame(), numericAttributes, catAttributes);
+				tdd.setVisible(true);
+
+				traitsToTransform = tdd.traitsToTransform();
+				byFactor = tdd.factorsForStandardizing();
+				logTransform = tdd.logTransformation();
+				powerTransform = tdd.powerTransformation();
+				standardize = tdd.standardize();
+				myBase = tdd.base();
+				power = tdd.exponent();
+			}
+			
+			return transformTraits(myPhenotype, myData.get(0));
 		}
 
 		throw new IllegalArgumentException("TransformDataPlugin: the dataset selected is of the wrong type.");
 	}
 
+	public DataSet transformTraits(Phenotype myPhenotype, Datum myData) {
+		//use a sequential stream, because the order of the attributes needs to stay the same
+		List<PhenotypeAttribute> myNewAttributes = myPhenotype.attributeListCopy().stream()
+				.map(a -> transformAttribute(a))
+				.collect(Collectors.toList());
+		
+		Phenotype transformedPhenotype = new PhenotypeBuilder().fromAttributeList(myNewAttributes, myPhenotype.typeListCopy()).build().get(0);
+		
+		StringBuilder nameBuilder = new StringBuilder();
+		nameBuilder.append("transformed_").append(myData.getName());
+		
+		StringBuilder commentBuilder = new StringBuilder();
+		commentBuilder.append("Phenotypes transformed from ");
+		commentBuilder.append(myData.getName()).append("\n");
+		commentBuilder.append(myData.getComment());
+		commentBuilder.append("The following traits were transformed by \n");
+		if (powerTransform) commentBuilder.append("using a power ").append(power).append(" transformation.\n");
+		else if (logTransform) commentBuilder.append("using a ").append(myBase.name()).append(" log transformation.\n");
+		if (standardize) commentBuilder.append("standardizing.\n");
+		for (NumericAttribute na : traitsToTransform) commentBuilder.append("\n").append(na.name());
+		
+		return new DataSet(new Datum(nameBuilder.toString(), transformedPhenotype, commentBuilder.toString()), this);
+	}
+	
+	public PhenotypeAttribute transformAttribute(PhenotypeAttribute myAttribute) {
+		if (!(myAttribute instanceof NumericAttribute)) return myAttribute;
+		NumericAttribute myNumericAttribute = (NumericAttribute) myAttribute;
+		if (!traitsToTransform.contains(myNumericAttribute)) return myAttribute;
+		
+		if (powerTransform) myNumericAttribute = powerTransform(myNumericAttribute);
+		else if (logTransform) myNumericAttribute = logTransform(myNumericAttribute);
+		
+		if (standardize) {
+			if (byFactor.size() > 0) return standardize(myNumericAttribute, byFactor);
+			return standardize(myNumericAttribute);
+		}
+		
+		return myNumericAttribute;
+	}
+	
 	@Override
 	public ImageIcon getIcon() {
         URL imageURL = TransformDataPlugin.class.getResource("/net/maizegenetics/analysis/images/Transform.gif");
@@ -72,12 +146,6 @@ public class TransformDataPlugin extends AbstractPlugin {
 		return "Transform phenotypes or convert genotypes to probabilities";
 	}
 
-	//method implementing transformation using stream method
-//	public static NumericAttribute transformUsingStream(NumericAttribute original, DoubleUnaryOperator transformOp) {
-//		double[] values = original.stream().map(transformOp).toArray();
-//		return new NumericAttribute(original.name(), AssociationUtils.convertDoubleArrayToFloat(values), original.missing());
-//	}
-	
 	public NumericAttribute powerTransform(NumericAttribute original) {
 		float[] originalValues = original.floatValues();
 		int n = originalValues.length;
@@ -120,16 +188,6 @@ public class TransformDataPlugin extends AbstractPlugin {
 		return new NumericAttribute(original.name(), transValues, original.missing());
 	}
 	
-	public NumericAttribute lnTransform(NumericAttribute original) {
-		float[] originalValues = original.floatValues();
-		int n = originalValues.length;
-		float[] transValues = new float[n];
-		
-		for (int i = 0; i < n; i++) transValues[i] = (float) Math.log(originalValues[i]);
-		
-		return new NumericAttribute(original.name(), transValues, original.missing());
-	}
-
 	public NumericAttribute standardize(NumericAttribute original) {
 		float[] originalValues = original.floatValues();
 		int n = originalValues.length;
@@ -160,7 +218,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 		return new float[]{mean, sdev};
 	}
 	
-	public NumericAttribute standardize(NumericAttribute original, List<PhenotypeAttribute> byFactors) {
+	public NumericAttribute standardize(NumericAttribute original, List<CategoricalAttribute> byFactors) {
 		
 		List<int[]> subsetList = subsets(byFactors);
 		float[] stdData = Arrays.copyOf(original.floatValues(), original.size());
@@ -175,7 +233,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 		return new NumericAttribute(original.name(), stdData, original.missing());
 	}
 	
-	public List<int[]> subsets(List<PhenotypeAttribute> byFactors) {
+	public List<int[]> subsets(List<CategoricalAttribute> byFactors) {
 		class subset {
 			int[] levels;
 			subset(int[] levels) { this.levels = levels; }
@@ -196,8 +254,6 @@ public class TransformDataPlugin extends AbstractPlugin {
 			}
 		}
 		
-		ArrayList<CategoricalAttribute> caList = new ArrayList<>();
-		for (PhenotypeAttribute pa : byFactors) caList.add((CategoricalAttribute) pa);
 		int nobs = byFactors.get(0).size();
 		OpenBitSet missing = new OpenBitSet(nobs);
 		for (PhenotypeAttribute pa : byFactors) missing.or(pa.missing());
@@ -207,7 +263,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 		for (int obs = 0; obs < nobs; obs++) if (!missing.fastGet(obs)) {
 			int[] levels = new int[nfactors];
 			int count = 0;
-			for (CategoricalAttribute ca : caList) {
+			for (CategoricalAttribute ca : byFactors) {
 				levels[count++] = ca.intValue(obs);
 			}
 			subsetMap.put(new subset(levels), obs);
@@ -221,6 +277,34 @@ public class TransformDataPlugin extends AbstractPlugin {
 					.toArray()); 
 		}
 		return subsetList;
+	}
+
+	public void setTraitsToTransform(List<NumericAttribute> traitsToTransform) {
+		this.traitsToTransform = traitsToTransform;
+	}
+
+	public void setByFactor(List<CategoricalAttribute> byFactor) {
+		this.byFactor = byFactor;
+	}
+
+	public void setLogTransform(boolean logTransform) {
+		this.logTransform = logTransform;
+	}
+
+	public void setPowerTransform(boolean powerTransform) {
+		this.powerTransform = powerTransform;
+	}
+
+	public void setStandardize(boolean standardize) {
+		this.standardize = standardize;
+	}
+
+	public void setMyBase(BASE myBase) {
+		this.myBase = myBase;
+	}
+
+	public void setPower(double power) {
+		this.power = power;
 	}
 
 }

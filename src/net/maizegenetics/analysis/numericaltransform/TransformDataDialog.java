@@ -1,6 +1,7 @@
-package net.maizegenetics.analysis.data;
+package net.maizegenetics.analysis.numericaltransform;
 
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -21,7 +22,7 @@ import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 
-import net.maizegenetics.analysis.data.TransformDataPlugin.BASE;
+import net.maizegenetics.analysis.numericaltransform.TransformDataPlugin.BASE;
 import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.NumericAttribute;
 import net.maizegenetics.util.OpenBitSet;
@@ -119,7 +120,7 @@ public class TransformDataDialog extends JDialog implements ActionListener {
 		btnCancel.addActionListener(this);
 
 		JPanel mainPanel = new JPanel(new GridBagLayout());
-
+		
 		GridBagConstraints gbc = new GridBagConstraints();
 		gbc.gridx = 0;
 		gbc.gridy = 0;
@@ -130,11 +131,16 @@ public class TransformDataDialog extends JDialog implements ActionListener {
 		else gbc.insets = new Insets(15, 30, 2, 30); //top, left, bottom, right
 		gbc.weightx = 1;
 		gbc.weighty = 1;
-		mainPanel.add(new JLabel("Select Traits to Transform:"), gbc);
+		JLabel lblTraits = new JLabel("Select Traits to Transform:");
+		Font labelFont = lblTraits.getFont().deriveFont(Font.BOLD, 14f);
+		lblTraits.setFont(labelFont);
+		mainPanel.add(lblTraits, gbc);
 
 		if (hasFactors) {
 			gbc.gridx++;
-			mainPanel.add(new JLabel("Standardize within Selected Factor:"), gbc);
+			JLabel lblFactors = new JLabel("Standardize within Selected Factor:");
+			lblFactors.setFont(labelFont);
+			mainPanel.add(lblFactors, gbc);
 		}
 
 		gbc.gridx = 0;
@@ -156,7 +162,10 @@ public class TransformDataDialog extends JDialog implements ActionListener {
 		gbc.gridy++;
 		gbc.gridwidth = 2;
 		gbc.insets = new Insets(5, 2, 5, 2); //top, left, bottom, right
-		mainPanel.add(new JLabel("Select Transformation Method:"), gbc);
+		JLabel lblMethod = new JLabel("Select Transformation Method:");
+		lblMethod.setFont(labelFont);
+		
+		mainPanel.add(lblMethod, gbc);
 
 		gbc.gridy++;
 		gbc.gridwidth = 1;
