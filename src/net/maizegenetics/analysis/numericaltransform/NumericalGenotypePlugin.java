@@ -92,11 +92,8 @@ public class NumericalGenotypePlugin extends AbstractPlugin {
         int ntaxa = myGenotype.numberOfTaxa();
 
         ReferenceProbability myProb;
-        double[][] data = null;
-        //if GenotypeTable has no ReferenceProbablity, compute the probabilities.
-        if (!myGenotype.hasReferenceProbablity()) {
-            data = GenotypeTableUtils.convertGenotypeToDoubleProbability(myGenotype, true);
-        }
+        
+        double[][] data = GenotypeTableUtils.convertGenotypeToDoubleProbability(myGenotype, true);
 
         //build new ReferenceProbability
         ReferenceProbabilityBuilder refBuilder = ReferenceProbabilityBuilder.getInstance(ntaxa, nsites, myGenotype.taxa());
