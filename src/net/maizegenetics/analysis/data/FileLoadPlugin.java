@@ -49,7 +49,7 @@ public class FileLoadPlugin extends AbstractPlugin {
     private TasselFileType myFileType = TasselFileType.Unknown;
     private PlinkLoadPlugin myPlinkLoadPlugin = null;
     private ProjectionLoadPlugin myProjectionLoadPlugin = null;
-    private ProjectPcsAndRunModelSelectionPlugin myProjectPcsAndRunModelSelectionPlugin = null;
+    //private ProjectPcsAndRunModelSelectionPlugin myProjectPcsAndRunModelSelectionPlugin = null;
     private JFileChooser myOpenFileChooser = new JFileChooser(TasselPrefs.getOpenDir());
 
     public enum TasselFileType {
@@ -77,11 +77,12 @@ public class FileLoadPlugin extends AbstractPlugin {
     }
 
     public FileLoadPlugin(Frame parentFrame, boolean isInteractive, PlinkLoadPlugin plinkLoadPlugin,
-            ProjectionLoadPlugin projectionLoadPlugin, ProjectPcsAndRunModelSelectionPlugin projectPcsAndRunModelSelectionPlugin) {
+            ProjectionLoadPlugin projectionLoadPlugin) {
+            //ProjectionLoadPlugin projectionLoadPlugin, ProjectPcsAndRunModelSelectionPlugin projectPcsAndRunModelSelectionPlugin) {
         super(parentFrame, isInteractive);
         myPlinkLoadPlugin = plinkLoadPlugin;
         myProjectionLoadPlugin = projectionLoadPlugin;
-        myProjectPcsAndRunModelSelectionPlugin = projectPcsAndRunModelSelectionPlugin;
+        //myProjectPcsAndRunModelSelectionPlugin = projectPcsAndRunModelSelectionPlugin;
     }
 
     public DataSet performFunction(DataSet input) {
@@ -105,9 +106,9 @@ public class FileLoadPlugin extends AbstractPlugin {
                     return myProjectionLoadPlugin.performFunction(input);
                 }
 
-                if (myFileType == TasselFileType.ProjectPCsandRunModelSelection) {
-                    return myProjectPcsAndRunModelSelectionPlugin.performFunction(input);
-                }
+                //if (myFileType == TasselFileType.ProjectPCsandRunModelSelection) {
+                //    return myProjectPcsAndRunModelSelectionPlugin.performFunction(input);
+                //}
 
                 setOpenFiles(getOpenFilesByChooser());
                 theDialog.dispose();

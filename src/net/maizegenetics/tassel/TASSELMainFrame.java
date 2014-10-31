@@ -76,7 +76,7 @@ import java.util.zip.ZipOutputStream;
 import net.maizegenetics.analysis.data.GetPositionListPlugin;
 import net.maizegenetics.analysis.data.GetTaxaListPlugin;
 import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
-import net.maizegenetics.analysis.data.ProjectPcsAndRunModelSelectionPlugin;
+//import net.maizegenetics.analysis.data.ProjectPcsAndRunModelSelectionPlugin;
 import net.maizegenetics.analysis.data.SortGenotypeFilePlugin;
 import net.maizegenetics.analysis.gbs.BinaryToTextPlugin;
 import net.maizegenetics.analysis.gbs.DiscoverySNPCallerPlugin;
@@ -614,11 +614,12 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         ProjectionLoadPlugin projectionLoadPlugin = new ProjectionLoadPlugin(this, true);
         projectionLoadPlugin.addListener(myDataTreePanel);
 
-        ProjectPcsAndRunModelSelectionPlugin projectPcsAndRunModelSelectionPlugin
-                = new ProjectPcsAndRunModelSelectionPlugin(this, true);
-        projectPcsAndRunModelSelectionPlugin.addListener(myDataTreePanel);
+        //ProjectPcsAndRunModelSelectionPlugin projectPcsAndRunModelSelectionPlugin
+        //        = new ProjectPcsAndRunModelSelectionPlugin(this, true);
+        //projectPcsAndRunModelSelectionPlugin.addListener(myDataTreePanel);
 
-        result.add(createMenuItem(new FileLoadPlugin(this, true, plinkLoadPlugin, projectionLoadPlugin, projectPcsAndRunModelSelectionPlugin), KeyEvent.VK_L));
+        //result.add(createMenuItem(new FileLoadPlugin(this, true, plinkLoadPlugin, projectionLoadPlugin, projectPcsAndRunModelSelectionPlugin), KeyEvent.VK_L));
+        result.add(createMenuItem(new FileLoadPlugin(this, true, plinkLoadPlugin, projectionLoadPlugin), KeyEvent.VK_L));
         result.add(createMenuItem(new ExportPlugin(this, true)));
         result.add(createMenuItem(new GetTaxaListPlugin(this, true)));
         result.add(createMenuItem(new GetPositionListPlugin(this, true)));
