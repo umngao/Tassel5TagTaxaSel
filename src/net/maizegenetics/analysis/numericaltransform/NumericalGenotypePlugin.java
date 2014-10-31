@@ -31,7 +31,7 @@ public class NumericalGenotypePlugin extends AbstractPlugin {
     private static final Logger myLogger = Logger.getLogger(NumericalGenotypePlugin.class);
 
     public static enum TRANSFORM_TYPE {
-        as_minor, as_major, as_missing, use_all_alleles
+        as_minor, as_major, as_missing, use_all_alleles, collapse, separated
     };
     
     private TRANSFORM_TYPE myTransformType = TRANSFORM_TYPE.as_minor;
@@ -41,6 +41,10 @@ public class NumericalGenotypePlugin extends AbstractPlugin {
         super(parentFrame, isInteractive);
     }
 
+    public NumericalGenotypePlugin(){
+        super(null, false);
+    }
+    
     @Override
     public DataSet processData(DataSet input) {
 
@@ -155,5 +159,7 @@ public class NumericalGenotypePlugin extends AbstractPlugin {
         return "Numerical Genotype";
     }
 
-
+    public void setTransformType(TRANSFORM_TYPE type) {
+    	myTransformType = type;
+    }
 }
