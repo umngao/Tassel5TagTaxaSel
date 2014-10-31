@@ -51,10 +51,6 @@ public class KinshipPlugin extends AbstractPlugin {
 
     }
 
-    public DataSet performFunction(DataSet input) {
-    	return processData(input);
-    }
-    
     public DataSet processData(DataSet input) {
 
         try {
