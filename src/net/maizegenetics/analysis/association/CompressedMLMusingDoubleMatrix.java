@@ -117,6 +117,7 @@ public class CompressedMLMusingDoubleMatrix {
 
         if (useCompression) compressionReportBuilder = TableReportBuilder.getInstance("Compression - " + datasetName, headerCompression);
         else compressionReportBuilder = null;
+        solve();
     }
 
     public void useGenotypeCalls(boolean use) {
@@ -205,6 +206,7 @@ public class CompressedMLMusingDoubleMatrix {
             
             Object[] tableRow;
             //{"Trait","Marker","Chr","Pos","Locus","Site","df","F","p","errordf","MarkerR2","Genetic Var","Residual Var", "-2LnLikelihood"}
+            //{"Trait", "Marker", "Locus", "Site", "df", "F", "p", "errordf", "markerR2", "Genetic Var", "Residual Var", "-2LnLikelihood"}
             tableRow = new Object[]{attr.name(),
             		"None",
             		"",
