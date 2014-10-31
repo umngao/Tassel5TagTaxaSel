@@ -183,7 +183,7 @@ public class TasselPipeline implements PluginListener {
                 System.out.print(" ");
             }
             System.out.println("");
-        } else if ((args.length >= 1) && (args[0].equalsIgnoreCase("-debug"))) {
+        } else if ((args.length >= 1) && (args[0].equalsIgnoreCase("-debug") || args[0].equalsIgnoreCase("-log"))) {
             String filename = null;
             if (args.length >= 2) {
                 filename = args[1].trim();
@@ -192,15 +192,22 @@ public class TasselPipeline implements PluginListener {
             String[] temp = null;
             if ((filename != null) && (!filename.startsWith("-"))) {
                 try {
-                    LoggingUtils.setupDebugLogfile(filename);
+                    if (args[0].equalsIgnoreCase("-debug")) {
+                        LoggingUtils.setupDebugLogfile(filename);
+                    } else {
+                        LoggingUtils.setupLogfile(filename);
+                    }
                 } catch (Exception e) {
-                    e.printStackTrace();
-                    myLogger.error("Problem with debug file: " + filename);
+                    myLogger.error("Problem with file: " + filename + "\n" + e.getMessage());
                 }
                 temp = new String[args.length - 2];
                 System.arraycopy(args, 2, temp, 0, temp.length);
             } else {
-                LoggingUtils.setupDebugLogging();
+                if (args[0].equalsIgnoreCase("-debug")) {
+                    LoggingUtils.setupDebugLogging();
+                } else {
+                    LoggingUtils.setupLogging();
+                }
                 temp = new String[args.length - 1];
                 System.arraycopy(args, 1, temp, 0, temp.length);
             }
