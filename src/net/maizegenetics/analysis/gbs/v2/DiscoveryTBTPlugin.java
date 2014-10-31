@@ -181,10 +181,9 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                     //todo move getFirstLowQualityPos into this class?
                     if(BaseEncoder.getFirstLowQualityPos(seqAndQual[1],minQual)<(barcode.getBarLength()+preferredTagLength)) continue;
                 }
-                TagBuilder tb = TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength()+preferredTagLength));
-                if (tb == null) continue; // null occurs when any base was not A, C, G, T
-                Tag tag=tb.build(); // Call build separately as the null pointer exception kicks us out of the loop !
-                
+
+                Tag tag=TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength()+preferredTagLength)).build();
+                if(tag==null) continue;   //null occurs when any base was not A, C, G, T
                 goodBarcodedReads++;
                 TaxaDistribution taxaDistribution=masterTagTaxaMap.get(tag);
                 if(taxaDistribution==null) {
