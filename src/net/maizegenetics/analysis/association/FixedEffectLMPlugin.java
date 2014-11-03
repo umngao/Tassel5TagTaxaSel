@@ -151,7 +151,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
     
     //setters needed for compatability with Tassel 4.0 pipeline commands
     public void setOutputFile(String name) {
-
+    	baseOutFileName = name;
     }
     
     public void setMaxP(double maxp) {
