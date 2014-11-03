@@ -25,7 +25,7 @@ public class TaxaAttribute implements PhenotypeAttribute {
 	}
 
 	public TaxaAttribute(List<Taxon> taxa, String name) {
-		this.name = name;
+		this.name = DEFAULT_NAME;
 		if (taxa instanceof ArrayList) taxaList = (ArrayList<Taxon>) taxa;
 		else taxaList = new ArrayList<>(taxa);
 		numberOfTaxa = taxa.size();
