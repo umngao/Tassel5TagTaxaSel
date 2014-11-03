@@ -117,7 +117,7 @@ public class CompressedMLMusingDoubleMatrix {
 
         if (useCompression) compressionReportBuilder = TableReportBuilder.getInstance("Compression - " + datasetName, headerCompression);
         else compressionReportBuilder = null;
-        solve();
+//        solve();
     }
 
     public void useGenotypeCalls(boolean use) {
@@ -125,11 +125,11 @@ public class CompressedMLMusingDoubleMatrix {
     }
 
     public void useReferenceProbability(boolean use) {
-    	useGenotypeCalls = use;
+    	useReferenceProbability = use;
     }
 
     public void useAlleleProbabilities(boolean use) {
-    	useGenotypeCalls = use;
+    	useAlleleProbabilities = use;
     }
     
     public List<Datum> solve() {
@@ -205,11 +205,9 @@ public class CompressedMLMusingDoubleMatrix {
             }
             
             Object[] tableRow;
-            //{"Trait","Marker","Chr","Pos","Locus","Site","df","F","p","errordf","MarkerR2","Genetic Var","Residual Var", "-2LnLikelihood"}
             //{"Trait", "Marker", "Locus", "Site", "df", "F", "p", "errordf", "markerR2", "Genetic Var", "Residual Var", "-2LnLikelihood"}
-            tableRow = new Object[]{attr.name(),
-            		"None",
-            		"",
+            tableRow = new Object[]{
+            		attr.name(),
             		"",
             		"",
             		"",
@@ -409,8 +407,8 @@ public class CompressedMLMusingDoubleMatrix {
 
         //generate comments
         StringBuilder options = new StringBuilder();
-        options.append("Compression = ").append(useCompression);
-        options.append("Compression = ").append(useCompression);
+        options.append("Use compression = ").append(useCompression).append("\n");
+        options.append("Use P3D = ").append(useP3D).append("\n");
         if (useCompression) {
             options.append(", compression level = ").append(compression).append("\n");
         }

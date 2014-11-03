@@ -152,55 +152,42 @@ public class MLMPlugin extends AbstractPlugin {
             } else {         //non-interactive stuff
             }
 
-            List<DataSet> result = new ArrayList<DataSet>();
+            List<Datum> myResults = new ArrayList<Datum>();
             while (itr.hasNext()) {
 
-                Datum current = itr.next();
+            	Datum current = itr.next();
+            	CompressedMLMusingDoubleMatrix theAnalysis;
+            	if (useP3D) {
+            		if (compressionType.equals(CompressionType.Optimum)) {
+            			theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, true, Double.NaN);
+            		} else if (compressionType.equals(CompressionType.Custom)) {
+            			theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, true, compression);
+            		} else {
+            			theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, false, true, Double.NaN);
+            		}
+            	} else {
+            		if (compressionType.equals(CompressionType.Optimum)) {
+            			theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, false, Double.NaN);
+            		} else if (compressionType.equals(CompressionType.Custom)) {
+            			theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, false, compression);
+            		} else {
+            			theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, false, false, Double.NaN);
+            		}
 
-                DataSet tds = null;
+            		theAnalysis.useGenotypeCalls(useGenotype);
+            		theAnalysis.useReferenceProbability(useRefProb);
+            		theAnalysis.useAlleleProbabilities(useAlleleProb);
 
-                try {
-                	CompressedMLMusingDoubleMatrix theAnalysis;
-                    if (useP3D) {
-                        if (compressionType.equals(CompressionType.Optimum)) {
-                            theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, true, Double.NaN);
-                        } else if (compressionType.equals(CompressionType.Custom)) {
-                            theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, true, compression);
-                        } else {
-                            theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, false, true, Double.NaN);
-                        }
-                    } else {
-                        if (compressionType.equals(CompressionType.Optimum)) {
-                            theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, false, Double.NaN);
-                        } else if (compressionType.equals(CompressionType.Custom)) {
-                            theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, false, compression);
-                        } else {
-                            theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, false, false, Double.NaN);
-                        }
-                        
-                        theAnalysis.useGenotypeCalls(useGenotype);
-                        theAnalysis.useReferenceProbability(useRefProb);
-                        theAnalysis.useAlleleProbabilities(useAlleleProb);
-                        tds = new DataSet(theAnalysis.solve(), this);
+            	}
 
-                    }
-                } catch (Exception e) {
-                    if (isInteractive()) {
-                        JOptionPane.showMessageDialog(getParentFrame(), e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                        e.printStackTrace();
-                    } else {
-                        System.out.println(e.getMessage());
-                        e.printStackTrace();
-                    }
-                }
+            	myResults.addAll(theAnalysis.solve());
+           }
 
-                if (tds != null) {
-                    result.add(tds);
-                    fireDataSetReturned(new PluginEvent(tds, MLMPlugin.class));
-                }
+            if (myResults.size() > 0) {
+            	fireDataSetReturned(new DataSet(myResults, this));
+            	return new DataSet(myResults, this);
             }
-
-            return DataSet.getDataSet(result, this);
+            else return null;
 
         } finally {
             fireProgress(100);
