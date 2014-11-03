@@ -352,11 +352,14 @@ public class PhenotypeBuilder {
 				OpenBitSet missing = new OpenBitSet(nObs);
 				int obsCount = 0;
 				for (String[] inputLine : stringData) {
-					try {
-						dataArray[obsCount] = Float.parseFloat(inputLine[pheno]);
-					} catch (NumberFormatException nfe) {
-						dataArray[obsCount] = Float.NaN;
-						missing.fastSet(obsCount);
+					if (inputLine[pheno].startsWith("-999")) dataArray[obsCount] = Float.NaN;
+					else {
+						try {
+							dataArray[obsCount] = Float.parseFloat(inputLine[pheno]);
+						} catch (NumberFormatException nfe) {
+							dataArray[obsCount] = Float.NaN;
+							missing.fastSet(obsCount);
+						}
 					}
 					obsCount++;
 				}
@@ -462,11 +465,14 @@ public class PhenotypeBuilder {
 				taxaList.add(new Taxon(values[0]));
 				for (int i = 0; i < ntraits; i++) {
 					float val;
-					try {
-						val = Float.parseFloat(values[i + 1]);
-					} catch (NumberFormatException e) {
-						val = Float.NaN;
-						missingList.get(i).fastSet(dataCount);
+					if (values[i + 1].startsWith("-99")) val = Float.NaN;
+					else {
+						try {
+							val = Float.parseFloat(values[i + 1]);
+						} catch (NumberFormatException e) {
+							val = Float.NaN;
+							missingList.get(i).fastSet(dataCount);
+						}
 					}
 					traitValues.get(i)[dataCount] = val;
 				}

@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import javax.swing.ImageIcon;
@@ -14,7 +13,6 @@ import javax.swing.ImageIcon;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
-import net.maizegenetics.analysis.data.NumericalGenotypePlugin;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.NumericAttribute;
@@ -56,7 +54,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 
 		myData = input.getDataOfType(Phenotype.class);
 		if (myData.size() == 1) {
-			Phenotype myPhenotype = (Phenotype) myData.get(0);
+			Phenotype myPhenotype = (Phenotype) myData.get(0).getData();
 			if (isInteractive()) {
 				
 				List<NumericAttribute> numericAttributes = Stream.concat(myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data).stream(), 
@@ -79,8 +77,9 @@ public class TransformDataPlugin extends AbstractPlugin {
 				myBase = tdd.base();
 				power = tdd.exponent();
 			}
+			if (logTransform || powerTransform || standardize) return transformTraits(myPhenotype, myData.get(0));
+			else return null;
 			
-			return transformTraits(myPhenotype, myData.get(0));
 		}
 
 		throw new IllegalArgumentException("TransformDataPlugin: the dataset selected is of the wrong type.");
@@ -100,12 +99,12 @@ public class TransformDataPlugin extends AbstractPlugin {
 		StringBuilder commentBuilder = new StringBuilder();
 		commentBuilder.append("Phenotypes transformed from ");
 		commentBuilder.append(myData.getName()).append("\n");
-		commentBuilder.append(myData.getComment());
-		commentBuilder.append("The following traits were transformed by \n");
-		if (powerTransform) commentBuilder.append("using a power ").append(power).append(" transformation.\n");
-		else if (logTransform) commentBuilder.append("using a ").append(myBase.name()).append(" log transformation.\n");
+//		commentBuilder.append(myData.getComment());
+		commentBuilder.append("The following traits were transformed by ");
+		if (powerTransform) commentBuilder.append("using a power ").append(power).append(" transformation:\n");
+		else if (logTransform) commentBuilder.append("using a ").append(myBase.name()).append(" log transformation:\n");
 		if (standardize) commentBuilder.append("standardizing.\n");
-		for (NumericAttribute na : traitsToTransform) commentBuilder.append("\n").append(na.name());
+		for (NumericAttribute na : traitsToTransform) commentBuilder.append(na.name()).append("\n");
 		
 		return new DataSet(new Datum(nameBuilder.toString(), transformedPhenotype, commentBuilder.toString()), this);
 	}
@@ -194,27 +193,27 @@ public class TransformDataPlugin extends AbstractPlugin {
 		float[] meanSD = meanStdDev(originalValues);
 		float[] transValues = new float[n];
 		
-		for (int i = 0; i < n; i++) transValues[i] = (transValues[i] - meanSD[0])/meanSD[1];
+		for (int i = 0; i < n; i++) transValues[i] = (originalValues[i] - meanSD[0])/meanSD[1];
 		
 		return new NumericAttribute(original.name(), transValues, original.missing());
 	}
 	
 	public float[] meanStdDev(float[] data) {
 		int n = data.length;
-		float sum = 0;
-		float sumsq = 0;
+		double sum = 0;
+		double sumsq = 0;
 		int notMissingCount = 0;
 		for (int i = 0; i < n; i++) {
-			float val = data[i];
-			if (!Float.isNaN(val)) {
+			double val = data[i];
+			if (!Double.isNaN(val)) {
 				sum += val;
 				sumsq += val * val;
 				notMissingCount++;
 			}
 			
 		}
-		float mean = sum / notMissingCount;
-		float sdev = (float) Math.sqrt(sumsq - sum / notMissingCount * sum);
+		float mean = (float) sum / notMissingCount;
+		float sdev = (float) Math.sqrt((sumsq - sum / notMissingCount * sum) / (notMissingCount - 1));
 		return new float[]{mean, sdev};
 	}
 	

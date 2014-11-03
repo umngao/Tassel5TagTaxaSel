@@ -214,6 +214,7 @@ public class TransformDataDialog extends JDialog implements ActionListener {
 
 		getContentPane().add(mainPanel);
 		pack();
+		setLocationRelativeTo(getParent());
 	}
 
 	@Override
