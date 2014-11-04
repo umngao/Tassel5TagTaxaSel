@@ -423,7 +423,12 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
             comp.setBackground(Color.DARK_GRAY);
         } else {
             int site = myAlignmentTableModel.getRealColumnIndex(col);
-            comp.setBackground(COLORS_256[255 - getHeatColor(row, site)]);
+            float probability = myAlignment.referenceProbability().value(row, site);
+            if (Float.isNaN(probability)) {
+                comp.setBackground(Color.GRAY);
+            } else {
+                comp.setBackground(COLORS_256[255 - Math.round(probability * 255.0f)]);
+            }
         }
 
         return comp;
@@ -517,12 +522,4 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
         return mySupportedRenderingTypes;
     }
 
-    private int getHeatColor(int row, int site) {
-        if (myAlignment.hasReferenceProbablity()) {
-            float value = myAlignment.referenceProbability().value(row, site);
-            return Math.round(value * 255.0f);
-        } else {
-            return 0;
-        }
-    }
 }
