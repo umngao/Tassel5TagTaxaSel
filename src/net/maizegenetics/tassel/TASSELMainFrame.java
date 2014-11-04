@@ -95,6 +95,7 @@ import net.maizegenetics.analysis.gbs.UTagPairToTOPMPlugin;
 import net.maizegenetics.analysis.imputation.FILLINFindHaplotypesPlugin;
 import net.maizegenetics.analysis.imputation.FILLINImputationPlugin;
 import net.maizegenetics.analysis.imputation.FSFHapImputationPlugin;
+import net.maizegenetics.analysis.numericaltransform.ImputationPlugin;
 
 /**
  * TASSELMainFrame
@@ -635,6 +636,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new HetsToUnknownPlugin(this, true)));
         result.add(createMenuItem(new TransformDataPlugin(this, true)));
         result.add(createMenuItem(new NumericalGenotypePlugin(this, true)));
+        result.add(createMenuItem(new ImputationPlugin(this, true)));
         result.addSeparator();
 
         JMenuItem delete = new JMenuItem("Delete Dataset");
