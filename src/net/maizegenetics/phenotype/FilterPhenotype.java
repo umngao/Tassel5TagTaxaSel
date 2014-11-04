@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
@@ -130,6 +133,27 @@ public class FilterPhenotype implements Phenotype {
 	}
 
 	@Override
+	public Stream<NumericAttribute> dataAttributeStream() {
+		return IntStream.iterate(0, i -> i + 1).limit(numberOfAttributes())
+				.filter(i -> attributeType(i) == ATTRIBUTE_TYPE.data)
+				.mapToObj(i -> (NumericAttribute) attribute(i));
+	}
+
+	@Override
+	public Stream<NumericAttribute> covariateAttributeStream() {
+		return IntStream.iterate(0, i -> i + 1).limit(numberOfAttributes())
+				.filter(i -> attributeType(i) == ATTRIBUTE_TYPE.covariate)
+				.mapToObj(i -> (NumericAttribute) attribute(i));
+	}
+
+	@Override
+	public Stream<CategoricalAttribute> factorAttributeStream() {
+		return IntStream.iterate(0, i -> i + 1).limit(numberOfAttributes())
+				.filter(i -> attributeType(i) == ATTRIBUTE_TYPE.factor)
+				.mapToObj(i -> (CategoricalAttribute) attribute(i));
+	}
+
+	@Override
 	public List<ATTRIBUTE_TYPE> typeListCopy() {
 		return basePhenotype.typeListCopy();
 	}
@@ -199,6 +223,13 @@ public class FilterPhenotype implements Phenotype {
 	public boolean areTaxaReplicated() {
 		int numberOfUniqueTaxa = taxa().size();
 		return (numberOfUniqueTaxa > numberOfObservations);
+	}
+
+	@Override
+	public Phenotype asCorePhenotype() {
+		List<PhenotypeAttribute> allAttributes = IntStream.iterate(0, i-> i + 1).limit(numberOfAttributes())
+				.mapToObj(i -> attribute(i)).collect(Collectors.toList());
+		return new PhenotypeBuilder().fromAttributeList(allAttributes, basePhenotype.typeListCopy()).build().get(0);
 	}
 
 }

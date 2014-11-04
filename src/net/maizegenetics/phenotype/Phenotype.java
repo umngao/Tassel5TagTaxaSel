@@ -1,6 +1,7 @@
 package net.maizegenetics.phenotype;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.TableReport;
@@ -107,6 +108,21 @@ public interface Phenotype  extends TableReport {
 	public List<PhenotypeAttribute> attributeListOfType(ATTRIBUTE_TYPE type);
 	
 	/**
+	 * @return	a sequential Stream of all data type PhenotypeAttributes as NumericAttributes
+	 */
+	public Stream<NumericAttribute> dataAttributeStream();
+	
+	/**
+	 * @return	a sequential Stream of all covariate type PhenotypeAttributes as NumericAttributes
+	 */
+	public Stream<NumericAttribute> covariateAttributeStream();
+	
+	/**
+	 * @return	a sequential Stream of all factor type PhenotypeAttributes as CategoricalAttributes
+	 */
+	public Stream<CategoricalAttribute> factorAttributeStream();
+	
+	/**
 	 * @return	a shallow copy of the attribute type list for this Phenotype
 	 */
 	public List<ATTRIBUTE_TYPE> typeListCopy();
@@ -122,4 +138,12 @@ public interface Phenotype  extends TableReport {
 	 */
 	public boolean areTaxaReplicated();
 	
+	/**
+	 * @return	this Phenotype as a CorePhenotype.
+	 * <p>
+	 * CorePhenotype may be more efficient in some cases than FilterPhenotype, though the difference will probably be small.
+	 * For very large filtered data sets consider converting to CorePhenotype. The operation performed on a CorePhenotype will return
+	 * the same Phenotype.
+	 */
+	public Phenotype asCorePhenotype();
 }

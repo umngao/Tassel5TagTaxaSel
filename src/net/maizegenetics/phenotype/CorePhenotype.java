@@ -6,6 +6,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.TreeSet;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
@@ -130,6 +132,27 @@ public class CorePhenotype implements Phenotype {
 	}
 
 	@Override
+	public Stream<NumericAttribute> dataAttributeStream() {
+		return IntStream.iterate(0, i -> i + 1).limit(numberOfAttributes)
+				.filter(i -> myAttributeTypeList.get(i) == ATTRIBUTE_TYPE.data)
+				.mapToObj(i -> (NumericAttribute) myAttributeList.get(i));
+	}
+
+	@Override
+	public Stream<NumericAttribute> covariateAttributeStream() {
+		return IntStream.iterate(0, i -> i + 1).limit(numberOfAttributes)
+				.filter(i -> myAttributeTypeList.get(i) == ATTRIBUTE_TYPE.covariate)
+				.mapToObj(i -> (NumericAttribute) myAttributeList.get(i));
+	}
+
+	@Override
+	public Stream<CategoricalAttribute> factorAttributeStream() {
+		return IntStream.iterate(0, i -> i + 1).limit(numberOfAttributes)
+				.filter(i -> myAttributeTypeList.get(i) == ATTRIBUTE_TYPE.factor)
+				.mapToObj(i -> (CategoricalAttribute) myAttributeList.get(i));
+	}
+
+	@Override
 	public List<ATTRIBUTE_TYPE> typeListCopy() {
 		return new ArrayList<Phenotype.ATTRIBUTE_TYPE>(myAttributeTypeList);
 	}
@@ -204,6 +227,11 @@ public class CorePhenotype implements Phenotype {
 		return (numberOfUniqueTaxa > numberOfObservations);
 	}
 
+	@Override
+	public Phenotype asCorePhenotype() {
+		return this;
+	}
+	
 	public static boolean areAttributeAndTypeListsCompatible(List<PhenotypeAttribute> attributes, List<ATTRIBUTE_TYPE> types) {
 		if (attributes.size() != types.size()) return false;
 		boolean compatible = true;
@@ -217,5 +245,5 @@ public class CorePhenotype implements Phenotype {
 		}
 		return compatible;
 	}
-	
+
 }
