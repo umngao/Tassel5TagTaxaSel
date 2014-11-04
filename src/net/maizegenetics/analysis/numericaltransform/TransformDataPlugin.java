@@ -46,13 +46,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 			throw new IllegalArgumentException("TransformDataPlugin: Select a single dataset for transformation.");
 		}
 
-		List<Datum> myData = input.getDataOfType(GenotypeTable.class);
-		if (myData.size() == 1) {
-			NumericalGenotypePlugin ngp = new NumericalGenotypePlugin(getParentFrame(), isInteractive());
-			return ngp.processData(input);
-		}
-
-		myData = input.getDataOfType(Phenotype.class);
+		List<Datum> myData = input.getDataOfType(Phenotype.class);
 		if (myData.size() == 1) {
 			Phenotype myPhenotype = (Phenotype) myData.get(0).getData();
 			if (isInteractive()) {

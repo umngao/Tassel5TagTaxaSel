@@ -47,7 +47,7 @@ public class NumericalGenotypePlugin extends AbstractPlugin {
     
     @Override
     public DataSet processData(DataSet input) {
-
+ 
         List<Datum> datumList = input.getDataOfType(GenotypeTable.class);
 
         //check size of datumList, throw error if not equal to one
@@ -55,6 +55,12 @@ public class NumericalGenotypePlugin extends AbstractPlugin {
             throw new IllegalArgumentException("NumericalGenotypePlugin: select exactly one genotype dataset to transform.");
         }
 
+    	//only the as_minor method is implemented so just display an information Dialog
+        String msg = "Genotypes will be converted to the probability that an allele drawn at random is a minor allele. "
+        		+ "\nIn TASSEL 4 this was called the 'collapse' option.";
+        int convertGenotype = JOptionPane.showConfirmDialog(getParentFrame(), msg, "ReferenceProbability from Genotype", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
+        if (convertGenotype == JOptionPane.CANCEL_OPTION || convertGenotype == JOptionPane.CLOSED_OPTION) return null;
+        
         //load the GenotypeTable.
         GenotypeTable myGenotype = (GenotypeTable) datumList.get(0).getData();
         GenotypeTable myNewGenotype;

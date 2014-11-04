@@ -32,6 +32,7 @@ import net.maizegenetics.analysis.data.PlinkLoadPlugin;
 import net.maizegenetics.analysis.popgen.LinkageDiseqDisplayPlugin;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibriumPlugin;
 import net.maizegenetics.analysis.data.MergeGenotypeTablesPlugin;
+import net.maizegenetics.analysis.data.PrincipalComponentsPlugin;
 import net.maizegenetics.analysis.data.UnionAlignmentPlugin;
 import net.maizegenetics.analysis.data.FileLoadPlugin;
 import net.maizegenetics.analysis.data.IntersectionAlignmentPlugin;
@@ -49,6 +50,7 @@ import net.maizegenetics.analysis.tree.ArchaeopteryxPlugin;
 import net.maizegenetics.analysis.chart.ChartDisplayPlugin;
 import net.maizegenetics.analysis.association.RidgeRegressionEmmaPlugin;
 import net.maizegenetics.analysis.modelfitter.StepwiseOLSModelFitterPlugin;
+import net.maizegenetics.analysis.numericaltransform.NumericalGenotypePlugin;
 import net.maizegenetics.analysis.numericaltransform.TransformDataPlugin;
 import net.maizegenetics.gui.PrintHeapAction;
 import net.maizegenetics.plugindef.*;
@@ -632,6 +634,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new SeparatePlugin(this, true)));
         result.add(createMenuItem(new HetsToUnknownPlugin(this, true)));
         result.add(createMenuItem(new TransformDataPlugin(this, true)));
+        result.add(createMenuItem(new NumericalGenotypePlugin(this, true)));
         result.addSeparator();
 
         JMenuItem delete = new JMenuItem("Delete Dataset");
@@ -674,6 +677,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new LinkageDisequilibriumPlugin(this, true)));
         result.add(createMenuItem(new CreateTreePlugin(this, true)));
         result.add(createMenuItem(new KinshipPlugin(this, true)));
+        result.add(createMenuItem(new PrincipalComponentsPlugin(this, true)));
         result.add(createMenuItem(new FixedEffectLMPlugin(this, true)));
         result.add(createMenuItem(new MLMPlugin(this, true)));
         result.add(createMenuItem(new RidgeRegressionEmmaPlugin(this, true)));
