@@ -32,13 +32,21 @@ public class PhenotypeUtils {
         try {
             writer = Utils.getBufferedWriter(filename);
 
-            Object[] colNames = phenotype.getTableColumnNames();
-            colNames[0] = "<Trait>";
-            for (int j = 0; j < colNames.length; j++) {
-                if (j != 0) {
+            writer.append("<Phenotype>\n");
+
+            for (int i = 0; i < phenotype.numberOfAttributes(); i++) {
+                if (i != 0) {
                     writer.write(DELIMITER);
                 }
-                writer.write(colNames[j].toString());
+                writer.write(phenotype.attributeType(i).name());
+            }
+            writer.write("\n");
+
+            for (int i = 0; i < phenotype.numberOfAttributes(); i++) {
+                if (i != 0) {
+                    writer.write(DELIMITER);
+                }
+                writer.write(phenotype.attributeName(i));
             }
             writer.write("\n");
 
