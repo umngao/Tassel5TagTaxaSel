@@ -461,7 +461,7 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
     private static Color[] generateColors(int n) {
         Color[] cols = new Color[n];
         for (int i = 0; i < n; i++) {
-            cols[i] = Color.getHSBColor(((float) i / (float) n * 0.66f), 0.85f, 1.0f);
+            cols[i] = Color.getHSBColor(((float) i / (float) n * 0.6f), 0.85f, 0.9f);
         }
         return cols;
     }
