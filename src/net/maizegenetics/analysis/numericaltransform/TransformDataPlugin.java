@@ -42,8 +42,8 @@ public class TransformDataPlugin extends AbstractPlugin {
 	}
 
 	public DataSet processData(DataSet input){
-		if (input.getSize() > 1) {
-			throw new IllegalArgumentException("TransformDataPlugin: Select a single dataset for transformation.");
+		if (input.getSize() != 1) {
+			throw new IllegalArgumentException("TransformDataPlugin: Please select one genotype table or phenotype for transformation.");
 		}
 
 		List<Datum> myData = input.getDataOfType(GenotypeTable.class);

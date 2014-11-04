@@ -49,7 +49,6 @@ import net.maizegenetics.analysis.tree.ArchaeopteryxPlugin;
 import net.maizegenetics.analysis.chart.ChartDisplayPlugin;
 import net.maizegenetics.analysis.association.RidgeRegressionEmmaPlugin;
 import net.maizegenetics.analysis.modelfitter.StepwiseOLSModelFitterPlugin;
-import net.maizegenetics.analysis.numericaltransform.TransformDataPlugin;
 import net.maizegenetics.gui.PrintHeapAction;
 import net.maizegenetics.plugindef.*;
 import net.maizegenetics.prefs.TasselPrefs;
@@ -93,6 +92,8 @@ import net.maizegenetics.analysis.gbs.UTagPairToTOPMPlugin;
 import net.maizegenetics.analysis.imputation.FILLINFindHaplotypesPlugin;
 import net.maizegenetics.analysis.imputation.FILLINImputationPlugin;
 import net.maizegenetics.analysis.imputation.FSFHapImputationPlugin;
+import net.maizegenetics.analysis.numericaltransform.ImputationPlugin;
+import net.maizegenetics.analysis.numericaltransform.TransformDataPlugin;
 
 /**
  * TASSELMainFrame
@@ -632,6 +633,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new SeparatePlugin(this, true)));
         result.add(createMenuItem(new HetsToUnknownPlugin(this, true)));
         result.add(createMenuItem(new TransformDataPlugin(this, true)));
+        result.add(createMenuItem(new ImputationPlugin(this, true)));
         result.addSeparator();
 
         JMenuItem delete = new JMenuItem("Delete Dataset");

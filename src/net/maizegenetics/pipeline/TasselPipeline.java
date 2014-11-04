@@ -1140,7 +1140,7 @@ public class TasselPipeline implements PluginListener {
                     }
                     plugin.setStepSize(stepLen);
                 } else if (current.equalsIgnoreCase("-numericalGenoTransform")) {
-                    NumericalGenotypePlugin plugin = new NumericalGenotypePlugin();
+                    NumericalGenotypePlugin plugin = new NumericalGenotypePlugin(myMainFrame, false);
 
                     String temp = args[index++].trim();
                     if (temp.equalsIgnoreCase(NumericalGenotypePlugin.TRANSFORM_TYPE.collapse.toString())) {
