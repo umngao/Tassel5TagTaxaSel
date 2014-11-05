@@ -94,7 +94,7 @@ public class ImputationPlugin extends AbstractPlugin {
             for (int s = 0; s < dataObservations; s++) {
                 for (int t = 0; t < dataAttributes; t++) {
                     if (!(myPhenotype.isMissing(s, dataAttrIndices[t]))) {
-                        data[s][t] = (Double) myPhenotype.value(s, dataAttrIndices[t]);
+                        data[s][t] = (Float) myPhenotype.value(s, dataAttrIndices[t]);
                     } else {
                         data[s][t] = Double.NaN;
                     }
@@ -141,7 +141,7 @@ public class ImputationPlugin extends AbstractPlugin {
             for (int i = 0; i < dataAttributes; i++) {
                 float[] attrData = new float[dataObservations];
                 for (int j = 0; j < dataObservations; j++) {
-                    attrData[j] = (float) result[i][j];
+                    attrData[j] = (float) result[j][i];
                 }
                 PhenotypeAttribute oldAttribute = myPhenotype.attribute(dataAttrIndices[i]);
                 NumericAttribute myAttribute = new NumericAttribute(oldAttribute.name(), attrData, new OpenBitSet(dataObservations));
@@ -151,9 +151,11 @@ public class ImputationPlugin extends AbstractPlugin {
 
             Phenotype imputedPhenotype = new PhenotypeBuilder().fromAttributeList(attributes, types).build().get(0);
 
-            String name = "name";
-            String comment = "comment";
-            Datum newDatum = new Datum(name, imputedPhenotype, comment);
+            StringBuilder nameBuilder = new StringBuilder("Imputed_");
+            nameBuilder.append(datumList.get(0).getName());
+            StringBuilder commentBuilder = new StringBuilder(getMethodString());
+            commentBuilder.append("\nfrom ").append(datumList.get(0).getName());
+            Datum newDatum = new Datum(nameBuilder.toString(), imputedPhenotype, commentBuilder.toString());
             return new DataSet(newDatum, this);
 
         } else { //it is a GenotypeTable
@@ -215,13 +217,20 @@ public class ImputationPlugin extends AbstractPlugin {
                     myGenotype.taxa(), myGenotype.depth(), myGenotype.alleleProbability(), refBuilder.build(), myGenotype.dosage(),
                     myGenotype.annotations());
 
-            String name = "name";
-            String comment = "comment";
-            Datum newDatum = new Datum(name, imputedGenotype, comment);
+            StringBuilder nameBuilder = new StringBuilder("Imputed_");
+            nameBuilder.append(datumList.get(0).getName());
+            StringBuilder commentBuilder = new StringBuilder(getMethodString());
+            commentBuilder.append("\nfrom ").append(datumList.get(0).getName());
+            Datum newDatum = new Datum(nameBuilder.toString(), imputedGenotype, commentBuilder.toString());
             return new DataSet(newDatum, this);
         }
     }
 
+    private String getMethodString() {
+    	if (byMean.value()) return "Missing values imputed as mean of trait.";
+    	return String.format("Missing values imputed using K-nearest neigbor with %s distance.", distance.value().name());
+    }
+    
     @Override
     public String pluginDescription() {
         return "This plugin takes an input file (genotype/phenotype) with missing values"
