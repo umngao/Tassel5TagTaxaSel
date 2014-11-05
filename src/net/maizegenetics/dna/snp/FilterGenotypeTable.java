@@ -54,6 +54,9 @@ public class FilterGenotypeTable implements GenotypeTable {
     private int[] myChromosomeOffsets;
     private PositionList myPositionList;
     private AlleleDepth myAlleleDepth = null;
+    private AlleleProbability myAlleleProbability;
+    private ReferenceProbability myReferenceProbabily;
+    private Dosage myDosage;
     private final GenotypeCallTable myGenotype;
     private final Map<WHICH_ALLELE, BitStorage> myBitStorage = new HashMap<>();
 
@@ -86,14 +89,14 @@ public class FilterGenotypeTable implements GenotypeTable {
             myChromosomes = original.chromosomes();
             myChromosomeOffsets = original.chromosomesOffsets();
         }
-        
+
         GenotypeCallTable myCallTable = myBaseAlignment.genotypeMatrix();
         if (myIsSiteFilter && myCallTable != null) {
             myGenotype = GenotypeCallTableBuilder.getFilteredInstance(myBaseAlignment.genotypeMatrix(), numberOfTaxa(), myTaxaRedirect, numberOfSites(), mySiteRedirect);
         } else if (myCallTable != null) {
             myGenotype = GenotypeCallTableBuilder.getFilteredInstance(myBaseAlignment.genotypeMatrix(), numberOfTaxa(), myTaxaRedirect, numberOfSites(), myRangeStart, myRangeEnd);
         } else {
-        	myGenotype = null;
+            myGenotype = null;
         }
 
     }
@@ -906,7 +909,7 @@ public class FilterGenotypeTable implements GenotypeTable {
     public boolean hasDepth() {
         return myBaseAlignment.hasDepth();
     }
-    
+
     @Override
     public boolean hasAlleleProbabilities() {
         return myBaseAlignment.hasAlleleProbabilities();
@@ -924,8 +927,11 @@ public class FilterGenotypeTable implements GenotypeTable {
 
     @Override
     public AlleleDepth depth() {
-        if (myAlleleDepth == null) {
-            myAlleleDepth = new FilterAlleleDepth(myBaseAlignment.depth(), this);
+        AlleleDepth depth = myBaseAlignment.depth();
+        if (depth == null) {
+            return null;
+        } else if (myAlleleDepth == null) {
+            myAlleleDepth = new FilterAlleleDepth(depth, this);
         }
         return myAlleleDepth;
     }
@@ -1086,7 +1092,13 @@ public class FilterGenotypeTable implements GenotypeTable {
 
     @Override
     public AlleleProbability alleleProbability() {
-        return AlleleProbabilityBuilder.getFilteredInstance(myBaseAlignment.alleleProbability(), this);
+        AlleleProbability probability = myBaseAlignment.alleleProbability();
+        if (probability == null) {
+            return null;
+        } else if (myAlleleProbability == null) {
+            myAlleleProbability = AlleleProbabilityBuilder.getFilteredInstance(probability, this);
+        }
+        return myAlleleProbability;
     }
 
     @Override
@@ -1098,10 +1110,16 @@ public class FilterGenotypeTable implements GenotypeTable {
             return myBaseAlignment.alleleProbability(taxaIndex, translateSite(site), type);
         }
     }
-    
+
     @Override
     public ReferenceProbability referenceProbability() {
-        return ReferenceProbabilityBuilder.getFilteredInstance(myBaseAlignment.referenceProbability(), this);
+        ReferenceProbability probability = myBaseAlignment.referenceProbability();
+        if (probability == null) {
+            return null;
+        } else if (myReferenceProbabily == null) {
+            myReferenceProbabily = ReferenceProbabilityBuilder.getFilteredInstance(probability, this);
+        }
+        return myReferenceProbabily;
     }
 
     @Override
@@ -1116,7 +1134,13 @@ public class FilterGenotypeTable implements GenotypeTable {
 
     @Override
     public Dosage dosage() {
-        return DosageBuilder.getFilteredInstance(myBaseAlignment.dosage(), this);
+        Dosage dosage = myBaseAlignment.dosage();
+        if (dosage == null) {
+            return null;
+        } else if (myDosage == null) {
+            myDosage = DosageBuilder.getFilteredInstance(dosage, this);
+        }
+        return myDosage;
     }
 
     @Override

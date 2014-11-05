@@ -525,14 +525,29 @@ public interface GenotypeTable {
      */
     public Set<SITE_SCORE_TYPE> siteScoreTypes();
 
+    /**
+     * Returns allele probability object (null if not present)
+     *
+     * @return allele probability associated with genotypeTable
+     */
     public AlleleProbability alleleProbability();
 
     public float alleleProbability(int taxon, int site, SITE_SCORE_TYPE type);
 
+    /**
+     * Returns reference probability object (null if not present)
+     *
+     * @return reference probability associated with genotypeTable
+     */
     public ReferenceProbability referenceProbability();
 
     public float referenceProbability(int taxon, int site);
 
+    /**
+     * Returns dosage object (null if not present)
+     *
+     * @return dosage associated with genotypeTable
+     */
     public Dosage dosage();
 
     public byte dosage(int taxon, int site);
