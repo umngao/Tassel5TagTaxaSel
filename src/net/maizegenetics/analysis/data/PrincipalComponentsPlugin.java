@@ -28,6 +28,7 @@ import net.maizegenetics.phenotype.PhenotypeAttribute;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.stats.PCA.PrinComp;
 import net.maizegenetics.stats.PCA.PrinComp.PC_TYPE;
@@ -380,6 +381,12 @@ public class PrincipalComponentsPlugin extends AbstractPlugin {
 	}
 
 	@Override
+	public String pluginDescription() {
+		return "This plugin performs principal components analysis and returns the requested number of PC axes (components), and, optionally, the eigenvalues and eigenvectors. "
+				+ "It can take as input either phenotype data or ReferenceProbability from a GenotypeTable.";
+	}
+
+	@Override
 	public ImageIcon getIcon() {
         URL imageURL = FileLoadPlugin.class.getResource("/net/maizegenetics/analysis/images/pca.gif");
         if (imageURL == null) {
@@ -398,5 +405,200 @@ public class PrincipalComponentsPlugin extends AbstractPlugin {
 	public String getToolTipText() {
 		return "Performs principal components analysis";
 	}
+
+    // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(PrincipalComponentsPlugin.class);
+    // }
+
+    /**
+     * Convenience method to run plugin with one return object.
+     */
+    public Phenotype runPlugin(DataSet input) {
+        return (Phenotype) performFunction(input).getData(0).getData();
+    }
+
+    /**
+     * If the box is checked, then the analysis will do an
+     * eigenvalue decomposition of the covariance matrix.
+     * If the box is unchecked, it will use a correlation
+     * matrix. Using the covariance matrix is recommended
+     * for genotypes while the correlation matrix is often
+     * used for phenotypes.
+     *
+     * @return covariance (alternative = correlation)
+     */
+    public Boolean covariance() {
+        return useCovariance.value();
+    }
+
+    /**
+     * Set covariance (alternative = correlation). If the
+     * box is checked, then the analysis will do an eigenvalue
+     * decomposition of the covariance matrix. If the box
+     * is unchecked, it will use a correlation matrix. Using
+     * the covariance matrix is recommended for genotypes
+     * while the correlation matrix is often used for phenotypes.
+     *
+     * @param value covariance (alternative = correlation)
+     *
+     * @return this plugin
+     */
+    public PrincipalComponentsPlugin covariance(Boolean value) {
+        useCovariance = new PluginParameter<>(useCovariance, value);
+        return this;
+    }
+
+    /**
+     * This parameter determines the type of value that will
+     * be used to limit the number of principal components
+     * (axes) returned. The possible choices are number_of_components,
+     * min_eigenvalue, and total_variance.
+     *
+     * @return limit number of components by
+     */
+    public PCA_LIMIT limitNumberOfComponentsBy() {
+        return limitBy.value();
+    }
+
+    /**
+     * Set limit number of components by. This parameter determines
+     * the type of value that will be used to limit the number
+     * of principal components (axes) returned. The possible
+     * choices are number_of_components, min_eigenvalue, and
+     * total_variance.
+     *
+     * @param value limit number of components by
+     *
+     * @return this plugin
+     */
+    public PrincipalComponentsPlugin limitNumberOfComponentsBy(PCA_LIMIT value) {
+        limitBy = new PluginParameter<>(limitBy, value);
+        return this;
+    }
+
+    /**
+     * The analysis will return this many principal components
+     * up to the number of taxa.
+     *
+     * @return number of components
+     */
+    public Integer numberOfComponents() {
+        return numberOfComponents.value();
+    }
+
+    /**
+     * Set number of components. The analysis will return
+     * this many principal components up to the number of
+     * taxa.
+     *
+     * @param value number of components
+     *
+     * @return this plugin
+     */
+    public PrincipalComponentsPlugin numberOfComponents(Integer value) {
+        numberOfComponents = new PluginParameter<>(numberOfComponents, value);
+        return this;
+    }
+
+    /**
+     * All principal components with an eigenvalue greater
+     * than or equal to this value will be returned.
+     *
+     * @return minimum eigenvalue
+     */
+    public Double minimumEigenvalue() {
+        return minEigenval.value();
+    }
+
+    /**
+     * Set minimum eigenvalue. All principal components with
+     * an eigenvalue greater than or equal to this value will
+     * be returned.
+     *
+     * @param value minimum eigenvalue
+     *
+     * @return this plugin
+     */
+    public PrincipalComponentsPlugin minimumEigenvalue(Double value) {
+        minEigenval = new PluginParameter<>(minEigenval, value);
+        return this;
+    }
+
+    /**
+     * The first principal components that together explain
+     * this proportion of the total variance will be returned.
+     *
+     * @return total variance
+     */
+    public Double totalVariance() {
+        return totalVar.value();
+    }
+
+    /**
+     * Set total variance. The first principal components
+     * that together explain this proportion of the total
+     * variance will be returned.
+     *
+     * @param value total variance
+     *
+     * @return this plugin
+     */
+    public PrincipalComponentsPlugin totalVariance(Double value) {
+        totalVar = new PluginParameter<>(totalVar, value);
+        return this;
+    }
+
+    /**
+     * Returns a list of eigenvalues sorted high to low.
+     *
+     * @return Return Eigenvalues
+     */
+    public Boolean returnEigenvalues() {
+        return reportEigenvalues.value();
+    }
+
+    /**
+     * Set Return Eigenvalues. Returns a list of eigenvalues
+     * sorted high to low.
+     *
+     * @param value Return Eigenvalues
+     *
+     * @return this plugin
+     */
+    public PrincipalComponentsPlugin returnEigenvalues(Boolean value) {
+        reportEigenvalues = new PluginParameter<>(reportEigenvalues, value);
+        return this;
+    }
+
+    /**
+     * Returns the eigenvectors calculated from a Singular
+     * Value Decomposition of the data. The resulting table
+     * can be quite large if the number of variants and taxa
+     * are big.
+     *
+     * @return Return Eigenvectors
+     */
+    public Boolean returnEigenvectors() {
+        return reportEigenvectors.value();
+    }
+
+    /**
+     * Set Return Eigenvectors. Returns the eigenvectors calculated
+     * from a Singular Value Decomposition of the data. The
+     * resulting table can be quite large if the number of
+     * variants and taxa are big.
+     *
+     * @param value Return Eigenvectors
+     *
+     * @return this plugin
+     */
+    public PrincipalComponentsPlugin returnEigenvectors(Boolean value) {
+        reportEigenvectors = new PluginParameter<>(reportEigenvectors, value);
+        return this;
+    }
+
 
 }
