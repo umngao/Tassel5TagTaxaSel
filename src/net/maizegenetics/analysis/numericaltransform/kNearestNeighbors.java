@@ -1,5 +1,6 @@
 package net.maizegenetics.analysis.numericaltransform;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -52,6 +53,9 @@ public class kNearestNeighbors {
     public static double calcKNN(double[][] data, int row, int col, int k, boolean isManhattan, boolean isCosine) {
         double[][] neighbors;
 
+        if (row == 271 && col == 2) {
+        	System.out.print("");
+        }
         if (isCosine) {
             neighbors = cosineSimRank(data, row, col, k);
         } else {
@@ -60,14 +64,35 @@ public class kNearestNeighbors {
 
         double num = 0.0;
 
+        int numberOfNonMissingValues = 0;
         for (int i = 0; i < neighbors.length; i++) {
             if (!Double.isNaN(neighbors[i][col])) {
                 num += neighbors[i][col];
+                numberOfNonMissingValues++;
             }
         }
-        return (num / (k - 1));
+        if (numberOfNonMissingValues == 0) return columnMean(data, col);
+        return (num / numberOfNonMissingValues);
     }
 
+    /**
+     * @param data		a matrix
+     * @param col		the column of the matrix for which the mean should be computed
+     * @return			the mean of the column, ignoring missing values
+     */
+    public static double columnMean(double[][] data, int col) {
+    	double sum = 0;
+    	double count = 0;
+    	for (double[] row : data) {
+    		if (!Double.isNaN(row[col])) {
+    			sum += row[col];
+    			count++;
+    		}
+    	}
+    	if (count == 0) return Double.NaN;
+    	return sum / count;
+    }
+    
     /**
      * Computes the cosine similarity of two vectors.
      *
@@ -173,7 +198,8 @@ public class kNearestNeighbors {
                 if (isManhattan) {
                     result += Math.abs(data1[i] - data2[i]);
                 } else {
-                    result += Math.pow((data1[i] - data2[i]), 2);
+                    double diff = data1[i] - data2[i];
+                    result += diff * diff;
                 }
             }
         }
