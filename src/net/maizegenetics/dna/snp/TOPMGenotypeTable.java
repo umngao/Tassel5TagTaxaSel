@@ -601,12 +601,12 @@ public class TOPMGenotypeTable implements GenotypeTable {
 
     @Override
     public String[][] alleleDefinitions() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return NucleotideAlignmentConstants.NUCLEOTIDE_ALLELES;
     }
 
     @Override
     public String[] alleleDefinitions(int site) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return NucleotideAlignmentConstants.NUCLEOTIDE_ALLELES[0];
     }
 
     @Override
