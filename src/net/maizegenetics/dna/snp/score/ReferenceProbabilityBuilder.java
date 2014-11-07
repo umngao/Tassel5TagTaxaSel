@@ -47,7 +47,11 @@ public class ReferenceProbabilityBuilder {
         if (myNumSites != values.length) {
             throw new IllegalArgumentException("ImputeProbabilityBuilder: addTaxon: number of values: " + values.length + " doesn't equal number of sites: " + myNumSites);
         }
-        myBuilder.addTaxon(taxon, SiteScoreUtil.floatToBytePercentage(values));
+        try {
+            myBuilder.addTaxon(taxon, SiteScoreUtil.floatToBytePercentage(values));
+        } catch (Exception e) {
+            throw new IllegalArgumentException("ImputeProbabilityBuilder: addTaxon: taxon number: " + taxon + ". " + e.getMessage());
+        }
         return this;
     }
 

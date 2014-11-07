@@ -30,7 +30,7 @@ public class SiteScoreUtil {
      */
     public static byte floatToBytePercentage(float value) {
         if ((value < 0.0) || (value > 1.0)) {
-            throw new IllegalArgumentException("SiteScoreUtil: floatToBytePercentage: value must be between 0.0 and 1.0");
+            throw new IllegalArgumentException("SiteScoreUtil: floatToBytePercentage: value: " + value + " must be between 0.0 and 1.0");
         }
 
         if (Float.isNaN(value)) {
@@ -60,7 +60,9 @@ public class SiteScoreUtil {
      * Converts byte value to float percentage.
      */
     public static float byteToFloatPercentage(byte value) {
-    	if (value == BYTE_REPRESENTING_NAN) return Float.NaN;
+        if (value == BYTE_REPRESENTING_NAN) {
+            return Float.NaN;
+        }
         return BYTE_TO_FLOAT[value & 0xFF];
     }
 
