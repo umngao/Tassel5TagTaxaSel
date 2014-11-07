@@ -136,7 +136,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 
 	@Override
 	public String getToolTipText() {
-		return "Transform phenotypes or convert genotypes to probabilities";
+		return "Transform or standardize phenotypes";
 	}
 
 	public NumericAttribute powerTransform(NumericAttribute original) {
