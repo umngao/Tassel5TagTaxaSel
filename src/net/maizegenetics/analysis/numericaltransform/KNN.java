@@ -8,6 +8,8 @@ import java.util.ArrayList;
  * Date: Oct 10, 2006
  * Time: 3:54:16 PM
  */
+
+@Deprecated
 public class KNN {
 
     public static double[][] impute(double[][] data, int kNeighbors, boolean isManhattenDist, boolean isUnweighted) {
