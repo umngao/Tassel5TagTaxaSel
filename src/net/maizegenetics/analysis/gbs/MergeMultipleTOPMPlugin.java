@@ -74,7 +74,7 @@ public class MergeMultipleTOPMPlugin extends AbstractPlugin {
         myLogger.info(
                 "\nThe options for the MergeMultipleTOPMPlugin:\n"
                 + "-input  Input directory containing TOPM files\n"
-                + "-orig Original TOPM"
+                + "-orig Original TOPM\n"
                 + "-result  TOPM Output Filename\n");
     }
 
