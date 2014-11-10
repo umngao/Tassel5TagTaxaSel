@@ -636,7 +636,6 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new HetsToUnknownPlugin(this, true)));
         result.add(createMenuItem(new TransformDataPlugin(this, true)));
         result.add(createMenuItem(new NumericalGenotypePlugin(this, true)));
-        result.add(createMenuItem(new ImputationPlugin(this, true)));
         result.addSeparator();
 
         JMenuItem delete = new JMenuItem("Delete Dataset");
@@ -667,6 +666,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new FILLINFindHaplotypesPlugin(this, true)));
         result.add(createMenuItem(new FILLINImputationPlugin(this, true)));
         result.add(createMenuItem(new FSFHapImputationPlugin(this, true)));
+        result.add(createMenuItem(new ImputationPlugin(this, true)));
         return result;
     }
 
