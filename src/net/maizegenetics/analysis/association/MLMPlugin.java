@@ -27,6 +27,7 @@ import javax.swing.JTextField;
 
 import org.apache.log4j.Logger;
 
+import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.gui.ReportDestinationDialog;
 import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.phenotype.Phenotype;
@@ -157,6 +158,11 @@ public class MLMPlugin extends AbstractPlugin {
 
             	Datum current = itr.next();
             	CompressedMLMusingDoubleMatrix theAnalysis;
+            	
+        		GenotypeTable myGenotype = ((GenotypePhenotype) current.getData()).genotypeTable();
+        		useGenotype = myGenotype.hasGenotype();
+        		if (!useGenotype) useRefProb = myGenotype.hasReferenceProbablity();
+
             	if (useP3D) {
             		if (compressionType.equals(CompressionType.Optimum)) {
             			theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, true, Double.NaN);
@@ -165,6 +171,10 @@ public class MLMPlugin extends AbstractPlugin {
             		} else {
             			theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, false, true, Double.NaN);
             		}
+            		theAnalysis.useGenotypeCalls(useGenotype);
+            		theAnalysis.useReferenceProbability(useRefProb);
+            		theAnalysis.useAlleleProbabilities(useAlleleProb);
+
             	} else {
             		if (compressionType.equals(CompressionType.Optimum)) {
             			theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, false, Double.NaN);
@@ -177,7 +187,7 @@ public class MLMPlugin extends AbstractPlugin {
             		theAnalysis.useGenotypeCalls(useGenotype);
             		theAnalysis.useReferenceProbability(useRefProb);
             		theAnalysis.useAlleleProbabilities(useAlleleProb);
-
+            		
             	}
 
             	myResults.addAll(theAnalysis.solve());

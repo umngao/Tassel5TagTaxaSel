@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.TreeSet;
+import java.util.stream.IntStream;
 
 public class CompressedMLMusingDoubleMatrix {
 
@@ -272,7 +273,7 @@ public class CompressedMLMusingDoubleMatrix {
                         alleleCounts = markerEffect.getLevelCounts();
                         markerdf = nAlleles - 1;
                     } else if (useReferenceProbability) { 
-                        double[] genotypes = AssociationUtils.getNonMissingDoubles(myGenoPheno.alleleProbsOfType(SITE_SCORE_TYPE.ReferenceProbablity, m), missingObsForSite);
+                        double[] genotypes = AssociationUtils.getNonMissingDoubles(myGenoPheno.referenceProb(m), missingObsForSite);
                         int nrows = genotypes.length;
                         X = fixed2.concatenate(DoubleMatrixFactory.DEFAULT.make(nrows, 1, genotypes), false);
                         nAlleles = 1;
@@ -376,11 +377,21 @@ public class CompressedMLMusingDoubleMatrix {
     }
 
     private BitSet missingForSite(int site) {
-    	byte[] siteGenotype = myGenotype.genotypeAllTaxa(site);
-    	int nsites = siteGenotype.length;
-    	OpenBitSet missing = new OpenBitSet(nsites);
-    	byte missingByte = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
-    	for (int i = 0; i < nsites; i++) if (siteGenotype[i] == missingByte) missing.fastSet(i);
+    	int ntaxa = myGenotype.numberOfTaxa();
+    	OpenBitSet missing = new OpenBitSet(ntaxa);
+    	if (useGenotypeCalls) {
+        	byte[] siteGenotype = myGenotype.genotypeAllTaxa(site);
+        	byte missingByte = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+        	for (int i = 0; i < ntaxa; i++) if (siteGenotype[i] == missingByte) missing.fastSet(i);
+    	} else if (useReferenceProbability) {
+    		for (int t = 0; t < ntaxa; t++) {
+    			if (myGenotype.referenceProbability(t, site) == Float.NaN) missing.fastSet(t);
+    		}
+    	} else {
+    		for (int t = 0; t < ntaxa; t++) {
+    			if (myGenotype.alleleProbability(t, site, SITE_SCORE_TYPE.DepthA) == Float.NaN) missing.fastSet(t);
+    		}
+    	}
     	return missing;
     }
     
