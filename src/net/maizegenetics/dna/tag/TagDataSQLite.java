@@ -2,6 +2,7 @@ package net.maizegenetics.dna.tag;
 
 import com.google.common.collect.*;
 import com.google.common.io.CharStreams;
+
 import net.maizegenetics.dna.map.*;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.snp.SimpleAllele;
@@ -48,6 +49,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     PreparedStatement tagidWhereAlleleidPS;
     PreparedStatement posTagInsertPS;
     PreparedStatement taxaDistWhereCutPositionIDPS;
+    PreparedStatement snpPositionsForChromosomePS;
 
 
 
@@ -116,6 +118,8 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             taxaDistWhereCutPositionIDPS=connection.prepareStatement(
                     "select tagtaxadistribution.* from tagCutPosition, tagtaxadistribution where tagCutPosition.positionid=? and " +
                             "tagCutPosition.tagid=tagtaxadistribution.tagid and tagCutPosition.bestmapping=1");
+            snpPositionsForChromosomePS=connection.prepareStatement(
+            		"select position from snpposition where chromosome=?");
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -736,5 +740,24 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             e.printStackTrace();
         }
 
+    }
+    
+    // Return SNP positions for specified list of chromosomes
+    @Override
+    public  ListMultimap<Integer, Integer> getSNPPositionsForChromosomes(Integer startChr, Integer endChr) {
+       ImmutableListMultimap.Builder<Integer, Integer> snpListBuilder=new ImmutableListMultimap.Builder<>();       
+        try{
+        	for (int chrom = startChr; chrom <= endChr; chrom++ ){
+        		snpPositionsForChromosomePS.setString(1, Integer.toString(chrom));
+                ResultSet rs=snpPositionsForChromosomePS.executeQuery();
+                while(rs.next()) {
+                    snpListBuilder.put(chrom, rs.getInt("position"));
+                }
+        	} 
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return snpListBuilder.build();
+ 
     }
 }
