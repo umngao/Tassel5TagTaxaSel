@@ -1,6 +1,8 @@
 package net.maizegenetics.dna.tag;
 
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
@@ -77,6 +79,14 @@ public interface TagData {
      * @return PositionList of all SNPs
      */
     PositionList getSNPPositions(int minSupportValue);
+    
+    /**
+     * Get SNPs for specified chromosomes
+     * @param starting chromosome number
+     * @param ending chromosome number
+     * @return  A multimap with Chromosome Number (integer) as the key and a list of SNP positions as the value
+     */
+    ListMultimap<Integer,Integer> getSNPPositionsForChromosomes(Integer startChr,Integer endChr);
 
     /**
      * Returns the list of tags present of a taxon.  Note this could be a very compute intensive request.
