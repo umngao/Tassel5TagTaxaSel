@@ -208,13 +208,13 @@ public class CompressedMLMusingDoubleMatrix {
             //{"Trait", "Marker", "Locus", "Site", "df", "F", "p", "errordf", "markerR2", "Genetic Var", "Residual Var", "-2LnLikelihood"}
             tableRow = new Object[]{
             		attr.name(),
-            		"",
+            		"None",
             		"",
             		"",
             		new Integer(0),
             		new Double(Double.NaN),
             		new Double(Double.NaN),
-            		new Double(nonMissingObs - baseModeldf),
+            		new Integer(nonMissingObs - baseModeldf),
             		new Double(Double.NaN),
             		new Double(genvar),
             		new Double(resvar),
@@ -326,7 +326,7 @@ public class CompressedMLMusingDoubleMatrix {
                         //add result to alleles
                         //"Trait","Marker","Chr","Pos","Allele","Effect", obs
                         int numberOfRowsKept = totalObs - (int) missingObsForSite.cardinality();
-                        if (useGenotypeCalls) {
+                        if (useReferenceProbability) {
                         	tableRow = new Object[]{attr.name(),
                         			markername,
                         			locus,
