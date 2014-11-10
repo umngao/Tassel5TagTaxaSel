@@ -1001,7 +1001,7 @@ public class PhenotypeBuilder {
 						wasPheno2ObsUsed[obs2Count] = true;
 						mergeObservation.add(new int[]{obs1, obs2});
 						listOfTaxaForObservations.add(taxon);
-						break;
+//						break;
 					}
 					obs2Count++;
 				}
