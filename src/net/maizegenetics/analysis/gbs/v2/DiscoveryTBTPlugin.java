@@ -21,11 +21,13 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.stream.IntStream;
 
 /**
  * Develops a discovery TBT file from a set of GBS sequence files.
@@ -111,7 +113,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
     }
 
     private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
-                     int minQuality, Map<Tag,TaxaDistribution> masterTagTaxaMap, int preferredTagLength) {
+                     int minQuality, TagDistributionMap masterTagTaxaMap, int preferredTagLength) {
         TaxaList tl=getLaneAnnotatedTaxaList(keyPath, fastQPath);
         BarcodeTrie barcodeTrie=initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
         processFastQ(fastQPath,barcodeTrie,masterTaxaList,masterTagTaxaMap,preferredTagLength,minQuality);
@@ -164,14 +166,16 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
     }
 
     private void processFastQ(Path fastqFile, BarcodeTrie barcodeTrie, TaxaList masterTaxaList,
-                              Map<Tag,TaxaDistribution> masterTagTaxaMap, int preferredTagLength, int minQual) {
+                              TagDistributionMap masterTagTaxaMap, int preferredTagLength, int minQual) {
         int allReads=0, goodBarcodedReads = 0;
         int maxTaxaNumber=masterTaxaList.size();
         try {
+            int qualityScoreBase=determineQualityScoreBase(fastqFile);
             BufferedReader br = Utils.getBufferedReader(fastqFile.toString(), 1 << 22);
             //todo fastq 1.8 has 8-9 colons (:) in the names, while prior version has 4 colons.  Quality scores are base 64 for old, base 33 for new 1.8+
             long time=System.nanoTime();
             String[] seqAndQual;
+            List<Tag> newTagsAddedInLane=new ArrayList<>();
             while ((seqAndQual=readFastQBlock(br,allReads)) != null) {
                 allReads++;
                 //After quality score is read, decode barcode using the current sequence & quality  score
@@ -179,7 +183,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                 if(barcode==null) continue;
                 if(minQual>0) {
                     //todo move getFirstLowQualityPos into this class?
-                    if(BaseEncoder.getFirstLowQualityPos(seqAndQual[1],minQual)<(barcode.getBarLength()+preferredTagLength)) continue;
+                    if(BaseEncoder.getFirstLowQualityPos(seqAndQual[1],minQual, qualityScoreBase)<(barcode.getBarLength()+preferredTagLength)) continue;
                 }
 
                 Tag tag=TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength()+preferredTagLength)).build();
@@ -188,9 +192,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                 TaxaDistribution taxaDistribution=masterTagTaxaMap.get(tag);
                 if(taxaDistribution==null) {
                     masterTagTaxaMap.put(tag,TaxaDistBuilder.create(maxTaxaNumber,barcode.getTaxaIndex()));
-                }
-                else if(taxaDistribution.totalDepth()==1) { //need to go from singleton to expandable TaxaDistribution
-                    masterTagTaxaMap.put(tag,TaxaDistBuilder.create(taxaDistribution).increment(barcode.getTaxaIndex()));
+                    newTagsAddedInLane.add(tag);
                 } else {
                     taxaDistribution.increment(barcode.getTaxaIndex());
                 }
@@ -199,11 +201,14 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
                             + " rate:" + (System.nanoTime()-time)/allReads +" ns/read");
                 }
             }
-            myLogger.info("Total number of reads in lane=" + allReads);
-            myLogger.info("Total number of good barcoded reads=" + goodBarcodedReads);
-            myLogger.info("Timing process (sorting, collapsing, and writing TagCount to file).");
+            System.out.println("Before rep removal tagCntMap size"+masterTagTaxaMap.size());
+            removeNewTagsWithoutReplication(masterTagTaxaMap,newTagsAddedInLane);
+            myLogger.info("Summary for "+fastqFile.toString()+"\n"+
+                    "Total number of reads in lane=" + allReads +"\n"+
+                    "Total number of good barcoded reads=" + goodBarcodedReads+"\n"+
+                    "Timing process (sorting, collapsing, and writing TagCount to file)."+"\n"+
+                    "Process took " + (System.nanoTime() - time)/1e6 + " milliseconds.");
             System.out.println("tagCntMap size"+masterTagTaxaMap.size());
-            myLogger.info("Process took " + (System.nanoTime() - time)/1e6 + " milliseconds.");
             br.close();
         } catch (Exception e) {
             myLogger.error("Good Barcodes Read: " + goodBarcodedReads);
@@ -231,6 +236,23 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
             myLogger.error("Unable to correctly parse the sequence and quality score near line: " + currentRead*4
                     + " from fastq file.  Your fastq file may have been corrupted.");
             return null;
+        }
+    }
+
+    /**
+     * Method for reading FastQ four line structure, and returning a string array with [sequence, qualityScore]
+     */
+    static int determineQualityScoreBase(Path fastqFile) throws IOException {
+        try{BufferedReader bw = Utils.getBufferedReader(fastqFile.toString());
+            int headerParts=bw.readLine().split(":").length;
+            int base=(headerParts<5)?64:33;
+            myLogger.info(fastqFile.toString()+": Quality score base:"+base);
+            return base;
+        } catch (IOException e) {
+            e.printStackTrace();
+            myLogger.error("Unable to correctly parse the quality score base from fastq file.  " +
+                    "Your fastq file may have been corrupted.");
+            return 0;
         }
     }
 
@@ -276,6 +298,26 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
         tagCntMap.putAll(shortTags);
         System.out.println("After combining again tagCntMap.size() = " + tagCntMap.size());
     }
+
+    /**
+     * This method removes all tags are are never repeated in a single sample (taxa).  The concept is that
+     * all biologically real tag should show up twice somewhere.  This could be called at the end of every
+     * flowcell to test all the novel tags.
+     */
+    private static void removeNewTagsWithoutReplication(TagDistributionMap masterTagTaxaMap, List<Tag> novelTags) {
+        LongAdder tagsRemoved=new LongAdder();
+        novelTags.stream().forEach(t ->{
+            TaxaDistribution td = masterTagTaxaMap.get(t);
+            if(td==null) {}
+            else if(td.totalDepth()<2) {masterTagTaxaMap.remove(t); tagsRemoved.increment(); }
+            else if(!IntStream.of(td.depths()).anyMatch(depth -> depth>1)) {
+                masterTagTaxaMap.remove(t);
+                tagsRemoved.increment();
+            }
+        });
+        System.out.println("tagsRemoved = " + tagsRemoved);
+    }
+
 
 // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
