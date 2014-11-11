@@ -84,9 +84,9 @@ public interface TagData {
      * Get SNPs for specified chromosomes
      * @param starting chromosome number
      * @param ending chromosome number
-     * @return  A multimap with Chromosome Number (integer) as the key and a list of SNP positions as the value
+     * @return  PostionList of SNP positions for the requested chromosomes
      */
-    ListMultimap<Integer,Integer> getSNPPositionsForChromosomes(Integer startChr,Integer endChr);
+    PositionList getSNPPositionsForChromosomes(Integer startChr,Integer endChr);
 
     /**
      * Returns the list of tags present of a taxon.  Note this could be a very compute intensive request.
