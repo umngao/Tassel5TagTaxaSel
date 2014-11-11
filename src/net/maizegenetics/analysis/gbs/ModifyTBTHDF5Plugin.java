@@ -76,13 +76,13 @@ public class ModifyTBTHDF5Plugin extends AbstractPlugin {
     @Override
     public DataSet processData(DataSet input) {
         targetTBT = new TagsByTaxaByteHDF5TaxaGroups(targetTBTHDF5File());
-        if (additionTaxaFile() != null) {
+        if ((additionTaxaFile() != null) && !additionTaxaFile().isEmpty()) {
             addAllTaxaToNewHDF5(additionTaxaFile());
         }
         if (mergeTaxa()) {
             combineTaxaHDF5();
         }
-        if (pivotTBTHDF5File() != null) {
+        if ((pivotTBTHDF5File() != null) && !pivotTBTHDF5File().isEmpty()) {
             TagsByTaxaByteHDF5TagGroups tranTBT = new TagsByTaxaByteHDF5TagGroups(targetTBT, pivotTBTHDF5File());
         }
         targetTBT.getFileReadyForClosing();

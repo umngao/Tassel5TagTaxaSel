@@ -107,7 +107,7 @@ public class SeqToTBTHDF5Plugin extends AbstractPlugin {
                         "Couldn't find any files that end with \".fq\", \".fq.gz\", \".fastq\", \"_fastq.txt\", \"_fastq.gz\", \"_fastq.txt.gz\", \"_sequence.txt\", or \"_sequence.txt.gz\" in the supplied directory: "
                         + inputDirectory);
             } else {
-                myLogger.info("FastqToTBTPlugin: setParameters: Using the following fastq files:");
+                myLogger.info("SeqToTBTHDF5Plugin: setParameters: Using the following fastq files:");
                 for (String filename : myFastqFileS) {
                     myLogger.info(filename);
                 }
@@ -119,13 +119,13 @@ public class SeqToTBTHDF5Plugin extends AbstractPlugin {
         }
 
         // Create Tags object from tag count file with option -t, or from TOPM file with option -m
-        if (tagCountFile() != null) {
-            if (physicalMapFile() != null) {
+        if ((tagCountFile() != null) && !tagCountFile().isEmpty()) {
+            if ((physicalMapFile() != null) && !physicalMapFile().isEmpty()) {
                 throw new IllegalArgumentException("Options -t and -m are mutually exclusive.");
             }
             myMasterTags = new TagCounts(tagCountFile(), FilePacking.Byte);
-        } else if (physicalMapFile() != null) {
-            if (tagCountFile() != null) {
+        } else if ((physicalMapFile() != null) && !physicalMapFile().isEmpty()) {
+            if ((tagCountFile() != null) && !tagCountFile().isEmpty()) {
                 throw new IllegalArgumentException("Options -t and -m are mutually exclusive.");
             }
             myMasterTags = new TagsOnPhysicalMap(physicalMapFile(), true);
