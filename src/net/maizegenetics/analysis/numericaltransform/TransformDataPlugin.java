@@ -25,6 +25,7 @@ import net.maizegenetics.phenotype.PhenotypeBuilder;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.util.LoggingUtils;
 import net.maizegenetics.util.OpenBitSet;
 
 public class TransformDataPlugin extends AbstractPlugin {
@@ -58,7 +59,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 			if (isInteractive()) {
 				allTraits = false;
 				List<NumericAttribute> numericAttributes = Stream.concat(myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data).stream(), 
-						myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor).stream())
+						myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.covariate).stream())
 						.map(pa -> (NumericAttribute) pa)
 						.collect(Collectors.toList());
 				
@@ -255,7 +256,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 			int n = subset.length;
 			float[] subsetData = new float[n];
 			for (int i = 0; i < n; i++) subsetData[i] = stdData[subset[i]];
-			float[] meanSD = meanStdDev(stdData);
+			float[] meanSD = meanStdDev(subsetData);
 			for (int i = 0; i < n; i++) stdData[subset[i]] = (stdData[subset[i]] - meanSD[0]) / meanSD[1] ;
 		}
 		
@@ -267,7 +268,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 			int[] levels;
 			subset(int[] levels) { this.levels = levels; }
 			public boolean equals(Object other) {
-				if (other instanceof int[]) return Arrays.equals(levels, (int[]) other);
+				if (other instanceof subset) return Arrays.equals(levels, ((subset) other).levels);
 				return false;
 			}
 			
@@ -316,10 +317,10 @@ public class TransformDataPlugin extends AbstractPlugin {
 		byFactor = new ArrayList<>();
 		int argPtr = 0;
 		while (argPtr < args.length) {
-			if (args[argPtr].equals("-traits")) {
+			if (args[argPtr].toLowerCase().startsWith("-trait")) {
 				setTraits(args[++argPtr]);
 				argPtr++;
-			} else if (args[argPtr].equals("-factor")) {
+			} else if (args[argPtr].toLowerCase().startsWith("-factor")) {
 				setFactors(args[++argPtr]);
 				argPtr++;
 			} else if (args[argPtr].equals("-log")) {
@@ -345,6 +346,10 @@ public class TransformDataPlugin extends AbstractPlugin {
 				if (paramVal.toLowerCase().startsWith("t")) standardize = true;
 				else standardize = false;
 				argPtr++;
+			} else {
+				String msg = String.format("unrecognized command line parameter for TransformDataPlugin: %s", args[argPtr]);
+				myLogger.error(msg);
+				throw new IllegalArgumentException(msg);
 			}
 		}
 	}
