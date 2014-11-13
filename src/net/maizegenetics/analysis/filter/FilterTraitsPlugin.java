@@ -67,8 +67,10 @@ public class FilterTraitsPlugin extends AbstractPlugin {
 				FilterTraitsDialog ftd = new FilterTraitsDialog(getParentFrame(), (Phenotype) datum.getData());
 				ftd.setLocationRelativeTo(getParentFrame());
 				ftd.setVisible(true);
-				includeList.add(ftd.getIncludedTraits());
-				typeChangeList.add(ftd.getTypeChangeMap());
+				if (ftd.getClickedOK()) {
+					includeList.add(ftd.getIncludedTraits());
+					typeChangeList.add(ftd.getTypeChangeMap());
+				}
 				ftd.dispose();
 			}
 
