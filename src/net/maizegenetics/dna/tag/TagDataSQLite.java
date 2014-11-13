@@ -744,20 +744,29 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     
     // Return SNP positions for specified list of chromosomes
     @Override
-    public  ListMultimap<Integer, Integer> getSNPPositionsForChromosomes(Integer startChr, Integer endChr) {
-       ImmutableListMultimap.Builder<Integer, Integer> snpListBuilder=new ImmutableListMultimap.Builder<>();       
+    public  PositionList getSNPPositionsForChromosomes(Integer startChr, Integer endChr) {
+    	PositionListBuilder plb = new PositionListBuilder();
+    	// Verify good chromsome values
+    	if (startChr < 1 ||
+    	    endChr < 1 ||
+    	    startChr > endChr ) {
+    		System.err.printf("getSNPPOsitionsForChromosomes:  bad Chromosome values: startChr %d, endChr %d\n",
+    				startChr, endChr);
+    		return null;
+    	}
         try{
         	for (int chrom = startChr; chrom <= endChr; chrom++ ){
         		snpPositionsForChromosomePS.setString(1, Integer.toString(chrom));
                 ResultSet rs=snpPositionsForChromosomePS.executeQuery();
                 while(rs.next()) {
-                    snpListBuilder.put(chrom, rs.getInt("position"));
+                	Chromosome chr= new Chromosome(Integer.toString(chrom));
+                	Position position = new GeneralPosition.Builder(chr,rs.getInt("position")).build();
+                    plb.add(position);
                 }
         	} 
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return snpListBuilder.build();
- 
+        return plb.build();
     }
 }

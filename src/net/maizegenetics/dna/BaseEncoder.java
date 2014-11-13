@@ -376,10 +376,10 @@ public class BaseEncoder {
     (Note: See discussion above).
     L - Illumina 1.8+ Phred+33,  raw reads typically (0, 41)
      */
-    public static int getFirstLowQualityPosSangerIllumina18(String quality, int minQual) {
+    public static int getFirstLowQualityPos(String quality, int minQual, int qualBase) {
         int qualInt = 0;
         for (int i = 0; i < quality.length(); i++) {
-            qualInt = (int) quality.charAt(i) - 33;
+            qualInt = (int) quality.charAt(i) - qualBase;
             if (qualInt < minQual) {
                 return i;
             }

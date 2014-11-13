@@ -236,7 +236,8 @@ final class PositionArrayList implements PositionList {
 
     @Override
     public boolean contains(Object o) {
-        return mySiteList.contains(o);
+        Position p=(Position)o;
+        return (siteOfPhysicalPosition(p.getPosition(),p.getChromosome())>-1);
     }
 
     @Override
@@ -268,7 +269,10 @@ final class PositionArrayList implements PositionList {
 
     @Override
     public boolean containsAll(Collection<?> c) {
-        return mySiteList.containsAll(c);
+        for (Object e : c)
+            if (!contains(e))
+                return false;
+        return true;
     }
 
     /**Not supported immutable class*/
