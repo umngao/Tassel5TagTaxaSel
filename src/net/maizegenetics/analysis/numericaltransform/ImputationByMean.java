@@ -8,6 +8,10 @@ package net.maizegenetics.analysis.numericaltransform;
  */
 public class ImputationByMean {
 
+    private ImputationByMean() {
+        // utility class
+    }
+
     /**
      * Impute the missing values.
      *
