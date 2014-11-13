@@ -96,7 +96,7 @@ public class NumericalGenotypePlugin extends AbstractPlugin {
 
     }
 
-    public GenotypeTable setAlternateMinorAllelesToMinor(GenotypeTable myGenotype) {
+    public static GenotypeTable setAlternateMinorAllelesToMinor(GenotypeTable myGenotype) {
     	//TODO implement
         int nsites = myGenotype.numberOfSites();
         int ntaxa = myGenotype.numberOfTaxa();
@@ -124,17 +124,17 @@ public class NumericalGenotypePlugin extends AbstractPlugin {
     	return numGenotype;
     }
     
-    public GenotypeTable setAlternateMinorAllelesToMajor(GenotypeTable myGenotype) {
+    public static GenotypeTable setAlternateMinorAllelesToMajor(GenotypeTable myGenotype) {
     	//TODO implement
     	return null;
     }
 
-    public GenotypeTable setAlternateMinorAllelesToMissing(GenotypeTable myGenotype) {
+    public static GenotypeTable setAlternateMinorAllelesToMissing(GenotypeTable myGenotype) {
     	//TODO implement
     	return null;
     }
 
-    public GenotypeTable transformToAlleleProbability(GenotypeTable myGenotype) {
+    public static GenotypeTable transformToAlleleProbability(GenotypeTable myGenotype) {
     	//TODO implement
     	return null;
     }

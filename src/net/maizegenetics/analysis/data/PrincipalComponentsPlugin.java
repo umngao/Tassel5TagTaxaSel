@@ -15,6 +15,8 @@ import org.apache.log4j.Logger;
 import com.google.common.collect.Range;
 
 import net.maizegenetics.analysis.association.FixedEffectLMPlugin;
+import net.maizegenetics.analysis.numericaltransform.ImputationPlugin;
+import net.maizegenetics.analysis.numericaltransform.NumericalGenotypePlugin;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.score.ReferenceProbability;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
@@ -85,7 +87,7 @@ public class PrincipalComponentsPlugin extends AbstractPlugin {
 		List<Datum> myData = input.getDataOfType(new Class[]{Phenotype.class, GenotypeTable.class});
 		for (Datum aDatum : myData) {
 			if (aDatum.getData() instanceof Phenotype) {
-				//check for missing values
+				//check for missing values, throw an IllegalArgumentException if there is any missing data
 				Phenotype myPhenotype = (Phenotype) aDatum.getData();
 				if (areAnyPhenotypesMissing(myPhenotype.dataAttributeStream())) {
 					StringBuilder msgBuilder = new StringBuilder();
@@ -112,7 +114,6 @@ public class PrincipalComponentsPlugin extends AbstractPlugin {
 				if (useCovariance.value()) pctype = PC_TYPE.cov;
 				else pctype = PC_TYPE.corr;
 				PrinComp pca = new PrinComp(dataMatrix, pctype);
-
 				
 				//get results
 				myResults.addAll(addResultsToDatumList(pca, myPhenotype.taxaAttribute(), dataAttributes, aDatum.getName()));
@@ -120,15 +121,13 @@ public class PrincipalComponentsPlugin extends AbstractPlugin {
 			} else {
 				GenotypeTable myGenotype = (GenotypeTable) aDatum.getData();
 				
-				//is there a reference probability?
+				//is there a reference probability? If not, create one and impute missing values
 				if (!myGenotype.hasReferenceProbablity()) {
-					StringBuilder msgBuilder = new StringBuilder();
-					msgBuilder.append("The genotype from ").append(aDatum.getName()).append(" does not have a ReferenceProbability.");
-					throw new IllegalArgumentException(msgBuilder.toString());
-				}
-				
-				//check for missing values
-				if (areAnyGenotypesMissingInReferenceProbability(myGenotype)) {
+					myGenotype = NumericalGenotypePlugin.setAlternateMinorAllelesToMinor(myGenotype);
+					DataSet myDataset = new DataSet(new Datum("name", myGenotype, "comment"), this);
+					DataSet imputedDataset = new ImputationPlugin(null, false).performFunction(myDataset);
+					myGenotype = (GenotypeTable) imputedDataset.getData(0).getData();
+				} else if (areAnyGenotypesMissingInReferenceProbability(myGenotype)) {
 					StringBuilder msgBuilder = new StringBuilder();
 					msgBuilder.append("There are missing values in ")
 						.append(aDatum.getName())
@@ -238,7 +237,7 @@ public class PrincipalComponentsPlugin extends AbstractPlugin {
 			Object[][] tableData = new Object[nEigenvalues][4];
 			double sumvalues = cumulativeEigenvalues[nEigenvalues - 1];
 			for (int i = 0; i < nEigenvalues; i++) {
-				tableData[i][0] = String.format("PC%d",i);
+				tableData[i][0] = String.format("PC%d",i+1);
 				tableData[i][1] = new Double(eigenvalues[i]);
 				tableData[i][2] = new Double(eigenvalues[i]/sumvalues);
 				tableData[i][3] = new Double(cumulativeEigenvalues[i]/sumvalues);

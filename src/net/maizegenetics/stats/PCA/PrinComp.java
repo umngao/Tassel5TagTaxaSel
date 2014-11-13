@@ -11,17 +11,20 @@ public class PrinComp {
 	
 	/**
 	 * The class uses singular value decomposition to find the eigenvalues, eigenvectors and principal components of either the covariance or correlation matrix 
-	 * of the data. If covariance, then the result is the equivalent of finding the eighvalue decomposition of XX' where X is the data matrix with the 
+	 * of the data. If covariance, then the result is the equivalent of finding the eighvalue decomposition of XX'/(n-1) where X is the data matrix with the 
 	 * column means subtracted from the columns. If correlation, the column values are also scaled. 
 	 * That is, after the mean is subtracted, the values are divided by the standard deviation.
 	 * @param data	a matrix of data
 	 * @param type	should the analysis use the covariance (cov) or the correlation (corr) matrix of the data
 	 */
 	public PrinComp(DoubleMatrix data, PC_TYPE type) {
+		
+		datamatrix = data;
 		datamatrix = centerCols(data);
 		if (type == PC_TYPE.corr) scaleCenteredMatrix(datamatrix);
 		
-		svd = datamatrix.getSingularValueDecomposition();
+		double multiplier = 1.0 / Math.sqrt(datamatrix.numberOfRows() - 1);
+		svd = datamatrix.scalarMult(multiplier).getSingularValueDecomposition();
 	}
 	
 	/**
