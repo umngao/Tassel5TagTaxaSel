@@ -1,6 +1,5 @@
 package net.maizegenetics.analysis.numericaltransform;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -12,6 +11,10 @@ import java.util.Map;
  *
  */
 public class kNearestNeighbors {
+
+    private kNearestNeighbors() {
+        // utility class
+    }
 
     /**
      * Impute all the missing values.
@@ -54,7 +57,7 @@ public class kNearestNeighbors {
         double[][] neighbors;
 
         if (row == 271 && col == 2) {
-        	System.out.print("");
+            System.out.print("");
         }
         if (isCosine) {
             neighbors = cosineSimRank(data, row, col, k);
@@ -71,28 +74,32 @@ public class kNearestNeighbors {
                 numberOfNonMissingValues++;
             }
         }
-        if (numberOfNonMissingValues == 0) return columnMean(data, col);
+        if (numberOfNonMissingValues == 0) {
+            return columnMean(data, col);
+        }
         return (num / numberOfNonMissingValues);
     }
 
     /**
-     * @param data		a matrix
-     * @param col		the column of the matrix for which the mean should be computed
-     * @return			the mean of the column, ignoring missing values
+     * @param data	a matrix
+     * @param col	the column of the matrix for which the mean should be computed
+     * @return	the mean of the column, ignoring missing values
      */
     public static double columnMean(double[][] data, int col) {
-    	double sum = 0;
-    	double count = 0;
-    	for (double[] row : data) {
-    		if (!Double.isNaN(row[col])) {
-    			sum += row[col];
-    			count++;
-    		}
-    	}
-    	if (count == 0) return Double.NaN;
-    	return sum / count;
+        double sum = 0;
+        double count = 0;
+        for (double[] row : data) {
+            if (!Double.isNaN(row[col])) {
+                sum += row[col];
+                count++;
+            }
+        }
+        if (count == 0) {
+            return Double.NaN;
+        }
+        return sum / count;
     }
-    
+
     /**
      * Computes the cosine similarity of two vectors.
      *
