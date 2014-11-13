@@ -10,6 +10,8 @@ import java.util.stream.Stream;
 
 import javax.swing.ImageIcon;
 
+import org.apache.log4j.Logger;
+
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
@@ -26,6 +28,7 @@ import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.util.OpenBitSet;
 
 public class TransformDataPlugin extends AbstractPlugin {
+	private static Logger myLogger = Logger.getLogger(TransformDataPlugin.class);
 	public enum BASE {natural, base_2, base_10};
 	
 	private List<NumericAttribute> traitsToTransform;
@@ -36,6 +39,9 @@ public class TransformDataPlugin extends AbstractPlugin {
 	private BASE myBase = BASE.natural;
 	private double power = 1;
 	private static final double log2 = Math.log(2);
+	private boolean allTraits = true;
+	private String traitnames = "";
+	private String factornames = "";
 		
 	public TransformDataPlugin(Frame parentFrame, boolean isInteractive) {
 		super(parentFrame, isInteractive);
@@ -50,7 +56,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 		if (myData.size() == 1) {
 			Phenotype myPhenotype = (Phenotype) myData.get(0).getData();
 			if (isInteractive()) {
-				
+				allTraits = false;
 				List<NumericAttribute> numericAttributes = Stream.concat(myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data).stream(), 
 						myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor).stream())
 						.map(pa -> (NumericAttribute) pa)
@@ -70,7 +76,33 @@ public class TransformDataPlugin extends AbstractPlugin {
 				standardize = tdd.standardize();
 				myBase = tdd.base();
 				power = tdd.exponent();
+			} else {
+				//add traitnames to list of attributes to be transformed
+				if (traitnames.length() == 0) {
+					traitsToTransform = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data).stream()
+							.map(a -> (NumericAttribute) a)
+							.collect(Collectors.toList());
+				} else {
+					String[] attributeNames = traitnames.split(",");
+					traitsToTransform = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data).stream()
+							.filter(a -> contains(a.name(), attributeNames))
+							.map(a -> (NumericAttribute) a)
+							.collect(Collectors.toList());
+				}
+				
+				//add factornames ot list of factors for stanardization
+				if (factornames.length() == 0) {
+					byFactor = new ArrayList<>();  //do not use factors
+				} else {
+					String[] attributeNames = factornames.split(",");
+					byFactor = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor).stream()
+							.filter(a -> contains(a.name(), attributeNames))
+							.map(a -> (CategoricalAttribute) a)
+							.collect(Collectors.toList());
+				}
+				
 			}
+			
 			if (logTransform || powerTransform || standardize) return transformTraits(myPhenotype, myData.get(0));
 			else return null;
 			
@@ -79,6 +111,10 @@ public class TransformDataPlugin extends AbstractPlugin {
 		throw new IllegalArgumentException("TransformDataPlugin: the dataset selected is of the wrong type.");
 	}
 
+	private boolean contains(String name, String[] array) {
+		return Arrays.stream(array).anyMatch(str -> str.equals(name));
+	}
+	
 	public DataSet transformTraits(Phenotype myPhenotype, Datum myData) {
 		//use a sequential stream, because the order of the attributes needs to stay the same
 		List<PhenotypeAttribute> myNewAttributes = myPhenotype.attributeListCopy().stream()
@@ -272,6 +308,68 @@ public class TransformDataPlugin extends AbstractPlugin {
 		return subsetList;
 	}
 
+	
+	@Override
+	public void setParameters(String[] args) {
+		// TODO Auto-generated method stub
+		traitsToTransform = new ArrayList<>();
+		byFactor = new ArrayList<>();
+		int argPtr = 0;
+		while (argPtr < args.length) {
+			if (args[argPtr].equals("-traits")) {
+				setTraits(args[++argPtr]);
+				argPtr++;
+			} else if (args[argPtr].equals("-factor")) {
+				setFactors(args[++argPtr]);
+				argPtr++;
+			} else if (args[argPtr].equals("-log")) {
+				logTransform = true;
+				powerTransform = false;
+				String baseName = args[++argPtr];
+				if (baseName.equals("natural")) myBase = BASE.natural;
+				else if (baseName.equals("base_2")) myBase = BASE.base_2;
+				else if (baseName.equals("base_10")) myBase = BASE.base_10;
+				else throw new IllegalArgumentException("-log parameter value must be one of natural, base_2, base_10.");
+				argPtr++;
+			} else if (args[argPtr].equals("-power")) {
+				powerTransform = true;
+				logTransform = false;
+				try {
+					power = Double.parseDouble(args[++argPtr]);
+				} catch(NumberFormatException nfe) {
+					myLogger.error("-power parameter value must be a floating point number.",  nfe);
+				}
+				argPtr++;
+			} else if (args[argPtr].equals("-standardize")) {
+				String paramVal = args[++argPtr];
+				if (paramVal.toLowerCase().startsWith("t")) standardize = true;
+				else standardize = false;
+				argPtr++;
+			}
+		}
+	}
+
+	@Override
+	public String getUsage() {
+		StringBuilder usageString = new StringBuilder();
+		usageString.append("The TransformDataPlugin can take the following parameters. Cannot use both log and power parameters.:\n");
+		usageString.append("-traits: A comma delimited list of trait names with no embedded space. If this parameter is not specified then all traits will be transformed.");
+		usageString.append("-factor: The factor name or a comma-delimited list of factor names with no embedded spaces within which values are to be standardized. ");
+		usageString.append("The default is to ignore factors and use the mean and standard deviation of all observations.\n");
+		usageString.append("-log: perform a log transformation. Can take one of natural, base_2, or base_10. Default = no transformation.");
+		usageString.append("-power: perform a power transformation. The parameter value is the exponent to which each value should be raised. Default = no transformation.");
+		usageString.append("-standardize: standardize values by subtracting the mean and dividing by the standard deviation. true or false. Default = false.");
+		return usageString.toString();
+	}
+
+	public void setTraits(String namelist) {
+		traitnames = namelist;
+	}
+	
+	public void setFactors(String namelist) {
+		factornames = namelist;
+	}
+	
 	public void setTraitsToTransform(List<NumericAttribute> traitsToTransform) {
 		this.traitsToTransform = traitsToTransform;
 	}
