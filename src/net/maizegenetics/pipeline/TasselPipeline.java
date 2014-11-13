@@ -445,10 +445,6 @@ public class TasselPipeline implements PluginListener {
                 } else if (current.equalsIgnoreCase("-excludeLastTrait")) {
                     FilterTraitsPlugin plugin = new FilterTraitsPlugin(myMainFrame, false);
                     plugin.excludeLast(true);
-//                    ArrayList input = new ArrayList();
-//                    int[] excludeLast = new int[]{-1};
-//                    input.add(excludeLast);
-//                    plugin.setIncludeList(input);
                     integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-mlm")) {
                     MLMPlugin plugin = new MLMPlugin(myMainFrame, false);
