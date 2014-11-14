@@ -25,8 +25,8 @@ import net.maizegenetics.phenotype.PhenotypeBuilder;
 
 public class FilterTraitsPlugin extends AbstractPlugin {
     private static final Logger myLogger = Logger.getLogger(FilterTraitsPlugin.class);
-	private ArrayList<int[]> includeList = new ArrayList<>();
-	private ArrayList<Map<PhenotypeAttribute, ATTRIBUTE_TYPE>> typeChangeList = new ArrayList<>();
+	private ArrayList<int[]> includeList;
+	private ArrayList<Map<PhenotypeAttribute, ATTRIBUTE_TYPE>> typeChangeList;
 	private boolean excludeLast = false;
 	
 	public FilterTraitsPlugin(Frame parentFrame, boolean isInteractive) {
@@ -56,6 +56,8 @@ public class FilterTraitsPlugin extends AbstractPlugin {
 
 	@Override
 	public DataSet performFunction(DataSet input) {
+		includeList = new ArrayList<>();
+		typeChangeList = new ArrayList<>();
 		List<Datum> data = input.getDataOfType(Phenotype.class);
 		ArrayList<Datum> outputList = new ArrayList<Datum>();
 
