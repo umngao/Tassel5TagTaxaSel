@@ -208,7 +208,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 
 		//add covariates to model
 		for (PhenotypeAttribute attr:myCovariateAttributes) {
-			double[] values = AssociationUtils.getNonMissingDoubles((double[]) attr.allValues(), missingObsForSite);
+			double[] values = AssociationUtils.getNonMissingDoubles((float[]) attr.allValues(), missingObsForSite);
 			CovariateModelEffect cme = new CovariateModelEffect(values, attr.name());
 			modelEffects.add(cme);
 		}
