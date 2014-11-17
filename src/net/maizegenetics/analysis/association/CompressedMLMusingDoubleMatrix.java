@@ -165,6 +165,8 @@ public class CompressedMLMusingDoubleMatrix {
             //update missing for taxa not in the kinship matrix or the distance matrix.
             //Create kinship and distance matrices with taxa in phenotype
             TaxaList nonmissingIds = updateMissingWithKinship(missing, theTaxa);
+            TaxaList kinshipTaxa = kinshipMatrix.getTaxaList();
+            
             DistanceMatrix kin = new DistanceMatrix(kinshipMatrix, nonmissingIds);
 
             //calculate the number of nonmissing observations
@@ -742,9 +744,15 @@ public class CompressedMLMusingDoubleMatrix {
     /**
      * @param missing			a BitSet with bits equal set when a value is missing in that row
      * @param phenotypeTaxa 	the taxa
-     * @return 					a TaxaList with the taxa that are in both the kinship matrix and the phenotype
+     * @return 					a TaxaList with the taxa that are in both the kinship matrix and the phenotype.
+     * Sets indices of taxa in missing that are not in the kinship matrix.
      */
     public TaxaList updateMissingWithKinship(BitSet missing, Taxon[] phenotypeTaxa) {
+    	int n = phenotypeTaxa.length;
+    	for (int i = 0; i < n; i++) {
+    		int ndx = kinshipMatrix.whichIdNumber(phenotypeTaxa[i]);
+    		if (ndx < 0) missing.fastSet(i);
+    	}
     	Taxon[] nonMissingTaxa = AssociationUtils.getNonMissingValues(phenotypeTaxa, missing);
         return new TaxaListBuilder().addAll(nonMissingTaxa).build();
     }
