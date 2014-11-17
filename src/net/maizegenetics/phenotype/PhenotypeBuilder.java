@@ -465,7 +465,10 @@ public class PhenotypeBuilder {
 				taxaList.add(new Taxon(values[0]));
 				for (int i = 0; i < ntraits; i++) {
 					float val;
-					if (values[i + 1].startsWith("-99")) val = Float.NaN;
+					if (values[i + 1].startsWith("-99")) {
+						val = Float.NaN;
+						missingList.get(i).fastSet(dataCount);
+					}
 					else {
 						try {
 							val = Float.parseFloat(values[i + 1]);
