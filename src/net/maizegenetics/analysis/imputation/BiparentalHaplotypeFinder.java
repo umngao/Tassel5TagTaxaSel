@@ -46,7 +46,7 @@ public class BiparentalHaplotypeFinder {
 	/**
 	 * Only cluster haplotypes with a minimum number of non missing values.
 	 */
-	int minNotMissing = 20;
+	double minNotMissingProportion = 0.2;
 	
 	/**
 	 * Only use clusters with minClusterSize taxa as parent haplotypes
@@ -119,6 +119,7 @@ public class BiparentalHaplotypeFinder {
 		Haplotype h0 = null;
 		Haplotype h1 = null;
 		while (!exactlyTwo & initialStart < maxStart) {
+			int minNotMissing = (int) (window * minNotMissingProportion);
 			HaplotypeClusterer myClusterMaker = clusterWindow(filterGeno, initialStart, window, diff, minNotMissing); //1
 			myClusterMaker.sortClusters(); //2
 			myClusterMaker.moveAllHaplotypesToBiggestCluster(diff); //3
@@ -149,10 +150,9 @@ public class BiparentalHaplotypeFinder {
 		for (int start = initialStart + startIncr; start < nsites - overlap; start += startIncr) {
 			int windowSize = window;
 			if (start + window >= nsites) windowSize = nsites - start;
-			int minNotMissingAdjusted = (int) Math.floor(minNotMissing * ((double) windowSize)/window);
+			int minNotMissingAdjusted = (int) (windowSize * minNotMissingProportion);
 			HaplotypeClusterer myClusterMaker = clusterWindow(filterGeno, start, windowSize, diff, minNotMissingAdjusted); //1
 			
-			//debug
 			myClusterMaker.sortClusters(); //2
 			myClusterMaker.moveAllHaplotypesToBiggestCluster(diff); //3
 			myClusterMaker.removeHeterozygousClusters(5);
@@ -178,7 +178,8 @@ public class BiparentalHaplotypeFinder {
 			int end = start + window;
 			if (start < 0) start = 0;
 			int windowSize = end - start;
-			HaplotypeClusterer myClusterMaker = clusterWindow(myPopulationData.original, start, windowSize, diff, minNotMissing); //1
+			int minNotMissingAdjusted = (int) (windowSize * minNotMissingProportion);
+			HaplotypeClusterer myClusterMaker = clusterWindow(myPopulationData.original, start, windowSize, diff, minNotMissingAdjusted); //1
 			myClusterMaker.sortClusters(); //2
 			myClusterMaker.moveAllHaplotypesToBiggestCluster(diff); //3
 			myClusterMaker.removeHeterozygousClusters(5);

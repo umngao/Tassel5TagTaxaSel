@@ -99,6 +99,7 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 					hapFinder.maxHetDeviation = maxHetDev;
 					hapFinder.maxDifferenceScore = maxDifference;
 					hapFinder.minClusterSize = minUsedClusterSize;
+					hapFinder.minCoverage = 1 - maxMissing;
 					hapFinder.assignHaplotyes();
 					hapFinder.convertGenotypesToParentCalls();
 				}
