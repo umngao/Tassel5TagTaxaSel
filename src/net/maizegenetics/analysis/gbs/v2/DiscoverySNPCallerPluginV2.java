@@ -164,7 +164,9 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 .filter(entry -> (double) numberTaxaAtSiteIgnoreGaps(entry.getValue()) / (double) numberOfTaxa > minLocusCoverage())
                 .filter(entry -> {
                     List<Tuple<Byte,Integer>> aC=alleleTaxaCounts(entry.getValue());
-                    return (aC.size()>1 && aC.get(1).y>(minMinorAlleleFreq()*taxaCoverage));
+                    if(minMinorAlleleFreq()<=0) return true;  //permits export of monomorphic SNPs
+                    //if(aC.size()>1) System.out.printf("%s %d %g %g %g%n",entry.getKey().toString(),aC.get(1).y, minMinorAlleleFreq(),taxaCoverage,(minMinorAlleleFreq()*taxaCoverage*(double)numberOfTaxa));
+                    return (aC.size()>1 && aC.get(1).y>(minMinorAlleleFreq()*taxaCoverage*(double)numberOfTaxa));
                 })
                 .map(Map.Entry::getKey) //get Position
                 .collect(Collectors.toList());

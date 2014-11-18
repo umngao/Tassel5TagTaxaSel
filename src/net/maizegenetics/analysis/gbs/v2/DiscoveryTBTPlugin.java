@@ -172,7 +172,6 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
         try {
             int qualityScoreBase=determineQualityScoreBase(fastqFile);
             BufferedReader br = Utils.getBufferedReader(fastqFile.toString(), 1 << 22);
-            //todo fastq 1.8 has 8-9 colons (:) in the names, while prior version has 4 colons.  Quality scores are base 64 for old, base 33 for new 1.8+
             long time=System.nanoTime();
             String[] seqAndQual;
             List<Tag> newTagsAddedInLane=new ArrayList<>();
