@@ -68,6 +68,16 @@ public class TagsOnGeneticMap extends AbstractTags {
     }
     
     /**
+     * Return if this tag is a PAV
+     * @param index
+     * @return 
+     */
+    public boolean isPAV (int index) {
+        if (ifPAV[index] == 1) return true;
+        return false;
+    }
+    
+    /**
      * Return prediction value from model
      * @param index
      * @return 
