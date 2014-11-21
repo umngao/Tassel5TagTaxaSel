@@ -6,7 +6,6 @@ package net.maizegenetics.analysis.imputation;
 
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
-import net.maizegenetics.dna.snp.GeneticMap;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
@@ -192,20 +191,6 @@ public class FindMergeHaplotypesPlugin extends AbstractPlugin {
             presentRanking.put(index, i);
         }
         return presentRanking;
-    }
-    
-    private BitSet maskBadSites(GeneticMap gm, GenotypeTable a) {
-        OpenBitSet obs=new OpenBitSet(a.numberOfSites());
-        int count=0;
-        for (int i = 0; i < gm.getNumberOfMarkers(); i++) {
-            int site=a.siteOfPhysicalPosition(gm.getPhysicalPosition(i), null);
-            if(site>0) {obs.set(site);}
-            
-        }
-        System.out.println("Bad Sites matched:"+obs.cardinality());
-        obs.not();  //change all bad sites to 0, good to 1
-        
-        return obs;
     }
     
     private void exportBadSites(GenotypeTable baseAlign, String exportMap, double errorThreshold) {

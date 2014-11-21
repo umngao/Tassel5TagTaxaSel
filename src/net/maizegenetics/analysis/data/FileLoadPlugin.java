@@ -12,7 +12,6 @@ import net.maizegenetics.gui.DialogUtils;
 import net.maizegenetics.dna.snp.ImportUtils;
 import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.phenotype.PhenotypeBuilder;
-import net.maizegenetics.dna.snp.ReadPolymorphismUtils;
 import net.maizegenetics.dna.snp.ReadSequenceAlignmentUtils;
 import net.maizegenetics.dna.snp.io.ReadNumericMarkerUtils;
 import net.maizegenetics.taxa.distance.ReadDistanceMatrix;
@@ -55,7 +54,7 @@ public class FileLoadPlugin extends AbstractPlugin {
     public enum TasselFileType {
 
         SqrMatrix, Sequence, Unknown, Fasta,
-        Hapmap, Plink, Phenotype, ProjectionAlignment, ProjectPCsandRunModelSelection, Phylip_Seq, Phylip_Inter, GeneticMap, Table,
+        Hapmap, Plink, Phenotype, ProjectionAlignment, ProjectPCsandRunModelSelection, Phylip_Seq, Phylip_Inter, Table,
         Serial, HapmapDiploid, Text, VCF, HDF5, TOPM, HDF5Schema, Filter, NumericGenotype
     };
     public static final String FILE_EXT_HAPMAP = ".hmp.txt";
@@ -227,7 +226,6 @@ public class FileLoadPlugin extends AbstractPlugin {
                 boolean isTrait = false;
                 boolean isMarker = false;
                 boolean isNumeric = false;
-                boolean isMap = false;
                 Pattern tagPattern = Pattern.compile("[<>\\s]+");
                 String[] info1 = tagPattern.split(line1);
                 String[] info2 = tagPattern.split(line2);
@@ -238,8 +236,6 @@ public class FileLoadPlugin extends AbstractPlugin {
                         isTrait = true;
                     } else if (info1[1].toUpperCase().startsWith("NUMER")) {
                         isNumeric = true;
-                    } else if (info1[1].toUpperCase().startsWith("MAP")) {
-                        isMap = true;
                     } else if (info1[1].toUpperCase().startsWith("PHENO")) {
                         isTrait = true;
                     }
@@ -251,8 +247,6 @@ public class FileLoadPlugin extends AbstractPlugin {
                         isTrait = true;
                     } else if (info2[1].toUpperCase().startsWith("NUMER")) {
                         isNumeric = true;
-                    } else if (info2[1].toUpperCase().startsWith("MAP")) {
-                        isMap = true;
                     }
                 } else {
                     guess = null;
@@ -266,8 +260,6 @@ public class FileLoadPlugin extends AbstractPlugin {
                                 isTrait = true;
                             } else if (info[1].toUpperCase().startsWith("NUMER")) {
                                 isNumeric = true;
-                            } else if (info[1].toUpperCase().startsWith("MAP")) {
-                                isMap = true;
                             }
                         }
                     }
@@ -276,8 +268,6 @@ public class FileLoadPlugin extends AbstractPlugin {
                     guess = TasselFileType.Phenotype;
                 } else if (isMarker && isNumeric) {
                     guess = TasselFileType.NumericGenotype;
-                } else if (isMap) {
-                    guess = TasselFileType.GeneticMap;
                 } else {
                     throw new IOException("Improperly formatted header. Data will not be imported.");
                 }
@@ -360,10 +350,6 @@ public class FileLoadPlugin extends AbstractPlugin {
                         throw new IllegalStateException("FileLoadPlugin: processDatum: problem loading phenotype file: " + inFile);
                     }
                     result = phenotypes.get(0);
-                    break;
-                }
-                case GeneticMap: {
-                    result = ReadPolymorphismUtils.readGeneticMapFile(inFile);
                     break;
                 }
                 case NumericGenotype: {
@@ -521,7 +507,6 @@ class FileLoadPluginDialog extends JDialog {
     JRadioButton guessRadioButton = new JRadioButton("Make Best Guess");
     JRadioButton projectionAlignmentRadioButton = new JRadioButton("Load Projection Alignment");
     JRadioButton projectPCsandRunModelSelectionRadioButton = new JRadioButton("Load Files for Projecting PCs onto NAM");
-    JRadioButton geneticMapRadioButton = new JRadioButton("Load a Genetic Map");
     JRadioButton tableReportRadioButton = new JRadioButton("Load a Table Report");
     JRadioButton topmRadioButton = new JRadioButton("Load a TOPM (Tags on Physical Map)");
 
@@ -566,7 +551,6 @@ class FileLoadPluginDialog extends JDialog {
         conversionButtonGroup.add(fastaRadioButton);
         conversionButtonGroup.add(loadMatrixRadioButton);
         conversionButtonGroup.add(numericalRadioButton);
-        conversionButtonGroup.add(geneticMapRadioButton);
         conversionButtonGroup.add(tableReportRadioButton);
         conversionButtonGroup.add(topmRadioButton);
         conversionButtonGroup.add(guessRadioButton);
@@ -633,7 +617,6 @@ class FileLoadPluginDialog extends JDialog {
         result.add(fastaRadioButton);
         result.add(numericalRadioButton);
         result.add(loadMatrixRadioButton);
-        result.add(geneticMapRadioButton);
         result.add(tableReportRadioButton);
         result.add(topmRadioButton);
         result.add(guessRadioButton);
@@ -706,9 +689,6 @@ class FileLoadPluginDialog extends JDialog {
         }
         if (numericalRadioButton.isSelected()) {
             return FileLoadPlugin.TasselFileType.Unknown;
-        }
-        if (geneticMapRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.GeneticMap;
         }
         if (tableReportRadioButton.isSelected()) {
             return FileLoadPlugin.TasselFileType.Table;
