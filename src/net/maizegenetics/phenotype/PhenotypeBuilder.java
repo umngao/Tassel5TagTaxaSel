@@ -335,6 +335,11 @@ public class PhenotypeBuilder {
 		phenotypeReader.readLine();  //assumes the first line has been read to determine that this is indeed a Phenotype file
 		String[] typeString = whiteSpace.split(phenotypeReader.readLine());
 		String[] phenoNames = whiteSpace.split(phenotypeReader.readLine());
+		
+		//find the taxa column
+		int taxaCol = 0;
+		while (!typeString[taxaCol].toLowerCase().equals("taxa")) taxaCol++;
+		
 		int nPheno = typeString.length;
 		ArrayList<String[]> stringData = new ArrayList<String[]>();
 		String inputStr;
@@ -358,7 +363,7 @@ public class PhenotypeBuilder {
 						try {
 							dataArray[obsCount] = Float.parseFloat(inputLine[pheno]);
 						} catch (NumberFormatException nfe) {
-							throw new IllegalArgumentException("PhenotypeBuilder: importPhenotypeFile: Taxon: " + obsCount + " Value: " + inputLine[pheno] + " is not allowed.");
+							throw new IllegalArgumentException("PhenotypeBuilder: importPhenotypeFile: at observation " + obsCount + " Taxon: " + inputLine[taxaCol] + " Value: " + inputLine[pheno] + " is not allowed.");
 						}
 					}
 					obsCount++;
