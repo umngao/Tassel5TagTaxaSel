@@ -15,7 +15,6 @@ import org.apache.log4j.Logger;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
-import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.NumericAttribute;
 import net.maizegenetics.phenotype.Phenotype;
@@ -25,7 +24,6 @@ import net.maizegenetics.phenotype.PhenotypeBuilder;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.util.LoggingUtils;
 import net.maizegenetics.util.OpenBitSet;
 
 public class TransformDataPlugin extends AbstractPlugin {
@@ -49,10 +47,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 	}
 
 	public DataSet processData(DataSet input){
-		if (input.getSize() != 1) {
-			throw new IllegalArgumentException("TransformDataPlugin: Please select one genotype table or phenotype for transformation.");
-		}
-
+            
 		List<Datum> myData = input.getDataOfType(Phenotype.class);
 		if (myData.size() == 1) {
 			Phenotype myPhenotype = (Phenotype) myData.get(0).getData();
@@ -109,7 +104,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 			
 		}
 
-		throw new IllegalArgumentException("TransformDataPlugin: the dataset selected is of the wrong type.");
+		throw new IllegalArgumentException("TransformDataPlugin: Please select one Phenotype data set.");
 	}
 
 	private boolean contains(String name, String[] array) {
@@ -168,7 +163,7 @@ public class TransformDataPlugin extends AbstractPlugin {
 
 	@Override
 	public String getButtonName() {
-		return "Transform";
+		return "Transform Phenotype";
 	}
 
 	@Override

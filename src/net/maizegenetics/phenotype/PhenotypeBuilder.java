@@ -21,14 +21,12 @@ import java.util.regex.Pattern;
 import org.apache.log4j.Logger;
 
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
-import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.TaxaListUtils;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
@@ -302,8 +300,7 @@ public class PhenotypeBuilder {
 		while (filenameList.size() > 0) {
 			File phenotypeFile = new File(filenameList.remove(0));
 
-			try {
-				BufferedReader br = new BufferedReader(new FileReader(phenotypeFile));
+			try (BufferedReader br = new BufferedReader(new FileReader(phenotypeFile))) {
 				String topline = br.readLine();
 				Phenotype myPhenotype;
 				if (phenotypeName.equals("Phenotype")) {
@@ -352,13 +349,16 @@ public class PhenotypeBuilder {
 				OpenBitSet missing = new OpenBitSet(nObs);
 				int obsCount = 0;
 				for (String[] inputLine : stringData) {
-					if (inputLine[pheno].startsWith("-999")) dataArray[obsCount] = Float.NaN;
-					else {
+                                        if (inputLine[pheno].equalsIgnoreCase("NaN")
+                                                || inputLine[pheno].equalsIgnoreCase("NA")
+                                                || inputLine[pheno].equals(".")) {
+                                            dataArray[obsCount] = Float.NaN;
+                                            missing.fastSet(obsCount);
+                                        } else {
 						try {
 							dataArray[obsCount] = Float.parseFloat(inputLine[pheno]);
 						} catch (NumberFormatException nfe) {
-							dataArray[obsCount] = Float.NaN;
-							missing.fastSet(obsCount);
+							throw new IllegalArgumentException("PhenotypeBuilder: importPhenotypeFile: Taxon: " + obsCount + " Value: " + inputLine[pheno] + " is not allowed.");
 						}
 					}
 					obsCount++;

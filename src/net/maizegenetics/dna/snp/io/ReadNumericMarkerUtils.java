@@ -105,7 +105,9 @@ public class ReadNumericMarkerUtils {
                 // Create array of floats - these are values for each taxon
                 // Note when we read a line at a time when processing the file, the 
                 // text array was defined as textData[columns][rows], sa access it thus
-                if (textdata[indexC][indexR].equalsIgnoreCase("NA")) {
+                if (textdata[indexC][indexR].equalsIgnoreCase("NaN")
+                        || textdata[indexC][indexR].equalsIgnoreCase("NA")
+                        || textdata[indexC][indexR].equals(".")) {
                     fvalues[indexC] = Float.NaN;
                 } else {
                     try {
