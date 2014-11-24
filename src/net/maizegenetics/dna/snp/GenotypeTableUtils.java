@@ -9,6 +9,8 @@ import net.maizegenetics.util.OpenBitSet;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static net.maizegenetics.dna.snp.GenotypeTable.*;
 
@@ -1038,5 +1040,11 @@ public class GenotypeTableUtils {
     		} 
     	}
     	return out;
+    }
+    
+    public static Stream<ReferenceProbabilitySpliterator.ReferenceProbabilityBySite> referenceProbabilitySiteStream(GenotypeTable genotype, boolean parallel) {
+    	int first = 0;
+    	int last = genotype.numberOfSites();
+    	return StreamSupport.stream(new ReferenceProbabilitySpliterator(genotype, first, last), parallel);
     }
 }
