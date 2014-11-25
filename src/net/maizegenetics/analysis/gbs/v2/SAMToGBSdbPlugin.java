@@ -5,6 +5,8 @@ package net.maizegenetics.analysis.gbs.v2;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Range;
+
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.GeneralPosition;
 import net.maizegenetics.dna.map.Position;
@@ -14,9 +16,11 @@ import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.Tuple;
 import net.maizegenetics.util.Utils;
+
 import org.apache.log4j.Logger;
 
 import javax.swing.*;
+
 import java.awt.*;
 import java.io.BufferedReader;
 import java.util.Optional;
@@ -37,6 +41,10 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
             .description("Name of input file in SAM text format").build();
     private PluginParameter<String> myOutputFile = new PluginParameter.Builder<String>("o", null, String.class).guiName("GBS DB File").required(true).outFile()
             .description("Name of output file (e.g. GBSv2.db)").build();
+    private PluginParameter<Integer> alignProportion = new PluginParameter.Builder<Integer>("i", 0, Integer.class).guiName("SAM Min Align Proportion").required(false)
+            .range(Range.closed(0, 100) ).description("Minimum proportion of sequence that must align to store the SAM entry").build();
+    private PluginParameter<Integer> minAlignLength = new PluginParameter.Builder<Integer>("i", 0, Integer.class).guiName("SAM Min Align Length").required(false)
+            .range(Range.closed(0, 100) ).description("Minimum length of bps aligning to store the SAM entry").build();
 
     public SAMToGBSdbPlugin() {
         super(null, false);
@@ -96,6 +104,9 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         // This was seen in the Zea_mays.AGPv3 chromosome files
         if (tag == null) return null; 
         if (!hasAlignment(s[flag])) return new Tuple<>(tag,Optional.<Position>empty());
+        // LCJ - check for minimum alignment length and proportion
+        if (!hasMinAlignLength(s)) return new Tuple<> (tag,Optional.<Position>empty());
+        if (!hasMinAlignProportion(s)) return new Tuple<> (tag,Optional.<Position>empty());
         Chromosome chromosome=new Chromosome(s[chr].replace("chr", ""));
         String alignmentScore=s[alignScoreIndex].split(":")[2];
         boolean forwardStrand=isForwardStrand(s[flag]);
@@ -122,6 +133,75 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
     private boolean isForwardStrand(String samFlag){
         int flag=Integer.parseInt(samFlag);
         return ((flag & 16) == 0);
+    }
+    
+    /**Check optional Tags for CIGAR and MD to verify min align length*/
+    private boolean hasMinAlignLength(String[] samReadParsed){
+    	// Optional user tags may or may not be present, and may be
+    	// present in different order in different agligner outputs
+    	// Tags start at position 11 (0 based), so start looking from here   	
+    	if (minAlignLength() == 0) return true; // 0 is default - no minimum length
+    	int matchLen = calculateNumberAligned(samReadParsed);
+    	if (matchLen >= minAlignLength()) return true;
+    	else return false;
+    }
+    
+    /**Check optional Tags for CIGAR and MD to verify min align proportion*/
+    private boolean hasMinAlignProportion(String[] samRead){  	
+    	if (minAlignProportion() == 0) return true; // 0 is default - no minimum proportion 
+    	float seqLength = samRead[9].length(); // sequence is in 9th position of 0 based array
+    	int matchLen = calculateNumberAligned(samRead);
+    	float matchProportion = (float)matchLen/seqLength * 100;
+    	if (matchProportion >= minAlignProportion()) return true;
+    	else return false;
+    }
+
+    private int calculateNumberAligned(String[] samRead){   	
+    	// Look for MD in the SAM output. Optional fields start at field 12 (11 in 0 based array)
+    	String mdField = "";
+    	for (int index=11; index < samRead.length; index++) {
+    		String[] optField = samRead[index].split(":");
+    		if (optField[0].equals("MD")) {
+    			mdField = samRead[index];
+    			break;
+    		}
+    	}
+    	
+		int matchLen = 0;
+    	// Calculate minimum alignment length.  MD field is first choice, then CIGAR
+    	// MD field specifies for sequence match 
+    	if (!mdField.equals("")) {
+    		String mdVal = mdField.split(":")[2]; // we want 3rd value in MD:Z:3T5^AG6
+    		int curNum = 0;
+    		for (int mdIdx = 0; mdIdx < mdVal.length(); mdIdx++) {
+    			char currChar = mdVal.charAt(mdIdx);
+    			if (Character.isDigit(currChar)) {
+    				curNum = curNum *10 + Character.getNumericValue(currChar); // convert byte to unsigned int
+    			} else {
+    				matchLen += curNum;  // DO we need to consider num chars that don't match?
+    				curNum = 0;
+    			}
+    		} 
+    		matchLen += curNum; // takes care of case where MD is a single number string
+    	} else { // use CIGAR value gives alignment match, not sequence match
+        	String cigar = samRead[5];
+    		int curNum = 0;
+    		for (int cIdx = 0; cIdx < cigar.length(); cIdx++) {
+    			char currChar = cigar.charAt(cIdx);
+    			if (Character.isDigit(currChar)) {
+    				curNum = curNum *10 + Character.getNumericValue(currChar); // convert byte to int, add to total
+    			} else {
+    				if (currChar == 'M' || currChar == 'm') {
+    					// M indicates a match, should be proceeded by a number
+    					// Don't count gaps indicated by 'S' or 'H' 
+    	   				matchLen += curNum;
+    				} 
+    				curNum = 0;
+    			}
+    		} 
+    		matchLen += curNum; // takes care of case where CIGAR is a single number string
+    	}
+    	return matchLen;
     }
 
 
@@ -354,6 +434,51 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         return this;
     }
 
+    /**
+     * Mimimum proportion of tag that must align
+     * for alignment to be accepted.
+     *
+     * @return minium align proportion
+     */
+    public Integer minAlignProportion() {
+        return alignProportion.value();
+    }
+
+    /**
+     * Set minimum proportion of tag that must align
+     * for the alignment to be accepted. 
+     *
+     * @param value minimum align proportion
+     *
+     * @return this plugin
+     */
+    public SAMToGBSdbPlugin minAlignProportion(Integer value) {
+        alignProportion = new PluginParameter<>(alignProportion, value);
+        return this;
+    }
+    
+    /**
+     * Mimimum proportion of tag that must align
+     * for alignment to be accepted.
+     *
+     * @return minium align proportion
+     */
+    public Integer minAlignLength() {
+        return minAlignLength.value();
+    }
+
+    /**
+     * Set minimum proportion of tag that must align
+     * for the alignment to be accepted. 
+     *
+     * @param value minimum align proportion
+     *
+     * @return this plugin
+     */
+    public SAMToGBSdbPlugin minAlignLength(Integer value) {
+        minAlignLength = new PluginParameter<>(minAlignLength, value);
+        return this;
+    }
 
     @Override
     public ImageIcon getIcon() {
