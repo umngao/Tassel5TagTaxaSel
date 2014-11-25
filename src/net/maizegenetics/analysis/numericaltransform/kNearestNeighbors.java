@@ -31,11 +31,22 @@ public class kNearestNeighbors {
         double[][] result = new double[rows][cols];
 
         for (int i = 0; i < rows; i++) {
+            double[][] neighbors = null;
+            boolean neighborsCalculated = false;
             for (int j = 0; j < cols; j++) {
                 if (!Double.isNaN(data[i][j])) {
                     result[i][j] = data[i][j];
                 } else {
-                    result[i][j] = calcKNN(data, i, j, k, isManhattan, isCosine);
+                    if (isCosine) {
+                        neighbors = cosineSimRank(data, i, j, k);
+                        result[i][j] = calcKNN(data, neighbors, j);
+                    } else {
+                        if (!neighborsCalculated) {
+                            neighbors = KNearestNeighbor(data, i, k, isManhattan);
+                            neighborsCalculated = true;
+                        }
+                        result[i][j] = calcKNN(data, neighbors, j);
+                    }
                 }
             }
         }
@@ -46,31 +57,17 @@ public class kNearestNeighbors {
      * Compute the fill-in value.
      *
      * @param data matrix
-     * @param row - row containing the missing value
+     * @param neighbors neighbors
      * @param col - col containing the missing value
-     * @param k - number of nearest neighbors.
-     * @param isManhattan - if true Manhattan distance will be used.
-     * @param isCosine - if true Cosine similarity will be used.
      * @return value to be filled in for the missing data point.
      */
-    public static double calcKNN(double[][] data, int row, int col, int k, boolean isManhattan, boolean isCosine) {
-        double[][] neighbors;
-
-        if (row == 271 && col == 2) {
-            System.out.print("");
-        }
-        if (isCosine) {
-            neighbors = cosineSimRank(data, row, col, k);
-        } else {
-            neighbors = KNearestNeighbor(data, row, col, k, isManhattan);
-        }
-
+    private static double calcKNN(double[][] data, double[][] neighbors, int col) {
         double num = 0.0;
 
         int numberOfNonMissingValues = 0;
-        for (int i = 0; i < neighbors.length; i++) {
-            if (!Double.isNaN(neighbors[i][col])) {
-                num += neighbors[i][col];
+        for (double[] neighbor : neighbors) {
+            if (!Double.isNaN(neighbor[col])) {
+                num += neighbor[col];
                 numberOfNonMissingValues++;
             }
         }
@@ -156,7 +153,7 @@ public class kNearestNeighbors {
         double[] query = data[row];
         double[][] neighbors = new double[k][nCols];
 
-        Map<Integer, Double> distances = new HashMap<Integer, Double>();
+        Map<Integer, Double> distances = new HashMap<>();
 
         for (int i = 0; i < nRows; i++) {
             if (i != col) {
@@ -218,18 +215,17 @@ public class kNearestNeighbors {
      *
      * @param data matrix
      * @param row
-     * @param col
      * @param k
      * @param isManhattan
      * @return matrix
      */
-    public static double[][] KNearestNeighbor(double data[][], int row, int col, int k, boolean isManhattan) {
+    public static double[][] KNearestNeighbor(double data[][], int row, int k, boolean isManhattan) {
         int nRows = data.length;
         int nCols = data[0].length;
         double[] query = data[row];
         double[][] neighbors = new double[k][nCols];
 
-        Map<Integer, Double> distances = new HashMap<Integer, Double>();
+        Map<Integer, Double> distances = new HashMap<>();
 
         for (int i = 0; i < nRows; i++) {
             double[] alpha = data[i];
