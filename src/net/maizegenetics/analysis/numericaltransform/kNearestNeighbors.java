@@ -1,5 +1,8 @@
 package net.maizegenetics.analysis.numericaltransform;
 
+import com.google.common.collect.MinMaxPriorityQueue;
+
+import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -191,7 +194,6 @@ public class kNearestNeighbors {
      */
     public static double distance(double data1[], double data2[], boolean isManhattan) {
         int l1 = data1.length;
-        int l2 = data2.length;
 
         double result = 0.0;
         double count = 0.0;
@@ -221,32 +223,26 @@ public class kNearestNeighbors {
      */
     public static double[][] KNearestNeighbor(double data[][], int row, int k, boolean isManhattan) {
         int nRows = data.length;
-        int nCols = data[0].length;
-        double[] query = data[row];
-        double[][] neighbors = new double[k][nCols];
+        double[][] neighbors = new double[k][];
 
-        Map<Integer, Double> distances = new HashMap<>();
+        MinMaxPriorityQueue<Map.Entry<Double, double[]>> distances
+                = MinMaxPriorityQueue.orderedBy((Map.Entry<Double, double[]> o1, Map.Entry<Double, double[]> o2) -> {
+                    return Double.compare(o1.getKey(), o2.getKey());
+                }).maximumSize(k).create();
 
+        double highestLowest = -1.0;
         for (int i = 0; i < nRows; i++) {
-            double[] alpha = data[i];
-            distances.put(i, distance(query, alpha, isManhattan));
+            double current = distance(data[row], data[i], isManhattan);
+            if ((distances.size() < k) || (current < highestLowest)) {
+                distances.add(new AbstractMap.SimpleEntry<>(current, data[i]));
+                highestLowest = distances.peekLast().getKey();
+            }
         }
 
         for (int n = 0; n < k; n++) {
-            double shortestDistance = -1.0;
-            int IndexS = 0;
-
-            Iterator it = distances.entrySet().iterator();
-            while (it.hasNext()) {
-                Map.Entry<Integer, Double> distance = (Map.Entry<Integer, Double>) it.next();
-                if (distance.getValue() < shortestDistance || shortestDistance < 0) {
-                    shortestDistance = distance.getValue();
-                    IndexS = distance.getKey();
-                }
-            }
-            neighbors[n] = data[IndexS];
-            distances.remove(IndexS);
+            neighbors[n] = distances.poll().getValue();
         }
+
         return neighbors;
     }
 
