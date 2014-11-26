@@ -3,9 +3,19 @@ package net.maizegenetics.analysis.numericaltransform;
 import com.google.common.collect.MinMaxPriorityQueue;
 
 import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import net.maizegenetics.util.LoggingUtils;
 
 /**
  * Imputation of the missing data by k-nearest neighbors.
@@ -80,6 +90,42 @@ public class kNearestNeighbors {
         return (num / numberOfNonMissingValues);
     }
 
+    public static void imputeFromNonMissingNeighbors(double[][] data, int k, boolean isManhattan, boolean isCosine) {
+    	LoggingUtils.setupDebugLogging();
+    	double[][] rowDistances = allDistances(data, isManhattan, isCosine);
+    	int nrows = data.length;
+    	int ncols = data[0].length;
+    	
+    	for (int r = 0; r < nrows; r++) {
+    		for (int c = 0; c < ncols; c++) {
+    			if (Double.isNaN(data[r][c])) {
+    				data[r][c] = KNearestNonMissingNeighborMean(data, rowDistances, r, c, k);
+    			}
+    		}
+    	}
+    }
+    
+    private static double[][] allDistances(double[][] data, boolean isManhattan, boolean isCosine) {
+    	int nrows = data.length;
+    	double[][] rowDistance = new double[nrows][nrows];
+    	if (isCosine) {
+    		for (int r1 = 0; r1 < nrows; r1++) {
+				rowDistance[r1][r1] = cosine(data[r1], data[r1]);
+    			for (int r2 = r1 + 1; r2 < nrows; r2++) {
+    				rowDistance[r1][r2] = rowDistance[r2][r1] = cosine(data[r1], data[r2]);
+    			}
+    		}
+    	} else {
+    		for (int r1 = 0; r1 < nrows; r1++) {
+				rowDistance[r1][r1] = distance(data[r1], data[r1], isManhattan);
+    			for (int r2 = r1 + 1; r2 < nrows; r2++) {
+    				rowDistance[r1][r2] = rowDistance[r2][r1] = distance(data[r1], data[r2], isManhattan);
+    			}
+    		}
+    	}
+    	return rowDistance;
+    }
+  
     /**
      * @param data	a matrix
      * @param col	the column of the matrix for which the mean should be computed
@@ -246,4 +292,31 @@ public class kNearestNeighbors {
         return neighbors;
     }
 
+    public static double KNearestNonMissingNeighborMean(double data[][], double[][] distance, int row, int col, int k) {
+        int nRows = data.length;
+
+        MinMaxPriorityQueue<Map.Entry<Double, Double>> distances
+                = MinMaxPriorityQueue.orderedBy((Map.Entry<Double, Double> o1, Map.Entry<Double, Double> o2) -> {
+                    return Double.compare(o1.getKey(), o2.getKey());
+                }).maximumSize(k).create();
+
+        double highestLowest = -1.0;
+        for (int i = 0; i < nRows; i++) if (i != row) {
+        	double val = data[i][col];
+            double current = distance[row][i];
+            if ((!Double.isNaN(val)) && (distances.size() < k) || (current < highestLowest)) {
+                distances.add(new AbstractMap.SimpleEntry<>(current, val));
+                highestLowest = distances.peekLast().getKey();
+            }
+        }
+        
+        double sum = 0;
+        int size = distances.size();
+        if (size == 0) throw new IllegalArgumentException(String.format("Column %d has no data in KNearestNeighbor", col));
+        for (int n = 0; n < size; n++) {
+            sum += distances.poll().getValue();
+        }
+
+        return sum / size;
+    }
 }
