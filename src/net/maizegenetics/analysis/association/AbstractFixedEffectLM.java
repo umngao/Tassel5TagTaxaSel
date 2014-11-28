@@ -3,6 +3,7 @@ package net.maizegenetics.analysis.association;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -93,7 +94,6 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		myDataAttributes = myGenoPheno.phenotype().attributeListOfType(ATTRIBUTE_TYPE.data);
 		myFactorAttributes = myGenoPheno.phenotype().attributeListOfType(ATTRIBUTE_TYPE.factor);
 		myCovariateAttributes = myGenoPheno.phenotype().attributeListOfType(ATTRIBUTE_TYPE.covariate);
-		initializeReportBuilders();
 		siteTableReportRows = new ArrayList<Object[]>();
 		testTaxaReplication();
 	}
@@ -117,6 +117,8 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	public void solve() {
 		//loop through data attributes
 		//	loop through sites
+		initializeReportBuilders();
+
 		for (PhenotypeAttribute dataAttribute:myDataAttributes) {
 			currentTraitName = dataAttribute.name();
 			OpenBitSet missingObs = new OpenBitSet(dataAttribute.missing());
@@ -135,7 +137,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 				myBaseModel = baseModel();
 				numberOfBaseEffects = myBaseModel.size();
 				analyzeSite();
-				if (permute) updateMinP();
+				if (permute) updateMinP(missingObs);
 			}
 			
 			if (permute) updateReportsWithPermutationP();
@@ -184,6 +186,8 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	protected abstract void analyzeSite();
 	
 	protected String[] siteReportColumnNames() {
+		markerpvalueColumn = 5;
+		permpvalueColumn = 6;
 		if (permute) return new String[]{"Trait","Marker","Chr","Position","marker_F","marker_p","perm_p","marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
 		return new String[] {"Trait","Marker","Chr","Position","marker_F","marker_p","marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
 	}
@@ -248,8 +252,12 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		for (Object[] row : siteTableReportRows) {
 			double pval = ((Double) row[markerpvalueColumn]);
 			int ndx = Arrays.binarySearch(minP, pval);
+			
 			if (ndx < 0) ndx = -(ndx + 1);
-			row[permpvalueColumn] = new Double((double) (ndx + 1) / numberOfPermutations);
+			double permPval = (double) (ndx + 1) / (double) numberOfPermutations;
+			if (permPval > 1) permPval = 1;
+			row[permpvalueColumn] = new Double(permPval);
+			
 		}
 	}
 
@@ -268,12 +276,25 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		else areTaxaReplicated = false;
 	}
 	
-	protected void updateMinP() {
+	protected void updateMinP(BitSet missingObsBeforeSite) {
+		int numberOfObsTotal = allData.length;
+		int numberOfMissingBeforeSite = (int) missingObsBeforeSite.cardinality();
+		int sizeOfPermutedData = permutedData.get(0).numberOfRows();
+		BitSet newMissing = new OpenBitSet(sizeOfPermutedData);
+		int permutedDataIndex = -1;
+		for (int i = 0; i < numberOfObsTotal; i++) {
+			if (!missingObsBeforeSite.fastGet(i)) {
+				permutedDataIndex++;
+				if (missingObsForSite.fastGet(i)) newMissing.fastSet(permutedDataIndex);
+			}
+		}
+		
 		if (areTaxaReplicated) {
 			//if taxa are replicated
 			int iter = 0;
 			for (DoubleMatrix pdata : permutedData) {
-		        SweepFastLinearModel sflm = new SweepFastLinearModel(myModel, pdata.to1DArray());
+				double[] y = AssociationUtils.getNonMissingDoubles(pdata.to1DArray(), newMissing);
+		        SweepFastLinearModel sflm = new SweepFastLinearModel(myModel, y);
 		        markerSSdf = sflm.getIncrementalSSdf(numberOfBaseEffects);
 		        errorSSdf = sflm.getIncrementalSSdf(taxaEffectNumber);
 		        double F = markerSSdf[0] / markerSSdf[1] / errorSSdf[0] * errorSSdf[1];
@@ -284,24 +305,45 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		        } catch (Exception e) {
 		        	//do nothing
 		        }
+		        iter++;
 			}
 		} else {
 			int iter = 0;
+			int numberOfModelEffects = myModel.size();
 			for (DoubleMatrix pdata : permutedData) {
-				DoubleMatrix thisData = AssociationUtils.getNonMissingValues(pdata, missingObsForSite);
-				double yty = pdata.crossproduct(thisData).get(0, 0);
-				DoubleMatrix Xty = myModel.get(0).getX().crossproduct(thisData);
-				double ssmodel = Xty.crossproduct(G).mult(Xty).get(0, 0);
-				double sse = yty - ssmodel;
-				double ssmarker = baseErrorSSdf[0] - sse;
-				double permF = ssmarker / markerSSdf[1] / sse * errorSSdf[1];
-				double permP;
-				try {
-					permP = LinearModelUtils.Ftest(permF, markerSSdf[1], errorSSdf[1]);
-					if (minP[iter] > permP) minP[iter] = permP;
-				} catch (Exception e) {
-					//do nothing
-				}
+				double[] y = AssociationUtils.getNonMissingDoubles(pdata.to1DArray(), newMissing);
+		        SweepFastLinearModel sflm = new SweepFastLinearModel(myModel, y);
+		        markerSSdf = sflm.getIncrementalSSdf(numberOfModelEffects - 1);
+		        errorSSdf = sflm.getResidualSSdf();
+		        double F = markerSSdf[0] / markerSSdf[1] / errorSSdf[0] * errorSSdf[1];
+		        double p;
+		        try {
+		        	p = LinearModelUtils.Ftest(F, markerSSdf[1], errorSSdf[1]);
+		        	if (minP[iter] > p) minP[iter] = p;
+		        } catch (Exception e) {
+		        	//do nothing
+		        }
+
+				
+				
+//				double yty = y.crossproduct(y).get(0, 0);
+//				
+//				Iterator<ModelEffect> miter = myModel.iterator();
+//				DoubleMatrix X = miter.next().getX();
+//				while (miter.hasNext()) X = X.concatenate(miter.next().getX(), false);
+//				
+//				DoubleMatrix Xty = X.crossproduct(y);
+//				double ssmodel = Xty.crossproduct(G).mult(Xty).get(0, 0);
+//				double sse = yty - ssmodel;
+//				double ssmarker = baseErrorSSdf[0] - sse;
+//				double permF = ssmarker / markerSSdf[1] / sse * errorSSdf[1];
+//				double permP;
+//				try {
+//					permP = LinearModelUtils.Ftest(permF, markerSSdf[1], errorSSdf[1]);
+//					if (minP[iter] > permP) minP[iter] = permP;
+//				} catch (Exception e) {
+//					//do nothing
+//				}
 				iter++;
 			}
 		}
