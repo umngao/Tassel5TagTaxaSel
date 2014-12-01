@@ -20,6 +20,7 @@ import java.io.File;
 import java.lang.reflect.Field;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -351,7 +352,7 @@ abstract public class AbstractPlugin implements Plugin {
 
     protected void printParameterValues() {
         List<PluginParameter<?>> parameters = getParameterInstances();
-        if ((parameters == null) || (parameters.size() == 0)) {
+        if ((parameters == null) || (parameters.isEmpty())) {
             return;
         }
         StringBuilder builder = new StringBuilder();
@@ -361,7 +362,12 @@ abstract public class AbstractPlugin implements Plugin {
         for (PluginParameter<?> current : parameters) {
             builder.append(current.cmdLineName());
             builder.append(": ");
-            builder.append(current.value());
+            Object value = current.value();
+            if (value instanceof List) {
+                builder.append((Arrays.toString(((List) value).toArray())));
+            } else {
+                builder.append(value);
+            }
             builder.append("\n");
         }
         myLogger.info(builder.toString());
@@ -504,9 +510,8 @@ abstract public class AbstractPlugin implements Plugin {
     @Override
     public Plugin setParameter(String key, String value) {
 
-        PluginParameter parameter = null;
         try {
-            parameter = getParameterInstance(key);
+            PluginParameter parameter = getParameterInstance(key);
             return setParameter(key, convert(value, parameter.valueType()));
         } catch (Exception e) {
             if (isInteractive()) {
@@ -561,6 +566,9 @@ abstract public class AbstractPlugin implements Plugin {
                         if (current.parameterType() == PluginParameter.PARAMETER_TYPE.GENOTYPE_TABLE) {
                             GenotypeWrapper input = (GenotypeWrapper) ((JComboBox) component).getSelectedItem();
                             setParameter(current.cmdLineName(), input.myObj);
+                        } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_MULTIPLE_SELECT) {
+                            List<?> selectedObjects = ((JList<?>) component).getSelectedValuesList();
+                            setParameter(current.cmdLineName(), selectedObjects);
                         } else if (component instanceof JTextField) {
                             String input = ((JTextField) component).getText().trim();
                             setParameter(current.cmdLineName(), input);
@@ -650,6 +658,20 @@ abstract public class AbstractPlugin implements Plugin {
                 temp.setToolTipText(getToolTip(current));
                 panel.add(temp);
                 parameterFields.put(current.cmdLineName(), menu);
+            } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_MULTIPLE_SELECT) {
+                JPanel listPanel = new JPanel();
+                listPanel.setLayout(new BorderLayout());
+                listPanel.add(new JLabel(current.guiName()), BorderLayout.NORTH);
+
+                JList<?> list = new JList<>(current.possibleValues().toArray());
+                list.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+                list.setVisibleRowCount(Math.min(10, current.possibleValues().size()));
+                createEnableDisableAction(current, parameterFields, list);
+                JScrollPane scrollPane = new JScrollPane(list);
+                scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+                listPanel.add(scrollPane, BorderLayout.CENTER);
+                panel.add(listPanel);
+                parameterFields.put(current.cmdLineName(), list);
             } else if (current.valueType().isEnum()) {
                 JComboBox menu = new JComboBox();
                 Object[] values = current.valueType().getEnumConstants();
