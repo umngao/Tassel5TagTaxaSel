@@ -17,6 +17,7 @@ import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.phenotype.PhenotypeAttribute;
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.plugindef.Plugin;
 import net.maizegenetics.stats.linearmodels.CovariateModelEffect;
 import net.maizegenetics.stats.linearmodels.FactorModelEffect;
 import net.maizegenetics.stats.linearmodels.LinearModelUtils;
@@ -51,6 +52,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	protected String siteReportFilename;
 	protected String alleleReportFilename;
 	protected double maxP = 1.0;
+	protected FixedEffectLMPlugin myParentPlugin;
 	
 	//fields used for permutation testing
 	protected boolean permute = false;
@@ -85,8 +87,10 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
     	typeNameMap.put(SiteScore.SITE_SCORE_TYPE.ProbInsertion, "+");
     }
     
-	public AbstractFixedEffectLM(Datum dataset) {
+	public AbstractFixedEffectLM(Datum dataset, FixedEffectLMPlugin parentPlugin) {
 		myDatum = dataset;
+		myParentPlugin = parentPlugin;
+		
 		myGenoPheno = (GenotypePhenotype) myDatum.getData();
 		numberOfObservations = myGenoPheno.phenotype().numberOfObservations();
 		numberOfSites = myGenoPheno.genotypeTable().numberOfSites();
@@ -118,7 +122,11 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		//loop through data attributes
 		//	loop through sites
 		initializeReportBuilders();
-
+		int numberOfAttributes = myDataAttributes.size();
+		int numberOfTestsTotal = numberOfAttributes * numberOfSites;
+		int numberOfTestsCalculated = 0;
+		int updateInterval = numberOfTestsTotal / 100;
+		
 		for (PhenotypeAttribute dataAttribute:myDataAttributes) {
 			currentTraitName = dataAttribute.name();
 			OpenBitSet missingObs = new OpenBitSet(dataAttribute.missing());
@@ -138,6 +146,11 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 				numberOfBaseEffects = myBaseModel.size();
 				analyzeSite();
 				if (permute) updateMinP(missingObs);
+				
+				numberOfTestsCalculated++;
+				if (numberOfTestsCalculated % updateInterval == 0) {
+					myParentPlugin.updateProgress(100 * numberOfTestsCalculated / numberOfTestsTotal);
+				}
 			}
 			
 			if (permute) updateReportsWithPermutationP();

@@ -130,11 +130,11 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
         	FixedEffectLM myLM; 
     		Datum myDatum = data.getDataOfType(GenotypePhenotype.class).get(0);
         	if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype) {
-        		myLM = new DiscreteSitesFELM(myDatum);
+        		myLM = new DiscreteSitesFELM(myDatum, this);
         	} else if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability) {
-        		myLM = new ReferenceProbabilityFELM(myDatum);
+        		myLM = new ReferenceProbabilityFELM(myDatum, this);
         	} else if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability) {
-        		myLM = new AlleleProbabilityFELM(myDatum);
+        		myLM = new AlleleProbabilityFELM(myDatum, this);
         	} else return null;
         	if (permute.value()) myLM.permutationTest(true, numberOfPermutations.value());
         	if (saveAsFile.value()) {
@@ -147,6 +147,10 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
         	else return new DataSet(myLM.datumList(), this);
     	} 
     	
+    }
+    
+    public void updateProgress(int percent) {
+    	fireProgress(percent);
     }
     
     //setters needed for compatability with Tassel 4.0 pipeline commands

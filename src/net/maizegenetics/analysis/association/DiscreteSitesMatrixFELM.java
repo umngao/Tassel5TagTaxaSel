@@ -21,8 +21,8 @@ public class DiscreteSitesMatrixFELM extends AbstractFixedEffectLM {
 	protected int modeldf, errordf;
 	protected boolean hasBasis = false;
 	
-	public DiscreteSitesMatrixFELM(Datum dataset) {
-		super(dataset);
+	public DiscreteSitesMatrixFELM(Datum dataset, FixedEffectLMPlugin parentPlugin) {
+		super(dataset, parentPlugin);
 	}
 
 	@Override

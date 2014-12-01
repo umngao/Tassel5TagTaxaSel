@@ -20,8 +20,8 @@ public class DiscreteSitesFullModelOnlyFELM extends AbstractFixedEffectLM {
 	protected int numberOfAlleleReportColumns;
 	String[] siteGenotypes;
 	
-	public DiscreteSitesFullModelOnlyFELM(Datum dataset) {
-		super(dataset);
+	public DiscreteSitesFullModelOnlyFELM(Datum dataset, FixedEffectLMPlugin parentPlugin) {
+		super(dataset, parentPlugin);
 	}
 
 	@Override

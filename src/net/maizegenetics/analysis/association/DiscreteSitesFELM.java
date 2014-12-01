@@ -18,8 +18,8 @@ import net.maizegenetics.util.OpenBitSet;
 public class DiscreteSitesFELM extends AbstractFixedEffectLM {
 	String[] siteGenotypes;
 
-	public DiscreteSitesFELM(Datum dataset) {
-		super(dataset);
+	public DiscreteSitesFELM(Datum dataset, FixedEffectLMPlugin parentPlugin) {
+		super(dataset, parentPlugin);
 	}
 
 	@Override

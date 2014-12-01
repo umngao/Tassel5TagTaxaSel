@@ -14,8 +14,8 @@ import net.maizegenetics.util.OpenBitSet;
 public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
 	double[] myProbabilities;
 
-	public ReferenceProbabilityFELM(Datum data) {
-		super(data);
+	public ReferenceProbabilityFELM(Datum data, FixedEffectLMPlugin parentPlugin) {
+		super(data, parentPlugin);
 	}
 	
 	@Override

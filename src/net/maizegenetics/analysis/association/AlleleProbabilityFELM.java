@@ -14,8 +14,8 @@ import net.maizegenetics.util.OpenBitSet;
 
 public class AlleleProbabilityFELM extends AbstractFixedEffectLM {
 
-	public AlleleProbabilityFELM(Datum data) {
-		super(data);
+	public AlleleProbabilityFELM(Datum data, FixedEffectLMPlugin parentPlugin) {
+		super(data, parentPlugin);
 	}
 	
 	@Override
