@@ -33,15 +33,20 @@ public final class PluginParameter<T> {
     private final Class<T> myClass;
     private final PluginParameter<?> myDependentOnParameter;
     private final Object myDependentOnParameterValue;
+    private final List<?> myPossibleValues;
 
     public enum PARAMETER_TYPE {
 
-        NA, IN_FILE, OUT_FILE, IN_DIR, OUT_DIR, GENOTYPE_TABLE, TAXA_LIST, POSITION_LIST
+        NA, IN_FILE, OUT_FILE, IN_DIR, OUT_DIR, GENOTYPE_TABLE, TAXA_LIST, POSITION_LIST,
+        OBJECT_LIST_SINGLE_SELECT, OBJECT_LIST_MULTIPLE_SELECT
     };
     private final PARAMETER_TYPE myParameterType;
 
     private PluginParameter(String guiName, String guiUnits, String cmdLineName,
-            String description, List<Range<Comparable<T>>> ranges, T defaultValue, T value, boolean required, PARAMETER_TYPE fileType, PluginParameter<?> dependentOnParameter, Object dependentOnParameterValue, Class<T> type) {
+            String description, List<Range<Comparable<T>>> ranges, T defaultValue,
+            T value, boolean required, PARAMETER_TYPE fileType,
+            PluginParameter<?> dependentOnParameter, Object dependentOnParameterValue,
+            List<?> possibleValues, Class<T> type) {
         myGuiName = guiName;
         myUnits = guiUnits;
         myCmdLineName = cmdLineName;
@@ -71,6 +76,11 @@ public final class PluginParameter<T> {
         myParameterType = fileType;
         myDependentOnParameter = dependentOnParameter;
         myDependentOnParameterValue = dependentOnParameterValue;
+        if ((possibleValues != null) && (possibleValues.isEmpty())) {
+            myPossibleValues = null;
+        } else {
+            myPossibleValues = possibleValues;
+        }
     }
 
     /**
@@ -84,7 +94,14 @@ public final class PluginParameter<T> {
         this(oldParameter.myGuiName, oldParameter.myUnits, oldParameter.myCmdLineName,
                 oldParameter.myDescription, oldParameter.myRanges, oldParameter.myDefaultValue, newValue,
                 oldParameter.myRequired, oldParameter.myParameterType, oldParameter.dependentOnParameter(),
-                oldParameter.dependentOnParameterValue(), oldParameter.myClass);
+                oldParameter.dependentOnParameterValue(), oldParameter.possibleValues(), oldParameter.myClass);
+    }
+
+    public static PluginParameter<List> getInstance(PluginParameter<List> oldParameter, List<?> possibleValues) {
+        return new PluginParameter<>(oldParameter.myGuiName, oldParameter.myUnits, oldParameter.myCmdLineName,
+                oldParameter.myDescription, oldParameter.myRanges, oldParameter.myDefaultValue, oldParameter.value(),
+                oldParameter.myRequired, oldParameter.myParameterType, oldParameter.dependentOnParameter(),
+                oldParameter.dependentOnParameterValue(), possibleValues, oldParameter.myClass);
     }
 
     public String guiName() {
@@ -202,6 +219,10 @@ public final class PluginParameter<T> {
         return myDependentOnParameterValue;
     }
 
+    public List<?> possibleValues() {
+        return myPossibleValues;
+    }
+
     public boolean isEmpty() {
         return (myValue == null) || (myValue.toString().trim().length() == 0);
     }
@@ -219,6 +240,7 @@ public final class PluginParameter<T> {
         private PARAMETER_TYPE myParameterType = PARAMETER_TYPE.NA;
         private PluginParameter<?> myDependentOnParameter = null;
         private Object myDependentOnParameterValue = null;
+        private List<?> myPossibleValues = null;
 
         public Builder(String cmdLineName, T defaultValue, Class<T> type) {
             myCmdLineName = cmdLineName;
@@ -297,6 +319,16 @@ public final class PluginParameter<T> {
             return this;
         }
 
+        public Builder<T> objectListSingleSelect() {
+            myParameterType = PARAMETER_TYPE.OBJECT_LIST_SINGLE_SELECT;
+            return this;
+        }
+
+        public Builder<T> objectListMultipleSelect() {
+            myParameterType = PARAMETER_TYPE.OBJECT_LIST_MULTIPLE_SELECT;
+            return this;
+        }
+
         public Builder<T> dependentOnParameter(PluginParameter<?> parameter) {
             if (Boolean.class.isAssignableFrom(parameter.valueType())) {
                 return dependentOnParameter(parameter, true);
@@ -308,6 +340,11 @@ public final class PluginParameter<T> {
         public Builder<T> dependentOnParameter(PluginParameter<?> parameter, Object value) {
             myDependentOnParameter = parameter;
             myDependentOnParameterValue = value;
+            return this;
+        }
+
+        public Builder<T> possibleValues(List<?> possibleValues) {
+            myPossibleValues = possibleValues;
             return this;
         }
 
@@ -330,7 +367,7 @@ public final class PluginParameter<T> {
             return new PluginParameter<>(myGuiName, myUnits, myCmdLineName,
                     myDescription, myRanges, myDefaultValue, null, myIsRequired,
                     myParameterType, myDependentOnParameter,
-                    myDependentOnParameterValue, myClass);
+                    myDependentOnParameterValue, myPossibleValues, myClass);
         }
     }
 }
