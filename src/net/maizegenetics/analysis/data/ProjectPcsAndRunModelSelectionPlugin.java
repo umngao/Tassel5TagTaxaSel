@@ -4,13 +4,12 @@
 package net.maizegenetics.analysis.data;
 
 import java.awt.Frame;
-import java.io.StringWriter;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import javax.swing.ImageIcon;
+import net.maizegenetics.analysis.association.AssociationUtils;
+import net.maizegenetics.analysis.numericaltransform.ImputationPlugin;
 import net.maizegenetics.analysis.numericaltransform.NumericalGenotypePlugin;
-import net.maizegenetics.analysis.numericaltransform.KNN;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
@@ -18,6 +17,12 @@ import net.maizegenetics.dna.snp.genotypecall.ProjectionGenotypeCallTable;
 import net.maizegenetics.dna.snp.io.ProjectionGenotypeIO;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
+import net.maizegenetics.phenotype.NumericAttribute;
+import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
+import net.maizegenetics.phenotype.PhenotypeAttribute;
+import net.maizegenetics.phenotype.PhenotypeBuilder;
+import net.maizegenetics.phenotype.TaxaAttribute;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -25,10 +30,7 @@ import net.maizegenetics.plugindef.PluginEvent;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.stats.PCA.PrinComp;
 import net.maizegenetics.taxa.TaxaList;
-import net.maizegenetics.taxa.TaxaListBuilder;
-import net.maizegenetics.trait.Phenotype;
-import net.maizegenetics.trait.SimplePhenotype;
-import net.maizegenetics.trait.Trait;
+import net.maizegenetics.util.OpenBitSet;
 import org.apache.log4j.Logger;
 
 /**
@@ -47,9 +49,8 @@ public class ProjectPcsAndRunModelSelectionPlugin extends AbstractPlugin {
 
     private GenotypeTable myHighDensityMarkersGenotypeTable = null;
 
-    private Phenotype myCharacterAlignment;
+    private GenotypeTable myCharacterAlignment;
     private double minRequiredData = 0.00;
-    private PrinComp myPrinComp;
 
     /**
      * Creates a new instance of ProjectPcsAndRunModelSelectionLPlugin
@@ -73,7 +74,6 @@ public class ProjectPcsAndRunModelSelectionPlugin extends AbstractPlugin {
 
     @Override
     public DataSet processData(DataSet input) {
-
         try {
             return loadFile(myRecombinationBreakpoints.value(), myHighDensityMarkersGenotypeTable);
         } catch (Exception e) {
@@ -146,7 +146,6 @@ public class ProjectPcsAndRunModelSelectionPlugin extends AbstractPlugin {
     }
 
     public DataSet loadFile(String theRecombinationBreakpoints, GenotypeTable theHighDensityMarkers) {
-
         Datum test = new Datum("Full", theHighDensityMarkers, null);
         DataSet tests = new DataSet(test, this);
         fireDataSetReturned(new PluginEvent(tests, ProjectPcsAndRunModelSelectionPlugin.class));
@@ -231,15 +230,31 @@ public class ProjectPcsAndRunModelSelectionPlugin extends AbstractPlugin {
                 //fireDataSetReturned(new PluginEvent(test1s, ProjectPcsAndRunModelSelectionPlugin.class));     
 
                 //Create a numeric data set
-                SimplePhenotype numericalGenotypesForCalculatingPCs = NumericalGenotypePlugin.collapseTransform(theGenotypesForCalculatingPCsReduced);
+                //SimplePhenotype numericalGenotypesForCalculatingPCs = NumericalGenotypePlugin.collapseTransform(theGenotypesForCalculatingPCsReduced);
+                NumericalGenotypePlugin NGPConverter = new NumericalGenotypePlugin();
+                GenotypeTable theGenotypesForCalculatingPCsReducedPartTwo = NGPConverter.setAlternateMinorAllelesToMinor(theGenotypesForCalculatingPCsReduced);
+                ImputationPlugin imputor = new ImputationPlugin(null, false);
+                imputor.by_mean(true);
+                DataSet genoData = new DataSet(new Datum("name", theGenotypesForCalculatingPCsReducedPartTwo, "no comment"), null);
+                DataSet numericalData = imputor.processData(genoData);
 
-                //Use KNN to impute missing values     
-                myCharacterAlignment = numericalGenotypesForCalculatingPCs;
+                myCharacterAlignment = (GenotypeTable) numericalData.getData(0).getData();
 
-                Datum ImpNumGeno4CalcPCsAsDatum = createImputedData();//You need to go into createImputedData() and fix things
-                DataSet ImpNumGeno4CalcPCs = new DataSet(ImpNumGeno4CalcPCsAsDatum, this);
+                int ntaxa = myCharacterAlignment.numberOfTaxa();
+                int nsites = myCharacterAlignment.numberOfSites();
+                DoubleMatrix dataMatrix = DoubleMatrixFactory.DEFAULT.make(ntaxa, nsites);
+                for (int t = 0; t < ntaxa; t++) {
+                    for (int s = 0; s < nsites; s++) {
+                        dataMatrix.set(t, s, myCharacterAlignment.referenceProbability(t, s));
+                    }
+                }
+
+                PrinComp myPrinComp = new PrinComp(dataMatrix, PrinComp.PC_TYPE.cov);
+                //Use KNN to impute missing values  NOTE: Wait until the new KNN imputation code is up and running   
+
+                //Datum ImpNumGeno4CalcPCsAsDatum = createImputedData();//You need to go into createImputedData() and fix things
+                //DataSet ImpNumGeno4CalcPCs = new DataSet(ImpNumGeno4CalcPCsAsDatum, this);
                 //fireDataSetReturned(new PluginEvent(ImpNumGeno4CalcPCs));
-
                 //Obtain the PCs, which was ran in createImputedData()
                 //Question: How do I get the first k PCs from myPCs?
                 DoubleMatrix myPCs = myPrinComp.getPrincipalComponents();
@@ -326,19 +341,24 @@ public class ProjectPcsAndRunModelSelectionPlugin extends AbstractPlugin {
             ArrayList<Double> endPosVector, GenotypeTable theAlignmentForGenotype) {
 
         TaxaList theTaxa = theAlignmentForGenotype.taxa();
-        LinkedList<Trait> PCTraitNames = new LinkedList<Trait>();
-        Trait tempTrait;
+        List<PhenotypeAttribute> myAttributes = new ArrayList<>();
+        List<ATTRIBUTE_TYPE> types = new ArrayList<>();
+        myAttributes.add(new TaxaAttribute(theTaxa));
+        types.add(ATTRIBUTE_TYPE.taxa);
         Integer counter = 0;
+        int ntaxa = theTaxa.numberOfTaxa();
         for (int i = 0; i < chrVector.size(); i++) {
             counter = counter + 1;
             if ((i > 0) && (!posVector.get(i).equals(posVector.get(i - 1)))) {
                 counter = 1;
             }
-            tempTrait = new Trait("Chr_" + chrVector.get(i).toString() + "_Start_BP_" + startPosVector.get(i).toString() + "_End_BP_"
-                    + endPosVector.get(i).toString() + "_PC_" + counter.toString(),
-                    false, Trait.TYPE_MARKER);
-            PCTraitNames.add(tempTrait);
-            //System.out.println("Chr_"+chrVector.get(i).toString()+"_MidpointBP_"+posVector.get(i).toString()+"_PC_"+counter.toString());
+            String name = "Chr_" + chrVector.get(i).toString() + "_Start_BP_"
+                    + startPosVector.get(i).toString() + "_End_BP_"
+                    + endPosVector.get(i).toString() + "_End_BP_" + "_PC_" + counter.toString();
+            float[] data = AssociationUtils.convertDoubleArrayToFloat(ProjectedPCs.column(i).to1DArray());
+            myAttributes.add(new NumericAttribute(name, data, new OpenBitSet(ntaxa)));
+            types.add(ATTRIBUTE_TYPE.covariate);
+
         }
         double[][] ProjectedPCsAsDouble = new double[ProjectedPCs.numberOfRows()][ProjectedPCs.numberOfColumns()];
         for (int i = 0; i < ProjectedPCs.numberOfRows(); i++) {
@@ -347,12 +367,10 @@ public class ProjectPcsAndRunModelSelectionPlugin extends AbstractPlugin {
             }
         }
 
-        SimplePhenotype ProjectedPCsAsSimplePhenotype = new SimplePhenotype(theTaxa, PCTraitNames,
-                ProjectedPCsAsDouble);
         String ProjectedPCsReportName = "Projected PCs";
-        String ProjectedPCsReportComments = "These are the Projected PCs";
-
-        Datum ProjectedPCsDatum = new Datum(ProjectedPCsReportName, ProjectedPCsAsSimplePhenotype, ProjectedPCsReportComments);
+        String ProjectedPCsReportComments = "These are the projected PCs";
+        Phenotype ProjectedPCsAsPhenotype = new PhenotypeBuilder().fromAttributeList(myAttributes, types).build().get(0);
+        Datum ProjectedPCsDatum = new Datum(ProjectedPCsReportName, ProjectedPCsAsPhenotype, ProjectedPCsReportComments);
         DataSet ProjectedPCsDataSet = new DataSet(ProjectedPCsDatum, this);
         fireDataSetReturned(new PluginEvent(ProjectedPCsDataSet, ProjectPcsAndRunModelSelectionPlugin.class));
         return ProjectedPCsDataSet;
@@ -363,33 +381,30 @@ public class ProjectPcsAndRunModelSelectionPlugin extends AbstractPlugin {
             ArrayList<Double> endPosVector, GenotypeTable theGenotypesForCalculatingPCs) {
 
         TaxaList theTaxa = theGenotypesForCalculatingPCs.taxa();
-        LinkedList<Trait> PCTraitNames = new LinkedList<Trait>();
-        Trait tempTrait;
+        List<PhenotypeAttribute> myAttributes = new ArrayList<>();
+        List<ATTRIBUTE_TYPE> types = new ArrayList<>();
+        myAttributes.add(new TaxaAttribute(theTaxa));
+        types.add(ATTRIBUTE_TYPE.taxa);
         Integer counter = 0;
+        int ntaxa = theTaxa.numberOfTaxa();
         for (int i = 0; i < chrVector.size(); i++) {
             counter = counter + 1;
             if ((i > 0) && (!posVector.get(i).equals(posVector.get(i - 1)))) {
                 counter = 1;
             }
-            tempTrait = new Trait("Chr_" + chrVector.get(i).toString() + "_Start_BP_" + startPosVector.get(i).toString() + "_End_BP_"
-                    + endPosVector.get(i).toString() + "_PC_" + counter.toString(),
-                    false, Trait.TYPE_MARKER);
-            PCTraitNames.add(tempTrait);
-            //System.out.println("Chr_"+chrVector.get(i).toString()+"_MidpointBP_"+posVector.get(i).toString()+"_PC_"+counter.toString());
-        }
-        double[][] ProjectedPCsAsDouble = new double[PCResults.numberOfRows()][PCResults.numberOfColumns()];
-        for (int i = 0; i < PCResults.numberOfRows(); i++) {
-            for (int j = 0; j < PCResults.numberOfColumns(); j++) {
-                ProjectedPCsAsDouble[i][j] = PCResults.get(i, j);
-            }
+            String name = "Chr_" + chrVector.get(i).toString() + "_Start_BP_" + startPosVector.get(i).toString() + "_End_BP_"
+                    + endPosVector.get(i).toString() + "_PC_" + counter.toString();
+            float[] data = AssociationUtils.convertDoubleArrayToFloat(PCResults.column(i).to1DArray());
+            myAttributes.add(new NumericAttribute(name, data, new OpenBitSet(ntaxa)));
+            types.add(ATTRIBUTE_TYPE.covariate);
         }
 
-        SimplePhenotype ProjectedPCsAsSimplePhenotype = new SimplePhenotype(theTaxa, PCTraitNames,
-                ProjectedPCsAsDouble);
         String ProjectedPCsReportName = "PCs among NAM Founders";
         String ProjectedPCsReportComments = "PCs among NAM Founders";
-
-        Datum ProjectedPCsDatum = new Datum(ProjectedPCsReportName, ProjectedPCsAsSimplePhenotype, ProjectedPCsReportComments);
+        Phenotype ProjectedPCsAsPhenotype = new PhenotypeBuilder()
+                .fromAttributeList(myAttributes, types)
+                .build().get(0);
+        Datum ProjectedPCsDatum = new Datum(ProjectedPCsReportName, ProjectedPCsAsPhenotype, ProjectedPCsReportComments);
         DataSet ProjectedPCsDataSet = new DataSet(ProjectedPCsDatum, this);
         fireDataSetReturned(new PluginEvent(ProjectedPCsDataSet, ProjectPcsAndRunModelSelectionPlugin.class));
         return ProjectedPCsDataSet;
@@ -474,106 +489,113 @@ public class ProjectPcsAndRunModelSelectionPlugin extends AbstractPlugin {
         return leftAndRightFlankingMarkerSiteAndChrStartAndStop;
     }      //End method here
 
-    public Datum createImputedData() {
-        //int[] colsSelected = null;       // set of columns to be used to calculate distance (should be correlated columns)
-        //colsSelected = tblTraits.getSelectedRows();
-        //int colCount = colsSelected.length;
-        //int includedCount = 0;
-        //find all the rows with enough data to keep
-        int ntaxa = myCharacterAlignment.getNumberOfTaxa();
-        int nsites = myCharacterAlignment.getNumberOfTraits();
-        double[][] tempData = new double[ntaxa][nsites];
-        for (int t = 0; t < ntaxa; t++) {
-            for (int s = 0; s < nsites; s++) {
-                tempData[t][s] = myCharacterAlignment.getData(t, s);
-            }
-        }
+    /*   public Datum createImputedData() {
+     //int[] colsSelected = null;       // set of columns to be used to calculate distance (should be correlated columns)
+     //colsSelected = tblTraits.getSelectedRows();
+     //int colCount = colsSelected.length;
+     //int includedCount = 0;
+     //find all the rows with enough data to keep
+     //int ntaxa = myCharacterAlignment.getNumberOfTaxa();
+     int ntaxa = myCharacterAlignment.numberOfObservations();
+     //int nsites = myCharacterAlignment.getNumberOfTraits();
+     int nsites = myCharacterAlignment.numberOfAttributes();
+     double[][] tempData = new double[ntaxa][nsites];
+     for (int t = 0; t < ntaxa; t++) {
+     for (int s = 0; s < nsites; s++) {
+     //tempData[t][s] = myCharacterAlignment.getData(t, s);
+     tempData[t][s] = (double) myCharacterAlignment.getValueAt(t, s);
+     }
+     }
 
-        //See if there are any taxa with all missing marker data. If there are any, replace with the average
-        // numeric marker value
-        for (int i = 0; i < ntaxa; i++) {
-            int count = 0;
-            for (int j = 0; j < nsites; j++) {
-                //Check to see if the tempData[i][j] is missing
-                if (!Double.isNaN(tempData[i][j])) {
-                    break;
-                }
-                count++;
-            }
-            if (count == nsites) {
-                for (int j = 0; j < nsites; j++) {
-                    //System.out.println("The " + i + "th taxa did not have any marker data");
-                    ArrayList<Double> columnValues = new ArrayList<Double>();
-                    for (int k = 0; k < ntaxa; k++) {
-                        columnValues.add(tempData[k][j]);
-                    }
-                    //Calculate the column average
-                    double theSum = 0;
-                    int theNumberOfInds = 0;
-                    for (int k = 0; k < ntaxa; k++) {
-                        if (!Double.isNaN(columnValues.get(k))) {
-                            theSum = theSum + columnValues.get(k);
-                            theNumberOfInds++;
-                        }
-                    }
-                    if (theNumberOfInds != 0) {
-                        tempData[i][j] = theSum / theNumberOfInds;
-                    } else {
-                        tempData[i][j] = 0.5;
-                    }
+     //See if there are any taxa with all missing marker data. If there are any, replace with the average
+     // numeric marker value
+     for (int i = 0; i < ntaxa; i++) {
+     int count = 0;
+     for (int j = 0; j < nsites; j++) {
+     //Check to see if the tempData[i][j] is missing
+     if (!Double.isNaN(tempData[i][j])) {
+     break;
+     }
+     count++;
+     }
+     if (count == nsites) {
+     for (int j = 0; j < nsites; j++) {
+     //System.out.println("The " + i + "th taxa did not have any marker data");
+     ArrayList<Double> columnValues = new ArrayList<Double>();
+     for (int k = 0; k < ntaxa; k++) {
+     columnValues.add(tempData[k][j]);
+     }
+     //Calculate the column average
+     double theSum = 0;
+     int theNumberOfInds = 0;
+     for (int k = 0; k < ntaxa; k++) {
+     if (!Double.isNaN(columnValues.get(k))) {
+     theSum = theSum + columnValues.get(k);
+     theNumberOfInds++;
+     }
+     }
+     if (theNumberOfInds != 0) {
+     tempData[i][j] = theSum / theNumberOfInds;
+     } else {
+     tempData[i][j] = 0.5;
+     }
 
-                    //Set tempData[i][j] equal to the column average
-                }
-            }
-        }
+     //Set tempData[i][j] equal to the column average
+     }
+     }
+     }
 
-//        int[] includedRowTemp = new int[myCharacterAlignment.getNumberOfTaxa()];
-//        for (int i = 0; i < myCharacterAlignment.getNumberOfTaxa(); i++) {
-//            double goodData = 0;
-//            for (int j = 0; j < colCount; j++) {
-//                if (!Double.isNaN(myCharacterAlignment.getData(i, colsSelected[j]))) {
-//                    goodData++;
-//                }
-//            }
-//            goodData = goodData / colCount;
-//            if (goodData >= minRequiredData) {
-//                includedRowTemp[includedCount++] = i;
-//            }
-//        }
-//        //rebuild the data set
-//        Taxon[] newIDs = new Taxon[includedCount];
-//
-//        int traitCount = colsSelected.length;
-//        java.util.List<Trait> newtraits = new ArrayList<Trait>();
-//        for (int t = 0; t < traitCount; t++) {
-//            newtraits.add(Trait.getInstance(myCharacterAlignment.getTrait(colsSelected[t])));
-//        }
-//
-//        double[][] tempData = new double[includedCount][colsSelected.length];
-//        for (int i = 0; i < includedCount; i++) {
-//            for (int j = 0; j < colCount; j++) {
-//                newIDs[i] = myCharacterAlignment.getTaxa().get(includedRowTemp[i]);
-//                tempData[i][j] = myCharacterAlignment.getData(includedRowTemp[i], colsSelected[j]);
-//            }
-//        }
-        //      for(int j = 0; j < colCount; j++){
-        //              newTraits[j]=aCharacterAlignment.getTraitName(colsSelected[j]);
-        //              newEnvs[j]=aCharacterAlignment.getEnvironmentName(colsSelected[j]);
-        //          }
-        int kNeighbors = 3;
-        double[][] theImputedData = KNN.impute(tempData, kNeighbors, true, true);
-        DoubleMatrix values = DoubleMatrixFactory.DEFAULT.make(theImputedData);
-        myPrinComp = new PrinComp(values, PrinComp.PC_TYPE.cov);
+     //        int[] includedRowTemp = new int[myCharacterAlignment.getNumberOfTaxa()];
+     //        for (int i = 0; i < myCharacterAlignment.getNumberOfTaxa(); i++) {
+     //            double goodData = 0;
+     //            for (int j = 0; j < colCount; j++) {
+     //                if (!Double.isNaN(myCharacterAlignment.getData(i, colsSelected[j]))) {
+     //                    goodData++;
+     //                }
+     //            }
+     //            goodData = goodData / colCount;
+     //            if (goodData >= minRequiredData) {
+     //                includedRowTemp[includedCount++] = i;
+     //            }
+     //        }
+     //        //rebuild the data set
+     //        Taxon[] newIDs = new Taxon[includedCount];
+     //
+     //        int traitCount = colsSelected.length;
+     //        java.util.List<Trait> newtraits = new ArrayList<Trait>();
+     //        for (int t = 0; t < traitCount; t++) {
+     //            newtraits.add(Trait.getInstance(myCharacterAlignment.getTrait(colsSelected[t])));
+     //        }
+     //
+     //        double[][] tempData = new double[includedCount][colsSelected.length];
+     //        for (int i = 0; i < includedCount; i++) {
+     //            for (int j = 0; j < colCount; j++) {
+     //                newIDs[i] = myCharacterAlignment.getTaxa().get(includedRowTemp[i]);
+     //                tempData[i][j] = myCharacterAlignment.getData(includedRowTemp[i], colsSelected[j]);
+     //            }
+     //        }
+     //      for(int j = 0; j < colCount; j++){
+     //              newTraits[j]=aCharacterAlignment.getTraitName(colsSelected[j]);
+     //              newEnvs[j]=aCharacterAlignment.getEnvironmentName(colsSelected[j]);
+     //          }
+     int kNeighbors = 3;
+     double[][] theImputedData = KNN.impute(tempData, kNeighbors, true, true);
+     DoubleMatrix values = DoubleMatrixFactory.DEFAULT.make(theImputedData);
+     myPrinComp = new PrinComp(values, PrinComp.PC_TYPE.cov);
 
-        //SimplePhenotype sca = new SimplePhenotype(new SimpleIdGroup(newIDs), theImputedData, aCharacterAlignment.getFactorNameCopy(), newtraits);
-        TaxaList tL = new TaxaListBuilder().addAll(myCharacterAlignment.getTaxa()).build();
-        SimplePhenotype sca = new SimplePhenotype(tL, myCharacterAlignment.getTraits(), theImputedData);
-        StringWriter sw = new StringWriter();
-        //sca.report(new PrintWriter(sw));
-        String theComment = sw.toString() + "\nImputed Phenotypic Values." + "\nTaxa with insufficient data: " + (myCharacterAlignment.getNumberOfTaxa() - sca.getNumberOfTaxa()) + "\nK = " + kNeighbors + minRequiredData + "% cutoff):\n";
-        String theName = "Imputed_Data";
-        Datum result = new Datum(theName, sca, theComment);
-        return result;
-    }
-
+     //SimplePhenotype sca = new SimplePhenotype(new SimpleIdGroup(newIDs), theImputedData, aCharacterAlignment.getFactorNameCopy(), newtraits);
+     //TaxaList tL = new TaxaListBuilder().addAll(myCharacterAlignment.getTaxa()).build();
+     TaxaList tL = new TaxaListBuilder().addAll(myCharacterAlignment.taxa()).build();
+     //SimplePhenotype sca = new SimplePhenotype(tL, myCharacterAlignment.getTraits(), theImputedData);
+        
+     Phenotype sca = new PhenotypeBuilder().fromPhenotypeList(myCharacterAlignment.).build();
+        
+     Phenotype(tL, myCharacterAlignment.attribute(ntaxa), theImputedData);
+     StringWriter sw = new StringWriter();
+     //sca.report(new PrintWriter(sw));
+     String theComment = sw.toString() + "\nImputed Phenotypic Values." + "\nTaxa with insufficient data: " + (myCharacterAlignment.taxa() - sca.getNumberOfTaxa()) + "\nK = " + kNeighbors + minRequiredData + "% cutoff):\n";
+     String theName = "Imputed_Data";
+     Datum result = new Datum(theName, sca, theComment);
+     return result;
+     }*/
 }

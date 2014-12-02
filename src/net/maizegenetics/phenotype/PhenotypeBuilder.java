@@ -472,16 +472,15 @@ public class PhenotypeBuilder {
 					float val;
 					if (values[i + 1].startsWith("-99")) {
 						val = Float.NaN;
-						missingList.get(i).fastSet(dataCount);
 					}
 					else {
 						try {
 							val = Float.parseFloat(values[i + 1]);
 						} catch (NumberFormatException e) {
 							val = Float.NaN;
-							missingList.get(i).fastSet(dataCount);
 						}
 					}
+					if (Double.isNaN(val)) missingList.get(i).fastSet(dataCount);
 					traitValues.get(i)[dataCount] = val;
 				}
 				dataCount++;

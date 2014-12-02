@@ -3,19 +3,9 @@ package net.maizegenetics.analysis.numericaltransform;
 import com.google.common.collect.MinMaxPriorityQueue;
 
 import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.TreeSet;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
-import net.maizegenetics.util.LoggingUtils;
 
 /**
  * Imputation of the missing data by k-nearest neighbors.
@@ -91,41 +81,40 @@ public class kNearestNeighbors {
     }
 
     public static void imputeFromNonMissingNeighbors(double[][] data, int k, boolean isManhattan, boolean isCosine) {
-    	LoggingUtils.setupDebugLogging();
-    	double[][] rowDistances = allDistances(data, isManhattan, isCosine);
-    	int nrows = data.length;
-    	int ncols = data[0].length;
-    	
-    	for (int r = 0; r < nrows; r++) {
-    		for (int c = 0; c < ncols; c++) {
-    			if (Double.isNaN(data[r][c])) {
-    				data[r][c] = KNearestNonMissingNeighborMean(data, rowDistances, r, c, k);
-    			}
-    		}
-    	}
+        double[][] rowDistances = allDistances(data, isManhattan, isCosine);
+        int nrows = data.length;
+        int ncols = data[0].length;
+
+        for (int r = 0; r < nrows; r++) {
+            for (int c = 0; c < ncols; c++) {
+                if (Double.isNaN(data[r][c])) {
+                    data[r][c] = KNearestNonMissingNeighborMean(data, rowDistances, r, c, k);
+                }
+            }
+        }
     }
-    
+
     private static double[][] allDistances(double[][] data, boolean isManhattan, boolean isCosine) {
-    	int nrows = data.length;
-    	double[][] rowDistance = new double[nrows][nrows];
-    	if (isCosine) {
-    		for (int r1 = 0; r1 < nrows; r1++) {
-				rowDistance[r1][r1] = cosine(data[r1], data[r1]);
-    			for (int r2 = r1 + 1; r2 < nrows; r2++) {
-    				rowDistance[r1][r2] = rowDistance[r2][r1] = cosine(data[r1], data[r2]);
-    			}
-    		}
-    	} else {
-    		for (int r1 = 0; r1 < nrows; r1++) {
-				rowDistance[r1][r1] = distance(data[r1], data[r1], isManhattan);
-    			for (int r2 = r1 + 1; r2 < nrows; r2++) {
-    				rowDistance[r1][r2] = rowDistance[r2][r1] = distance(data[r1], data[r2], isManhattan);
-    			}
-    		}
-    	}
-    	return rowDistance;
+        int nrows = data.length;
+        double[][] rowDistance = new double[nrows][nrows];
+        if (isCosine) {
+            for (int r1 = 0; r1 < nrows; r1++) {
+                rowDistance[r1][r1] = cosine(data[r1], data[r1]);
+                for (int r2 = r1 + 1; r2 < nrows; r2++) {
+                    rowDistance[r1][r2] = rowDistance[r2][r1] = cosine(data[r1], data[r2]);
+                }
+            }
+        } else {
+            for (int r1 = 0; r1 < nrows; r1++) {
+                rowDistance[r1][r1] = distance(data[r1], data[r1], isManhattan);
+                for (int r2 = r1 + 1; r2 < nrows; r2++) {
+                    rowDistance[r1][r2] = rowDistance[r2][r1] = distance(data[r1], data[r2], isManhattan);
+                }
+            }
+        }
+        return rowDistance;
     }
-  
+
     /**
      * @param data	a matrix
      * @param col	the column of the matrix for which the mean should be computed
@@ -200,7 +189,7 @@ public class kNearestNeighbors {
         int nCols = data[0].length;
 
         double[] query = data[row];
-        double[][] neighbors = new double[k][nCols];
+        double[][] neighbors = new double[k][];
 
         Map<Integer, Double> distances = new HashMap<>();
 
@@ -242,15 +231,23 @@ public class kNearestNeighbors {
         int l1 = data1.length;
 
         double result = 0.0;
-        double count = 0.0;
+        double count = l1;
 
-        for (int i = 0; i < l1; i++) {
-            if ((!Double.isNaN(data1[i])) && (!Double.isNaN(data2[i]))) {
-                count += 1.0;
-                if (isManhattan) {
-                    result += Math.abs(data1[i] - data2[i]);
+        if (isManhattan) {
+            for (int i = 0; i < l1; i++) {
+                double diff = data1[i] - data2[i];
+                if (Double.isNaN(diff)) {
+                    count -= 1.0;
                 } else {
-                    double diff = data1[i] - data2[i];
+                    result += Math.abs(diff);
+                }
+            }
+        } else {
+            for (int i = 0; i < l1; i++) {
+                double diff = data1[i] - data2[i];
+                if (Double.isNaN(diff)) {
+                    count -= 1.0;
+                } else {
                     result += diff * diff;
                 }
             }
@@ -269,7 +266,6 @@ public class kNearestNeighbors {
      */
     public static double[][] KNearestNeighbor(double data[][], int row, int k, boolean isManhattan) {
         int nRows = data.length;
-        double[][] neighbors = new double[k][];
 
         MinMaxPriorityQueue<Map.Entry<Double, double[]>> distances
                 = MinMaxPriorityQueue.orderedBy((Map.Entry<Double, double[]> o1, Map.Entry<Double, double[]> o2) -> {
@@ -285,6 +281,7 @@ public class kNearestNeighbors {
             }
         }
 
+        double[][] neighbors = new double[k][];
         for (int n = 0; n < k; n++) {
             neighbors[n] = distances.poll().getValue();
         }
@@ -301,18 +298,22 @@ public class kNearestNeighbors {
                 }).maximumSize(k).create();
 
         double highestLowest = -1.0;
-        for (int i = 0; i < nRows; i++) if (i != row) {
-        	double val = data[i][col];
-            double current = distance[row][i];
-            if ((!Double.isNaN(val)) && (distances.size() < k) || (current < highestLowest)) {
-                distances.add(new AbstractMap.SimpleEntry<>(current, val));
-                highestLowest = distances.peekLast().getKey();
+        for (int i = 0; i < nRows; i++) {
+            if (i != row) {
+                double val = data[i][col];
+                double current = distance[row][i];
+                if ((!Double.isNaN(val)) && (distances.size() < k) || (current < highestLowest)) {
+                    distances.add(new AbstractMap.SimpleEntry<>(current, val));
+                    highestLowest = distances.peekLast().getKey();
+                }
             }
         }
-        
+
         double sum = 0;
         int size = distances.size();
-        if (size == 0) throw new IllegalArgumentException(String.format("Column %d has no data in KNearestNeighbor", col));
+        if (size == 0) {
+            throw new IllegalArgumentException(String.format("Column %d has no data in KNearestNeighbor", col));
+        }
         for (int n = 0; n < size; n++) {
             sum += distances.poll().getValue();
         }
