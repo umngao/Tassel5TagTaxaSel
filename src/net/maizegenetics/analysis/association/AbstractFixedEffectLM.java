@@ -149,7 +149,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 				
 				numberOfTestsCalculated++;
 				if (numberOfTestsCalculated % updateInterval == 0) {
-					myParentPlugin.updateProgress(100 * numberOfTestsCalculated / numberOfTestsTotal);
+					if (myParentPlugin != null) myParentPlugin.updateProgress(100 * numberOfTestsCalculated / numberOfTestsTotal);
 				}
 			}
 			
