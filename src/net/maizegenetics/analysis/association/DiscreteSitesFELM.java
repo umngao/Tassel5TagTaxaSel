@@ -102,10 +102,15 @@ public class DiscreteSitesFELM extends AbstractFixedEffectLM {
 			
 	        Fadd = addTermSSdf[0] / addTermSSdf[1] / additiveErrorSSdf[0] * additiveErrorSSdf[1];
 	        
-	        try {
-	            padd = LinearModelUtils.Ftest(Fadd, markerSSdf[1], additiveErrorSSdf[1]);
-	        } catch (Exception e) {
-	            padd = Double.NaN;
+	        if (Double.isFinite(Fadd)) {
+		        try {
+		        	padd = LinearModelUtils.Ftest(Fadd, markerSSdf[1], errorSSdf[1]);
+		        } catch (Exception e) {
+		        	padd = Double.NaN;
+		        }
+	        } else {
+	        	padd = Double.NaN;
+	        	Fadd = Double.NaN;
 	        }
 
 			//dominance term, F = (reduction in SS Error from full model compared to additive model)/ reduction in df / error MS for full model
@@ -113,10 +118,15 @@ public class DiscreteSitesFELM extends AbstractFixedEffectLM {
 	        domTermSSdf[0] = markerSSdf[0] - addTermSSdf[0];
 	        domTermSSdf[1] = markerSSdf[1] - addTermSSdf[1];
 	        Fdom = domTermSSdf[0] / domTermSSdf[1] / errorSSdf[0] * errorSSdf[1];
-	        try {
-	        	pdom = LinearModelUtils.Ftest(Fdom, markerSSdf[1], errorSSdf[1]);
-	        } catch (Exception e) {
+	        if (Double.isFinite(Fdom)) {
+		        try {
+		        	pdom = LinearModelUtils.Ftest(Fdom, markerSSdf[1], errorSSdf[1]);
+		        } catch (Exception e) {
+		        	pdom = Double.NaN;
+		        }
+	        } else {
 	        	pdom = Double.NaN;
+	        	Fdom = Double.NaN;
 	        }
 
 		}
