@@ -69,7 +69,7 @@ public class BuilderFromHapMap {
     public static BuilderFromHapMap getBuilder(String hapmapFile) {
         return new BuilderFromHapMap(hapmapFile, null);
     }
-    
+
     public static BuilderFromHapMap getBuilder(String hapmapFile, ProgressListener listener) {
         return new BuilderFromHapMap(hapmapFile, listener);
     }
@@ -110,6 +110,9 @@ public class BuilderFromHapMap {
 
             boolean isOneLetter = false;
             String[] tokens = WHITESPACE_PATTERN.split(currLine, NUM_HAPMAP_NON_TAXA_HEADERS + 1);
+            if (tokens.length <= NUM_HAPMAP_NON_TAXA_HEADERS) {
+                throw new IllegalStateException("BuilderFromHapMap: Header Incorrectly Formatted: See:\nhttps://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/Load/Load#markdown-header-hapmap");
+            }
             double avg = (double) (tokens[NUM_HAPMAP_NON_TAXA_HEADERS].length() + 1) / (double) numTaxa;
             if ((avg > 1.99) && (avg < 2.01)) {
                 isOneLetter = true;
@@ -282,7 +285,8 @@ public class BuilderFromHapMap {
 
                 } catch (Exception e) {
                     myLogger.error("Error parsing this row " + input);
-                    throw e;
+                    myLogger.debug(e.getMessage(), e);
+                    throw new IllegalStateException("BuilderFromHapMap: Error Parsing Line: " + input.substring(0, Math.min(25, input.length())) + "...");
                 }
             }
             myInputLines = null;
