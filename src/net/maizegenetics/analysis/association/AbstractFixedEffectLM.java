@@ -8,6 +8,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.score.SiteScore;
@@ -23,9 +24,11 @@ import net.maizegenetics.stats.linearmodels.FactorModelEffect;
 import net.maizegenetics.stats.linearmodels.LinearModelUtils;
 import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.ModelEffectUtils;
+import net.maizegenetics.stats.linearmodels.SolveByOrthogonalizing;
 import net.maizegenetics.stats.linearmodels.SweepFastLinearModel;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.LoggingUtils;
 import net.maizegenetics.util.OpenBitSet;
 import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.TableReportBuilder;
@@ -100,6 +103,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		myCovariateAttributes = myGenoPheno.phenotype().attributeListOfType(ATTRIBUTE_TYPE.covariate);
 		siteTableReportRows = new ArrayList<Object[]>();
 		testTaxaReplication();
+		LoggingUtils.setupDebugLogging();
 	}
 
 	@Override
@@ -127,6 +131,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		int numberOfTestsCalculated = 0;
 		int updateInterval = numberOfTestsTotal / 100;
 		
+		long start = System.currentTimeMillis();
 		for (PhenotypeAttribute dataAttribute:myDataAttributes) {
 			currentTraitName = dataAttribute.name();
 			OpenBitSet missingObs = new OpenBitSet(dataAttribute.missing());
@@ -152,7 +157,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 					if (myParentPlugin != null) myParentPlugin.updateProgress(100 * numberOfTestsCalculated / numberOfTestsTotal);
 				}
 			}
-			
+			System.out.printf("Sites analyzed in %d ms\n", System.currentTimeMillis() - start);
 			if (permute) updateReportsWithPermutationP();
 		}
 	}
@@ -290,6 +295,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	}
 	
 	protected void updateMinP(BitSet missingObsBeforeSite) {
+		boolean useFastMethod = false;
 		int numberOfObsTotal = allData.length;
 		int numberOfMissingBeforeSite = (int) missingObsBeforeSite.cardinality();
 		int sizeOfPermutedData = permutedData.get(0).numberOfRows();
@@ -320,6 +326,30 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		        }
 		        iter++;
 			}
+		} else if (useFastMethod) {
+			int numberOfModelEffects = myModel.size();
+			List<ModelEffect> thisBaseModel = new ArrayList<>(myModel);
+			ModelEffect markerEffect = thisBaseModel.remove(myModel.size() - 1);
+			List<double[]> permutedArrays = permutedData.stream()
+					.map(dm -> dm.to1DArray())
+					.map(da -> AssociationUtils.getNonMissingDoubles(da, newMissing))
+					.collect(Collectors.toList());
+			SolveByOrthogonalizing sbo = SolveByOrthogonalizing.getInstanceFromModel(thisBaseModel, permutedArrays);
+			DoubleMatrix X = markerEffect.getX();
+			SolveByOrthogonalizing.Marker markerRValues = null;
+			if (X.numberOfColumns() == 1) {
+				markerRValues = sbo.solveForR(null, X.to1DArray());
+			} else if (X.numberOfColumns() == 2) {
+				markerRValues = sbo.solveForR(null, X.column(0).to1DArray(), X.column(1).to1DArray());
+			}
+			
+			if (markerRValues != null) {
+				int n = X.numberOfRows();
+				for (int iter = 0; iter < numberOfPermutations; iter++) {
+					if (minP[iter] > markerRValues.vector2()[iter]) minP[iter] = markerRValues.vector2()[iter];
+				}
+			}
+			
 		} else {
 			int iter = 0;
 			int numberOfModelEffects = myModel.size();
@@ -336,27 +366,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		        } catch (Exception e) {
 		        	//do nothing
 		        }
-
 				
-				
-//				double yty = y.crossproduct(y).get(0, 0);
-//				
-//				Iterator<ModelEffect> miter = myModel.iterator();
-//				DoubleMatrix X = miter.next().getX();
-//				while (miter.hasNext()) X = X.concatenate(miter.next().getX(), false);
-//				
-//				DoubleMatrix Xty = X.crossproduct(y);
-//				double ssmodel = Xty.crossproduct(G).mult(Xty).get(0, 0);
-//				double sse = yty - ssmodel;
-//				double ssmarker = baseErrorSSdf[0] - sse;
-//				double permF = ssmarker / markerSSdf[1] / sse * errorSSdf[1];
-//				double permP;
-//				try {
-//					permP = LinearModelUtils.Ftest(permF, markerSSdf[1], errorSSdf[1]);
-//					if (minP[iter] > permP) minP[iter] = permP;
-//				} catch (Exception e) {
-//					//do nothing
-//				}
 				iter++;
 			}
 		}

@@ -13,11 +13,12 @@ import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
 import net.maizegenetics.matrixalgebra.decomposition.SingularValueDecomposition;
 
 public class SolveByOrthogonalizing {
-	List<ModelEffect> myBaseModel;
-	List<double[]> myBasisVectors;
-	List<double[]> myData;
-	List<double[]> myOrthogonalizedData;
-	SingularValueDecomposition baseSvd;
+	private List<ModelEffect> myBaseModel;
+	private List<double[]> myBasisVectors;
+	private List<double[]> myData;
+	private List<double[]> myOrthogonalizedData;
+	private SingularValueDecomposition baseSvd = null;
+	private final static double tol = 1e-10;
 	
 	private SolveByOrthogonalizing() {
 		
@@ -27,7 +28,8 @@ public class SolveByOrthogonalizing {
 		SolveByOrthogonalizing sbo = new SolveByOrthogonalizing();
 		sbo.myBaseModel = baseModel;
 		sbo.myData = dataList;
-		sbo.computeBaseSvd(sbo.createDesignMatricesFromModel());
+		DoubleMatrix[][] design = sbo.createDesignMatricesFromModel();
+		sbo.computeBaseSvd(design);
 		sbo.OrthogonalizeData();
 		return sbo;
 	}
@@ -42,7 +44,8 @@ public class SolveByOrthogonalizing {
 	}
 	
 	public SolveByOrthogonalizing.Marker solveForR(SolveByOrthogonalizing.Marker marker) {
-		return solveForR(marker.position(), marker.vector1());
+		if (marker.vector2 == null) return solveForR(marker.position(), marker.vector1());
+		return solveForR(marker.position(), marker.vector1(), marker.vector2);
 	}
 	
 	public SolveByOrthogonalizing.Marker solveForR(Position pos, double[] values) {
@@ -50,8 +53,18 @@ public class SolveByOrthogonalizing {
 		double[] orthoValues = orthogonalizeByBase(centeredValues);
 		double[] csVales = centerAndScale(orthoValues);
 		double[] orthogonalValues = centerAndScale(orthogonalizeByBase(center(values)));
-		double[] rValues = myOrthogonalizedData.stream().mapToDouble(d -> innerProduct(d, orthogonalValues)).toArray();
-		return new SolveByOrthogonalizing.Marker(pos, rValues);
+		double[] rValues = myOrthogonalizedData.stream().mapToDouble(d -> innerProduct(d, orthogonalValues)).map(d -> d*d).toArray();
+		
+		int n = rValues.length;
+		double[] pValues = new double[n]; 
+		double modeldf = 1;
+		if (baseSvd != null) modeldf += baseSvd.getRank();
+		double errordf = values.length - modeldf - 1;
+
+		for (int i = 0; i < n; i++) {
+			pValues[i] = calculateP(calculateFfromR2(rValues[i], 1, errordf), 1, errordf);
+		}
+		return new SolveByOrthogonalizing.Marker(pos, rValues, pValues);
 	}
 	
 	public SolveByOrthogonalizing.Marker solveForR(Position pos, double[] add, double[] dom) {
@@ -70,9 +83,22 @@ public class SolveByOrthogonalizing {
 		double[] v1 = centerAndScale(orthogonalAdd);
 		double[] v2 = centerAndScale(orthogonalDom);
 		double[] rValues = myOrthogonalizedData.stream()
-				.mapToDouble(d -> innerProduct(d, v1) + innerProduct(d, v2)).toArray();
+				.mapToDouble(d -> {
+					double r1 = innerProduct(v1, d);
+					double r2 = innerProduct(v2, d);
+					return r1 * r1 + r2 * r2;
+				}).toArray();
 		
-		return new SolveByOrthogonalizing.Marker(pos, rValues);
+		n = rValues.length;
+		double[] pValues = new double[n]; 
+		double modeldf = 2;
+		if (baseSvd != null) modeldf += baseSvd.getRank();
+		double errordf = v1.length - modeldf - 1;
+		
+		for (int i = 0; i < n; i++) {
+			pValues[i] = calculateP(calculateFfromR2(rValues[i], 2, errordf), 2, errordf); 
+		}
+		return new SolveByOrthogonalizing.Marker(pos, rValues, pValues);
 	}
 	
 	private DoubleMatrix[][] createDesignMatricesFromModel() {
@@ -93,7 +119,7 @@ public class SolveByOrthogonalizing {
 	}
 	
 	private void computeBaseSvd(DoubleMatrix[][] designMatrices ) {
-		
+		if (designMatrices[0].length == 0 || designMatrices[0][0] == null) return; 
 		
 		DoubleMatrix X = DoubleMatrixFactory.DEFAULT.compose(designMatrices);
 		
@@ -112,14 +138,25 @@ public class SolveByOrthogonalizing {
 	}
 	
 	private void OrthogonalizeData() {
-		myOrthogonalizedData = myData.stream()
-				.map(d -> center(d))
-				.map(d -> orthogonalizeByBase(d))
-				.map(d -> centerAndScale(d))
-				.collect(Collectors.toList());
+		if (baseSvd == null) {
+			myOrthogonalizedData = myData.stream()
+					.map(d -> centerAndScale(Arrays.copyOf(d, d.length)))
+					.collect(Collectors.toList());
+			
+		} else {
+			myOrthogonalizedData = myData.stream()
+					.map(d -> center(Arrays.copyOf(d, d.length)))
+					.map(d -> orthogonalizeByBase(d))
+					.map(d -> centerAndScale(d))
+					.collect(Collectors.toList());
+		}
 	}
 	
 	private double[] orthogonalizeByBase(double[] vector) {
+		if (baseSvd == null) {
+			return Arrays.copyOf(vector, vector.length);
+		}
+		
 		DoubleMatrix U = baseSvd.getU(false);
 		int nrows = vector.length;
 		double[] result = Arrays.copyOf(vector, nrows);
@@ -132,8 +169,22 @@ public class SolveByOrthogonalizing {
 		return result;
 	}
 	
+	public int baseDf() {
+		int df = 1;  //the mean
+		if (baseSvd != null) {
+			double[] singularValues = baseSvd.getSingularValues();
+			
+			int n = singularValues.length;
+			for (int i = 0; i < n; i++) {
+				if (singularValues[i] > tol) df++;
+			}
+		}
+		return df;
+	}
+	
 	public static double innerProduct(double[] x, double[] y) {
-		return IntStream.range(0, x.length).mapToDouble(i -> x[i] * y[i]).sum();
+		int n = x.length;
+		return IntStream.range(0, n).mapToDouble(i -> x[i] * y[i]).sum();
 	}
 	
 	public static double[] center(double[] values) {
@@ -157,12 +208,32 @@ public class SolveByOrthogonalizing {
 		for (int i = 0; i < n; i++) {
 			double val = values[i];
 			sum += val;
-			sumsq += val * val;
 		}
 		double mean = sum/n;
+		
+		for (int i = 0; i < n; i++) {
+			values[i] = values[i] - mean;
+			sumsq += values[i] * values[i];
+		}
+		
 		double divisor = Math.sqrt(sumsq);
-		for (int i = 0; i < n; i++) values[i] = (values[i] - mean) / divisor;
+		for (int i = 0; i < n; i++) values[i] /= divisor;
 		return values;
+	}
+	
+	public static double calculateFfromR2(double r2, double markerDf, double errorDf) {
+		return r2 / (1 - r2) * errorDf / markerDf;
+	}
+	
+	public static double calculateP(double F, double markerDf, double errorDf) {
+		if (!Double.isFinite(F)) return Double.NaN;
+		double p;
+ 		try {
+			p = LinearModelUtils.Ftest(F, markerDf, errorDf);
+		} catch(Exception e) {
+			p = Double.NaN;
+		}
+		return p;
 	}
 	
 	public class Marker {
