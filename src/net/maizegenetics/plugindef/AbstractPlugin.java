@@ -566,7 +566,8 @@ abstract public class AbstractPlugin implements Plugin {
                         if (current.parameterType() == PluginParameter.PARAMETER_TYPE.GENOTYPE_TABLE) {
                             GenotypeWrapper input = (GenotypeWrapper) ((JComboBox) component).getSelectedItem();
                             setParameter(current.cmdLineName(), input.myObj);
-                        } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_MULTIPLE_SELECT) {
+                        } else if ((current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_MULTIPLE_SELECT)
+                                || (current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_SINGLE_SELECT)) {
                             List<?> selectedObjects = ((JList<?>) component).getSelectedValuesList();
                             setParameter(current.cmdLineName(), selectedObjects);
                         } else if (component instanceof JTextField) {
@@ -658,6 +659,20 @@ abstract public class AbstractPlugin implements Plugin {
                 temp.setToolTipText(getToolTip(current));
                 panel.add(temp);
                 parameterFields.put(current.cmdLineName(), menu);
+            } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_SINGLE_SELECT) {
+                JPanel listPanel = new JPanel();
+                listPanel.setLayout(new BorderLayout());
+                listPanel.add(new JLabel(current.guiName()), BorderLayout.NORTH);
+
+                JList<?> list = new JList<>(current.possibleValues().toArray());
+                list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+                list.setVisibleRowCount(Math.min(10, current.possibleValues().size()));
+                createEnableDisableAction(current, parameterFields, list);
+                JScrollPane scrollPane = new JScrollPane(list);
+                scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+                listPanel.add(scrollPane, BorderLayout.CENTER);
+                panel.add(listPanel);
+                parameterFields.put(current.cmdLineName(), list);
             } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_MULTIPLE_SELECT) {
                 JPanel listPanel = new JPanel();
                 listPanel.setLayout(new BorderLayout());

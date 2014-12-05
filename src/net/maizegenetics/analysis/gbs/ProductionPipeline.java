@@ -87,6 +87,11 @@ public class ProductionPipeline extends AbstractPlugin {
                 }
             });
 
+            if(directories.length==0){
+                myLogger.warn("No subdirectories found within " + inputDirectory() + "; no SNPs will be called");
+                return null;
+            }
+
             for (String current : directories) {
                 String fullDirName = inputDirectory() + File.separator + current;
                 try {
