@@ -5,12 +5,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import javax.swing.ImageIcon;
 
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.ReferenceProbabilitySpliterator;
 import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.phenotype.NumericAttribute;
@@ -37,7 +40,8 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	private GenotypeTable myGenotype;
 	private Phenotype myPhenotype;
 	private TableReportBuilder myReportBuilder;
-	SolveByOrthogonalizing orthogonalSolver;
+	private SolveByOrthogonalizing orthogonalSolver;
+	private List<String> phenotypeNames;
 	
 	//plugin parameter definitions
 	PluginParameter<Double> maxp = new PluginParameter.Builder<>("MaxPValue", .001, Double.class)
@@ -78,13 +82,25 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		initializeOrthogonalizer();
 		
     	if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype) {
-    		
+    		throw new UnsupportedOperationException("Eqtl analysis of genotypes is not supported.");
+    		//TODO implement
     	} else if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability) {
+    		ReferenceProbabilitySpliterator splitter = new ReferenceProbabilitySpliterator(myGenotype, 0, myGenotype.numberOfSites());
+    		Stream<ReferenceProbabilitySpliterator.ReferenceProbabilityBySite> refProbStream = StreamSupport.stream(splitter, true);
+    		refProbStream.map(p -> orthogonalSolver.solveForR(p.myPosition, p.myValues)).forEach(m -> updateOutputWithPvalues(m));
     		
     	} else if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability) {
-    		
-    	} else return null;
+    		throw new UnsupportedOperationException("Eqtl analysis of allele probabilities is not supported.");
+    		//TODO implement
+    	}
 
+    	if (!saveAsFile.value()) {
+    		String name = "EqtlReport_" + myDatum.getComment();
+    		String comment = "Rapid Eqtl analysis.";
+    		Datum outDatum = new Datum(name, myReportBuilder.build(), comment);
+    		return new DataSet(outDatum, this);
+    	}
+    	
 		return null;
 	}
 	
@@ -94,6 +110,15 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		String name = "EqtlReport_" + myDatum.getName();
 		if (saveAsFile.value()) myReportBuilder = TableReportBuilder.getInstance(name, columnNames, reportFilename.value());
 		else myReportBuilder = TableReportBuilder.getInstance(name, columnNames);
+	}
+	
+	private void updateOutputWithPvalues(SolveByOrthogonalizing.Marker markerResult) {
+		double maxpval = maxp.value();
+		double[] pvalues = markerResult.vector2();
+		int npheno = pvalues.length;
+		Position pos = markerResult.position();
+		IntStream.range(0, npheno).filter(i -> pvalues[i] < maxpval)
+			.forEach(i -> myReportBuilder.add(new Object[]{phenotypeNames.get(i), pos.getSNPID(), pos.getChromosome().getName(), pos.getPosition(), pvalues[i]}));
 	}
 	
 	private void initializeOrthogonalizer() {
@@ -117,6 +142,9 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 				.map(pa -> (float[]) pa.allValues())
 				.map(a -> AssociationUtils.convertFloatArrayToDouble(a))
 				.collect(Collectors.toList());
+		
+		phenotypeNames = phenotypeList.stream().map(PhenotypeAttribute::name).collect(Collectors.toList());
+		
 		orthogonalSolver = SolveByOrthogonalizing.getInstanceFromModel(baseModel, dataList);
 	}
 	
@@ -133,11 +161,6 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 			String msg = "There is missing data in the phenotype " + attr.name();
 			throw new IllegalArgumentException(msg);
 		}
-	}
-	
-	private Stream<EqtlResult> pvaluesUsingReferenceProbability() {
-		
-		return null;
 	}
 	
 	//abstract plugin methods that need to be overridden
@@ -157,18 +180,6 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	public String getToolTipText() {
 		// TODO Auto-generated method stub
 		return null;
-	}
-	
-	public class EqtlResult {
-		public final String phenotypeName;
-		public final Position position;
-		public final double pvalue;
-		
-		public EqtlResult(String phenotypeName, Position pos, double pvalue) {
-			this.phenotypeName = phenotypeName;
-			position = pos;
-			this.pvalue = pvalue;
-		}
 	}
 	
 	
