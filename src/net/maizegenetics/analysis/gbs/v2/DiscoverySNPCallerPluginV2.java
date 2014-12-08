@@ -144,16 +144,27 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         return "Discovery SNP Caller";
     }
 
-    //TODO TAS-591 Please explain how findAlleleByAlignment() relates cut position to SNPs.  I had thought "cut position" was the 
-    // location in the reference where the tag aligned. From this code, it looks like we pull SNPs from all cut positions/tags as
-    // long as the tag occurs with enough frequency.  Are we comparing all tags aligned to a position and calling a SNP 
-    // where any allele differs?  Or is this merely identifying the Alleles and their frequency at each position and SNP is
-    // determined later?
-    Multimap<Tag,Allele> findAlleleByAlignment(Position cutPosition,
-                                                            Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap) {
+
+    /**
+     * Method takes all tags and their taxa distributions at a single cut Position and then identifies the segregating
+     * SNPs relative to the reference genome.  Each tag can result in multiple allele being called (Allele contain SNP
+     * Position as one of their attributes).  It does not record, which taxa have which SNPs.
+     * The steps are:
+     * 1. Ensure more than 1 tag (otherwise would be monomorphic).
+     * 2. Get the reference sequence
+     * 3. Ensure meets minimal coverage
+     * 4. Align using BioJava and convert to Guava Table
+     * 5. Evaluate whether SNPs meet MAF and coverage levels.
+     * 6. Return SNPs in Tag -> Allele map
+     * genome.
+     * @param cutPosition the cut position that all tags start with
+     * @param tagTaxaMap  map of Tag -> Tuple (Boolean if reference, TaxaDistribution)
+     * @return multimap of tag -> allele
+     */
+    Multimap<Tag,Allele> findAlleleByAlignment(Position cutPosition, Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap) {
         if(tagTaxaMap.isEmpty()) return null;  //todo why would this be empty?
         final int numberOfTaxa=tagTaxaMap.values().stream().findFirst().get().y.maxTaxa();
-        if(tagTaxaMap.size()<2) {//homozygous
+        if((minMinorAlleleFreq()>0) && (tagTaxaMap.size()<2)) {//homozygous
             return null;  //consider reporting homozygous
         }
         if(!tagTaxaMap.keySet().stream().anyMatch(Tag::isReference)) {
@@ -225,8 +236,13 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             ds.setUserCollection(ImmutableList.of(tag));
             lst.add(ds);
         });
-        Profile<DNASequence, NucleotideCompound> profile = Alignments.getMultipleSequenceAlignment(lst);
         ImmutableMap.Builder<Tag,String> result=new ImmutableMap.Builder<>();
+        if(lst.size()==1) {
+            Tag tag=(Tag)((ImmutableList)lst.get(0).getUserCollection()).get(0);
+            result.put(tag,tag.sequence());
+            return result.build();
+        }
+        Profile<DNASequence, NucleotideCompound> profile = Alignments.getMultipleSequenceAlignment(lst);
         for (AlignedSequence<DNASequence, NucleotideCompound> compounds : profile) {
             ImmutableList tagList=(ImmutableList)compounds.getOriginalSequence().getUserCollection();
             result.put((Tag)tagList.get(0),compounds.getSequenceAsString());
