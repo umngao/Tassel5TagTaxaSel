@@ -9,6 +9,7 @@ import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.tag.Tag;
 import net.maizegenetics.dna.tag.TaxaDistribution;
+import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.Tuple;
 
@@ -146,6 +147,10 @@ public interface TagData {
     Map<Tag,TaxaDistribution> getTagsTaxaMap(Position cutPosition);
 
 
-
+    /**
+     * Returns the taxa list associated with taxa distribution
+     * @return TaxaList or null if not available.
+     */
+    TaxaList getTaxaList();
 
 }
