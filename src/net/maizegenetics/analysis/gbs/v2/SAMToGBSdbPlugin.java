@@ -41,10 +41,10 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
             .description("Name of input file in SAM text format").build();
     private PluginParameter<String> myOutputFile = new PluginParameter.Builder<String>("o", null, String.class).guiName("GBS DB File").required(true).outFile()
             .description("Name of output file (e.g. GBSv2.db)").build();
-    private PluginParameter<Integer> alignProportion = new PluginParameter.Builder<Integer>("i", 0, Integer.class).guiName("SAM Min Align Proportion").required(false)
-            .range(Range.closed(0, 100) ).description("Minimum proportion of sequence that must align to store the SAM entry").build();
-    private PluginParameter<Integer> minAlignLength = new PluginParameter.Builder<Integer>("i", 0, Integer.class).guiName("SAM Min Align Length").required(false)
-            .range(Range.closed(0, 100) ).description("Minimum length of bps aligning to store the SAM entry").build();
+    private PluginParameter<Double> alignProportion = new PluginParameter.Builder<Double>("aProp", 0.0, Double.class).guiName("SAM Min Align Proportion").required(false)
+            .range(Range.closed(0.0, 1.0) ).description("Minimum proportion of sequence that must align to store the SAM entry").build();
+    private PluginParameter<Integer> minAlignLength = new PluginParameter.Builder<Integer>("aLen", 0, Integer.class).guiName("SAM Min Align Length").required(false)
+            .range(Range.closed(0, 1000) ).description("Minimum length of bps aligning to store the SAM entry").build();
 
     public SAMToGBSdbPlugin() {
         super(null, false);
@@ -151,7 +151,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
     	if (minAlignProportion() == 0) return true; // 0 is default - no minimum proportion 
     	float seqLength = samRead[9].length(); // sequence is in 9th position of 0 based array
     	int matchLen = calculateNumberAligned(samRead);
-    	float matchProportion = (float)matchLen/seqLength * 100;
+    	float matchProportion = (float)matchLen/seqLength;
     	if (matchProportion >= minAlignProportion()) return true;
     	else return false;
     }
@@ -414,7 +414,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
     }
 
     /**
-     * Name of output file (Default: output.topm.bin)
+     * Name of output file (e.g. GBSv2.db)
      *
      * @return GBS DB File
      */
@@ -423,7 +423,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
     }
 
     /**
-     * Set GBS DB File. Name of output file (Default: output.topm.bin)
+     * Set GBS DB File. Name of output file (e.g. GBSv2.db)
      *
      * @param value GBS DB File
      *
@@ -435,43 +435,42 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
     }
 
     /**
-     * Mimimum proportion of tag that must align
-     * for alignment to be accepted.
+     * Minimum proportion of sequence that must align to store
+     * the SAM entry
      *
-     * @return minium align proportion
+     * @return SAM Min Align Proportion
      */
-    public Integer minAlignProportion() {
+    public Double minAlignProportion() {
         return alignProportion.value();
     }
 
     /**
-     * Set minimum proportion of tag that must align
-     * for the alignment to be accepted. 
+     * Set SAM Min Align Proportion. Minimum proportion of
+     * sequence that must align to store the SAM entry
      *
-     * @param value minimum align proportion
+     * @param value SAM Min Align Proportion
      *
      * @return this plugin
      */
-    public SAMToGBSdbPlugin minAlignProportion(Integer value) {
+    public SAMToGBSdbPlugin minAlignProportion(Double value) {
         alignProportion = new PluginParameter<>(alignProportion, value);
         return this;
     }
-    
+
     /**
-     * Mimimum proportion of tag that must align
-     * for alignment to be accepted.
+     * Minimum length of bps aligning to store the SAM entry
      *
-     * @return minium align proportion
+     * @return SAM Min Align Length
      */
     public Integer minAlignLength() {
         return minAlignLength.value();
     }
 
     /**
-     * Set minimum proportion of tag that must align
-     * for the alignment to be accepted. 
+     * Set SAM Min Align Length. Minimum length of bps aligning
+     * to store the SAM entry
      *
-     * @param value minimum align proportion
+     * @param value SAM Min Align Length
      *
      * @return this plugin
      */

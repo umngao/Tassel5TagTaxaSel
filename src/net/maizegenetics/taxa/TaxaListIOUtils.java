@@ -113,8 +113,9 @@ public class TaxaListIOUtils {
         return keepers.build();
     }
 
-    public static void exportAnnotatedTaxaListTable() {
-        //TODO
+    public static void exportAnnotatedTaxaListTable(TaxaList taxaList, String outfile) {
+
+        //TODO TAS-578
     }
 
 

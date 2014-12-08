@@ -18,7 +18,6 @@ import java.nio.file.Paths;
 import java.sql.*;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Defines xxxx
@@ -50,6 +49,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     PreparedStatement posTagInsertPS;
     PreparedStatement taxaDistWhereCutPositionIDPS;
     PreparedStatement snpPositionsForChromosomePS;
+    PreparedStatement alleleTaxaDistForSnpidPS;
 
 
 
@@ -120,6 +120,8 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                             "tagCutPosition.tagid=tagtaxadistribution.tagid and tagCutPosition.bestmapping=1");
             snpPositionsForChromosomePS=connection.prepareStatement(
             		"select position from snpposition where chromosome=?");
+            alleleTaxaDistForSnpidPS =connection.prepareStatement("select a.*, td.* from allele a, tagallele ta, tagtaxadistribution td\n" +
+                    "where a.alleleid=ta.alleleid and ta.tagid=td.tagid and a.snpid=?");
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -234,6 +236,12 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public TaxaList getTaxaList() {
+        if(myTaxaList==null) loadTaxaList();
+        return myTaxaList;
     }
 
     @Override
@@ -502,6 +510,21 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     @Override
     public Set<Tag> getTagsForAllele(Allele allele) {
         return null;
+    }
+
+    public Multimap<Allele,TaxaDistribution> getAllelesTaxaDistForSNP(Position position) {
+        ImmutableMultimap.Builder<Allele,TaxaDistribution> atdBuilder=ImmutableMultimap.builder();
+        try{
+            alleleTaxaDistForSnpidPS.setInt(1, snpPosToIDMap.get(position));
+            ResultSet rs= alleleTaxaDistForSnpidPS.executeQuery();
+            while(rs.next()) {
+                Allele allele=new SimpleAllele((byte)rs.getInt("allelecall"),position);
+                atdBuilder.put(allele,TaxaDistBuilder.create(rs.getBytes("depthsRLE")));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return atdBuilder.build();
     }
 
     @Override

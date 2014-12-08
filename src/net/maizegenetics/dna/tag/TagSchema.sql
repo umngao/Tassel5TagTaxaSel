@@ -83,3 +83,19 @@ CREATE TABLE taxa (
     name    TEXT NOT NULL
 );
 
+-- Table: SNP Quality
+CREATE TABLE snpQuality (
+  snpid INTEGER   PRIMARY KEY,
+  taxasubset TEXT      NOT NULL,
+  avgDepth REAL NOT NULL,
+  minorAlleleFreq      REAL NOT NULL,
+  minorDepthProp REAL NOT NULL,
+  propCovered REAL NOT NULL,
+  propCovered2 REAL NOT NULL,
+  taxaCntWithMinorAlleleGE2 REAL NOT NULL,
+  inbredF    REAL  NOT NULL,
+  hwe REAL NOT NULL,
+  hetFreq REAL NOT NULL
+);
+CREATE UNIQUE INDEX snpqual_idx ON snpQuality(snpid, taxasubset);
+
