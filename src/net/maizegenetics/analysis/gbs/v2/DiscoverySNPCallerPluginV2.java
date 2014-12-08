@@ -144,6 +144,11 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         return "Discovery SNP Caller";
     }
 
+    //TODO TAS-591 Please explain how findAlleleByAlignment() relates cut position to SNPs.  I had thought "cut position" was the 
+    // location in the reference where the tag aligned. From this code, it looks like we pull SNPs from all cut positions/tags as
+    // long as the tag occurs with enough frequency.  Are we comparing all tags aligned to a position and calling a SNP 
+    // where any allele differs?  Or is this merely identifying the Alleles and their frequency at each position and SNP is
+    // determined later?
     Multimap<Tag,Allele> findAlleleByAlignment(Position cutPosition,
                                                             Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap) {
         if(tagTaxaMap.isEmpty()) return null;  //todo why would this be empty?
