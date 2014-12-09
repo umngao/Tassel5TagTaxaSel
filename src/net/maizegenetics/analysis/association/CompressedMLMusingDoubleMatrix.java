@@ -17,6 +17,7 @@ import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
 import net.maizegenetics.util.SimpleTableReport;
+import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.TableReportBuilder;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
@@ -105,19 +106,26 @@ public class CompressedMLMusingDoubleMatrix {
         if (parentPlugin.isWriteOutputToFile()) {
         	String outputbase = parentPlugin.getOutputName();
         	String datasetNameNoSpace = datasetName.trim().replaceAll("\\ ", "_");
+        	
         	StringBuilder sb = new StringBuilder();
         	sb.append(outputbase).append("_").append(datasetNameNoSpace).append("_stats.txt");
             siteReportBuilder = TableReportBuilder.getInstance("Marker Statistics - " + datasetName, headerMain, sb.toString());
+            
         	sb = new StringBuilder();
         	sb.append(outputbase).append("_").append(datasetNameNoSpace).append("_effects.txt");
             alleleReportBuilder = TableReportBuilder.getInstance("Allele Estimates - " + datasetName, headerAlleles, sb.toString());
+            
+        	sb = new StringBuilder();
+        	sb.append(outputbase).append("_").append(datasetNameNoSpace).append("_compression.txt");
+            if (useCompression) compressionReportBuilder = TableReportBuilder.getInstance("Compression - " + datasetName, headerCompression, sb.toString());
+            else compressionReportBuilder = null;
         } else {
             siteReportBuilder = TableReportBuilder.getInstance("Marker Statistics - " + datasetName, headerMain);
             alleleReportBuilder = TableReportBuilder.getInstance("Allele Estimates - " + datasetName, headerAlleles);
+            if (useCompression) compressionReportBuilder = TableReportBuilder.getInstance("Compression - " + datasetName, headerCompression);
+            else compressionReportBuilder = null;
         }
 
-        if (useCompression) compressionReportBuilder = TableReportBuilder.getInstance("Compression - " + datasetName, headerCompression);
-        else compressionReportBuilder = null;
 //        solve();
     }
 
@@ -375,6 +383,7 @@ public class CompressedMLMusingDoubleMatrix {
         parentPlugin.updateProgress(0);
 
         results.addAll(formatResults());
+        
         return results;
     }
 
@@ -448,35 +457,25 @@ public class CompressedMLMusingDoubleMatrix {
         comment.append("MLM statistics for compressed MLM\n");
         comment.append("Dataset: ").append(datasetName).append("\n");
         comment.append(options).append(model);
-        output.add(new Datum(reportName, siteReportBuilder.build(), comment.toString()));
+        TableReport myTableReport = siteReportBuilder.build();
+        if (myTableReport != null) output.add(new Datum(reportName, myTableReport, comment.toString()));
 
         reportName = "MLM_effects_for_" + datasetName;
         comment = new StringBuilder();
         comment.append("MLM SNP effect estimates\n");
         comment.append("Dataset: ").append(datasetName).append("\n");
         comment.append(options).append(model);
-        output.add(new Datum(reportName, alleleReportBuilder.build(), comment.toString()));
-
-        //        if (resultsBlups.size() > 0) {
-        //            Object[][] theTable = new Object[resultsBlups.size()][];
-        //            resultsBlups.toArray(theTable);
-        //            String reportName = "MLM_BLUPs_for_" + datasetName;
-        //            StringBuilder comment = new StringBuilder();
-        //            comment.append("MLM BLUPs\n");
-        //            comment.append("Dataset: ").append(datasetName).append("\n");
-        //            comment.append(options).append(model);
-        //            SimpleTableReport str = new SimpleTableReport(reportName, headerBlups, theTable);
-        //            output.add(new Datum(reportName, str, comment.toString()));
-        //        }
-
+        myTableReport = alleleReportBuilder.build();
+        if (myTableReport != null) output.add(new Datum(reportName, myTableReport, comment.toString()));
+        
         if (useCompression) {
         	reportName = "MLM_compression_for_" + datasetName;
         	comment = new StringBuilder();
         	comment.append("MLM compression report\n");
         	comment.append("Dataset: ").append(datasetName).append("\n");
         	comment.append(options).append(model);
-        	output.add(new Datum(reportName, compressionReportBuilder.build(), comment.toString()));
-        }
+        	myTableReport = compressionReportBuilder.build();
+            if (myTableReport != null) output.add(new Datum(reportName, myTableReport, comment.toString()));        }
         
         return output;
     }
