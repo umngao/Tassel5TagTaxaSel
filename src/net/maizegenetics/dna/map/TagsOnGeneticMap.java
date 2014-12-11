@@ -4,6 +4,9 @@
 */
 package net.maizegenetics.dna.map;
 
+import cern.colt.GenericSorting;
+import cern.colt.Swapper;
+import cern.colt.function.IntComparator;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -38,6 +41,56 @@ public class TagsOnGeneticMap extends AbstractTags {
      */
     public TagsOnGeneticMap (String infileS, FilePacking format) {
         this.readDistFile(infileS, format);
+    }
+    
+    public void mergeTOGM (TagsOnGeneticMap another) {
+        int totalCnt = this.getTagCount();
+        for (int i = 0; i < another.getTagCount(); i++) {
+            long[] t = another.getTag(i);
+            if (this.getTagIndex(t) < 0) {
+                totalCnt++;
+            }
+        }
+        System.out.println("Identified " + String.valueOf(totalCnt- this.getTagCount()) + " new tags");
+        long[][] tags = new long[tagLengthInLong][totalCnt];
+        byte[] tagLength = new byte[totalCnt];
+        int[] gChr = new int[totalCnt];
+        int[] gPos = new int[totalCnt];
+        byte[] ifPAV = new byte[totalCnt];
+        float[] prediction = new float[totalCnt];
+        for (int i = 0; i < this.getTagCount(); i++) {
+            long[] t = this.getTag(i);
+            for (int j = 0; j < this.tagLengthInLong; j++) {
+                tags[j][i] = t[j];
+            }
+            tagLength[i] = (byte)this.getTagLength(i);
+            gChr[i] = this.getGChr(i);
+            gPos[i] = this.getGPos(i);
+            ifPAV[i] = this.getIfPAV(i);
+            prediction[i] = this.getPrediction(i);
+        }
+        int cnt = this.getTagCount();
+        for (int i = 0; i < another.getTagCount(); i++) {
+            long[] t = another.getTag(i);
+            if (this.getTagIndex(t) < 0) {
+                for (int j = 0; j < this.tagLengthInLong; j++) {
+                    tags[j][cnt] = t[j];
+                }
+                tagLength[cnt] = (byte)another.getTagLength(i);
+                gChr[cnt] = another.getGChr(i);
+                gPos[cnt] = another.getGPos(i);
+                ifPAV[cnt] = another.getIfPAV(i);
+                prediction[cnt] = another.getPrediction(i);
+                cnt++;
+            }
+        }
+        this.tags = tags;
+        this.tagLength = tagLength;
+        this.gChr = gChr;
+        this.gPos = gPos;
+        this.ifPAV = ifPAV;
+        this.prediction = prediction;
+        this.sort();
     }
     
     /**
@@ -141,6 +194,7 @@ public class TagsOnGeneticMap extends AbstractTags {
                 gPos[i] = Integer.parseInt(temp[3]);
                 ifPAV[i] = Byte.parseByte(temp[4]);
                 prediction[i] = Float.parseFloat(temp[5]);
+                if (i%500000 == 0) System.out.println("Read in " + String.valueOf(i+1)+ " tags");
             }
             br.close();
         }
@@ -263,6 +317,10 @@ public class TagsOnGeneticMap extends AbstractTags {
         }
     }
     
+    /**
+     * Output FASTQ file of TOGM
+     * @param outfileS 
+     */
     public void writeFastQ (String outfileS) {
         String defaultQualityS = null;
         for (int i = 0; i < this.getTagSizeInLong()*32; i++) {
@@ -291,4 +349,46 @@ public class TagsOnGeneticMap extends AbstractTags {
             e.printStackTrace();
         }
     }
+    
+    @Override
+    public void swap(int index1, int index2) {
+        super.swap(index1, index2);
+        int tInt;
+        tInt = gChr[index1];
+        gChr[index1] = gChr[index2];
+        gChr[index2] = tInt;
+        tInt = gPos[index1];
+        gPos[index1] = gPos[index2];
+        gPos[index2] = tInt;
+        byte tByte;
+        tByte = ifPAV[index1];
+        ifPAV[index1] = ifPAV[index2];
+        ifPAV[index2] = tByte;
+        float tFloat;
+        tFloat = prediction[index1];
+        prediction[index1] = prediction[index2];
+        prediction[index2] = tFloat;
+    }
+    
+    /**
+     * Sort TOGM by genetic position
+     */
+    public void sortByPosition() {
+        System.out.println("Sorting by position");
+        GenericSorting.quickSort(0, this.getTagCount(), compPos, this);
+        System.out.println("Sorting by position finished");
+    }
+    
+    IntComparator compPos = new IntComparator() {   
+        @Override
+        public int compare(int index1, int index2) {
+            if (gChr[index1] < gChr[index2]) return -1;
+            else if (gChr[index1] > gChr[index2]) return 1;
+            else {
+                if (gPos[index1] < gPos[index2]) return -1;
+                else if (gPos[index1] < gPos[index2]) return 1;
+                return 0;
+            }
+        }
+    };
 }
