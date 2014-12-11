@@ -1042,9 +1042,4 @@ public class GenotypeTableUtils {
     	return out;
     }
     
-    public static Stream<ReferenceProbabilitySpliterator.ReferenceProbabilityBySite> referenceProbabilitySiteStream(GenotypeTable genotype, boolean parallel) {
-    	int first = 0;
-    	int last = genotype.numberOfSites();
-    	return StreamSupport.stream(new ReferenceProbabilitySpliterator(genotype, first, last), parallel);
-    }
 }
