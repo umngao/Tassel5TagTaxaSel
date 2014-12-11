@@ -1,5 +1,6 @@
 package net.maizegenetics.stats.linearmodels;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -236,10 +237,10 @@ public class SolveByOrthogonalizing {
 		return p;
 	}
 	
-	public class Marker {
-		Position myPosition;
-		double[] vector1;
-		double[] vector2;
+	public static class Marker {
+		public final Position myPosition;
+		public final double[] vector1;
+		public final double[] vector2;
 		
 		public Marker(Position pos, double[] values) {
 			myPosition = pos;
@@ -256,7 +257,7 @@ public class SolveByOrthogonalizing {
 		public Position position() { return myPosition; }
 		public double[] vector1() { return vector1; }
 		public double[] vector2() { return vector2; }
+		public boolean hasTwoVectors() { return vector2 != null; }
 	}
-	
 	
 }
