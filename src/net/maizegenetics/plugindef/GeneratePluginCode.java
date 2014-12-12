@@ -3,6 +3,7 @@
  */
 package net.maizegenetics.plugindef;
 
+import com.google.common.base.CaseFormat;
 import java.awt.Frame;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -66,7 +67,8 @@ public class GeneratePluginCode {
                 e.printStackTrace();
                 System.exit(1);
             }
-            String guiNameAsCamelCase = stringToCamelCase(current.guiName());
+            //String guiNameAsCamelCase = stringToCamelCase(current.guiName());
+            String methodName = removeMyFromString(field.getName());
 
             //Getter
             System.out.println("    /**");
@@ -74,7 +76,7 @@ public class GeneratePluginCode {
             System.out.println("     *");
             System.out.println("     * @return " + current.guiName());
             System.out.println("     */");
-            System.out.println("    public " + current.valueType().getSimpleName() + " " + guiNameAsCamelCase + "() {");
+            System.out.println("    public " + current.valueType().getSimpleName() + " " + methodName + "() {");
             System.out.println("        return " + field.getName() + ".value();");
             System.out.println("    }\n");
 
@@ -86,7 +88,7 @@ public class GeneratePluginCode {
             System.out.println("     *");
             System.out.println("     * @return this plugin");
             System.out.println("     */");
-            System.out.println("    public " + clazz + " " + guiNameAsCamelCase + "(" + current.valueType().getSimpleName() + " value) {");
+            System.out.println("    public " + clazz + " " + methodName + "(" + current.valueType().getSimpleName() + " value) {");
             System.out.println("        " + field.getName() + " = new PluginParameter<>(" + field.getName() + ", value);");
             System.out.println("        return this;");
             System.out.println("    }\n");
@@ -132,6 +134,14 @@ public class GeneratePluginCode {
             }
         }
         return builder.toString();
+    }
+
+    private static String removeMyFromString(String str) {
+        String lower = str.toLowerCase();
+        if (lower.startsWith("my")) {
+            str = str.substring(2);
+        }
+        return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL, str);
     }
 
 }
