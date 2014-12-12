@@ -104,7 +104,7 @@ public class DiscreteSitesFELM extends AbstractFixedEffectLM {
 	        
 	        if (Double.isFinite(Fadd)) {
 		        try {
-		        	padd = LinearModelUtils.Ftest(Fadd, markerSSdf[1], errorSSdf[1]);
+		        	padd = LinearModelUtils.Ftest(Fadd, addTermSSdf[1], additiveErrorSSdf[1]);
 		        } catch (Exception e) {
 		        	padd = Double.NaN;
 		        }
@@ -120,7 +120,7 @@ public class DiscreteSitesFELM extends AbstractFixedEffectLM {
 	        Fdom = domTermSSdf[0] / domTermSSdf[1] / errorSSdf[0] * errorSSdf[1];
 	        if (Double.isFinite(Fdom)) {
 		        try {
-		        	pdom = LinearModelUtils.Ftest(Fdom, markerSSdf[1], errorSSdf[1]);
+		        	pdom = LinearModelUtils.Ftest(Fdom, domTermSSdf[1], errorSSdf[1]);
 		        } catch (Exception e) {
 		        	pdom = Double.NaN;
 		        }
