@@ -133,6 +133,11 @@ public class FilterPhenotype implements Phenotype {
 	}
 
 	@Override
+	public Stream<PhenotypeAttribute> attributeStream() {
+		return IntStream.range(0, numberOfAttributes()).mapToObj(i -> attribute(i));
+	}
+
+	@Override
 	public Stream<NumericAttribute> dataAttributeStream() {
 		return IntStream.iterate(0, i -> i + 1).limit(numberOfAttributes())
 				.filter(i -> attributeType(i) == ATTRIBUTE_TYPE.data)

@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.apache.log4j.Logger;
 
@@ -40,7 +42,7 @@ public class PhenotypeBuilder {
 	private Logger myLogger = Logger.getLogger(PhenotypeBuilder.class);
 	
 	private enum SOURCE_TYPE{file, phenotype, list, attributes};
-	private enum ACTION{importFile, union, intersect, separate, concatenate, keepTaxa, removeTaxa, keepAttributes, changeType, buildFromAttributes};
+	private enum ACTION{importFile, union, intersect, separate, concatenate, keepTaxa, removeTaxa, keepAttributes, changeType, buildFromAttributes, removeMissing};
 	
 	private SOURCE_TYPE source;
 	private List<ACTION> actionList = new ArrayList<PhenotypeBuilder.ACTION>();
@@ -250,6 +252,14 @@ public class PhenotypeBuilder {
 	}
 	
 	/**
+	 * @return	a PhenotypeBuilder that will create a Phenotype with no missing values for any attribute by removing observations that have any missing values.
+	 */
+	public PhenotypeBuilder removeMissingObservations() {
+		actionList.add(ACTION.removeMissing);
+		return this;
+	}
+	
+	/**
 	 * @return	a list of new Phenotypes built with the supplied parameters
 	 */
 	public List<Phenotype> build() {
@@ -290,6 +300,9 @@ public class PhenotypeBuilder {
 			break;
 		case buildFromAttributes:
 			createPhenotypeFromLists();
+			break;
+		case removeMissing:
+			removeAllObservationsWithMissingValues();
 			break;
 		}
 	}
@@ -1293,6 +1306,20 @@ public class PhenotypeBuilder {
 			attributeTypeList.add(unsortedAttributeTypeList.get(ndx));
 		}
 		
+	}
+	
+	private void removeAllObservationsWithMissingValues() {
+		List<Phenotype> newList = new ArrayList<Phenotype>();
+		for (Phenotype pheno : phenotypeList) {
+			int nobs = pheno.numberOfObservations();
+			BitSet anyMissing = new OpenBitSet(nobs);
+			pheno.attributeStream().map(PhenotypeAttribute::missing).reduce(anyMissing, (a,b) -> {a.or(b); return a;});
+			int[] nonMissingIndex = IntStream.range(0, nobs).filter(i -> !anyMissing.fastGet(i)).toArray();
+			List<PhenotypeAttribute> subsetList = pheno.attributeStream().map(a -> a.subset(nonMissingIndex, a.name())).collect(Collectors.toList());
+			Phenotype myNewPhenotype = new CorePhenotype(subsetList, pheno.typeListCopy(), "NonMissing_" + pheno.name());
+			newList.add(myNewPhenotype);
+		}
+		phenotypeList = newList;
 	}
 	
 }

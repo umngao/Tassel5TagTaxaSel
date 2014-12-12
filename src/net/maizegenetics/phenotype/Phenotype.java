@@ -108,6 +108,11 @@ public interface Phenotype  extends TableReport {
 	public List<PhenotypeAttribute> attributeListOfType(ATTRIBUTE_TYPE type);
 	
 	/**
+	 * @return	a sequential Stream of all PhenotypeAttributes
+	 */
+	public Stream<PhenotypeAttribute> attributeStream();
+	
+	/**
 	 * @return	a sequential Stream of all data type PhenotypeAttributes as NumericAttributes
 	 */
 	public Stream<NumericAttribute> dataAttributeStream();

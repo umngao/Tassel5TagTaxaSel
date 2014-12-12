@@ -132,6 +132,11 @@ public class CorePhenotype implements Phenotype {
 	}
 
 	@Override
+	public Stream<PhenotypeAttribute> attributeStream() {
+		return myAttributeList.stream();
+	}
+
+	@Override
 	public Stream<NumericAttribute> dataAttributeStream() {
 		return IntStream.iterate(0, i -> i + 1).limit(numberOfAttributes)
 				.filter(i -> myAttributeTypeList.get(i) == ATTRIBUTE_TYPE.data)
