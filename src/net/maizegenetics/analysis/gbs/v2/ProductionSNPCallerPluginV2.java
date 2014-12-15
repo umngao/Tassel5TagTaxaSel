@@ -3,38 +3,53 @@
  */
 package net.maizegenetics.analysis.gbs.v2;
 
-import cern.colt.list.IntArrayList;
-import com.google.common.collect.*;
-import net.maizegenetics.analysis.gbs.*;
-import net.maizegenetics.dna.BaseEncoder;
-import net.maizegenetics.dna.map.*;
-import net.maizegenetics.dna.snp.*;
-import net.maizegenetics.dna.snp.depth.AlleleDepthUtil;
+import java.awt.Frame;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.concurrent.atomic.LongAdder;
+
+import javax.swing.ImageIcon;
+
+import net.maizegenetics.analysis.gbs.Barcode;
+import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.snp.Allele;
+import net.maizegenetics.dna.snp.GenotypeTableBuilder;
+import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
+import net.maizegenetics.dna.snp.SimpleAllele;
 import net.maizegenetics.dna.snp.genotypecall.BasicGenotypeMergeRule;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeMergeRule;
-import net.maizegenetics.dna.tag.*;
+import net.maizegenetics.dna.tag.Tag;
+import net.maizegenetics.dna.tag.TagBuilder;
+import net.maizegenetics.dna.tag.TagData;
+import net.maizegenetics.dna.tag.TagDataSQLite;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.TaxaList;
-import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.TaxaListIOUtils;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.DirectoryCrawler;
-import net.maizegenetics.util.MultiMemberGZIPInputStream;
 import net.maizegenetics.util.Tuple;
 import net.maizegenetics.util.Utils;
+
 import org.apache.log4j.Logger;
 
-import javax.swing.*;
-import java.awt.*;
-import java.io.*;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.*;
-import java.util.List;
-import java.util.concurrent.atomic.LongAdder;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 
 /**
  * This plugin converts all of the fastq (and/or qseq) files in the input folder
