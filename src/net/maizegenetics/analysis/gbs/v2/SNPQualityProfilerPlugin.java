@@ -4,6 +4,7 @@ package net.maizegenetics.analysis.gbs.v2;
 import com.google.common.collect.Multimap;
 import com.google.common.primitives.Ints;
 import net.maizegenetics.dna.snp.Allele;
+import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.dna.tag.*;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
@@ -12,18 +13,24 @@ import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListIOUtils;
 import org.apache.log4j.Logger;
+import org.json.simple.JSONObject;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import java.awt.geom.Arc2D;
+import java.util.*;
+import java.util.List;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 
 /**
- * Created by edbuckler on 11/21/14.
+ * Scores all discovered SNPs for various coverage, depth, and genotypic statistics for a given set of taxa (samples).
+ * For each subset of taxa, there are expectations for segregation that can be used to determine whether the SNP is
+ * behaving appropriately.
+ *
+ * @author Ed Buckler
  */
 public class SNPQualityProfilerPlugin extends AbstractPlugin {
 
@@ -54,36 +61,92 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
         subTaxa.stream().filter(t -> taxaList.indexOf(t)<0).forEach(t-> System.err.println("Missing taxon from master:" + t));
         int[] subsetIndices=subTaxa.stream().mapToInt(taxaList::indexOf).filter(i -> i > -1).sorted().toArray();
        // int[] subsetIndices= IntStream.range(0,taxaList.numberOfTaxa()).toArray();  //for testing using all taxa
+        Comparator<int[]> arrayCompare=Comparator.comparing(depths -> -Arrays.stream(depths).sum());
 
+        LongAdder adder=new LongAdder();
         tagDataWriter.getSNPPositions().stream()
                 .forEach(position -> {
-                    Multimap<Allele,TaxaDistribution> aTDMMap=tagDataWriter.getAllelesTaxaDistForSNP(position);
+                    Multimap<Allele,TaxaDistribution> aTDMMap=tagDataWriter.getAllelesTaxaDistForSNP(position);  //this is slow
                     Map<Allele, int[]> subDepths=convertToSubsetMap(aTDMMap,subsetIndices);
-                    //filter only for Major and minor
+                    List<int[]> depthsInOrder=subDepths.values().stream().sorted(arrayCompare).collect(Collectors.toList());
+                    JSONObject jsonObject=new JSONObject();
+                    //depth stats
+                    int[] alleleDepths=depthsInOrder.stream().mapToInt(depths -> Arrays.stream(depths).sum()).toArray();
+                    double totalDepth=(double)Arrays.stream(alleleDepths).sum();
+                    jsonObject.put("avgDepth",totalDepth/(double)subsetIndices.length);
+                    if(totalDepth>0) {
+                        jsonObject.put("minorDepthProp", alleleDepths.length > 1 ? alleleDepths[1] / totalDepth : 0.0);
+                        jsonObject.put("minor2DepthProp", alleleDepths.length > 2 ? alleleDepths[2] / totalDepth : 0.0);
+                        int gapDepth = subDepths.entrySet().stream()
+                                .filter(ent -> ent.getKey().allele() == NucleotideAlignmentConstants.GAP_ALLELE)
+                                .mapToInt(ent -> Arrays.stream(ent.getValue()).sum()).sum();
+                        Arrays.stream(subDepths.getOrDefault(NucleotideAlignmentConstants.GAP_ALLELE, new int[0])).sum();
+                        jsonObject.put("gapDepthProp", (double) gapDepth / totalDepth);
+                        //coverage stats
+                        int[] coverage=new int[subsetIndices.length];
+                        for (int[] depths : depthsInOrder) {
+                            for (int i = 0; i < depths.length; i++) coverage[i]+=depths[i];
+                        }
+                        jsonObject.put("propCovered", (double)Arrays.stream(coverage).filter(d -> d>0).count()/(double)coverage.length);
+                        jsonObject.put("propCovered2", (double)Arrays.stream(coverage).filter(d -> d>1).count()/(double)coverage.length);
+                        jsonObject.put("taxaCntWithMinorAlleleGE2", alleleDepths.length > 1 ?  Arrays.stream(depthsInOrder.get(1)).filter(d -> d>1).count() : 0);
 
-                    calcMinorAlleleDepth(subDepths);
-                    calcMAF(subDepths);
-                    System.out.println(subDepths.toString());
-                    for (Map.Entry<Allele, int[]> alleleEntry : subDepths.entrySet()) {
-                        //System.out.println(alleleEntry.getKey().toString()+":"+Arrays.toString(alleleEntry.getValue()));
-                        //System.out.println(alleleEntry.getKey().toString()+":"+ Arrays.stream(alleleEntry.getValue()).sum());
+                        //genotypic stats
+                        GenotypeStats genotypeCnt=callGenotypes(depthsInOrder.get(0),depthsInOrder.get(1));
+                        jsonObject.put("genotypeCnt",genotypeCnt.totalCnt);
+                        jsonObject.put("hetFreq_DGE2",genotypeCnt.hetCnt);
+                        jsonObject.put("inbredF_DGE2",genotypeCnt.f);
+
+
+                        //System.out.println("jsonObject:" + jsonObject.toJSONString());
+                        if((Double)jsonObject.getOrDefault("inbredF_DGE2",0.0)>0.9 && (Integer)jsonObject.getOrDefault("genotypeCnt",0)>10) {
+                            System.out.println(adder.intValue()+"\t"+jsonObject.get("inbredF_DGE2")+"\t"+jsonObject.get("minorDepthProp"));
+                        }
+                        adder.increment();
+                        //System.out.println(adder.intValue());
                     }
                 });
 
 
         System.out.println(Arrays.toString(subsetIndices));
 
-
-
-        //create subset array to make fast calculations
-        //grab a stream of sites and taxa distributions
-        //create subset vector that make taxa used
-        //process in parallel
-
-
         //TaxaListIOUtils.exportAnnotatedTaxaListTable();
         return null;
     }
+
+    //Calculate the genotypic classes for all taxa with a depth greater than 2.
+    // Returned in a array of counts [homozygous major, homozygous minor, heterozygous]
+    private GenotypeStats callGenotypes(int[] majorAlleleDepth, int[] minorAlleleDepth) {
+        int[] genotypes=new int[3];
+        for (int i = 0; i < majorAlleleDepth.length; i++) {
+            if(majorAlleleDepth[i]+minorAlleleDepth[i]<2) continue;
+            int genotype=(majorAlleleDepth[i]>0)?1:0;
+            genotype+=(minorAlleleDepth[i]>0)?2:0;
+            genotypes[genotype-1]++;
+        }
+        return new GenotypeStats(genotypes[0],genotypes[2],genotypes[1]);
+    }
+
+    private class GenotypeStats {
+        double majorFreq, minorFreq;
+        int homoMajorCnt, hetCnt, homoMinorCnt;
+        int totalCnt;
+        double f;
+
+        private GenotypeStats(int homoMajorCnt, int hetCnt, int homoMinorCnt) {
+            this.homoMajorCnt = homoMajorCnt;
+            this.hetCnt = hetCnt;
+            this.homoMinorCnt = homoMinorCnt;
+            totalCnt=homoMajorCnt+hetCnt+homoMinorCnt;
+            majorFreq=((double)homoMajorCnt+(double)hetCnt*0.5)/(double)totalCnt;
+            minorFreq=1-majorFreq;
+            double expHets = 2.0 * minorFreq * majorFreq;
+            double propHets=(double)hetCnt/(double)totalCnt;
+            f = 1.0 - (propHets / expHets);
+        }
+    }
+
+
 
     /*
     Reduces the TaxaDistributions to depths by allele-> selected subset of taxa
@@ -94,7 +157,6 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
         for (Allele allele : aTDMMap.keySet()) {
             int[] subDepths=new int[subsetIndices.length];
             for (TaxaDistribution taxaDistribution : aTDMMap.get(allele)) {
-                System.out.println("TD:"+allele.toString()+":"+taxaDistribution.totalDepth());
                 int[] depths=taxaDistribution.depths();
                 for (int i = 0; i < subDepths.length; i++) {
                     subDepths[i]+=depths[subsetIndices[i]];
@@ -105,22 +167,7 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
         return result;
     }
 
-    private double calcMAF(Map<Allele, int[]> alleleDepthMap) {
-        int[] sum=alleleDepthMap.values().stream()
-                .mapToInt(depths -> (int)Arrays.stream(depths).filter(d -> d>0).count())
-                .sorted().toArray();
-        System.out.println("MAC:"+Arrays.toString(sum));
-        return (sum.length)>1?sum[sum.length-2]:0;
-    }
 
-    //Minor allele depth
-    private double calcMinorAlleleDepth(Map<Allele, int[]> alleleDepthMap) {
-        int[] sum=alleleDepthMap.values().stream()
-                    .mapToInt(depths -> Arrays.stream(depths).sum())
-                    .sorted().toArray();
-        System.out.println("MAD:"+Arrays.toString(sum));
-        return (sum.length)>1?sum[sum.length-2]:0;
-    }
 
 
 //    The following getters and setters were auto-generated.
