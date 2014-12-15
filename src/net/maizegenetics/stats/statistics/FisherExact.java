@@ -60,6 +60,7 @@ public class FisherExact {
 
 	private static synchronized double[] resizeArray(int size) {
 		int flength = factorialArray.length;
+		factorialArray = new double[size + 1];
 		double[] newF = new double[size + 1];
 		for (int idx = 0; (idx < flength) && (idx < size); idx++) {
 			newF[idx] = factorialArray[idx];
