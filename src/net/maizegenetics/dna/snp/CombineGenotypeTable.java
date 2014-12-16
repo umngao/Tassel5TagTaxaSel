@@ -19,6 +19,7 @@ import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
 import net.maizegenetics.util.GeneralAnnotationStorage;
 
 import java.util.*;
+import net.maizegenetics.dna.snp.genotypecall.CombineGenotypeCallTable;
 
 /**
  * Combines multiple GenotypeTables together.
@@ -28,7 +29,8 @@ import java.util.*;
 public class CombineGenotypeTable implements GenotypeTable {
 
     private static final long serialVersionUID = -5197800047652332969L;
-    private final GenotypeTable[] myAlignments;
+    private final GenotypeTable[] myGenotypeTables;
+    private final GenotypeCallTable myGenotype;
     private final int[] mySiteOffsets;
     private final Map<Chromosome, GenotypeTable> myChromosomes = new HashMap<>();
     private Chromosome[] myChromosomesList;
@@ -39,7 +41,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     private CombineGenotypeTable(TaxaList taxaList, GenotypeTable[] genoTables) {
 
         myTaxaList = taxaList;
-        myAlignments = genoTables;
+        myGenotypeTables = genoTables;
         mySiteOffsets = new int[genoTables.length + 1];
 
         mySiteOffsets[0] = 0;
@@ -55,6 +57,12 @@ public class CombineGenotypeTable implements GenotypeTable {
         }
 
         initChromosomes();
+
+        GenotypeCallTable[] genotypeCallTables = new GenotypeCallTable[genoTables.length];
+        for (int i = 0; i < genoTables.length; i++) {
+            genotypeCallTables[i] = genoTables[i].genotypeMatrix();
+        }
+        myGenotype = CombineGenotypeCallTable.getInstance(genotypeCallTables);
     }
 
     /**
@@ -68,7 +76,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     public static GenotypeTable getInstance(GenotypeTable[] genoTables) {
 
         if ((genoTables == null) || (genoTables.length == 0)) {
-            throw new IllegalArgumentException("CombineAlignment: getInstance: must provide genoTables.");
+            throw new IllegalArgumentException("CombineGenotypeTable: getInstance: must provide genoTables.");
         }
 
         if (genoTables.length == 1) {
@@ -78,7 +86,7 @@ public class CombineGenotypeTable implements GenotypeTable {
         TaxaList firstGroup = genoTables[0].taxa();
         for (int i = 1; i < genoTables.length; i++) {
             if (!areTaxaListsEqual(firstGroup, genoTables[i].taxa())) {
-                throw new IllegalArgumentException("CombineAlignment: getInstance: TaxaLists do not match.");
+                throw new IllegalArgumentException("CombineGenotypeTable: getInstance: TaxaLists do not match.");
             }
         }
 
@@ -101,7 +109,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     public static GenotypeTable getInstance(GenotypeTable[] genoTables, boolean isUnion) {
 
         if ((genoTables == null) || (genoTables.length == 0)) {
-            throw new IllegalArgumentException("CombineAlignment: getInstance: must provide genoTables.");
+            throw new IllegalArgumentException("CombineGenotypeTable: getInstance: must provide genoTables.");
         }
 
         if (genoTables.length == 1) {
@@ -148,9 +156,9 @@ public class CombineGenotypeTable implements GenotypeTable {
 
         List<Integer> offsets = new ArrayList<>();
         List<Chromosome> chromosomes = new ArrayList<>();
-        for (int i = 0; i < myAlignments.length; i++) {
-            chromosomes.addAll(Arrays.asList(myAlignments[i].chromosomes()));
-            int[] tempOffsets = myAlignments[i].chromosomesOffsets();
+        for (int i = 0; i < myGenotypeTables.length; i++) {
+            chromosomes.addAll(Arrays.asList(myGenotypeTables[i].chromosomes()));
+            int[] tempOffsets = myGenotypeTables[i].chromosomesOffsets();
             for (int j = 0; j < tempOffsets.length; j++) {
                 offsets.add(tempOffsets[j] + mySiteOffsets[i]);
             }
@@ -161,18 +169,19 @@ public class CombineGenotypeTable implements GenotypeTable {
 
         myChromosomesOffsets = new int[offsets.size()];
         for (int i = 0; i < offsets.size(); i++) {
-            myChromosomesOffsets[i] = (Integer) offsets.get(i);
+            myChromosomesOffsets[i] = offsets.get(i);
         }
 
         if (myChromosomesOffsets.length != myChromosomesList.length) {
-            throw new IllegalStateException("CombineAlignment: initChromosomes: number chromosomes offsets should equal number of chromosomes.");
+            throw new IllegalStateException("CombineGenotypeTable: initChromosomes: number chromosomes offsets should equal number of chromosomes.");
         }
 
     }
 
+    @Override
     public byte genotype(int taxon, int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].genotype(taxon, site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].genotype(taxon, site - mySiteOffsets[translate]);
     }
 
     @Override
@@ -191,12 +200,12 @@ public class CombineGenotypeTable implements GenotypeTable {
             if (firstAlign == secondAlign) {
                 secondSite = endSite - mySiteOffsets[firstAlign];
             } else if (i != secondAlign) {
-                secondSite = myAlignments[i].numberOfSites();
+                secondSite = myGenotypeTables[i].numberOfSites();
             } else {
                 secondSite = endSite - mySiteOffsets[secondAlign];
             }
             for (int s = firstSite; s < secondSite; s++) {
-                result[count++] = myAlignments[i].genotype(taxon, s);
+                result[count++] = myGenotypeTables[i].genotype(taxon, s);
             }
         }
         return result;
@@ -207,7 +216,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     public byte genotype(int taxon, Chromosome locus, int physicalPosition) {
         int site = siteOfPhysicalPosition(physicalPosition, locus);
         int translate = translateSite(site);
-        return myAlignments[translate].genotype(taxon, site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].genotype(taxon, site - mySiteOffsets[translate]);
     }
 
     /**
@@ -223,24 +232,24 @@ public class CombineGenotypeTable implements GenotypeTable {
                 return i - 1;
             }
         }
-        throw new IndexOutOfBoundsException("CombineAlignment: translateSite: index out of range: " + site);
+        throw new IndexOutOfBoundsException("CombineGenotypeTable: translateSite: index out of range: " + site);
 
     }
 
     private int findGenotypeTableIndex(GenotypeTable genotypeTable) {
-        for (int i = 0; i < myAlignments.length; i++) {
-            if (genotypeTable == myAlignments[i]) {
+        for (int i = 0; i < myGenotypeTables.length; i++) {
+            if (genotypeTable == myGenotypeTables[i]) {
                 return i;
             }
         }
-        throw new IllegalArgumentException("CombineAlignment: findGenotypeTableIndex: Genotype Table unknown.");
+        throw new IllegalArgumentException("CombineGenotypeTable: findGenotypeTableIndex: Genotype Table unknown.");
     }
 
     @Override
     public boolean hasReference() {
 
-        for (int i = 0; i < myAlignments.length; i++) {
-            if (!myAlignments[i].hasReference()) {
+        for (int i = 0; i < myGenotypeTables.length; i++) {
+            if (!myGenotypeTables[i].hasReference()) {
                 return false;
             }
         }
@@ -251,7 +260,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public String siteName(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].siteName(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].siteName(site - mySiteOffsets[translate]);
     }
 
     @Override
@@ -267,15 +276,15 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public int chromosomalPosition(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].chromosomalPosition(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].chromosomalPosition(site - mySiteOffsets[translate]);
     }
 
     @Override
     public int siteOfPhysicalPosition(int physicalPosition, Chromosome locus) {
         GenotypeTable align = myChromosomes.get(locus);
         int i = -1;
-        for (int j = 0; j < myAlignments.length; j++) {
-            if (myAlignments[j] == align) {
+        for (int j = 0; j < myGenotypeTables.length; j++) {
+            if (myGenotypeTables[j] == align) {
                 i = j;
                 break;
             }
@@ -290,8 +299,8 @@ public class CombineGenotypeTable implements GenotypeTable {
     public int siteOfPhysicalPosition(int physicalPosition, Chromosome locus, String snpName) {
         GenotypeTable align = myChromosomes.get(locus);
         int i = -1;
-        for (int j = 0; j < myAlignments.length; j++) {
-            if (myAlignments[j] == align) {
+        for (int j = 0; j < myGenotypeTables.length; j++) {
+            if (myGenotypeTables[j] == align) {
                 i = j;
                 break;
             }
@@ -305,7 +314,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public Chromosome chromosome(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].chromosome(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].chromosome(site - mySiteOffsets[translate]);
     }
 
     @Override
@@ -325,74 +334,74 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public int indelSize(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].indelSize(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].indelSize(site - mySiteOffsets[translate]);
     }
 
     @Override
     public boolean isIndel(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].isIndel(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].isIndel(site - mySiteOffsets[translate]);
     }
 
     @Override
     public byte referenceAllele(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].referenceAllele(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].referenceAllele(site - mySiteOffsets[translate]);
     }
 
     @Override
     public GenotypeTable[] compositeAlignments() {
-        return myAlignments;
+        return myGenotypeTables;
     }
 
     @Override
     public byte majorAllele(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].majorAllele(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].majorAllele(site - mySiteOffsets[translate]);
     }
 
     @Override
     public byte minorAllele(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].minorAllele(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].minorAllele(site - mySiteOffsets[translate]);
     }
 
     @Override
     public byte[] minorAlleles(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].minorAlleles(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].minorAlleles(site - mySiteOffsets[translate]);
     }
 
     @Override
     public byte[] alleles(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].alleles(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].alleles(site - mySiteOffsets[translate]);
     }
 
     @Override
     public double minorAlleleFrequency(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].minorAlleleFrequency(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].minorAlleleFrequency(site - mySiteOffsets[translate]);
     }
 
     @Override
     public int[][] allelesSortedByFrequency(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].allelesSortedByFrequency(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].allelesSortedByFrequency(site - mySiteOffsets[translate]);
     }
 
     @Override
     public byte[] genotypeArray(int taxon, int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].genotypeArray(taxon, site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].genotypeArray(taxon, site - mySiteOffsets[translate]);
     }
 
     @Override
     public byte[] genotypeAllTaxa(int site) {
         byte[] result = new byte[numberOfTaxa()];
         int offset = 0;
-        for (int i = 0; i < myAlignments.length; i++) {
-            byte[] current = myAlignments[i].genotypeAllTaxa(site);
+        for (int i = 0; i < myGenotypeTables.length; i++) {
+            byte[] current = myGenotypeTables[i].genotypeAllTaxa(site);
             System.arraycopy(current, 0, result, offset, current.length);
             offset += current.length;
         }
@@ -402,8 +411,8 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public byte[] genotypeAllSites(int taxon) {
         byte[] result = new byte[numberOfSites()];
-        for (int i = 0; i < myAlignments.length; i++) {
-            byte[] current = myAlignments[i].genotypeAllSites(taxon);
+        for (int i = 0; i < myGenotypeTables.length; i++) {
+            byte[] current = myGenotypeTables[i].genotypeAllSites(taxon);
             System.arraycopy(current, 0, result, myChromosomesOffsets[i], current.length);
         }
         return result;
@@ -411,24 +420,24 @@ public class CombineGenotypeTable implements GenotypeTable {
 
     @Override
     public BitSet allelePresenceForAllSites(int taxon, WHICH_ALLELE allele) {
-        throw new UnsupportedOperationException("CombineAlignment: getAllelePresenceForAllSites: This operation isn't possible as it spans multiple GenotypeTables.");
+        throw new UnsupportedOperationException("CombineGenotypeTable: getAllelePresenceForAllSites: This operation isn't possible as it spans multiple GenotypeTables.");
     }
 
     @Override
     public long[] allelePresenceForSitesBlock(int taxon, WHICH_ALLELE allele, int startBlock, int endBlock) {
-        throw new UnsupportedOperationException("CombineAlignment: getAllelePresenceForSitesBlock: This operation isn't possible as it spans multiple GenotypeTables.");
+        throw new UnsupportedOperationException("CombineGenotypeTable: getAllelePresenceForSitesBlock: This operation isn't possible as it spans multiple GenotypeTables.");
     }
 
     @Override
     public String genotypeAsString(int taxon, int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].genotypeAsString(taxon, site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].genotypeAsString(taxon, site - mySiteOffsets[translate]);
     }
 
     @Override
     public String[] genotypeAsStringArray(int taxon, int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].genotypeAsStringArray(taxon, site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].genotypeAsStringArray(taxon, site - mySiteOffsets[translate]);
     }
 
     @Override
@@ -444,16 +453,16 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public byte[] referenceAlleleForAllSites() {
 
-        for (int i = 0; i < myAlignments.length; i++) {
-            if (!myAlignments[i].hasReference()) {
+        for (int i = 0; i < myGenotypeTables.length; i++) {
+            if (!myGenotypeTables[i].hasReference()) {
                 return null;
             }
         }
 
         byte[] result = new byte[numberOfSites()];
         int count = 0;
-        for (int i = 0; i < myAlignments.length; i++) {
-            byte[] current = myAlignments[i].referenceAlleleForAllSites();
+        for (int i = 0; i < myGenotypeTables.length; i++) {
+            byte[] current = myGenotypeTables[i].referenceAlleleForAllSites();
             for (int j = 0; j < current.length; j++) {
                 result[count++] = current[j];
             }
@@ -465,15 +474,15 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public boolean isHeterozygous(int taxon, int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].isHeterozygous(taxon, site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].isHeterozygous(taxon, site - mySiteOffsets[translate]);
     }
 
     @Override
     public int[] physicalPositions() {
 
         boolean allNull = true;
-        for (int i = 0; i < myAlignments.length; i++) {
-            int[] current = myAlignments[0].physicalPositions();
+        for (int i = 0; i < myGenotypeTables.length; i++) {
+            int[] current = myGenotypeTables[0].physicalPositions();
             if ((current != null) && (current.length != 0)) {
                 allNull = false;
                 break;
@@ -485,8 +494,8 @@ public class CombineGenotypeTable implements GenotypeTable {
         } else {
             int[] result = new int[numberOfSites()];
             int count = 0;
-            for (int i = 0; i < myAlignments.length; i++) {
-                int[] current = myAlignments[i].physicalPositions();
+            for (int i = 0; i < myGenotypeTables.length; i++) {
+                int[] current = myGenotypeTables[i].physicalPositions();
                 for (int j = 0; j < current.length; j++) {
                     result[count++] = current[j];
                 }
@@ -498,7 +507,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public String chromosomeName(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].chromosomeName(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].chromosomeName(site - mySiteOffsets[translate]);
     }
 
     @Override
@@ -509,16 +518,16 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public Set<SITE_SCORE_TYPE> siteScoreTypes() {
         Set<SITE_SCORE_TYPE> result = new LinkedHashSet<>();
-        for (int i = 0; i < myAlignments.length; i++) {
-            result.addAll(myAlignments[i].siteScoreTypes());
+        for (int i = 0; i < myGenotypeTables.length; i++) {
+            result.addAll(myGenotypeTables[i].siteScoreTypes());
         }
         return result;
     }
 
     @Override
     public boolean isAllPolymorphic() {
-        for (int i = 0; i < myAlignments.length; i++) {
-            if (!myAlignments[i].isAllPolymorphic()) {
+        for (int i = 0; i < myGenotypeTables.length; i++) {
+            if (!myGenotypeTables[i].isAllPolymorphic()) {
                 return false;
             }
         }
@@ -528,23 +537,23 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public boolean isPolymorphic(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].isPolymorphic(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].isPolymorphic(site - mySiteOffsets[translate]);
     }
 
     @Override
     public double majorAlleleFrequency(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].majorAlleleFrequency(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].majorAlleleFrequency(site - mySiteOffsets[translate]);
     }
 
     @Override
     public String genomeVersion() {
-        String first = myAlignments[0].genomeVersion();
+        String first = myGenotypeTables[0].genomeVersion();
         if (first == null) {
             return null;
         }
-        for (int i = 1; i < myAlignments.length; i++) {
-            String current = myAlignments[i].genomeVersion();
+        for (int i = 1; i < myGenotypeTables.length; i++) {
+            String current = myGenotypeTables[i].genomeVersion();
             if ((current != null) && (!first.equals(current))) {
                 return null;
             }
@@ -555,13 +564,13 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public boolean isPositiveStrand(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].isPositiveStrand(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].isPositiveStrand(site - mySiteOffsets[translate]);
     }
 
     @Override
     public boolean isPhased() {
-        for (int i = 0; i < myAlignments.length; i++) {
-            if (myAlignments[i].isPhased() == false) {
+        for (int i = 0; i < myGenotypeTables.length; i++) {
+            if (myGenotypeTables[i].isPhased() == false) {
                 return false;
             }
         }
@@ -570,8 +579,8 @@ public class CombineGenotypeTable implements GenotypeTable {
 
     @Override
     public boolean retainsRareAlleles() {
-        for (int i = 0; i < myAlignments.length; i++) {
-            if (myAlignments[i].retainsRareAlleles() == false) {
+        for (int i = 0; i < myGenotypeTables.length; i++) {
+            if (myGenotypeTables[i].retainsRareAlleles() == false) {
                 return false;
             }
         }
@@ -586,10 +595,10 @@ public class CombineGenotypeTable implements GenotypeTable {
         }
 
         boolean allTheSame = true;
-        String[][] encodings = myAlignments[0].alleleDefinitions();
+        String[][] encodings = myGenotypeTables[0].alleleDefinitions();
         if (encodings.length == 1) {
-            for (int i = 1; i < myAlignments.length; i++) {
-                String[][] current = myAlignments[i].alleleDefinitions();
+            for (int i = 1; i < myGenotypeTables.length; i++) {
+                String[][] current = myGenotypeTables[i].alleleDefinitions();
                 if ((current.length == 1) && (encodings[0].length == current[0].length)) {
                     for (int j = 0; j < encodings[0].length; j++) {
                         if (!current[0][j].equals(encodings[0][j])) {
@@ -615,9 +624,9 @@ public class CombineGenotypeTable implements GenotypeTable {
         } else {
             String[][] result = new String[numberOfSites()][];
             int count = 0;
-            for (int i = 0; i < myAlignments.length; i++) {
-                for (int j = 0, n = myAlignments[i].numberOfSites(); j < n; j++) {
-                    result[count++] = myAlignments[i].alleleDefinitions(j);
+            for (int i = 0; i < myGenotypeTables.length; i++) {
+                for (int j = 0, n = myGenotypeTables[i].numberOfSites(); j < n; j++) {
+                    result[count++] = myGenotypeTables[i].alleleDefinitions(j);
                 }
             }
             myAlleleStates = result;
@@ -630,21 +639,21 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public String[] alleleDefinitions(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].alleleDefinitions(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].alleleDefinitions(site - mySiteOffsets[translate]);
     }
 
     @Override
     public String genotypeAsString(int site, byte value) {
         int translate = translateSite(site);
-        return myAlignments[translate].genotypeAsString(site - mySiteOffsets[translate], value);
+        return myGenotypeTables[translate].genotypeAsString(site - mySiteOffsets[translate], value);
     }
 
     @Override
     public int maxNumAlleles() {
         int result = 999999;
-        for (int i = 0; i < myAlignments.length; i++) {
-            if (myAlignments[i].maxNumAlleles() < result) {
-                result = myAlignments[i].maxNumAlleles();
+        for (int i = 0; i < myGenotypeTables.length; i++) {
+            if (myGenotypeTables[i].maxNumAlleles() < result) {
+                result = myGenotypeTables[i].maxNumAlleles();
             }
         }
         return result;
@@ -653,43 +662,43 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public int totalGametesNonMissingForSite(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].totalGametesNonMissingForSite(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].totalGametesNonMissingForSite(site - mySiteOffsets[translate]);
     }
 
     @Override
     public int heterozygousCount(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].heterozygousCount(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].heterozygousCount(site - mySiteOffsets[translate]);
     }
 
     @Override
     public int minorAlleleCount(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].minorAlleleCount(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].minorAlleleCount(site - mySiteOffsets[translate]);
     }
 
     @Override
     public int majorAlleleCount(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].majorAlleleCount(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].majorAlleleCount(site - mySiteOffsets[translate]);
     }
 
     @Override
     public Object[][] genosSortedByFrequency(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].genosSortedByFrequency(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].genosSortedByFrequency(site - mySiteOffsets[translate]);
     }
 
     @Override
     public byte[] allelesBySortType(ALLELE_SORT_TYPE scope, int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].allelesBySortType(scope, site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].allelesBySortType(scope, site - mySiteOffsets[translate]);
     }
 
     @Override
     public BitSet allelePresenceForAllTaxa(int site, WHICH_ALLELE allele) {
         int translate = translateSite(site);
-        return myAlignments[translate].allelePresenceForAllTaxa(site - mySiteOffsets[translate], allele);
+        return myGenotypeTables[translate].allelePresenceForAllTaxa(site - mySiteOffsets[translate], allele);
     }
 
     @Override
@@ -712,22 +721,22 @@ public class CombineGenotypeTable implements GenotypeTable {
         int firstGenotype = translateSite(startSite);
         int secondGenotype = translateSite(endSite);
         if (firstGenotype == secondGenotype) {
-            return myAlignments[firstGenotype].genotypeAsStringRange(taxon, startSite - mySiteOffsets[firstGenotype], endSite - mySiteOffsets[firstGenotype]);
+            return myGenotypeTables[firstGenotype].genotypeAsStringRange(taxon, startSite - mySiteOffsets[firstGenotype], endSite - mySiteOffsets[firstGenotype]);
         } else if (secondGenotype - firstGenotype == 1) {
             StringBuilder builder = new StringBuilder();
-            builder.append(myAlignments[firstGenotype].genotypeAsStringRange(taxon, startSite - mySiteOffsets[firstGenotype], myAlignments[firstGenotype].numberOfSites()));
+            builder.append(myGenotypeTables[firstGenotype].genotypeAsStringRange(taxon, startSite - mySiteOffsets[firstGenotype], myGenotypeTables[firstGenotype].numberOfSites()));
             builder.append(";");
-            builder.append(myAlignments[secondGenotype].genotypeAsStringRange(taxon, 0, endSite - mySiteOffsets[secondGenotype]));
+            builder.append(myGenotypeTables[secondGenotype].genotypeAsStringRange(taxon, 0, endSite - mySiteOffsets[secondGenotype]));
             return builder.toString();
         } else {
             StringBuilder builder = new StringBuilder();
-            builder.append(myAlignments[firstGenotype].genotypeAsStringRange(taxon, startSite - mySiteOffsets[firstGenotype], myAlignments[firstGenotype].numberOfSites()));
+            builder.append(myGenotypeTables[firstGenotype].genotypeAsStringRange(taxon, startSite - mySiteOffsets[firstGenotype], myGenotypeTables[firstGenotype].numberOfSites()));
             for (int i = firstGenotype + 1; i < secondGenotype; i++) {
                 builder.append(";");
-                builder.append(myAlignments[i].genotypeAsStringRow(taxon));
+                builder.append(myGenotypeTables[i].genotypeAsStringRow(taxon));
             }
             builder.append(";");
-            builder.append(myAlignments[secondGenotype].genotypeAsStringRange(taxon, 0, endSite - mySiteOffsets[secondGenotype]));
+            builder.append(myGenotypeTables[secondGenotype].genotypeAsStringRange(taxon, 0, endSite - mySiteOffsets[secondGenotype]));
             return builder.toString();
         }
     }
@@ -736,7 +745,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     public String genotypeAsStringRow(int taxon) {
         StringBuilder builder = new StringBuilder();
         boolean first = true;
-        for (GenotypeTable current : myAlignments) {
+        for (GenotypeTable current : myGenotypeTables) {
             if (first) {
                 first = false;
             } else {
@@ -775,13 +784,13 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public String majorAlleleAsString(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].majorAlleleAsString(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].majorAlleleAsString(site - mySiteOffsets[translate]);
     }
 
     @Override
     public String minorAlleleAsString(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].minorAlleleAsString(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].minorAlleleAsString(site - mySiteOffsets[translate]);
     }
 
     @Override
@@ -797,13 +806,13 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public String diploidAsString(int site, byte value) {
         int translate = translateSite(site);
-        return myAlignments[translate].diploidAsString(site - mySiteOffsets[translate], value);
+        return myGenotypeTables[translate].diploidAsString(site - mySiteOffsets[translate], value);
     }
 
     @Override
     public int totalNonMissingForSite(int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].totalNonMissingForSite(site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].totalNonMissingForSite(site - mySiteOffsets[translate]);
     }
 
     @Override
@@ -819,7 +828,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public int totalGametesNonMissingForTaxon(int taxon) {
         int result = 0;
-        for (GenotypeTable current : myAlignments) {
+        for (GenotypeTable current : myGenotypeTables) {
             result += current.totalGametesNonMissingForTaxon(taxon);
         }
         return result;
@@ -828,7 +837,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public int heterozygousCountForTaxon(int taxon) {
         int result = 0;
-        for (GenotypeTable current : myAlignments) {
+        for (GenotypeTable current : myGenotypeTables) {
             result += current.heterozygousCountForTaxon(taxon);
         }
         return result;
@@ -837,7 +846,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public int totalNonMissingForTaxon(int taxon) {
         int result = 0;
-        for (GenotypeTable current : myAlignments) {
+        for (GenotypeTable current : myGenotypeTables) {
             result += current.totalNonMissingForTaxon(taxon);
         }
         return result;
@@ -846,18 +855,18 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public boolean hasGenotype() {
         boolean result = true;
-        for (GenotypeTable current : myAlignments) {
+        for (GenotypeTable current : myGenotypeTables) {
             if (!current.hasGenotype()) {
                 result = false;
             }
         }
         return result;
     }
-    
+
     @Override
     public boolean hasDepth() {
         boolean result = true;
-        for (GenotypeTable current : myAlignments) {
+        for (GenotypeTable current : myGenotypeTables) {
             if (!current.hasDepth()) {
                 result = false;
             }
@@ -868,7 +877,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public boolean hasAlleleProbabilities() {
         boolean result = true;
-        for (GenotypeTable current : myAlignments) {
+        for (GenotypeTable current : myGenotypeTables) {
             if (!current.hasAlleleProbabilities()) {
                 result = false;
             }
@@ -879,7 +888,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public boolean hasReferenceProbablity() {
         boolean result = true;
-        for (GenotypeTable current : myAlignments) {
+        for (GenotypeTable current : myGenotypeTables) {
             if (!current.hasReferenceProbablity()) {
                 result = false;
             }
@@ -890,7 +899,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public boolean hasDosage() {
         boolean result = true;
-        for (GenotypeTable current : myAlignments) {
+        for (GenotypeTable current : myGenotypeTables) {
             if (!current.hasDosage()) {
                 result = false;
             }
@@ -906,7 +915,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public int[] depthForAlleles(int taxon, int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].depthForAlleles(taxon, site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].depthForAlleles(taxon, site - mySiteOffsets[translate]);
     }
 
     @Override
@@ -921,7 +930,7 @@ public class CombineGenotypeTable implements GenotypeTable {
 
     @Override
     public GenotypeCallTable genotypeMatrix() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return myGenotype;
     }
 
     @Override
@@ -932,9 +941,9 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public float alleleProbability(int taxon, int site, SITE_SCORE_TYPE type) {
         int translate = translateSite(site);
-        return myAlignments[translate].alleleProbability(taxon, site - mySiteOffsets[translate], type);
+        return myGenotypeTables[translate].alleleProbability(taxon, site - mySiteOffsets[translate], type);
     }
-    
+
     @Override
     public ReferenceProbability referenceProbability() {
         throw new UnsupportedOperationException("Not supported yet.");
@@ -943,7 +952,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public float referenceProbability(int taxon, int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].referenceProbability(taxon, site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].referenceProbability(taxon, site - mySiteOffsets[translate]);
     }
 
     @Override
@@ -954,7 +963,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public byte dosage(int taxon, int site) {
         int translate = translateSite(site);
-        return myAlignments[translate].dosage(taxon, site - mySiteOffsets[translate]);
+        return myGenotypeTables[translate].dosage(taxon, site - mySiteOffsets[translate]);
     }
 
     @Override
