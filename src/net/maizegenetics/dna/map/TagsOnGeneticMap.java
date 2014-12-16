@@ -266,6 +266,53 @@ public class TagsOnGeneticMap extends AbstractTags {
     }
     
     /**
+     * Write TagsOnGeneticMap file
+     * @param outfileS
+     * @param ifOut
+     * @param format 
+     */
+    public void writeDistFile (String outfileS, boolean[] ifOut, FilePacking format) {
+        System.out.println("Writing TOGM file to " + outfileS);
+        switch (format) {
+            case Text:
+                writeTextTOGMFile(outfileS, ifOut);
+                break;
+            default:
+                writeBinaryTOGMFile(outfileS);
+                break;
+        }
+        System.out.println("TOGM file written");
+    }
+    
+    /**
+     * Write text TOGM file
+     * @param outfileS
+     * @param ifOut 
+     */
+    private void writeTextTOGMFile (String outfileS, boolean[] ifOut) {
+        try {
+            BufferedWriter bw = new BufferedWriter (new FileWriter(outfileS), 65536);
+            bw.write("Tag\tTagLength\tGChr\tGPos\tIfPAV\tPredictedDistance");
+            bw.newLine();
+            long[] temp = new long[this.tagLengthInLong];
+            for (int i = 0; i < this.getTagCount(); i++) {
+                if (!ifOut[i]) continue;
+                for (int j = 0; j < temp.length; j++) {
+                    temp[j] = tags[j][i];
+                }
+                bw.write(BaseEncoder.getSequenceFromLong(temp)+"\t"+String.valueOf(this.getTagLength(i))+"\t");
+                bw.write(String.valueOf(this.gChr[i])+"\t"+String.valueOf(this.gPos[i])+"\t"+String.valueOf(ifPAV[i])+"\t"+String.valueOf(this.prediction[i]));
+                bw.newLine();
+            }
+            bw.flush();
+            bw.close();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    
+    /**
      * Write text TOGM file
      * @param outfileS
      */
@@ -285,6 +332,34 @@ public class TagsOnGeneticMap extends AbstractTags {
             }
             bw.flush();
             bw.close();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Write binary TOGM file
+     * @param outfileS
+     * @param ifOut 
+     */
+    private void writeBinaryTOGMFile (String outfileS, boolean[] ifOut) {
+        try {
+            DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outfileS), 65536));
+            dos.writeInt(tagLengthInLong);
+            for (int i = 0; i < this.getTagCount(); i++) {
+                if (!ifOut[i]) continue;
+                for (int j = 0; j < this.tagLengthInLong; j++) {
+                    dos.writeLong(this.tags[j][i]);
+                }
+                dos.writeByte(this.getTagLength(i));
+                dos.writeInt(this.getGChr(i));
+                dos.writeInt(this.getGPos(i));
+                dos.writeByte(this.getIfPAV(i));
+                dos.writeFloat(this.getPrediction(i));
+            }
+            dos.flush();
+            dos.close();
         }
         catch (Exception e) {
             e.printStackTrace();

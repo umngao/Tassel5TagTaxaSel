@@ -84,7 +84,7 @@ public class PanAModelTrainingPlugin extends AbstractPlugin {
             BufferedWriter bw = new BufferedWriter (new FileWriter(this.accuracyTableFileS), 65536);
             bw.write("PredictionCutoff\tProportionRemain");
             for (int i = 0; i < accuracyCut.length; i++) {
-                bw.write("\t<"+String.valueOf(accuracyCut[i]/1000)+ "Kb");
+                bw.write("\t<"+String.valueOf(accuracyCut[i]/1000)+ " kb");
             }
             bw.newLine();
             for (int i = 0; i < logPreCut.length; i++) {
