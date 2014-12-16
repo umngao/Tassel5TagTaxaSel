@@ -7,6 +7,8 @@
 
 package net.maizegenetics.stats.statistics;
 
+import java.util.Arrays;
+
 /**
  * This does a Fisher Exact test.  The Fisher's Exact test procedure calculates an exact probability value
  * for the relationship between two dichotomous variables, as found in a two by two crosstable. The program
@@ -60,45 +62,16 @@ public class FisherExact {
 
 	private static synchronized double[] resizeArray(int size) {
 		int flength = factorialArray.length;
-		factorialArray = new double[size + 1];
-		double[] newF = new double[size + 1];
-		for (int idx = 0; (idx < flength) && (idx < size); idx++) {
-			newF[idx] = factorialArray[idx];
-		}
+
+		FisherExact.maxSize = size;
+		if (flength > size+1) return factorialArray;
+		double[] newF = Arrays.copyOf(factorialArray, size+1); //copy old values
 		// Calculate new values
 		for (int idx = flength; idx <= size; idx++){
-			newF[idx] = factorialArray[idx - 1] + Math.log(idx);
+			newF[idx] = newF[idx - 1] + Math.log(idx);
 		}
-
-		maxSize = size; 
 		return newF;
 	}
-	
-	//TODO remove all commented out code once verified it is not needed.
-	/* This code was never called.
-	 * Commenting it out as FisherExact is now a singleton
-	 * 	 
-	public FisherExact(int maxSize, boolean useLookup) {
-		this.maxSize = maxSize;
-		f = new double[maxSize + 1];
-		f[0] = 0.0;
-		for (int i = 1; i <= this.maxSize; i++) {
-			f[i] = f[i - 1] + Math.log(i);
-		}
-		int count=0;
-		double minP=0.05;
-		for (int i = 1; i < maxSize; i++) {
-			for (int j = 1; j < maxSize; j++) {
-				for (int k = 1; k < maxSize; k++) {
-					for (int m = 1; m < maxSize; m++) {
-						if(getTwoTailedP(i,j,k,m)<minP) {count++;}
-					}
-				}
-			}
-		}
-		System.out.printf("MaxSize %d minP: %g  Count: %d %n", maxSize, minP, count);
-	}
-	*/
 
 	/**
 	 * calculates the P-value for this specific state
@@ -113,7 +86,7 @@ public class FisherExact {
 		int n = a + b + c + d;
 		if (n > maxSize) {
 			factorialArray = resizeArray(n);
-			// return Double.NaN;
+			 //return Double.NaN;
 		}
 		double p;
 		p = (factorialArray[a + b] + factorialArray[c + d] + factorialArray[a + c] + factorialArray[b + d]) - 
@@ -190,7 +163,6 @@ public class FisherExact {
 		min = (c < b) ? c : b;
 		for (i = 0; i < min; i++) {
 			p += getP(++a, --b, --c, ++d);
-
 		}
 		return p;
 	}
@@ -273,6 +245,7 @@ public class FisherExact {
 		int min, i;
 		int n = a + b + c + d;
 		if (n > maxSize) {
+			System.out.printf("LCJ - FE:getTwoTailedP, resize for a %d, b %d c %d d %d\n", a,b,c,d);
 			factorialArray = resizeArray(n);
 			//return Double.NaN;
 		}
@@ -323,82 +296,5 @@ public class FisherExact {
 		}
 		return p;
 	}
-	//
-	//    public static void main(String[] args) {
-	//
-	//        if(args.length != 4){
-	//            System.out.println("Please enter 4 values");
-	//            System.exit(0);
-	//        }
-	//        int[] argInts = new int[args.length];
-	//
-	//        for(int i = 0; i < argInts.length; i++){
-	//            argInts[i] = Integer.parseInt(args[i]);
-	//        }
-	//        FisherExact fe = new FisherExact(100);
-	//
-	//        System.out.println("\n*****Original algorithm");
-	//        double cumulativeP = fe.getCumlativeP(argInts[0], argInts[1], argInts[2], argInts[3]);
-	//        System.out.println("cumulativeP = " + cumulativeP );
-	//
-	//        System.out.println("\n*****Modified algorithm");
-	//        double algorithmSelectedP = fe.getAlgorithmSelected(argInts[0], argInts[1], argInts[2], argInts[3]);
-	//        System.out.println("algorithmSelectedP = " + algorithmSelectedP);
-	//
-	//        System.out.println("\n*****Left Tailed");
-	//        double leftTailedP = fe.getLeftTailedP(argInts[0], argInts[1], argInts[2], argInts[3]);
-	//        System.out.println("leftTailedP = " + leftTailedP);
-	//
-	//        System.out.println("\n*****Right Tailed");
-	//        double rightTailedP = fe.getRightTailedP(argInts[0], argInts[1], argInts[2], argInts[3]);
-	//        System.out.println("rightTailedP = " + rightTailedP);
-	//
-	//        System.out.println("\n*****Two Tailed");
-	//        double twoTailedP = fe.getTwoTailedP(argInts[0], argInts[1], argInts[2], argInts[3]);
-	//        System.out.println("twoTailedP = " + twoTailedP);
-	//    }
 	 
-	/* Main method with 15 matrix values was moved to FisherExactText in tassel-5-test.
-	public static void main(String[] args) {
-
-		int[][] argInts = new int[15][4];
-		argInts[0] = new int[]{2, 3, 6, 4};
-		argInts[1] = new int[]{2, 1, 3, 0};
-		argInts[2] = new int[]{3, 0, 2, 1};
-		argInts[3] = new int[]{1, 2, 0, 3};
-		argInts[4] = new int[]{3, 1, 1, 3};
-		argInts[5] = new int[]{1, 3, 3, 1};
-		argInts[6] = new int[]{0, 1, 1, 0};
-		argInts[7] = new int[]{1, 0, 0, 1};
-		argInts[8] = new int[]{11, 0, 0, 6};
-		argInts[9] = new int[]{10, 1, 1, 5};
-		argInts[10] = new int[]{5, 6, 6, 0};
-		argInts[11] = new int[]{9, 2, 2, 4};
-		argInts[12] = new int[]{6, 5, 5, 1};
-		argInts[13] = new int[]{8, 3, 3, 3};
-		argInts[14] = new int[]{7, 4, 4, 2};
-
-		//FisherExact fe = new FisherExact(100);
-		FisherExact fe = FisherExact.getInstance(100);
-
-		for (int i = 0; i < argInts.length; i++) {
-			System.out.println("\na=" + argInts[i][0] + " b=" + argInts[i][1] + " c=" + argInts[i][2] + " d=" + argInts[i][3]);
-			System.out.print("*****Original algorithm: ");
-			double cumulativeP = fe.getCumlativeP(argInts[i][0], argInts[i][1], argInts[i][2], argInts[i][3]);
-			System.out.println("\tcumulativeP = " + cumulativeP);
-
-			System.out.print("*****Left Tailed: ");
-			double leftTailedP = fe.getLeftTailedP(argInts[i][0], argInts[i][1], argInts[i][2], argInts[i][3]);
-			System.out.println("\tleftTailedP = " + leftTailedP);
-
-			System.out.print("*****Right Tailed: ");
-			double rightTailedP = fe.getRightTailedP(argInts[i][0], argInts[i][1], argInts[i][2], argInts[i][3]);
-			System.out.println("\trightTailedP = " + rightTailedP);
-
-			System.out.print("*****Two Tailed: ");
-			double twoTailedP = fe.getTwoTailedP(argInts[i][0], argInts[i][1], argInts[i][2], argInts[i][3]);
-			System.out.println("\ttwoTailedP = " + twoTailedP);
-		}		
-	}
-	*/
 }
