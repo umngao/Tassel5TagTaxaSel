@@ -297,7 +297,7 @@ public class ParseBarcodeRead {
         } else if(enzyme.matches("(?i)msl[i1]")){
             theEnzyme = "MslI";  // CAYNN^NNRTG  -- has 32 different cut sites (assuming constrained to palindromic YNN -- 32^2 otherwise)
             initialCutSiteRemnant=new String[]{""};
-            likelyReadEnd = new String[]{"AGATCGGAAG"}; // common adapter start only (too many possible cut sites!)
+            likelyReadEnd = new String[]{"AGATCGGA"}; // common adapter start only (too many possible cut sites!)
             readEndCutSiteRemnantLength = 0;  
         } else if (enzyme.matches("(?i)RBSTA")) {
             theEnzyme = "RBSTA";
@@ -309,8 +309,13 @@ public class ParseBarcodeRead {
             initialCutSiteRemnant = new String[]{"CG"};
             likelyReadEnd = new String[]{"CCGC", "TCGA", "GCGC", "CCGG", "ACGT", "CCGAGAT", "TCGAGAT", "GCGAGAT", "ACGAGAT"}; // full cut site (from partial digest or chimera) of AciI, TaqaI, HinpI, HpaII, HpyCH4IV or common adapter start
             readEndCutSiteRemnantLength = 3;
+        } else if(enzyme.matches("(?i)ignore")){
+            theEnzyme = "unspecified";  // can be used for new enzymes -- only looks for barcodes and common adapter starts
+            initialCutSiteRemnant=new String[]{""};
+            likelyReadEnd = new String[]{"AGATCGGA"}; // common adapter start only
+            readEndCutSiteRemnantLength = 0;  
         } else {
-            System.out.println("The software didn't recognize your cut site.\n"
+            System.out.println("The software didn't recognize your restriction enzyme (-e option).\n"
                     +"Currently, only the following enzymes are recognized for single enzyme digests:\n"
                     +"  ApeKI"    +"\n"
                     +"  ApoI"     +"\n"
@@ -339,6 +344,7 @@ public class ParseBarcodeRead {
                     +"  StyI"     +"\n"
                     +"  RBSTA"    +"\n"
                     +"  RBSCG"    +"\n"
+                    +"  ignore"    +"\n"
                     +"Or the following for two-enzyme digests:\n"
                     +"  AsiSI-MspI"   +"\n"
                     +"  AvaII-MseI"   +"\n"
@@ -363,8 +369,12 @@ public class ParseBarcodeRead {
                     +"  SbfI-MspI"    +"\n"
                     +"  SexAI-Sau3AI" +"\n"
                     +"  StyI-MseI"    +"\n"
+                    +"  ignore"    +"\n"
             );
-            System.out.println("For two-enzyme digest, enzyme names should be separated by a dash, e.g. PstI-MspI ");
+            System.out.println("For two-enzyme digest, enzyme names should be separated by a dash, e.g. -e PstI-MspI");
+            System.out.println("\nIf your enzyme is not on the above list you can use \"-e ignore\". In this case\n"
+                    +"   barcodes and common adapter start sequences will be recognized, but chimeric DNA\n"
+                    +"   fragments (or partial digests) will not be trimmed.");
         }
         System.out.println("Enzyme: " + theEnzyme);
     }
