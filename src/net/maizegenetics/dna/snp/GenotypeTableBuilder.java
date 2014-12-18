@@ -468,7 +468,7 @@ public class GenotypeTableBuilder {
                     if ((currentAlleles[1] != majorAllele[s]) && (currentAlleles[1] != minorAllele[s])) {
                         currentAlleles[1] = GenotypeTable.UNKNOWN_ALLELE;
                     }
-                    builder.setBase(t, s, GenotypeTableUtils.getDiploidValue(currentAlleles[0], currentAlleles[1]));
+                    builder.setBase(t, s + bigS, GenotypeTableUtils.getDiploidValue(currentAlleles[0], currentAlleles[1]));
                 }
             }
         }
