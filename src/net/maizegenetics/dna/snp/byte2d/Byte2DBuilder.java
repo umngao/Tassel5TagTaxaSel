@@ -58,6 +58,10 @@ public class Byte2DBuilder {
         return new FilterByte2D(base, filterGenotypeTable);
     }
 
+    public static Byte2D getInstance(IHDF5Reader reader, SiteScore.SITE_SCORE_TYPE siteScoreType) {
+        return new HDF5Byte2D(reader, siteScoreType);
+    }
+
     /**
      * Add taxon and set values for all sites for that taxon.
      *
