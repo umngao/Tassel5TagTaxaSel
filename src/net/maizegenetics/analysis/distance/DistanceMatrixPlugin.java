@@ -4,6 +4,7 @@
 package net.maizegenetics.analysis.distance;
 
 import java.awt.*;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -19,7 +20,7 @@ import org.apache.log4j.Logger;
 
 /**
  *
- * @author terryc
+ * @author Terry Casstevens
  */
 public class DistanceMatrixPlugin extends AbstractPlugin {
 
@@ -29,6 +30,7 @@ public class DistanceMatrixPlugin extends AbstractPlugin {
         super(parentFrame, isInteractive);
     }
 
+    @Override
     public DataSet performFunction(DataSet input) {
 
         try {
@@ -44,7 +46,7 @@ public class DistanceMatrixPlugin extends AbstractPlugin {
                 return null;
             }
 
-            List result = new ArrayList();
+            List<DataSet> result = new ArrayList<>();
             Iterator<Datum> itr = alignInList.iterator();
             while (itr.hasNext()) {
                 Datum current = itr.next();
@@ -82,8 +84,14 @@ public class DistanceMatrixPlugin extends AbstractPlugin {
      *
      * @return ImageIcon
      */
+    @Override
     public ImageIcon getIcon() {
-        return null;
+        URL imageURL = DistanceMatrixPlugin.class.getResource("/net/maizegenetics/analysis/images/DistanceMatrix.gif");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
     }
 
     /**
@@ -91,6 +99,7 @@ public class DistanceMatrixPlugin extends AbstractPlugin {
      *
      * @return String
      */
+    @Override
     public String getButtonName() {
         return "Distance Matrix";
     }
@@ -100,6 +109,7 @@ public class DistanceMatrixPlugin extends AbstractPlugin {
      *
      * @return String
      */
+    @Override
     public String getToolTipText() {
         return "Create a distance matrix";
     }

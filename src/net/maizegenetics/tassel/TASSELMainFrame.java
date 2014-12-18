@@ -81,6 +81,7 @@ import net.maizegenetics.analysis.data.GetTaxaListPlugin;
 import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
 import net.maizegenetics.analysis.data.ProjectPcsAndRunModelSelectionPlugin;
 import net.maizegenetics.analysis.data.SortGenotypeFilePlugin;
+import net.maizegenetics.analysis.distance.DistanceMatrixPlugin;
 import net.maizegenetics.analysis.gbs.BinaryToTextPlugin;
 import net.maizegenetics.analysis.gbs.DiscoverySNPCallerPlugin;
 import net.maizegenetics.analysis.gbs.FastqToTagCountPlugin;
@@ -675,6 +676,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
         result.add(createMenuItem(new SequenceDiversityPlugin(this, true)));
         result.add(createMenuItem(new LinkageDisequilibriumPlugin(this, true)));
+        result.add(createMenuItem(new DistanceMatrixPlugin(this, true)));
         result.add(createMenuItem(new CreateTreePlugin(this, true)));
         result.add(createMenuItem(new KinshipPlugin(this, true)));
         result.add(createMenuItem(new PrincipalComponentsPlugin(this, true)));
