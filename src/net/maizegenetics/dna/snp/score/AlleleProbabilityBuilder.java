@@ -3,6 +3,7 @@
  */
 package net.maizegenetics.dna.snp.score;
 
+import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 
 import java.util.Collection;
@@ -54,6 +55,16 @@ public class AlleleProbabilityBuilder {
             resultStorage[count] = Byte2DBuilder.getFilteredInstance(current, filterGenotypeTable);
         }
         return new AlleleProbability(resultStorage);
+    }
+
+    public static AlleleProbability getInstance(IHDF5Reader reader) {
+        int numAlleles = AlleleProbability.ALLELE_PROBABILITY_TYPES.length;
+        Byte2D[] input = new Byte2D[numAlleles];
+        int count = 0;
+        for (SiteScore.SITE_SCORE_TYPE current : AlleleProbability.ALLELE_PROBABILITY_TYPES) {
+            input[count++] = Byte2DBuilder.getInstance(reader, current);
+        }
+        return new AlleleProbability(input);
     }
 
     public AlleleProbabilityBuilder addTaxon(int taxon, byte[] values, SiteScore.SITE_SCORE_TYPE type) {

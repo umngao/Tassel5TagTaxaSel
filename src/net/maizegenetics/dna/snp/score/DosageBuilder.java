@@ -3,6 +3,7 @@
  */
 package net.maizegenetics.dna.snp.score;
 
+import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
@@ -41,6 +42,10 @@ public class DosageBuilder {
     public static Dosage getFilteredInstance(Dosage base, FilterGenotypeTable filterGenotypeTable) {
         FilterByte2D resultStorage = Byte2DBuilder.getFilteredInstance(base.byteStorage(SiteScore.SITE_SCORE_TYPE.Dosage), filterGenotypeTable);
         return new Dosage(resultStorage);
+    }
+
+    public static Dosage getInstance(IHDF5Reader reader) {
+        return new Dosage(Byte2DBuilder.getInstance(reader, SiteScore.SITE_SCORE_TYPE.Dosage));
     }
 
     public DosageBuilder addTaxon(int taxon, byte[] values) {

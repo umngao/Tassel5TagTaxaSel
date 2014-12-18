@@ -3,6 +3,7 @@
  */
 package net.maizegenetics.dna.snp.score;
 
+import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
@@ -41,6 +42,10 @@ public class ReferenceProbabilityBuilder {
     public static ReferenceProbability getFilteredInstance(ReferenceProbability base, FilterGenotypeTable filterGenotypeTable) {
         FilterByte2D resultStorage = Byte2DBuilder.getFilteredInstance(base.byteStorage(SiteScore.SITE_SCORE_TYPE.ReferenceProbablity), filterGenotypeTable);
         return new ReferenceProbability(resultStorage);
+    }
+
+    public static ReferenceProbability getInstance(IHDF5Reader reader) {
+        return new ReferenceProbability(Byte2DBuilder.getInstance(reader, SiteScore.SITE_SCORE_TYPE.ReferenceProbablity));
     }
 
     public ReferenceProbabilityBuilder addTaxon(int taxon, float[] values) {
