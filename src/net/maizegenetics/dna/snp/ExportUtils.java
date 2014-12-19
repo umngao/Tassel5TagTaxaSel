@@ -41,48 +41,57 @@ public class ExportUtils {
     public static String writeGenotypeHDF5(GenotypeTable a, String newHDF5file, boolean keepDepth) {
         return writeGenotypeHDF5(a, newHDF5file, null, keepDepth);
     }
-   
-   /**
-    * Exports a alignment into the Byte HDF5 format.  
-    * @param a alignment to be exported
-    * @param newHDF5file filename for the new file (should end with "hmp.h5")
-    * @param exportTaxa  subset of taxa (if null exports ALL taxa)
-    * @return 
-    */ 
-   public static String writeGenotypeHDF5(GenotypeTable a, String newHDF5file, TaxaList exportTaxa, boolean keepDepth) {
-        GenotypeTableBuilder aB=GenotypeTableBuilder.getTaxaIncremental(a.positions(),newHDF5file);
-        if((exportTaxa!=null)&&(exportTaxa.numberOfTaxa()==0)) {aB.build(); return newHDF5file;}
+
+    /**
+     * Exports a alignment into the Byte HDF5 format.
+     *
+     * @param a alignment to be exported
+     * @param newHDF5file filename for the new file (should end with "hmp.h5")
+     * @param exportTaxa subset of taxa (if null exports ALL taxa)
+     * @return
+     */
+    public static String writeGenotypeHDF5(GenotypeTable a, String newHDF5file, TaxaList exportTaxa, boolean keepDepth) {
+        GenotypeTableBuilder aB = GenotypeTableBuilder.getTaxaIncremental(a.positions(), newHDF5file);
+        if ((exportTaxa != null) && (exportTaxa.numberOfTaxa() == 0)) {
+            aB.build();
+            return newHDF5file;
+        }
         for (int t = 0; t < a.numberOfTaxa(); t++) {
-              if((exportTaxa!=null)&&(!exportTaxa.contains(a.taxa().get(t)))) continue;  //taxon not in export list
-              byte[] bases = a.genotypeAllSites(t);
-              if (a.hasDepth()==false || keepDepth==false) aB.addTaxon(a.taxa().get(t), bases, null);
-              else {
-                  aB.addTaxon(a.taxa().get(t), bases, a.depth().depthAllSitesByte(t));
-              }
+            if ((exportTaxa != null) && (!exportTaxa.contains(a.taxa().get(t)))) {
+                continue;  //taxon not in export list
+            }
+            byte[] bases = a.genotypeAllSites(t);
+            if (a.hasDepth() == false || keepDepth == false) {
+                aB.addTaxon(a.taxa().get(t), bases, null);
+            } else {
+                aB.addTaxon(a.taxa().get(t), bases, a.depth().depthAllSitesByte(t));
+            }
         }
         aB.build();
         return newHDF5file;
     }
 
     /**
-     * Write a GenotypeTable to HapMap format with standard settings - unphased single character, tab delimiter,
-     * and no progress tracking.
-     * @param alignment  genotype table
-     * @param filename   outfile name (will add ".hmp.txt" if needed)
+     * Write a GenotypeTable to HapMap format with standard settings - unphased
+     * single character, tab delimiter, and no progress tracking.
+     *
+     * @param alignment genotype table
+     * @param filename outfile name (will add ".hmp.txt" if needed)
      * @return name of the outfile with the appropriate suffix
      */
     public static String writeToHapmap(GenotypeTable alignment, String filename) {
-        return writeToHapmap(alignment, false, filename, '\t',null);
+        return writeToHapmap(alignment, false, filename, '\t', null);
     }
-
 
     /**
      * Write a GenotypeTable to HapMap format.
-     * @param alignment  genotype table
-     * @param diploid  true uses phased two letter encoding, false one letter unphased
-     * @param filename   outfile name (will add ".hmp.txt" if needed)
-     * @param delimChar  delimiter character normally tab
-     * @param listener  progress listener, (null if unneeded)
+     *
+     * @param alignment genotype table
+     * @param diploid true uses phased two letter encoding, false one letter
+     * unphased
+     * @param filename outfile name (will add ".hmp.txt" if needed)
+     * @param delimChar delimiter character normally tab
+     * @param listener progress listener, (null if unneeded)
      * @return name of the outfile with the appropriate suffix
      */
     public static String writeToHapmap(GenotypeTable alignment, boolean diploid, String filename, char delimChar, ProgressListener listener) {
@@ -94,14 +103,16 @@ public class ExportUtils {
         try {
             String fullFileName = Utils.addSuffixIfNeeded(filename, ".hmp.txt", new String[]{".hmp.txt", ".hmp.txt.gz"});
             bw = Utils.getBufferedWriter(fullFileName);
-            if(true) {
+            if (true) {
                 for (Taxon taxon : alignment.taxa()) {
-                    if(taxon.getAllAnnotationEntries().length==0) continue;
-                    bw.write("##SAMPLE="+taxon.toStringWithVCFAnnotation()+"\n");
+                    if (taxon.getAllAnnotationEntries().length == 0) {
+                        continue;
+                    }
+                    bw.write("##SAMPLE=" + taxon.toStringWithVCFAnnotation() + "\n");
                 }
             }
-            bw.write(Joiner.on(delimChar).join("rs#","alleles","chrom","pos","strand","assembly#","center","protLSID",
-                    "assayLSID","panelLSID","QCcode"));
+            bw.write(Joiner.on(delimChar).join("rs#", "alleles", "chrom", "pos", "strand", "assembly#", "center", "protLSID",
+                    "assayLSID", "panelLSID", "QCcode"));
             bw.write(delimChar);
             int numTaxa = alignment.numberOfTaxa();
             for (int taxa = 0; taxa < numTaxa; taxa++) {
@@ -132,8 +143,8 @@ public class ExportUtils {
                     }
                 }
                 bw.write(delimChar);
-                bw.write(Joiner.on(delimChar).join(alignment.chromosomeName(site),String.valueOf(alignment.chromosomalPosition(site)),
-                    "+","NA","NA","NA","NA","NA","NA"));
+                bw.write(Joiner.on(delimChar).join(alignment.chromosomeName(site), String.valueOf(alignment.chromosomalPosition(site)),
+                        "+", "NA", "NA", "NA", "NA", "NA", "NA"));
                 bw.write(delimChar);
                 for (int taxa = 0; taxa < numTaxa; taxa++) {
                     if (diploid == false) {
@@ -185,7 +196,6 @@ public class ExportUtils {
         }
     }
 
-
     /**
      * Writes given alignment to a VCF file
      *
@@ -194,8 +204,8 @@ public class ExportUtils {
      * @return
      */
     public static String writeToVCF(GenotypeTable gt, String filename, boolean keepDepth) {
-        final char delimChar='\t';
-        boolean hasDepth=gt.hasDepth() && keepDepth;
+        final char delimChar = '\t';
+        boolean hasDepth = gt.hasDepth() && keepDepth;
         try {
 
             filename = Utils.addSuffixIfNeeded(filename, ".vcf", new String[]{".vcf", ".vcf.gz"});
@@ -222,7 +232,7 @@ public class ExportUtils {
             bw.newLine();
             bw.write("##INFO=<ID=AF,Number=.,Type=Float,Description=\"Allele Frequency\">");
             bw.newLine();
-            writeVCFSampleAnnotationToWriter(gt,bw);
+            writeVCFSampleAnnotationToWriter(gt, bw);
             bw.write("#CHROM" + delimChar + "POS" + delimChar + "ID" + delimChar + "REF" + delimChar + "ALT" + delimChar + "QUAL" + delimChar + "FILTER" + delimChar + "INFO" + delimChar + "FORMAT");
             for (int taxa = 0; taxa < gt.numberOfTaxa(); taxa++) {
                 String taxonName = gt.taxaName(taxa).trim();
@@ -230,24 +240,26 @@ public class ExportUtils {
             }
             bw.newLine();
 
-            int noAlleles=0;
+            int noAlleles = 0;
             for (int site = 0; site < gt.numberOfSites(); site++) {
-                Position p=gt.positions().get(site);
-                byte refAllele=p.getAllele(WHICH_ALLELE.Reference);
+                Position p = gt.positions().get(site);
+                byte refAllele = p.getAllele(WHICH_ALLELE.Reference);
                 int[] sortedAlleles = gt.allelesSortedByFrequency(site)[0]; // which alleles are actually present among the genotypes
-                int indexOfRefAllele=Ints.indexOf(sortedAlleles,refAllele);
-                if(indexOfRefAllele<0) indexOfRefAllele=0;
-                if(indexOfRefAllele!=0) {
-                    int t=sortedAlleles[0];
-                    sortedAlleles[0]=sortedAlleles[indexOfRefAllele];
-                    sortedAlleles[indexOfRefAllele]=t;
+                int indexOfRefAllele = Ints.indexOf(sortedAlleles, refAllele);
+                if (indexOfRefAllele < 0) {
+                    indexOfRefAllele = 0;
+                }
+                if (indexOfRefAllele != 0) {
+                    int t = sortedAlleles[0];
+                    sortedAlleles[0] = sortedAlleles[indexOfRefAllele];
+                    sortedAlleles[indexOfRefAllele] = t;
                 }
 
                 int nAlleles = sortedAlleles.length;
-                String[] alleleRedirect=new String[16];
-                Arrays.fill(alleleRedirect,".");
-                for (int i=0; i<sortedAlleles.length; i++) {
-                    alleleRedirect[sortedAlleles[i]]=""+i;
+                String[] alleleRedirect = new String[16];
+                Arrays.fill(alleleRedirect, ".");
+                for (int i = 0; i < sortedAlleles.length; i++) {
+                    alleleRedirect[sortedAlleles[i]] = "" + i;
                 }
 
                 bw.write(gt.chromosomeName(site)); // chromosome
@@ -260,19 +272,24 @@ public class ExportUtils {
                     //System.out.println("A0:"+gt.chromosomeName(site)+":"+gt.chromosomalPosition(site));
                     noAlleles++;
                     bw.write(".\t.\t.\tPASS\t.\tGT");
-                    for (int taxa = 0; taxa < gt.numberOfTaxa(); taxa++) bw.write("\t./.");
+                    for (int taxa = 0; taxa < gt.numberOfTaxa(); taxa++) {
+                        bw.write("\t./.");
+                    }
                     bw.newLine();
                     continue;
                 }
-                bw.write(NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[0])); // ref allele
+                bw.write(NucleotideAlignmentConstants.getHaplotypeNucleotide((byte) sortedAlleles[0])); // ref allele
                 bw.write(delimChar);
 
                 StringBuilder altAllelesBuilder = new StringBuilder("");
-                for (int aa=1; aa<sortedAlleles.length; aa++) {
-                    altAllelesBuilder.append(NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[aa])+",");
+                for (int aa = 1; aa < sortedAlleles.length; aa++) {
+                    altAllelesBuilder.append(NucleotideAlignmentConstants.getHaplotypeNucleotide((byte) sortedAlleles[aa]) + ",");
                 }
-                if(altAllelesBuilder.length()==0) {altAllelesBuilder.append(".");}
-                else {altAllelesBuilder.deleteCharAt(altAllelesBuilder.length()-1);}
+                if (altAllelesBuilder.length() == 0) {
+                    altAllelesBuilder.append(".");
+                } else {
+                    altAllelesBuilder.deleteCharAt(altAllelesBuilder.length() - 1);
+                }
                 bw.write(altAllelesBuilder.toString()); // alt alleles
                 bw.write(delimChar);
 
@@ -310,20 +327,23 @@ public class ExportUtils {
                     int[] siteAlleleDepths = gt.depthForAlleles(taxa, site);
 
                     int siteTotalDepth = 0;
-                    for (int ss=0; ss<sortedAlleles.length; ss++) {
-                        bw.write(""+siteAlleleDepths[sortedAlleles[ss]]);
-                        if(ss<sortedAlleles.length-1) bw.write(',');
-                        siteTotalDepth+=siteAlleleDepths[sortedAlleles[ss]];
+                    for (int ss = 0; ss < sortedAlleles.length; ss++) {
+                        bw.write("" + siteAlleleDepths[sortedAlleles[ss]]);
+                        if (ss < sortedAlleles.length - 1) {
+                            bw.write(',');
+                        }
+                        siteTotalDepth += siteAlleleDepths[sortedAlleles[ss]];
                     }
                     bw.write(":");
                     // DP
                     bw.write(siteTotalDepth + "");
                     bw.write(":");
                     int[] scores = new int[]{-1, -1, -1, -1};
-                    if(values[0]!=GenotypeTable.UNKNOWN_ALLELE) {
-                        int altDepth=(sortedAlleles.length<2)?0:siteAlleleDepths[sortedAlleles[1]];
-                        scores= VCFUtil.getScore(siteAlleleDepths[sortedAlleles[0]], altDepth);}  //this is not correct
-                  //  else {scores= VCFUtil.getScore(siteAlleleDepths[values[0]], siteAlleleDepths[values[1]]);} //this is not correct
+                    if (values[0] != GenotypeTable.UNKNOWN_ALLELE) {
+                        int altDepth = (sortedAlleles.length < 2) ? 0 : siteAlleleDepths[sortedAlleles[1]];
+                        scores = VCFUtil.getScore(siteAlleleDepths[sortedAlleles[0]], altDepth);
+                    }  //this is not correct
+                    //  else {scores= VCFUtil.getScore(siteAlleleDepths[values[0]], siteAlleleDepths[values[1]]);} //this is not correct
                     // GQ
                     bw.write(scores[3] + "");
                     bw.write(":");
@@ -335,7 +355,7 @@ public class ExportUtils {
                 }
                 bw.newLine();
             }
-            if(noAlleles > 0){
+            if (noAlleles > 0) {
                 myLogger.warn("Warning: " + noAlleles + " sites have no alleles.");
             }
             bw.flush();
@@ -347,12 +367,14 @@ public class ExportUtils {
         return filename;
     }
 
-    private static void writeVCFSampleAnnotationToWriter(GenotypeTable gt, BufferedWriter bw) throws IOException{
+    private static void writeVCFSampleAnnotationToWriter(GenotypeTable gt, BufferedWriter bw) throws IOException {
         for (Taxon taxon : gt.taxa()) {
-            Multimap annoMap=taxon.getAnnotationAsMap();
-            if(annoMap.size()==0) continue;
-            String annoString=Joiner.on(',').withKeyValueSeparator("=").join(annoMap.entries());
-            bw.write("##SAMPLE=<ID="+taxon.getName()+","+annoString+">");
+            Multimap annoMap = taxon.getAnnotationAsMap();
+            if (annoMap.size() == 0) {
+                continue;
+            }
+            String annoString = Joiner.on(',').withKeyValueSeparator("=").join(annoMap.entries());
+            bw.write("##SAMPLE=<ID=" + taxon.getName() + "," + annoString + ">");
             bw.newLine();
         }
     }
