@@ -2,7 +2,6 @@ package net.maizegenetics.taxa;
 
 
 import net.maizegenetics.util.TableReport;
-import net.maizegenetics.util.Report;
 import net.maizegenetics.util.AbstractTableReport;
 
 import java.io.PrintWriter;
@@ -15,7 +14,7 @@ import java.util.*;
  * Date: Mar 30, 2005
  * Time: 1:39:47 PM
  */
-public class IdentifierSynonymizer extends AbstractTableReport implements Serializable, Report, TableReport {
+public class IdentifierSynonymizer extends AbstractTableReport implements Serializable, TableReport {
 
     HashMap<String,Integer> idSynonyms = new HashMap<>();    //TODO needs to be entirely updated to new collections
     private TaxaList referenceIDGroup;
