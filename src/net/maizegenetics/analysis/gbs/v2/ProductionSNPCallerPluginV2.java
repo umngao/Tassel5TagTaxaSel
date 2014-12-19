@@ -142,13 +142,13 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     @Override
     public DataSet processData(DataSet input) {
         Path keyPath= Paths.get(keyFile()).toAbsolutePath();
-        List<Path> inputSeqFiles= DirectoryCrawler.listPaths(DiscoveryTBTPlugin.inputFileGlob, Paths.get(myInputDir.value()).toAbsolutePath());
+        List<Path> inputSeqFiles= DirectoryCrawler.listPaths(GBSSeqToTagDBPlugin.inputFileGlob, Paths.get(myInputDir.value()).toAbsolutePath());
         if(inputSeqFiles.isEmpty()) {
-            myLogger.warn("No files matching:"+DiscoveryTBTPlugin.inputFileGlob);
+            myLogger.warn("No files matching:"+GBSSeqToTagDBPlugin.inputFileGlob);
             return null;
         }
         tagDataReader =new TagDataSQLite(myInputDB.value());
-        TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), DiscoveryTBTPlugin.sampleNameField, new HashMap<>(), true);
+        TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), GBSSeqToTagDBPlugin.sampleNameField, new HashMap<>(), true);
         //todo perhaps subset the masterTaxaList based on the files in there, but it seems like it will all be figure out.
         Map<Tag,Tag> canonicalTag=new HashMap<>();  //canonicalize them OR eventually we will use a Trie
         tagDataReader.getTags().stream().forEach(t -> canonicalTag.put(t,t));
@@ -213,8 +213,8 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
 
     private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
                                   Map<Tag,Tag> canonicalTags, int preferredTagLength) {
-        TaxaList tl=DiscoveryTBTPlugin.getLaneAnnotatedTaxaList(keyPath, fastQPath);
-        BarcodeTrie barcodeTrie=DiscoveryTBTPlugin.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
+        TaxaList tl=GBSSeqToTagDBPlugin.getLaneAnnotatedTaxaList(keyPath, fastQPath);
+        BarcodeTrie barcodeTrie=GBSSeqToTagDBPlugin.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
         processFastQ(fastQPath,barcodeTrie,canonicalTags,preferredTagLength);
     }
 
@@ -224,7 +224,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             BufferedReader br = Utils.getBufferedReader(fastqFile.toString(), 1 << 22);
             long time=System.nanoTime();
             String[] seqAndQual;
-            while ((seqAndQual=DiscoveryTBTPlugin.readFastQBlock(br, allReads)) != null) {
+            while ((seqAndQual=GBSSeqToTagDBPlugin.readFastQBlock(br, allReads)) != null) {
                 allReads++;
                 //After quality score is read, decode barcode using the current sequence & quality  score
                 Barcode barcode=barcodeTrie.longestPrefix(seqAndQual[0]);

@@ -38,9 +38,9 @@ import java.util.stream.IntStream;
  *
  * @author Ed Buckler
  */
-public class DiscoveryTBTPlugin extends AbstractPlugin {
+public class GBSSeqToTagDBPlugin extends AbstractPlugin {
 
-    private static final Logger myLogger = Logger.getLogger(DiscoveryTBTPlugin.class);
+    private static final Logger myLogger = Logger.getLogger(GBSSeqToTagDBPlugin.class);
 
     private PluginParameter<String> myInputDir = new PluginParameter.Builder<>("i", null, String.class).guiName("Input Directory").required(true).inDir()
             .description("Input directory containing FASTQ files in text or gzipped text.\n"
@@ -71,11 +71,11 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
     static final String laneField="Lane";
     static final String barcodeField="Barcode";
 
-    public DiscoveryTBTPlugin() {
+    public GBSSeqToTagDBPlugin() {
         super(null, false);
     }
 
-    public DiscoveryTBTPlugin(Frame parentFrame, boolean isInteractive) {
+    public GBSSeqToTagDBPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
 
@@ -257,7 +257,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
 
     private void removeSecondCutSitesFromMap(GBSEnzyme enzyme) {
         //this is a little tricky as you cannot add entries at the same time as removing entries to a map
-        System.out.println("DiscoveryTBTPlugin.removeSecondCutSitesFromMap started Initial Size:"+tagCntMap.size());
+        System.out.println("GBSSeqToTagDBPlugin.removeSecondCutSitesFromMap started Initial Size:"+tagCntMap.size());
         String[] likelyReadEnd=enzyme.likelyReadEnd();
 
         Map<Tag,TaxaDistribution> shortTags=new HashMap<>(tagCntMap.size()/5);
@@ -322,7 +322,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
     // Please use this method to re-generate.
     //
     // public static void main(String[] args) {
-    //     GeneratePluginCode.generate(DiscoveryTBTPlugin.class);
+    //     GeneratePluginCode.generate(GBSSeqToTagDBPlugin.class);
     // }
 
     /**
@@ -357,7 +357,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public DiscoveryTBTPlugin inputDirectory(String value) {
+    public GBSSeqToTagDBPlugin inputDirectory(String value) {
         myInputDir = new PluginParameter<>(myInputDir, value);
         return this;
     }
@@ -379,7 +379,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public DiscoveryTBTPlugin keyFile(String value) {
+    public GBSSeqToTagDBPlugin keyFile(String value) {
         myKeyFile = new PluginParameter<>(myKeyFile, value);
         return this;
     }
@@ -402,7 +402,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public DiscoveryTBTPlugin enzyme(String value) {
+    public GBSSeqToTagDBPlugin enzyme(String value) {
         myEnzyme = new PluginParameter<>(myEnzyme, value);
         return this;
     }
@@ -423,7 +423,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public DiscoveryTBTPlugin maximumTagLength(Integer value) {
+    public GBSSeqToTagDBPlugin maximumTagLength(Integer value) {
         myMaxTagLength = new PluginParameter<>(myMaxTagLength, value);
         return this;
     }
@@ -444,7 +444,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public DiscoveryTBTPlugin minimumTagLength(Integer value) {
+    public GBSSeqToTagDBPlugin minimumTagLength(Integer value) {
         myMinTagLength = new PluginParameter<>(myMinTagLength, value);
         return this;
     }
@@ -465,7 +465,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public DiscoveryTBTPlugin minTagCount(Integer value) {
+    public GBSSeqToTagDBPlugin minTagCount(Integer value) {
         myMinTagCount = new PluginParameter<>(myMinTagCount, value);
         return this;
     }
@@ -486,7 +486,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public DiscoveryTBTPlugin outputDatabaseFile(String value) {
+    public GBSSeqToTagDBPlugin outputDatabaseFile(String value) {
         myOutputDB = new PluginParameter<>(myOutputDB, value);
         return this;
     }
@@ -509,7 +509,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public DiscoveryTBTPlugin minimumQualityScore(Integer value) {
+    public GBSSeqToTagDBPlugin minimumQualityScore(Integer value) {
         myMinQualScore = new PluginParameter<>(myMinQualScore, value);
         return this;
     }
@@ -531,7 +531,7 @@ public class DiscoveryTBTPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public DiscoveryTBTPlugin maximumMapMemoryInMb(Integer value) {
+    public GBSSeqToTagDBPlugin maximumMapMemoryInMb(Integer value) {
         myMaxMapMemoryInMb = new PluginParameter<>(myMaxMapMemoryInMb, value);
         return this;
     }
