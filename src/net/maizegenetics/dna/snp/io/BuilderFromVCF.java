@@ -2,6 +2,7 @@ package net.maizegenetics.dna.snp.io;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.SetMultimap;
+
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.*;
 import net.maizegenetics.dna.snp.GenotypeTable;
@@ -10,6 +11,8 @@ import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.dna.snp.depth.AlleleDepthBuilder;
 import net.maizegenetics.dna.snp.depth.AlleleDepthUtil;
+//import net.maizegenetics.dna.snp.score.AlleleDepthBuilder;
+//import net.maizegenetics.dna.snp.score.AlleleDepthUtil;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.taxa.TaxaList;
@@ -18,17 +21,21 @@ import net.maizegenetics.taxa.TaxaListIOUtils;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.Tassel5HDF5Constants;
 import net.maizegenetics.util.Utils;
+
 import org.apache.log4j.Logger;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Future;
 import java.util.regex.Pattern;
 
 /**
@@ -101,10 +108,12 @@ public class BuilderFromVCF {
         GenotypeTable result=null;
         int totalSites=-1;//unknown
         GenotypeTableBuilder gtbDiskBuild=null;
+        ExecutorService pool = null;
         try {
 
             int numThreads=Runtime.getRuntime().availableProcessors();
-            ExecutorService pool=Executors.newFixedThreadPool(numThreads);
+            pool=Executors.newFixedThreadPool(numThreads);
+            
             BufferedReader r=Utils.getBufferedReader(infile, -1);
             //Read the ## annotation rows
             String currLine;
@@ -123,6 +132,7 @@ public class BuilderFromVCF {
             //  int linesAtTime=1<<8;  //better for with lots of taxa.
             ArrayList<String> txtLines=new ArrayList<>(linesAtTime);
             ArrayList<ProcessVCFBlock> pbs=new ArrayList<>();
+            List<Future<ProcessVCFBlock>> futures = new ArrayList<>();
             int sitesRead=0;
             while ((currLine=r.readLine())!=null) {
                 if(currLine.startsWith("#")) continue;
@@ -137,7 +147,8 @@ public class BuilderFromVCF {
                     }
                     pbs.add(pb);
                     //     pb.run(); //used for testing
-                    pool.execute(pb);  //used for production
+                    futures.add(pool.submit(pb));
+                    
                     txtLines=new ArrayList<>(linesAtTime);
                 }
             }
@@ -151,14 +162,14 @@ public class BuilderFromVCF {
                 }
                 pbs.add(pb);
                 //  pb.run(); //used for testing
-                pool.execute(pb);
+                futures.add(pool.submit(pb));
             }
             pool.shutdown();
             if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
                 throw new IllegalStateException("BuilderFromVCF: processing threads timed out.");
             }
             if(inMemory) {
-                result=completeInMemoryBuilding(pbs, taxaList, sitesRead, includeDepth, fullSort);
+                result=completeInMemoryBuilding(futures, taxaList, sitesRead, includeDepth, fullSort);
             } else {
                 gtbDiskBuild.build();
             }
@@ -190,30 +201,45 @@ public class BuilderFromVCF {
         } catch (IOException|InterruptedException e) {
             e.printStackTrace();
         }
+        catch(IllegalStateException e) {
+        	if (pool != null) {
+                pool.shutdown();
+            }
+        	//e.printStackTrace();
+        	throw e;
+        }
         long totalTime=System.nanoTime()-time;
         System.out.printf("BuilderFromVCF data timing %gs %n", totalTime/1e9);
         return result;
     }
 
-    private static GenotypeTable completeInMemoryBuilding(ArrayList<ProcessVCFBlock> pbs, TaxaList taxaList, int numberOfSites, boolean includeDepth, boolean fullSort) {
+    private static GenotypeTable completeInMemoryBuilding(List<Future<ProcessVCFBlock>> pbs, TaxaList taxaList, int numberOfSites, boolean includeDepth, boolean fullSort) {
         int currentSite=0;
         PositionListBuilder posBuild=new PositionListBuilder();
         GenotypeCallTableBuilder gb=GenotypeCallTableBuilder.getUnphasedNucleotideGenotypeBuilder(taxaList.numberOfTaxa(), numberOfSites);
         AlleleDepthBuilder db=null;
+        //if(includeDepth) db=AlleleDepthBuilder.getAlleleDepthInstance(taxaList.numberOfTaxa(),numberOfSites,taxaList);
         if(includeDepth) db=AlleleDepthBuilder.getInstance(taxaList.numberOfTaxa(),numberOfSites,6);
-        for (ProcessVCFBlock pb : pbs) {
-            posBuild.addAll(pb.getBlkPosList());
-            byte[][] bgTS=pb.getGenoTS();
-            for (int t=0; t<bgTS.length; t++) {
-                gb.setBaseRangeForTaxon(t, currentSite, bgTS[t]);
-            }
-            if(includeDepth) {
-                byte[][][] bdTS=pb.getDepthTS();
-                for (int t=0; t<bgTS.length; t++) {
-                    db.setDepthRangeForTaxon(t, currentSite, bdTS[t]);
-                }
-            }
-            currentSite+=pb.getSiteNumber();
+        
+        try{
+	        for (Future<ProcessVCFBlock> future : pbs) {
+	        	ProcessVCFBlock pb = future.get();
+	            posBuild.addAll(pb.getBlkPosList());
+	            byte[][] bgTS=pb.getGenoTS();
+	            for (int t=0; t<bgTS.length; t++) {
+	                gb.setBaseRangeForTaxon(t, currentSite, bgTS[t]);
+	            }
+	            if(includeDepth) {
+	                byte[][][] bdTS=pb.getDepthTS();
+	                for (int t=0; t<bgTS.length; t++) {
+	                    db.setDepthRangeForTaxon(t, currentSite, bdTS[t]);
+	                }
+	            }
+	            currentSite+=pb.getSiteNumber();
+	        }
+        }catch(Exception e) {
+        	myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException(e.getMessage());
         }
 
         //Check that result is in correct order. If not, either try to sort or just throw an error (determined by what was passed to fullSort)
@@ -339,7 +365,8 @@ class HeaderPositions {
 
 }
 
-class ProcessVCFBlock implements Runnable {
+//class ProcessVCFBlock implements Runnable {
+class ProcessVCFBlock implements Callable<ProcessVCFBlock> {
 
     private static final Pattern WHITESPACE_PATTERN=Pattern.compile("\\s");
     private static final Pattern SLASH_PATTERN=Pattern.compile("/");
@@ -377,7 +404,7 @@ class ProcessVCFBlock implements Runnable {
     }
 
     @Override
-    public void run() {
+    public ProcessVCFBlock call() throws Exception{
         Map<String, Chromosome> chromosomeLookup=new HashMap<>();
         gTS=new byte[taxaN][siteN];
         if(keepDepth==true) dTS=new byte[taxaN][6][siteN];
@@ -434,10 +461,16 @@ class ProcessVCFBlock implements Runnable {
                     int f=0;
                     for(String fieldS: Splitter.on(":").split(taxaAllG)) {
                         if(f==iGT) {
-                            int a1=fieldS.charAt(0)-'0';
-                            int a2=fieldS.charAt(2)-'0';
-                            if(a1<0 || a2<0 ) {gTS[t][s]=GenotypeTable.UNKNOWN_DIPLOID_ALLELE;}
-                            else {gTS[t][s]=GenotypeTableUtils.getDiploidValue(alleles[a1],alleles[a2]);}
+                        	//String "[.0-9]\\/[.0-9]||[.0-9]\\|[.0-9]" will match a valid diploid
+                        	if(!fieldS.equals(".")) { //[TAS-509] Check to make sure we are using diploids in the form 0/1 or 0|0
+	                            int a1=fieldS.charAt(0)-'0';
+	                            int a2=fieldS.charAt(2)-'0';
+	                            if(a1<0 || a2<0 ) {gTS[t][s]=GenotypeTable.UNKNOWN_DIPLOID_ALLELE;}
+	                            else {gTS[t][s]=GenotypeTableUtils.getDiploidValue(alleles[a1],alleles[a2]);}
+                        	}
+                        	else {	//[TAS-509] if it isnt a diploid error out early
+                        		throw new IllegalStateException("Error Processing VCF block: Found haploid information for the element: "+taxaAllG+".\nExpected a diploid entry.");
+                        	}
                         } else if((f==iAD)&&keepDepth) {
                             int i=0;
                             for(String ad: Splitter.on(",").split(fieldS)){
@@ -452,7 +485,10 @@ class ProcessVCFBlock implements Runnable {
                     }
                     t++;
                 }
-            } catch(Exception e) {
+            } catch(IllegalStateException e) {
+            	throw e;
+            }
+            catch(Exception e) {
                 System.err.println("Err Site Number:"+s);
                 System.err.println("Err:"+input);
                 throw e;
@@ -468,6 +504,7 @@ class ProcessVCFBlock implements Runnable {
             blkPosList.clear();
         }
         //TODO TAS-315 Create memory efficient VCF to HDF5 insert writing to Builder of direct.
+        return this;
     }
 
     private void addResultsToHDF5Builder() {
