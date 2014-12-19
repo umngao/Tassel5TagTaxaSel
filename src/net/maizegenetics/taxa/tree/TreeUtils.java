@@ -29,10 +29,10 @@ public class TreeUtils {
      * @param t1 tree 1
      * @param t2 tree 2
      *
-     * Definition: Assuming that t1 is the reference tree, let fn be the
-     * false negatives, i.e. the number of edges in t1 missing in t2,
-     * and fp the number of false positives, i.e. the number of edges
-     * in t2 missing in t1.  The RF distance is then (fn + fp)/2
+     * Definition: Assuming that t1 is the reference tree, let fn be the false
+     * negatives, i.e. the number of edges in t1 missing in t2, and fp the
+     * number of false positives, i.e. the number of edges in t2 missing in t1.
+     * The RF distance is then (fn + fp)/2
      */
     public static double getRobinsonFouldsDistance(Tree t1, Tree t2) {
         SplitSystem s1 = SplitUtils.getSplits(t1);
@@ -73,13 +73,12 @@ public class TreeUtils {
             }
         }
 
-
         return 0.5 * ((double) fp + (double) fn);
     }
 
     /**
-     * computes Robinson-Foulds (1981) distance between two trees
-     * rescaled to a number between 0 and 1
+     * computes Robinson-Foulds (1981) distance between two trees rescaled to a
+     * number between 0 and 1
      *
      * @param t1 tree 1
      * @param t2 tree 2
@@ -91,8 +90,8 @@ public class TreeUtils {
     }
 
     /**
-     * computes Robinson-Foulds (1981) distance between two trees
-     * rescaled to a number between 0 and 1
+     * computes Robinson-Foulds (1981) distance between two trees rescaled to a
+     * number between 0 and 1
      *
      * @param s1 tree 1 (as represented by a SplitSystem)
      * @param t2 tree 2
@@ -103,8 +102,8 @@ public class TreeUtils {
     private static MersenneTwisterFast random = new MersenneTwisterFast();
 
     /**
-     * Returns a uniformly distributed random node from the tree, including
-     * both internal and external nodes.
+     * Returns a uniformly distributed random node from the tree, including both
+     * internal and external nodes.
      */
     public static Node getRandomNode(Tree tree) {
         int index = random.nextInt(tree.getExternalNodeCount() + tree.getInternalNodeCount());
@@ -116,8 +115,8 @@ public class TreeUtils {
     }
 
     /**
-     * @return the first found node that has a certain name (as determined by the nodes Taxon)
-     * in the tree defined by a root node.
+     * @return the first found node that has a certain name (as determined by
+     * the nodes Taxon) in the tree defined by a root node.
      * @param tree The Tree supposidly containing such a named node
      * @param name The name of the node to find.
      * @return The node with the name, or null if no such node exists
@@ -128,8 +127,8 @@ public class TreeUtils {
     }
 
     /**
-     * @return the first found node that has a certain name (as determined by the nodes Taxon)
-     * in the tree defined by a root node.
+     * @return the first found node that has a certain name (as determined by
+     * the nodes Taxon) in the tree defined by a root node.
      * @param root The root node of a tree
      * @param name The name of the node to find.
      * @return The node with the name, or null if no such node exists
@@ -148,7 +147,6 @@ public class TreeUtils {
         return null;
     }
 
-
     /**
      * @deprecated use getScaled()
      */
@@ -157,8 +155,9 @@ public class TreeUtils {
     }
 
     /**
-     * Takes a tree and returns a scaled version of it.
-     * Scales a tree keeping old units
+     * Takes a tree and returns a scaled version of it. Scales a tree keeping
+     * old units
+     *
      * @param rate scale factor.
      *
      */
@@ -168,9 +167,10 @@ public class TreeUtils {
 
     /**
      * Takes a tree and returns a scaled version of it.
-     * @param rate scale factor. If the original tree is in generations
-     * and the desired units are expected substitutions then this scale
-     * factor should be equal to the mutation rate.
+     *
+     * @param rate scale factor. If the original tree is in generations and the
+     * desired units are expected substitutions then this scale factor should be
+     * equal to the mutation rate.
      * @param newUnits the new units of the tree.
      */
     public static final Tree getScaled(Tree oldTree, double rate, int newUnits) {
@@ -189,72 +189,7 @@ public class TreeUtils {
     }
 
     /**
-     * @deprecated use getScaled()
-     */
-    public static Tree scale(Tree mutationRateTree, MutationRateModel muModel) {
-        return getScaled(mutationRateTree, muModel);
-    }
-
-    /**
-     * Takes a tree and returns a scaled version of it.
-     * param rate scale factor. If the original tree is in generations
-     * and the desired units are expected substitutions then this scale
-     * factor should be equal to the mutation rate.
-     * @note resulting units is defined by muModel's units
-     */
-    public static Tree getScaled(Tree mutationRateTree, MutationRateModel muModel) {
-        return getScaled(mutationRateTree, muModel, muModel.getUnits());
-    }
-
-    /**
-     * @deprecated use getScaled()
-     */
-    public static Tree scale(Tree mutationRateTree, MutationRateModel muModel, int newUnits) {
-        return getScaled(mutationRateTree, muModel, newUnits);
-    }
-
-    /**
-     * Takes a tree and returns a scaled version of it.
-     * param rate scale factor. If the original tree is in generations
-     * and the desired units are expected substitutions then this scale
-     * factor should be equal to the mutation rate.
-     * @param newUnits the new units of the tree. (Such as the mutationTree is measured in expected substitutions/newUnits)
-     */
-    public static Tree getScaled(Tree mutationRateTree, MutationRateModel muModel, int newUnits) {
-        if (muModel.getMutationRate(0.0) <= 0.0) {
-            throw new IllegalArgumentException("Non-positive mutation rate is not permitted!");
-        }
-
-        SimpleTree tree = new SimpleTree(mutationRateTree);
-        if (newUnits == Units.EXPECTED_SUBSTITUTIONS) {
-            //Changed for what I think is the correct behaviour for converting to Expected Substitutions
-            for (int i = 0; i < tree.getExternalNodeCount(); i++) {
-                double oldHeight = tree.getExternalNode(i).getNodeHeight();
-                tree.getExternalNode(i).setNodeHeight(muModel.getExpectedSubstitutions(oldHeight));
-            }
-            for (int i = 0; i < tree.getInternalNodeCount(); i++) {
-                double oldHeight = tree.getInternalNode(i).getNodeHeight();
-                tree.getInternalNode(i).setNodeHeight(muModel.getExpectedSubstitutions(oldHeight));
-            }
-        } else {
-            for (int i = 0; i < tree.getExternalNodeCount(); i++) {
-                double oldHeight = tree.getExternalNode(i).getNodeHeight();
-                tree.getExternalNode(i).setNodeHeight(muModel.getTime(oldHeight));
-            }
-            for (int i = 0; i < tree.getInternalNodeCount(); i++) {
-                double oldHeight = tree.getInternalNode(i).getNodeHeight();
-                tree.getInternalNode(i).setNodeHeight(muModel.getTime(oldHeight));
-            }
-        }
-        NodeUtils.heights2Lengths(tree.getRoot());
-        tree.setUnits(newUnits);
-        return tree;
-    }
-
-
-    /**
-     * Rotates branches by leaf count.
-     * WARNING: assumes binary tree!
+     * Rotates branches by leaf count. WARNING: assumes binary tree!
      */
     public static void rotateByLeafCount(Tree tree) {
         rotateByLeafCount(tree.getRoot());
@@ -268,7 +203,7 @@ public class TreeUtils {
     public static final TaxaList getLeafIdGroup(Tree tree) {
         tree.createNodeList();
 
-        TaxaListBuilder labelList =new TaxaListBuilder();
+        TaxaListBuilder labelList = new TaxaListBuilder();
 
         for (int i = 0; i < tree.getExternalNodeCount(); i++) {
             labelList.add(tree.getExternalNode(i).getIdentifier());
@@ -277,10 +212,9 @@ public class TreeUtils {
         return labelList.build();
     }
 
-
     /**
-     * print a this tree in New Hampshire format
-     * (including distances and internal labels)
+     * print a this tree in New Hampshire format (including distances and
+     * internal labels)
      *
      * @param out output stream
      */
@@ -292,10 +226,10 @@ public class TreeUtils {
      * print this tree in New Hampshire format
      *
      * @param out output stream
-     * @param printLengths boolean variable determining whether
-     *		branch lengths should be included in output
-     * @param printInternalLabels boolean variable determining whether
-     *		internal labels should be included in output
+     * @param printLengths boolean variable determining whether branch lengths
+     * should be included in output
+     * @param printInternalLabels boolean variable determining whether internal
+     * labels should be included in output
      */
     public static void printNH(Tree tree, PrintWriter out,
             boolean printLengths, boolean printInternalLabels) {
@@ -308,11 +242,13 @@ public class TreeUtils {
     /**
      * Roots a tree (that was previously unroot - ie 3 or more children at the
      * compsci tree root)
+     *
      * @param outgroupMembers the names of the nodes that form the outgroup.
-     *      Multiple nodes will make the clade covering all outgroup nodes (and
-     *      any others that fall with in that clade) form the outgroup.
-     * @note if none of the outgroup members are actually in the tree, or the outgroup clade is
-     * the whole tree, the result is just an unrooted clone of the input tree.
+     * Multiple nodes will make the clade covering all outgroup nodes (and any
+     * others that fall with in that clade) form the outgroup.
+     * @note if none of the outgroup members are actually in the tree, or the
+     * outgroup clade is the whole tree, the result is just an unrooted clone of
+     * the input tree.
      */
 //	public static final Tree getRooted(Tree unrooted, String[] outgroupMembers) {
 //		Tree t2 = new SimpleTree(unrooted);
@@ -332,8 +268,8 @@ public class TreeUtils {
 //		return t2;
 //	}
     /**
-     * @return a tree that has been re-rooted at the given
-     * internal node. The original root of the tree must have had at least 3 children.
+     * @return a tree that has been re-rooted at the given internal node. The
+     * original root of the tree must have had at least 3 children.
      */
     public static void reroot(Tree tree, Node node) {
         reroot(node);
@@ -341,8 +277,9 @@ public class TreeUtils {
     }
 
     /**
-     * Return node with the highest average minimum and maximum distance.
-     * Ed thinks this is roughly the midpoint - need to look this up
+     * Return node with the highest average minimum and maximum distance. Ed
+     * thinks this is roughly the midpoint - need to look this up
+     *
      * @param tree
      * @return
      */
@@ -416,7 +353,6 @@ public class TreeUtils {
             tmp = center.getBranchLength();
         }
 
-
         if (countEdges) // count all edges >= epsilon
         {
             if (tmp < epsilon) {
@@ -428,7 +364,6 @@ public class TreeUtils {
         {
             len = tmp;
         }
-
 
         distCenter[indexCenter] = distOrigin[indexOrigin] + len;
 
@@ -548,8 +483,7 @@ public class TreeUtils {
     }
 
     /**
-     * Rotates branches by leaf count.
-     * WARNING: assumes binary tree!
+     * Rotates branches by leaf count. WARNING: assumes binary tree!
      */
     private static void rotateByLeafCount(Node node) {
 
@@ -624,7 +558,6 @@ public class TreeUtils {
         //
         // CALL PRINTASCII FIRST !!!
         //
-
         // check if some SE values differ from the default zero
         boolean showSE = false;
         for (int i = 0; i < numExternalNodes && showSE == false; i++) {
@@ -701,7 +634,6 @@ public class TreeUtils {
         //		showSE = true;
         //	}
         //}
-
         format.displayIntegerWhite(out, numExternalNodes);
         out.print("   Height    ");
         format.displayIntegerWhite(out, numBranches);
@@ -847,7 +779,6 @@ public class TreeUtils {
         }
 
         // Now the parent of node is root
-
         if (node.getParent().getChildCount() < 3) {
             // Rerooting not possible
             return;
@@ -863,9 +794,12 @@ public class TreeUtils {
     }
 
     /**
-     * Generates a tree which is identical to baseTree but has attributes (defined by attributeName)
-     * at all internal nodes excluding the root node signifying (as a value between 0 and 100) the bootstrap
-     * support by clade (that is the proportion of replicates that produce the sub clade under that node)
+     * Generates a tree which is identical to baseTree but has attributes
+     * (defined by attributeName) at all internal nodes excluding the root node
+     * signifying (as a value between 0 and 100) the bootstrap support by clade
+     * (that is the proportion of replicates that produce the sub clade under
+     * that node)
+     *
      * @note assumes all alternative trees have the exact same set of labels
      * @deprecated Use getReplicateCladeSupport instead
      */
