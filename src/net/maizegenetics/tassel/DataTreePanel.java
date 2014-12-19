@@ -51,6 +51,7 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 
 import java.io.Serializable;
+import java.io.StringWriter;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -64,6 +65,7 @@ import net.maizegenetics.analysis.data.GenotypeSummaryPlugin;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.TOPMInterface;
 import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.tree.SimpleTree;
 import net.maizegenetics.util.HDF5TableReport;
 
 import org.apache.batik.util.gui.MemoryMonitor;
@@ -413,9 +415,25 @@ public class DataTreePanel extends JPanel implements PluginListener {
                             DefaultMutableTreeNode parentNode = (DefaultMutableTreeNode) node.getParent();
                             TreeSelectionEvent event = new TreeSelectionEvent(parentNode, null, false, null, null);
                             myTreeSelectionListener.valueChanged(event);
+                        } else if (book.getData() instanceof SimpleTree) {
+                            myTASSELMainFrame.mainDisplayPanel.add(myTASSELMainFrame.mainPanelScrollPane, BorderLayout.CENTER);
+                            SimpleTree tree = (SimpleTree) book.getData();
+                            StringWriter writer = null;
+                            try {
+                                writer = new StringWriter();
+                                tree.report(writer);
+                                myTASSELMainFrame.setMainText(writer.toString());
+                            } catch (Exception ex) {
+                                myLogger.debug(ex.getMessage(), ex);
+                            } finally {
+                                try {
+                                    writer.close();
+                                } catch (Exception ex) {
+                                    // do nothing
+                                }
+                            }
                         } else {
                             myTASSELMainFrame.mainDisplayPanel.add(myTASSELMainFrame.mainPanelScrollPane, BorderLayout.CENTER);
-                            //x = book.getData().toString();
                             String s = book.getData().toString();
                             if (s.length() > 2000000) {
                                 s = s.substring(1, 2000000) + "\n Truncated view.  Too much to display.  Save it to a file.";

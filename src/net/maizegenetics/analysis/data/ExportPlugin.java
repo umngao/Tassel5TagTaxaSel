@@ -15,6 +15,7 @@ import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.taxa.distance.WriteDistanceMatrix;
+import net.maizegenetics.taxa.tree.SimpleTree;
 import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.tassel.TASSELMainFrame;
 import net.maizegenetics.phenotype.Phenotype;
@@ -79,8 +80,8 @@ public class ExportPlugin extends AbstractPlugin {
                     filename = performFunctionForDistanceMatrix((DistanceMatrix) data);
                 } else if (data instanceof TableReport) {
                     filename = performFunctionForTableReport((TableReport) data);
-                } else if (data instanceof Report) {
-                    filename = performFunctionForReport((Report) data);
+                } else if (data instanceof SimpleTree) {
+                    filename = performFunctionForSimpleTree((SimpleTree) data);
                 } else {
                     String message = "Don't know how to export data type: " + data.getClass().getName();
                     if (isInteractive()) {
@@ -291,7 +292,7 @@ public class ExportPlugin extends AbstractPlugin {
 
     }
 
-    public String performFunctionForReport(Report input) {
+    public String performFunctionForSimpleTree(SimpleTree input) {
 
         if (isInteractive()) {
             ReportOptionDialog theDialog = new ReportOptionDialog();

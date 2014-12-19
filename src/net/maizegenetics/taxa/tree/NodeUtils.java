@@ -8,6 +8,7 @@
 
 package net.maizegenetics.taxa.tree;
 
+import java.io.IOException;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.FormattedOutput;
 
@@ -571,14 +572,14 @@ public class NodeUtils {
 	 * prints node in New Hamshire format.
 	 */
 	public static void printNH(PrintWriter out, Node node,
-		boolean printLengths, boolean printInternalLabels) {
+		boolean printLengths, boolean printInternalLabels) throws IOException{
 
 		printNH(out, node, printLengths, printInternalLabels, 0, true);
 	}
 
 
 	public static int printNH(PrintWriter out, Node node,
-		boolean printLengths, boolean printInternalLabels, int column, boolean breakLines) {
+		boolean printLengths, boolean printInternalLabels, int column, boolean breakLines) throws IOException{
 
 		if (breakLines) column = breakLine(out, column);
 

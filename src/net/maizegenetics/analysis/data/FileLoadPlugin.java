@@ -380,16 +380,9 @@ public class FileLoadPlugin extends AbstractPlugin {
 
         }
         if (result != null) {
-            String theComment = "";
-            if (result instanceof Report) {
-                StringWriter sw = new StringWriter();
-                ((Report) result).report(new PrintWriter(sw));
-                theComment = sw.toString();
-            }
-
             String name = Utils.getFilename(inFile, suffix);
 
-            Datum td = new Datum(name, result, theComment);
+            Datum td = new Datum(name, result, null);
             //todo need to add logic of directories.
             DataSet tds = new DataSet(td, this);
             return tds;

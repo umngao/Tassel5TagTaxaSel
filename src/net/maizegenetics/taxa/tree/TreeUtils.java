@@ -6,6 +6,7 @@
 // terms of the Lesser GNU General Public License (LGPL)
 package net.maizegenetics.taxa.tree;
 
+import java.io.IOException;
 import net.maizegenetics.util.FormattedOutput;
 import net.maizegenetics.stats.math.MersenneTwisterFast;
 import net.maizegenetics.taxa.TaxaList;
@@ -13,6 +14,7 @@ import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 
 import java.io.PrintWriter;
+import java.io.Writer;
 
 /**
  * various utility functions on trees.
@@ -148,47 +150,6 @@ public class TreeUtils {
     }
 
     /**
-     * @deprecated use getScaled()
-     */
-    public static Tree scale(Tree oldTree, double rate, int newUnits) {
-        return getScaled(oldTree, rate, newUnits);
-    }
-
-    /**
-     * Takes a tree and returns a scaled version of it. Scales a tree keeping
-     * old units
-     *
-     * @param rate scale factor.
-     *
-     */
-    public static final Tree getScaled(Tree oldTree, double rate) {
-        return getScaled(oldTree, rate, oldTree.getUnits());
-    }
-
-    /**
-     * Takes a tree and returns a scaled version of it.
-     *
-     * @param rate scale factor. If the original tree is in generations and the
-     * desired units are expected substitutions then this scale factor should be
-     * equal to the mutation rate.
-     * @param newUnits the new units of the tree.
-     */
-    public static final Tree getScaled(Tree oldTree, double rate, int newUnits) {
-        SimpleTree tree = new SimpleTree(oldTree);
-        for (int i = 0; i < tree.getExternalNodeCount(); i++) {
-            Node n = tree.getExternalNode(i);
-            n.setNodeHeight(rate * n.getNodeHeight());
-        }
-        for (int i = 0; i < tree.getInternalNodeCount(); i++) {
-            Node n = tree.getInternalNode(i);
-            n.setNodeHeight(rate * n.getNodeHeight());
-        }
-        NodeUtils.heights2Lengths(tree.getRoot());
-        tree.setUnits(newUnits);
-        return tree;
-    }
-
-    /**
      * Rotates branches by leaf count. WARNING: assumes binary tree!
      */
     public static void rotateByLeafCount(Tree tree) {
@@ -218,7 +179,7 @@ public class TreeUtils {
      *
      * @param out output stream
      */
-    public static void printNH(Tree tree, PrintWriter out) {
+    public static void printNH(Tree tree, PrintWriter out) throws IOException {
         printNH(tree, out, true, true);
     }
 
@@ -232,7 +193,7 @@ public class TreeUtils {
      * labels should be included in output
      */
     public static void printNH(Tree tree, PrintWriter out,
-            boolean printLengths, boolean printInternalLabels) {
+            boolean printLengths, boolean printInternalLabels) throws IOException {
 
         NodeUtils.printNH(out, tree.getRoot(),
                 printLengths, printInternalLabels);
@@ -240,36 +201,8 @@ public class TreeUtils {
     }
 
     /**
-     * Roots a tree (that was previously unroot - ie 3 or more children at the
-     * compsci tree root)
-     *
-     * @param outgroupMembers the names of the nodes that form the outgroup.
-     * Multiple nodes will make the clade covering all outgroup nodes (and any
-     * others that fall with in that clade) form the outgroup.
-     * @note if none of the outgroup members are actually in the tree, or the
-     * outgroup clade is the whole tree, the result is just an unrooted clone of
-     * the input tree.
-     */
-//	public static final Tree getRooted(Tree unrooted, String[] outgroupMembers) {
-//		Tree t2 = new SimpleTree(unrooted);
-//		Node[] nodes = NodeUtils.findByIdentifier(t2.getRoot(),outgroupMembers);
-//		if(nodes==null) {
-//			return t2;
-//		}
-//		Node common = (nodes.length==1 ? nodes[0] : NodeUtils.getFirstCommonAncestor(nodes));
-//		if(common==null) {	return t2;	}
-//		if(common==t2.getRoot()) { return t2; }
-//		//TreeUtils.reroot(t2,common);
-//		Node newRoot = NodeUtils.rootAbove(common);
-//		NodeUtils.exchangeInfo(newRoot,t2.getRoot());
-//		NodeUtils.lengths2Heights(newRoot);
-//		t2.setRoot(newRoot);
-//
-//		return t2;
-//	}
-    /**
-     * @return a tree that has been re-rooted at the given internal node. The
-     * original root of the tree must have had at least 3 children.
+     * a tree that has been re-rooted at the given internal node. The original
+     * root of the tree must have had at least 3 children.
      */
     public static void reroot(Tree tree, Node node) {
         reroot(node);
@@ -500,11 +433,11 @@ public class TreeUtils {
         }
     }
 
-    public static void report(Tree tree, PrintWriter out) {
+    public static void report(Tree tree, Writer out) throws IOException {
         printASCII(tree, out);
-        out.println();
+        out.write("\n");
         branchInfo(tree, out);
-        out.println();
+        out.write("\n");
         heightInfo(tree, out);
     }
     private static FormattedOutput format;
@@ -517,7 +450,7 @@ public class TreeUtils {
     private static int numBranches;
 
     // Print picture of current tree in ASCII
-    private static void printASCII(Tree tree, PrintWriter out) {
+    private static void printASCII(Tree tree, Writer out) throws IOException {
         format = FormattedOutput.getInstance();
 
         tree.createNodeList();
@@ -547,13 +480,13 @@ public class TreeUtils {
             printNodeInASCII(out, root.getChild(i), 1, i, root.getChildCount());
             if (i != 0) {
                 putCharAtLevel(out, 0, '|');
-                out.println();
+                out.write("\n");
             }
         }
     }
 
     // Print branch information
-    private static void branchInfo(Tree tree, PrintWriter out) {
+    private static void branchInfo(Tree tree, Writer out) throws IOException {
 
         //
         // CALL PRINTASCII FIRST !!!
@@ -572,51 +505,51 @@ public class TreeUtils {
         }
 
         format.displayIntegerWhite(out, numExternalNodes);
-        out.print("   Length    ");
+        out.write("   Length    ");
         if (showSE) {
-            out.print("S.E.      ");
+            out.write("S.E.      ");
         }
-        out.print("Label     ");
+        out.write("Label     ");
         if (numInternalNodes > 1) {
             format.displayIntegerWhite(out, numBranches);
-            out.print("        Length    ");
+            out.write("        Length    ");
             if (showSE) {
-                out.print("S.E.      ");
+                out.write("S.E.      ");
             }
-            out.print("Label");
+            out.write("Label");
         }
-        out.println();
+        out.write("\n");
 
         for (int i = 0; i < numExternalNodes; i++) {
             format.displayInteger(out, i + 1, numExternalNodes);
-            out.print("   ");
+            out.write("   ");
             format.displayDecimal(out, tree.getExternalNode(i).getBranchLength(), 5);
-            out.print("   ");
+            out.write("   ");
             if (showSE) {
                 format.displayDecimal(out, tree.getExternalNode(i).getBranchLengthSE(), 5);
-                out.print("   ");
+                out.write("   ");
             }
             format.displayLabel(out, tree.getExternalNode(i).getIdentifier().getName(), 10);
 
             if (i < numInternalNodes - 1) {
                 format.multiplePrint(out, ' ', 5);
                 format.displayInteger(out, i + 1 + numExternalNodes, numBranches);
-                out.print("   ");
+                out.write("   ");
                 format.displayDecimal(out, tree.getInternalNode(i).getBranchLength(), 5);
-                out.print("   ");
+                out.write("   ");
                 if (showSE) {
                     format.displayDecimal(out, tree.getInternalNode(i).getBranchLengthSE(), 5);
-                    out.print("   ");
+                    out.write("   ");
                 }
                 format.displayLabel(out, tree.getInternalNode(i).getIdentifier().getName(), 10);
             }
 
-            out.println();
+            out.write("\n");
         }
     }
 
     // Print height information
-    private static void heightInfo(Tree tree, PrintWriter out) {
+    private static void heightInfo(Tree tree, Writer out) throws IOException {
         //
         // CALL PRINTASCII FIRST
         //
@@ -635,43 +568,39 @@ public class TreeUtils {
         //	}
         //}
         format.displayIntegerWhite(out, numExternalNodes);
-        out.print("   Height    ");
+        out.write("   Height    ");
         format.displayIntegerWhite(out, numBranches);
-        out.print("        Height    ");
+        out.write("        Height    ");
         //if (showSE) out.print("S.E.");
 
-        out.println();
+        out.write("\n");
 
         for (int i = 0; i < numExternalNodes; i++) {
             format.displayInteger(out, i + 1, numExternalNodes);
-            out.print("   ");
+            out.write("   ");
             format.displayDecimal(out, tree.getExternalNode(i).getNodeHeight(), 7);
-            out.print("   ");
+            out.write("   ");
 
             if (i < numInternalNodes) {
                 format.multiplePrint(out, ' ', 5);
 
                 if (i == numInternalNodes - 1) {
-                    out.print("R");
+                    out.write("R");
                     format.multiplePrint(out, ' ', Integer.toString(numBranches).length() - 1);
                 } else {
                     format.displayInteger(out, i + 1 + numExternalNodes, numBranches);
                 }
 
-                out.print("   ");
+                out.write("   ");
                 format.displayDecimal(out, tree.getInternalNode(i).getNodeHeight(), 7);
-                out.print("   ");
-                //if (showSE)
-                //{
-                //	format.displayDecimal(out, tree.getInternalNode(i).getNodeHeightSE(), 7);
-                //}
+                out.write("   ");
             }
 
-            out.println();
+            out.write("\n");
         }
     }
 
-    private static void printNodeInASCII(PrintWriter out, Node node, int level, int m, int maxm) {
+    private static void printNodeInASCII(Writer out, Node node, int level, int m, int maxm) throws IOException {
         position[level] = (int) (node.getBranchLength() * proportion);
 
         if (position[level] < minLength) {
@@ -709,7 +638,7 @@ public class TreeUtils {
                                 putCharAtLevel(out, i, ' ');
                             }
                         }
-                        out.println();
+                        out.write("\n");
                     }
                 }
 
@@ -720,7 +649,7 @@ public class TreeUtils {
         }
     }
 
-    private static void printlnNodeWithNumberAndLabel(PrintWriter out, Node node, int level) {
+    private static void printlnNodeWithNumberAndLabel(Writer out, Node node, int level) throws IOException {
         for (int i = 0; i < level - 1; i++) {
             if (umbrella[i]) {
                 putCharAtLevel(out, i, '|');
@@ -742,26 +671,26 @@ public class TreeUtils {
 
         int numDashs = position[level] - numberAsString.length();
         for (int i = 0; i < numDashs; i++) {
-            out.print('-');
+            out.write('-');
         }
-        out.print(numberAsString);
+        out.write(numberAsString);
 
         if (node.isLeaf()) {
-            out.println(" " + node.getIdentifier());
+            out.write(" " + node.getIdentifier() + "\n");
         } else {
             if (!node.getIdentifier().equals(Taxon.ANONYMOUS)) {
-                out.print("(" + node.getIdentifier() + ")");
+                out.write("(" + node.getIdentifier() + ")");
             }
-            out.println();
+            out.write("\n");
         }
     }
 
-    private static void putCharAtLevel(PrintWriter out, int level, char c) {
+    private static void putCharAtLevel(Writer out, int level, char c) throws IOException {
         int n = position[level] - 1;
         for (int i = 0; i < n; i++) {
-            out.print(' ');
+            out.write(' ');
         }
-        out.print(c);
+        out.write(c);
     }
 
     /**
@@ -793,37 +722,4 @@ public class TreeUtils {
         node.addChild(parent);
     }
 
-    /**
-     * Generates a tree which is identical to baseTree but has attributes
-     * (defined by attributeName) at all internal nodes excluding the root node
-     * signifying (as a value between 0 and 100) the bootstrap support by clade
-     * (that is the proportion of replicates that produce the sub clade under
-     * that node)
-     *
-     * @note assumes all alternative trees have the exact same set of labels
-     * @deprecated Use getReplicateCladeSupport instead
-     */
-    public static final Tree getBootstrapSupportByCladeTree(String attributeName, Tree baseTree, Tree[] alternativeTrees) {
-        SimpleTree result = new SimpleTree(baseTree);
-        TaxaList ids = TreeUtils.getLeafIdGroup(baseTree);
-        SplitSystem baseSystem = SplitUtils.getSplits(ids, baseTree);
-        boolean[][] baseVector = baseSystem.getSplitVector();
-        int[] supportCount = new int[baseVector.length];
-        for (int i = 0; i < alternativeTrees.length; i++) {
-            SplitSystem alternativeSystem = SplitUtils.getSplits(ids, alternativeTrees[i]);
-            for (int j = 0; j < baseVector.length; j++) {
-                if (alternativeSystem.hasSplit(baseVector[j])) {
-                    supportCount[j]++;
-                }
-            }
-        }
-        for (int i = 0; i < supportCount.length; i++) {
-            int support = (int) (supportCount[i] * 100 / (double) alternativeTrees.length);
-            result.setAttribute(
-                    result.getInternalNode(i),
-                    attributeName,
-                    new Integer(support));
-        }
-        return result;
-    }
 }

@@ -6,27 +6,21 @@
 // terms of the Lesser GNU General Public License (LGPL)
 package net.maizegenetics.util;
 
-import java.io.PrintWriter;
-import java.io.Serializable;
+import java.io.IOException;
+import java.io.Writer;
 import java.text.NumberFormat;
 import java.util.Locale;
 
 /**
  * tools to simplify formatted output to a stream
  *
- * @version $Id: FormattedOutput.java,v 1.1 2007/01/12 03:26:15 tcasstevens Exp $
- *
  * @author Korbinian Strimmer
  * @author Alexei Drummond
  */
-public class FormattedOutput implements Serializable {
-    //
-    // Public stuff
-    //
+public class FormattedOutput {
 
     /**
-     * create instance of this class
-     * (note that there is no public constructor
+     * create instance of this class (note that there is no public constructor
      * as this class is a singleton)
      */
     public synchronized static FormattedOutput getInstance() {
@@ -38,8 +32,7 @@ public class FormattedOutput implements Serializable {
     }
 
     /**
-     * print decimal number with a prespecified number
-     * of digits after the point
+     * print decimal number with a prespecified number of digits after the point
      *
      * @param out output stream
      * @param number to be printed
@@ -47,17 +40,17 @@ public class FormattedOutput implements Serializable {
      *
      * @return length of the string printed
      */
-    public int displayDecimal(PrintWriter out, double number, int width) {
+    public int displayDecimal(Writer out, double number, int width) throws IOException {
         String s = getDecimalString(number, width);
 
-        out.print(s);
+        out.write(s);
 
         return s.length();
     }
 
     /**
-     * Returns a decimal string representation of a number with
-     * constrained width.
+     * Returns a decimal string representation of a number with constrained
+     * width.
      */
     public synchronized String getDecimalString(double number, int width) {
         nf.setMinimumFractionDigits(width);
@@ -95,65 +88,59 @@ public class FormattedOutput implements Serializable {
             return String.valueOf(number);
         }
         return String.valueOf(result);
-        /*double decimals = Math.floor(Math.log(number) / Math.log(10.0));
-        double power =  Math.pow(10, decimals - sf);
-        number /= power;
-        number = Math.round(number);
-        number *= power;
-        return "" + number;*/
     }
 
     /**
-     * print label with a prespecified length
-     * (label will be shortened or spaces will introduced, if necessary)
+     * print label with a prespecified length (label will be shortened or spaces
+     * will introduced, if necessary)
      *
      * @param out output stream
      * @param label label to be printed
      * @param width desired length
      */
-    public void displayLabel(PrintWriter out, String label, int width) {
+    public void displayLabel(Writer out, String label, int width) throws IOException {
         int len = label.length();
 
         if (len == width) {
             // Print as is
-            out.print(label);
+            out.write(label);
         } else if (len < width) {
             // fill rest with spaces
-            out.print(label);
+            out.write(label);
             multiplePrint(out, ' ', width - len);
         } else {
             // Print first width characters
             for (int i = 0; i < width; i++) {
-                out.print(label.charAt(i));
+                out.write(label.charAt(i));
             }
         }
     }
 
     /**
-     * print integer, aligned to a reference number,
-     * (introducing space at the left side)
+     * print integer, aligned to a reference number, (introducing space at the
+     * left side)
      *
      * @param out output stream
      * @param num number to be printed
      * @param maxNum reference number
      */
-    public void displayInteger(PrintWriter out, int num, int maxNum) {
+    public void displayInteger(Writer out, int num, int maxNum) throws IOException {
         int lenNum = Integer.toString(num).length();
         int lenMaxNum = Integer.toString(maxNum).length();
 
         if (lenNum < lenMaxNum) {
             multiplePrint(out, ' ', lenMaxNum - lenNum);
         }
-        out.print(num);
+        out.write(num);
     }
 
     /**
      * print whitespace of length of a string displaying a given integer
      *
-     * @param output stream
+     * @param out stream
      * @param maxNum number
      */
-    public void displayIntegerWhite(PrintWriter out, int maxNum) {
+    public void displayIntegerWhite(Writer out, int maxNum) throws IOException {
         int lenMaxNum = Integer.toString(maxNum).length();
 
         multiplePrint(out, ' ', lenMaxNum);
@@ -163,12 +150,12 @@ public class FormattedOutput implements Serializable {
      * repeatedly print a character
      *
      * @param out output stream
-     * @param c   character
+     * @param c character
      * @param num number of repeats
      */
-    public void multiplePrint(PrintWriter out, char c, int num) {
+    public void multiplePrint(Writer out, char c, int num) throws IOException {
         for (int i = 0; i < num; i++) {
-            out.print(c);
+            out.write(c);
         }
     }
 
@@ -176,7 +163,7 @@ public class FormattedOutput implements Serializable {
      * returns of string of a given length of a single character.
      *
      * @param size length of the string required
-     * @param c   character
+     * @param c character
      */
     public static String space(int size, char c) {
         StringBuffer sb = new StringBuffer();
@@ -195,5 +182,5 @@ public class FormattedOutput implements Serializable {
         nf.setGroupingUsed(false);
     }
     private static FormattedOutput singleton = null;
-    private NumberFormat nf;
+    private final NumberFormat nf;
 }

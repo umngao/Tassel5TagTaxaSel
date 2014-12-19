@@ -102,7 +102,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     }
 
     /** print alignment (PHYLIP format) */
-    public void printPHYLIP(PrintWriter out) {
+    public void printPHYLIP(PrintWriter out) throws IOException {
         // PHYLIP header line
         out.println("  " + distance.length);
         FormattedOutput format = FormattedOutput.getInstance();
@@ -130,7 +130,11 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     public String toString() {
 
         StringWriter sw = new StringWriter();
-        printPHYLIP(new PrintWriter(sw));
+        try {
+            printPHYLIP(new PrintWriter(sw));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         return sw.toString();
     }

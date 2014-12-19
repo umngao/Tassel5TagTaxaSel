@@ -522,9 +522,9 @@ public class ExportUtils {
     /**
      * print alignment (in PHYLIP SEQUENTIAL format)
      */
-    public static void printSequential(GenotypeTable a, PrintWriter out) {
+    public static void printSequential(GenotypeTable a, Writer out) throws IOException {
         // PHYLIP header line
-        out.println("  " + a.numberOfTaxa() + " " + a.numberOfSites() + "  S");
+        out.write("  " + a.numberOfTaxa() + " " + a.numberOfSites() + "  S" + "\n");
 
         // Print sequences
         for (int s = 0; s < a.numberOfTaxa(); s++) {
@@ -532,12 +532,12 @@ public class ExportUtils {
             while (n < a.numberOfSites()) {
                 if (n == 0) {
                     format.displayLabel(out, a.taxaName(s), 10);
-                    out.print("     ");
+                    out.write("     ");
                 } else {
-                    out.print("               ");
+                    out.write("               ");
                 }
                 printNextSites(a, out, false, s, n, 50);
-                out.println();
+                out.write("\n");
                 n += 50;
             }
         }
@@ -546,25 +546,25 @@ public class ExportUtils {
     /**
      * print alignment (in PHYLIP 3.4 INTERLEAVED format)
      */
-    public static void printInterleaved(GenotypeTable a, PrintWriter out) {
+    public static void printInterleaved(GenotypeTable a, Writer out) throws IOException {
         int n = 0;
 
         // PHYLIP header line
-        out.println("  " + a.numberOfTaxa() + " " + a.numberOfSites());
+        out.write("  " + a.numberOfTaxa() + " " + a.numberOfSites() + "\n");
 
         // Print sequences
         while (n < a.numberOfSites()) {
             for (int s = 0; s < a.numberOfTaxa(); s++) {
                 if (n == 0) {
                     format.displayLabel(out, a.taxaName(s), 10);
-                    out.print("     ");
+                    out.write("     ");
                 } else {
-                    out.print("               ");
+                    out.write("               ");
                 }
                 printNextSites(a, out, true, s, n, 50);
-                out.println();
+                out.write("\n");
             }
-            out.println();
+            out.write("\n");
             n += 50;
         }
     }
@@ -572,37 +572,36 @@ public class ExportUtils {
     /**
      * Print alignment (in CLUSTAL W format)
      */
-    public static void printCLUSTALW(GenotypeTable a, PrintWriter out) {
+    public static void printCLUSTALW(GenotypeTable a, Writer out) throws IOException {
         int n = 0;
 
         // CLUSTAL W header line
-        out.println("CLUSTAL W multiple sequence alignment");
-        out.println();
+        out.write("CLUSTAL W multiple sequence alignment\n\n");
 
         // Print sequences
         while (n < a.numberOfSites()) {
-            out.println();
+            out.write("\n");
             for (int s = 0; s < a.numberOfTaxa(); s++) {
                 format.displayLabel(out, a.taxaName(s), 10);
-                out.print("     ");
+                out.write("     ");
 
                 printNextSites(a, out, false, s, n, 50);
-                out.println();
+                out.write("\n");
             }
             // Blanks in status line are necessary for some parsers)
-            out.println("               ");
+            out.write("               \n");
             n += 50;
         }
     }
 
-    private static void printNextSites(GenotypeTable a, PrintWriter out, boolean chunked, int seq, int start, int num) {
+    private static void printNextSites(GenotypeTable a, Writer out, boolean chunked, int seq, int start, int num) throws IOException {
         // Print next num characters
         for (int i = 0; (i < num) && (start + i < a.numberOfSites()); i++) {
             // Chunks of 10 characters
             if (i % 10 == 0 && i != 0 && chunked) {
-                out.print(' ');
+                out.write(' ');
             }
-            out.print(a.genotypeAsString(seq, start + i));
+            out.write(a.genotypeAsString(seq, start + i));
         }
     }
 

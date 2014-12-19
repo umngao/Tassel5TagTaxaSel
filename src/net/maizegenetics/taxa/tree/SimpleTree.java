@@ -6,12 +6,11 @@
 // terms of the Lesser GNU General Public License (LGPL)
 package net.maizegenetics.taxa.tree;
 
-import net.maizegenetics.util.Report;
-
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringWriter;
+import java.io.Writer;
 import java.util.Hashtable;
 import net.maizegenetics.taxa.Taxon;
 
@@ -22,7 +21,7 @@ import net.maizegenetics.taxa.Taxon;
  * @author Korbinian Strimmer
  *
  */
-public class SimpleTree implements Tree, Report, Serializable {
+public class SimpleTree implements Tree, Serializable {
 
     /**
      * root node
@@ -245,9 +244,12 @@ public class SimpleTree implements Tree, Report, Serializable {
 
     public String toString() {
         StringWriter sw = new StringWriter();
-        NodeUtils.printNH(new PrintWriter(sw), getRoot(), true, false, 0, false);
-        sw.write(";");
-
+        try {
+            NodeUtils.printNH(new PrintWriter(sw), getRoot(), true, false, 0, false);
+            sw.write(";");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return sw.toString();
     }
 
@@ -343,8 +345,7 @@ public class SimpleTree implements Tree, Report, Serializable {
         TreeUtils.reroot(this, node);
     }
 
-    // interface Report
-    public void report(PrintWriter out) {
+    public void report(Writer out) throws IOException {
         TreeUtils.report(this, out);
     }
 
