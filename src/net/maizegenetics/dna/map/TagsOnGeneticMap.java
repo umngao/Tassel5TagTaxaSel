@@ -164,7 +164,7 @@ public class TagsOnGeneticMap extends AbstractTags {
                 readBinaryTOGMFile(infile);
                 break;
         }
-        System.out.println("TOGM file read. Tatol: " + this.getTagCount() + " Tags");
+        System.out.println("TOGM file read. Total: " + this.getTagCount() + " Tags");
     }
     
     /**
