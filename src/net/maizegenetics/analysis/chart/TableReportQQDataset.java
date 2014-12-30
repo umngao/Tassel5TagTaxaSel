@@ -57,7 +57,7 @@ public class TableReportQQDataset extends DefaultTableXYDataset {
     }
 
     public Number getX(int series, int item) {
-        Double x = new Double(theData[item][0]);
+        Double x = theData[item][0];
         return x;
     }
 
@@ -66,7 +66,7 @@ public class TableReportQQDataset extends DefaultTableXYDataset {
     }
 
     public Number getY(int series, int item) {
-        Double y = new Double(theData[item][1 + series]);
+        Double y = theData[item][1 + series];
         return y;
     }
 
@@ -94,7 +94,7 @@ public class TableReportQQDataset extends DefaultTableXYDataset {
 
     private void setPositionColumnIndex() {
         for (int i = 0; i < myColumnNames.length; i++) {
-            if (myColumnNames[i].equals("Locus_pos") || myColumnNames[i].equals("Site")) {
+            if (myColumnNames[i].equals("Position") || myColumnNames[i].equals("Locus_pos") || myColumnNames[i].equals("Site")) {
                 myPositionColumnIndex = i;
                 return;
             }
@@ -127,7 +127,7 @@ public class TableReportQQDataset extends DefaultTableXYDataset {
         Object temp = myTableReport.getValueAt(myStartIndex, myPValueColumnIndex);
         if (temp instanceof Double) {
             for (int i = 0; i < myPValues.length; i++) {
-                myPValues[i] = ((Double) myTableReport.getValueAt(myStartIndex + i, myPValueColumnIndex)).doubleValue();
+                myPValues[i] = ((Double) myTableReport.getValueAt(myStartIndex + i, myPValueColumnIndex));
                 if (myPValues[i] == 0) {
                     myPValues[i] = Double.MIN_VALUE;
                 }

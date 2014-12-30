@@ -46,48 +46,32 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
 
     public int getItemCount(int parm1) {
         return theData.length;
-        //throw new java.lang.UnsupportedOperationException("Method getItemCount() not yet implemented.");
     }
 
     public Number getX(int series, int item) {
-        Double x = new Double(theData[item][0]);
+        Double x = theData[item][0];
         return x;
-        //    throw new java.lang.UnsupportedOperationException("Method getXValue() not yet implemented.");
     }
 
     public int getSeriesCount() {
         return numberYAxes;
-        //throw new java.lang.UnsupportedOperationException("Method getSeriesCount() not yet implemented.");
     }
 
     public Number getY(int series, int item) {
-        Double y = new Double(theData[item][1 + series]);
+        Double y = theData[item][1 + series];
         return y;
-        //    throw new java.lang.UnsupportedOperationException("Method getYValue() not yet implemented.");
     }
 
     public String getSeriesName(int series) {
-        /**
-         * current
-         */
         return seriesNames[series];
-        //    throw new java.lang.UnsupportedOperationException("Method getSeriesName() not yet implemented.");
     }
 
     public String getSeriesKey(int series) {
-        /**
-         * current
-         */
         return seriesNames[series];
-        //    throw new java.lang.UnsupportedOperationException("Method getSeriesName() not yet implemented.");
     }
 
     public String getXName() {
-        /**
-         * current
-         */
         return xName;
-        //    throw new java.lang.UnsupportedOperationException("Method getSeriesName() not yet implemented.");
     }
 
     private void setTraitColumnIndex() {
@@ -111,7 +95,7 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
 
     private void setChromColumnIndex() {
         for (int i = 0; i < myColumnNames.length; i++) {
-            if (myColumnNames[i].equals("Locus")) {
+            if (myColumnNames[i].equals("Chr") || myColumnNames[i].equals("Locus")) {
                 myChromColumnIndex = i;
                 return;
             }
@@ -130,7 +114,7 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
 
     private void setPositionColumnIndex() {
         for (int i = 0; i < myColumnNames.length; i++) {
-            if (myColumnNames[i].equals("Locus_pos") || myColumnNames[i].equals("Site")) {
+            if (myColumnNames[i].equals("Position") || myColumnNames[i].equals("Locus_pos") || myColumnNames[i].equals("Site")) {
                 myPositionColumnIndex = i;
                 return;
             }
@@ -268,7 +252,6 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
                         currentChrom = myChromNames[i];
                         seriesNames[chromIndex - 1] = currentChrom;
                     }
-                    //                if (!myNumericChromNames) {
                     theData[i][chromIndex] = myLogPValues[i];
                 } else {
 
@@ -279,9 +262,6 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
                     theData[i][Integer.parseInt(myChromNames[i])] = myLogPValues[i];
 
                 }
-//                } else {
-//                    theData[i][myChromOrder[chromIndex - 1]+1] = myLogPValues[i];
-//                }
             } catch (NumberFormatException ex) {
                 System.out.println("throw new NumberFormatException();");
             }
