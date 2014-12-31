@@ -103,7 +103,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		myCovariateAttributes = myGenoPheno.phenotype().attributeListOfType(ATTRIBUTE_TYPE.covariate);
 		siteTableReportRows = new ArrayList<Object[]>();
 		testTaxaReplication();
-		LoggingUtils.setupDebugLogging();
+//		LoggingUtils.setupDebugLogging();
 	}
 
 	@Override
@@ -129,9 +129,9 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		int numberOfAttributes = myDataAttributes.size();
 		int numberOfTestsTotal = numberOfAttributes * numberOfSites;
 		int numberOfTestsCalculated = 0;
-		int updateInterval = numberOfTestsTotal / 100;
+		int updateInterval = Math.max(1, numberOfTestsTotal / 100);
 		
-		long start = System.currentTimeMillis();
+//		long start = System.currentTimeMillis();
 		for (PhenotypeAttribute dataAttribute:myDataAttributes) {
 			currentTraitName = dataAttribute.name();
 			OpenBitSet missingObs = new OpenBitSet(dataAttribute.missing());
@@ -157,7 +157,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 					if (myParentPlugin != null) myParentPlugin.updateProgress(100 * numberOfTestsCalculated / numberOfTestsTotal);
 				}
 			}
-			System.out.printf("Sites analyzed in %d ms\n", System.currentTimeMillis() - start);
+//			System.out.printf("Sites analyzed in %d ms\n", System.currentTimeMillis() - start);
 			if (permute) updateReportsWithPermutationP();
 		}
 	}
