@@ -293,6 +293,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
     public void setNoteText(String text) {
         reportPanelTextArea.setText(text);
+        reportPanelTextArea.setCaretPosition(0);
     }
 
     private void loadSettings() {

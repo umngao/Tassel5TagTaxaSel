@@ -196,7 +196,7 @@ public class FilterAlignmentPlugin extends AbstractPlugin {
             //naa = AnnotatedAlignmentUtils.extractSlidingHaplotypes(naa, myWinSize, myStepSize);
             throw new UnsupportedOperationException();
         }
-        String theComment;
+        
         StringBuilder builder = new StringBuilder();
         Chromosome[] loci = naa.chromosomes();
         builder.append(inDatum.getName());
@@ -221,17 +221,16 @@ public class FilterAlignmentPlugin extends AbstractPlugin {
             builder.append(naa.chromosomalPosition(naa.numberOfSites() - 1));
         }
         String theName = builder.toString();
+        
+        String theComment;
         if (myDoSlidingHaps) {
-            //theName = "Sliding_Haps_" + inDatum.getName();
             theComment = "Sliding Haplotypes.\n";
         } else if (myExtractIndels) {
-            //theName = "Indels_" + inDatum.getName();
-            theComment = "Indels\n";
+            theComment = "Indels Extracted\n";
         } else if (myFilterMinorSNPs) {
-            //theName = "Point_" + inDatum.getName();
-            theComment = "Point Poly.\nMinor SNPs Removed\n";
+            theComment = "Minor SNPs Removed\n";
         } else {
-            theComment = "Point Poly.\n";
+            theComment = "";
         }
         if (naa.numberOfSites() != 0) {
             myLogger.info("Resulting Number Sites: " + naa.numberOfSites());
