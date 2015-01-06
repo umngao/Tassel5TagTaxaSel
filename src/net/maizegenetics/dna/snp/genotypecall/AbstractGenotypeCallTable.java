@@ -248,6 +248,26 @@ abstract class AbstractGenotypeCallTable implements GenotypeCallTable {
     }
 
     @Override
+    public byte[] thirdAlleleForAllSites() {
+        byte[] result = new byte[mySiteCount];
+        for (int i = 0; i < mySiteCount; i++) {
+            result[i] = thirdAllele(i);
+        }
+        return result;
+    }
+
+    @Override
+    public byte thirdAllele(int site) {
+        int[][] alleles = allelesSortedByFrequency(site);
+
+        if (alleles[0].length > 2) {
+            return (byte) alleles[0][2];
+        } else {
+            return GenotypeTable.UNKNOWN_ALLELE;
+        }
+    }
+    
+    @Override
     public int minorAlleleCount(int site) {
 
         int[][] alleles = allelesSortedByFrequency(site);
