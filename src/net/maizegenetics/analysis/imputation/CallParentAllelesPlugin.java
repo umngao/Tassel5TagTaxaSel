@@ -100,6 +100,7 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 					hapFinder.maxDifferenceScore = maxDifference;
 					hapFinder.minClusterSize = minUsedClusterSize;
 					hapFinder.minCoverage = 1 - maxMissing;
+					hapFinder.minMaf = minMinorAlleleFrequency;
 					hapFinder.assignHaplotyes();
 					hapFinder.convertGenotypesToParentCalls();
 				}
