@@ -275,7 +275,7 @@ public final class GeneralPosition implements Position {
         hash = 37 * hash + this.myPosition;
         hash = 37 * hash + this.myStrand;
         hash = 37 * hash + Float.floatToIntBits(this.myCM);
-        if(mySNPIDAsBytes!=null) hash = 37 * hash + this.mySNPIDAsBytes.hashCode();
+        if(mySNPIDAsBytes!=null) hash = 37 * hash + Arrays.hashCode(this.mySNPIDAsBytes);
         return hash;
     }
 
