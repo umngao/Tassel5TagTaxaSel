@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.TreeSet;
 
 import org.apache.commons.math.stat.StatUtils;
+import org.apache.log4j.Logger;
 
 import net.maizegenetics.analysis.clustering.Haplotype;
 import net.maizegenetics.analysis.clustering.HaplotypeCluster;
@@ -24,6 +25,7 @@ import net.maizegenetics.util.OpenBitSet;
  * 
  */
 public class BiparentalHaplotypeFinder {
+	private static final Logger myLogger = Logger.getLogger(BiparentalHaplotypeFinder.class);
 	PopulationData myPopulationData;
 	GenotypeTable initialGenotype;
 	static final byte AA = NucleotideAlignmentConstants.getNucleotideDiploidByte("AA");
@@ -455,7 +457,7 @@ public class BiparentalHaplotypeFinder {
 			if (selected[s]) selectedSites[nSelectedSites++] = s;
 		}
 		selectedSites = Arrays.copyOf(selectedSites, nSelectedSites);
-		System.out.printf("%d sites in filtered genotype set.\n", nSelectedSites);
+		myLogger.info(String.format("%d sites in filtered genotype set.\n", nSelectedSites));
 		return FilterGenotypeTable.getInstance(filterGeno, selectedSites);
 	}
 	
@@ -488,7 +490,7 @@ public class BiparentalHaplotypeFinder {
 				msgBuilder.append(hap).append(" for parents:\n");
 				for (Haplotype h:previousParents.get(0)) msgBuilder.append(h).append("\n");
 				for (Haplotype h:previousParents.get(1)) msgBuilder.append(h).append("\n");
-				System.out.println(msgBuilder.toString());
+				myLogger.info(msgBuilder.toString());
 //				throw new RuntimeException(msgBuilder.toString());
 				
 				//find the best match
@@ -510,7 +512,7 @@ public class BiparentalHaplotypeFinder {
 				if (par0dist < par1dist) parentHaplotypes.get(0).add(hap);
 				else if (par0dist > par1dist) parentHaplotypes.get(1).add(hap);
 				else {
-					System.out.println("Haplotype not added because equi-distant from parents");
+					myLogger.info("Haplotype not added because equi-distant from parents");
 				}
 			}
 		}
@@ -544,7 +546,7 @@ public class BiparentalHaplotypeFinder {
 				msgBuilder.append(hap).append(" for parents:\n");
 				for (Haplotype h:previousParents.get(0)) msgBuilder.append(h).append("\n");
 				for (Haplotype h:previousParents.get(1)) msgBuilder.append(h).append("\n");
-				System.out.println(msgBuilder.toString());
+				myLogger.info(msgBuilder.toString());
 //				throw new RuntimeException(msgBuilder.toString());
 				
 				//find the best match
@@ -576,7 +578,7 @@ public class BiparentalHaplotypeFinder {
 				if (par0dist < par1dist) parentHaplotypes.get(0).add(hap);
 				else if (par0dist > par1dist) parentHaplotypes.get(1).add(hap);
 				else {
-					System.out.println("Haplotype not added because equi-distant from parents");
+					myLogger.info("Haplotype not added because equi-distant from parents");
 				}
 			}
 		}
