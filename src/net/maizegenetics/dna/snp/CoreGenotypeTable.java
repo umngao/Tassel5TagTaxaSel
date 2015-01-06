@@ -519,6 +519,9 @@ public class CoreGenotypeTable implements GenotypeTable {
             case Minor:
                 result = new DynamicBitStorage(myGenotype, allele, myGenotype.minorAlleleForAllSites());
                 break;
+            case Minor2:
+                result = new DynamicBitStorage(myGenotype, allele, myGenotype.thirdAlleleForAllSites());
+                break;
             default:
                 myLogger.warn("bitStorage: Unsupported allele: " + allele);
                 return null;

@@ -4,11 +4,14 @@
 package net.maizegenetics.dna.snp.genotypecall;
 
 /**
- * Interface for genotype calls for a table of taxa and sites.  GenotypeCallTable only contain information on
- * the genotype calls - the call table does not have the TaxaList or PositionList.  The calls are diploid genotype
- * calls stored and retrieved as bytes.  Conversions to string are also provided.
- * <p></p>
+ * Interface for genotype calls for a table of taxa and sites. GenotypeCallTable
+ * only contain information on the genotype calls - the call table does not have
+ * the TaxaList or PositionList. The calls are diploid genotype calls stored and
+ * retrieved as bytes. Conversions to string are also provided.
+ * <p>
+ * </p>
  * Generally these methods are accessed through the GenotypeTable interface.
+ *
  * @see net.maizegenetics.dna.snp.GenotypeTable;
  *
  * @author Terry Casstevens
@@ -340,6 +343,24 @@ public interface GenotypeCallTable {
      * @return all minor alleles
      */
     public byte[] minorAlleleForAllSites();
+
+    /**
+     * Return the second minor allele at given site (Third allele state). Gap is
+     * included as state. Heterozygous count one for each allele value.
+     * Homozygous counts two for the allele value.
+     *
+     * @param site site
+     *
+     * @return second minor allele
+     */
+    public byte thirdAllele(int site);
+
+    /**
+     * Returns third (second minor) allele for all sites.
+     *
+     * @return all third alleles
+     */
+    public byte[] thirdAlleleForAllSites();
 
     /**
      * Return most common allele at given site. Gap is included as state.

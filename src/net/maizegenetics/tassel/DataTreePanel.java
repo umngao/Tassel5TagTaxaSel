@@ -64,6 +64,7 @@ import java.util.Map;
 import net.maizegenetics.analysis.data.GenotypeSummaryPlugin;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.TOPMInterface;
+import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.tree.SimpleTree;
 import net.maizegenetics.util.HDF5TableReport;
@@ -288,6 +289,32 @@ public class DataTreePanel extends JPanel implements PluginListener {
                         builder.append("Base Type: ");
                         builder.append(Utils.getBasename(a.getBaseAlignment().getClass().getName()));
                         builder.append("\n");
+                    }
+                    if (book.getData() instanceof GenotypeTable) {
+                        try {
+                            GenotypeTable a = (GenotypeTable) book.getData();
+                            if (NucleotideAlignmentConstants.isNucleotideEncodings(a.alleleDefinitions())) {
+                                builder.append("\n");
+                                builder.append("Nucleotide Codes\n(Derived from IUPAC)...\n");
+                                builder.append("A     A:A\n");
+                                builder.append("C     C:C\n");
+                                builder.append("G     G:G\n");
+                                builder.append("T     T:T\n");
+                                builder.append("R     A:G\n");
+                                builder.append("Y     C:T\n");
+                                builder.append("S     C:G\n");
+                                builder.append("W     A:T\n");
+                                builder.append("K     G:T\n");
+                                builder.append("M     A:C\n");
+                                builder.append("+     +:+ (insertion)\n");
+                                builder.append("0     +:-\n");
+                                builder.append("-     -:- (deletion)\n");
+                                builder.append("N     Unknown\n\n");
+                            }
+                        } catch (Exception ex) {
+                            myLogger.debug(ex.getMessage(), ex);
+                        }
+
                     }
                     if (book.getData() instanceof TableReport) {
                         TableReport tr = (TableReport) book.getData();
