@@ -66,7 +66,8 @@ public class NumericalGenotypePlugin extends AbstractPlugin {
         GenotypeTable myNewGenotype;
         StringBuilder nameBuilder = new StringBuilder(datumList.get(0).getName());
         nameBuilder.append("_with_Probability");
-        StringBuilder commentBuilder = new StringBuilder(datumList.get(0).getComment());
+        StringBuilder commentBuilder = new StringBuilder();
+        if (datumList.get(0).getComment() != null) commentBuilder.append(datumList.get(0).getComment());
         
         switch(myTransformType) {
         case as_minor:
