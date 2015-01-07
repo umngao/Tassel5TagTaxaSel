@@ -77,8 +77,8 @@ public class StepwiseOLSModelFitter {
     private double alpha = 0.05;
     private double[] minPvalues = null;
 
-	private final String[] anovaReportHeader = new String[]{"Trait", "Name","Locus","Position","df","SS","MS", "F", "pr>F", "BIC", "mBIC", "AIC"};
-    private final String[] anovaReportWithCIHeader = new String[]{"Trait", "Name","Locus","Position","df","SS","MS", "F", "pr>F", "BIC", "mBIC", "AIC", "SuppLeft", "SuppRight"};
+	private final String[] anovaReportHeader = new String[]{"Trait", "Name","Locus","Position","df","SS","MS", "F", "pr>F", "BIC", "mBIC", "AIC", "Model Rsq"};
+    private final String[] anovaReportWithCIHeader = new String[]{"Trait", "Name","Locus","Position","df","SS","MS", "F", "pr>F", "BIC", "mBIC", "AIC", "Model Rsq", "SuppLeft", "SuppRight"};
     
 	GenotypeTable myGenotype;
 	Phenotype myPhenotype;
@@ -116,7 +116,10 @@ public class StepwiseOLSModelFitter {
 			currentPhenotypeIndex++;
 			if (enterlimits != null) enterlimit = enterlimits[currentPhenotypeIndex];
 			if (exitlimits != null) exitlimit = exitlimits[currentPhenotypeIndex];
-
+			globalbestbic = Double.MAX_VALUE; 
+			globalbestmbic = Double.MAX_VALUE;
+			globalbestaic = Double.MAX_VALUE;
+			
 			//get phenotype data
 			float[] phenotypeData = currentTrait.floatValues();
 
@@ -131,7 +134,7 @@ public class StepwiseOLSModelFitter {
 
 			y = AssociationUtils.getNonMissingDoubles(phenotypeData, missing);
 			fitModel();
-			scanAndFindCI();
+			scanAndFindCI();    
 		}
 
 		return null;
@@ -1176,6 +1179,8 @@ public class StepwiseOLSModelFitter {
 			reportRow[ptr++] = new Double(bic);
 			reportRow[ptr++] = new Double(mbic);
 			reportRow[ptr++] = new Double(aic);
+			double[] modelSSdf = sflm.getModelcfmSSdf();
+			reportRow[ptr++] = new Double(modelSSdf[0]/(modelSSdf[0] + residualSSdf[0]));
 			reportTable.add(reportRow);
 			effectPtr++;
 		}
@@ -1266,6 +1271,9 @@ public class StepwiseOLSModelFitter {
 			reportRow[ptr++] = new Double(bic);
 			reportRow[ptr++] = new Double(mbic);
 			reportRow[ptr++] = new Double(aic);
+			double[] modelSSdf = sflm.getModelcfmSSdf();
+			reportRow[ptr++] = new Double(modelSSdf[0]/(modelSSdf[0] + residualSSdf[0]));
+
 			//System.out.println("The value of effectPtr is "+effectPtr);
 
 			if (me.getID() instanceof SNP) {
