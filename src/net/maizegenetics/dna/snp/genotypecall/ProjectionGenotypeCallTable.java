@@ -38,7 +38,6 @@ public class ProjectionGenotypeCallTable extends AbstractGenotypeCallTable {
     };
     private BaseMode currMode = BaseMode.Taxa;
     private ArrayList<RangeMap<Integer, DonorSiteHaps>> breakMaps;
-    private DonorSiteHaps[] currentDSH;
     private byte[] donorForCachedSite;
     private byte[] projForCachedTaxon;
     private int cachedSite = -1;
@@ -60,7 +59,6 @@ public class ProjectionGenotypeCallTable extends AbstractGenotypeCallTable {
             }
             breakMaps.add(tRM);
         }
-        currentDSH = new DonorSiteHaps[numberOfTaxa()];
         primDSH = new int[myTaxaCount * 4];
         Arrays.fill(primDSH, Integer.MIN_VALUE);
     }
@@ -115,15 +113,12 @@ public class ProjectionGenotypeCallTable extends AbstractGenotypeCallTable {
     }
 
     private byte getBaseGeneral(int taxon, int site) {
-        if ((currentDSH[taxon] == null) || (!currentDSH[taxon].containsSite(site))) {
-            currentDSH[taxon] = breakMaps.get(taxon).get(site);
-            if (currentDSH[taxon] == null) {
-                return GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
-            }
-            //TODO consider null
+        DonorSiteHaps currentDSH = breakMaps.get(taxon).get(site);
+        if (currentDSH == null) {
+            return GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
         }
-        byte p1 = myBaseGenoTable.genotype(currentDSH[taxon].getParent1index(), site);
-        byte p2 = myBaseGenoTable.genotype(currentDSH[taxon].getParent2index(), site);
+        byte p1 = myBaseGenoTable.genotype(currentDSH.getParent1index(), site);
+        byte p2 = myBaseGenoTable.genotype(currentDSH.getParent2index(), site);
         return GenotypeTableUtils.getUnphasedDiploidValueNoHets(p1, p2);
     }
 

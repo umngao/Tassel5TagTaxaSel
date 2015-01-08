@@ -96,6 +96,7 @@ import net.maizegenetics.analysis.gbs.UTagPairToTOPMPlugin;
 import net.maizegenetics.analysis.imputation.FILLINFindHaplotypesPlugin;
 import net.maizegenetics.analysis.imputation.FILLINImputationPlugin;
 import net.maizegenetics.analysis.imputation.FSFHapImputationPlugin;
+import net.maizegenetics.analysis.imputation.RemoveIndelsForBeaglePlugin;
 import net.maizegenetics.analysis.numericaltransform.ImputationPlugin;
 
 /**
@@ -105,8 +106,8 @@ import net.maizegenetics.analysis.numericaltransform.ImputationPlugin;
 public class TASSELMainFrame extends JFrame implements ActionListener {
 
     private static final Logger myLogger = Logger.getLogger(TASSELMainFrame.class);
-    public static final String version = "5.2.2";
-    public static final String versionDate = "December 18, 2014";
+    public static final String version = "5.2.3";
+    public static final String versionDate = "January 8, 2015";
     private DataTreePanel myDataTreePanel;
     private String tasselDataFile = "TasselDataFile";
     //a variable to control when the progress bar was last updated
@@ -668,6 +669,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new FILLINImputationPlugin(this, true)));
         result.add(createMenuItem(new FSFHapImputationPlugin(this, true)));
         result.add(createMenuItem(new ImputationPlugin(this, true)));
+        result.add(createMenuItem(new RemoveIndelsForBeaglePlugin(this, true)));
         return result;
     }
 
