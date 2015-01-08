@@ -12,6 +12,7 @@ import javax.swing.ImageIcon;
 
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTable.GENOTYPE_TABLE_COMPONENT;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.GenotypePhenotype;
@@ -22,16 +23,18 @@ import net.maizegenetics.phenotype.PhenotypeAttribute;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.stats.linearmodels.CovariateModelEffect;
 import net.maizegenetics.stats.linearmodels.FactorModelEffect;
 import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.SolveByOrthogonalizing;
+import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.TableReportBuilder;
 
 public class EqtlAssociationPlugin extends AbstractPlugin {
-	private GenotypeTable.GENOTYPE_TABLE_COMPONENT[] GENOTYPE_COMP = new GenotypeTable.GENOTYPE_TABLE_COMPONENT[]{
-	        GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype, GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability, GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability};
+	private GENOTYPE_TABLE_COMPONENT[] GENOTYPE_COMP = new GENOTYPE_TABLE_COMPONENT[]{
+	        GENOTYPE_TABLE_COMPONENT.Genotype, GENOTYPE_TABLE_COMPONENT.ReferenceProbability, GENOTYPE_TABLE_COMPONENT.AlleleProbability};
 
 	private Datum myDatum;
 	private GenotypePhenotype myGenoPheno;
@@ -48,17 +51,17 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 			.build();
     private PluginParameter<Boolean> addOnly = new PluginParameter.Builder<>("addOnly", false, Boolean.class)
     		.description("Should an additive only model be fit? If true, an additive model will be fit. If false, an additive + dominance model will be fit. Default = false.")
-    		.guiName("Save to file")
+    		.guiName("Additive Only Model")
     		.build();
-	private PluginParameter<GenotypeTable.GENOTYPE_TABLE_COMPONENT> myGenotypeTable = new PluginParameter.Builder<>("genotypeComponent", GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype, GenotypeTable.GENOTYPE_TABLE_COMPONENT.class)
+	private PluginParameter<GENOTYPE_TABLE_COMPONENT> myGenotypeTable = new PluginParameter.Builder<>("genotypeComponent", GENOTYPE_TABLE_COMPONENT.Genotype, GENOTYPE_TABLE_COMPONENT.class)
 			.genotypeTable()
 	        .range(GENOTYPE_COMP)
 	        .description("If the genotype table contains more than one type of genotype data, choose the type to use for the analysis.")
 	        .build();
-    private PluginParameter<Boolean> saveAsFile = new PluginParameter.Builder<>("saveToFile", false, Boolean.class)
+    private PluginParameter<Boolean> saveAsFile = new PluginParameter.Builder<>("writeToFile", false, Boolean.class)
     		.description("Should the results be saved to a file rather than stored in memory? It true, the results will be written to a file as each SNP is analyzed in order to reduce memory requirements"
     				+ "and the results will NOT be saved to the data tree. Default = false.")
-    		.guiName("Save to file")
+    		.guiName("Write to file")
     		.build();
     private PluginParameter<String> reportFilename = new PluginParameter.Builder<>("outputFile", null, String.class)
     		.outFile()
@@ -116,7 +119,8 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	
 	private void initializeOutput() {
 		//output is a TableReport with p-value; site position information: chr, position, id; trait name
-		String[] columnNames = new String[]{"Trait", "Site_id", "Chr", "Position", "p-value" };
+		//add separate values for additive test and dominant test later
+		String[] columnNames = new String[]{"Trait", "Site_id", "Chr", "Position", "df", "r2", "p-value" };
 		String name = "EqtlReport_" + myDatum.getName();
 		if (saveAsFile.value()) myReportBuilder = TableReportBuilder.getInstance(name, columnNames, reportFilename.value());
 		else myReportBuilder = TableReportBuilder.getInstance(name, columnNames);
@@ -125,10 +129,11 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	private void updateOutputWithPvalues(SolveByOrthogonalizing.Marker markerResult) {
 		double maxpval = maxp.value();
 		double[] pvalues = markerResult.vector2();
+		double[] rvalues = markerResult.vector1();
 		int npheno = pvalues.length;
 		Position pos = markerResult.position();
 		IntStream.range(0, npheno).filter(i -> pvalues[i] < maxpval)
-			.forEach(i -> myReportBuilder.add(new Object[]{phenotypeNames.get(i), pos.getSNPID(), pos.getChromosome().getName(), pos.getPosition(), pvalues[i]}));
+			.forEach(i -> myReportBuilder.add(new Object[]{phenotypeNames.get(i), pos.getSNPID(), pos.getChromosome().getName(), pos.getPosition(), markerResult.degreesOfFreedom(), rvalues[i], pvalues[i]}));
 	}
 	
 	private void initializeOrthogonalizer() {
@@ -238,5 +243,142 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		return null;
 	}
 	
-	
+     // The following getters and setters were auto-generated.
+     // Please use this method to re-generate.
+     //
+     // public static void main(String[] args) {
+     //     GeneratePluginCode.generate(EqtlAssociationPlugin.class);
+     // }
+
+     /**
+      * Convenience method to run plugin with one return object.
+      */
+     // TODO: Replace <Type> with specific type.
+     public TableReport runPlugin(DataSet input) {
+         return (TableReport) performFunction(input).getData(0).getData();
+     }
+
+     /**
+      * The maximum p-value that will be output by the analysis.
+      *
+      * @return MaxPValue
+      */
+     public Double maxPValue() {
+         return maxp.value();
+     }
+
+     /**
+      * Set MaxPValue. The maximum p-value that will be output
+      * by the analysis.
+      *
+      * @param value MaxPValue
+      *
+      * @return this plugin
+      */
+     public EqtlAssociationPlugin maxPValue(Double value) {
+         maxp = new PluginParameter<>(maxp, value);
+         return this;
+     }
+
+     /**
+      * Should an additive only model be fit? If true, an additive
+      * model will be fit. If false, an additive + dominance
+      * model will be fit. Default = false.
+      *
+      * @return Additive Only Model
+      */
+     public Boolean additiveOnlyModel() {
+         return addOnly.value();
+     }
+
+     /**
+      * Set Additive Only Model. Should an additive only model
+      * be fit? If true, an additive model will be fit. If
+      * false, an additive + dominance model will be fit. Default
+      * = false.
+      *
+      * @param value Additive Only Model
+      *
+      * @return this plugin
+      */
+     public EqtlAssociationPlugin additiveOnlyModel(Boolean value) {
+         addOnly = new PluginParameter<>(addOnly, value);
+         return this;
+     }
+
+     /**
+      * If the genotype table contains more than one type of
+      * genotype data, choose the type to use for the analysis.
+      *
+      * @return Genotype Component
+      */
+     public GENOTYPE_TABLE_COMPONENT genotypeComponent() {
+         return myGenotypeTable.value();
+     }
+
+     /**
+      * Set Genotype Component. If the genotype table contains
+      * more than one type of genotype data, choose the type
+      * to use for the analysis.
+      *
+      * @param value Genotype Component
+      *
+      * @return this plugin
+      */
+     public EqtlAssociationPlugin genotypeComponent(GENOTYPE_TABLE_COMPONENT value) {
+         myGenotypeTable = new PluginParameter<>(myGenotypeTable, value);
+         return this;
+     }
+
+     /**
+      * Should the results be saved to a file rather than stored
+      * in memory? It true, the results will be written to
+      * a file as each SNP is analyzed in order to reduce memory
+      * requirementsand the results will NOT be saved to the
+      * data tree. Default = false.
+      *
+      * @return Write to file
+      */
+     public Boolean writeToFile() {
+         return saveAsFile.value();
+     }
+
+     /**
+      * Set Write to file. Should the results be saved to a
+      * file rather than stored in memory? It true, the results
+      * will be written to a file as each SNP is analyzed in
+      * order to reduce memory requirementsand the results
+      * will NOT be saved to the data tree. Default = false.
+      *
+      * @param value Write to file
+      *
+      * @return this plugin
+      */
+     public EqtlAssociationPlugin writeToFile(Boolean value) {
+         saveAsFile = new PluginParameter<>(saveAsFile, value);
+         return this;
+     }
+
+     /**
+      * The name of the file to which these results will be
+      * saved.
+      *
+      * @return Output File
+      */
+     public String outputFile() {
+         return reportFilename.value();
+     }
+
+     /**
+      * Set Output File. The name of the file to which these
+      * results will be saved.
+      *
+      * @param value Output File
+      *
+      * @return this plugin
+      */
+     public EqtlAssociationPlugin outputFile(String value) {
+         reportFilename = new PluginParameter<>(reportFilename, value);
+         return this;
+     }
 }

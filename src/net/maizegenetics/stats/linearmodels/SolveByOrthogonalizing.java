@@ -258,6 +258,10 @@ public class SolveByOrthogonalizing {
 		public double[] vector1() { return vector1; }
 		public double[] vector2() { return vector2; }
 		public boolean hasTwoVectors() { return vector2 != null; }
+		public int degreesOfFreedom() {
+			if (vector2 == null) return 1;
+			return 2;
+		}
 	}
 	
 }
