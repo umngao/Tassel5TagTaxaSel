@@ -68,8 +68,9 @@ public class AlleleDepth extends SiteScore {
         int count = 0;
         for (SITE_SCORE_TYPE current : ALLELE_DEPTH_TYPES) {
             for (int site = 0; site < numSites(); site++) {
-                result[count++][site] = value(taxon, site, current);
+                result[count][site] = value(taxon, site, current);
             }
+            count++;
         }
         return result;
     }
@@ -122,8 +123,9 @@ public class AlleleDepth extends SiteScore {
         int count = 0;
         for (SITE_SCORE_TYPE current : ALLELE_DEPTH_TYPES) {
             for (int site = 0; site < numSites(); site++) {
-                result[count++][site] = valueByte(taxon, site, current);
+                result[count][site] = valueByte(taxon, site, current);
             }
+            count++;
         }
         return result;
     }
@@ -142,8 +144,9 @@ public class AlleleDepth extends SiteScore {
         int count = 0;
         for (SITE_SCORE_TYPE current : ALLELE_DEPTH_TYPES) {
             for (int taxon = 0; taxon < numTaxa(); taxon++) {
-                result[count++][taxon] = valueByte(taxon, site, current);
+                result[count][taxon] = valueByte(taxon, site, current);
             }
+            count++;
         }
         return result;
     }
