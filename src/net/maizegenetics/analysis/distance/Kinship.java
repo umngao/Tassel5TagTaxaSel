@@ -75,7 +75,7 @@ public class Kinship extends DistanceMatrix {
     	if (kinshipType == KINSHIP_TYPE.Endelman) {
     		calculateKinshipFromMarkers();
     	} else {
-        	IBSDistanceMatrix adm = new IBSDistanceMatrix(mar, 0, true, null);
+        	IBSDistanceMatrix adm = new IBSDistanceMatrix(mar, 0, true, null, true);
         	dm = new DistanceMatrix(adm.getDistances(), mar.taxa());
         	toSimilarity();
         	getKStatistics();
