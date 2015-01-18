@@ -23,17 +23,18 @@ public class ImputationByMean {
         int cols = data[0].length;
         //double[][] normData = Conversion.nomalizeData(data);
         double[][] result = new double[rows][cols];
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                if (!Double.isNaN(data[i][j])) {
-                    result[i][j] = data[i][j];
-                } else {
-                    result[i][j] = mean(j, data);
-                }
-            }
+        for (int j = 0; j < cols; j++) {
+        	double colmean = mean(j, data);
+        	for (int i = 0; i < rows; i++) {
+        		if (!Double.isNaN(data[i][j])) {
+        			result[i][j] = data[i][j];
+        		} else {
+        			result[i][j] = colmean;
+        		}
+        	}
         }
+        
         return result;
-
     }
 
     /**
@@ -46,12 +47,14 @@ public class ImputationByMean {
         int rows = data.length;
         double average;
         double sum = 0;
+        double count = 0;
         for (int i = 0; i < rows; i++) {
             if (!Double.isNaN(data[i][col])) {
-                sum = sum + data[i][col];
+                sum += data[i][col];
+                count++;
             }
         }
-        average = sum / rows;
+        average = sum / count;
         return average;
     }
 
