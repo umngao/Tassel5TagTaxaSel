@@ -50,9 +50,9 @@ public class SolveByOrthogonalizing {
 	}
 	
 	public SolveByOrthogonalizing.Marker solveForR(Position pos, double[] values) {
-		double[] centeredValues = center(values);
-		double[] orthoValues = orthogonalizeByBase(centeredValues);
-		double[] csVales = centerAndScale(orthoValues);
+//		double[] centeredValues = center(values);
+//		double[] orthoValues = orthogonalizeByBase(centeredValues);
+//		double[] csVales = centerAndScale(orthoValues);
 		double[] orthogonalValues = centerAndScale(orthogonalizeByBase(center(values)));
 		double[] rValues = myOrthogonalizedData.stream().mapToDouble(d -> innerProduct(d, orthogonalValues)).map(d -> d*d).toArray();
 		

@@ -31,6 +31,7 @@ import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.SolveByOrthogonalizing;
 import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.TableReportBuilder;
+import net.maizegenetics.util.TableReportUtils;
 
 public class EqtlAssociationPlugin extends AbstractPlugin {
 	private GENOTYPE_TABLE_COMPONENT[] GENOTYPE_COMP = new GENOTYPE_TABLE_COMPONENT[]{
@@ -89,7 +90,7 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		final int nsites = myGenotype.numberOfSites();
     	if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype) {
     		if (addOnly.value()) {
-        		IntStream.range(0, nsites).parallel()
+        		IntStream.range(0, nsites)
     			.mapToObj(s-> orthogonalSolver.solveForR(myGenotype.positions().get(s), additiveSite(s)))
     			.forEach(this::updateOutputWithPvalues);
     		} else {
@@ -112,6 +113,8 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
     		String comment = "Rapid Eqtl analysis.";
     		Datum outDatum = new Datum(name, myReportBuilder.build(), comment);
     		return new DataSet(outDatum, this);
+    	} else {
+    		myReportBuilder.build();
     	}
     	
 		return null;
@@ -133,7 +136,11 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		int npheno = pvalues.length;
 		Position pos = markerResult.position();
 		IntStream.range(0, npheno).filter(i -> pvalues[i] < maxpval)
-			.forEach(i -> myReportBuilder.add(new Object[]{phenotypeNames.get(i), pos.getSNPID(), pos.getChromosome().getName(), pos.getPosition(), markerResult.degreesOfFreedom(), rvalues[i], pvalues[i]}));
+			.forEach(i -> addToReport(new Object[]{phenotypeNames.get(i), pos.getSNPID(), pos.getChromosome().getName(), pos.getPosition(), markerResult.degreesOfFreedom(), rvalues[i], pvalues[i]}));
+	}
+	
+	private synchronized void addToReport(Object[] row) {
+		myReportBuilder.add(row);
 	}
 	
 	private void initializeOrthogonalizer() {
@@ -165,16 +172,22 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	
 	private void testMissingDataInTheBaseModel() {
 		for (PhenotypeAttribute attr:myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor)) {
-			String msg = "There is missing data in the factor " + attr.name();
-			throw new IllegalArgumentException(msg);
+			if (attr.missing().cardinality() > 0) {
+				String msg = "There is missing data in the factor " + attr.name();
+				throw new IllegalArgumentException(msg);
+			}
 		}
 		for (PhenotypeAttribute attr:myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.covariate)) {
-			String msg = "There is missing data in the covariate " + attr.name();
-			throw new IllegalArgumentException(msg);
+			if (attr.missing().cardinality() > 0) {
+				String msg = "There is missing data in the covariate " + attr.name();
+				throw new IllegalArgumentException(msg);
+			}
 		}
 		for (PhenotypeAttribute attr:myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data)) {
-			String msg = "There is missing data in the phenotype " + attr.name();
-			throw new IllegalArgumentException(msg);
+			if (attr.missing().cardinality() > 0) {
+				String msg = "There is missing data in the phenotype " + attr.name();
+				throw new IllegalArgumentException(msg);
+			}
 		}
 	}
 	
@@ -207,7 +220,13 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	private double[] replaceNansWithMean(double[] array) {
 		//replaces the Nans in array with the mean and returns array as a convenience
 		int n = array.length;
-		double mean = Arrays.stream(array).sum() / n;
+		double sum = 0;
+		double count = 0;
+		for (int i = 0; i < n; i++) if (!Double.isNaN(array[i])) {
+			sum += array[i];
+			count++;
+		}
+		double mean = sum/count;
 		for (int i = 0; i < n; i++) if (Double.isNaN(array[i])) array[i] = mean;
 		return array;
 	}
@@ -233,14 +252,12 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 
 	@Override
 	public String getButtonName() {
-		// TODO Auto-generated method stub
-		return null;
+		return "FastAssociation";
 	}
 
 	@Override
 	public String getToolTipText() {
-		// TODO Auto-generated method stub
-		return null;
+		return "Use a fixed effect linear model to test variants quickly.";
 	}
 	
      // The following getters and setters were auto-generated.
@@ -253,7 +270,6 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
      /**
       * Convenience method to run plugin with one return object.
       */
-     // TODO: Replace <Type> with specific type.
      public TableReport runPlugin(DataSet input) {
          return (TableReport) performFunction(input).getData(0).getData();
      }
