@@ -15,11 +15,14 @@ import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginEvent;
 import net.maizegenetics.gui.TableReportNoPagingTableModel;
+import net.maizegenetics.tassel.TASSELMainFrame;
 
 import org.apache.log4j.Logger;
 
 import javax.swing.*;
 import javax.swing.table.TableModel;
+import javax.swing.tree.DefaultMutableTreeNode;
+
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -30,11 +33,14 @@ import java.io.StringWriter;
 import java.net.URL;
 import java.text.Collator;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  *
- * @author Ed Buckler
+ * @author Ed Buckler, Zack Miller
  */
 public class SynonymizerPlugin extends AbstractPlugin {
 
@@ -68,36 +74,247 @@ public class SynonymizerPlugin extends AbstractPlugin {
                 }
             }
             DataSet newInput = new DataSet(data, this);
-
-            int alignCnt = newInput.getDataOfType(TaxaList.class).size();
-            int synCnt = newInput.getDataOfType(IdentifierSynonymizer.class).size();
-            if ((synCnt == 0) && (alignCnt > 1)) {  //create a new synonymizer
-                Datum td = createSynonymizer(newInput);
-                DataSet output = new DataSet(td, this);
-                fireDataSetReturned(new PluginEvent(output, SynonymizerPlugin.class));
-                return output;
-            } else if ((synCnt == 1) && (alignCnt > 0)) {   //apply synonymizer to alignments
-                applySynonymsToIdGroups(newInput);
-            } else if ((synCnt == 1) && (alignCnt == 0)) {
-                if (isInteractive()) {
-                    Datum inputDatum = newInput.getDataOfType(IdentifierSynonymizer.class).get(0);
-                    IdentifierSynonymizer is = (IdentifierSynonymizer) inputDatum.getData();
-                    SynonymizerDialog theSD = new SynonymizerDialog(is, getParentFrame());
-                    theSD.setLocationRelativeTo(getParentFrame());
-                    theSD.setVisible(true);
-                }
-            } else {
-                String msg = "To create a synonym list:\n Please first select the reference taxa names and then the synonym taxa names (use Ctrl key)\n"
-                        + "To apply a synonym list to a dataset:\n Select a synonym list and then the taxa names to be changed (use Ctrl key)";
-                if (isInteractive()) {
+            if(isInteractive()) {
+                
+                TASSELMainFrame frame = (TASSELMainFrame)getParentFrame();
+                Map map = frame.getDataTreePanel().getDataList();
+                Object[] datumArray = map.keySet().toArray(); 
+                
+                //check to see if the user has loaded at least 2 files
+                if(datumArray.length<2) {
+                    String msg = "Error:  Make sure at least 2 files are loaded into TASSEL before attempting to Synonymize.";
                     JOptionPane.showMessageDialog(getParentFrame(), msg);
-                } else {
-                    myLogger.error(msg);
                 }
+                else {
+                    boolean[] menuArray = {false,false,false};
+                    SynMenuDialog menuDiag = new SynMenuDialog(menuArray,getParentFrame());
+                    menuDiag.setLocationRelativeTo(getParentFrame());
+                    menuDiag.setVisible(true);
+                    
+                    if(menuArray[0] == true) {
+                       
+                        //Check to see if user has selected files like before
+                        String[] initialSelections = new String[2];
+                        if(data.size()>1) {
+                            //Set comboboxes to match
+                            initialSelections[0] = data.get(0).getName();
+                            initialSelections[1] = data.get(1).getName();
+                        }
+                        else {
+                            //First and Second file
+                            Datum firstDatum = (Datum)datumArray[0];
+                            initialSelections[0] = firstDatum.getName();
+                            Datum secondDatum = (Datum)datumArray[1];
+                            initialSelections[1] = secondDatum.getName();
+                        }
+
+                        int[] fileOptions = new int[3];
+                        SynonymizerFileChooser fileChooseDiag= new SynonymizerFileChooser(getParentFrame(),datumArray,fileOptions,initialSelections,"Step1");
+                        fileChooseDiag.setLocationRelativeTo(getParentFrame());
+                        fileChooseDiag.setVisible(true);
+                        if(fileOptions[0]!=-1) {
+                            ArrayList<Datum> datumList = new ArrayList<Datum>();
+                            for(int i = 0; i<fileOptions.length-1;i++) {
+                                Datum current = (Datum)datumArray[fileOptions[i]];
+                                Object currentData = current.getData();
+                                if (currentData instanceof GenotypeTable) {
+                                    TaxaList idGroup = ((GenotypeTable) currentData).taxa();
+                                    Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+                                    datumList.add(idGroupDatum);
+                                } else if (currentData instanceof Phenotype) {
+                                    TaxaList idGroup = ((Phenotype) currentData).taxa();
+                                    Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+                                    datumList.add(idGroupDatum);
+                                } else {
+                                    datumList.add(current);
+                                }
+                            }
+                           
+                            DataSet newInputDataSet = new DataSet(datumList, this);
+                            Datum td = createSynonymizer(newInputDataSet);
+                            DataSet output = new DataSet(td, this);
+                            fireDataSetReturned(new PluginEvent(output, SynonymizerPlugin.class));
+                            return output;
+                        
+                        }
+                    }
+                    else if(menuArray[1] == true) {
+
+                        //Do a quick check to make sure there is at least one Synonym loaded
+                        boolean hasSynonymFile = false;
+                        for(int i = 0;i<datumArray.length;i++) {
+                            Datum currentDatum = (Datum)datumArray[i];
+                            if(currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
+                                hasSynonymFile = true;
+                            }
+                        }
+                        if(!hasSynonymFile) {
+                            String msg = "Error:  No Synonymize files have been found.  Make sure at least one Synonymize File and at least one Standard File are loaded."
+                                    + "\nPlease run the first step.";
+                            JOptionPane.showMessageDialog(getParentFrame(), msg);
+                        }
+                        else {
+                          //Check to see if user has selected files like before
+                            String[] initialSelections = new String[1];
+                            boolean errorOut = false;
+                            boolean validSelection = false;
+                            //If there is a selection
+                            if(data.size()>0) {
+                                //Set comboboxes to match
+                                if(data.get(0).getDataType().equals(IdentifierSynonymizer.class)) {
+                                    initialSelections[0] = data.get(0).getName();
+                                    validSelection = true;
+                                }
+                            }
+                            
+                            if(!validSelection) {
+                              //First file which is an IdentifierSynonymizer
+                                initialSelections[0] = "";
+                                for(int i = 0; i<datumArray.length;i++) {
+                                    Datum currentDatum = (Datum)datumArray[i];
+                                    if(currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
+                                        initialSelections[0] = currentDatum.getName();
+                                        break;
+                                    }
+                                }
+                                if(initialSelections[0].equals("")) {
+                                    String msg = "Error:  No Synonymize files have been found.  Please run the first step.";
+                                    JOptionPane.showMessageDialog(getParentFrame(), msg);
+                                    errorOut = true;
+                                }
+                            
+                            }
+                           
+                            if(!errorOut) {
+                                int[] fileOptions = new int[1];
+                                fileOptions[0] = -1;
+                                SynonymizerFileChooser fileChooseDiag= new SynonymizerFileChooser(getParentFrame(),datumArray,fileOptions,initialSelections,"Step2");
+                                fileChooseDiag.setLocationRelativeTo(getParentFrame());
+                                fileChooseDiag.setVisible(true);
+                                if(fileOptions[0]!=-1) {
+                                    Datum current = (Datum)datumArray[fileOptions[0]];
+                                    IdentifierSynonymizer is = (IdentifierSynonymizer) current.getData();
+                                    SynonymizerDialog theSD = new SynonymizerDialog(is, getParentFrame());
+                                    theSD.setLocationRelativeTo(getParentFrame());
+                                    theSD.setVisible(true);
+                                }
+                            }
+                        }                    
+                    }
+                    else if(menuArray[2]==true) {
+                        //Do a quick check to make sure there is at least one Synonym loaded
+                        boolean hasSynonymFile = false;
+                        for(int i = 0;i<datumArray.length;i++) {
+                            Datum currentDatum = (Datum)datumArray[i];
+                            if(currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
+                                hasSynonymFile = true;
+                            }
+                        }
+                        if(!hasSynonymFile) {
+                            String msg = "Error:  No Synonymize files have been found.  Make sure at least one Synonymize File and at least one Standard File are loaded."
+                                    + "\nPlease run the first step.";
+                            JOptionPane.showMessageDialog(getParentFrame(), msg);
+                        }
+                        else {
+                          //Check to see if user has selected files like before
+                            //initSelections[0] is the SynonymizerFile
+                            //initSelections[1] is the File to be Synonymized
+                            String[] initialSelections = new String[2];
+                            boolean errorOut = false;
+                            boolean validSelection = false;
+                            //If there is a selection
+                            if(data.size()>1) {
+                                //Set comboboxes to match
+                                if(data.get(0).getDataType().equals(IdentifierSynonymizer.class)) {
+                                    initialSelections[0] = data.get(0).getName();
+                                    initialSelections[1] = data.get(1).getName();
+                                    validSelection = true;
+                                }
+                            }
+                            if(!validSelection) {
+                              //First file which is an IdentifierSynonymizer
+                                initialSelections[0] = "";
+                                initialSelections[1] = "";
+                                for(int i = 0; i<datumArray.length;i++) {
+                                    Datum currentDatum = (Datum)datumArray[i];
+                                    if(initialSelections[1].equals("") && !currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
+                                        initialSelections[1] = currentDatum.getName();
+                                    }
+                                    if(currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
+                                        initialSelections[0] = currentDatum.getName();
+                                        break;
+                                    }
+                                }
+                                if(initialSelections[0].equals("")) {
+                                    String msg = "Error:  No Synonymize files have been found.  Please run the first step.";
+                                    JOptionPane.showMessageDialog(getParentFrame(), msg);
+                                    errorOut = true;
+                                }
+                            
+                            }
+                           
+                            if(!errorOut) {
+                                int[] fileOptions = new int[2];
+                                SynonymizerFileChooser fileChooseDiag= new SynonymizerFileChooser(getParentFrame(),datumArray,fileOptions,initialSelections,"Step3");
+                                fileChooseDiag.setLocationRelativeTo(getParentFrame());
+                                fileChooseDiag.setVisible(true);
+                                
+                                if(fileOptions[0]!=-1) {
+                                    ArrayList<Datum> datumList = new ArrayList<Datum>();
+                                    for(int i = 0; i<fileOptions.length;i++) {
+                                        Datum current = (Datum)datumArray[fileOptions[i]];
+                                        Object currentData = current.getData();
+                                        if (currentData instanceof GenotypeTable) {
+                                            TaxaList idGroup = ((GenotypeTable) currentData).taxa();
+                                            Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+                                            datumList.add(idGroupDatum);
+                                        } else if (currentData instanceof Phenotype) {
+                                            TaxaList idGroup = ((Phenotype) currentData).taxa();
+                                            Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+                                            datumList.add(idGroupDatum);
+                                        } else {
+                                            datumList.add(current);
+                                        }
+                                    }
+                                    DataSet newInputDataSet = new DataSet(datumList, this);
+                                    applySynonymsToIdGroups(newInputDataSet);
+                                }
+                            }                          
+                        }
+                    }
+                }
+                return null;
             }
-
-            return null;
-
+            else {
+                int alignCnt = newInput.getDataOfType(TaxaList.class).size();
+                int synCnt = newInput.getDataOfType(IdentifierSynonymizer.class).size();
+                if ((synCnt == 0) && (alignCnt > 1)) {  //create a new synonymizer
+                    Datum td = createSynonymizer(newInput);
+                    DataSet output = new DataSet(td, this);
+                    fireDataSetReturned(new PluginEvent(output, SynonymizerPlugin.class));
+                    return output;
+                } else if ((synCnt == 1) && (alignCnt > 0)) {   //apply synonymizer to alignments
+                    applySynonymsToIdGroups(newInput);
+                } else if ((synCnt == 1) && (alignCnt == 0)) {
+                    if (isInteractive()) {
+                        Datum inputDatum = newInput.getDataOfType(IdentifierSynonymizer.class).get(0);
+                        IdentifierSynonymizer is = (IdentifierSynonymizer) inputDatum.getData();
+                        SynonymizerDialog theSD = new SynonymizerDialog(is, getParentFrame());
+                        theSD.setLocationRelativeTo(getParentFrame());
+                        theSD.setVisible(true);
+                    }
+                } else {
+                    String msg = "To create a synonym list:\n Please first select the reference taxa names and then the synonym taxa names (use Ctrl key)\n"
+                            + "To apply a synonym list to a dataset:\n Select a synonym list and then the taxa names to be changed (use Ctrl key)";
+                    if (isInteractive()) {
+                        JOptionPane.showMessageDialog(getParentFrame(), msg);
+                    } else {
+                        myLogger.error(msg);
+                    }
+                }
+    
+                return null;
+            }
         } finally {
             fireProgress(100);
         }
@@ -464,5 +681,487 @@ class SynonymizerDialog extends JDialog {
                 }
             }
         }
+    }
+}
+class SynMenuDialog extends JDialog {
+    private JFrame frmSynonymizerOperationMode;
+    private boolean[] option;
+
+    /**
+     * Create the application.
+     */
+    public SynMenuDialog(boolean[] option,Frame frame) {
+        super((Frame) frame, true);
+        this.option = option;
+        this.frmSynonymizerOperationMode = (JFrame)frame;
+        initialize();
+        this.pack();
+    }
+
+    /**
+     * Initialize the contents of the frame.
+     */
+    private void initialize() {
+        BorderLayout borderLayout = (BorderLayout) frmSynonymizerOperationMode.getContentPane().getLayout();
+        borderLayout.setVgap(5);        
+        
+        JPanel basePanel = new JPanel();
+        basePanel.setPreferredSize(new Dimension(500,300));
+        this.getContentPane().add(basePanel, BorderLayout.CENTER);
+        basePanel.setLayout(new GridLayout(3, 1, 0, 0));
+        
+        JButton btnChooseOpt1 = new JButton("Choose");
+        btnChooseOpt1.addActionListener(new ActionListener() {
+                public void actionPerformed(ActionEvent e) {
+                    menuButtonPressed(0);    
+                    setVisible(false);//TODO Change to dispose with the rest of them
+                }
+        });
+        basePanel.add(btnChooseOpt1);
+        
+        JLabel lblGenerateSynonymList = new JLabel("<html>1. Generate Synonym List From 2 Files Containing Taxa.</html>");
+        basePanel.add(lblGenerateSynonymList);
+        
+        JButton btnChooseOpt2 = new JButton("Choose");
+        btnChooseOpt2.addActionListener(new ActionListener() {
+                public void actionPerformed(ActionEvent e) {
+                    menuButtonPressed(1);
+                    setVisible(false);
+                }
+        });
+        basePanel.add(btnChooseOpt2);
+        
+        JLabel lblManuallyEditSynonym = new JLabel("<html>2. Manually Edit Synonym List</html>");
+        basePanel.add(lblManuallyEditSynonym);
+        
+        JButton btnChooseOpt3 = new JButton("Choose");
+        btnChooseOpt3.addActionListener(new ActionListener() {
+                public void actionPerformed(ActionEvent e) {
+                    menuButtonPressed(2);
+                    setVisible(false);
+                }
+        });
+        basePanel.add(btnChooseOpt3);
+        
+        JLabel lblApplySynonymList = new JLabel("<html>3. Apply a Synonym List to a Target File<html>");
+        basePanel.add(lblApplySynonymList);
+        
+        JPanel cancelButtonPanel = new JPanel();
+        this.getContentPane().add(cancelButtonPanel, BorderLayout.SOUTH);
+        
+        JButton btnCancel = new JButton("Cancel");
+        btnCancel.addActionListener(new ActionListener() {
+                public void actionPerformed(ActionEvent e) {
+                        cancelButtonPressed();
+                }
+        });
+        cancelButtonPanel.add(btnCancel);
+        
+        JLabel lblNewLabel = new JLabel("Choose Synonymizer Mode");
+        lblNewLabel.setVerticalAlignment(SwingConstants.CENTER);
+        lblNewLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        lblNewLabel.setEnabled(true);
+        this.getContentPane().add(lblNewLabel, BorderLayout.NORTH);
+        
+        this.setTitle("Synonymizer Operation Mode");
+        this.getContentPane().setSize(500, 300);
+    }
+    
+    void cancelButtonPressed() {
+            this.setVisible(false);
+    }
+    void menuButtonPressed(int index) {
+        if(index == option.length) {
+            for(int i = 0; i < option.length; i++) {
+                option[i] = true;
+            }
+        }
+        else {
+            option[index] = true;
+        }
+    }
+
+}
+
+class SynonymizerFileChooser extends JDialog {
+    
+    JFrame theFrame;
+    Object[] datum;
+    int[] fileOptions;
+    String[] initialSelections;
+    String step;
+    /**
+     * Create the application.
+     */
+    public SynonymizerFileChooser(Frame theFrame,Object[] datum,int[] fileOptions,String[] initialSelections,String step) {
+        super((Frame) theFrame, true);
+        this.theFrame = (JFrame)theFrame;
+        this.datum = datum;
+        this.fileOptions = fileOptions;
+        this.initialSelections = initialSelections;
+        this.step = step;
+        initialize();
+        pack();
+    }
+
+    /**
+     * Initialize the contents of the frame.
+     */
+    private void initialize() {
+        if(step.equals("Step1")) {
+            init_Step1();
+        }
+        else if(step.equals("Step2")) {
+            init_Step2();
+        }
+        else if(step.equals("Step3")) {
+            init_Step3();
+        } 
+    }
+
+    private void init_Step1() {
+        ArrayList<JComboBox> comboBoxes = new ArrayList<JComboBox>();
+        
+        JPanel panel = new JPanel();
+        panel.setPreferredSize(new Dimension(500,300));
+        this.getContentPane().add(panel, BorderLayout.CENTER);
+        GridBagLayout gbl_panel = new GridBagLayout();
+        gbl_panel.columnWidths = new int[]{0, 0, 0, 0};
+        gbl_panel.rowHeights = new int[]{49, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        gbl_panel.columnWeights = new double[]{0.0, 1.0, 0.0, Double.MIN_VALUE};
+        gbl_panel.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
+        panel.setLayout(gbl_panel);
+                
+        JLabel lblSelectAReference = new JLabel("Select a File to Be Referenced");
+   
+        GridBagConstraints gbc_lblSelectAReference = getConstraints(1,1,new Insets(0, 10, 5, 10));
+        gbc_lblSelectAReference.anchor = GridBagConstraints.WEST;
+        panel.add(lblSelectAReference, gbc_lblSelectAReference);
+        
+        String[] listOfFileNames = getFileNamesFromDatum(datum);
+        comboBoxes.add(getComboBoxWithSelection(listOfFileNames,initialSelections[0]));
+        
+        GridBagConstraints gbc_comboBoxReference = getConstraints(1,2,new Insets(0, 10, 5, 10));
+        gbc_comboBoxReference.fill = GridBagConstraints.HORIZONTAL;
+        panel.add(comboBoxes.get(0), gbc_comboBoxReference);
+       
+        JLabel lblSelectASynonymize = new JLabel("Select A File to Be Synonymized");
+        GridBagConstraints gbc_lblSelectASynonymize = getConstraints(1,4,new Insets(0, 10, 5, 10));
+        gbc_lblSelectASynonymize.anchor = GridBagConstraints.WEST;
+        panel.add(lblSelectASynonymize, gbc_lblSelectASynonymize);
+        
+        comboBoxes.add(getComboBoxWithSelection(listOfFileNames,initialSelections[1]));
+          
+        GridBagConstraints gbc_comboBoxSynonym = getConstraints(1,5,new Insets(0, 10, 5, 10));
+        gbc_comboBoxSynonym.fill = GridBagConstraints.HORIZONTAL;       
+        panel.add(comboBoxes.get(1), gbc_comboBoxSynonym);
+        
+        JLabel lblSynonimizeTechnique = new JLabel("Similarity Metric");
+        GridBagConstraints gbc_lblSynonimizeTechnique = getConstraints(1,7, new Insets(0, 10, 5, 10));
+        gbc_lblSynonimizeTechnique.anchor = GridBagConstraints.WEST;
+        panel.add(lblSynonimizeTechnique, gbc_lblSynonimizeTechnique);
+        
+        comboBoxes.add(getComboBoxWithSelection(new String[] {"Dice's Coefficient(Default Technique)"},"Default Technique"));
+
+        GridBagConstraints gbc_comboBoxTechniques = getConstraints(1,8,new Insets(0, 10, 0, 10));
+        gbc_comboBoxTechniques.fill = GridBagConstraints.HORIZONTAL;
+        panel.add(comboBoxes.get(2), gbc_comboBoxTechniques);
+        
+        JLabel lblSelectFilesTo = new JLabel("Select Files to Generate Synonym List");
+        lblSelectFilesTo.setHorizontalAlignment(SwingConstants.CENTER);
+        this.getContentPane().add(lblSelectFilesTo, BorderLayout.NORTH);
+        
+        JPanel bottomPanel = new JPanel();
+        this.getContentPane().add(bottomPanel, BorderLayout.SOUTH);
+        GridBagLayout gbl_bottomPanel = new GridBagLayout();
+        gbl_bottomPanel.columnWidths = new int[]{0, 0, 0, 43, 19, 0, 0};
+        gbl_bottomPanel.rowHeights = new int[] {15, 0, 15, 0};
+        gbl_bottomPanel.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
+        gbl_bottomPanel.rowWeights = new double[]{0.0, 0.0, 0.0, Double.MIN_VALUE};
+        bottomPanel.setLayout(gbl_bottomPanel);
+        
+        JButton btnCancel = new JButton("Cancel");
+        btnCancel.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                cancelButtonPressed(comboBoxes);
+            }
+        });
+   
+        GridBagConstraints gbc_btnCancel = getConstraints(4,1,new Insets(0,0,5,5));
+        bottomPanel.add(btnCancel, gbc_btnCancel);
+        
+        JButton btnSubmit = new JButton("Submit");
+        btnSubmit.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                submitButtonPressed(comboBoxes);
+            }
+        });
+      
+        GridBagConstraints gbc_btnSubmit = getConstraints(5,1,new Insets(0,0,5,0));        
+        bottomPanel.add(btnSubmit, gbc_btnSubmit);
+        
+        this.getContentPane().setSize(500,300);
+        this.setTitle("Choose Files and the Synonymize Technique");
+    }
+    
+    private void init_Step2() {
+        ArrayList<JComboBox> comboBoxes = new ArrayList<JComboBox>();
+        ArrayList<Integer> comboBoxLabel = new ArrayList<Integer>();
+        
+        JPanel panel = new JPanel();
+        panel.setPreferredSize(new Dimension(500,300));
+        this.getContentPane().add(panel, BorderLayout.CENTER);
+        GridBagLayout gbl_panel = new GridBagLayout();
+        gbl_panel.columnWidths = new int[]{0, 0, 0, 0};
+        gbl_panel.rowHeights = new int[]{49, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        gbl_panel.columnWeights = new double[]{0.0, 1.0, 0.0, Double.MIN_VALUE};
+        gbl_panel.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
+        panel.setLayout(gbl_panel);
+        
+        JLabel lblSelectAReference = new JLabel("Select a File to Manually Edited:");
+
+        GridBagConstraints gbc_lblSelectAReference = getConstraints(1,1,new Insets(0, 10, 5, 10));
+        gbc_lblSelectAReference.anchor = GridBagConstraints.WEST;
+        panel.add(lblSelectAReference, gbc_lblSelectAReference);
+        
+        String[] listOfFileNames = getFileNamesFromDatumSyn(datum);
+        
+        comboBoxes.add(getComboBoxWithSelection(listOfFileNames,initialSelections[0]));
+
+        GridBagConstraints gbc_comboBoxReference = getConstraints(1, 2, new Insets(0, 10, 5, 10));
+        gbc_comboBoxReference.fill = GridBagConstraints.HORIZONTAL;
+        panel.add(comboBoxes.get(0), gbc_comboBoxReference);
+        comboBoxLabel.add(1);
+        
+        JPanel bottomPanel = new JPanel();
+        this.getContentPane().add(bottomPanel, BorderLayout.SOUTH);
+        GridBagLayout gbl_bottomPanel = new GridBagLayout();
+        gbl_bottomPanel.columnWidths = new int[]{0, 0, 0, 43, 19, 0, 0};
+        gbl_bottomPanel.rowHeights = new int[] {15, 0, 15, 0};
+        gbl_bottomPanel.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
+        gbl_bottomPanel.rowWeights = new double[]{0.0, 0.0, 0.0, Double.MIN_VALUE};
+        bottomPanel.setLayout(gbl_bottomPanel);
+        
+        JButton btnCancel = new JButton("Cancel");
+        btnCancel.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                cancelButtonPressed(comboBoxes);
+            }
+        });
+
+        GridBagConstraints gbc_btnCancel = getConstraints(4,1, new Insets(0, 0, 5, 5));
+        bottomPanel.add(btnCancel, gbc_btnCancel);
+        
+        JButton btnSubmit = new JButton("Submit");
+        btnSubmit.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                submitButtonPressed(comboBoxes,getSyn_NonSynMapping(datum),comboBoxLabel);
+            }
+        });
+
+        GridBagConstraints gbc_btnSubmit = getConstraints(5, 1, new Insets(0, 0, 5, 5));
+        bottomPanel.add(btnSubmit, gbc_btnSubmit);
+        
+        this.getContentPane().setSize(500,300);
+        this.setTitle("Choose File for Manual Update");
+    }
+    
+    private void init_Step3() {
+        ArrayList<JComboBox> comboBoxes = new ArrayList<JComboBox>();
+        ArrayList<Integer> comboBoxLabel = new ArrayList<Integer>();
+        
+        JPanel panel = new JPanel();
+        panel.setPreferredSize(new Dimension(500,300));
+        this.getContentPane().add(panel, BorderLayout.CENTER);
+        GridBagLayout gbl_panel = new GridBagLayout();
+        gbl_panel.columnWidths = new int[]{0, 0, 0, 0};
+        gbl_panel.rowHeights = new int[]{49, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        gbl_panel.columnWeights = new double[]{0.0, 1.0, 0.0, Double.MIN_VALUE};
+        gbl_panel.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
+        panel.setLayout(gbl_panel);
+        
+        JLabel lblSelectAReference = new JLabel("Select a Synonym File");
+
+        GridBagConstraints gbc_lblSelectAReference = getConstraints(1, 1, new Insets(0, 10, 5, 10));
+        gbc_lblSelectAReference.anchor = GridBagConstraints.WEST;
+        
+        panel.add(lblSelectAReference, gbc_lblSelectAReference);
+        
+        String[] listOfSynFileNames = getFileNamesFromDatumSyn(datum);
+        
+        comboBoxes.add(getComboBoxWithSelection(listOfSynFileNames,initialSelections[0]));
+             
+        GridBagConstraints gbc_comboBoxReference = getConstraints(1, 2, new Insets(0, 10, 5, 10));
+        gbc_comboBoxReference.fill = GridBagConstraints.HORIZONTAL;
+        
+        panel.add(comboBoxes.get(0),gbc_comboBoxReference);
+        
+        comboBoxLabel.add(1);
+        
+        JLabel lblSelectASynonymize = new JLabel("Select A File to Be Updated with Synonyms");
+ 
+        GridBagConstraints gbc_lblSelectASynonymize = getConstraints(1, 4, new Insets(0, 10, 5, 10));
+        gbc_lblSelectASynonymize.anchor = GridBagConstraints.WEST;
+        panel.add(lblSelectASynonymize, gbc_lblSelectASynonymize);
+        
+        String[] listOfFileNames = getFileNamesFromDatumNonSyn(datum);
+
+        comboBoxes.add(getComboBoxWithSelection(listOfFileNames,initialSelections[1]));
+        
+        GridBagConstraints gbc_comboBoxSynonym = getConstraints(1, 5, new Insets(0, 10, 5, 10));
+        gbc_comboBoxSynonym.fill = GridBagConstraints.HORIZONTAL;
+        panel.add(comboBoxes.get(1),gbc_comboBoxSynonym);
+        comboBoxLabel.add(0);
+        
+        JLabel lblSelectFilesTo = new JLabel("Select Files to Generate Synonym List");
+        lblSelectFilesTo.setHorizontalAlignment(SwingConstants.CENTER);
+        this.getContentPane().add(lblSelectFilesTo, BorderLayout.NORTH);
+        
+        JPanel bottomPanel = new JPanel();
+        this.getContentPane().add(bottomPanel, BorderLayout.SOUTH);
+        GridBagLayout gbl_bottomPanel = new GridBagLayout();
+        gbl_bottomPanel.columnWidths = new int[]{0, 0, 0, 43, 19, 0, 0};
+        gbl_bottomPanel.rowHeights = new int[] {15, 0, 15, 0};
+        gbl_bottomPanel.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
+        gbl_bottomPanel.rowWeights = new double[]{0.0, 0.0, 0.0, Double.MIN_VALUE};
+        bottomPanel.setLayout(gbl_bottomPanel);
+        
+        JButton btnCancel = new JButton("Cancel");
+        btnCancel.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                cancelButtonPressed(comboBoxes);
+            }
+        });
+
+        GridBagConstraints gbc_btnCancel = getConstraints(4, 1, new Insets(0, 0, 5, 5));
+        bottomPanel.add(btnCancel, gbc_btnCancel);
+        
+        JButton btnSubmit = new JButton("Submit");
+        btnSubmit.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                submitButtonPressed(comboBoxes,getSyn_NonSynMapping(datum),comboBoxLabel);
+            }
+        });
+
+        GridBagConstraints gbc_btnSubmit = getConstraints(5, 1, new Insets(0, 0, 5, 5));
+        bottomPanel.add(btnSubmit, gbc_btnSubmit);
+        
+        this.getContentPane().setSize(500,300);
+        this.setTitle("Choose Files");
+    }
+    
+    private JComboBox getComboBoxWithSelection(String[] model, String selection) {
+        JComboBox comboBox = new JComboBox();
+        comboBox.setModel(new DefaultComboBoxModel(model));
+        for(int i = 0; i<model.length; i++) {
+            if(model[i].equals(selection)) {
+                comboBox.setSelectedIndex(i);
+            }
+        }
+        return comboBox;
+    }
+    
+    private GridBagConstraints getConstraints(int gridx, int gridy, Insets inset) {
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = inset;
+        gbc.gridx = gridx;
+        gbc.gridy = gridy;
+        return gbc;
+   
+    }
+    private String[] getFileNamesFromDatum(Object[] datum) {
+        String[] names = new String[datum.length];
+        for(int i = 0; i<datum.length;i++) {
+            Datum singleRecord = (Datum)datum[i];
+            names[i] = singleRecord.getName();
+        }
+        return names;
+    }
+    private String[] getFileNamesFromDatumSyn(Object[] datum) {
+        ArrayList<String> names = new ArrayList<String>();
+        
+        for(Object record:datum) {
+            Datum singleRecord = (Datum)record;
+            if(singleRecord.getDataType().equals(IdentifierSynonymizer.class)){
+                names.add(singleRecord.getName());
+            }
+        }
+        
+        String[] namesArray = new String[names.size()];
+        for(int i = 0; i<namesArray.length;i++) {
+            namesArray[i] = names.get(i);
+        }
+        return namesArray;
+    }
+    private String[] getFileNamesFromDatumSyn(Object[] datum, ArrayList<Integer> indexArray) {
+        ArrayList<String> names = new ArrayList<String>();
+        
+        for(int i = 0; i<datum.length;i++) {
+            Datum singleRecord = (Datum)datum[i];
+            if(singleRecord.getDataType().equals(IdentifierSynonymizer.class)){
+                indexArray.add(i);
+                names.add(singleRecord.getName());
+            }
+        }
+        
+        String[] namesArray = new String[names.size()];
+        for(int i = 0; i<namesArray.length;i++) {
+            namesArray[i] = names.get(i);
+        }
+        return namesArray;
+    }
+    private ArrayList<ArrayList<Integer>> getSyn_NonSynMapping(Object[] datum) {
+        ArrayList<Integer> synList = new ArrayList<Integer>();
+        ArrayList<Integer> nonSynList = new ArrayList<Integer>();
+        
+        for(int i = 0; i<datum.length; i++) {
+            Datum singleRecord = (Datum)datum[i];
+            if(singleRecord.getDataType().equals(IdentifierSynonymizer.class)){
+                synList.add(i);
+            }
+            else {
+                nonSynList.add(i);
+            }
+        }
+        ArrayList<ArrayList<Integer>> combinedList = new ArrayList<ArrayList<Integer>>();
+        combinedList.add(nonSynList);
+        combinedList.add(synList);
+        
+        return combinedList;
+    }
+    private String[] getFileNamesFromDatumNonSyn(Object[] datum) {
+        ArrayList<String> names = new ArrayList<String>();
+        
+        for(Object record:datum) {
+            Datum singleRecord = (Datum)record;
+            if(!singleRecord.getDataType().equals(IdentifierSynonymizer.class)){
+                names.add(singleRecord.getName());
+            }
+        }
+        
+        String[] namesArray = new String[names.size()];
+        for(int i = 0; i<namesArray.length;i++) {
+            namesArray[i] = names.get(i);
+        }
+        return namesArray;
+    }
+    void cancelButtonPressed(ArrayList<JComboBox> comboBoxes) {
+        for(int i = 0; i<fileOptions.length;i++) {
+            fileOptions[i] = -1;
+        }
+        setVisible(false);
+    }
+    void submitButtonPressed(ArrayList<JComboBox> comboBoxes) {
+        for(int i = 0; i<fileOptions.length;i++) {
+            fileOptions[i] = comboBoxes.get(i).getSelectedIndex();
+        }
+        setVisible(false);
+    }
+    void submitButtonPressed(ArrayList<JComboBox> comboBoxes, ArrayList<ArrayList<Integer>> synListMap, ArrayList<Integer> comboBoxLabel) {
+        for(int i = 0; i<fileOptions.length; i++) {
+            fileOptions[i] = synListMap.get(comboBoxLabel.get(i))
+                                       .get(comboBoxes.get(i).getSelectedIndex());
+        }
+        setVisible(false);
     }
 }
