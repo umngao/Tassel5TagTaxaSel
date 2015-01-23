@@ -196,6 +196,9 @@ public class FileLoadPlugin extends AbstractPlugin {
 
             return DataSet.getDataSet(result, this);
 
+        } catch (Exception e) {
+            showError(e, null);
+            return null;
         } finally {
             fireProgress(100);
         }
@@ -283,6 +286,7 @@ public class FileLoadPlugin extends AbstractPlugin {
 
             br.close();
         } catch (Exception e) {
+            showError(e, filename);
         }
 
         return tds;
@@ -364,20 +368,7 @@ public class FileLoadPlugin extends AbstractPlugin {
                 }
             }
         } catch (Exception e) {
-
-            e.printStackTrace();
-            StringBuilder builder = new StringBuilder();
-            builder.append("Error loading: ");
-            builder.append(inFile);
-            builder.append("\n");
-            builder.append(Utils.shortenStrLineLen(ExceptionUtils.getExceptionCauses(e), 50));
-            String str = builder.toString();
-            if (isInteractive()) {
-                DialogUtils.showError(str, getParentFrame());
-            } else {
-                myLogger.error(str);
-            }
-
+            showError(e, inFile);
         }
         if (result != null) {
             String name = Utils.getFilename(inFile, suffix);
@@ -388,6 +379,25 @@ public class FileLoadPlugin extends AbstractPlugin {
             return tds;
         }
         return null;
+    }
+
+    private void showError(Exception e, String filename) {
+
+        myLogger.error(e.getMessage(), e);
+        StringBuilder builder = new StringBuilder();
+        if ((filename != null) && (filename.length() != 0)) {
+            builder.append("Error loading: ");
+            builder.append(filename);
+            builder.append("\n");
+        }
+        builder.append(Utils.shortenStrLineLen(ExceptionUtils.getExceptionCauses(e), 50));
+        String str = builder.toString();
+        if (isInteractive()) {
+            DialogUtils.showError(str, getParentFrame());
+        } else {
+            myLogger.error(str);
+        }
+
     }
 
     /**

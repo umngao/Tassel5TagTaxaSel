@@ -177,6 +177,7 @@ public class BuilderFromPLINK {
         List<Position> positions = new ArrayList<>();
         BufferedReader reader = Utils.getBufferedReader(mapfile);
 
+        int lineNum = 1;
         try {
             String line = reader.readLine();
             while (line != null) {
@@ -193,10 +194,11 @@ public class BuilderFromPLINK {
                         .snpName(new String(tokens[PLINK_MAP_SND_ID_INDEX])).build();
                 positions.add(current);
                 line = reader.readLine();
+                lineNum++;
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
-            throw new IllegalStateException("BuilderFromPLINK: processSites: problem with: " + mapfile);
+            throw new IllegalStateException("BuilderFromPLINK: processSites: problem with: " + mapfile + " line: " + lineNum);
         } finally {
             try {
                 reader.close();
