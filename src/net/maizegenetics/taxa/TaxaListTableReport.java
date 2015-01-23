@@ -14,7 +14,7 @@ import net.maizegenetics.util.TableReport;
  */
 public class TaxaListTableReport implements TableReport {
 
-    private static final String[] DEFAULT_COLUMN_HEADINGS = new String[]{"Taxa", "Name"};
+    private static final String[] DEFAULT_COLUMN_HEADINGS = new String[]{"Taxa"};
 
     private final TaxaList myTaxaList;
     private final String[] myColumnHeadings;
@@ -66,15 +66,18 @@ public class TaxaListTableReport implements TableReport {
 
     @Override
     public Object[] getRow(long row) {
-        throw new UnsupportedOperationException("Not supported.");
+        int numColumns = getColumnCount();
+        Object[] result = new Object[numColumns];
+        for (int c = 0; c < numColumns; c++) {
+            result[c] = getValueAt(row, c);
+        }
+        return result;
     }
 
     @Override
     public Object getValueAt(long row, int col) {
         switch (col) {
             case 0:
-                return myTaxaList.get((int) row).getName();
-            case 1:
                 return myTaxaList.get((int) row).getName();
             default:
                 String[] annotations = myTaxaList.get((int) row).getTextAnnotation(myColumnHeadings[col]);
@@ -84,6 +87,10 @@ public class TaxaListTableReport implements TableReport {
                     return null;
                 }
         }
+    }
+
+    public TaxaList getTaxaList() {
+        return myTaxaList;
     }
 
 }
