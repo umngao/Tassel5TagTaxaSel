@@ -10,6 +10,9 @@ import java.util.stream.IntStream;
 
 import javax.swing.ImageIcon;
 
+import org.apache.commons.math.MathException;
+import org.apache.commons.math.distribution.FDistributionImpl;
+
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable.GENOTYPE_TABLE_COMPONENT;
@@ -44,6 +47,10 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	private TableReportBuilder myReportBuilder;
 	private SolveByOrthogonalizing orthogonalSolver;
 	private List<String> phenotypeNames;
+	private double modeldf = Double.NaN;
+	private double errordf = Double.NaN;
+	private double minR2 = Double.NaN;
+	private FDistributionImpl Fdist;
 	
 	//plugin parameter definitions
 	private PluginParameter<Double> maxp = new PluginParameter.Builder<>("MaxPValue", .001, Double.class)
@@ -88,17 +95,33 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		initializeOrthogonalizer();
 		
 		final int nsites = myGenotype.numberOfSites();
+		
     	if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype) {
     		if (addOnly.value()) {
-        		IntStream.range(0, nsites)
-    			.mapToObj(s-> orthogonalSolver.solveForR(myGenotype.positions().get(s), additiveSite(s)))
-    			.forEach(this::updateOutputWithPvalues);
-    		} else {
+    			modeldf = orthogonalSolver.baseDf(); //base df includes the mean, which should not be included in model corrected for the mean, which is what is needed here.
+    			errordf = myPhenotype.numberOfObservations() - modeldf - 1;
+    			Fdist = new FDistributionImpl(modeldf, errordf);
+    			minR2 = calculateR2Fromp();
         		IntStream.range(0, nsites).parallel()
     			.mapToObj(s-> orthogonalSolver.solveForR(myGenotype.positions().get(s), additiveSite(s)))
     			.forEach(this::updateOutputWithPvalues);
+    		} else {
+    			modeldf = orthogonalSolver.baseDf() + 1;
+    			errordf = myPhenotype.numberOfObservations() - modeldf - 1;
+    			Fdist = new FDistributionImpl(modeldf, errordf);
+    			minR2 = calculateR2Fromp();
+        		IntStream.range(0, nsites).parallel()
+    			.mapToObj(s-> {
+    				List<double[]> covars = additiveDominanceSite(s);
+    				return orthogonalSolver.solveForR(myGenotype.positions().get(s), covars.get(0), covars.get(1)); 
+    			})
+    			.forEach(this::updateOutputWithPvalues);
     		}
     	} else if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability) {
+			modeldf = orthogonalSolver.baseDf();
+			errordf = myPhenotype.numberOfObservations() - modeldf - 1;
+			Fdist = new FDistributionImpl(modeldf, errordf);
+			minR2 = calculateR2Fromp();
     		IntStream.range(0, nsites).parallel()
     			.mapToObj(s-> orthogonalSolver.solveForR(myGenotype.positions().get(s), referenceProbabilitiesForSite(s)))
     			.forEach(this::updateOutputWithPvalues);
@@ -131,12 +154,22 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	
 	private void updateOutputWithPvalues(SolveByOrthogonalizing.Marker markerResult) {
 		double maxpval = maxp.value();
-		double[] pvalues = markerResult.vector2();
 		double[] rvalues = markerResult.vector1();
-		int npheno = pvalues.length;
+		int npheno = rvalues.length;
 		Position pos = markerResult.position();
-		IntStream.range(0, npheno).filter(i -> pvalues[i] < maxpval)
-			.forEach(i -> addToReport(new Object[]{phenotypeNames.get(i), pos.getSNPID(), pos.getChromosome().getName(), pos.getPosition(), markerResult.degreesOfFreedom(), rvalues[i], pvalues[i]}));
+		IntStream.range(0, npheno).filter(i -> rvalues[i] >= minR2)
+			.forEach(i -> addToReport(new Object[]{phenotypeNames.get(i), pos.getSNPID(), pos.getChromosome().getName(), pos.getPosition(), markerResult.degreesOfFreedom(), rvalues[i], pvalue(rvalues[i])}));
+	}
+	
+	private double pvalue(double rvalue) {
+		double F = rvalue / (1 - rvalue) * errordf / modeldf;
+		double p;
+		try {
+			p = 1 - Fdist.cumulativeProbability(F);
+		} catch(Exception e) {
+			p = Double.NaN;
+		} 
+		return p;
 	}
 	
 	private synchronized void addToReport(Object[] row) {
@@ -243,6 +276,19 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		return result;
 	}
 	
+	private double calculateR2Fromp() {
+		//returns the value of R^2 corresponding to the value of F, f for which P(F>f) = alpha
+		try {
+			double p = 1 - maxp.value();
+			double F = Fdist.inverseCumulativeProbability(p);
+			double Fme = F * modeldf / errordf;
+			return Fme / (1 + Fme);
+		} catch (MathException e) {
+			e.printStackTrace();
+			return Double.NaN;
+		}
+	}
+
 	//abstract plugin methods that need to be overridden
 	@Override
 	public ImageIcon getIcon() {

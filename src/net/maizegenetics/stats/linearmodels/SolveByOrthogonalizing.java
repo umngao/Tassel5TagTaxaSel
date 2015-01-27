@@ -1,12 +1,12 @@
 package net.maizegenetics.stats.linearmodels;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
+
+import org.apache.commons.math.MathException;
+import org.apache.commons.math.distribution.FDistributionImpl;
 
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
@@ -50,22 +50,10 @@ public class SolveByOrthogonalizing {
 	}
 	
 	public SolveByOrthogonalizing.Marker solveForR(Position pos, double[] values) {
-//		double[] centeredValues = center(values);
-//		double[] orthoValues = orthogonalizeByBase(centeredValues);
-//		double[] csVales = centerAndScale(orthoValues);
 		double[] orthogonalValues = centerAndScale(orthogonalizeByBase(center(values)));
 		double[] rValues = myOrthogonalizedData.stream().mapToDouble(d -> innerProduct(d, orthogonalValues)).map(d -> d*d).toArray();
 		
-		int n = rValues.length;
-		double[] pValues = new double[n]; 
-		double modeldf = 1;
-		if (baseSvd != null) modeldf += baseSvd.getRank();
-		double errordf = values.length - modeldf - 1;
-
-		for (int i = 0; i < n; i++) {
-			pValues[i] = calculateP(calculateFfromR2(rValues[i], 1, errordf), 1, errordf);
-		}
-		return new SolveByOrthogonalizing.Marker(pos, rValues, pValues);
+		return new SolveByOrthogonalizing.Marker(pos, rValues);
 	}
 	
 	public SolveByOrthogonalizing.Marker solveForR(Position pos, double[] add, double[] dom) {
@@ -90,16 +78,7 @@ public class SolveByOrthogonalizing {
 					return r1 * r1 + r2 * r2;
 				}).toArray();
 		
-		n = rValues.length;
-		double[] pValues = new double[n]; 
-		double modeldf = 2;
-		if (baseSvd != null) modeldf += baseSvd.getRank();
-		double errordf = v1.length - modeldf - 1;
-		
-		for (int i = 0; i < n; i++) {
-			pValues[i] = calculateP(calculateFfromR2(rValues[i], 2, errordf), 2, errordf); 
-		}
-		return new SolveByOrthogonalizing.Marker(pos, rValues, pValues);
+		return new SolveByOrthogonalizing.Marker(pos, rValues);
 	}
 	
 	private DoubleMatrix[][] createDesignMatricesFromModel() {
@@ -235,6 +214,22 @@ public class SolveByOrthogonalizing {
 			p = Double.NaN;
 		}
 		return p;
+	}
+	
+	public static double calculateR2Fromp(double alpha, double modelDf, double errorDf) {
+		//returns the value of R^2 corresponding to the value of F, f for which P(F>f) = alpha
+		
+		FDistributionImpl fdist = new FDistributionImpl(modelDf, errorDf);
+		try {
+			double p = 1 - alpha;
+			double F = fdist.inverseCumulativeProbability(p);
+			double Fme = F * modelDf / errorDf;
+			return Fme / (1 + Fme);
+		} catch (MathException e) {
+			e.printStackTrace();
+			return Double.NaN;
+		}
+		
 	}
 	
 	public static class Marker {
