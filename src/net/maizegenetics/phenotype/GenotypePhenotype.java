@@ -74,6 +74,22 @@ public class GenotypePhenotype implements TableReport {
 		return geno;
 	}
 	
+	/**
+	 * @param site	the site in the GenotypeTable
+	 * @return	the genotypes corresponding to every row of the phenotype table as byte values
+	 */
+	public byte[] genotypeAllTaxa(int site) {
+		TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
+		TaxaList myTaxaList = myGenotype.taxa();
+		int numberOfObs = myPhenotype.numberOfObservations();
+		byte[] geno = new byte[numberOfObs];
+		for (int obs = 0; obs < numberOfObs; obs++) {
+			int ndx = myTaxaList.indexOf(myTaxaAttr.taxon(obs));
+			geno[obs] = myGenotype.genotype(ndx, site);
+		}
+		return geno;
+	}
+	
 	public float[] alleleProbsOfType(SiteScore.SITE_SCORE_TYPE type, int site) {
 		TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
 		TaxaList myTaxaList = myGenotype.taxa();

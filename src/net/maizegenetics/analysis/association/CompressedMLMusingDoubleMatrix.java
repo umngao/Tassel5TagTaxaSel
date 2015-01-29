@@ -274,7 +274,7 @@ public class CompressedMLMusingDoubleMatrix {
                     int markerdf = 0;
                     DoubleMatrix X;
                     int[] alleleCounts = null;
-
+                    
                     if (useGenotypeCalls) {
                     	String[] genotypes = AssociationUtils.getNonMissingValues(myGenoPheno.getStringGenotype(m), missingObsForSite);
                         FactorModelEffect markerEffect = new FactorModelEffect(ModelEffectUtils.getIntegerLevels(genotypes, markerIds), true);
@@ -387,20 +387,44 @@ public class CompressedMLMusingDoubleMatrix {
         return results;
     }
 
+//    private BitSet missingForSiteX(int site) {
+//    	int ntaxa = myGenotype.numberOfTaxa();
+//    	OpenBitSet missing = new OpenBitSet(ntaxa);
+//    	if (useGenotypeCalls) {
+//        	byte[] siteGenotype = myGenotype.genotypeAllTaxa(site);
+//        	byte missingByte = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+//        	for (int i = 0; i < ntaxa; i++) if (siteGenotype[i] == missingByte) missing.fastSet(i);
+//    	} else if (useReferenceProbability) {
+//    		for (int t = 0; t < ntaxa; t++) {
+//    			if (myGenotype.referenceProbability(t, site) == Float.NaN) missing.fastSet(t);
+//    		}
+//    	} else {
+//    		for (int t = 0; t < ntaxa; t++) {
+//    			if (myGenotype.alleleProbability(t, site, SITE_SCORE_TYPE.DepthA) == Float.NaN) missing.fastSet(t);
+//    		}
+//    	}
+//    	return missing;
+//    }
+    
     private BitSet missingForSite(int site) {
-    	int ntaxa = myGenotype.numberOfTaxa();
-    	OpenBitSet missing = new OpenBitSet(ntaxa);
+    	//returns BitSet with missing set for each observation with a missing genotype value
+    	int nobs = myGenoPheno.phenotype().numberOfObservations();
+    	OpenBitSet missing = new OpenBitSet(nobs);
     	if (useGenotypeCalls) {
-        	byte[] siteGenotype = myGenotype.genotypeAllTaxa(site);
+        	byte[] siteGenotype = myGenoPheno.genotypeAllTaxa(site);
         	byte missingByte = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
-        	for (int i = 0; i < ntaxa; i++) if (siteGenotype[i] == missingByte) missing.fastSet(i);
+        	for (int i = 0; i < nobs; i++) {
+        		if (siteGenotype[i] == missingByte) missing.fastSet(i);
+        	}
     	} else if (useReferenceProbability) {
-    		for (int t = 0; t < ntaxa; t++) {
-    			if (myGenotype.referenceProbability(t, site) == Float.NaN) missing.fastSet(t);
+    		float[] probs = myGenoPheno.referenceProb(site);
+    		for (int t = 0; t < nobs; t++) {
+    			if (probs[t] == Float.NaN) missing.fastSet(t);
     		}
     	} else {
-    		for (int t = 0; t < ntaxa; t++) {
-    			if (myGenotype.alleleProbability(t, site, SITE_SCORE_TYPE.DepthA) == Float.NaN) missing.fastSet(t);
+			float[] probs = myGenoPheno.alleleProbsOfType(SITE_SCORE_TYPE.DepthA, site);
+    		for (int t = 0; t < nobs; t++) {
+    			if (probs[t] == Float.NaN) missing.fastSet(t);
     		}
     	}
     	return missing;
