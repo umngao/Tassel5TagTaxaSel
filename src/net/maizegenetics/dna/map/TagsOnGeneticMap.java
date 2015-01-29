@@ -393,6 +393,31 @@ public class TagsOnGeneticMap extends AbstractTags {
     }
     
     /**
+     * Output FASTA file of TOGM
+     * @param outfileS 
+     */
+    public void writeFastA (String outfileS) {
+        long[] t = new long[this.getTagSizeInLong()];
+        try {
+            BufferedWriter bw = new BufferedWriter (new FileWriter(outfileS), 65536);
+            for (int i = 0; i < this.getTagCount(); i++) {
+                bw.write(">"+String.valueOf(i));
+                bw.newLine();
+                for (int j = 0; j < this.getTagSizeInLong(); j++) {
+                    t[j] = this.tags[j][i];
+                }
+                bw.write(BaseEncoder.getSequenceFromLong(t).substring(0, this.getTagLength(i)));
+                bw.newLine();
+            }
+            bw.flush();
+            bw.close();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    
+    /**
      * Output FASTQ file of TOGM
      * @param outfileS 
      */
