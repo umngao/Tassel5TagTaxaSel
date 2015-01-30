@@ -199,6 +199,7 @@ public class IBSDistanceMatrix extends DistanceMatrix {
             int minSitesCompared, int firstWord, int lastWord, BitSet maskBadSet) {
         long[] iMj = theTBA.allelePresenceForAllSites(taxon1, Major).getBits();
         long[] iMn = theTBA.allelePresenceForAllSites(taxon1, Minor).getBits();
+        long[] iMn2 = theTBA.allelePresenceForAllSites(taxon1, Minor2).getBits();
         if (maskBadSet != null) {
             long[] maskBad = maskBadSet.getBits();
             for (int i = 0; i < iMj.length; i++) {
@@ -210,7 +211,8 @@ public class IBSDistanceMatrix extends DistanceMatrix {
         }
         long[] jMj = theTBA.allelePresenceForAllSites(taxon2, Major).getBits();
         long[] jMn = theTBA.allelePresenceForAllSites(taxon2, Minor).getBits();
-        return computeHetBitDistances(iMj, iMn, jMj, jMn, minSitesCompared, firstWord, lastWord);
+        long[] jMn2 = theTBA.allelePresenceForAllSites(taxon2, Minor2).getBits();
+        return computeHetBitDistancesThirdState(iMj, iMn, iMn2, jMj, jMn, jMn2, minSitesCompared, firstWord, lastWord);
     }
 
     /**

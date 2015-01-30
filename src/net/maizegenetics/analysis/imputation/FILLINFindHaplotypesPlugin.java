@@ -8,11 +8,13 @@ import net.maizegenetics.util.BitSet;
 
 import java.awt.*;
 import java.io.BufferedWriter;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.TreeMap;
@@ -21,6 +23,7 @@ import javax.swing.ImageIcon;
 import net.maizegenetics.analysis.distance.IBSDistanceMatrix;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Chromosome;
+import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.dna.snp.ExportUtils;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
@@ -78,7 +81,7 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
     private PluginParameter<Boolean> nonverboseOutput= new PluginParameter.Builder<>("nV",false,Boolean.class).guiName("Supress system out")
             .description("Supress system out").build();
     private PluginParameter<Boolean> extendedOutput= new PluginParameter.Builder<>("extOut",false,Boolean.class).guiName("Detailed system out on haplotypes")
-            .description("Details of taxa included in each haplotype to system out").build();
+            .description("Details of taxa included in each haplotype written to file").build();
     
     //other parameters
     private boolean verboseOutput= true;
@@ -91,7 +94,12 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
     private double[] propMissing;
     private int[] siteErrors, siteCallCnt;
     private BitSet badMask=null;
-
+    
+    //these are for use with extended out. holds the new haplotypes and the taxon that go into them
+    private TreeMap<String, ArrayList<String>> currHits= null; 
+    private HashMap<String,ArrayList<String>> hapsForResults= null;
+    private boolean uniqueHaps= true; //secret flag to make sure that all of the haplotypes are truely different from each other. For pop gen
+    
     public FILLINFindHaplotypesPlugin() {
         super(null, false);
     }
@@ -152,12 +160,14 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
         siteCallCnt=new int[baseAlign.numberOfSites()];
         if(startDiv==-1) startDiv=0;
         if(endDiv==-1) endDiv=divisions.length-1;
+        if (extendedOutput.value()) new File(outFileBase.value()+"/extOut/").mkdir();
         for (int i = startDiv; i <=endDiv; i++) {
             GenotypeTable mna=createHaplotypeAlignment(divisions[i][0], divisions[i][1], baseAlign,
              minSitesPresentPerHap.value(),  maxDistFromFounder.value());
             if (mna.taxa().isEmpty()) continue;
 //            String newExport=outFileBase.value().replace("sX.hmp", "s"+i+".hmp");
 //            newExport=newExport.replace("gX", "gc"+mna.chromosomeName(0)+"s"+i);
+            if (extendedOutput.value()) writeHaplotypeMembersToFile(outFileBase.value()+"/extOut/"+new File(outFileBase.value()).getName()+".gc"+mna.chromosomeName(0)+"s"+i+".haplotypes.txt");
             String newExport= outFileBase.value()+"/"+new File(outFileBase.value()).getName()+".gc"+mna.chromosomeName(0)+"s"+i+".hmp.txt";
             ExportUtils.writeToHapmap(mna, false, newExport, '\t', null);
             if(outFileBase.value()!=null) exportBadSites(baseAlign, outFileBase.value(), 0.01);  
@@ -181,6 +191,7 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
         TreeMap<Integer,Integer> presentRanking=createPresentRankingForWindow(inAlign, startBlock, lastBlock, minSites, maxHetFreq.value());
         if(verboseOutput) System.out.printf("\tBlock %d Inbred and modest coverage:%d %n",startBlock,presentRanking.size());
         if(verboseOutput) System.out.printf("\tCurrent Site %d Current block %d EndBlock: %d %n",startSite, startBlock, lastBlock);
+        if (extendedOutput.value()) currHits= new TreeMap<>();
         TreeMap<Integer,byte[][]> results=mergeWithinWindow(inAlign, presentRanking, startBlock, lastBlock, maxDistance, startSite);
         TaxaListBuilder tLB=new TaxaListBuilder();
         GenotypeCallTableBuilder gB=GenotypeCallTableBuilder.getInstance(results.size(),inAlign.numberOfSites());
@@ -189,6 +200,7 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
             if (anonymous) tLB.add(new Taxon("h"+index));
             else tLB.add(new Taxon("h"+index+(new String(calls[1]))));
             gB.setBaseRangeForTaxon(index,0,calls[0]);
+            currHits.put("h"+index+(new String(calls[1])), hapsForResults.get(new String(calls[1])));
             index++;
         }
         return GenotypeTableBuilder.getInstance(gB.build(),inAlign.positions(),tLB.build());
@@ -238,13 +250,14 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
         int sites=64*(endBlock-startBlock+1);
         TreeMap<Integer,Integer> presentRanking=new TreeMap<Integer,Integer>(Collections.reverseOrder());
         for (int i = 0; i < inAlign.numberOfTaxa(); i++) {
-            long[] mj=inAlign.allelePresenceForSitesBlock(i, WHICH_ALLELE.Major, startBlock, endBlock);
-            long[] mn=inAlign.allelePresenceForSitesBlock(i, WHICH_ALLELE.Minor, startBlock, endBlock);
+            long[] mj=inAlign.allelePresenceForSitesBlock(i, WHICH_ALLELE.Major, startBlock, endBlock+1);
+            long[] mn=inAlign.allelePresenceForSitesBlock(i, WHICH_ALLELE.Minor, startBlock, endBlock+1);
+            long[] mn2=inAlign.allelePresenceForSitesBlock(i, WHICH_ALLELE.Minor2, startBlock, endBlock+1);
             int totalSitesNotMissing = 0;
             int hetCnt=0;
             for (int j = 0; j < mj.length; j++) {
-                totalSitesNotMissing+=BitUtil.pop(mj[j]|mn[j]);
-                hetCnt+=BitUtil.pop(mj[j]&mn[j]);
+                totalSitesNotMissing+=BitUtil.pop(mj[j]|mn[j]|mn2[j]);
+                hetCnt+=BitUtil.pop((mj[j]&mn[j]) | (mj[j]&mn2[j]) | (mn[j]&mn2[j]));
             }
             double hetFreq=(double)hetCnt/(double)totalSitesNotMissing;
             propMissing[i]=(double)(1+sites-totalSitesNotMissing)/(double)sites; //1 prevents error in joint missing calculations
@@ -301,6 +314,7 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
         if(endSite>=inAlign.numberOfSites()) endSite=inAlign.numberOfSites()-1;
         TreeMap<Integer,ArrayList> mergeSets=new TreeMap<Integer,ArrayList>();
         TreeMap<Integer,byte[][]> results=new TreeMap<Integer,byte[][]>(Collections.reverseOrder());
+        if (extendedOutput.value()) hapsForResults= new HashMap<String,ArrayList<String>>();
         TreeSet<Integer> unmatched=new TreeSet<Integer>(presentRanking.values());
         TaxaList inIDG=inAlign.taxa();
         for (Entry<Integer,Integer> e : presentRanking.entrySet()) {
@@ -339,13 +353,14 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
             double hetFreq=(double)unkCnt[1]/(double)(inAlign.numberOfSites()-unkCnt[0]);
             if(((missingFreq<maximumMissing.value())&&(hetFreq<maxHetFreq.value())&&(hits.size()>=(this.minTaxaInGroup.value()-1)))) {
                 int index=(hits.size()*200000)+taxon1;
-                if(verboseOutput && !extendedOutput.value()) System.out.printf("\t\tOutput %s plus %d missingF:%g hetF:%g index: %d %n",inIDG.taxaName(taxon1),
+                if(verboseOutput) System.out.printf("\t\tOutput %s plus %d missingF:%g hetF:%g index: %d %n",inIDG.taxaName(taxon1),
                         hits.size(), missingFreq, hetFreq, index);
                 if(extendedOutput.value()) {
-                    System.out.printf("\t\tChromosome: %s StartPos: %d EndPos: %d missingF:%g hetF:%g index: %d %n",inAlign.chromosomeName(startSite),
-                            inAlign.physicalPositions()[startSite], inAlign.physicalPositions()[endSite], missingFreq, hetFreq, index);
-                    System.out.println("\t\t\t"+inIDG.taxaName(taxon1));
-                    for (Integer taxon:hits) {System.out.println("\t\t\t"+inIDG.taxaName(taxon));}
+                    ArrayList<String> hitNames= new ArrayList<>(); hitNames.add(inIDG.taxaName(taxon1));
+                    for (Integer taxon:hits) {
+                        hitNames.add(inIDG.taxaName(taxon));
+                    }
+                    hapsForResults.put(inIDG.taxaName(taxon1)+":d"+(hits.size()+1), hitNames);
                 }
                 byte[][] callPlusNames=new byte[2][];
                 callPlusNames[0]=calls;
@@ -367,27 +382,45 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
         byte[] calls = new byte[endSite-startSite+1];
         Arrays.fill(calls, GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
         for (int s = startSite; s <= endSite; s++) {
+            boolean third= a.minorAlleles(s).length>1?true:false;
             byte mjAllele = a.majorAllele(s);
             byte mnAllele = a.minorAllele(s);
             byte mj=GenotypeTableUtils.getUnphasedDiploidValue(mjAllele,mjAllele);
             byte mn=GenotypeTableUtils.getUnphasedDiploidValue(mnAllele,mnAllele);
-            byte het = GenotypeTableUtils.getUnphasedDiploidValue(mjAllele, mnAllele);
-            int mjCnt=0, mnCnt=0;
+            byte het1 = GenotypeTableUtils.getUnphasedDiploidValue(mjAllele, mnAllele);
+            byte mn2= GenotypeTable.UNKNOWN_DIPLOID_ALLELE; 
+            byte het2= GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+            byte het3= GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+            if (third) {
+                byte mn2Allele = a.minorAlleles(s)[1];
+                mn2=GenotypeTableUtils.getUnphasedDiploidValue(mn2Allele,mn2Allele);
+                het2 = GenotypeTableUtils.getUnphasedDiploidValue(mjAllele, mn2Allele);
+                het3 = GenotypeTableUtils.getUnphasedDiploidValue(mnAllele, mn2Allele);
+            }
+            int mjCnt=0, mnCnt=0, mn2Cnt=0;
             for (int t = 0; t < taxaIndex.length; t++) {
                 byte ob = a.genotype(taxaIndex[t], s);
                 if (ob == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
                     continue;
                 }
                 if (ob == mj) {
-                    mjCnt++;
+                    mjCnt+=2;
                 } else if (ob == mn) {
-                    mnCnt++;
-                } else if (GenotypeTableUtils.isEqual(ob, het)) {
+                    mnCnt+=2;
+                } else if (GenotypeTableUtils.isEqual(ob, het1)) {
                     mjCnt++;
                     mnCnt++;
+                } else if (third && ob == mn2) {
+                    mn2Cnt+=2;
+                } else if (third && GenotypeTableUtils.isEqual(ob, het2)) {
+                    mjCnt++;
+                    mn2Cnt++;
+                } else if (third && GenotypeTableUtils.isEqual(ob, het3)) {
+                    mnCnt++;
+                    mn2Cnt++;
                 }
             }
-            int totalCnt = mjCnt + mnCnt;
+            int totalCnt = mjCnt + mnCnt + mn2Cnt;
             
             if (totalCnt == 0) {
                 double missingProp=1.0;
@@ -397,15 +430,24 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
             }
             double errorRate;
             if(totalCnt>1) siteCallCnt[s+siteOffsetForError]+=totalCnt;
-            if(mjCnt < mnCnt) {
-                errorRate=(double)mjCnt/(double)totalCnt;
+            if((mjCnt+mn2Cnt) < mnCnt) {
+                errorRate=(double)(mjCnt+mn2Cnt)/(double)totalCnt;
                 if(errorRate<maxError) {calls[s-startSite] = mn;}
-                else {siteErrors[s+siteOffsetForError]+=mjCnt;}
-            } else {
-                errorRate=(double)mnCnt/(double)totalCnt;
+                else {siteErrors[s+siteOffsetForError]+=(mjCnt+mn2Cnt);}
+            } else if ((mnCnt+mn2Cnt) < mjCnt) {
+                errorRate=(double)(mnCnt+mn2Cnt)/(double)totalCnt;
                 if(errorRate<maxError) {calls[s-startSite] = mj;}
-                else {siteErrors[s+siteOffsetForError]+=mnCnt;}
+                else {siteErrors[s+siteOffsetForError]+=(mnCnt+mn2Cnt);}
+            } else if ((mjCnt+mnCnt) < mn2Cnt) {
+                errorRate=(double)(mjCnt+mnCnt)/(double)totalCnt;
+                if(errorRate<maxError) {calls[s-startSite] = mn2;}
+                else {siteErrors[s+siteOffsetForError]+=(mjCnt+mnCnt);}
+            } else if (uniqueHaps) {
+                if (mjCnt==mnCnt && mjCnt!=0) calls[s-startSite]= het1;
+                else if (mjCnt==mn2Cnt && mjCnt!=0) calls[s-startSite]= het2;
+                else if (mnCnt==mn2Cnt && mnCnt!=0) calls[s-startSite]= het3;
             }
+            
         }
         return calls;
     }
@@ -443,6 +485,26 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
         }
         int[] result={cnt,cntHet};
         return result;
+    }
+
+    
+    private boolean writeHaplotypeMembersToFile(String outFileName) {
+        if (currHits==null) {System.out.println("No haplotypes to write to "+outFileName); return false;}
+        DataOutputStream outStream = Utils.getDataOutputStream(outFileName, 1040);
+        try {
+            for (String hap:currHits.keySet()) {
+                outStream.writeBytes(hap);
+                for (String taxon: currHits.get(hap)) {
+                    outStream.writeBytes("\t"+taxon);
+                }
+                outStream.writeBytes("\n");
+            }
+            outStream.close();
+        } catch(Exception e) {
+            System.out.println("Problem writing haplotype information file: "+e);
+        }
+        currHits= null; hapsForResults= null;
+        return true;
     }
 
     @Override
