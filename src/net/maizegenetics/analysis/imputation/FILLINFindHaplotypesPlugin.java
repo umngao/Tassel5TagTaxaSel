@@ -200,7 +200,7 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
             if (anonymous) tLB.add(new Taxon("h"+index));
             else tLB.add(new Taxon("h"+index+(new String(calls[1]))));
             gB.setBaseRangeForTaxon(index,0,calls[0]);
-            currHits.put("h"+index+(new String(calls[1])), hapsForResults.get(new String(calls[1])));
+            if (extendedOutput.value()) currHits.put("h"+index+(new String(calls[1])), hapsForResults.get(new String(calls[1])));
             index++;
         }
         return GenotypeTableBuilder.getInstance(gB.build(),inAlign.positions(),tLB.build());
