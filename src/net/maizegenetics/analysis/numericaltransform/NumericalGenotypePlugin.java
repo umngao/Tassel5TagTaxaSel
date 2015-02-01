@@ -58,8 +58,14 @@ public class NumericalGenotypePlugin extends AbstractPlugin {
     	//only the as_minor method is implemented so just display an information Dialog
         String msg = "Genotypes will be converted to the probability that an allele drawn at random is a minor allele. "
         		+ "\nIn TASSEL 4 this was called the 'collapse' option.";
-        int convertGenotype = JOptionPane.showConfirmDialog(getParentFrame(), msg, "ReferenceProbability from Genotype", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
-        if (convertGenotype == JOptionPane.CANCEL_OPTION || convertGenotype == JOptionPane.CLOSED_OPTION) return null;
+        
+        if (isInteractive()) {
+            int convertGenotype = JOptionPane.showConfirmDialog(getParentFrame(), msg, "ReferenceProbability from Genotype", JOptionPane.OK_CANCEL_OPTION, JOptionPane.INFORMATION_MESSAGE);
+            if (convertGenotype == JOptionPane.CANCEL_OPTION || convertGenotype == JOptionPane.CLOSED_OPTION) return null;
+        } else {
+        	myLogger.info(msg);
+        }
+        
         
         //load the GenotypeTable.
         GenotypeTable myGenotype = (GenotypeTable) datumList.get(0).getData();
