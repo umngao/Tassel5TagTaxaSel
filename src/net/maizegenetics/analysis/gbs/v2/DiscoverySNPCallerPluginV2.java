@@ -196,7 +196,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 }
             }
         }
-        System.out.printf("%s SNPNum:%d \n",cutPosition.toString(),tagAllelemap.size());
+        //System.out.printf("%s SNPNum:%d \n",cutPosition.toString(),tagAllelemap.size());
         return tagAllelemap;
     }
 

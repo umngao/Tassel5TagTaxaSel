@@ -10,6 +10,7 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.Tuple;
+import org.json.simple.JSONObject;
 import org.sqlite.SQLiteConfig;
 
 import java.io.InputStreamReader;
@@ -50,6 +51,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     PreparedStatement taxaDistWhereCutPositionIDPS;
     PreparedStatement snpPositionsForChromosomePS;
     PreparedStatement alleleTaxaDistForSnpidPS;
+    PreparedStatement snpQualityInsertPS;
 
 
 
@@ -122,6 +124,13 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             		"select position from snpposition where chromosome=?");
             alleleTaxaDistForSnpidPS =connection.prepareStatement("select a.*, td.* from allele a, tagallele ta, tagtaxadistribution td\n" +
                     "where a.alleleid=ta.alleleid and ta.tagid=td.tagid and a.snpid=?");
+            snpQualityInsertPS=connection.prepareStatement(
+                    "INSERT into snpQuality (snpid, taxasubset ,avgDepth, minorDepthProp, minor2DepthProp, gapDepthProp, " +
+                            "propCovered, propCovered2, taxaCntWithMinorAlleleGE2, minorAlleleFreq, inbredF_DGE2)" +
+                            " values(?,?,?,?,?,?,?,?,?,?,?)");
+//            snpQualityInsertPS=connection.prepareStatement(
+//                    "INSERT into snpQuality (snpid, taxasubset)" +
+//                            " values(?,?)");
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -377,6 +386,53 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 }
             }
             posTagInsertPS.executeBatch();
+            connection.setAutoCommit(true);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    //@Override
+    public void putSNPQualityProfile(Map<Position, Map<String,Double>> tagAnnotatedPositionMap, String taxaSubset) {
+        int batchCount=0;
+        try {
+            putSNPPositionsIfAbsent(tagAnnotatedPositionMap.keySet());
+            connection.setAutoCommit(false);
+            for (Map.Entry<Position, Map<String,Double>> entry : tagAnnotatedPositionMap.entrySet()) {
+                Position p=entry.getKey();
+                Map<String,Double> vals=entry.getValue();
+                int ind=1;
+
+//                snpQualityInsertPS=connection.prepareStatement(
+//                        "INSERT OR IGNORE into snpQuality (snpid, taxasubset ,avgDepth, minorDepthProp, minor2DepthProp, gapDepthProp, " +
+//                                "propCovered, propCovered2, taxaCntWithMinorAlleleGE2,minorAlleleFreq, inbredF_DGE2)" +
+//                                " values(?,?,?,?,?,?,?,?,?,?,?)");
+                System.out.println("vals = " + vals.size());
+                System.out.println(vals.get("inbredF_DGE2").toString());
+                snpQualityInsertPS.setInt(ind++, snpPosToIDMap.get(p));
+                snpQualityInsertPS.setString(ind++, taxaSubset);
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("avgDepth",0.0));
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("minorDepthProp",0.0));
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("minor2DepthProp",0.0));
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("gapDepthProp",0.0));
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("propCovered",0.0));
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("propCovered2",0.0));
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("taxaCntWithMinorAlleleGE2",0.0));
+                System.out.println("MAF:"+vals.getOrDefault("minorAlleleFreqGE2",-1.0));
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("minorAlleleFreqGE2",0.0));
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("inbredF_DGE2",null));
+                //snpQualityInsertPS.get();
+                //System.out.println(posTagInsertPS.toString());
+                snpQualityInsertPS.addBatch();
+                batchCount++;
+                if(batchCount>10000) {
+                    System.out.println("putSNPQualityProfile next"+batchCount);
+                    snpQualityInsertPS.executeBatch();
+                    batchCount=0;
+                }
+            }
+            snpQualityInsertPS.executeBatch();
             connection.setAutoCommit(true);
         } catch (SQLException e) {
             e.printStackTrace();
