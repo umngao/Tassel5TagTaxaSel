@@ -126,7 +126,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                     "where a.alleleid=ta.alleleid and ta.tagid=td.tagid and a.snpid=?");
             snpQualityInsertPS=connection.prepareStatement(
                     "INSERT into snpQuality (snpid, taxasubset ,avgDepth, minorDepthProp, minor2DepthProp, gapDepthProp, " +
-                            "propCovered, propCovered2, taxaCntWithMinorAlleleGE2, minorAlleleFreq, inbredF_DGE2)" +
+                            "propCovered, propCovered2, taxaCntWithMinorAlleleGE2, minorAlleleFreqGE2, inbredF_DGE2)" +
                             " values(?,?,?,?,?,?,?,?,?,?,?)");
 //            snpQualityInsertPS=connection.prepareStatement(
 //                    "INSERT into snpQuality (snpid, taxasubset)" +
