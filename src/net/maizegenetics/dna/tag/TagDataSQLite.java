@@ -2,7 +2,6 @@ package net.maizegenetics.dna.tag;
 
 import com.google.common.collect.*;
 import com.google.common.io.CharStreams;
-
 import net.maizegenetics.dna.map.*;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.snp.SimpleAllele;
@@ -10,7 +9,6 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.Tuple;
-import org.json.simple.JSONObject;
 import org.sqlite.SQLiteConfig;
 
 import java.io.InputStreamReader;
@@ -51,6 +49,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     PreparedStatement taxaDistWhereCutPositionIDPS;
     PreparedStatement snpPositionsForChromosomePS;
     PreparedStatement alleleTaxaDistForSnpidPS;
+    PreparedStatement allAlleleTaxaDistForSnpidPS;
     PreparedStatement snpQualityInsertPS;
 
 
@@ -124,6 +123,8 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             		"select position from snpposition where chromosome=?");
             alleleTaxaDistForSnpidPS =connection.prepareStatement("select a.*, td.* from allele a, tagallele ta, tagtaxadistribution td\n" +
                     "where a.alleleid=ta.alleleid and ta.tagid=td.tagid and a.snpid=?");
+            allAlleleTaxaDistForSnpidPS =connection.prepareStatement("select a.*, td.* from allele a, tagallele ta, tagtaxadistribution td\n" +
+                    "where a.alleleid=ta.alleleid and ta.tagid=td.tagid order by a.snpid");
             snpQualityInsertPS=connection.prepareStatement(
                     "INSERT into snpQuality (snpid, taxasubset ,avgDepth, minorDepthProp, minor2DepthProp, gapDepthProp, " +
                             "propCovered, propCovered2, taxaCntWithMinorAlleleGE2, minorAlleleFreqGE2, inbredF_DGE2)" +
@@ -408,8 +409,8 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 //                        "INSERT OR IGNORE into snpQuality (snpid, taxasubset ,avgDepth, minorDepthProp, minor2DepthProp, gapDepthProp, " +
 //                                "propCovered, propCovered2, taxaCntWithMinorAlleleGE2,minorAlleleFreq, inbredF_DGE2)" +
 //                                " values(?,?,?,?,?,?,?,?,?,?,?)");
-                System.out.println("vals = " + vals.size());
-                System.out.println(vals.get("inbredF_DGE2").toString());
+//                System.out.println("vals = " + vals.size());
+//                System.out.println(vals.get("inbredF_DGE2").toString());
                 snpQualityInsertPS.setInt(ind++, snpPosToIDMap.get(p));
                 snpQualityInsertPS.setString(ind++, taxaSubset);
                 snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("avgDepth",0.0));
@@ -419,7 +420,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("propCovered",0.0));
                 snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("propCovered2",0.0));
                 snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("taxaCntWithMinorAlleleGE2",0.0));
-                System.out.println("MAF:"+vals.getOrDefault("minorAlleleFreqGE2",-1.0));
+//                System.out.println("MAF:"+vals.getOrDefault("minorAlleleFreqGE2",-1.0));
                 snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("minorAlleleFreqGE2",0.0));
                 snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("inbredF_DGE2",null));
                 //snpQualityInsertPS.get();
@@ -582,6 +583,20 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         }
         return atdBuilder.build();
     }
+
+//    public Stream<Multimap<Allele,TaxaDistribution>> getAllAllelesTaxaDistForSNP() {
+//        ImmutableMultimap.Builder<Allele,TaxaDistribution> atdBuilder=ImmutableMultimap.builder();
+//        try{
+//            ResultSet rs= allAlleleTaxaDistForSnpidPS.executeQuery();
+//            while(rs.next()) {
+//                Allele allele=new SimpleAllele((byte)rs.getInt("allelecall"),position);
+//                atdBuilder.put(allele,TaxaDistBuilder.create(rs.getBytes("depthsRLE")));
+//            }
+//        } catch (SQLException e) {
+//            e.printStackTrace();
+//        }
+//        return atdBuilder.build();
+//    }
 
     @Override
     public Set<Tag> getTags() {

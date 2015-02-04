@@ -2,19 +2,18 @@ package net.maizegenetics.analysis.gbs.v2;
 
 
 import com.google.common.collect.Multimap;
-import com.google.common.primitives.Ints;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
-import net.maizegenetics.dna.tag.*;
+import net.maizegenetics.dna.tag.TagData;
+import net.maizegenetics.dna.tag.TagDataSQLite;
+import net.maizegenetics.dna.tag.TaxaDistribution;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListIOUtils;
 import org.apache.log4j.Logger;
-import org.json.simple.JSONObject;
 
 import javax.swing.*;
 import java.awt.*;
@@ -22,7 +21,6 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 
 /**
@@ -36,10 +34,12 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(SAMToGBSdbPlugin.class);
 
-    private PluginParameter<String> myTaxaFile = new PluginParameter.Builder<String>("taxa", null, String.class).guiName("Taxa List File").required(true).inFile()
+    private PluginParameter<String> myTaxaFile = new PluginParameter.Builder<String>("taxa", null, String.class).guiName("Taxa List File").inFile()
             .description("Name of taxa list input file in taxa list format").build();
     private PluginParameter<String> myDBFile = new PluginParameter.Builder<String>("o", null, String.class).guiName("GBS DB File").required(true).outFile()
             .description("Name of output file (e.g. GBSv2.db)").build();
+    private PluginParameter<String> myTaxaListName = new PluginParameter.Builder<String>("tname", null, String.class).guiName("Name for taxa set in DB")
+            .description("Name of taxa set for database").build();
     private TagDataSQLite tagDataWriter;
 
     public SNPQualityProfilerPlugin() {
@@ -52,10 +52,18 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
 
     @Override
     public DataSet processData(DataSet input) {
-        tagDataWriter =new TagDataSQLite(gBSDBFile());
+        tagDataWriter=new TagDataSQLite(dBFile());
         TaxaList taxaList=tagDataWriter.getTaxaList();
-        TaxaList subTaxa=TaxaListIOUtils.readTaxaAnnotationFile(taxaListFile(),"<NAME>");
+        TaxaList subTaxa;
+        if (myTaxaFile.isEmpty()) {
+            subTaxa=taxaList;
+            if (myTaxaListName.isEmpty()) taxaListName("ALL");
+        } else {
+            subTaxa=TaxaListIOUtils.readTaxaAnnotationFile(taxaFile(), "<NAME>");
+            if (myTaxaListName.isEmpty()) taxaListName(taxaFile());
+        }
         System.out.println("sublist");
+
 
 
         subTaxa.stream().filter(t -> taxaList.indexOf(t)<0).forEach(t-> System.err.println("Missing taxon from master:" + t));
@@ -99,14 +107,14 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                         qualMap.put("inbredF_DGE2", genotypeCnt.f);
 
                         //System.out.println("jsonObject:" + jsonObject.toJSONString());
-                        if ((Double) qualMap.getOrDefault("inbredF_DGE2", 0.0) > 0.9 && qualMap.getOrDefault("genotypeCnt", 0.0) > 10) {
-                            System.out.println(adder.intValue() + "\t" + qualMap.get("inbredF_DGE2") + "\t" + qualMap.get("minorDepthProp"));
-                        }
+//                        if ((Double) qualMap.getOrDefault("inbredF_DGE2", 0.0) > 0.9 && qualMap.getOrDefault("genotypeCnt", 0.0) > 10) {
+//                            MAF.out.println(adder.intValue() + "\t" + qualMap.get("inbredF_DGE2") + "\t" + qualMap.get("minorDepthProp"));
+//                        }
                         adder.increment();
                         Map<Position, Map<String,Double>> resultMap = new HashMap<>();
                         resultMap.put(position,qualMap);
-                        tagDataWriter.putSNPQualityProfile(resultMap,"junk1");
-                        //System.out.println(adder.intValue());
+                        tagDataWriter.putSNPQualityProfile(resultMap,myTaxaListName.value());
+                        System.out.println(adder.intValue());
                     }
                 });
 
@@ -171,16 +179,6 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
     }
 
 
-
-
-//    The following getters and setters were auto-generated.
-//    Please use this method to re-generate.
-//
-//    public static void main(String[] args) {
-//         GeneratePluginCode.generate(SNPQualityProfilerPlugin.class);
-//    }
-
-
     @Override
     public ImageIcon getIcon() {
         return null;
@@ -215,7 +213,7 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
      *
      * @return Taxa List File
      */
-    public String taxaListFile() {
+    public String taxaFile() {
         return myTaxaFile.value();
     }
 
@@ -227,7 +225,7 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public SNPQualityProfilerPlugin taxaListFile(String value) {
+    public SNPQualityProfilerPlugin taxaFile(String value) {
         myTaxaFile = new PluginParameter<>(myTaxaFile, value);
         return this;
     }
@@ -237,7 +235,7 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
      *
      * @return GBS DB File
      */
-    public String gBSDBFile() {
+    public String dBFile() {
         return myDBFile.value();
     }
 
@@ -248,8 +246,29 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public SNPQualityProfilerPlugin gBSDBFile(String value) {
+    public SNPQualityProfilerPlugin dBFile(String value) {
         myDBFile = new PluginParameter<>(myDBFile, value);
+        return this;
+    }
+
+    /**
+     * Name of taxa set for database
+     *
+     * @return Name for taxa set in DB
+     */
+    public String taxaListName() {
+        return myTaxaListName.value();
+    }
+
+    /**
+     * Set Name for taxa set in DB. Name of taxa set for database
+     *
+     * @param value Name for taxa set in DB
+     *
+     * @return this plugin
+     */
+    public SNPQualityProfilerPlugin taxaListName(String value) {
+        myTaxaListName = new PluginParameter<>(myTaxaListName, value);
         return this;
     }
 }
