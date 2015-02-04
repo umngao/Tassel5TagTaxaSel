@@ -110,6 +110,9 @@ public class TaxaListBuilder {
      * @return
      */
     public TaxaList buildFromHDF5Genotypes(IHDF5Reader reader) {
+        if (!HDF5Utils.isTaxaLocked(reader)) {
+            throw new IllegalStateException("The Taxa module of this HDF5 file hasn't been locked, and therefore can't be opened for reading. This could occur if the file was created using the -ko (keep open) option when running the plugin ProductionSNPCallerPluginV2. Please check your file, close if appropriate, and try again.");
+        }
         myTaxaList.clear();
         for (String taxonName : HDF5Utils.getAllTaxaNames(reader)) {
             if(!HDF5Utils.doTaxonCallsExist(reader,taxonName)) continue;  //if no calls exist skip it
