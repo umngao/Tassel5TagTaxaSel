@@ -86,7 +86,7 @@ CREATE TABLE taxa (
 -- Table: SNP Quality
 --
 CREATE TABLE snpQuality (
-  snpid INTEGER   PRIMARY KEY,
+  snpid INTEGER   NOT NULL,
   taxasubset TEXT      NOT NULL,
   avgDepth REAL NOT NULL,
   minorDepthProp REAL NOT NULL,
@@ -95,12 +95,10 @@ CREATE TABLE snpQuality (
   propCovered REAL NOT NULL,
   propCovered2 REAL NOT NULL,
   taxaCntWithMinorAlleleGE2 REAL NOT NULL,
-  minorAlleleFreq      REAL NOT NULL,
-  inbredF_DGE2    REAL  NOT NULL,
-  hwe_DGE2 REAL NOT NULL,
-  hetFreq_DGE2 REAL NOT NULL,
-  externalPositive REAL NOT NULL,
-  externalNegative REAL NOT NULL
+  minorAlleleFreqGE2      REAL NOT NULL,
+  inbredF_DGE2    REAL,
+  externalPositive REAL,
+  externalNegative REAL
 );
 CREATE UNIQUE INDEX snpqual_idx ON snpQuality(snpid, taxasubset);
 
