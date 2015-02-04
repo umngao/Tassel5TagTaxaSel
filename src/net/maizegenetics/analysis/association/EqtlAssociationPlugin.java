@@ -30,6 +30,7 @@ import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.stats.linearmodels.CovariateModelEffect;
 import net.maizegenetics.stats.linearmodels.FactorModelEffect;
+import net.maizegenetics.stats.linearmodels.LinearModelUtils;
 import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.SolveByOrthogonalizing;
 import net.maizegenetics.util.TableReport;
@@ -98,16 +99,16 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		
     	if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype) {
     		if (addOnly.value()) {
-    			modeldf = orthogonalSolver.baseDf(); //base df includes the mean, which should not be included in model corrected for the mean, which is what is needed here.
-    			errordf = myPhenotype.numberOfObservations() - modeldf - 1;
+    			modeldf = 1; 
+    			errordf = myPhenotype.numberOfObservations() - orthogonalSolver.baseDf() - modeldf;
     			Fdist = new FDistributionImpl(modeldf, errordf);
     			minR2 = calculateR2Fromp();
         		IntStream.range(0, nsites).parallel()
     			.mapToObj(s-> orthogonalSolver.solveForR(myGenotype.positions().get(s), additiveSite(s)))
     			.forEach(this::updateOutputWithPvalues);
     		} else {
-    			modeldf = orthogonalSolver.baseDf() + 1;
-    			errordf = myPhenotype.numberOfObservations() - modeldf - 1;
+    			modeldf = 2; 
+    			errordf = myPhenotype.numberOfObservations() - orthogonalSolver.baseDf() - modeldf;
     			Fdist = new FDistributionImpl(modeldf, errordf);
     			minR2 = calculateR2Fromp();
         		IntStream.range(0, nsites).parallel()
@@ -118,11 +119,12 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
     			.forEach(this::updateOutputWithPvalues);
     		}
     	} else if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability) {
-			modeldf = orthogonalSolver.baseDf();
-			errordf = myPhenotype.numberOfObservations() - modeldf - 1;
+			modeldf = 1; 
+			errordf = myPhenotype.numberOfObservations() - orthogonalSolver.baseDf() - modeldf;
 			Fdist = new FDistributionImpl(modeldf, errordf);
 			minR2 = calculateR2Fromp();
-    		IntStream.range(0, nsites).parallel()
+			
+    		IntStream.range(0, nsites)
     			.mapToObj(s-> orthogonalSolver.solveForR(myGenotype.positions().get(s), referenceProbabilitiesForSite(s)))
     			.forEach(this::updateOutputWithPvalues);
     		
@@ -163,12 +165,12 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	
 	private double pvalue(double rvalue) {
 		double F = rvalue / (1 - rvalue) * errordf / modeldf;
-		double p;
+		double p; 
 		try {
 			p = 1 - Fdist.cumulativeProbability(F);
 		} catch(Exception e) {
 			p = Double.NaN;
-		} 
+		}
 		return p;
 	}
 	
