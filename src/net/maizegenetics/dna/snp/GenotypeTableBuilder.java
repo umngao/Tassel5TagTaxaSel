@@ -669,11 +669,11 @@ public class GenotypeTableBuilder {
                     break;
                 }
             }
+            HDF5Utils.lockHDF5TaxaModule(writer);
             String name = writer.getFile().getAbsolutePath();
             annotateHDF5File(writer);
             GeneralAnnotationStorage.writeToHDF5(writer, Tassel5HDF5Constants.ROOT, myAnnotationBuilder.build());
             HDF5Utils.lockHDF5GenotypeModule(writer);
-            HDF5Utils.lockHDF5TaxaModule(writer);
             writer.close();
             return getInstance(name);
         }
@@ -817,7 +817,6 @@ public class GenotypeTableBuilder {
      * @param writer
      */
     public static void annotateHDF5File(IHDF5Writer writer) {
-        // int hdf5GenoBlock=writer.getIntAttribute(Tassel5HDF5Constants.DEFAULT_ATTRIBUTES_PATH, Tassel5HDF5Constants.BLOCK_SIZE);
         if (HDF5Utils.isHDF5GenotypeLocked(writer)) {
             throw new UnsupportedOperationException("This is a locked HDF5 file");
         }
