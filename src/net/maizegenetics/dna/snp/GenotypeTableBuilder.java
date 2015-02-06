@@ -442,7 +442,7 @@ public class GenotypeTableBuilder {
         PositionList pL = PositionListBuilder.getInstance(reader);
         GenotypeCallTable geno = GenotypeCallTableBuilder.buildHDF5(reader);
         AlleleDepth depth = AlleleDepthBuilder.getExistingHDF5Instance(reader);
-        return GenotypeTableBuilder.getInstance(geno, pL, tL, depth, null, null, null, GeneralAnnotationStorage.readFromHDF5(reader, Tassel5HDF5Constants.ROOT, GenotypeTable.GENOTYPE_TABLE_ANNOTATIONS));
+        return GenotypeTableBuilder.getInstance(geno, pL, tL, depth, null, null, null, HDF5Utils.readHDF5Annotation(reader, Tassel5HDF5Constants.ROOT, GenotypeTable.GENOTYPE_TABLE_ANNOTATIONS));
     }
 
     public static GenotypeTable getInstanceOnlyMajorMinor(GenotypeTable alignment) {
