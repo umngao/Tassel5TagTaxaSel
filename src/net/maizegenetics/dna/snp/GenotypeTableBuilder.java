@@ -672,7 +672,7 @@ public class GenotypeTableBuilder {
             HDF5Utils.lockHDF5TaxaModule(writer);
             String name = writer.getFile().getAbsolutePath();
             annotateHDF5File(writer);
-            GeneralAnnotationStorage.writeToHDF5(writer, Tassel5HDF5Constants.ROOT, myAnnotationBuilder.build());
+            HDF5Utils.writeHDF5Annotation(writer, Tassel5HDF5Constants.ROOT, myAnnotationBuilder.build());
             HDF5Utils.lockHDF5GenotypeModule(writer);
             writer.close();
             return getInstance(name);

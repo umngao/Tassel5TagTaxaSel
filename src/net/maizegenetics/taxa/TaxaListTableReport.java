@@ -3,6 +3,8 @@
  */
 package net.maizegenetics.taxa;
 
+import com.google.common.base.Joiner;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -81,8 +83,8 @@ public class TaxaListTableReport implements TableReport {
                 return myTaxaList.get((int) row).getName();
             default:
                 String[] annotations = myTaxaList.get((int) row).getTextAnnotation(myColumnHeadings[col]);
-                if (annotations != null) {
-                    return annotations[0];
+                if ((annotations != null) && (annotations.length != 0)) {
+                    return Joiner.on(",").join(annotations);
                 } else {
                     return null;
                 }
