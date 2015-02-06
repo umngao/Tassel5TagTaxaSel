@@ -5,9 +5,6 @@
  */
 package net.maizegenetics.util;
 
-import ch.systemsx.cisd.hdf5.IHDF5Reader;
-import ch.systemsx.cisd.hdf5.IHDF5Writer;
-
 import com.google.common.collect.SetMultimap;
 
 import java.util.AbstractMap;
@@ -56,34 +53,6 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
 
     public static Builder getBuilder() {
         return new Builder();
-    }
-
-    public static GeneralAnnotationStorage readFromHDF5(IHDF5Reader reader, String annotationRootPath, String[] annotationKeys) {
-        Builder builder = new Builder();
-        for (String annotation : annotationKeys) {
-            if (reader.hasAttribute(annotationRootPath, annotation)) {
-                builder.addAnnotation(annotation, reader.getStringAttribute(annotationRootPath, annotation));
-            }
-        }
-        return builder.build();
-    }
-
-    public static void writeToHDF5(IHDF5Writer writer, String annotationRootPath, String[] annotationKeys, String[] values) {
-        if (annotationKeys.length != values.length) {
-            throw new IllegalArgumentException("GeneralAnnotationStorage: writeToHDF5: annotation keys length: " + annotationKeys.length + " should match values length: " + values.length);
-        }
-        for (int i = 0; i < annotationKeys.length; i++) {
-            writer.setStringAttribute(annotationRootPath, annotationKeys[i], values[i]);
-        }
-    }
-
-    public static void writeToHDF5(IHDF5Writer writer, String annotationRootPath, GeneralAnnotationStorage annotations) {
-        if (annotations == null) {
-            return;
-        }
-        for (Map.Entry<String, String> current : annotations.getAllAnnotationEntries()) {
-            writer.setStringAttribute(annotationRootPath, current.getKey(), current.getValue());
-        }
     }
 
     @Override
