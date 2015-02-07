@@ -772,7 +772,13 @@ public class GenotypeTableBuilder {
     }
 
     private synchronized void mergeTaxonInHDF5(IHDF5Writer myWriter, Taxon id, byte[] genotype, byte[][] depth) {
-        String[] existingFlowCellLanes = HDF5Utils.getTaxon(writer, id.getName()).getAnnotation().getTextAnnotation("Flowcell_Lane");
+        GeneralAnnotation annotation = HDF5Utils.getTaxon(writer, id.getName()).getAnnotation();
+        String[] existingFlowCellLanes;
+        if (annotation == null) {
+            existingFlowCellLanes = new String[0];
+        } else {
+            existingFlowCellLanes = annotation.getTextAnnotation("Flowcell_Lane");
+        }
         String[] newFlowCellLanes = id.getAnnotation().getTextAnnotation("Flowcell_Lane");
         if (newFlowCellLanes.length > 0) {
             for (String existingFL : existingFlowCellLanes) {
