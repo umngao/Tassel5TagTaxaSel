@@ -26,12 +26,13 @@ import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.HDF5Utils;
 import net.maizegenetics.util.Tassel5HDF5Constants;
+import net.maizegenetics.util.GeneralAnnotationStorage;
+import net.maizegenetics.util.GeneralAnnotation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import net.maizegenetics.dna.snp.score.Dosage;
-import net.maizegenetics.util.GeneralAnnotationStorage;
 
 /**
  * Builder for GenotypeTables. New genotypeTables are built from a minimum of
