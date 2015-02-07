@@ -1,6 +1,5 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * GeneralPosition
  */
 package net.maizegenetics.dna.map;
 
@@ -8,195 +7,271 @@ import com.google.common.collect.*;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
-import net.maizegenetics.util.GeneralAnnotationUtils;
 
 import java.text.NumberFormat;
-import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import net.maizegenetics.util.GeneralAnnotation;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 
 /**
- * Provide information on a site and its annotations.  This includes information
- * on position, MAF, coverage.  This class is immutable.
- * <p></p>
+ * Provide information on a site and its annotations. This includes information
+ * on position, MAF, coverage. This class is immutable.
+ * <p>
+ * </p>
  * The annotations are all set using the builder.
- * <p></p>
- * This class has been optimized for memory size compared to the other version.  Every annotated position takes about 84
- * bytes, even with a names and declared variants.  Positions with extended annotation take roughly 117 bytes, and as
- * long as the annotation are repeated extensively the take an additional 8 bytes each.  So a site with 100 annotation would
- * take <1000 bytes.
+ * <p>
+ * </p>
+ * This class has been optimized for memory size compared to the other version.
+ * Every annotated position takes about 84 bytes, even with a names and declared
+ * variants. Positions with extended annotation take roughly 117 bytes, and as
+ * long as the annotation are repeated extensively the take an additional 8
+ * bytes each. So a site with 100 annotation would take <1000 bytes.
  *
  * @author Ed Buckler
  */
 public final class GeneralPosition implements Position {
-       /**Locus of the site (required)*/
+
+    /**
+     * Locus of the site (required)
+     */
     private final Chromosome myChromosome;
-    /**Physical position of the site (unknown = Float.NaN)*/
+    /**
+     * Physical position of the site (unknown = Float.NaN)
+     */
     private final int myPosition;
-    /**Strand of the site (unknown = Byte.MIN_VALUE)*/
+    /**
+     * Strand of the site (unknown = Byte.MIN_VALUE)
+     */
     private final byte myStrand;
-    /**Genetic position in centiMorgans (unknown = Float.NaN)*/
+    /**
+     * Genetic position in centiMorgans (unknown = Float.NaN)
+     */
     private final float myCM;
-    /**Is type Nucleotide or Text*/
+    /**
+     * Is type Nucleotide or Text
+     */
     private final boolean isNucleotide;
-    /**Whether the variant define the nature of the indel*/
+    /**
+     * Whether the variant define the nature of the indel
+     */
     private final boolean isIndel;
     private final float myMAF;
     private final float mySiteCoverage;
     private final long myAlleleValue;  //todo consider TAS-376
-    /**Name of the site (default = SLocus_Position)*/
+    /**
+     * Name of the site (default = SLocus_Position)
+     */
     private final byte[] mySNPIDAsBytes;
-//    /**Define the nature of the polymorphism {"ACTAT","-"} or {"A","C","G"} or {"100","103","106"}
-//     */
-   private final Map.Entry<String, String>[] myVariantsAndAnno;
+    /**
+     * Define the nature of the polymorphism {"ACTAT","-"} or {"A","C","G"} or
+     * {"100","103","106"}
+     */
+    private final GeneralAnnotation myVariantsAndAnno;
     private final int hashCode;
 
-
-    //since there are numerous redundant annotations and variant descriptions, this class use a annotation hash, so that
-    //only the pointers are stored.  It takes a little longer to instantiate, but save 3-fold in memory.
-    private static final ConcurrentMap<Map.Entry<String, String>,Map.Entry<String, String>> ANNO_HASH = new ConcurrentHashMap<>(100_000);
-
-    public static Map.Entry<String, String> getCanonicalAnnotation(String key, String value) {
-        if (ANNO_HASH.size() > 100000) {
-            ANNO_HASH.clear();
-        }
-        Map.Entry<String, String> str= new AbstractMap.SimpleImmutableEntry<>(key,value);
-        Map.Entry<String, String> canon = ANNO_HASH.putIfAbsent(str, str);
-        return (canon == null) ? str : canon;
-    }
-
     /**
-     * A builder for creating immutable CoreAnnotatedPosition instances. AnnotatedPositions are
-     * built off a base of a CorePosition, so build it first.
-     *<p> Example:
+     * A builder for creating immutable CoreAnnotatedPosition instances.
+     * AnnotatedPositions are built off a base of a CorePosition, so build it
+     * first.
+     * <p>
+     * Example:
      * <pre>   {@code
      * Position cp= new CorePosition.Builder(new Chromosome("1"),1232).build();
      * CoreAnnotatedPosition ap= new CoreAnnotatedPosition.Builder(cp)
      *    .maf(0.05f)
      *    .ancAllele(NucleotideAlignmentConstants.C_ALLELE)
      *    .build();}</pre>
-     * <p>This would create nucleotide position on chromosome 1 at position 1232.  The MAF is 0.05 and the ancestral allele
-     * is C.
+     * <p>
+     * This would create nucleotide position on chromosome 1 at position 1232.
+     * The MAF is 0.05 and the ancestral allele is C.
      */
     public static class Builder {
+
         // Required parameters
         private Chromosome myChromosome;
         private int myPosition;
         // Optional parameters - initialized to default values
-        private byte myStrand=1;
-        private float myCM=Float.NaN;
-        private String mySNPID=null;
-        private boolean isNucleotide=true;
-        private boolean isIndel=false;
-        private NumberFormat nf=NumberFormat.getInstance();
-        private Map.Entry<String, String> myKnownVariants=null;
-        private Map.Entry<String, String>[] myVariantsAndAnno;
+        private byte myStrand = 1;
+        private float myCM = Float.NaN;
+        private String mySNPID = null;
+        private boolean isNucleotide = true;
+        private boolean isIndel = false;
+        private NumberFormat nf = NumberFormat.getInstance();
 
         //in an allele annotation objects
         private float myMAF = Float.NaN;
         private float mySiteCoverage = Float.NaN;
-        private byte[] myAlleles=new byte[WHICH_ALLELE.COUNT];
+        private byte[] myAlleles = new byte[WHICH_ALLELE.COUNT];
         private long myAllelesAsLong;
-        //in an general annotation object
-        private ArrayList<Map.Entry<String, String>> myAnnotations=new ArrayList<>(0);
+        private final GeneralAnnotationStorage.Builder myAnnotations = GeneralAnnotationStorage.getBuilder();
 
-        /**Constructor requires a Position before annotation of the position*/
+        /**
+         * Constructor requires a Position before annotation of the position
+         */
         public Builder(Chromosome chr, int position) {
             myChromosome = Chromosome.getCanonicalChromosome(chr);
             myPosition = position;
-            Arrays.fill(myAlleles,GenotypeTable.UNKNOWN_ALLELE);
-            myKnownVariants=getCanonicalAnnotation("VARIANT","");
+            Arrays.fill(myAlleles, GenotypeTable.UNKNOWN_ALLELE);
+            myAnnotations.addAnnotation("VARIANT", "");
         }
 
-        /**Constructor from an existing position*/
+        /**
+         * Constructor from an existing position
+         */
         public Builder(Position aCorePosition) {
-            this(aCorePosition.getChromosome(),aCorePosition.getPosition());
-            myStrand=aCorePosition.getStrand();
-            myCM=aCorePosition.getCM();
-            mySNPID=aCorePosition.getSNPID();
-            isNucleotide=aCorePosition.isNucleotide();
-            isIndel=aCorePosition.isIndel();
-            myMAF=aCorePosition.getGlobalMAF();
-            mySiteCoverage=aCorePosition.getGlobalSiteCoverage();
-            for (WHICH_ALLELE alleleType: WHICH_ALLELE.values()) {
+            this(aCorePosition.getChromosome(), aCorePosition.getPosition());
+            myStrand = aCorePosition.getStrand();
+            myCM = aCorePosition.getCM();
+            mySNPID = aCorePosition.getSNPID();
+            isNucleotide = aCorePosition.isNucleotide();
+            isIndel = aCorePosition.isIndel();
+            myMAF = aCorePosition.getGlobalMAF();
+            mySiteCoverage = aCorePosition.getGlobalSiteCoverage();
+            for (WHICH_ALLELE alleleType : WHICH_ALLELE.values()) {
                 myAlleles[alleleType.index()] = aCorePosition.getAllele(alleleType);
             }
-            for (Map.Entry<String, String> entry : aCorePosition.getAllAnnotationEntries()) {
-                myAnnotations.add(entry);
-            }
+            myAnnotations.addAnnotations(aCorePosition.getAnnotation());
 
-//            myKnownVariants=aCorePosition.getKnownVariants(); //todo Fix
         }
-        
-        /**Set Chromosome*/
-         public Builder chromosome(Chromosome val) {myChromosome = val; return this;}
-        /**Set Position in Chromosome*/
-        public Builder position(int val) {myPosition = val; return this;}
-        /**Set strand (default=1)*/
-        public Builder strand(byte val) {myStrand = val; return this;}
-        /**Set strand (default=Float.NaN)*/
-        public Builder cM(float val) {myCM = val; return this;}
-        /**Set SNP name (default="S"+Chromosome+"_"+position)*/
-        public Builder snpName(String val) {mySNPID = val; return this;}
-        /**Set whether position is nucleotide (default=true)*/
-        public Builder nucleotide(boolean val) {isNucleotide = val; return this; }
-        /**Set whether position is indel (default=false)*/
-        public Builder indel(boolean val) {isIndel = val; return this;}
-        /**Set text definition of variants (default=null)*/
+
+        /**
+         * Set Chromosome
+         */
+        public Builder chromosome(Chromosome val) {
+            myChromosome = val;
+            return this;
+        }
+
+        /**
+         * Set Position in Chromosome
+         */
+        public Builder position(int val) {
+            myPosition = val;
+            return this;
+        }
+
+        /**
+         * Set strand (default=1)
+         */
+        public Builder strand(byte val) {
+            myStrand = val;
+            return this;
+        }
+
+        /**
+         * Set strand (default=Float.NaN)
+         */
+        public Builder cM(float val) {
+            myCM = val;
+            return this;
+        }
+
+        /**
+         * Set SNP name (default="S"+Chromosome+"_"+position)
+         */
+        public Builder snpName(String val) {
+            mySNPID = val;
+            return this;
+        }
+
+        /**
+         * Set whether position is nucleotide (default=true)
+         */
+        public Builder nucleotide(boolean val) {
+            isNucleotide = val;
+            return this;
+        }
+
+        /**
+         * Set whether position is indel (default=false)
+         */
+        public Builder indel(boolean val) {
+            isIndel = val;
+            return this;
+        }
+
+        /**
+         * Set text definition of variants (default=null)
+         */
         public Builder knownVariants(String[] val) {
-            StringBuilder sb=new StringBuilder();
-            for (String s : val) {sb.append(s).append("/");}
-            sb.setLength(sb.length()-1); //remove terminal /
-            Map.Entry<String, String> ent=getCanonicalAnnotation("VARIANT",sb.toString());
-            myKnownVariants=ent;
-            return this;
-        }
-        /**Set text definition of variants (default=null)*/
-        public Builder knownVariants(String val) {
-            Map.Entry<String, String> ent=getCanonicalAnnotation("VARIANT",val);
-            myKnownVariants=ent;
-            return this;
-        }
-
-        /**Set Minor Allele Frequency annotation (default=Float.NaN)*/
-        public Builder maf(float val) {myMAF = val; return this;}
-        /**Set site coverage annotation (default=Float.NaN)*/
-        public Builder siteCoverage(float val) {mySiteCoverage = val; return this;}
-        /**Set allele annotation by Allele type (default=Alignment.UNKNOWN_ALLELE)*/
-        public Builder allele(WHICH_ALLELE aT, byte val) {myAlleles[aT.index()] = val; return this;}
-
-        /**Add non-standard annotation*/
-        public Builder addAnno(String key, String value) {
-            Map.Entry<String, String> ent=getCanonicalAnnotation(key,value);
-            myAnnotations.add(ent);
-            return this;
-        }
-        /**Add non-standard annotation*/
-        public Builder addAnno(String key, Number value) {
-            Map.Entry<String, String> ent=getCanonicalAnnotation(key,value.toString());
-            myAnnotations.add(ent);
-            return this;
-        }
-
-        /**Add non-standard annotation with key-value separated by '='*/
-        public Builder addAnno(String keyValue) {
-            String[] sub=keyValue.split("=");
-            if(sub.length==1) {
-                return addAnno(keyValue,"TRUE");
+            StringBuilder sb = new StringBuilder();
+            for (String s : val) {
+                sb.append(s).append("/");
             }
-            return addAnno(sub[0],sub[1]);
+            sb.setLength(sb.length() - 1); //remove terminal /
+            myAnnotations.addAnnotation("VARIANT", sb.toString());
+            return this;
+        }
+
+        /**
+         * Set text definition of variants (default=null)
+         */
+        public Builder knownVariants(String val) {
+            myAnnotations.addAnnotation("VARIANT", val);
+            return this;
+        }
+
+        /**
+         * Set Minor Allele Frequency annotation (default=Float.NaN)
+         */
+        public Builder maf(float val) {
+            myMAF = val;
+            return this;
+        }
+
+        /**
+         * Set site coverage annotation (default=Float.NaN)
+         */
+        public Builder siteCoverage(float val) {
+            mySiteCoverage = val;
+            return this;
+        }
+
+        /**
+         * Set allele annotation by Allele type
+         * (default=Alignment.UNKNOWN_ALLELE)
+         */
+        public Builder allele(WHICH_ALLELE aT, byte val) {
+            myAlleles[aT.index()] = val;
+            return this;
+        }
+
+        /**
+         * Add non-standard annotation
+         */
+        public Builder addAnno(String key, String value) {
+            myAnnotations.addAnnotation(key, value);
+            return this;
+        }
+
+        /**
+         * Add non-standard annotation
+         */
+        public Builder addAnno(String key, Number value) {
+            myAnnotations.addAnnotation(key, value);
+            return this;
+        }
+
+        /**
+         * Add non-standard annotation with key-value separated by '='
+         */
+        public Builder addAnno(String keyValue) {
+            String[] sub = keyValue.split("=");
+            if (sub.length == 1) {
+                return addAnno(keyValue, "TRUE");
+            }
+            return addAnno(sub[0], sub[1]);
         }
 
         public GeneralPosition build() {
-            for (int i = myAlleles.length-1; i >=0 ; i--) {
-                myAllelesAsLong=(myAllelesAsLong<<4)|myAlleles[i];
+            for (int i = myAlleles.length - 1; i >= 0; i--) {
+                myAllelesAsLong = (myAllelesAsLong << 4) | myAlleles[i];
             }
             if (mySNPID != null) {
-                String defaultS=(new StringBuilder("S").append(myChromosome.getName()).append("_").append(myPosition)).toString();
-                if(defaultS.equals(mySNPID)) mySNPID=null;
+                String defaultS = (new StringBuilder("S").append(myChromosome.getName()).append("_").append(myPosition)).toString();
+                if (defaultS.equals(mySNPID)) {
+                    mySNPID = null;
+                }
             }
             return new GeneralPosition(this);
         }
@@ -207,62 +282,66 @@ public final class GeneralPosition implements Position {
         myPosition = builder.myPosition;
         myStrand = builder.myStrand;
         myCM = builder.myCM;
-        if(builder.mySNPID==null) {
-            mySNPIDAsBytes=null;
+        if (builder.mySNPID == null) {
+            mySNPIDAsBytes = null;
         } else {
-            mySNPIDAsBytes=builder.mySNPID.getBytes();
+            mySNPIDAsBytes = builder.mySNPID.getBytes();
         }
         isNucleotide = builder.isNucleotide;
         isIndel = builder.isIndel;
-        //this looks crazy because it java doesn't support generic arrays
 
-        myVariantsAndAnno=(Map.Entry<String, String>[])new Map.Entry<?,?>[1+builder.myAnnotations.size()];
-        myVariantsAndAnno[0]=builder.myKnownVariants;
-        for (int i = 0; i < builder.myAnnotations.size(); i++) {
-            myVariantsAndAnno[i+1]=builder.myAnnotations.get(i);
-        }
-        hashCode=calcHashCode();
+        myVariantsAndAnno = builder.myAnnotations.build();
+
+        hashCode = calcHashCode();
 
         myMAF = builder.myMAF;
         mySiteCoverage = builder.mySiteCoverage;
-        myAlleleValue=builder.myAllelesAsLong;
+        myAlleleValue = builder.myAllelesAsLong;
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (obj == this) {return true;}
-        if (!(obj instanceof Position)) {return false;}
-        Position o=(Position)obj;
-        int result= ComparisonChain.start()
-                .compare(myPosition, o.getPosition())  //position is most discriminating for speed
+        if (obj == this) {
+            return true;
+        }
+        if (!(obj instanceof Position)) {
+            return false;
+        }
+        Position o = (Position) obj;
+        int result = ComparisonChain.start()
+                .compare(myPosition, o.getPosition()) //position is most discriminating for speed
                 .compare(myChromosome, o.getChromosome())
                 .compare(myCM, o.getCM())
-                .compare(myStrand,o.getStrand())
+                .compare(myStrand, o.getStrand())
                 .result();
-        if(result!=0) return false;
+        if (result != 0) {
+            return false;
+        }
         return getSNPID().equals(o.getSNPID()); //This is done last as the string comparison is expensive
     }
 
     @Override
     public int compareTo(Position o) {
-        int result=ComparisonChain.start()
-                .compare(myChromosome,o.getChromosome())
-                .compare(myPosition,o.getPosition())
+        int result = ComparisonChain.start()
+                .compare(myChromosome, o.getChromosome())
+                .compare(myPosition, o.getPosition())
                 .compare(myCM, o.getCM())
-                .compare(myStrand,o.getStrand())
+                .compare(myStrand, o.getStrand())
                 .result();
-        if(result!=0) return result;
+        if (result != 0) {
+            return result;
+        }
         return getSNPID().compareTo(o.getSNPID()); //This is done last as the string comparison is expensive
     }
 
     @Override
     public String toString() {
-        StringBuilder sb=new StringBuilder("Position");
+        StringBuilder sb = new StringBuilder("Position");
         sb.append("\tChr:").append(getChromosome().getName());
         sb.append("\tPos:").append(getPosition());
         sb.append("\tName:").append(getSNPID());
-        if((myVariantsAndAnno!=null)&&(myVariantsAndAnno[0]!=null)) {
-            sb.append("\tVariants:").append(myVariantsAndAnno[0].getValue());
+        if (myVariantsAndAnno != null) {
+            sb.append("\tVariants:").append(myVariantsAndAnno.getTextAnnotation("VARIANT")[0]);
         }
         sb.append("\tMAF:").append(getGlobalMAF());
         sb.append("\tRef:").append(NucleotideAlignmentConstants.getHaplotypeNucleotide(getAllele(WHICH_ALLELE.Reference)));
@@ -275,7 +354,9 @@ public final class GeneralPosition implements Position {
         hash = 37 * hash + this.myPosition;
         hash = 37 * hash + this.myStrand;
         hash = 37 * hash + Float.floatToIntBits(this.myCM);
-        if(mySNPIDAsBytes!=null) hash = 37 * hash + Arrays.hashCode(this.mySNPIDAsBytes);
+        if (mySNPIDAsBytes != null) {
+            hash = 37 * hash + Arrays.hashCode(this.mySNPIDAsBytes);
+        }
         return hash;
     }
 
@@ -291,7 +372,7 @@ public final class GeneralPosition implements Position {
 
     @Override
     public byte getAllele(WHICH_ALLELE alleleType) {
-        return (byte)((myAlleleValue>>(alleleType.index()*4))&0xF);
+        return (byte) ((myAlleleValue >> (alleleType.index() * 4)) & 0xF);
     }
 
     @Override
@@ -321,7 +402,7 @@ public final class GeneralPosition implements Position {
 
     @Override
     public String getSNPID() {
-         if (mySNPIDAsBytes == null) {
+        if (mySNPIDAsBytes == null) {
             return (new StringBuilder("S").append(getChromosome().getName()).append("_").append(myPosition)).toString();
         } else {
             return new String(mySNPIDAsBytes);
@@ -340,66 +421,17 @@ public final class GeneralPosition implements Position {
 
     @Override
     public String[] getKnownVariants() {
-        if((myVariantsAndAnno==null)||(myVariantsAndAnno[0]==null)) return new String[0];
-        if(myVariantsAndAnno[0].getValue().isEmpty()) return new String[0];
-        return myVariantsAndAnno[0].getValue().replace("[", "").replace("]", "").split("/");
-    }
-
-    @Override
-    public Object[] getAnnotation(String annoName) {
-        return GeneralAnnotationUtils.getAnnotation(myVariantsAndAnno, annoName);
-        //return myGA.getAnnotation(annoName);
-//        switch (annoName) {  //TODO: uncomment once in Java 7
-//            case "locus":return myLocus;
-//            case "position":return new Integer[]{myPosition};
-//            case "myCM":return myCM;
-//            case "strand":return myStrand;
-//            case "snpID":return mySNPID;
-//        }
-//        return myGA.getAnnotation(annoName);
-    }
-
-    @Override
-    public String[] getTextAnnotation(String annoName) {
-        return GeneralAnnotationUtils.getTextAnnotation(myVariantsAndAnno,annoName);
-  //      return myGA.getTextAnnotation(annoName);
-    }
-
-    @Override
-    public double[] getQuantAnnotation(String annoName) {
-        return GeneralAnnotationUtils.getQuantAnnotation(myVariantsAndAnno,annoName);
-    //    return myGA.getQuantAnnotation(annoName);
-    }
-
-
-    @Override
-    public String getConsensusAnnotation(String annoName) {
-        return GeneralAnnotationUtils.getConsensusAnnotation(myVariantsAndAnno,annoName);
-    }
-
-    @Override
-    public double getAverageAnnotation(String annoName) {
-        return GeneralAnnotationUtils.getAverageAnnotation(myVariantsAndAnno,annoName);
-    }
-
-    @Override
-    public Map.Entry<String,String>[] getAllAnnotationEntries() {
-        return Arrays.copyOf(myVariantsAndAnno,myVariantsAndAnno.length);
-    }
-
-    @Override
-    public SetMultimap<String, String> getAnnotationAsMap() {
-        ImmutableSetMultimap.Builder<String,String> result=new ImmutableSetMultimap.Builder<String,String>()
-                .orderKeysBy(Ordering.natural()).orderValuesBy(Ordering.natural());
-        for (Map.Entry<String, String> en : myVariantsAndAnno) {
-            result.put(en.getKey(),en.getValue());
+        if (myVariantsAndAnno == null) {
+            return new String[0];
         }
-        return result.build();
+        if (myVariantsAndAnno.getTextAnnotation("VARIANT").length == 0) {
+            return new String[0];
+        }
+        return myVariantsAndAnno.getTextAnnotation("VARIANT")[0].replace("[", "").replace("]", "").split("/");
     }
 
     @Override
-    public boolean isAnnotatedWithValue(String annoName, String annoValue) {
-        return GeneralAnnotationUtils.isAnnotatedWithValue(myVariantsAndAnno,annoName,annoValue);
+    public GeneralAnnotation getAnnotation() {
+        return myVariantsAndAnno;
     }
-    
 }

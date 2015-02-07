@@ -17,6 +17,7 @@ import java.nio.file.Paths;
 import java.sql.*;
 import java.util.*;
 import java.util.stream.Collectors;
+import net.maizegenetics.util.GeneralAnnotation;
 
 /**
  * Defines xxxx
@@ -343,6 +344,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             connection.setAutoCommit(false);
             for (Map.Entry<Tag, Position> entry : tagAnnotatedPositionMap.entries()) {
                 Position p=entry.getValue();
+                GeneralAnnotation annotation = p.getAnnotation();
                 int ind=1;
                 posTagInsertPS.setInt(ind++, tagTagIDMap.get(entry.getKey()));
                 posTagInsertPS.setInt(ind++, cutPosToIDMap.get(p));
@@ -350,7 +352,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 posTagInsertPS.setBoolean(ind++, true);  //todo this needs to be derived from the position or set later.
                 boolean forward=true;
                 try{
-                    if(p.getTextAnnotation("forward")[0].toLowerCase().equals("false")) forward=false;
+                    if(annotation.getTextAnnotation("forward")[0].toLowerCase().equals("false")) forward=false;
                 } catch (Exception e) {
                     System.err.println(p.toString());
                     System.err.println("Error with forward annotation");
@@ -359,7 +361,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 posTagInsertPS.setBoolean(ind++,forward);
                 String cigarValue="";
                 try{
-                    cigarValue=p.getTextAnnotation("cigar")[0];
+                    cigarValue=annotation.getTextAnnotation("cigar")[0];
                 } catch (Exception e) {
                     System.err.println(p.toString());
                     System.err.println("Error with cigar");
@@ -368,7 +370,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 posTagInsertPS.setString(ind++, cigarValue);
                 short supportVal=0;
                 try{
-                    String[] svS=p.getTextAnnotation("supportvalue");
+                    String[] svS=annotation.getTextAnnotation("supportvalue");
                     if(svS.length>0) {
                         supportVal=Short.parseShort(svS[0]);
                     }
@@ -442,7 +444,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     }
 
     private int getMappingApproachID(Position p) throws SQLException{
-        String mapApp=p.getTextAnnotation("mappingapproach")[0];
+        String mapApp=p.getAnnotation().getTextAnnotation("mappingapproach")[0];
         if(mapApp==null) return mappingApproachToIDMap.get("unknown");
         Integer val=mappingApproachToIDMap.get(mapApp);
         if(val==null) {

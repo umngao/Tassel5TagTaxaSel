@@ -50,7 +50,7 @@ public class GenomeSequenceBuilder {
 				if (line.startsWith(">")) {
 					if (currChr != null) {
 						// end processing current chromosome sequence
-                        currChr=new Chromosome(currChr.getName(),currSeq.size(),currChr.getMyGA());
+                        currChr=new Chromosome(currChr.getName(),currSeq.size(),currChr.getAnnotation());
 						chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
 					}
 					currChr = parseChromosome(line); 
@@ -61,7 +61,7 @@ public class GenomeSequenceBuilder {
 			}
 			// reached end of file - write last bytes
 			if (currSeq.size() > 0) {
-                currChr=new Chromosome(currChr.getName(),currSeq.size(),currChr.getMyGA());
+                currChr=new Chromosome(currChr.getName(),currSeq.size(),currChr.getAnnotation());
 				chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
 			}
 			br.close();

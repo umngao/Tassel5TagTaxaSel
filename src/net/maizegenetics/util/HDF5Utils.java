@@ -4,9 +4,7 @@ import ch.systemsx.cisd.base.mdarray.MDArray;
 import ch.systemsx.cisd.hdf5.HDF5LinkInformation;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
-import com.google.common.collect.SetMultimap;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.tag.Tag;
@@ -80,7 +78,7 @@ public final class HDF5Utils {
             return false;
         }
         h5w.createGroup(path);
-        writeHDF5Annotation(h5w, path, taxon);
+        writeHDF5Annotation(h5w, path, taxon.getAnnotation());
         long size = h5w.getDataSetInformation(Tassel5HDF5Constants.TAXA_ORDER).getNumberOfElements();
         h5w.writeStringArrayBlockWithOffset(Tassel5HDF5Constants.TAXA_ORDER, new String[]{taxon.getName()}, 1, size);
         return true;
@@ -98,11 +96,11 @@ public final class HDF5Utils {
         if (annotations == null) {
             return;
         }
-        SetMultimap<String, String> annoMap = annotations.getAnnotationAsMap();
-        annoMap.keys().stream().forEach((keys) -> {
-            String s = Joiner.on(",").join(annoMap.get(keys));
-            writer.setStringAttribute(path, keys, s);
-        });
+        Iterator<Map.Entry<String, String>> itr = annotations.getConcatenatedTextAnnotations().entrySet().iterator();
+        while (itr.hasNext()) {
+            Map.Entry<String, String> current = itr.next();
+            writer.setStringAttribute(path, current.getKey(), current.getValue());
+        }
     }
 
     public static void replaceTaxonAnnotations(IHDF5Writer h5w, Taxon modifiedTaxon) {
@@ -113,7 +111,7 @@ public final class HDF5Utils {
         if (!h5w.exists(path)) {
             throw new IllegalStateException("HDF5Utils: replaceTaxonAnnotations: Taxon does not already exist: " + modifiedTaxon.getName());
         }
-        writeHDF5Annotation(h5w, path, modifiedTaxon);
+        writeHDF5Annotation(h5w, path, modifiedTaxon.getAnnotation());
     }
 
     public static GeneralAnnotationStorage readHDF5Annotation(IHDF5Reader reader, String path) {

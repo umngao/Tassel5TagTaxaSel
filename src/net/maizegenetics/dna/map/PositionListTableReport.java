@@ -25,7 +25,7 @@ public class PositionListTableReport implements TableReport {
         myPositionList = positionList;
         List<String> annotationColumns = new ArrayList<>();
         for (Position current : myPositionList) {
-            for (String key : current.getAnnotationAsMap().keySet()) {
+            for (String key : current.getAnnotation().getAnnotationKeys()) {
                 if (!annotationColumns.contains(key)) {
                     annotationColumns.add(key);
                 }
@@ -84,7 +84,7 @@ public class PositionListTableReport implements TableReport {
             case 3:
                 return myPositionList.get(row).getPosition();
             default:
-                String[] annotations = myPositionList.get(row).getTextAnnotation(myColumnHeadings[col]);
+                String[] annotations = myPositionList.get(row).getAnnotation().getTextAnnotation(myColumnHeadings[col]);
                 if (annotations != null) {
                     return annotations[0];
                 } else {

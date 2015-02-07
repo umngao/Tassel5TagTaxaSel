@@ -33,6 +33,7 @@ import java.awt.*;
 import java.io.*;
 import java.util.*;
 import net.maizegenetics.taxa.TaxaListIOUtils;
+import net.maizegenetics.util.GeneralAnnotation;
 
 /**
  * This plugin converts all of the fastq (and/or qseq) files in the input folder
@@ -496,7 +497,8 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
                 ImmutableMap.of("Flowcell", flowcellLane[0], "Lane", flowcellLane[1]), false);
         ArrayList<Taxon> taxaAL = new ArrayList();
         for (Taxon tax : annoTL) {
-            String newName = tax.getTextAnnotation("Sample").length == 0 ? tax.getTextAnnotation("DNASample")[0] : tax.getTextAnnotation("Sample")[0];
+            GeneralAnnotation annotation = tax.getAnnotation();
+            String newName = annotation.getTextAnnotation("Sample").length == 0 ? annotation.getTextAnnotation("DNASample")[0] : annotation.getTextAnnotation("Sample")[0];
             String libPrepID = tax.getName();
             newName += ":" + libPrepID;
             Taxon gbsTaxon = new Taxon.Builder(tax).name(newName).addAnno("Flowcell_Lane", currFlowcellLane)

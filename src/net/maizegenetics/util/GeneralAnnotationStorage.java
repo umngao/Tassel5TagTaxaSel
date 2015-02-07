@@ -1,20 +1,24 @@
 /*
  *  GeneralAnnotationStorage
  * 
- *  Created on Aug 5, 2014
+ *  Created on Feb. 2, 2015
  */
 package net.maizegenetics.util;
 
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  *
@@ -36,7 +40,7 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
 
     });
 
-    static Map.Entry<String, String> getCanonicalAnnotation(String key, String value) {
+    private static Map.Entry<String, String> getCanonicalAnnotation(String key, String value) {
         Map.Entry<String, String> temp = new AbstractMap.SimpleImmutableEntry<>(key, value);
         Map.Entry<String, String> entry = CACHE.putIfAbsent(temp, temp);
         return (entry == null) ? temp : entry;
@@ -56,17 +60,6 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
     }
 
     @Override
-    public Object[] getAnnotation(String annoName) {
-        List<Object> result = new ArrayList<>(1);
-        for (Map.Entry<String, String> me : myAnnotations) {
-            if (me.getKey().equals(annoName)) {
-                result.add(me.getValue());
-            }
-        }
-        return result.toArray();
-    }
-
-    @Override
     public String[] getTextAnnotation(String annoName) {
         List<String> result = new ArrayList<>(1);
         for (Map.Entry<String, String> me : myAnnotations) {
@@ -78,8 +71,17 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
     }
 
     @Override
-    public String getConsensusAnnotation(String annoName) {
-        throw new UnsupportedOperationException("Not supported yet.");
+    public Map<String, String> getConcatenatedTextAnnotations() {
+        Map<String, String> result = new HashMap<>();
+        for (Map.Entry<String, String> me : myAnnotations) {
+            String value = result.get(me.getKey());
+            if (value == null) {
+                result.put(me.getKey(), me.getValue());
+            } else {
+                result.put(me.getKey(), value + "," + me.getValue());
+            }
+        }
+        return result;
     }
 
     @Override
@@ -106,17 +108,18 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
 
     @Override
     public double getAverageAnnotation(String annoName) {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public Map.Entry<String, String>[] getAllAnnotationEntries() {
-        return Arrays.copyOf(myAnnotations, myAnnotations.length);
-    }
-
-    @Override
-    public SetMultimap<String, String> getAnnotationAsMap() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        double[] values = getQuantAnnotation(annoName);
+        if (values.length == 0) {
+            return Double.NaN;
+        } else if (values.length == 1) {
+            return values[0];
+        } else {
+            double result = 0.0;
+            for (double current : values) {
+                result += current;
+            }
+            return result / (double) values.length;
+        }
     }
 
     @Override
@@ -129,6 +132,35 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
         return false;
     }
 
+    @Override
+    public Map.Entry<String, String>[] getAllAnnotationEntries() {
+        return Arrays.copyOf(myAnnotations, myAnnotations.length);
+    }
+
+    @Override
+    public Set<String> getAnnotationKeys() {
+        Set<String> result = new HashSet<>();
+        for (Map.Entry<String, String> me : myAnnotations) {
+            result.add(me.getKey());
+        }
+        return result;
+    }
+    
+    @Override
+    public SetMultimap<String, String> getAnnotationAsMap() {
+        ImmutableSetMultimap.Builder<String,String> result=new ImmutableSetMultimap.Builder<String,String>()
+                .orderKeysBy(Ordering.natural()).orderValuesBy(Ordering.natural());
+        for (Map.Entry<String, String> en : myAnnotations) {
+            result.put(en.getKey(),en.getValue());
+        }
+        return result.build();
+    }
+
+    @Override
+    public int numAnnotations() {
+        return myAnnotations.length;
+    }
+
     public static class Builder {
 
         private final List<Map.Entry<String, String>> myAnnotations = new ArrayList<>(0);
@@ -136,36 +168,34 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
         private Builder() {
         }
 
-        /**
-         * Add non-standard annotation
-         */
         public Builder addAnnotation(String key, String value) {
-            Map.Entry<String, String> ent = getCanonicalAnnotation(key, value);
-            myAnnotations.add(ent);
+            myAnnotations.add(getCanonicalAnnotation(key, value));
             return this;
         }
 
-        /**
-         * Add non-standard annotation
-         */
         public Builder addAnnotation(String key, Number value) {
-            Map.Entry<String, String> ent = getCanonicalAnnotation(key, value.toString());
-            myAnnotations.add(ent);
+            myAnnotations.add(getCanonicalAnnotation(key, value.toString()));
+            return this;
+        }
+
+        public Builder addAnnotations(GeneralAnnotation existing) {
+            if (existing == null) {
+                return this;
+            }
+            myAnnotations.addAll(Arrays.asList(existing.getAllAnnotationEntries()));
             return this;
         }
 
         public GeneralAnnotationStorage build() {
-            if (myAnnotations.size() == 0) {
+            if (myAnnotations.isEmpty()) {
                 return null;
             }
-            Collections.sort(myAnnotations, new Comparator<Map.Entry<String, String>>() {
-                public int compare(Map.Entry<String, String> s1, Map.Entry<String, String> s2) {
-                    int keyComp = s1.getKey().compareTo(s2.getKey());
-                    if (keyComp != 0) {
-                        return keyComp;
-                    }
-                    return s1.getValue().compareTo(s2.getValue());
+            Collections.sort(myAnnotations, (Map.Entry<String, String> s1, Map.Entry<String, String> s2) -> {
+                int keyComp = s1.getKey().compareTo(s2.getKey());
+                if (keyComp != 0) {
+                    return keyComp;
                 }
+                return s1.getValue().compareTo(s2.getValue());
             });
             return new GeneralAnnotationStorage(this);
         }

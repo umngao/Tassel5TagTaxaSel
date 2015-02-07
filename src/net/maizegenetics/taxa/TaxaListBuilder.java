@@ -57,8 +57,8 @@ public class TaxaListBuilder {
             int indexOfOrig=tempLookup.get(taxon);
             Taxon orgTaxon=myTaxaList.get(indexOfOrig);
             Taxon.Builder tb=new Taxon.Builder(orgTaxon);
-            for (Map.Entry<String, String> entry : taxon.getAllAnnotationEntries()) {
-                if(!orgTaxon.isAnnotatedWithValue(entry.getKey(),entry.getValue())) tb.addAnno(entry.getKey(),entry.getValue());
+            for (Map.Entry<String, String> entry : taxon.getAnnotation().getAllAnnotationEntries()) {
+                if(!orgTaxon.getAnnotation().isAnnotatedWithValue(entry.getKey(),entry.getValue())) tb.addAnno(entry.getKey(),entry.getValue());
             }
             taxon=tb.build();
             myTaxaList.set(indexOfOrig,taxon);
