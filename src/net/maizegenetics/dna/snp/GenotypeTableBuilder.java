@@ -780,7 +780,13 @@ public class GenotypeTableBuilder {
         } else {
             existingFlowCellLanes = annotation.getTextAnnotation("Flowcell_Lane");
         }
-        String[] newFlowCellLanes = id.getAnnotation().getTextAnnotation("Flowcell_Lane");
+        GeneralAnnotation annotation2 = id.getAnnotation();
+        String[] newFlowCellLanes;
+        if (annotation2 == null) {
+            newFlowCellLanes = new String[0];
+        } else {
+            newFlowCellLanes = annotation.getTextAnnotation("Flowcell_Lane");
+        }
         if (newFlowCellLanes.length > 0) {
             for (String existingFL : existingFlowCellLanes) {
                 if (existingFL.equals(newFlowCellLanes[0])) {
