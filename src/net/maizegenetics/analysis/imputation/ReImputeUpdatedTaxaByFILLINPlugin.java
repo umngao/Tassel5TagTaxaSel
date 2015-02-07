@@ -22,7 +22,6 @@ import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
@@ -186,8 +185,8 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
         }
         Taxon impTaxon = HDF5Utils.getTaxon(impGenosWriter, taxonName);
         if (impTaxon == null) return true;
-        String[] rawFlowCellLanes = rawTaxon.getTextAnnotation("Flowcell_Lane");
-        String[] impFlowCellLanes = impTaxon.getTextAnnotation("Flowcell_Lane");
+        String[] rawFlowCellLanes = rawTaxon.getAnnotation().getTextAnnotation("Flowcell_Lane");
+        String[] impFlowCellLanes = impTaxon.getAnnotation().getTextAnnotation("Flowcell_Lane");
         for (String rawFlowCellLane : rawFlowCellLanes) {
             boolean found = false;
             for (String impFlowCellLane : impFlowCellLanes) {
@@ -252,10 +251,10 @@ public class ReImputeUpdatedTaxaByFILLINPlugin extends AbstractPlugin {
     }
     
     private Taxon updateTaxonAnnotations(Taxon origTaxon, Taxon newTaxon) {
-        Map.Entry<String, String>[] allNewAnnos = newTaxon.getAllAnnotationEntries();
+        Map.Entry<String, String>[] allNewAnnos = newTaxon.getAnnotation().getAllAnnotationEntries();
         Map<String, String> annosToAdd = new HashMap<String, String>();
         for (Map.Entry<String, String> newAnno : allNewAnnos) {
-            if (!origTaxon.isAnnotatedWithValue(newAnno.getKey(), newAnno.getValue())) {
+            if (!origTaxon.getAnnotation().isAnnotatedWithValue(newAnno.getKey(), newAnno.getValue())) {
                 annosToAdd.put(newAnno.getKey(), newAnno.getValue());
             }
         }
