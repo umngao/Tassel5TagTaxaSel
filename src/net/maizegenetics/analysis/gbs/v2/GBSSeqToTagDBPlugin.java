@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.IntStream;
+import net.maizegenetics.util.GeneralAnnotation;
 
 /**
  * Develops a discovery TBT file from a set of GBS sequence files.
@@ -130,8 +131,9 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         BarcodeTrie aTrie=new BarcodeTrie();
         for (Taxon taxon : taxaList) {
             int masterIndex=masterTaxaList.indexOf(taxon.getName());
-            Barcode theBC = new Barcode(taxon.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
-                    masterIndex,taxon.getTextAnnotation(flowcellField)[0],taxon.getTextAnnotation("Lane")[0]);
+            GeneralAnnotation annotation = taxon.getAnnotation();
+            Barcode theBC = new Barcode(annotation.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
+                    masterIndex,annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
             aTrie.addBarcode(theBC);
         }
         return aTrie;
