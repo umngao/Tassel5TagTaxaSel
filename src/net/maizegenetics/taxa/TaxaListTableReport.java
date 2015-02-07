@@ -25,7 +25,7 @@ public class TaxaListTableReport implements TableReport {
         myTaxaList = taxaList;
         List<String> annotationColumns = new ArrayList<>();
         for (Taxon current : myTaxaList) {
-            for (String key : current.getAnnotationAsMap().keySet()) {
+            for (String key : current.getAnnotation().getAnnotationKeys()) {
                 if (!annotationColumns.contains(key)) {
                     annotationColumns.add(key);
                 }
@@ -82,7 +82,7 @@ public class TaxaListTableReport implements TableReport {
             case 0:
                 return myTaxaList.get((int) row).getName();
             default:
-                String[] annotations = myTaxaList.get((int) row).getTextAnnotation(myColumnHeadings[col]);
+                String[] annotations = myTaxaList.get((int) row).getAnnotation().getTextAnnotation(myColumnHeadings[col]);
                 if ((annotations != null) && (annotations.length != 0)) {
                     return Joiner.on(",").join(annotations);
                 } else {
