@@ -81,7 +81,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
 
     @Override
     public DataSet processData(DataSet input) {
-        tagCntMap=new TagDistributionMap(myMaxMapMemoryInMb.value()/100,(long)myMaxMapMemoryInMb.value()*1_000_000l);
+        tagCntMap=new TagDistributionMap(myMaxMapMemoryInMb.value()*1000,(long)myMaxMapMemoryInMb.value()*1_000_000l);
         try {
             //Get the list of fastq files
             Path keyPath= Paths.get(keyFile()).toAbsolutePath();
@@ -304,6 +304,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      * flowcell to test all the novel tags.
      */
     private static void removeNewTagsWithoutReplication(TagDistributionMap masterTagTaxaMap, List<Tag> novelTags) {
+        System.out.println("Starting removeNewTagsWithoutReplication");
         LongAdder tagsRemoved=new LongAdder();
         novelTags.stream().forEach(t ->{
             TaxaDistribution td = masterTagTaxaMap.get(t);
@@ -314,7 +315,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 tagsRemoved.increment();
             }
         });
-        System.out.println("tagsRemoved = " + tagsRemoved);
+        System.out.println("Finished removeNewTagsWithoutReplication.  tagsRemoved = " + tagsRemoved);
     }
 
 
