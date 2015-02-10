@@ -26,12 +26,13 @@ import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.HDF5Utils;
 import net.maizegenetics.util.Tassel5HDF5Constants;
+import net.maizegenetics.util.GeneralAnnotationStorage;
+import net.maizegenetics.util.GeneralAnnotation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import net.maizegenetics.dna.snp.score.Dosage;
-import net.maizegenetics.util.GeneralAnnotationStorage;
 
 /**
  * Builder for GenotypeTables. New genotypeTables are built from a minimum of
@@ -442,7 +443,7 @@ public class GenotypeTableBuilder {
         PositionList pL = PositionListBuilder.getInstance(reader);
         GenotypeCallTable geno = GenotypeCallTableBuilder.buildHDF5(reader);
         AlleleDepth depth = AlleleDepthBuilder.getExistingHDF5Instance(reader);
-        return GenotypeTableBuilder.getInstance(geno, pL, tL, depth, null, null, null, GeneralAnnotationStorage.readFromHDF5(reader, Tassel5HDF5Constants.ROOT, GenotypeTable.GENOTYPE_TABLE_ANNOTATIONS));
+        return GenotypeTableBuilder.getInstance(geno, pL, tL, depth, null, null, null, HDF5Utils.readHDF5Annotation(reader, Tassel5HDF5Constants.ROOT, GenotypeTable.GENOTYPE_TABLE_ANNOTATIONS));
     }
 
     public static GenotypeTable getInstanceOnlyMajorMinor(GenotypeTable alignment) {
@@ -669,11 +670,11 @@ public class GenotypeTableBuilder {
                     break;
                 }
             }
+            HDF5Utils.lockHDF5TaxaModule(writer);
             String name = writer.getFile().getAbsolutePath();
             annotateHDF5File(writer);
-            GeneralAnnotationStorage.writeToHDF5(writer, Tassel5HDF5Constants.ROOT, myAnnotationBuilder.build());
+            HDF5Utils.writeHDF5Annotation(writer, Tassel5HDF5Constants.ROOT, myAnnotationBuilder.build());
             HDF5Utils.lockHDF5GenotypeModule(writer);
-            HDF5Utils.lockHDF5TaxaModule(writer);
             writer.close();
             return getInstance(name);
         }
@@ -772,12 +773,24 @@ public class GenotypeTableBuilder {
     }
 
     private synchronized void mergeTaxonInHDF5(IHDF5Writer myWriter, Taxon id, byte[] genotype, byte[][] depth) {
-        String[] existingFlowCellLanes = HDF5Utils.getTaxon(writer, id.getName()).getTextAnnotation("Flowcell_Lane");
-        String[] newFlowCellLanes = id.getTextAnnotation("Flowcell_Lane");
+        GeneralAnnotation annotation = HDF5Utils.getTaxon(writer, id.getName()).getAnnotation();
+        String[] existingFlowCellLanes;
+        if (annotation == null) {
+            existingFlowCellLanes = new String[0];
+        } else {
+            existingFlowCellLanes = annotation.getTextAnnotation("Flowcell_Lane");
+        }
+        GeneralAnnotation annotation2 = id.getAnnotation();
+        String[] newFlowCellLanes;
+        if (annotation2 == null) {
+            newFlowCellLanes = new String[0];
+        } else {
+            newFlowCellLanes = annotation.getTextAnnotation("Flowcell_Lane");
+        }
         if (newFlowCellLanes.length > 0) {
             for (String existingFL : existingFlowCellLanes) {
                 if (existingFL.equals(newFlowCellLanes[0])) {
-                    throw new IllegalStateException("mergeTaxonInHDF5: Reads from flowcell_lane " + id.getTextAnnotation("Flowcell_Lane")[0]
+                    throw new IllegalStateException("mergeTaxonInHDF5: Reads from flowcell_lane " + id.getAnnotation().getTextAnnotation("Flowcell_Lane")[0]
                             + " previously added to taxon " + id.getName());
                 }
             }
@@ -817,7 +830,6 @@ public class GenotypeTableBuilder {
      * @param writer
      */
     public static void annotateHDF5File(IHDF5Writer writer) {
-        // int hdf5GenoBlock=writer.getIntAttribute(Tassel5HDF5Constants.DEFAULT_ATTRIBUTES_PATH, Tassel5HDF5Constants.BLOCK_SIZE);
         if (HDF5Utils.isHDF5GenotypeLocked(writer)) {
             throw new UnsupportedOperationException("This is a locked HDF5 file");
         }

@@ -1,11 +1,7 @@
 package net.maizegenetics.dna.map;
 
-import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Ordering;
-import com.google.common.collect.SetMultimap;
 import net.maizegenetics.util.GeneralAnnotation;
 
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -15,7 +11,7 @@ import java.util.concurrent.ConcurrentMap;
  *
  * @author Terry Casstevens and Ed Buckler
  */
-public class Chromosome implements Comparable<Chromosome>, GeneralAnnotation {
+public class Chromosome implements Comparable<Chromosome> {
 
     private static final long serialVersionUID = -5197800047652332969L;
     public static Chromosome UNKNOWN = new Chromosome("Unknown");
@@ -27,7 +23,7 @@ public class Chromosome implements Comparable<Chromosome>, GeneralAnnotation {
 
     //since there are numerous redundant chromosome, this class use a hash, so that
     //only the pointers are stored.
-    private static final ConcurrentMap<Chromosome,Chromosome> CHR_HASH = new ConcurrentHashMap<>(50);
+    private static final ConcurrentMap<Chromosome, Chromosome> CHR_HASH = new ConcurrentHashMap<>(50);
 
     public static Chromosome getCanonicalChromosome(Chromosome chr) {
         if (CHR_HASH.size() > 1000) {
@@ -60,14 +56,13 @@ public class Chromosome implements Comparable<Chromosome>, GeneralAnnotation {
         this(name, -1, null);
     }
 
-
     public String getName() {
         return myName;
     }
 
     /**
-     * Returns the interger value of the chromosome (if name is not a number
-     * then Integer.MAX_VALUE is returned)
+     * Returns the integer value of the chromosome (if name is not a number then
+     * Integer.MAX_VALUE is returned)
      */
     public int getChromosomeNumber() {
         return myChromosomeNumber;
@@ -77,53 +72,8 @@ public class Chromosome implements Comparable<Chromosome>, GeneralAnnotation {
         return myLength;
     }
 
-    public GeneralAnnotation getMyGA() {
-    	return myGA; // used in GenomeSequenceBuilder
-    }
-    
-    @Override
-    public Object[] getAnnotation(String annoName) {
-        return myGA.getAnnotation(annoName);
-    }
-
-    @Override
-    public String[] getTextAnnotation(String annoName) {
-        return myGA.getTextAnnotation(annoName);
-    }
-
-    @Override
-    public double[] getQuantAnnotation(String annoName) {
-        return myGA.getQuantAnnotation(annoName);
-    }
-
-    @Override
-    public String getConsensusAnnotation(String annoName) {
-        return myGA.getConsensusAnnotation(annoName);
-    }
-
-    @Override
-    public double getAverageAnnotation(String annoName) {
-        return myGA.getAverageAnnotation(annoName);
-    }
-
-    @Override
-    public Map.Entry<String,String>[] getAllAnnotationEntries() {
-        return myGA.getAllAnnotationEntries();
-    }
-
-    @Override
-    public boolean isAnnotatedWithValue(String annoName, String annoValue) {
-        return myGA.isAnnotatedWithValue(annoName,annoValue);
-    }
-
-    @Override
-    public SetMultimap<String, String> getAnnotationAsMap() {
-        ImmutableSetMultimap.Builder<String,String> result=new ImmutableSetMultimap.Builder<String,String>()
-                .orderKeysBy(Ordering.natural()).orderValuesBy(Ordering.natural());
-        for (Map.Entry<String, String> en : myGA.getAllAnnotationEntries()) {
-            result.put(en.getKey(),en.getValue());
-        }
-        return result.build();
+    public GeneralAnnotation getAnnotation() {
+        return myGA;
     }
 
     @Override
@@ -155,10 +105,8 @@ public class Chromosome implements Comparable<Chromosome>, GeneralAnnotation {
 
     @Override
     public int compareTo(Chromosome o) {
-        //int result=Integer.compare(myChromosomeNumber,o.getChromosomeNumber());
-        int result=myChromosomeNumber-o.getChromosomeNumber();
-       // int result = Integer.valueOf(myChromosomeNumber).compareTo(Integer.valueOf(o.getChromosomeNumber()));
-        if ((result != 0)||(myChromosomeNumber!=Integer.MAX_VALUE)) {
+        int result = myChromosomeNumber - o.getChromosomeNumber();
+        if ((result != 0) || (myChromosomeNumber != Integer.MAX_VALUE)) {
             return result;
         }
         return myName.compareTo(o.getName());

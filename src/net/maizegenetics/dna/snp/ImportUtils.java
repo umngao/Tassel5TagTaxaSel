@@ -40,20 +40,15 @@ public class ImportUtils {
     }
 
     public static GenotypeTable readGuessFormat(String fileName) {
-        try {
-            if (fileName.endsWith(".h5")) {
-                return GenotypeTableBuilder.getInstance(fileName);
-            } else if (fileName.endsWith("hmp.txt.gz") || fileName.endsWith("hmp.txt")) {
-                return readFromHapmap(fileName, null);
-            } else if (fileName.endsWith(".vcf") || fileName.endsWith(".vcf.gz")) {
-                return readFromVCF(fileName, null);
-            }
-            return null;
-        } catch (Exception e) {
-            System.err.println("Error reading:" + fileName);
-            e.printStackTrace();
-            return null;
+
+        if (fileName.endsWith(".h5")) {
+            return GenotypeTableBuilder.getInstance(fileName);
+        } else if (fileName.endsWith("hmp.txt.gz") || fileName.endsWith("hmp.txt")) {
+            return readFromHapmap(fileName, null);
+        } else if (fileName.endsWith(".vcf") || fileName.endsWith(".vcf.gz")) {
+            return readFromVCF(fileName, null);
         }
+        return null;
 
     }
 

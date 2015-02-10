@@ -105,7 +105,8 @@ public class ExportUtils {
             bw = Utils.getBufferedWriter(fullFileName);
             if (true) {
                 for (Taxon taxon : alignment.taxa()) {
-                    if (taxon.getAllAnnotationEntries().length == 0) {
+                    GeneralAnnotation annotation = taxon.getAnnotation();
+                    if ((annotation == null) || (annotation.numAnnotations() == 0)) {
                         continue;
                     }
                     bw.write("##SAMPLE=" + taxon.toStringWithVCFAnnotation() + "\n");
@@ -369,10 +370,11 @@ public class ExportUtils {
 
     private static void writeVCFSampleAnnotationToWriter(GenotypeTable gt, BufferedWriter bw) throws IOException {
         for (Taxon taxon : gt.taxa()) {
-            Multimap annoMap = taxon.getAnnotationAsMap();
-            if (annoMap.size() == 0) {
+            GeneralAnnotation annotation = taxon.getAnnotation();
+            if ((annotation == null) || (annotation.numAnnotations() == 0)) {
                 continue;
             }
+            Multimap annoMap = taxon.getAnnotation().getAnnotationAsMap();
             String annoString = Joiner.on(',').withKeyValueSeparator("=").join(annoMap.entries());
             bw.write("##SAMPLE=<ID=" + taxon.getName() + "," + annoString + ">");
             bw.newLine();

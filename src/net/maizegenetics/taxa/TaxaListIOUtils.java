@@ -4,6 +4,8 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.*;
 import net.maizegenetics.util.Utils;
 import net.maizegenetics.util.TableReportUtils;
+import net.maizegenetics.util.GeneralAnnotation;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -38,7 +40,7 @@ public class TaxaListIOUtils {
     public static Multimap<String, Taxon> getMapOfTaxonByAnnotation(TaxaList taxaList, String annotation) {
         ImmutableMultimap.Builder<String, Taxon> annoMap = new ImmutableMultimap.Builder<String, Taxon>().orderKeysBy(Ordering.natural());
         for (Taxon taxon : taxaList) {
-            for (String value : taxon.getTextAnnotation(annotation)) {
+            for (String value : taxon.getAnnotation().getTextAnnotation(annotation)) {
                 annoMap.put(value, taxon);
             }
         }
@@ -57,7 +59,7 @@ public class TaxaListIOUtils {
     public static TaxaList subsetTaxaListByAnnotation(TaxaList baseTaxaList, String annotation, String annoValue) {
         TaxaListBuilder tlb = new TaxaListBuilder();
         for (Taxon taxon : baseTaxaList) {
-            for (String value : taxon.getTextAnnotation(annotation)) {
+            for (String value : taxon.getAnnotation().getTextAnnotation(annotation)) {
                 if (value.equals(annoValue)) {
                     tlb.add(taxon);
                     break;
@@ -80,7 +82,7 @@ public class TaxaListIOUtils {
         TaxaListBuilder tlb = new TaxaListBuilder();
         for (Taxon taxon : baseTaxaList) {
             Taxon.Builder tb = new Taxon.Builder(taxon.getName());
-            for (Map.Entry<String, String> entry : taxon.getAllAnnotationEntries()) {
+            for (Map.Entry<String, String> entry : taxon.getAnnotation().getAllAnnotationEntries()) {
                 if (keepers.contains(entry.getKey())) {
                     tb.addAnno(entry.getKey(), entry.getValue());
                 }
@@ -104,7 +106,7 @@ public class TaxaListIOUtils {
         TaxaListBuilder tlb = new TaxaListBuilder();
         for (Taxon taxon : baseTaxaList) {
             Taxon.Builder tb = new Taxon.Builder(taxon.getName());
-            for (Map.Entry<String, String> entry : taxon.getAllAnnotationEntries()) {
+            for (Map.Entry<String, String> entry : taxon.getAnnotation().getAllAnnotationEntries()) {
                 if (!keepers.contains(entry.getKey())) {
                     tb.addAnno(entry.getKey(), entry.getValue());
                 }
@@ -123,7 +125,7 @@ public class TaxaListIOUtils {
     public static Set<String> allAnnotationKeys(TaxaList baseTaxaList) {
         ImmutableSet.Builder<String> keepers = new ImmutableSet.Builder<String>();
         for (Taxon taxon : baseTaxaList) {
-            for (Map.Entry<String, String> entry : taxon.getAllAnnotationEntries()) {
+            for (Map.Entry<String, String> entry : taxon.getAnnotation().getAllAnnotationEntries()) {
                 keepers.add(entry.getKey());
             }
         }
@@ -146,7 +148,7 @@ public class TaxaListIOUtils {
     private static void addTaxonToJSON(Taxon taxon, JSONArray array) {
         JSONObject current = new JSONObject();
         current.put("name", taxon.getName());
-        for (Map.Entry<String, String> pair : taxon.getAllAnnotationEntries()) {
+        for (Map.Entry<String, String> pair : taxon.getAnnotation().getAllAnnotationEntries()) {
             current.put(pair.getKey(), pair.getValue());
         }
         array.add(current);
@@ -341,7 +343,7 @@ public class TaxaListIOUtils {
      * @return true if all present, false is otherwise
      */
     public static boolean doesTaxonHaveAllAnnotations(Taxon taxon, Map<String, String> filters) {
-        SetMultimap<String, String> taxonAnno = taxon.getAnnotationAsMap();
+        SetMultimap<String, String> taxonAnno = taxon.getAnnotation().getAnnotationAsMap();
         boolean keep = true;
         for (Map.Entry<String, String> entry : filters.entrySet()) {
             keep = false;

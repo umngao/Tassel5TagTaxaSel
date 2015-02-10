@@ -26,8 +26,9 @@ public class FILLINDonorGenotypeUtils {
     public static GenotypeTable[] loadDonors(String donorFile, GenotypeTable unimpAlign, int minTestSites,
                                              boolean verboseOutput, int appoxSitesPerDonorGenotypeTable) {
         try {
+            File d= new File(donorFile);
             boolean containsDonors= false;
-            for (File file:new File(donorFile).listFiles()) {if (file.getName().contains(".gc")) containsDonors= true;}
+            if (d.isDirectory()) for (File file:new File(donorFile).listFiles()) {if (file.getName().contains(".gc")) containsDonors= true;}
             if (containsDonors) {
                 return loadDonors(donorFile, unimpAlign, minTestSites, verboseOutput);}
             else { return loadDonors(donorFile, appoxSitesPerDonorGenotypeTable, verboseOutput);}

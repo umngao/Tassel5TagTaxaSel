@@ -4,9 +4,7 @@ import ch.systemsx.cisd.base.mdarray.MDArray;
 import ch.systemsx.cisd.hdf5.HDF5LinkInformation;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
-import com.google.common.collect.SetMultimap;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.tag.Tag;
@@ -72,43 +70,72 @@ public final class HDF5Utils {
         if (isTaxaLocked(h5w) == true) {
             throw new UnsupportedOperationException("Trying to write to a locked HDF5 file");
         }
-        if(!h5w.exists(Tassel5HDF5Constants.TAXA_ORDER)) createTaxaOrder(h5w);
+        if (!h5w.exists(Tassel5HDF5Constants.TAXA_ORDER)) {
+            createTaxaOrder(h5w);
+        }
         String path = Tassel5HDF5Constants.getTaxonPath(taxon.getName());
         if (h5w.exists(path)) {
             return false;
         }
         h5w.createGroup(path);
-        SetMultimap<String, String> annoMap = taxon.getAnnotationAsMap();
-        for (String keys : annoMap.keys()) {
-            String s = Joiner.on(",").join(annoMap.get(keys));
-            h5w.setStringAttribute(path, keys, s);
-        }
+        writeHDF5Annotation(h5w, path, taxon.getAnnotation());
         long size = h5w.getDataSetInformation(Tassel5HDF5Constants.TAXA_ORDER).getNumberOfElements();
         h5w.writeStringArrayBlockWithOffset(Tassel5HDF5Constants.TAXA_ORDER, new String[]{taxon.getName()}, 1, size);
         return true;
     }
-    
-    private static void createTaxaOrder(IHDF5Writer h5w){
+
+    private static void createTaxaOrder(IHDF5Writer h5w) {
         List<String> taxaNames = getAllTaxaNames(h5w);
         h5w.createStringArray(Tassel5HDF5Constants.TAXA_ORDER, 256, 0, 1);
         for (int i = 0; i < taxaNames.size(); i++) {
-            h5w.writeStringArrayBlockWithOffset(Tassel5HDF5Constants.TAXA_ORDER, new String[]{taxaNames.get(i)}, 1, i);           
+            h5w.writeStringArrayBlockWithOffset(Tassel5HDF5Constants.TAXA_ORDER, new String[]{taxaNames.get(i)}, 1, i);
+        }
+    }
+
+    public static void writeHDF5Annotation(IHDF5Writer writer, String path, GeneralAnnotation annotations) {
+        if (annotations == null) {
+            return;
+        }
+        Iterator<Map.Entry<String, String>> itr = annotations.getConcatenatedTextAnnotations().entrySet().iterator();
+        while (itr.hasNext()) {
+            Map.Entry<String, String> current = itr.next();
+            writer.setStringAttribute(path, current.getKey(), current.getValue());
         }
     }
 
     public static void replaceTaxonAnnotations(IHDF5Writer h5w, Taxon modifiedTaxon) {
-        if (isTaxaLocked(h5w) == true) {
+        if (isTaxaLocked(h5w)) {
             throw new UnsupportedOperationException("Trying to write to a locked HDF5 file");
         }
         String path = Tassel5HDF5Constants.getTaxonPath(modifiedTaxon.getName());
         if (!h5w.exists(path)) {
-            throw new IllegalStateException("Taxon does not already exist to replace annotations of");
-        };
-        SetMultimap<String, String> annoMap = modifiedTaxon.getAnnotationAsMap();
-        for (String keys : annoMap.keys()) {
-            String s = Joiner.on(",").join(annoMap.get(keys));
-            h5w.setStringAttribute(path, keys, s);
+            throw new IllegalStateException("HDF5Utils: replaceTaxonAnnotations: Taxon does not already exist: " + modifiedTaxon.getName());
         }
+        writeHDF5Annotation(h5w, path, modifiedTaxon.getAnnotation());
+    }
+
+    public static GeneralAnnotationStorage readHDF5Annotation(IHDF5Reader reader, String path) {
+        return readHDF5Annotation(reader, path, null);
+    }
+
+    public static GeneralAnnotationStorage readHDF5Annotation(IHDF5Reader reader, String path, String[] annotationKeys) {
+        GeneralAnnotationStorage.Builder builder = GeneralAnnotationStorage.getBuilder();
+        if (annotationKeys == null) {
+            reader.getAllAttributeNames(path).stream().forEach((key) -> {
+                for (String value : Splitter.on(",").split(reader.getStringAttribute(path, key))) {
+                    builder.addAnnotation(key, value);
+                }
+            });
+        } else {
+            for (String key : annotationKeys) {
+                if (reader.hasAttribute(path, key)) {
+                    for (String value : Splitter.on(",").split(reader.getStringAttribute(path, key))) {
+                        builder.addAnnotation(key, value);
+                    }
+                }
+            }
+        }
+        return builder.build();
     }
 
     public static Taxon getTaxon(IHDF5Reader reader, String taxonName) {
