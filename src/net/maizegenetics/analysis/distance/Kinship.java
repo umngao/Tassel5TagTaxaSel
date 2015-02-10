@@ -38,6 +38,7 @@ public class Kinship extends DistanceMatrix {
     private double cutOff = 2;
     private int numSeqs;
     private KINSHIP_TYPE kinshipType = KINSHIP_TYPE.IBS;
+    private double[][] distance;
     public static double matrixMultiplier = 2; //scale the numeric matrix produced by the transform function or from probabilities which code phenotypes as {1,0.5,0}
     
     public enum KINSHIP_TYPE {Endelman, IBS};
@@ -259,7 +260,6 @@ public class Kinship extends DistanceMatrix {
     	int ntaxa = mar.numberOfTaxa();
     	int nsites = mar.numberOfSites();
     	double[][] distance = new double[ntaxa][ntaxa];
-    	DoubleMatrix dmDistance = DoubleMatrixFactory.DEFAULT.make(ntaxa, ntaxa, 0.0);
     	ArrayList<Double> piList = new ArrayList<Double>();
     	
     	//calculate WW' by summing ww' for each allele, where w is a column vector of centered allele counts {2,1,0}
@@ -286,11 +286,9 @@ public class Kinship extends DistanceMatrix {
     			
     			for (int r = 0; r < ntaxa; r++) {
     				double rowval = scores.get(r,0);
-					double val = dmDistance.get(r, r) + rowval * rowval;
-					dmDistance.set(r, r, val);
+					distance[r][r] += rowval * rowval;
     				for (int c = r + 1; c < ntaxa; c++) {
-    					val = dmDistance.get(r, c) + rowval * scores.get(c, 0);
-    					dmDistance.set(r, c, val);
+    					distance[r][c] += rowval * scores.get(c, 0);
     				}
     			}
     		}
@@ -301,18 +299,17 @@ public class Kinship extends DistanceMatrix {
     	sumpk *= 2;
     	
     	for (int r = 0; r < ntaxa; r++) {
-    		distance[r][r] = dmDistance.get(r, r) / sumpk;
+    		distance[r][r] /= sumpk;
+    		//debug
+    		if (r < 5) System.out.printf("For taxon %d dist = %1.5f\n", r, distance[r][r]);
     		for (int c = r + 1; c < ntaxa; c++) {
-    			distance[r][c] = distance[c][r] = dmDistance.get(r, c) / sumpk;
+    			distance[r][c] = distance[c][r] = distance[r][c] / sumpk;
     		}
     	}
     	
-    	double maxsim = 0;
-    	for (double[] row : distance) for (double val : row) maxsim = Math.max(maxsim, val);
     	dm = new DistanceMatrix(distance, mar.taxa());
     }
-
-
+    
     public void calculateRelationshipKinshipFromReferenceProbability() {
     	ReferenceProbability referenceP = mar.referenceProbability();
     	
