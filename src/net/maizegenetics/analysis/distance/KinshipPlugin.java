@@ -80,8 +80,8 @@ public class KinshipPlugin extends AbstractPlugin {
                     if (current.getData() instanceof GenotypeTable) {
                         //this section implements additional options for calculating kinship
                         GenotypeTable myGenotype = (GenotypeTable) current.getData();
-                        if (method.value() == KINSHIP_METHOD.pairwise_IBS) kin = new Kinship(myGenotype, KINSHIP_TYPE.IBS);
-                        else if (method.value() == KINSHIP_METHOD.scaled_IBS) kin = new Kinship(myGenotype, KINSHIP_TYPE.Endelman);
+                        if (method.value() == KINSHIP_METHOD.pairwise_IBS) kin = new Kinship(myGenotype, KINSHIP_TYPE.IBS, myDatatype.value());
+                        else if (method.value() == KINSHIP_METHOD.scaled_IBS) kin = new Kinship(myGenotype, KINSHIP_TYPE.Endelman, myDatatype.value());
                         else throw new IllegalArgumentException("The pedigree method cannot be used to calculate kinship from genotype data.");
                     } else if (current.getData() instanceof Phenotype) { //pedigree data
                         Phenotype ped = (Phenotype) current.getData();
