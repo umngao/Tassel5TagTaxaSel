@@ -50,35 +50,37 @@ public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
 		
         //add results to site report
         //{"Trait","Marker","Chr","Position","marker_F","marker_p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" }
-        Object[] rowData = new Object[numberOfSiteReportColumns];
-        int columnCount = 0;
-        rowData[columnCount++] = currentTraitName;
-        rowData[columnCount++] = siteName;	
-        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(myCurrentSite);
-        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(myCurrentSite);
-        rowData[columnCount++] = new Double(F);
-        rowData[columnCount++] = new Double(p);
-        if (permute) rowData[columnCount++] = "";
-        rowData[columnCount++] = new Double(rsq);
-        rowData[columnCount++] = new Double(markerSSdf[1]);
-        rowData[columnCount++] = new Double(markerSSdf[0] / markerSSdf[1]);
-        rowData[columnCount++] = new Double(errorSSdf[1]);
-        rowData[columnCount++] = new Double(errorSSdf[0] / errorSSdf[1]);
-        rowData[columnCount++] = new Double(modelSSdf[1]);
-        rowData[columnCount++] = new Double(modelSSdf[0] / modelSSdf[1]);
-        siteReportBuilder.add(rowData);
-        
-        //add results to allele report
-        //{"Trait","Marker","Chr","Position","Estimate"}
-        int estimateIndex = beta.length - 1;
-        rowData = new Object[numberOfAlleleReportColumns];
-        columnCount = 0;
-        rowData[columnCount++] = currentTraitName;
-        rowData[columnCount++] = siteName;
-        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(myCurrentSite);
-        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(myCurrentSite);
-        rowData[columnCount++] = beta[estimateIndex];
-        alleleReportBuilder.add(rowData);
+        if (maxP == 1.0 || p <= maxP) {
+    		Object[] rowData = new Object[numberOfSiteReportColumns];
+            int columnCount = 0;
+            rowData[columnCount++] = currentTraitName;
+            rowData[columnCount++] = siteName;	
+            rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(myCurrentSite);
+            rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(myCurrentSite);
+            rowData[columnCount++] = new Double(F);
+            rowData[columnCount++] = new Double(p);
+            if (permute) rowData[columnCount++] = "";
+            rowData[columnCount++] = new Double(rsq);
+            rowData[columnCount++] = new Double(markerSSdf[1]);
+            rowData[columnCount++] = new Double(markerSSdf[0] / markerSSdf[1]);
+            rowData[columnCount++] = new Double(errorSSdf[1]);
+            rowData[columnCount++] = new Double(errorSSdf[0] / errorSSdf[1]);
+            rowData[columnCount++] = new Double(modelSSdf[1]);
+            rowData[columnCount++] = new Double(modelSSdf[0] / modelSSdf[1]);
+            siteReportBuilder.add(rowData);
+            
+            //add results to allele report
+            //{"Trait","Marker","Chr","Position","Estimate"}
+            int estimateIndex = beta.length - 1;
+            rowData = new Object[numberOfAlleleReportColumns];
+            columnCount = 0;
+            rowData[columnCount++] = currentTraitName;
+            rowData[columnCount++] = siteName;
+            rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(myCurrentSite);
+            rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(myCurrentSite);
+            rowData[columnCount++] = beta[estimateIndex];
+            alleleReportBuilder.add(rowData);
+        }
 	}
 
 	@Override

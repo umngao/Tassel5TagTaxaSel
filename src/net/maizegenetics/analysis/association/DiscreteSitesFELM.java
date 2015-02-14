@@ -131,49 +131,52 @@ public class DiscreteSitesFELM extends AbstractFixedEffectLM {
 
 		}
 
+		//add results if p <= maxP
         //add results to site report
         // column names {"Trait","Marker","Chr","Position","marker_F","marker_p","perm_p","marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS" }
-        Object[] rowData = new Object[numberOfSiteReportColumns];
-        int columnCount = 0;
-        rowData[columnCount++] = currentTraitName;
-        rowData[columnCount++] = siteName;
-        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(myCurrentSite);
-        rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(myCurrentSite);
-        rowData[columnCount++] = new Double(F);
-        rowData[columnCount++] = new Double(p);
-        if (permute) rowData[columnCount++] = "";
-        rowData[columnCount++] = new Double(markerSSdf[0]/totalSSdf[0]);
-        rowData[columnCount++] = new Double(Fadd);
-        rowData[columnCount++] = new Double(padd);
-        rowData[columnCount++] = new Double(Fdom);
-        rowData[columnCount++] = new Double(pdom);
-        rowData[columnCount++] = new Double(markerSSdf[1]);
-        rowData[columnCount++] = new Double(markerSSdf[0]/markerSSdf[1]);
-        rowData[columnCount++] = new Double(errorSSdf[1]);
-        rowData[columnCount++] = new Double(errorSSdf[0]/errorSSdf[1]);
-        rowData[columnCount++] = new Double(modelSSdf[1]);
-        rowData[columnCount++] = new Double(modelSSdf[0]/modelSSdf[1]);
-        siteReportBuilder.add(rowData);
-        if (permute) siteTableReportRows.add(rowData);
-        
-        //add results to allele report if nAlleles > 1
-        if (nAlleles > 1) {
-        	int numberOfAlleles = markerIds.size();
-        	int[] alleleCounts = markerEffect.getLevelCounts();
-        	int firstEstimateIndex = beta.length - numberOfAlleles + 1;
-        	for (int a = 0; a < numberOfAlleles; a++) {
-        		rowData = new Object[numberOfAlleleReportColumns];
-        		columnCount = 0;
-        		rowData[columnCount++] = currentTraitName;
-        		rowData[columnCount++] = siteName;
-        		rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(myCurrentSite);
-        		rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(myCurrentSite);
-        		rowData[columnCount++] = new Integer(alleleCounts[a]);
-        		rowData[columnCount++] = markerIds.get(a);
-        		if (a < numberOfAlleles - 1) rowData[columnCount++] = new Double(beta[firstEstimateIndex + a]);
-        		else rowData[columnCount++] = new Double(0.0);
-        		alleleReportBuilder.add(rowData);
-        	}
+        if (maxP == 1.0 || p <= maxP) {
+    		Object[] rowData = new Object[numberOfSiteReportColumns];
+            int columnCount = 0;
+            rowData[columnCount++] = currentTraitName;
+            rowData[columnCount++] = siteName;
+            rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(myCurrentSite);
+            rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(myCurrentSite);
+            rowData[columnCount++] = new Double(F);
+            rowData[columnCount++] = new Double(p);
+            if (permute) rowData[columnCount++] = "";
+            rowData[columnCount++] = new Double(markerSSdf[0]/totalSSdf[0]);
+            rowData[columnCount++] = new Double(Fadd);
+            rowData[columnCount++] = new Double(padd);
+            rowData[columnCount++] = new Double(Fdom);
+            rowData[columnCount++] = new Double(pdom);
+            rowData[columnCount++] = new Double(markerSSdf[1]);
+            rowData[columnCount++] = new Double(markerSSdf[0]/markerSSdf[1]);
+            rowData[columnCount++] = new Double(errorSSdf[1]);
+            rowData[columnCount++] = new Double(errorSSdf[0]/errorSSdf[1]);
+            rowData[columnCount++] = new Double(modelSSdf[1]);
+            rowData[columnCount++] = new Double(modelSSdf[0]/modelSSdf[1]);
+            siteReportBuilder.add(rowData);
+            if (permute) siteTableReportRows.add(rowData);
+            
+            //add results to allele report if nAlleles > 1
+            if (nAlleles > 1) {
+            	int numberOfAlleles = markerIds.size();
+            	int[] alleleCounts = markerEffect.getLevelCounts();
+            	int firstEstimateIndex = beta.length - numberOfAlleles + 1;
+            	for (int a = 0; a < numberOfAlleles; a++) {
+            		rowData = new Object[numberOfAlleleReportColumns];
+            		columnCount = 0;
+            		rowData[columnCount++] = currentTraitName;
+            		rowData[columnCount++] = siteName;
+            		rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomeName(myCurrentSite);
+            		rowData[columnCount++] = myGenoPheno.genotypeTable().chromosomalPosition(myCurrentSite);
+            		rowData[columnCount++] = new Integer(alleleCounts[a]);
+            		rowData[columnCount++] = markerIds.get(a);
+            		if (a < numberOfAlleles - 1) rowData[columnCount++] = new Double(beta[firstEstimateIndex + a]);
+            		else rowData[columnCount++] = new Double(0.0);
+            		alleleReportBuilder.add(rowData);
+            	}
+            }
         }
 	}
 
