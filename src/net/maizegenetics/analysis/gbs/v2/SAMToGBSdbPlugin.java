@@ -35,6 +35,7 @@ import java.util.Set;
 public final class SAMToGBSdbPlugin extends AbstractPlugin {
 
     boolean cleanCutSites = true;
+    boolean isBowtie = false;
     private static final Logger myLogger = Logger.getLogger(SAMToGBSdbPlugin.class);
 
     private PluginParameter<String> myInputFile = new PluginParameter.Builder<String>("i", null, String.class).guiName("SAM Input File").required(true).inFile()
@@ -64,7 +65,11 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
             Multimap<Tag,Position> tagPositions= HashMultimap.create(knownTags.size(),2);
             String inputLine;
             while((inputLine=bw.readLine())!=null) {
-                if(inputLine.startsWith("@")) continue;
+                if(inputLine.startsWith("@")) {
+                    // this is header - check if it is bowtie
+                    if (inputLine.contains("bowtie2")) isBowtie = true;
+                    continue;
+                }
                 Tuple<Tag,Optional<Position>> tagPositionTuple=parseRow(inputLine);
                 if (tagPositionTuple == null) continue;
                 if(!knownTags.contains(tagPositionTuple.x)) tagsNotFoundInDB++;
@@ -104,18 +109,19 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         // This was seen in the Zea_mays.AGPv3 chromosome files
         if (tag == null) return null; 
         if (!hasAlignment(s[flag])) return new Tuple<>(tag,Optional.<Position>empty());
-        // LCJ - check for minimum alignment length and proportion
+        // Check for minimum alignment length and proportion
         if (!hasMinAlignLength(s)) return new Tuple<> (tag,Optional.<Position>empty());
         if (!hasMinAlignProportion(s)) return new Tuple<> (tag,Optional.<Position>empty());
         Chromosome chromosome=new Chromosome(s[chr].replace("chr", ""));
         String alignmentScore=s[alignScoreIndex].split(":")[2];
         boolean forwardStrand=isForwardStrand(s[flag]);
         if(!forwardStrand) tag=TagBuilder.reverseComplement(tag).build();
+        String mappingApproach = isBowtie? "Bowtie" : "BWA"; // these are only 2 aligners we currently support
         Position position=new GeneralPosition
                 .Builder(chromosome,Integer.parseInt(s[pos]))
                 .strand((byte)1)
                 .addAnno("forward", forwardStrand?"true":"false")
-                .addAnno("mappingapproach", "Bowtie")
+                .addAnno("mappingapproach", mappingApproach)
                 .addAnno("cigar", s[cigar])
                 .addAnno("supportvalue", alignmentScore)  //todo include again
                 .build();

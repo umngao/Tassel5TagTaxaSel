@@ -1,6 +1,7 @@
 package net.maizegenetics.phenotype;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.dna.snp.score.SiteScore;
 import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
@@ -63,13 +64,15 @@ public class GenotypePhenotype implements TableReport {
 	 * @return	the genotypes corresponding to every row of the phenotype table as String values
 	 */
 	public String[] getStringGenotype(int site) {
+		String missing = GenotypeTable.UNKNOWN_ALLELE_STR;
 		TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
 		TaxaList myTaxaList = myGenotype.taxa();
 		int numberOfObs = myPhenotype.numberOfObservations();
 		String[] geno = new String[numberOfObs];
 		for (int obs = 0; obs < numberOfObs; obs++) {
 			int ndx = myTaxaList.indexOf(myTaxaAttr.taxon(obs));
-			geno[obs] = myGenotype.genotypeAsString(ndx, site);
+			if (ndx < 0) geno[obs] = missing;
+			else geno[obs] = myGenotype.genotypeAsString(ndx, site);
 		}
 		return geno;
 	}
@@ -85,7 +88,8 @@ public class GenotypePhenotype implements TableReport {
 		byte[] geno = new byte[numberOfObs];
 		for (int obs = 0; obs < numberOfObs; obs++) {
 			int ndx = myTaxaList.indexOf(myTaxaAttr.taxon(obs));
-			geno[obs] = myGenotype.genotype(ndx, site);
+			if (ndx < 0) geno[obs] = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+			else geno[obs] = myGenotype.genotype(ndx, site);
 		}
 		return geno;
 	}
@@ -162,6 +166,7 @@ public class GenotypePhenotype implements TableReport {
 	
 	private String genotypeToDisplay(int row) {
 		int genotypeRow = indexOfGenotype(row);
+		if (genotypeRow < 0) return "none";
         int siteCount = Math.min(myGenotype.numberOfSites(), 10);
         StringBuilder builder = new StringBuilder();
         

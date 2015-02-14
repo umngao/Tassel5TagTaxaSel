@@ -15,6 +15,9 @@ import org.apache.log4j.Logger;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -72,8 +75,10 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     private PluginParameter<String> hmpFile= new PluginParameter.Builder<>("hmp",null,String.class).guiName("Target file").inFile().required(true)
             .description("Input HapMap file of target genotypes to impute. Accepts all file types supported by TASSEL5. This file should include _ALL_ available sites, not " +
                     "just those segregating in your material. (ie: don't filter the input)").build();
-    private PluginParameter<String> donorFile= new PluginParameter.Builder<>("d",null,String.class).guiName("Donor Dir").inDir().required(true)
-            .description("Directory containing donor haplotype files from output of FILLINFindHaplotypesPlugin. All files with '.gc' in the filename will be read in, only those with matching sites are used").build();
+    private PluginParameter<String> donorFile= new PluginParameter.Builder<>("d",null,String.class).guiName("Donor").required(true)
+            .description("Directory containing donor haplotype files from output of FILLINFindHaplotypesPlugin. All files with '.gc' in the filename will be read in, "
+                    + "only those with matching sites are used. Alternately, a single file to use as a donor, will be cut into sub genos in size specified (eg, high density"
+                    + "SNP file for projection").build();
     private PluginParameter<String> outFileBase= new PluginParameter.Builder<>("o",null,String.class).guiName("Output filename").outFile().required(true)
             .description("Output file; hmp.txt.gz and .hmp.h5 accepted.").build();
     
@@ -176,6 +181,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
         resolveHetIfUndercalled = imputeAllHets.value();
         if (nonverboseOutput.value()) verboseOutput= false;
         if (byMAF.value()==false) MAFClass= null;
+        if (!new File(donorFile.value()).exists()) System.out.println("Donor is not a file or folder: "+donorFile.value());
     }
     
     public FILLINImputationPlugin() {
