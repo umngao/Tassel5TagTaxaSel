@@ -19,9 +19,11 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,9 +63,12 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             .description("Output Database File").build();
     private PluginParameter<Integer> myMinQualScore = new PluginParameter.Builder<>("mnQS", 0, Integer.class).guiName("Minimum quality score").required(false)
             .description("Minimum quality score within the barcode and read length to be accepted").build();
-    private PluginParameter<Integer> myMaxMapMemoryInMb = new PluginParameter.Builder<>("mxMapMem", 8000, Integer.class).guiName("Maximum Map Memory in Mb").required(false)
+    private PluginParameter<Integer> myMaxTagNumber = new PluginParameter.Builder<>("mxTagNum", 2000000, Integer.class).guiName("Maximum Tag Number").required(false)
             .description("Maximum size for the tag distribution map in Mb").build();
-
+    private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 16, Integer.class).guiName("Batch size of fastq files").required(false)
+            .description("Maximum size for the tag distribution map in Mb").build();
+    LongAdder roughTagCnt = new LongAdder();
+    
     private TagDistributionMap tagCntMap;
 
     static final String inputFileGlob="glob:*{.fq,fq.gz,fastq,fastq.txt,fastq.gz,fastq.txt.gz,_sequence.txt,_sequence.txt.gz}";
@@ -80,9 +85,45 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         super(parentFrame, isInteractive);
     }
 
+    /**
+     * Order files by size to improve concurrent performance
+     * @param fs
+     * @return 
+     */
+    private List<Path> sortFastqBySize (List<Path> fs) {
+        ArrayList<Long> sizeList = new ArrayList();
+        HashMap<Long,Path> sizePathMap = new HashMap();
+        fs.parallelStream().forEach(f -> {
+            try {
+                long s = Files.size(f);
+                sizeList.add(s);
+                sizePathMap.putIfAbsent(s, f);
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+        Collections.sort(sizeList, Collections.reverseOrder());
+        //Collections.sort(sizeList);
+        ArrayList<Path> np = new ArrayList();
+        //files rarely have the same size, but it might happen
+        try {
+            for (int i = 0; i < sizeList.size(); i++) {
+                np.add(sizePathMap.get(sizeList.get(i)));
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+        return np;
+    }
+    
     @Override
     public DataSet processData(DataSet input) {
-        tagCntMap=new TagDistributionMap(myMaxMapMemoryInMb.value()*1000,(long)myMaxMapMemoryInMb.value()*1_000_000l);
+        int batchSize = myBatchSize.value();
+        float loadFactor = 0.95f;
+        tagCntMap = new TagDistributionMap (myMaxTagNumber.value(),loadFactor, 128, this.minTagCount());
+        double reducePoint = 0.5;
         try {
             //Get the list of fastq files
             Path keyPath= Paths.get(keyFile()).toAbsolutePath();
@@ -90,16 +131,50 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             if(inputSeqFiles.isEmpty()) {
                 myLogger.warn("No files matching:"+inputFileGlob);
                 return null;
-            }
+            } 
+            //Files in a batch have roughly the same size
+            inputSeqFiles = this.sortFastqBySize(inputSeqFiles);
+            int batchNum = inputSeqFiles.size()/batchSize;
+            if (inputSeqFiles.size()%batchSize != 0) batchNum++;
             TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), sampleNameField, new HashMap<>(), true);
-            inputSeqFiles.parallelStream()
-                    .forEach(inputSeqFile -> {
-                        processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),
-                                minimumQualityScore(), tagCntMap, maximumTagLength());
-                    });
-            removeSecondCutSitesFromMap(new GBSEnzyme(enzyme()));
+            for (int i = 0; i < inputSeqFiles.size(); i+=batchSize) {
+                int end = i+batchSize+1;
+                if (end > inputSeqFiles.size()) end = inputSeqFiles.size();
+                ArrayList<Path> sub = new ArrayList();
+                for (int j = i; j < end; j++) sub.add(inputSeqFiles.get(j));
+                    System.out.println("\nStart processing batch " + String.valueOf(i/batchSize+1));
+                    sub.parallelStream()
+                            .forEach(inputSeqFile -> {
+                            processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),
+                                    minimumQualityScore(), tagCntMap, maximumTagLength());
+                            });
+                    System.out.println("\nTags are added from batch "+String.valueOf(i/batchSize+1) + ". Total batch number: " + batchNum);
+                    int currentSize = tagCntMap.size();
+                    System.out.println("Current tag number: " + String.valueOf(currentSize) + ". Max tag number: " + String.valueOf(myMaxTagNumber.value()));
+                    System.out.println(String.valueOf((float)currentSize/(float)myMaxTagNumber.value()) + " of max tag number\n");
+                    //make sure don't lose rare ones, need to set maxTagNumber large enough
+                    if (tagCntMap.size() > (int)(reducePoint*myMaxTagNumber.value())){
+                        removeTagsWithoutReplication(tagCntMap);
+                        System.out.println("Tag number is reduced to " + tagCntMap.size()+"\n");
+                    }
+                    if (tagCntMap.size() > myMaxTagNumber.value()){
+                        tagCntMap.reduceMapSize();
+                        System.out.println("Tag number is reduced to " + tagCntMap.size()+"\n");
+                    }
+                    this.roughTagCnt.reset();
+                    this.roughTagCnt.add(tagCntMap.size());
+                    System.gc();
+                    System.out.println("Total memory: "+ String.valueOf((double)(Runtime.getRuntime().totalMemory()/1024/1024/1024))+" Gb");
+                    System.out.println("Free memory: "+ String.valueOf((double)(Runtime.getRuntime().freeMemory()/1024/1024/1024))+" Gb");
+                    System.out.println("Max memory: "+ String.valueOf((double)(Runtime.getRuntime().maxMemory()/1024/1024/1024))+" Gb");
+                    System.out.println("\n");
+               }
+            System.out.println("\nAll the batch are processed");
             tagCntMap.removeTagByCount(myMinTagCount.value());
-
+            System.out.println("By removing tags with minCount of " + myMinTagCount.value() + "Tag number is reduced to " + tagCntMap.size()+"\n");
+            
+            removeSecondCutSitesFromMap(new GBSEnzyme(enzyme()));
+            
             TagDataWriter tdw=new TagDataSQLite(myOutputDB.value());
             tdw.putTaxaList(masterTaxaList);
             tdw.putAllTag(tagCntMap.keySet());
@@ -171,12 +246,12 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                               TagDistributionMap masterTagTaxaMap, int preferredTagLength, int minQual) {
         int allReads=0, goodBarcodedReads = 0;
         int maxTaxaNumber=masterTaxaList.size();
+        int checkSize = 10000000;
         try {
             int qualityScoreBase=determineQualityScoreBase(fastqFile);
             BufferedReader br = Utils.getBufferedReader(fastqFile.toString(), 1 << 22);
             long time=System.nanoTime();
             String[] seqAndQual;
-            List<Tag> newTagsAddedInLane=new ArrayList<>();
             while ((seqAndQual=readFastQBlock(br,allReads)) != null) {
                 allReads++;
                 //After quality score is read, decode barcode using the current sequence & quality  score
@@ -193,23 +268,21 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 TaxaDistribution taxaDistribution=masterTagTaxaMap.get(tag);
                 if(taxaDistribution==null) {
                     masterTagTaxaMap.put(tag,TaxaDistBuilder.create(maxTaxaNumber,barcode.getTaxaIndex()));
-                    newTagsAddedInLane.add(tag);
+                    this.roughTagCnt.increment();
                 } else {
                     taxaDistribution.increment(barcode.getTaxaIndex());
                 }
-                if (allReads % 1000000 == 0) {
+                if (allReads % checkSize == 0) {
                     myLogger.info("Total Reads:" + allReads + " Reads with barcode and cut site overhang:" + goodBarcodedReads
-                            + " rate:" + (System.nanoTime()-time)/allReads +" ns/read");
+                            + " rate:" + (System.nanoTime()-time)/allReads +" ns/read. Current tag count:" + this.roughTagCnt);
                 }
             }
-            System.out.println("Before rep removal tagCntMap size"+masterTagTaxaMap.size());
-            removeNewTagsWithoutReplication(masterTagTaxaMap,newTagsAddedInLane);
             myLogger.info("Summary for "+fastqFile.toString()+"\n"+
                     "Total number of reads in lane=" + allReads +"\n"+
                     "Total number of good barcoded reads=" + goodBarcodedReads+"\n"+
                     "Timing process (sorting, collapsing, and writing TagCount to file)."+"\n"+
                     "Process took " + (System.nanoTime() - time)/1e6 + " milliseconds.");
-            System.out.println("tagCntMap size"+masterTagTaxaMap.size());
+            System.out.println("tagCntMap size: "+masterTagTaxaMap.size());
             br.close();
         } catch (Exception e) {
             myLogger.error("Good Barcodes Read: " + goodBarcodedReads);
@@ -299,27 +372,29 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         tagCntMap.putAll(shortTags);
         System.out.println("After combining again tagCntMap.size() = " + tagCntMap.size());
     }
-
+    
     /**
      * This method removes all tags are are never repeated in a single sample (taxa).  The concept is that
      * all biologically real tag should show up twice somewhere.  This could be called at the end of every
      * flowcell to test all the novel tags.
      */
-    private static void removeNewTagsWithoutReplication(TagDistributionMap masterTagTaxaMap, List<Tag> novelTags) {
-        System.out.println("Starting removeNewTagsWithoutReplication");
+    private static void removeTagsWithoutReplication (TagDistributionMap masterTagTaxaMap) {
+        int currentSize = masterTagTaxaMap.size();
+        System.out.println("Starting removeTagsWithoutReplication. Current tag number: " + currentSize);
         LongAdder tagsRemoved=new LongAdder();
-        novelTags.stream().forEach(t ->{
-            TaxaDistribution td = masterTagTaxaMap.get(t);
-            if(td==null) {}
-            else if(td.totalDepth()<2) {masterTagTaxaMap.remove(t); tagsRemoved.increment(); }
+        masterTagTaxaMap.entrySet().parallelStream().forEach(t -> {
+            TaxaDistribution td = t.getValue();
+            if(td.totalDepth()<2) {
+                masterTagTaxaMap.remove(t);
+                tagsRemoved.increment();
+            } 
             else if(!IntStream.of(td.depths()).anyMatch(depth -> depth>1)) {
                 masterTagTaxaMap.remove(t);
                 tagsRemoved.increment();
             }
         });
-        System.out.println("Finished removeNewTagsWithoutReplication.  tagsRemoved = " + tagsRemoved);
+        System.out.println("Finished removeTagsWithoutReplication.  tagsRemoved = " + tagsRemoved + ". Current tag number: " + String.valueOf(currentSize-tagsRemoved.intValue()));
     }
-
 
 // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
@@ -516,30 +591,27 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         myMinQualScore = new PluginParameter<>(myMinQualScore, value);
         return this;
     }
-
+    
     /**
-     * Maximum size for the tag distribution map in Mb
-     *
-     * @return Maximum Map Memory in Mb
+     * Set maximum number of tag number
+     * @param value
+     * @return 
      */
-    public Integer maximumMapMemoryInMb() {
-        return myMaxMapMemoryInMb.value();
-    }
-
-    /**
-     * Set Maximum Map Memory in Mb. Maximum size for the
-     * tag distribution map in Mb
-     *
-     * @param value Maximum Map Memory in Mb
-     *
-     * @return this plugin
-     */
-    public GBSSeqToTagDBPlugin maximumMapMemoryInMb(Integer value) {
-        myMaxMapMemoryInMb = new PluginParameter<>(myMaxMapMemoryInMb, value);
+    public GBSSeqToTagDBPlugin maximumTagNumber(Integer value) {
+        myMaxTagNumber = new PluginParameter<>(myMaxTagNumber, value);
         return this;
     }
-
-
+    
+    /**
+     * Set number of Fastq files processed simultaneously
+     * @param value
+     * @return 
+     */
+    public GBSSeqToTagDBPlugin batchSize(Integer value) {
+        myBatchSize = new PluginParameter<>(myBatchSize, value);
+        return this;
+    }
+     
     @Override
     public ImageIcon getIcon() {
         return null;
@@ -560,48 +632,34 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      * to be reduced.
      */
     static class TagDistributionMap extends ConcurrentHashMap<Tag,TaxaDistribution> {
-        private final long maxMemorySize;
-        private int minDepthToRetainInMap=1;
-        private LongAdder putCntSinceMemoryCheck=new LongAdder();  //since we don't need an exact count of the puts,
-        //this may be overkill
-        private long checkFreq;  //numbers of puts to check size
-
-        TagDistributionMap(int initialCapacity, long maxMemorySize) {
-            super(initialCapacity);
-            this.maxMemorySize=maxMemorySize;
-            checkFreq=(maxMemorySize/(100L*10L));  //this is checking roughly to keep the map within 10% of the max
+        private final int maxTagNum;
+        private int minDepthToRetainInMap=2;
+        private final int minCount;
+        
+        TagDistributionMap (int maxTagNumber, float loadFactor, int concurrencyLevel, int minCount) {
+            super((maxTagNumber*2), loadFactor, concurrencyLevel);
+            maxTagNum = maxTagNumber;
+            this.minCount = minCount;
         }
-
+        
         @Override
         public TaxaDistribution put(Tag key, TaxaDistribution value) {
-            putCntSinceMemoryCheck.increment();
-            if((putCntSinceMemoryCheck.longValue()+1)%checkFreq==0) {
-                checkMemoryAndReduceIfNeeded();
-                putCntSinceMemoryCheck.reset();
-            }
             return super.put(key, value);
         }
-
-        public synchronized void checkMemoryAndReduceIfNeeded() {
-            System.out.println("TagDistributionMap.checkMemoryAndReduceIfNeeded:"+estimateMapMemorySize());
-            while(estimateMapMemorySize()>maxMemorySize) {
-                reduceMapSize();
-            }
-        }
-
 
         public synchronized void removeTagByCount(int minCnt) {
             entrySet().parallelStream()
                     .filter(e -> e.getValue().totalDepth()<minCnt)
                     .forEach(e -> remove(e.getKey()));
         }
-
+        
         private synchronized void reduceMapSize() {
-            System.out.println("reduceMapSize()"+minDepthToRetainInMap);
+            System.out.println("reduce map size by min count of"+minDepthToRetainInMap);
             removeTagByCount(minDepthToRetainInMap);
             minDepthToRetainInMap++;
+            if (minDepthToRetainInMap > minCount) minDepthToRetainInMap = minCount;
         }
-
+            
         public long estimateMapMemorySize() {
             long size=0;
             int cnt=0;
@@ -611,7 +669,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 size+=entry.getValue().memorySize();
                 cnt++;
                 if(cnt>10000) break;
-            }
+        }
             long estSize=(size()/cnt)*size;
             return estSize;
         }
