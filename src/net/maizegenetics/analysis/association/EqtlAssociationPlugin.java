@@ -48,10 +48,9 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	private TableReportBuilder myReportBuilder;
 	private SolveByOrthogonalizing orthogonalSolver;
 	private List<String> phenotypeNames;
-	private double modeldf = Double.NaN;
-	private double errordf = Double.NaN;
-	private double minR2 = Double.NaN;
-	private FDistributionImpl Fdist;
+	private double minR2[];
+	private FDistributionImpl[] Fdist;
+	private int numberOfObservations;
 	
 	//plugin parameter definitions
 	private PluginParameter<Double> maxp = new PluginParameter.Builder<>("MaxPValue", .001, Double.class)
@@ -91,27 +90,23 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		myGenoPheno = (GenotypePhenotype) myDatum.getData();
 		myGenotype = myGenoPheno.genotypeTable();
 		myPhenotype = myGenoPheno.phenotype();
+		numberOfObservations = myPhenotype.numberOfObservations();
 		testMissingDataInTheBaseModel();
 		initializeOutput();
 		initializeOrthogonalizer();
-		
 		final int nsites = myGenotype.numberOfSites();
+		Fdist = new FDistributionImpl[2];
+		Fdist[0] = new FDistributionImpl(1, numberOfObservations - 1 - orthogonalSolver.baseDf());
+		Fdist[1] = new FDistributionImpl(2, numberOfObservations - 2 - orthogonalSolver.baseDf());
+		calculateR2Fromp();
 		
     	if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype) {
     		if (addOnly.value()) {
-    			modeldf = 1; 
-    			errordf = myPhenotype.numberOfObservations() - orthogonalSolver.baseDf() - modeldf;
-    			Fdist = new FDistributionImpl(modeldf, errordf);
-    			minR2 = calculateR2Fromp();
-        		IntStream.range(0, nsites).parallel()
+        		IntStream.range(0, nsites)
     			.mapToObj(s-> orthogonalSolver.solveForR(myGenotype.positions().get(s), additiveSite(s)))
     			.forEach(this::updateOutputWithPvalues);
     		} else {
-    			modeldf = 2; 
-    			errordf = myPhenotype.numberOfObservations() - orthogonalSolver.baseDf() - modeldf;
-    			Fdist = new FDistributionImpl(modeldf, errordf);
-    			minR2 = calculateR2Fromp();
-        		IntStream.range(0, nsites).parallel()
+        		IntStream.range(0, nsites)
     			.mapToObj(s-> {
     				List<double[]> covars = additiveDominanceSite(s);
     				return orthogonalSolver.solveForR(myGenotype.positions().get(s), covars.get(0), covars.get(1)); 
@@ -119,11 +114,6 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
     			.forEach(this::updateOutputWithPvalues);
     		}
     	} else if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability) {
-			modeldf = 1; 
-			errordf = myPhenotype.numberOfObservations() - orthogonalSolver.baseDf() - modeldf;
-			Fdist = new FDistributionImpl(modeldf, errordf);
-			minR2 = calculateR2Fromp();
-			
     		IntStream.range(0, nsites)
     			.mapToObj(s-> orthogonalSolver.solveForR(myGenotype.positions().get(s), referenceProbabilitiesForSite(s)))
     			.forEach(this::updateOutputWithPvalues);
@@ -159,19 +149,27 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		double[] rvalues = markerResult.vector1();
 		int npheno = rvalues.length;
 		Position pos = markerResult.position();
-		IntStream.range(0, npheno).filter(i -> rvalues[i] >= minR2)
-			.forEach(i -> addToReport(new Object[]{phenotypeNames.get(i), pos.getSNPID(), pos.getChromosome().getName(), pos.getPosition(), markerResult.degreesOfFreedom(), rvalues[i], pvalue(rvalues[i])}));
+		
+		//debug
+		if (markerResult.df > 0) {
+			final double minrsq = minR2[markerResult.df - 1];
+			int errdf = numberOfObservations - orthogonalSolver.baseDf() - markerResult.df;
+
+			IntStream.range(0, npheno).filter(i -> rvalues[i] >= minrsq)
+				.forEach(i -> addToReport(new Object[]{phenotypeNames.get(i), pos.getSNPID(), pos.getChromosome().getName(), pos.getPosition(), markerResult.degreesOfFreedom(), rvalues[i], pvalue(rvalues[i], markerResult.df, errdf)}));
+		}
 	}
 	
-	private double pvalue(double rvalue) {
-		double F = rvalue / (1 - rvalue) * errordf / modeldf;
+	private double pvalue(double rvalue, int markerdf, int errordf) {
+		double F = rvalue / (1 - rvalue) * errordf / markerdf;
 		double p; 
 		try {
-			p = 1 - Fdist.cumulativeProbability(F);
+			p = 1 - Fdist[markerdf - 1].cumulativeProbability(F);
 		} catch(Exception e) {
 			p = Double.NaN;
 		}
 		return p;
+		
 	}
 	
 	private synchronized void addToReport(Object[] row) {
@@ -278,16 +276,29 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		return result;
 	}
 	
-	private double calculateR2Fromp() {
+	private void calculateR2Fromp() {
 		//returns the value of R^2 corresponding to the value of F, f for which P(F>f) = alpha
+		minR2 = new double[2];
+		double p = 1 - maxp.value();
+		int basedf = orthogonalSolver.baseDf();
 		try {
-			double p = 1 - maxp.value();
-			double F = Fdist.inverseCumulativeProbability(p);
-			double Fme = F * modeldf / errordf;
-			return Fme / (1 + Fme);
+			double F = Fdist[0].inverseCumulativeProbability(p);
+//			double Fme = F * 1 / (numberOfObservations - 2 - orthogonalSolver.baseDf());
+//			minR2[0] =  Fme / (1 + Fme);
+			minR2[0] = F/(numberOfObservations - 1 - basedf + F);
 		} catch (MathException e) {
 			e.printStackTrace();
-			return Double.NaN;
+			minR2[0] = Double.NaN;
+		}
+		
+		try {
+			double F = Fdist[1].inverseCumulativeProbability(p);
+//			double Fme = F * 1 / (numberOfObservations - 3 - orthogonalSolver.baseDf());
+//			minR2[1] =  Fme / (1 + Fme);
+			minR2[1] = 2 * F / (numberOfObservations - 2 - basedf + 2 * F);
+		} catch (MathException e) {
+			e.printStackTrace();
+			minR2[1] = Double.NaN;
 		}
 	}
 

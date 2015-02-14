@@ -52,9 +52,14 @@ public class SolveByOrthogonalizing {
 	public SolveByOrthogonalizing.Marker solveForR(Position pos, double[] values) {
 		
 		double[] orthogonalValues = centerAndScale(orthogonalizeByBase(center(values)));
-		double[] rValues = myOrthogonalizedData.stream().mapToDouble(d -> innerProduct(d, orthogonalValues)).map(d -> d*d).toArray();
 		
-		return new SolveByOrthogonalizing.Marker(pos, rValues);
+		if (orthogonalValues == null) {
+			double[] rValues = IntStream.range(0, myOrthogonalizedData.size()).mapToDouble(i -> Double.NaN).toArray();
+			return new SolveByOrthogonalizing.Marker(pos, rValues, 0);
+		}
+		
+		double[] rValues = myOrthogonalizedData.stream().mapToDouble(d -> innerProduct(d, orthogonalValues)).map(d -> d*d).toArray();
+		return new SolveByOrthogonalizing.Marker(pos, rValues, 1);
 	}
 	
 	public SolveByOrthogonalizing.Marker solveForR(Position pos, double[] add, double[] dom) {
@@ -72,6 +77,20 @@ public class SolveByOrthogonalizing {
 		//center and scale
 		double[] v1 = centerAndScale(orthogonalAdd);
 		double[] v2 = centerAndScale(orthogonalDom);
+		
+		if (v1 == null) {
+			if (v2 == null) {
+				double[] rValues = IntStream.range(0, myOrthogonalizedData.size()).mapToDouble(i -> Double.NaN).toArray();
+				return new SolveByOrthogonalizing.Marker(pos, rValues, 0);
+			}
+			double[] rValues = myOrthogonalizedData.stream().mapToDouble(d -> innerProduct(d, v2)).map(d -> d*d).toArray();
+			return new SolveByOrthogonalizing.Marker(pos, rValues, 1);
+		}
+		if (v2 == null) {
+			double[] rValues = myOrthogonalizedData.stream().mapToDouble(d -> innerProduct(d, v1)).map(d -> d*d).toArray();
+			return new SolveByOrthogonalizing.Marker(pos, rValues, 1);
+		}
+		
 		double[] rValues = myOrthogonalizedData.stream()
 				.mapToDouble(d -> {
 					double r1 = innerProduct(v1, d);
@@ -79,7 +98,7 @@ public class SolveByOrthogonalizing {
 					return r1 * r1 + r2 * r2;
 				}).toArray();
 		
-		return new SolveByOrthogonalizing.Marker(pos, rValues);
+		return new SolveByOrthogonalizing.Marker(pos, rValues, 2);
 	}
 	
 	private DoubleMatrix[][] createDesignMatricesFromModel() {
@@ -151,6 +170,9 @@ public class SolveByOrthogonalizing {
 		return result;
 	}
 	
+	/**
+	 * @return the df in the base model, including 1 df for the mean
+	 */
 	public int baseDf() {
 		int df = 1;  //the mean
 		if (baseSvd != null) {
@@ -199,6 +221,7 @@ public class SolveByOrthogonalizing {
 		}
 		
 		double divisor = Math.sqrt(sumsq);
+		if (divisor < tol) return null;
 		for (int i = 0; i < n; i++) values[i] /= divisor;
 		return values;
 	}
@@ -238,17 +261,20 @@ public class SolveByOrthogonalizing {
 		public final Position myPosition;
 		public final double[] vector1;
 		public final double[] vector2;
+		public int df;
 		
-		public Marker(Position pos, double[] values) {
+		public Marker(Position pos, double[] values, int df) {
 			myPosition = pos;
 			vector1 = values;
 			vector2 = null;
+			this.df = df;
 		}
 		
-		public Marker(Position pos, double[] additive, double[] dominant) {
+		public Marker(Position pos, double[] additive, double[] dominant, int df) {
 			myPosition = pos;
 			vector1 = additive;
 			vector2 = dominant;
+			this.df = df;
 		}
 		
 		public Position position() { return myPosition; }
