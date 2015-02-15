@@ -385,11 +385,11 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         masterTagTaxaMap.entrySet().parallelStream().forEach(t -> {
             TaxaDistribution td = t.getValue();
             if(td.totalDepth()<2) {
-                masterTagTaxaMap.remove(t);
+                masterTagTaxaMap.remove(t.getKey());
                 tagsRemoved.increment();
             } 
             else if(!IntStream.of(td.depths()).anyMatch(depth -> depth>1)) {
-                masterTagTaxaMap.remove(t);
+                masterTagTaxaMap.remove(t.getKey());
                 tagsRemoved.increment();
             }
         });
