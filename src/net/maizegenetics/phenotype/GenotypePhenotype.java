@@ -78,6 +78,24 @@ public class GenotypePhenotype implements TableReport {
 	}
 	
 	/**
+	 * @param obs		an observation number
+	 * @param site		a site 
+	 * @return			the byte value of the genotype for this observation at this site
+	 */
+	public byte genotype(int obs, int site) {
+		TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
+		int ndx = myGenotype.taxa().indexOf(myTaxaAttr.taxon(obs));
+		if (ndx < 0) return GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+		return myGenotype.genotype(ndx, site);
+	}
+	
+	public boolean isHeterozygous(int obs, int site) {
+		TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
+		int ndx = myGenotype.taxa().indexOf(myTaxaAttr.taxon(obs));
+		return myGenotype.isHeterozygous(ndx, site);
+	}
+	
+	/**
 	 * @param site	the site in the GenotypeTable
 	 * @return	the genotypes corresponding to every row of the phenotype table as byte values
 	 */
@@ -113,7 +131,8 @@ public class GenotypePhenotype implements TableReport {
 		float[] values = new float[numberOfObs];
 		for (int obs = 0; obs < numberOfObs; obs++) {
 			int ndx = myTaxaList.indexOf(myTaxaAttr.taxon(obs));
-			values[obs] = myGenotype.referenceProbability(ndx, site);
+			if (ndx < 0) values[obs] = Float.NaN;
+			else values[obs] = myGenotype.referenceProbability(ndx, site);
 		}
 		return values;
 	}
@@ -162,6 +181,13 @@ public class GenotypePhenotype implements TableReport {
         int haplotypeColumn = myPhenotype.getColumnCount();
         if (col == haplotypeColumn) return genotypeToDisplay((int) row);
         return myPhenotype.getValueAt(row, col);
+	}
+	
+	/**
+	 * @return the number of observations in this GenotypePhenotype, equivalent to phenotype().numberOfObservations()
+	 */
+	public int numberOfObservations() {
+		return myPhenotype.numberOfObservations();
 	}
 	
 	private String genotypeToDisplay(int row) {

@@ -1,10 +1,9 @@
 package net.maizegenetics.analysis.association;
 
 import java.awt.Frame;
+import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -26,16 +25,13 @@ import net.maizegenetics.phenotype.PhenotypeAttribute;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.stats.linearmodels.CovariateModelEffect;
 import net.maizegenetics.stats.linearmodels.FactorModelEffect;
-import net.maizegenetics.stats.linearmodels.LinearModelUtils;
 import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.SolveByOrthogonalizing;
 import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.TableReportBuilder;
-import net.maizegenetics.util.TableReportUtils;
 
 public class EqtlAssociationPlugin extends AbstractPlugin {
 	private GENOTYPE_TABLE_COMPONENT[] GENOTYPE_COMP = new GENOTYPE_TABLE_COMPONENT[]{
@@ -119,13 +115,13 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
     			.forEach(this::updateOutputWithPvalues);
     		
     	} else if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability) {
-    		throw new UnsupportedOperationException("Eqtl analysis of allele probabilities is not supported.");
+    		throw new UnsupportedOperationException("Fast association analysis of allele probabilities is not supported.");
     		//TODO implement
     	}
 
     	if (!saveAsFile.value()) {
-    		String name = "EqtlReport_" + myDatum.getComment();
-    		String comment = "Rapid Eqtl analysis.";
+    		String name = "FastAssociation_" + myDatum.getName();
+    		String comment = "Fast association output";
     		Datum outDatum = new Datum(name, myReportBuilder.build(), comment);
     		return new DataSet(outDatum, this);
     	} else {
@@ -145,7 +141,6 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	}
 	
 	private void updateOutputWithPvalues(SolveByOrthogonalizing.Marker markerResult) {
-		double maxpval = maxp.value();
 		double[] rvalues = markerResult.vector1();
 		int npheno = rvalues.length;
 		Position pos = markerResult.position();
@@ -155,7 +150,7 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 			final double minrsq = minR2[markerResult.df - 1];
 			int errdf = numberOfObservations - orthogonalSolver.baseDf() - markerResult.df;
 
-			IntStream.range(0, npheno).filter(i -> rvalues[i] >= minrsq)
+			IntStream.range(0, npheno).sequential().filter(i -> rvalues[i] >= minrsq)
 				.forEach(i -> addToReport(new Object[]{phenotypeNames.get(i), pos.getSNPID(), pos.getChromosome().getName(), pos.getPosition(), markerResult.degreesOfFreedom(), rvalues[i], pvalue(rvalues[i], markerResult.df, errdf)}));
 		}
 	}
@@ -172,7 +167,7 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		
 	}
 	
-	private synchronized void addToReport(Object[] row) {
+	private void addToReport(Object[] row) {
 		myReportBuilder.add(row);
 	}
 	
@@ -225,20 +220,19 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	}
 	
 	private double[] referenceProbabilitiesForSite(int site) {
-		int ntaxa = myGenotype.numberOfTaxa();
-		double[] probs = IntStream.range(0,  ntaxa).mapToDouble(t -> myGenotype.referenceProbability(t, site)).toArray();
+		double[] probs = AssociationUtils.convertFloatArrayToDouble(myGenoPheno.referenceProb(site));
 		return replaceNansWithMean(probs);
 	}
 	
 	private double[] additiveSite(int site) {
 		//codes genotypes as homozygous major = 1, homozygous minor = -1, het = 0
 		//set missing values to the mean
-		int ntaxa = myGenotype.numberOfTaxa();
+		int nobs = myGenoPheno.phenotype().numberOfObservations();
 		byte major = myGenotype.majorAllele(site);
 		byte NN = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
 		
-		double[] code =  IntStream.range(0, ntaxa).mapToDouble(t -> {
-			byte geno = myGenotype.genotype(t, site);
+		double[] code =  IntStream.range(0, nobs).mapToDouble(t -> {
+			byte geno = myGenoPheno.genotype(t, site);
 			if (geno == NN) return Double.NaN;
 			byte[] alleles = GenotypeTableUtils.getDiploidValues(geno);
 			double val = 0;
@@ -267,11 +261,11 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	private List<double[]> additiveDominanceSite(int site) {
 		//the first double[] is the additive site
 		//the second double[] equals 1 for heterozygous sites, is 0 otherwise
-		int ntaxa = myGenotype.numberOfTaxa();
+		int ntaxa = myGenoPheno.numberOfObservations();
 		List<double[]> result = new ArrayList<>();
 		result.add(additiveSite(site));
 		double[] dom = new double[ntaxa];
-		for (int t = 0; t < ntaxa; t++) if (myGenotype.isHeterozygous(t, site)) dom[t] = 1;
+		for (int t = 0; t < ntaxa; t++) if (myGenoPheno.isHeterozygous(t, site)) dom[t] = 1;
 		result.add(dom);
 		return result;
 	}
@@ -283,8 +277,6 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		int basedf = orthogonalSolver.baseDf();
 		try {
 			double F = Fdist[0].inverseCumulativeProbability(p);
-//			double Fme = F * 1 / (numberOfObservations - 2 - orthogonalSolver.baseDf());
-//			minR2[0] =  Fme / (1 + Fme);
 			minR2[0] = F/(numberOfObservations - 1 - basedf + F);
 		} catch (MathException e) {
 			e.printStackTrace();
@@ -293,8 +285,6 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		
 		try {
 			double F = Fdist[1].inverseCumulativeProbability(p);
-//			double Fme = F * 1 / (numberOfObservations - 3 - orthogonalSolver.baseDf());
-//			minR2[1] =  Fme / (1 + Fme);
 			minR2[1] = 2 * F / (numberOfObservations - 2 - basedf + 2 * F);
 		} catch (MathException e) {
 			e.printStackTrace();
@@ -305,8 +295,12 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	//abstract plugin methods that need to be overridden
 	@Override
 	public ImageIcon getIcon() {
-		// TODO Auto-generated method stub
-		return null;
+        URL imageURL = MLMPlugin.class.getResource("/net/maizegenetics/analysis/images/speed.gif");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
 	}
 
 	@Override
@@ -318,8 +312,7 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	public String getToolTipText() {
 		return "Use a fixed effect linear model to test variants quickly.";
 	}
-	
-     // The following getters and setters were auto-generated.
+	 
      // Please use this method to re-generate.
      //
      // public static void main(String[] args) {
@@ -456,4 +449,11 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
          reportFilename = new PluginParameter<>(reportFilename, value);
          return this;
      }
+
+	@Override
+	public String getCitation() {
+		String citation = "Shabalin, AA. (2012) Matrix eQTL: ultra fast eQTL analysis via large matrix operations. "
+				+ "Bioinformatics 28:1353-1358";
+		return citation;
+	}
 }
