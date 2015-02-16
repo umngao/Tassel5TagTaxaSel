@@ -86,200 +86,217 @@ public class SynonymizerPlugin extends AbstractPlugin {
                     JOptionPane.showMessageDialog(getParentFrame(), msg);
                 }
                 else {
-                    boolean[] menuArray = {false,false,false};
-                    SynMenuDialog menuDiag = new SynMenuDialog(menuArray,getParentFrame());
-                    menuDiag.setLocationRelativeTo(getParentFrame());
-                    menuDiag.setVisible(true);
-                    
-                    if(menuArray[0] == true) {
-                       
-                        //Check to see if user has selected files like before
-                        String[] initialSelections = new String[2];
-                        if(data.size()>1) {
-                            //Set comboboxes to match
-                            initialSelections[0] = data.get(0).getName();
-                            initialSelections[1] = data.get(1).getName();
-                        }
-                        else {
-                            //First and Second file
-                            Datum firstDatum = (Datum)datumArray[0];
-                            initialSelections[0] = firstDatum.getName();
-                            Datum secondDatum = (Datum)datumArray[1];
-                            initialSelections[1] = secondDatum.getName();
-                        }
-
-                        int[] fileOptions = new int[3];
-                        SynonymizerFileChooser fileChooseDiag= new SynonymizerFileChooser(getParentFrame(),datumArray,fileOptions,initialSelections,"Step1");
-                        fileChooseDiag.setLocationRelativeTo(getParentFrame());
-                        fileChooseDiag.setVisible(true);
-                        if(fileOptions[0]!=-1) {
-                            ArrayList<Datum> datumList = new ArrayList<Datum>();
-                            for(int i = 0; i<fileOptions.length-1;i++) {
-                                Datum current = (Datum)datumArray[fileOptions[i]];
-                                Object currentData = current.getData();
-                                if (currentData instanceof GenotypeTable) {
-                                    TaxaList idGroup = ((GenotypeTable) currentData).taxa();
-                                    Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
-                                    datumList.add(idGroupDatum);
-                                } else if (currentData instanceof Phenotype) {
-                                    TaxaList idGroup = ((Phenotype) currentData).taxa();
-                                    Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
-                                    datumList.add(idGroupDatum);
-                                } else {
-                                    datumList.add(current);
-                                }
-                            }
-                           
-                            DataSet newInputDataSet = new DataSet(datumList, this);
-                            Datum td = createSynonymizer(newInputDataSet);
-                            DataSet output = new DataSet(td, this);
-                            fireDataSetReturned(new PluginEvent(output, SynonymizerPlugin.class));
-                            return output;
+                    int response = JOptionPane.showConfirmDialog(frame,
+                                    "Would you like to run the full Synonymizer Pipeline?",
+                                    "Full Synonymize",
+                                    JOptionPane.YES_NO_OPTION);
+                   
+                    if(response==0){
+                        int[] fileOptions = getFileChoice(data,datumArray);
+                        DataSet step1Result = runStep1(data,datumArray,fileOptions);
+                        Datum step1DatumResult = (Datum)((ArrayList)step1Result.getDataSet()).get(0);
+                        runStep2(step1DatumResult,true);
+                        runStep3(datumArray,step1DatumResult,fileOptions);
+                    }
+                    else {
+                        boolean[] menuArray = {false,false,false};
+                        SynMenuDialog menuDiag = new SynMenuDialog(menuArray,getParentFrame());
+                        menuDiag.setLocationRelativeTo(getParentFrame());
+                        menuDiag.setVisible(true);
                         
-                        }
-                    }
-                    else if(menuArray[1] == true) {
-
-                        //Do a quick check to make sure there is at least one Synonym loaded
-                        boolean hasSynonymFile = false;
-                        for(int i = 0;i<datumArray.length;i++) {
-                            Datum currentDatum = (Datum)datumArray[i];
-                            if(currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
-                                hasSynonymFile = true;
-                            }
-                        }
-                        if(!hasSynonymFile) {
-                            String msg = "Error:  No Synonymize files have been found.  Make sure at least one Synonymize File and at least one Standard File are loaded."
-                                    + "\nPlease run the first step.";
-                            JOptionPane.showMessageDialog(getParentFrame(), msg);
-                        }
-                        else {
-                          //Check to see if user has selected files like before
-                            String[] initialSelections = new String[1];
-                            boolean errorOut = false;
-                            boolean validSelection = false;
-                            //If there is a selection
-                            if(data.size()>0) {
-                                //Set comboboxes to match
-                                if(data.get(0).getDataType().equals(IdentifierSynonymizer.class)) {
-                                    initialSelections[0] = data.get(0).getName();
-                                    validSelection = true;
-                                }
-                            }
-                            
-                            if(!validSelection) {
-                              //First file which is an IdentifierSynonymizer
-                                initialSelections[0] = "";
-                                for(int i = 0; i<datumArray.length;i++) {
-                                    Datum currentDatum = (Datum)datumArray[i];
-                                    if(currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
-                                        initialSelections[0] = currentDatum.getName();
-                                        break;
-                                    }
-                                }
-                                if(initialSelections[0].equals("")) {
-                                    String msg = "Error:  No Synonymize files have been found.  Please run the first step.";
-                                    JOptionPane.showMessageDialog(getParentFrame(), msg);
-                                    errorOut = true;
-                                }
-                            
-                            }
-                           
-                            if(!errorOut) {
-                                int[] fileOptions = new int[1];
-                                fileOptions[0] = -1;
-                                SynonymizerFileChooser fileChooseDiag= new SynonymizerFileChooser(getParentFrame(),datumArray,fileOptions,initialSelections,"Step2");
-                                fileChooseDiag.setLocationRelativeTo(getParentFrame());
-                                fileChooseDiag.setVisible(true);
-                                if(fileOptions[0]!=-1) {
-                                    Datum current = (Datum)datumArray[fileOptions[0]];
-                                    IdentifierSynonymizer is = (IdentifierSynonymizer) current.getData();
-                                    SynonymizerDialog theSD = new SynonymizerDialog(is, getParentFrame());
-                                    theSD.setLocationRelativeTo(getParentFrame());
-                                    theSD.setVisible(true);
-                                }
-                            }
-                        }                    
-                    }
-                    else if(menuArray[2]==true) {
-                        //Do a quick check to make sure there is at least one Synonym loaded
-                        boolean hasSynonymFile = false;
-                        for(int i = 0;i<datumArray.length;i++) {
-                            Datum currentDatum = (Datum)datumArray[i];
-                            if(currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
-                                hasSynonymFile = true;
-                            }
-                        }
-                        if(!hasSynonymFile) {
-                            String msg = "Error:  No Synonymize files have been found.  Make sure at least one Synonymize File and at least one Standard File are loaded."
-                                    + "\nPlease run the first step.";
-                            JOptionPane.showMessageDialog(getParentFrame(), msg);
-                        }
-                        else {
-                          //Check to see if user has selected files like before
-                            //initSelections[0] is the SynonymizerFile
-                            //initSelections[1] is the File to be Synonymized
+                        if(menuArray[0] == true) {
+                            int[] fileOptions = getFileChoice(data,datumArray);
+                            return runStep1(data,datumArray,fileOptions);
+                           /*
+                            //Check to see if user has selected files like before
                             String[] initialSelections = new String[2];
-                            boolean errorOut = false;
-                            boolean validSelection = false;
-                            //If there is a selection
                             if(data.size()>1) {
                                 //Set comboboxes to match
-                                if(data.get(0).getDataType().equals(IdentifierSynonymizer.class)) {
-                                    initialSelections[0] = data.get(0).getName();
-                                    initialSelections[1] = data.get(1).getName();
-                                    validSelection = true;
-                                }
+                                initialSelections[0] = data.get(0).getName();
+                                initialSelections[1] = data.get(1).getName();
                             }
-                            if(!validSelection) {
-                              //First file which is an IdentifierSynonymizer
-                                initialSelections[0] = "";
-                                initialSelections[1] = "";
-                                for(int i = 0; i<datumArray.length;i++) {
-                                    Datum currentDatum = (Datum)datumArray[i];
-                                    if(initialSelections[1].equals("") && !currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
-                                        initialSelections[1] = currentDatum.getName();
-                                    }
-                                    if(currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
-                                        initialSelections[0] = currentDatum.getName();
-                                        break;
+                            else {
+                                //First and Second file
+                                Datum firstDatum = (Datum)datumArray[0];
+                                initialSelections[0] = firstDatum.getName();
+                                Datum secondDatum = (Datum)datumArray[1];
+                                initialSelections[1] = secondDatum.getName();
+                            }
+    
+                            int[] fileOptions = new int[3];
+                            SynonymizerFileChooser fileChooseDiag= new SynonymizerFileChooser(getParentFrame(),datumArray,fileOptions,initialSelections,"Step1");
+                            fileChooseDiag.setLocationRelativeTo(getParentFrame());
+                            fileChooseDiag.setVisible(true);
+                            if(fileOptions[0]!=-1) {
+                                ArrayList<Datum> datumList = new ArrayList<Datum>();
+                                for(int i = 0; i<fileOptions.length-1;i++) {
+                                    Datum current = (Datum)datumArray[fileOptions[i]];
+                                    Object currentData = current.getData();
+                                    if (currentData instanceof GenotypeTable) {
+                                        TaxaList idGroup = ((GenotypeTable) currentData).taxa();
+                                        Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+                                        datumList.add(idGroupDatum);
+                                    } else if (currentData instanceof Phenotype) {
+                                        TaxaList idGroup = ((Phenotype) currentData).taxa();
+                                        Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+                                        datumList.add(idGroupDatum);
+                                    } else {
+                                        datumList.add(current);
                                     }
                                 }
-                                if(initialSelections[0].equals("")) {
-                                    String msg = "Error:  No Synonymize files have been found.  Please run the first step.";
-                                    JOptionPane.showMessageDialog(getParentFrame(), msg);
-                                    errorOut = true;
-                                }
+                               
+                                DataSet newInputDataSet = new DataSet(datumList, this);
+                                Datum td = createSynonymizer(newInputDataSet);
+                                DataSet output = new DataSet(td, this);
+                                fireDataSetReturned(new PluginEvent(output, SynonymizerPlugin.class));
+                                return output;
                             
                             }
-                           
-                            if(!errorOut) {
-                                int[] fileOptions = new int[2];
-                                SynonymizerFileChooser fileChooseDiag= new SynonymizerFileChooser(getParentFrame(),datumArray,fileOptions,initialSelections,"Step3");
-                                fileChooseDiag.setLocationRelativeTo(getParentFrame());
-                                fileChooseDiag.setVisible(true);
+                            */
+                        }
+                        else if(menuArray[1] == true) {
+    
+                            //Do a quick check to make sure there is at least one Synonym loaded
+                            boolean hasSynonymFile = false;
+                            for(int i = 0;i<datumArray.length;i++) {
+                                Datum currentDatum = (Datum)datumArray[i];
+                                if(currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
+                                    hasSynonymFile = true;
+                                }
+                            }
+                            if(!hasSynonymFile) {
+                                String msg = "Error:  No Synonymize files have been found.  Make sure at least one Synonymize File and at least one Standard File are loaded."
+                                        + "\nPlease run the first step.";
+                                JOptionPane.showMessageDialog(getParentFrame(), msg);
+                            }
+                            else {
+                              //Check to see if user has selected files like before
+                                String[] initialSelections = new String[1];
+                                boolean errorOut = false;
+                                boolean validSelection = false;
+                                //If there is a selection
+                                if(data.size()>0) {
+                                    //Set comboboxes to match
+                                    if(data.get(0).getDataType().equals(IdentifierSynonymizer.class)) {
+                                        initialSelections[0] = data.get(0).getName();
+                                        validSelection = true;
+                                    }
+                                }
                                 
-                                if(fileOptions[0]!=-1) {
-                                    ArrayList<Datum> datumList = new ArrayList<Datum>();
-                                    for(int i = 0; i<fileOptions.length;i++) {
-                                        Datum current = (Datum)datumArray[fileOptions[i]];
-                                        Object currentData = current.getData();
-                                        if (currentData instanceof GenotypeTable) {
-                                            TaxaList idGroup = ((GenotypeTable) currentData).taxa();
-                                            Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
-                                            datumList.add(idGroupDatum);
-                                        } else if (currentData instanceof Phenotype) {
-                                            TaxaList idGroup = ((Phenotype) currentData).taxa();
-                                            Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
-                                            datumList.add(idGroupDatum);
-                                        } else {
-                                            datumList.add(current);
+                                if(!validSelection) {
+                                  //First file which is an IdentifierSynonymizer
+                                    initialSelections[0] = "";
+                                    for(int i = 0; i<datumArray.length;i++) {
+                                        Datum currentDatum = (Datum)datumArray[i];
+                                        if(currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
+                                            initialSelections[0] = currentDatum.getName();
+                                            break;
                                         }
                                     }
-                                    DataSet newInputDataSet = new DataSet(datumList, this);
-                                    applySynonymsToIdGroups(newInputDataSet);
+                                    if(initialSelections[0].equals("")) {
+                                        String msg = "Error:  No Synonymize files have been found.  Please run the first step.";
+                                        JOptionPane.showMessageDialog(getParentFrame(), msg);
+                                        errorOut = true;
+                                    }
+                                
                                 }
-                            }                          
+                               
+                                if(!errorOut) {
+                                    int[] fileOptions = new int[1];
+                                    fileOptions[0] = -1;
+                                    SynonymizerFileChooser fileChooseDiag= new SynonymizerFileChooser(getParentFrame(),datumArray,fileOptions,initialSelections,"Step2");
+                                    fileChooseDiag.setLocationRelativeTo(getParentFrame());
+                                    fileChooseDiag.setVisible(true);
+                                    if(fileOptions[0]!=-1) {
+                                        Datum current = (Datum)datumArray[fileOptions[0]];
+                                        IdentifierSynonymizer is = (IdentifierSynonymizer) current.getData();
+                                        SynonymizerDialog theSD = new SynonymizerDialog(is, getParentFrame());
+                                        theSD.setLocationRelativeTo(getParentFrame());
+                                        theSD.setVisible(true);
+                                    }
+                                }
+                            }                    
+                        }
+                        else if(menuArray[2]==true) {
+                            //Do a quick check to make sure there is at least one Synonym loaded
+                            boolean hasSynonymFile = false;
+                            for(int i = 0;i<datumArray.length;i++) {
+                                Datum currentDatum = (Datum)datumArray[i];
+                                if(currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
+                                    hasSynonymFile = true;
+                                }
+                            }
+                            if(!hasSynonymFile) {
+                                String msg = "Error:  No Synonymize files have been found.  Make sure at least one Synonymize File and at least one Standard File are loaded."
+                                        + "\nPlease run the first step.";
+                                JOptionPane.showMessageDialog(getParentFrame(), msg);
+                            }
+                            else {
+                              //Check to see if user has selected files like before
+                                //initSelections[0] is the SynonymizerFile
+                                //initSelections[1] is the File to be Synonymized
+                                String[] initialSelections = new String[2];
+                                boolean errorOut = false;
+                                boolean validSelection = false;
+                                //If there is a selection
+                                if(data.size()>1) {
+                                    //Set comboboxes to match
+                                    if(data.get(0).getDataType().equals(IdentifierSynonymizer.class)) {
+                                        initialSelections[0] = data.get(0).getName();
+                                        initialSelections[1] = data.get(1).getName();
+                                        validSelection = true;
+                                    }
+                                }
+                                if(!validSelection) {
+                                  //First file which is an IdentifierSynonymizer
+                                    initialSelections[0] = "";
+                                    initialSelections[1] = "";
+                                    for(int i = 0; i<datumArray.length;i++) {
+                                        Datum currentDatum = (Datum)datumArray[i];
+                                        if(initialSelections[1].equals("") && !currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
+                                            initialSelections[1] = currentDatum.getName();
+                                        }
+                                        if(currentDatum.getDataType().equals(IdentifierSynonymizer.class)) {
+                                            initialSelections[0] = currentDatum.getName();
+                                            break;
+                                        }
+                                    }
+                                    if(initialSelections[0].equals("")) {
+                                        String msg = "Error:  No Synonymize files have been found.  Please run the first step.";
+                                        JOptionPane.showMessageDialog(getParentFrame(), msg);
+                                        errorOut = true;
+                                    }
+                                
+                                }
+                               
+                                if(!errorOut) {
+                                    int[] fileOptions = new int[2];
+                                    SynonymizerFileChooser fileChooseDiag= new SynonymizerFileChooser(getParentFrame(),datumArray,fileOptions,initialSelections,"Step3");
+                                    fileChooseDiag.setLocationRelativeTo(getParentFrame());
+                                    fileChooseDiag.setVisible(true);
+                                    
+                                    if(fileOptions[0]!=-1) {
+                                        ArrayList<Datum> datumList = new ArrayList<Datum>();
+                                        for(int i = 0; i<fileOptions.length;i++) {
+                                            Datum current = (Datum)datumArray[fileOptions[i]];
+                                            Object currentData = current.getData();
+                                            if (currentData instanceof GenotypeTable) {
+                                                TaxaList idGroup = ((GenotypeTable) currentData).taxa();
+                                                Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+                                                datumList.add(idGroupDatum);
+                                            } else if (currentData instanceof Phenotype) {
+                                                TaxaList idGroup = ((Phenotype) currentData).taxa();
+                                                Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+                                                datumList.add(idGroupDatum);
+                                            } else {
+                                                datumList.add(current);
+                                            }
+                                        }
+                                        DataSet newInputDataSet = new DataSet(datumList, this);
+                                        applySynonymsToIdGroups(newInputDataSet);
+                                    }
+                                }                          
+                            }
                         }
                     }
                 }
@@ -328,8 +345,11 @@ public class SynonymizerPlugin extends AbstractPlugin {
             synonymSets.append("\n");
         }
         boolean performFunction = true;
-        String msg = "You have selected to apply synonym list " + input.getData(0).getName() + " to the following dataset:\n"
+        //String msg = "You have selected to apply synonym list " + input.getData(0).getName() + " to the following dataset:\n"
+        //        + synonymSets.toString();
+        String msg = "You have selected to generate a synonym list from " + input.getData(0).getName() + " to be applied to the following dataset:\n"
                 + synonymSets.toString();
+        
         if (isInteractive()) {
             int response = JOptionPane.showOptionDialog(getParentFrame(), msg, "Verify Selection",
                     JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, null, null);
@@ -360,8 +380,10 @@ public class SynonymizerPlugin extends AbstractPlugin {
             synonymSets.append("\n");
         }
         boolean performFunction = true;
-        String msg = "You have selected " + input.getData(0).getName() + " as the reference name dataset.\n"
-                + "The synonyms will be extracted from the following: \n" + synonymSets.toString();
+        //String msg = "You have selected " + input.getData(0).getName() + " as the reference name dataset.\n"
+        //        + "The synonyms will be extracted from the following: \n" + synonymSets.toString();
+        String msg = "You have selected " + input.getData(0).getName() + " as the list of Synonyms.\n"
+                + "The synonyms will be written to the following: \n" + synonymSets.toString();
         if (isInteractive()) {
             int response = JOptionPane.showOptionDialog(getParentFrame(), msg, "Verify Selection",
                     JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, null, null);
@@ -413,6 +435,91 @@ public class SynonymizerPlugin extends AbstractPlugin {
     public String getToolTipText() {
         return "Unify Taxa Names";
     }
+
+    public int[] getFileChoice(List<Datum> data, Object[] datumArray) {
+      //Check to see if user has selected files like before
+        String[] initialSelections = new String[2];
+        if(data.size()>1) {
+            //Set comboboxes to match
+            initialSelections[0] = data.get(0).getName();
+            initialSelections[1] = data.get(1).getName();
+        }
+        else {
+            //First and Second file
+            Datum firstDatum = (Datum)datumArray[0];
+            initialSelections[0] = firstDatum.getName();
+            Datum secondDatum = (Datum)datumArray[1];
+            initialSelections[1] = secondDatum.getName();
+        }
+
+        int[] fileOptions = new int[3];
+        SynonymizerFileChooser fileChooseDiag= new SynonymizerFileChooser(getParentFrame(),datumArray,fileOptions,initialSelections,"Step1");
+        fileChooseDiag.setLocationRelativeTo(getParentFrame());
+        fileChooseDiag.setVisible(true);
+        return fileOptions;
+    }
+    public DataSet runStep1(List<Datum> data, Object[] datumArray, int[] fileOptions ) {
+        
+        if(fileOptions[0]!=-1) {
+            ArrayList<Datum> datumList = new ArrayList<Datum>();
+            for(int i = 0; i<fileOptions.length-1;i++) {
+                Datum current = (Datum)datumArray[fileOptions[i]];
+                Object currentData = current.getData();
+                if (currentData instanceof GenotypeTable) {
+                    TaxaList idGroup = ((GenotypeTable) currentData).taxa();
+                    Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+                    datumList.add(idGroupDatum);
+                } else if (currentData instanceof Phenotype) {
+                    TaxaList idGroup = ((Phenotype) currentData).taxa();
+                    Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+                    datumList.add(idGroupDatum);
+                } else {
+                    datumList.add(current);
+                }
+            }
+           
+            DataSet newInputDataSet = new DataSet(datumList, this);
+            Datum td = createSynonymizer(newInputDataSet);
+            DataSet output = new DataSet(td, this);
+            fireDataSetReturned(new PluginEvent(output, SynonymizerPlugin.class));
+            return output;
+        
+        }
+        else {
+           return null;
+        }
+        
+    }
+
+    public void runStep2(Datum currentData, boolean end2end) {
+        IdentifierSynonymizer is = (IdentifierSynonymizer) currentData.getData();
+        SynonymizerDialog theSD = new SynonymizerDialog(is, getParentFrame());
+        theSD.setLocationRelativeTo(getParentFrame());
+        theSD.setVisible(true);
+    }
+
+    public void runStep3(Object[] data, Datum step1Result, int[] fileOptions) {
+        ArrayList<Datum> datumList = new ArrayList<Datum>();
+        
+        datumList.add(step1Result);
+        Datum current = (Datum)data[fileOptions[1]];
+        Object currentData = current.getData();
+        if (currentData instanceof GenotypeTable) {
+            TaxaList idGroup = ((GenotypeTable) currentData).taxa();
+            Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+            datumList.add(idGroupDatum);
+        } else if (currentData instanceof Phenotype) {
+            TaxaList idGroup = ((Phenotype) currentData).taxa();
+            Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+            datumList.add(idGroupDatum);
+        } else {
+            datumList.add(current);
+        }
+       
+        DataSet newInputDataSet = new DataSet(datumList, this);
+        applySynonymsToIdGroups(newInputDataSet);
+    }
+    
 }
 
 /**
