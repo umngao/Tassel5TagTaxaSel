@@ -3,17 +3,41 @@
  */
 package net.maizegenetics.analysis.gbs.v2;
 
-import com.google.common.collect.*;
+import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.GAP_ALLELE;
+import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.GAP_ALLELE_CHAR;
+import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.getNucleotideAlleleByte;
+
+import java.awt.Frame;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import javax.swing.ImageIcon;
+
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.GeneralPosition;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.snp.SimpleAllele;
-import net.maizegenetics.dna.tag.*;
+import net.maizegenetics.dna.tag.Tag;
+import net.maizegenetics.dna.tag.TagBuilder;
+import net.maizegenetics.dna.tag.TagDataSQLite;
+import net.maizegenetics.dna.tag.TagDataWriter;
+import net.maizegenetics.dna.tag.TaxaDistribution;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.Tuple;
+
 import org.apache.log4j.Logger;
 import org.biojava3.alignment.Alignments;
 import org.biojava3.alignment.template.AlignedSequence;
@@ -22,18 +46,12 @@ import org.biojava3.core.sequence.DNASequence;
 import org.biojava3.core.sequence.compound.NucleotideCompound;
 import org.biojava3.core.util.ConcurrencyTools;
 
-import javax.swing.*;
-import java.awt.*;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.*;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
-import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.*;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Table;
+import com.google.common.collect.TreeBasedTable;
 
 /**
  * This class aligns tags at the same physical location against one another,
@@ -69,7 +87,9 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             .description("Include sites where major or minor allele is a GAP").build();
     private PluginParameter<Boolean> myCallBiSNPsWGap = new PluginParameter.Builder<>("callBiSNPsWGap", false, Boolean.class).guiName("Call Biallelic SNPs with Gap")
             .description("Include sites where the third allele is a GAP (mutually exclusive with inclGaps)").build();
-
+    private PluginParameter<Double> myGapAlignmentThreshold = new PluginParameter.Builder<>("gapAlignRatio", 1.0, Double.class).guiName("Gap Alignment Threshold")
+            .description("Gap alignment threshold ratio of indel contrasts to non indel contrasts: IC/(IC + NC)."
+            		+ " Any loci with a tag alignment value above this threshold will be excluded from the pool.").build();
     private TagDataWriter tagDataWriter = null;
     private boolean includeReference = false;
     private long[] refGenomeChr = null;
@@ -153,9 +173,11 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      * 1. Ensure more than 1 tag (otherwise would be monomorphic).
      * 2. Get the reference sequence
      * 3. Ensure meets minimal coverage
-     * 4. Align using BioJava and convert to Guava Table
-     * 5. Evaluate whether SNPs meet MAF and coverage levels.
-     * 6. Return SNPs in Tag -> Allele map
+     * 4. Align using BioJava 
+     * 5. Filters the aligned tags against a user defined gap alignment ratio threshold (default is include all tags)
+     * 6. convert remaining tags to Guava Table 
+     * 7. Evaluate whether SNPs meet MAF and coverage levels.
+     * 8. Return SNPs in Tag -> Allele map
      * genome.
      * @param cutPosition the cut position that all tags start with
      * @param tagTaxaMap  map of Tag -> Tuple (Boolean if reference, TaxaDistribution)
@@ -174,7 +196,11 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         if(taxaCoverage < myMinLocusCoverage.value()) {
             return null;  //consider reporting low coverage
         }
-        Map<Tag,String> alignedTags=alignTags(tagTaxaMap);
+        Map<Tag,String> alignedTagsUnfiltered=alignTags(tagTaxaMap);
+        // Filter the aligned tags.  Throw out all tags from a loci
+        // that has any tag with a gap ratio that exceeds the threshold
+        Map<Tag,String> alignedTags = filterAlignedTags(alignedTagsUnfiltered, cutPosition, myGapAlignmentThreshold.value());
+        if (alignedTags == null || alignedTags.size() == 0) return null;
         Table<Position, Byte, List<TagTaxaDistribution>> tAlign=convertAlignmentToTagTable(alignedTags, tagTaxaMap,  cutPosition);
         List<Position> positionToKeep=tAlign.rowMap().entrySet().stream()
                 .filter(entry -> (double) numberTaxaAtSiteIgnoreGaps(entry.getValue()) / (double) numberOfTaxa > minLocusCoverage())
@@ -242,6 +268,9 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             result.put(tag,tag.sequence());
             return result.build();
         }
+        
+        // Alignments.getmultipleSequenceAlignment aligns the tags against each other using
+        // the ClustalW algorithm
         Profile<DNASequence, NucleotideCompound> profile = Alignments.getMultipleSequenceAlignment(lst);
         for (AlignedSequence<DNASequence, NucleotideCompound> compounds : profile) {
             ImmutableList tagList=(ImmutableList)compounds.getOriginalSequence().getUserCollection();
@@ -249,7 +278,47 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         }
         return result.build();
     }
-
+    
+    /**
+     * Takes the aligned tags and compares to the reference genome. If there are too many indels
+     * for the tag to be a good match,throw out the alignment. Threshold is user defined via the  
+     * myGapAlignmentThreshold plugin parameter.  Default value is 1.0 (keep all tags)
+     *   Algorithm:  gap alignment ratio = IC/(IC + NC)
+     */
+    private static Map<Tag,String> filterAlignedTags(Map<Tag,String> alignedTags, Position refStartPosition, double threshold) {
+    	Map<Tag,String> filteredTags = new HashMap<Tag, String>();
+        final List<Optional<Position>> referencePositions=referencePositions(refStartPosition,alignedTags);
+        // Java 8 "alignedTags.forEach(tag,value) -> {...} " is not used as it does not support "break".
+        for (Map.Entry<Tag, String> entry : alignedTags.entrySet())
+        {
+        	Tag tag = entry.getKey();
+        	String value = entry.getValue();
+            int IC = 0;
+            int NC = 0;
+            for (int index = 0; index < value.length(); index++) {
+                byte allele=getNucleotideAlleleByte(value.charAt(index));
+                Optional<Position> p=referencePositions.get(index);
+                if(!p.isPresent()){
+                    // If both are missing, continue.  OTherwise increment indel-contrast
+                    if (allele == GAP_ALLELE) continue;
+                    IC++;
+                } else {
+                    if (allele == GAP_ALLELE) IC++;
+                    else NC++;
+                }                
+            }
+            
+            double alignValue = (double)(IC / (double)(IC + NC));
+            if (alignValue <= threshold) {
+            	filteredTags.put(tag, value);
+            } else {
+            	// Toss the entire loci if any of the tags fail the alignment threshold.
+            	filteredTags.clear();
+            	return null;
+            }
+        }
+        return filteredTags;
+    }
     /**
      * Converts at TagAlignment to a Guava Table with
      * @param alignedTags
@@ -320,6 +389,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         Tag refTag=alignedTags.keySet().stream()
                 .filter(Tag::isReference)
                 .findFirst().orElseThrow(() -> new IllegalStateException("Reference not found"));
+        //System.out.println("LCJ - rfp: ref tag: " + alignedTags.get(refTag));
         AtomicInteger start=new AtomicInteger(refStartPosition.getPosition());
         return alignedTags.get(refTag).chars()
                 .mapToObj(c -> (c == GAP_ALLELE_CHAR) ? Optional.<Position>empty() :
@@ -548,6 +618,39 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      */
     public DiscoverySNPCallerPluginV2 callBiallelicSNPsWithGap(Boolean value) {
         myCallBiSNPsWGap = new PluginParameter<>(myCallBiSNPsWGap, value);
+        return this;
+    }
+
+    /**
+     * Maximum gap alignment allowed from the equation:
+     *   IndelContrast / (IndelContrast/Non-IndelContrast)
+     *   
+     *   IC=Indel contrasts=Sum the number ACGT vs - 
+     *   NC=non-indel constrasts = Sum the number of ACGT vs ACGT
+     *   ignore = - vs -
+     * Gapped Alignment ratio = IC/(IC+NC)
+     *
+     * @return Maxmimum Gap alignment ratio
+     */
+    public Double gapAlignmentThreshold() {
+        return myGapAlignmentThreshold.value();
+    }
+
+    /**
+     * Maximum gap alignment allowed from the equation:
+     *   IndelContrast / (IndelContrast/Non-IndelContrast)
+     *   
+     *   IC=Indel contrasts=Sum the number ACGT vs - 
+     *   NC=non-indel constrasts = Sum the number of ACGT vs ACGT
+     *   ignore = - vs -
+     * Gapped Alignment ratio = IC/(IC+NC)
+     *
+     * @param value Max gap alignment ratio
+     *
+     * @return this plugin
+     */
+    public DiscoverySNPCallerPluginV2 gapAlignmentThreshold(Double value) {
+        myGapAlignmentThreshold = new PluginParameter<>(myGapAlignmentThreshold, value);
         return this;
     }
     
