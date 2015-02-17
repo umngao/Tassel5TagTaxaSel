@@ -27,6 +27,8 @@ import java.util.Set;
  */
 public class GeneralAnnotationStorage implements GeneralAnnotation {
 
+    private static final GeneralAnnotationStorage EMPTY_ANNOTATION_STORAGE = new GeneralAnnotationStorage();
+
     private static final double[] EMPTY_DOUBLE_ARRAY = new double[0];
 
     private static final int MAX_CACHE_SIZE = 1_000_000;
@@ -53,6 +55,10 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
         for (int i = 0; i < builder.myAnnotations.size(); i++) {
             myAnnotations[i] = builder.myAnnotations.get(i);
         }
+    }
+
+    private GeneralAnnotationStorage() {
+        myAnnotations = (Map.Entry<String, String>[]) new Map.Entry<?, ?>[0];
     }
 
     public static Builder getBuilder() {
@@ -145,13 +151,13 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
         }
         return result;
     }
-    
+
     @Override
     public SetMultimap<String, String> getAnnotationAsMap() {
-        ImmutableSetMultimap.Builder<String,String> result=new ImmutableSetMultimap.Builder<String,String>()
+        ImmutableSetMultimap.Builder<String, String> result = new ImmutableSetMultimap.Builder<String, String>()
                 .orderKeysBy(Ordering.natural()).orderValuesBy(Ordering.natural());
         for (Map.Entry<String, String> en : myAnnotations) {
-            result.put(en.getKey(),en.getValue());
+            result.put(en.getKey(), en.getValue());
         }
         return result.build();
     }
@@ -188,7 +194,7 @@ public class GeneralAnnotationStorage implements GeneralAnnotation {
 
         public GeneralAnnotationStorage build() {
             if (myAnnotations.isEmpty()) {
-                return null;
+                return EMPTY_ANNOTATION_STORAGE;
             }
             Collections.sort(myAnnotations, (Map.Entry<String, String> s1, Map.Entry<String, String> s2) -> {
                 int keyComp = s1.getKey().compareTo(s2.getKey());
