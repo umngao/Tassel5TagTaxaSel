@@ -26,13 +26,9 @@ import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.BitUtil;
 import net.maizegenetics.util.OpenBitSet;
 
-import org.apache.commons.math.MathException;
-import org.apache.commons.math.stat.inference.TestUtils;
+import org.apache.commons.math3.stat.inference.TestUtils;
 import org.apache.log4j.Logger;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.*;
 
 public class NucleotideImputationUtils {
@@ -816,10 +812,7 @@ public class NucleotideImputationUtils {
 			boolean different = false;
 			try {
 				different =  TestUtils.chiSquareTest(expected, observed, alpha);
-			} catch (IllegalArgumentException e) {
-				System.out.println("Illegal Argument to NucleotideImputationUtils.testClassSize(): ");
-				e.printStackTrace();
-			} catch (MathException e) {
+			} catch (Exception e) {
 				System.out.println("Exception calculating chi-square in NucleotideImputationUtils.testClassSize(): ");
 				e.printStackTrace();
 			}

@@ -5,13 +5,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import org.apache.commons.math.MathException;
-import org.apache.commons.math.distribution.FDistributionImpl;
+import org.apache.commons.math3.distribution.FDistribution;
 
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
 import net.maizegenetics.matrixalgebra.decomposition.SingularValueDecomposition;
+import org.apache.commons.math3.exception.OutOfRangeException;
 
 public class SolveByOrthogonalizing {
 	private List<ModelEffect> myBaseModel;
@@ -244,13 +244,13 @@ public class SolveByOrthogonalizing {
 	public static double calculateR2Fromp(double alpha, double modelDf, double errorDf) {
 		//returns the value of R^2 corresponding to the value of F, f for which P(F>f) = alpha
 		
-		FDistributionImpl fdist = new FDistributionImpl(modelDf, errorDf);
+		FDistribution fdist = new FDistribution(modelDf, errorDf);
 		try {
 			double p = 1 - alpha;
 			double F = fdist.inverseCumulativeProbability(p);
 			double Fme = F * modelDf / errorDf;
 			return Fme / (1 + Fme);
-		} catch (MathException e) {
+		} catch (OutOfRangeException e) {
 			e.printStackTrace();
 			return Double.NaN;
 		}

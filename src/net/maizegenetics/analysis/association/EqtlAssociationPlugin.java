@@ -9,8 +9,7 @@ import java.util.stream.IntStream;
 
 import javax.swing.ImageIcon;
 
-import org.apache.commons.math.MathException;
-import org.apache.commons.math.distribution.FDistributionImpl;
+import org.apache.commons.math3.distribution.FDistribution;
 
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.GenotypeTable;
@@ -32,6 +31,7 @@ import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.SolveByOrthogonalizing;
 import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.TableReportBuilder;
+import org.apache.commons.math3.exception.OutOfRangeException;
 
 public class EqtlAssociationPlugin extends AbstractPlugin {
 	private GENOTYPE_TABLE_COMPONENT[] GENOTYPE_COMP = new GENOTYPE_TABLE_COMPONENT[]{
@@ -45,7 +45,7 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	private SolveByOrthogonalizing orthogonalSolver;
 	private List<String> phenotypeNames;
 	private double minR2[];
-	private FDistributionImpl[] Fdist;
+	private FDistribution[] Fdist;
 	private int numberOfObservations;
 	
 	//plugin parameter definitions
@@ -91,9 +91,9 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		initializeOutput();
 		initializeOrthogonalizer();
 		final int nsites = myGenotype.numberOfSites();
-		Fdist = new FDistributionImpl[2];
-		Fdist[0] = new FDistributionImpl(1, numberOfObservations - 1 - orthogonalSolver.baseDf());
-		Fdist[1] = new FDistributionImpl(2, numberOfObservations - 2 - orthogonalSolver.baseDf());
+		Fdist = new FDistribution[2];
+		Fdist[0] = new FDistribution(1, numberOfObservations - 1 - orthogonalSolver.baseDf());
+		Fdist[1] = new FDistribution(2, numberOfObservations - 2 - orthogonalSolver.baseDf());
 		calculateR2Fromp();
 		
     	if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype) {
@@ -278,7 +278,7 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		try {
 			double F = Fdist[0].inverseCumulativeProbability(p);
 			minR2[0] = F/(numberOfObservations - 1 - basedf + F);
-		} catch (MathException e) {
+		} catch (OutOfRangeException e) {
 			e.printStackTrace();
 			minR2[0] = Double.NaN;
 		}
@@ -286,7 +286,7 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 		try {
 			double F = Fdist[1].inverseCumulativeProbability(p);
 			minR2[1] = 2 * F / (numberOfObservations - 2 - basedf + 2 * F);
-		} catch (MathException e) {
+		} catch (OutOfRangeException e) {
 			e.printStackTrace();
 			minR2[1] = Double.NaN;
 		}

@@ -2,7 +2,7 @@ package net.maizegenetics.dna.snp.genotypecall;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.depth.AlleleDepthUtil;
-import org.apache.commons.math.distribution.BinomialDistributionImpl;
+import org.apache.commons.math3.distribution.BinomialDistribution;
 
 import static net.maizegenetics.dna.snp.GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
 
@@ -29,8 +29,8 @@ public class BasicGenotypeMergeRule implements GenotypeMergeRule {
         }
         int lastThresh = 1;
         for (int trials = 2; trials < likelihoodRatioThreshAlleleCnt.length; ++trials) {
-            BinomialDistributionImpl binomHet = new BinomialDistributionImpl(trials, 0.5);
-            BinomialDistributionImpl binomErr = new BinomialDistributionImpl(trials, errorRate);
+            BinomialDistribution binomHet = new BinomialDistribution(trials, 0.5);
+            BinomialDistribution binomErr = new BinomialDistribution(trials, errorRate);
             double LikeRatio;
             try {
                 LikeRatio = binomHet.cumulativeProbability(lastThresh) / (1 - binomErr.cumulativeProbability(lastThresh) + binomErr.probability(lastThresh));

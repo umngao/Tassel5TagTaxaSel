@@ -3,15 +3,13 @@ package net.maizegenetics.analysis.gbs.pana;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.util.ArgsEngine;
-import net.maizegenetics.util.DirectoryCrawler;
-import net.maizegenetics.util.MultiMemberGZIPInputStream;
 import org.apache.log4j.Logger;
 
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
 import java.util.ArrayList;
-import org.apache.commons.math.stat.correlation.PearsonsCorrelation;
+import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 
 /**
  * Training data with M5Rules model, generate model file and training report files

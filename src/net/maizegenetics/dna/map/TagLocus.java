@@ -10,14 +10,11 @@ import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
-import net.maizegenetics.dna.map.Chromosome;
-import net.maizegenetics.dna.map.GeneralPosition;
-import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.VCFUtil;
-import org.apache.commons.math.distribution.BinomialDistributionImpl;
+import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.biojava3.alignment.Alignments;
 import org.biojava3.alignment.Alignments.PairwiseSequenceAlignerType;
 import org.biojava3.alignment.SimpleGapPenalty;
@@ -32,7 +29,6 @@ import org.biojava3.core.sequence.compound.NucleotideCompound;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import net.maizegenetics.dna.snp.ExportUtils;
 
 
 /**
@@ -81,8 +77,8 @@ public class TagLocus {
         }
         int lastThresh = 1;
         for (int trials = 2; trials < likelihoodRatioThreshAlleleCnt.length; ++trials) {
-            BinomialDistributionImpl binomHet = new BinomialDistributionImpl(trials, 0.5);
-            BinomialDistributionImpl binomErr = new BinomialDistributionImpl(trials, errorRate);
+            BinomialDistribution binomHet = new BinomialDistribution(trials, 0.5);
+            BinomialDistribution binomErr = new BinomialDistribution(trials, errorRate);
             double LikeRatio;
             try {
                 LikeRatio = binomHet.cumulativeProbability(lastThresh) / (1 - binomErr.cumulativeProbability(lastThresh) + binomErr.probability(lastThresh));

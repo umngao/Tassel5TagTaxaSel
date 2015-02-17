@@ -2,14 +2,12 @@ package net.maizegenetics.analysis.imputation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.TreeSet;
 
-import org.apache.commons.math.stat.StatUtils;
+import org.apache.commons.math3.stat.StatUtils;
 import org.apache.log4j.Logger;
 
 import net.maizegenetics.analysis.clustering.Haplotype;
-import net.maizegenetics.analysis.clustering.HaplotypeCluster;
 import net.maizegenetics.analysis.clustering.HaplotypeClusterer;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibrium;
 import net.maizegenetics.dna.map.Position;
