@@ -1,77 +1,76 @@
+//
 // ReadDistanceMatrix.java
 //
-// (c) 1999-2001 PAL Development Core Team
-//
-// This package may be distributed under the
-// terms of the Lesser GNU General Public License (LGPL)
 package net.maizegenetics.taxa.distance;
 
-import net.maizegenetics.util.FormattedInput;
-import net.maizegenetics.util.InputSource;
-import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.Utils;
 
 import java.io.IOException;
-import java.io.PushbackReader;
+import java.io.BufferedReader;
+
+import java.util.regex.Pattern;
+
+import org.apache.log4j.Logger;
 
 /**
- * reads pairwise distance matrices in PHYLIP format
- *  (full matrix)
- *
- * @version $Id: ReadDistanceMatrix.java,v 1.4 2009/07/02 20:26:13 pjbradbury Exp $
- *
- * @author Korbinian Strimmer
- * @author Alexei Drummond
+ * @author Terry Casstevens
  */
 public class ReadDistanceMatrix {
+
+    private static final Logger myLogger = Logger.getLogger(ReadDistanceMatrix.class);
+
+    private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
 
     private ReadDistanceMatrix() {
     }
 
-    /** read from stream */
-    public static DistanceMatrix readDistanceMatrix(PushbackReader input)
-            throws DistanceParseException {
-        return readSquare(input);
-    }
+    public static DistanceMatrix readDistanceMatrix(String filename) {
 
-    /** read from file */
-    public static DistanceMatrix readDistanceMatrix(String file)
-            throws DistanceParseException, IOException {
-        PushbackReader input = null;
-        try {
-            input = InputSource.openFile(file);
-            return readSquare(input);
-        } finally {
-            input.close();
-        }
-    }
+        try (BufferedReader reader = Utils.getBufferedReader(filename)) {
 
-    // Read square matrix
-    private static DistanceMatrix readSquare(PushbackReader in)
-            throws DistanceParseException {
-        FormattedInput fi = FormattedInput.getInstance();
-        try {
-            // Parse PHYLIP header line
-            int numSeqs = fi.readInt(in);
-            fi.nextLine(in);
+            int numSeqs = Integer.parseInt(reader.readLine().trim());
 
-            // Read distance and sequence names
             double[][] distance = new double[numSeqs][numSeqs];
-            Taxon[] ids = new Taxon[numSeqs];
-            for (int i = 0; i < numSeqs; i++) {
-                ids[i] = new Taxon(fi.readWord(in).trim());
-                for (int j = 0; j < numSeqs; j++) {
-                    distance[i][j] = fi.readDouble(in);
+            TaxaListBuilder taxa = new TaxaListBuilder();
+            String current = reader.readLine();
+            int index = 0;
+            while (current != null) {
+
+                if (index >= numSeqs) {
+                    throw new IllegalArgumentException("ReadDistancMatrix: There are too many lines in this file.  Expected: " + (numSeqs + 1) + " counting the first line (number of taxa)");
                 }
-                fi.nextLine(in);
+
+                String[] tokens = WHITESPACE_PATTERN.split(current);
+                if (tokens.length != numSeqs + 1) {
+                    throw new IllegalStateException("ReadDistanceMatrix: Incorrect number of values on line number: " + (index + 2) + " expected: " + (numSeqs + 1) + " counting taxon name. actual: " + tokens.length);
+                }
+                taxa.add(new Taxon(tokens[0]));
+
+                for (int i = 0; i < numSeqs; i++) {
+                    try {
+                        distance[index][i] = Double.parseDouble(tokens[i + 1]);
+                    } catch (NumberFormatException nfex) {
+                        myLogger.debug(nfex.getMessage(), nfex);
+                        throw new IllegalArgumentException("ReadDistanceMatrix: Incorrectly formatted number: " + tokens[i + 1] + " on line number: " + (index + 2));
+                    }
+                }
+
+                current = reader.readLine();
+                index++;
             }
-            TaxaList idGroup = new TaxaListBuilder().addAll(ids).build();
-            return new DistanceMatrix(distance, idGroup);
-        } catch (IOException e) {
-            throw new DistanceParseException("IO error");
-        } catch (NumberFormatException e) {
-            throw new DistanceParseException("Number format error");
+
+            if (index != numSeqs) {
+                throw new IllegalArgumentException("ReadDistanceMatrix: There are too few lines in this file.  Expected: " + (numSeqs + 1) + " counting the first line (number of taxa)");
+            }
+
+            return new DistanceMatrix(distance, taxa.build());
+
+        } catch (IOException ioex) {
+            myLogger.debug(ioex.getMessage(), ioex);
+            throw new IllegalStateException("ReadDistanceMatrix: Problem reading file: " + filename);
         }
+
     }
 }
