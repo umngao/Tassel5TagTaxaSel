@@ -30,6 +30,7 @@ import net.maizegenetics.plugindef.Plugin;
 import net.maizegenetics.plugindef.PluginEvent;
 import net.maizegenetics.plugindef.PluginListener;
 
+import net.maizegenetics.analysis.association.EqtlAssociationPlugin;
 import net.maizegenetics.analysis.association.FixedEffectLMPlugin;
 import net.maizegenetics.analysis.popgen.SequenceDiversityPlugin;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibriumPlugin;
@@ -560,7 +561,8 @@ public class DataTreePanel extends JPanel implements PluginListener {
         for (int i = 0; i < theDataSet.getSize(); i++) {
             Datum d = theDataSet.getData(i);
             if ((theCreator instanceof MLMPlugin)
-                    || (theCreator instanceof FixedEffectLMPlugin)) {
+                    || (theCreator instanceof FixedEffectLMPlugin)
+                    || (theCreator instanceof EqtlAssociationPlugin)) {
                 addDatum(NODE_TYPE_ASSOCIATIONS, d);
                 continue;
             }

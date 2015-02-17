@@ -295,7 +295,7 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	//abstract plugin methods that need to be overridden
 	@Override
 	public ImageIcon getIcon() {
-        URL imageURL = MLMPlugin.class.getResource("/net/maizegenetics/analysis/images/speed.gif");
+        URL imageURL = EqtlAssociationPlugin.class.getResource("/net/maizegenetics/analysis/images/speed.gif");
         if (imageURL == null) {
             return null;
         } else {
@@ -305,7 +305,7 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 
 	@Override
 	public String getButtonName() {
-		return "FastAssociation";
+		return "Fast Association";
 	}
 
 	@Override

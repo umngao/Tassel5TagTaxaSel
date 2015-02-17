@@ -26,6 +26,7 @@ import net.maizegenetics.analysis.chart.TableDisplayPlugin;
 import net.maizegenetics.analysis.chart.Grid2dDisplayPlugin;
 import net.maizegenetics.analysis.chart.ManhattanDisplayPlugin;
 import net.maizegenetics.analysis.chart.QQDisplayPlugin;
+import net.maizegenetics.analysis.association.EqtlAssociationPlugin;
 import net.maizegenetics.analysis.association.FixedEffectLMPlugin;
 import net.maizegenetics.analysis.association.MLMPlugin;
 import net.maizegenetics.analysis.data.PlinkLoadPlugin;
@@ -689,6 +690,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new RidgeRegressionEmmaPlugin(this, true)));
         result.add(createMenuItem(new GenotypeSummaryPlugin(this, true)));
         result.add(createMenuItem(new StepwiseOLSModelFitterPlugin(this, true)));
+        result.add(createMenuItem(new EqtlAssociationPlugin(this, true)));
         return result;
     }
 
