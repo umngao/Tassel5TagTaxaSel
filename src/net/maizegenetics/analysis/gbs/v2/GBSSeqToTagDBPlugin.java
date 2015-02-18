@@ -118,6 +118,22 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         return np;
     }
     
+    private long[] calcTagMapStats(TagDistributionMap tagCntMap) {
+        long totalDepth=0, memory=0;
+        int cnt=0;
+        for (Map.Entry<Tag, TaxaDistribution> entry : tagCntMap.entrySet()) {
+            memory+=entry.getValue().memorySize();
+            memory+=25;
+            totalDepth+=entry.getValue().totalDepth();
+            cnt++;
+        }
+        int currentSize = tagCntMap.size();
+        memory+=tagCntMap.size()*2*16;  //estimate for the map size
+        long[] stats={currentSize,memory, totalDepth,totalDepth/cnt};
+        System.out.printf("Map Tags:%,d  Memory:%,d  TotalDepth:%,d  AvgDepthPerTag:%d%n",stats[0],stats[1],stats[2],stats[3]);
+        return stats;
+    }
+
     @Override
     public DataSet processData(DataSet input) {
         int batchSize = myBatchSize.value();
@@ -138,7 +154,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             if (inputSeqFiles.size()%batchSize != 0) batchNum++;
             TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), sampleNameField, new HashMap<>(), true);
             for (int i = 0; i < inputSeqFiles.size(); i+=batchSize) {
-                int end = i+batchSize+1;
+                int end = i+batchSize;
                 if (end > inputSeqFiles.size()) end = inputSeqFiles.size();
                 ArrayList<Path> sub = new ArrayList();
                 for (int j = i; j < end; j++) sub.add(inputSeqFiles.get(j));
@@ -151,19 +167,24 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                     System.out.println("\nTags are added from batch "+String.valueOf(i/batchSize+1) + ". Total batch number: " + batchNum);
                     int currentSize = tagCntMap.size();
                     System.out.println("Current tag number: " + String.valueOf(currentSize) + ". Max tag number: " + String.valueOf(myMaxTagNumber.value()));
-                    System.out.println(String.valueOf((float)currentSize/(float)myMaxTagNumber.value()) + " of max tag number\n");
+                    System.out.println(String.valueOf((float)currentSize/(float)myMaxTagNumber.value()) + " of max tag number");
+                    this.calcTagMapStats(tagCntMap);
+                    System.out.println();
                     //make sure don't lose rare ones, need to set maxTagNumber large enough
                     if (tagCntMap.size() > (int)(reducePoint*myMaxTagNumber.value())){
                         removeTagsWithoutReplication(tagCntMap);
+                        this.calcTagMapStats(tagCntMap);
+                        System.out.println();
                         System.out.println("Tag number is reduced to " + tagCntMap.size()+"\n");
                     }
                     if (tagCntMap.size() > myMaxTagNumber.value()){
                         tagCntMap.reduceMapSize();
+                        this.calcTagMapStats(tagCntMap);
+                        System.out.println();
                         System.out.println("Tag number is reduced to " + tagCntMap.size()+"\n");
                     }
                     this.roughTagCnt.reset();
                     this.roughTagCnt.add(tagCntMap.size());
-                    System.gc();
                     System.out.println("Total memory: "+ String.valueOf((double)(Runtime.getRuntime().totalMemory()/1024/1024/1024))+" Gb");
                     System.out.println("Free memory: "+ String.valueOf((double)(Runtime.getRuntime().freeMemory()/1024/1024/1024))+" Gb");
                     System.out.println("Max memory: "+ String.valueOf((double)(Runtime.getRuntime().maxMemory()/1024/1024/1024))+" Gb");
