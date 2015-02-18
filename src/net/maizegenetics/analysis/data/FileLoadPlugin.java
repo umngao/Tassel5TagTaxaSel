@@ -311,10 +311,25 @@ public class FileLoadPlugin extends AbstractPlugin {
                     boolean t4HDF5 = HDF5Utils.isTASSEL4HDF5Format(HDF5Factory.openForReading(inFile));
                     reader.close();
                     if (t4HDF5) {
-                        DialogUtils.showError("This file is TASSEL4 HDF5 format. It will be converted to TASSEL5 "
-                                + "HDF5 format with the t5.h5 suffix added.  This may take a few minutes.", getParentFrame());
                         String newInfile = inFile.replace(".h5", ".t5.h5");
-                        MigrateHDF5FromT4T5.copyGenotypes(inFile, newInfile);
+                        if (new File(newInfile).exists()) {
+                            String message = "This file is TASSEL 4 HDF5 format. It looks like it has already been converted to TASSEL 5. Using file: " + newInfile;
+                            if (isInteractive()) {
+                                DialogUtils.showWarning(message, getParentFrame());
+                            } else {
+                                myLogger.warn(message);
+                            }
+                        } else {
+                            String message = "This file is TASSEL 4 HDF5 format. It will be converted to TASSEL 5 "
+                                    + "HDF5 format with name: " + newInfile + ".  This may take a few minutes.";
+                            if (isInteractive()) {
+                                DialogUtils.showWarning(message, getParentFrame());
+                            } else {
+                                myLogger.warn(message);
+                            }
+                            MigrateHDF5FromT4T5.copyGenotypes(inFile, newInfile);
+                        }
+
                         inFile = newInfile;
                     }
                     suffix = FILE_EXT_HDF5;
