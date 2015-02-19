@@ -103,8 +103,8 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 e.printStackTrace();
             }
         });
-        //Collections.sort(sizeList, Collections.reverseOrder());
-        Collections.sort(sizeList);
+        Collections.sort(sizeList, Collections.reverseOrder());
+        //Collections.sort(sizeList);
         ArrayList<Path> np = new ArrayList();
         //files rarely have the same size, but it might happen
         try {
@@ -149,7 +149,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 return null;
             } 
             //Files in a batch have roughly the same size
-            inputSeqFiles = this.sortFastqBySize(inputSeqFiles);
+            //inputSeqFiles = this.sortFastqBySize(inputSeqFiles);
             int batchNum = inputSeqFiles.size()/batchSize;
             if (inputSeqFiles.size()%batchSize != 0) batchNum++;
             TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), sampleNameField, new HashMap<>(), true);
