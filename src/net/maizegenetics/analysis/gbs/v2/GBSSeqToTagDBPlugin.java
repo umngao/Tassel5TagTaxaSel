@@ -63,7 +63,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             .description("Output Database File").build();
     private PluginParameter<Integer> myMinQualScore = new PluginParameter.Builder<>("mnQS", 0, Integer.class).guiName("Minimum quality score").required(false)
             .description("Minimum quality score within the barcode and read length to be accepted").build();
-    private PluginParameter<Integer> myMaxTagNumber = new PluginParameter.Builder<>("mxTagNum", 2000000, Integer.class).guiName("Maximum Tag Number").required(false)
+    private PluginParameter<Integer> myMaxTagNumber = new PluginParameter.Builder<>("mxTagNum", 50000000, Integer.class).guiName("Maximum Tag Number").required(false)
             .description("Maximum size for the tag distribution map in Mb").build();
     private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 16, Integer.class).guiName("Batch size of fastq files").required(false)
             .description("Maximum size for the tag distribution map in Mb").build();
@@ -103,8 +103,8 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 e.printStackTrace();
             }
         });
-        Collections.sort(sizeList, Collections.reverseOrder());
-        //Collections.sort(sizeList);
+        //Collections.sort(sizeList, Collections.reverseOrder());
+        Collections.sort(sizeList);
         ArrayList<Path> np = new ArrayList();
         //files rarely have the same size, but it might happen
         try {
@@ -171,18 +171,10 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                     this.calcTagMapStats(tagCntMap);
                     System.out.println();
                     //make sure don't lose rare ones, need to set maxTagNumber large enough
-                    if (tagCntMap.size() > (int)(reducePoint*myMaxTagNumber.value())){
-                        removeTagsWithoutReplication(tagCntMap);
-                        this.calcTagMapStats(tagCntMap);
-                        System.out.println();
-                        System.out.println("Tag number is reduced to " + tagCntMap.size()+"\n");
-                    }
-                    if (tagCntMap.size() > myMaxTagNumber.value()){
-                        tagCntMap.reduceMapSize();
-                        this.calcTagMapStats(tagCntMap);
-                        System.out.println();
-                        System.out.println("Tag number is reduced to " + tagCntMap.size()+"\n");
-                    }
+                    removeTagsWithoutReplication(tagCntMap);
+                    this.calcTagMapStats(tagCntMap);
+                    System.out.println();
+                    System.out.println("Tag number is reduced to " + tagCntMap.size()+"\n");                    
                     this.roughTagCnt.reset();
                     this.roughTagCnt.add(tagCntMap.size());
                     System.out.println("Total memory: "+ String.valueOf((double)(Runtime.getRuntime().totalMemory()/1024/1024/1024))+" Gb");
@@ -401,15 +393,16 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      */
     private static void removeTagsWithoutReplication (TagDistributionMap masterTagTaxaMap) {
         int currentSize = masterTagTaxaMap.size();
+        int minTaxa=2;
         System.out.println("Starting removeTagsWithoutReplication. Current tag number: " + currentSize);
         LongAdder tagsRemoved=new LongAdder();
         masterTagTaxaMap.entrySet().parallelStream().forEach(t -> {
             TaxaDistribution td = t.getValue();
-            if(td.totalDepth()<2) {
+            if(td.totalDepth()<2*minTaxa) {
                 masterTagTaxaMap.remove(t.getKey());
                 tagsRemoved.increment();
             } 
-            else if(!IntStream.of(td.depths()).anyMatch(depth -> depth>1)) {
+            else if(IntStream.of(td.depths()).filter(depth -> depth>1).count()<minTaxa) {
                 masterTagTaxaMap.remove(t.getKey());
                 tagsRemoved.increment();
             }
@@ -674,12 +667,6 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                     .forEach(e -> remove(e.getKey()));
         }
         
-        private synchronized void reduceMapSize() {
-            System.out.println("reduce map size by min count of"+minDepthToRetainInMap);
-            removeTagByCount(minDepthToRetainInMap);
-            minDepthToRetainInMap++;
-            if (minDepthToRetainInMap > minCount) minDepthToRetainInMap = minCount;
-        }
             
         public long estimateMapMemorySize() {
             long size=0;

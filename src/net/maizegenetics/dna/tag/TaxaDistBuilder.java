@@ -279,7 +279,7 @@ class TaxaDistShortExpandable extends AbstractTaxaDistribution  {
     
     @Override
     public synchronized TaxaDistribution increment(int taxaNum) {
-        if (totalDepth < 1000_000) {
+        if (true) {
             taxaWithTag.add((short)taxaNum);
         } else { // add previous values to map
             if(taxaTagMap==null) convertListToMap();
@@ -365,7 +365,7 @@ class TaxaDistIntExpandable extends AbstractTaxaDistribution  {
     
     @Override
     public synchronized TaxaDistribution increment(int taxaNum) {
-        if (totalDepth < 1000 ) {
+        if (true) {
             taxaWithTag.add(taxaNum);
         } else { // add previous values to map
             if(taxaTagMap==null) convertListToMap();
