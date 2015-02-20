@@ -64,9 +64,9 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
     private PluginParameter<Integer> myMinQualScore = new PluginParameter.Builder<>("mnQS", 0, Integer.class).guiName("Minimum quality score").required(false)
             .description("Minimum quality score within the barcode and read length to be accepted").build();
     private PluginParameter<Integer> myMaxTagNumber = new PluginParameter.Builder<>("mxTagNum", 50000000, Integer.class).guiName("Maximum Tag Number").required(false)
-            .description("Maximum size for the tag distribution map in Mb").build();
-    private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 16, Integer.class).guiName("Batch size of fastq files").required(false)
-            .description("Maximum size for the tag distribution map in Mb").build();
+            .description("Maximum number of tags").build();
+    private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 8, Integer.class).guiName("Batch size of fastq files").required(false)
+            .description("Number of flow cells being processed simultaneously").build();
     LongAdder roughTagCnt = new LongAdder();
     
     private TagDistributionMap tagCntMap;
