@@ -464,12 +464,12 @@ public class GenotypeTableBuilder {
                 for (int s = 0; s < blockSize; s++) {
                     byte[] currentAlleles = alignment.genotypeArray(t, s + bigS);
                     if ((currentAlleles[0] != majorAllele[s]) && (currentAlleles[0] != minorAllele[s])) {
-                        currentAlleles[0] = GenotypeTable.UNKNOWN_ALLELE;
+                        builder.setBase(t, s + bigS, GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
+                    } else if ((currentAlleles[1] != majorAllele[s]) && (currentAlleles[1] != minorAllele[s])) {
+                        builder.setBase(t, s + bigS, GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
+                    } else {
+                        builder.setBase(t, s + bigS, GenotypeTableUtils.getDiploidValue(currentAlleles[0], currentAlleles[1]));
                     }
-                    if ((currentAlleles[1] != majorAllele[s]) && (currentAlleles[1] != minorAllele[s])) {
-                        currentAlleles[1] = GenotypeTable.UNKNOWN_ALLELE;
-                    }
-                    builder.setBase(t, s + bigS, GenotypeTableUtils.getDiploidValue(currentAlleles[0], currentAlleles[1]));
                 }
             }
         }
