@@ -15,16 +15,17 @@ import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.VCFUtil;
 import org.apache.commons.math3.distribution.BinomialDistribution;
-import org.biojava3.alignment.Alignments;
-import org.biojava3.alignment.Alignments.PairwiseSequenceAlignerType;
-import org.biojava3.alignment.SimpleGapPenalty;
-import org.biojava3.alignment.SubstitutionMatrixHelper;
-import org.biojava3.alignment.template.Profile;
-import org.biojava3.alignment.template.SequencePair;
-import org.biojava3.alignment.template.SubstitutionMatrix;
-import org.biojava3.core.sequence.DNASequence;
-import org.biojava3.core.sequence.compound.AmbiguityDNACompoundSet;
-import org.biojava3.core.sequence.compound.NucleotideCompound;
+import org.biojava.nbio.alignment.Alignments;
+import org.biojava.nbio.alignment.Alignments.PairwiseSequenceAlignerType;
+import org.biojava.nbio.alignment.SimpleGapPenalty;
+import org.biojava.nbio.alignment.SubstitutionMatrixHelper;
+import org.biojava.nbio.alignment.template.Profile;
+import org.biojava.nbio.alignment.template.SequencePair;
+import org.biojava.nbio.alignment.template.SubstitutionMatrix;
+import org.biojava.nbio.core.sequence.DNASequence;
+import org.biojava.nbio.core.sequence.compound.AmbiguityDNACompoundSet;
+import org.biojava.nbio.core.sequence.compound.NucleotideCompound;
+import org.biojava.nbio.core.exceptions.CompoundNotFoundException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -487,12 +488,16 @@ public class TagLocus {
         List<DNASequence> lst = new ArrayList<DNASequence>();
         int tagIndex = 0;
         for (SingleTagByTaxa sTBT : theTags) {
-            DNASequence ds = new DNASequence(sTBT.tagTrimmed);
-            String refMark = (tagIndex == indexOfRef) ? "refTag" : "no";
-            ds.setOriginalHeader(tagIndex + "_" + refMark);    // OriginalHeader set to indexInTheTags_'refTag'|'no'
-            ds.setCompoundSet(AmbiguityDNACompoundSet.getDNACompoundSet());
-            lst.add(ds);
-            ++tagIndex;
+            try {
+                DNASequence ds = new DNASequence(sTBT.tagTrimmed);
+                String refMark = (tagIndex == indexOfRef) ? "refTag" : "no";
+                ds.setOriginalHeader(tagIndex + "_" + refMark);    // OriginalHeader set to indexInTheTags_'refTag'|'no'
+                ds.setCompoundSet(AmbiguityDNACompoundSet.getDNACompoundSet());
+                lst.add(ds);
+               ++tagIndex;
+            } catch (CompoundNotFoundException ex) {
+                // TODO What should happen?
+            }
         }
         Profile<DNASequence, NucleotideCompound> profile = Alignments.getMultipleSequenceAlignment(lst);
         int nSites=profile.getAlignedSequence(1).getSequenceAsString().length();
@@ -561,13 +566,23 @@ public class TagLocus {
         }
         boolean printOutAlignments = true;
         int startRefGenIndex = 0, endRefGenIndex = 1, startTagIndex = 2, endTagIndex = 3; // relevant indices in alignStats[]  (alignedTagLen=4)
-        DNASequence dsRefSeq = new DNASequence(refSeqInRegion);
+        DNASequence dsRefSeq = null;
+        try {
+            dsRefSeq = new DNASequence(refSeqInRegion);
+        } catch (CompoundNotFoundException ex) {
+            // TODO What should happen?
+        }
         dsRefSeq.setCompoundSet(AmbiguityDNACompoundSet.getDNACompoundSet());
         int minRefGenIndex = Integer.MAX_VALUE, maxRefGenIndex = Integer.MIN_VALUE;
         ArrayList<SequencePair<DNASequence, NucleotideCompound>> pairwiseAligns = new ArrayList<SequencePair<DNASequence, NucleotideCompound>>();
         int tagIndex = 0;
         for (SingleTagByTaxa sTBT : theTags) {
-            DNASequence ds = new DNASequence(sTBT.tagTrimmed);
+            DNASequence ds = null;
+            try {
+                ds = new DNASequence(sTBT.tagTrimmed);
+            } catch (CompoundNotFoundException ex) {
+                // TODO What should happen?
+            }
             ds.setCompoundSet(AmbiguityDNACompoundSet.getDNACompoundSet());
             SequencePair<DNASequence, NucleotideCompound> psa = Alignments.getPairwiseAlignment(ds, dsRefSeq, PairwiseSequenceAlignerType.LOCAL, gapPen, subMatrix);
             int[] alignStats = getAlignStats(psa, printOutAlignments, tagIndex, sTBT.tagLength, sTBT.tagStrand);

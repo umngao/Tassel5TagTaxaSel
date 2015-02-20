@@ -39,7 +39,7 @@ package net.maizegenetics.analysis.gbs;
  *
  */
 import java.util.Arrays;
-import org.biojava3.alignment.NeedlemanWunsch;
+import org.biojava.nbio.alignment.NeedlemanWunsch;
 
 /**
  * This class implement the classic local alignment algorithm (with linear gap penalty

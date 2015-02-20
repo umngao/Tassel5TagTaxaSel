@@ -6,14 +6,14 @@
 
 package net.maizegenetics.dna.read;
 
-import net.maizegenetics.dna.BaseEncoder;
-import org.biojava3.alignment.Alignments;
-import org.biojava3.alignment.SimpleGapPenalty;
-import org.biojava3.alignment.SubstitutionMatrixHelper;
-import org.biojava3.alignment.template.SequencePair;
-import org.biojava3.alignment.template.SubstitutionMatrix;
-import org.biojava3.core.sequence.DNASequence;
-import org.biojava3.core.sequence.compound.NucleotideCompound;
+import org.biojava.nbio.alignment.Alignments;
+import org.biojava.nbio.alignment.SimpleGapPenalty;
+import org.biojava.nbio.alignment.SubstitutionMatrixHelper;
+import org.biojava.nbio.alignment.template.SequencePair;
+import org.biojava.nbio.alignment.template.SubstitutionMatrix;
+import org.biojava.nbio.core.sequence.DNASequence;
+import org.biojava.nbio.core.sequence.compound.NucleotideCompound;
+import org.biojava.nbio.core.exceptions.CompoundNotFoundException;
 
 /**
  * Holding paired end read. Providing merging function
@@ -37,10 +37,20 @@ public class PERead {
         int minOverlap = 10;
         double minIden = 0.6;
         String queryS = this.rf.getSeq();
-        DNASequence query = new DNASequence(queryS);
+        DNASequence query = null;
+        try {
+            query = new DNASequence(queryS);
+        } catch (CompoundNotFoundException ex) {
+            // TODO What should happen?
+        }
         String hitS = this.rb.getReverseComplementarySeq();
         String hitQualS = this.rb.getReverseQual();
-        DNASequence hit = new DNASequence(hitS);
+        DNASequence hit = null;
+        try {
+            hit = new DNASequence(hitS);
+        } catch (CompoundNotFoundException ex) {
+            // TODO What should happen?
+        }
         //int halfLength = queryS.length()/2;
         SequencePair<DNASequence, NucleotideCompound> psa = null;
         psa = Alignments.getPairwiseAlignment(query, hit, Alignments.PairwiseSequenceAlignerType.LOCAL, gapPen, subMatrix);

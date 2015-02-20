@@ -20,7 +20,7 @@ import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
-import org.biojava3.core.util.ConcurrencyTools;
+import org.biojava.nbio.core.util.ConcurrencyTools;
 
 import javax.swing.*;
 import java.awt.*;

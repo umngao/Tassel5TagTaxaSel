@@ -39,12 +39,13 @@ import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.Tuple;
 
 import org.apache.log4j.Logger;
-import org.biojava3.alignment.Alignments;
-import org.biojava3.alignment.template.AlignedSequence;
-import org.biojava3.alignment.template.Profile;
-import org.biojava3.core.sequence.DNASequence;
-import org.biojava3.core.sequence.compound.NucleotideCompound;
-import org.biojava3.core.util.ConcurrencyTools;
+import org.biojava.nbio.alignment.Alignments;
+import org.biojava.nbio.alignment.template.AlignedSequence;
+import org.biojava.nbio.alignment.template.Profile;
+import org.biojava.nbio.core.sequence.DNASequence;
+import org.biojava.nbio.core.sequence.compound.NucleotideCompound;
+import org.biojava.nbio.core.util.ConcurrencyTools;
+import org.biojava.nbio.core.exceptions.CompoundNotFoundException;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -258,9 +259,13 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         List<DNASequence> lst=new ArrayList<>();
         tags.forEach((tag, dir) -> {
             String sequence = (dir.x) ? tag.sequence() : tag.toReverseComplement();
-            DNASequence ds = new DNASequence(sequence);
-            ds.setUserCollection(ImmutableList.of(tag));
-            lst.add(ds);
+            try {
+                DNASequence ds = new DNASequence(sequence);
+                ds.setUserCollection(ImmutableList.of(tag));
+                lst.add(ds);
+            } catch (CompoundNotFoundException ex) {
+                // TODO Lynn please do the appropriate action
+            }
         });
         ImmutableMap.Builder<Tag,String> result=new ImmutableMap.Builder<>();
         if(lst.size()==1) {

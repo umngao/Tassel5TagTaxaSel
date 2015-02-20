@@ -6,15 +6,15 @@ package net.maizegenetics.dna.tag;
 import cern.colt.GenericSorting;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
-import java.util.Arrays;
 import net.maizegenetics.dna.BaseEncoder;
-import org.biojava3.alignment.Alignments;
-import org.biojava3.alignment.SimpleGapPenalty;
-import org.biojava3.alignment.SubstitutionMatrixHelper;
-import org.biojava3.alignment.template.SequencePair;
-import org.biojava3.alignment.template.SubstitutionMatrix;
-import org.biojava3.core.sequence.DNASequence;
-import org.biojava3.core.sequence.compound.NucleotideCompound;
+import org.biojava.nbio.alignment.Alignments;
+import org.biojava.nbio.alignment.SimpleGapPenalty;
+import org.biojava.nbio.alignment.SubstitutionMatrixHelper;
+import org.biojava.nbio.alignment.template.SequencePair;
+import org.biojava.nbio.alignment.template.SubstitutionMatrix;
+import org.biojava.nbio.core.exceptions.CompoundNotFoundException;
+import org.biojava.nbio.core.sequence.DNASequence;
+import org.biojava.nbio.core.sequence.compound.NucleotideCompound;
 
 /**
  * Basic methods for working with PE Tags, including sorting and search.
@@ -241,15 +241,25 @@ public abstract class AbstractPETags implements PETags {
         int halfLength = 128;
         for (int i = 0; i < this.getTagCount(); i++) {
             String queryS = BaseEncoder.getSequenceFromLong(this.getTagF(i)).substring(0, this.getTagFLength(i));
-            DNASequence query = new DNASequence(queryS);
-            String hitS = BaseEncoder.getReverseComplement(BaseEncoder.getSequenceFromLong(this.getTagB(i)).substring(0, this.getTagBLength(i)));            
-            DNASequence hit = new DNASequence(hitS);
+            DNASequence query = null;
+            try {
+                query = new DNASequence(queryS);
+            } catch (CompoundNotFoundException ex) {
+                // TODO What should happen?
+            }
+            String hitS = BaseEncoder.getReverseComplement(BaseEncoder.getSequenceFromLong(this.getTagB(i)).substring(0, this.getTagBLength(i)));
+            DNASequence hit = null;
+            try {
+                hit = new DNASequence(hitS);
+            } catch (CompoundNotFoundException ex) {
+                // TODO What should happen?
+            }
             SequencePair<DNASequence, NucleotideCompound> psa;
             psa = Alignments.getPairwiseAlignment(query, hit, Alignments.PairwiseSequenceAlignerType.LOCAL, gapPen, subMatrix);
             int queryStart = psa.getIndexInQueryAt(1);
             int queryEnd = psa.getIndexInQueryAt(psa.getLength());
             int hitStart = psa.getIndexInTargetAt(1);
-            int hitEnd = psa.getIndexInTargetAt(psa.getLength());
+            //int hitEnd = psa.getIndexInTargetAt(psa.getLength());
             int overlap = psa.getLength();
             int idenNum = psa.getNumIdenticals();
             
