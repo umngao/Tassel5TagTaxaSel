@@ -198,6 +198,10 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             return null;  //consider reporting low coverage
         }
         Map<Tag,String> alignedTagsUnfiltered=alignTags(tagTaxaMap);
+        if (alignedTagsUnfiltered == null || alignedTagsUnfiltered.size() == 0) {
+        	// Errors related to CompoundNotFound were logged in alignTags. 
+        	return null;
+        }
         // Filter the aligned tags.  Throw out all tags from a loci
         // that has any tag with a gap ratio that exceeds the threshold
         Map<Tag,String> alignedTags = filterAlignedTags(alignedTagsUnfiltered, cutPosition, myGapAlignmentThreshold.value());
@@ -264,9 +268,12 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 ds.setUserCollection(ImmutableList.of(tag));
                 lst.add(ds);
             } catch (CompoundNotFoundException ex) {
-                // TODO Lynn please do the appropriate action
+                // Skip any tag whose sequence could not be made into a DNASequence object.
+                myLogger.error("DSNPCaller:alignTags, compoundNotFound exception from DNASequence call for: " + sequence);
+                ex.printStackTrace(); // continue, if all sequence conversions fail (lst size=0), null is returned below
             }
         });
+        if (lst.size() == 0) return null; 
         ImmutableMap.Builder<Tag,String> result=new ImmutableMap.Builder<>();
         if(lst.size()==1) {
             Tag tag=(Tag)((ImmutableList)lst.get(0).getUserCollection()).get(0);
