@@ -261,6 +261,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      */
     private static Map<Tag,String> alignTags(Map<Tag,Tuple<Boolean,TaxaDistribution>> tags) {
         List<DNASequence> lst=new ArrayList<>();
+         /*
         tags.forEach((tag, dir) -> {
             String sequence = (dir.x) ? tag.sequence() : tag.toReverseComplement();
             try {
@@ -270,10 +271,31 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             } catch (CompoundNotFoundException ex) {
                 // Skip any tag whose sequence could not be made into a DNASequence object.
                 myLogger.error("DSNPCaller:alignTags, compoundNotFound exception from DNASequence call for: " + sequence);
-                ex.printStackTrace(); // continue, if all sequence conversions fail (lst size=0), null is returned below
+                myLogger.debug(ex.getMessage(),ex); 
+                return;
             }
-        });
-        if (lst.size() == 0) return null; 
+        }); 
+        */
+        // Replacing the  streams code above with the old style forEach due to
+        // the biojava 4 CompoundNotFoundException.  Group consensus is that a
+        // CompoundNotFoundException should halt processing and return.
+        // Streams "forEach" does not allow a "break" or "return with a value". 
+        for (Map.Entry<Tag, Tuple<Boolean, TaxaDistribution>> entry : tags.entrySet())
+        {
+        	Tag tag = entry.getKey();
+        	Tuple<Boolean, TaxaDistribution> dir = entry.getValue();
+            String sequence = (dir.x) ? tag.sequence() : tag.toReverseComplement();
+            try {
+                DNASequence ds = new DNASequence(sequence);
+                ds.setUserCollection(ImmutableList.of(tag));
+                lst.add(ds);
+            } catch (CompoundNotFoundException ex) {
+                // This shouldn't occur and indicates a coding error in previous processing
+                myLogger.error("DSNPCaller:alignTags, compoundNotFound exception from DNASequence call for: " + sequence);
+                myLogger.debug(ex.getMessage(),ex); 
+                return null;
+            }
+        }
         ImmutableMap.Builder<Tag,String> result=new ImmutableMap.Builder<>();
         if(lst.size()==1) {
             Tag tag=(Tag)((ImmutableList)lst.get(0).getUserCollection()).get(0);

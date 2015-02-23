@@ -4,9 +4,14 @@
 package net.maizegenetics.dna.tag;
 
 import cern.colt.GenericSorting;
+
 import java.io.BufferedWriter;
 import java.io.FileWriter;
+
 import net.maizegenetics.dna.BaseEncoder;
+import net.maizegenetics.dna.read.PERead;
+
+import org.apache.log4j.Logger;
 import org.biojava.nbio.alignment.Alignments;
 import org.biojava.nbio.alignment.SimpleGapPenalty;
 import org.biojava.nbio.alignment.SubstitutionMatrixHelper;
@@ -21,6 +26,7 @@ import org.biojava.nbio.core.sequence.compound.NucleotideCompound;
  * @author Fei Lu
  */
 public abstract class AbstractPETags implements PETags {
+	private static final Logger myLogger = Logger.getLogger(AbstractPETags.class);
     /**Tag length in Long primitive data type*/
     protected int tagLengthInLong; 
     /**
@@ -245,14 +251,19 @@ public abstract class AbstractPETags implements PETags {
             try {
                 query = new DNASequence(queryS);
             } catch (CompoundNotFoundException ex) {
-                // TODO What should happen?
+                // Something's wrong in the code - this shouldn't happen
+                myLogger.error("AbstractPETags:contigPETags, compoundNotFound exception from DNASequence call for: " + queryS);
+                myLogger.debug(ex.getMessage(), ex);
+                return;
             }
             String hitS = BaseEncoder.getReverseComplement(BaseEncoder.getSequenceFromLong(this.getTagB(i)).substring(0, this.getTagBLength(i)));
             DNASequence hit = null;
             try {
                 hit = new DNASequence(hitS);
-            } catch (CompoundNotFoundException ex) {
-                // TODO What should happen?
+            } catch (CompoundNotFoundException ex) { 
+                myLogger.error("AbstractPETags:contigPETags 2, compoundNotFound exception from DNASequence call for: " + hitS);
+                myLogger.debug(ex.getMessage(), ex);
+                return;
             }
             SequencePair<DNASequence, NucleotideCompound> psa;
             psa = Alignments.getPairwiseAlignment(query, hit, Alignments.PairwiseSequenceAlignerType.LOCAL, gapPen, subMatrix);

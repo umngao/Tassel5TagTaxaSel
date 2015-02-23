@@ -5,6 +5,7 @@ package net.maizegenetics.dna.map;
 
 import net.maizegenetics.dna.tag.TagsByTaxa;
 import net.maizegenetics.dna.BaseEncoder;
+import net.maizegenetics.dna.read.PERead;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
@@ -14,7 +15,9 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.VCFUtil;
+
 import org.apache.commons.math3.distribution.BinomialDistribution;
+import org.apache.log4j.Logger;
 import org.biojava.nbio.alignment.Alignments;
 import org.biojava.nbio.alignment.Alignments.PairwiseSequenceAlignerType;
 import org.biojava.nbio.alignment.SimpleGapPenalty;
@@ -38,6 +41,7 @@ import java.util.List;
  * @author jcg233
  */
 public class TagLocus {
+	private static final Logger myLogger = Logger.getLogger(TagLocus.class);
 
     ArrayList<SingleTagByTaxa> theTags = new ArrayList<SingleTagByTaxa>();
     private int minStartPosition;
@@ -496,9 +500,12 @@ public class TagLocus {
                 lst.add(ds);
                ++tagIndex;
             } catch (CompoundNotFoundException ex) {
-                // TODO What should happen?
+                myLogger.error("TagLocus:getVariableSites, compoundNotFound exception from DNASequence call for: " + sTBT.tagTrimmed);
+                myLogger.debug(ex.getMessage(), ex);
+                return null;
             }
         }
+ 
         Profile<DNASequence, NucleotideCompound> profile = Alignments.getMultipleSequenceAlignment(lst);
         int nSites=profile.getAlignedSequence(1).getSequenceAsString().length();
         String[] alignedSeqs = new String[theTags.size()];
@@ -570,7 +577,10 @@ public class TagLocus {
         try {
             dsRefSeq = new DNASequence(refSeqInRegion);
         } catch (CompoundNotFoundException ex) {
-            // TODO What should happen?
+            // Something's wrong in the code  - this shouldn't happen
+            myLogger.error("TagLocus:getVariableSites 2, compoundNotFound exception from DNASequence call for: " + refSeqInRegion);
+            myLogger.debug(ex.getMessage(), ex);
+            return null;
         }
         dsRefSeq.setCompoundSet(AmbiguityDNACompoundSet.getDNACompoundSet());
         int minRefGenIndex = Integer.MAX_VALUE, maxRefGenIndex = Integer.MIN_VALUE;
@@ -581,7 +591,10 @@ public class TagLocus {
             try {
                 ds = new DNASequence(sTBT.tagTrimmed);
             } catch (CompoundNotFoundException ex) {
-                // TODO What should happen?
+                // Something's wrong - this shouldn't happen
+                myLogger.error("TagLocus:getVariableSites 3, compoundNotFound exception from DNASequence call for: " + sTBT.tagTrimmed);
+                myLogger.debug(ex.getMessage(), ex);
+                return null;
             }
             ds.setCompoundSet(AmbiguityDNACompoundSet.getDNACompoundSet());
             SequencePair<DNASequence, NucleotideCompound> psa = Alignments.getPairwiseAlignment(ds, dsRefSeq, PairwiseSequenceAlignerType.LOCAL, gapPen, subMatrix);

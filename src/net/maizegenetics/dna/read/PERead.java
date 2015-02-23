@@ -6,6 +6,9 @@
 
 package net.maizegenetics.dna.read;
 
+import net.maizegenetics.analysis.gbs.v2.DiscoverySNPCallerPluginV2;
+
+import org.apache.log4j.Logger;
 import org.biojava.nbio.alignment.Alignments;
 import org.biojava.nbio.alignment.SimpleGapPenalty;
 import org.biojava.nbio.alignment.SubstitutionMatrixHelper;
@@ -20,6 +23,7 @@ import org.biojava.nbio.core.exceptions.CompoundNotFoundException;
  * @author Fei Lu
  */
 public class PERead {
+	private static final Logger myLogger = Logger.getLogger(PERead.class);
     Read rf;
     Read rb;
     Read pContig = null;
@@ -40,16 +44,22 @@ public class PERead {
         DNASequence query = null;
         try {
             query = new DNASequence(queryS);
-        } catch (CompoundNotFoundException ex) {
-            // TODO What should happen?
+        } catch (CompoundNotFoundException ex) { 
+            // Bad compound, no alignment possible
+            myLogger.error("PERead:merge, compoundNotFound exception from DNASequence call for: " + queryS);
+            myLogger.debug(ex.getMessage(), ex);
+            return false;
         }
         String hitS = this.rb.getReverseComplementarySeq();
         String hitQualS = this.rb.getReverseQual();
         DNASequence hit = null;
         try {
             hit = new DNASequence(hitS);
-        } catch (CompoundNotFoundException ex) {
-            // TODO What should happen?
+        } catch (CompoundNotFoundException ex) { 
+            // Bad compound, no alignment possible
+            myLogger.error("PERead:merge 2, compoundNotFound exception from DNASequence call for: " + hitS);
+            myLogger.debug(ex.getMessage(), ex);
+            return false;
         }
         //int halfLength = queryS.length()/2;
         SequencePair<DNASequence, NucleotideCompound> psa = null;
