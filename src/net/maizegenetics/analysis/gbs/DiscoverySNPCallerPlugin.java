@@ -70,9 +70,7 @@ public class DiscoverySNPCallerPlugin extends AbstractPlugin {
             .description("Average sequencing error rate per base (used to decide between heterozygous and homozygous calls)").build();
     private PluginParameter<String> myRefGenome = new PluginParameter.Builder<>("ref", null, String.class).guiName("Reference Genome File").inFile()
             .description("Path to reference genome in fasta format. Ensures that a tag from the reference genome is always included "
-                    + "when the tags at a locus are aligned against each other to call SNPs. The reference allele for each site "
-                    + "is then provided in the output HapMap files, under the taxon name \"REFERENCE_GENOME\" (first taxon). "
-                    + "DEFAULT: Don't use reference genome.").build();
+                    + "when the tags at a locus are aligned against each other to call SNPs. DEFAULT: Don't use reference genome.").build();
     private PluginParameter<Integer> myStartChr = new PluginParameter.Builder<>("sC", null, Integer.class).guiName("Start Chromosome").required(true)
             .description("Start Chromosome").build();
     private PluginParameter<Integer> myEndChr = new PluginParameter.Builder<>("eC", null, Integer.class).guiName("End Chromosome").required(true)
