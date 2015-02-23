@@ -82,8 +82,8 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
             .description("Output (target) HDF5 genotypes file to add new genotypes to (new file created if it doesn't exist)").build();
     private PluginParameter<Double> myAveSeqErrorRate = new PluginParameter.Builder<>("eR", 0.01, Double.class).guiName("Ave Seq Error Rate")
             .description("Average sequencing error rate per base (used to decide between heterozygous and homozygous calls)").build();
-    private PluginParameter<Integer> myMaxDivergence = new PluginParameter.Builder<>("d", 0, Integer.class).guiName("Max Divergence")
-            .description("Maximum divergence (edit distance) between new read and previously mapped read (Default: 0 = perfect matches only)").build();
+//    private PluginParameter<Integer> myMaxDivergence = new PluginParameter.Builder<>("d", 0, Integer.class).guiName("Max Divergence")
+//            .description("Maximum divergence (edit distance) between new read and previously mapped read (Default: 0 = perfect matches only)").build();
     private PluginParameter<Boolean> myKeepGenotypesOpen = new PluginParameter.Builder<>("ko", false, Boolean.class).guiName("Keep Genotypes Open")
             .description("Keep hdf5 genotypes open for future runs that add more taxa or more depth").build();
     private PluginParameter<Boolean> myNoDepthOutput = new PluginParameter.Builder<>("ndo", false, Boolean.class).guiName("No Depth to Output")
@@ -227,9 +227,9 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
                     if (tagIndex >= 0) {
                         counters[3]++;  // perfectMatches
                     }
-                    if (tagIndex < 0 && maxDivergence() > 0) {
-                        tagIndex = findBestImperfectMatch(rr.getRead(), counters);
-                    }
+//                    if (tagIndex < 0 && maxDivergence() > 0) {
+//                        tagIndex = findBestImperfectMatch(rr.getRead(), counters);
+//                    }
                     if (tagIndex < 0) {
                         continue;
                     }
@@ -576,7 +576,8 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
         // this method is not ready for prime time -- to resolve a tie, it currently chooses a random tag out of the tied tags
         int tagIndex = -1;
         TagMatchFinder tmf = new TagMatchFinder(topm);
-        TreeMap<Integer, Integer> bestHitsAndDiv = tmf.findMatchesWithIntLengthWords(read, maxDivergence(), true);
+//        TreeMap<Integer, Integer> bestHitsAndDiv = tmf.findMatchesWithIntLengthWords(read, maxDivergence(), true);
+        TreeMap<Integer, Integer> bestHitsAndDiv = tmf.findMatchesWithIntLengthWords(read, 0, true);
         if (bestHitsAndDiv.size() > 0) {
             counters[4]++; // imperfectMatches
             if (bestHitsAndDiv.size() == 1) {
@@ -877,28 +878,28 @@ public class ProductionSNPCallerPlugin extends AbstractPlugin {
         return this;
     }
 
-    /**
-     * Maximum divergence (edit distance) between new read and previously mapped
-     * read (Default: 0 = perfect matches only)
-     *
-     * @return Max Divergence
-     */
-    public Integer maxDivergence() {
-        return myMaxDivergence.value();
-    }
-
-    /**
-     * Set Max Divergence. Maximum divergence (edit distance) between new read
-     * and previously mapped read (Default: 0 = perfect matches only)
-     *
-     * @param value Max Divergence
-     *
-     * @return this plugin
-     */
-    public ProductionSNPCallerPlugin maxDivergence(Integer value) {
-        myMaxDivergence = new PluginParameter<>(myMaxDivergence, value);
-        return this;
-    }
+//    /**
+//     * Maximum divergence (edit distance) between new read and previously mapped
+//     * read (Default: 0 = perfect matches only)
+//     *
+//     * @return Max Divergence
+//     */
+//    public Integer maxDivergence() {
+//        return myMaxDivergence.value();
+//    }
+//
+//    /**
+//     * Set Max Divergence. Maximum divergence (edit distance) between new read
+//     * and previously mapped read (Default: 0 = perfect matches only)
+//     *
+//     * @param value Max Divergence
+//     *
+//     * @return this plugin
+//     */
+//    public ProductionSNPCallerPlugin maxDivergence(Integer value) {
+//        myMaxDivergence = new PluginParameter<>(myMaxDivergence, value);
+//        return this;
+//    }
 
     /**
      * Keep hdf5 genotypes open for future runs that add more taxa or more depth
