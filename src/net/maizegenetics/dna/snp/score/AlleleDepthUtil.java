@@ -16,6 +16,8 @@ import java.util.Arrays;
  */
 public class AlleleDepthUtil {
 
+    public static final byte DEPTH_BYTE_MISSING = (byte) 0x80;
+    public static final int DEPTH_MISSING = -1;
     private static final double LOG_BASE = 1.0746;  // LOG_BASE^128 = 10,482
     private static final double R_LOG_CONV = 1.0 / Math.log(LOG_BASE);
     private static final double LOG_CONV = 1.0 / R_LOG_CONV;
@@ -53,22 +55,24 @@ public class AlleleDepthUtil {
      * negative return values are log approximations
      */
     public static byte depthIntToByte(int depth) {
-        byte bdepth;
-        int itd;
 
-        if (depth <= 127) {
-            itd = depth;
+        if (depth == DEPTH_MISSING) {
+            return DEPTH_BYTE_MISSING;
+        } else if (depth < 0) {
+            throw new IllegalArgumentException("AlleleDepthUtil: depthIntToByte: Can not have negative depth values: " + depth);
+        } else if (depth <= 127) {
+            return (byte) depth;
         } else if (depth <= MAX_ACC_DEPTH) {
-            itd = 127 - depth;
+            return (byte) (127 - depth);
         } else {
-            itd = (int) (-R_LOG_CONV * Math.log(depth - OFFSET));
-            if (itd < -128) {
-                itd = -128;
+            int itd = (int) (-R_LOG_CONV * Math.log(depth - OFFSET));
+            if (itd < -127) {
+                return (byte) 0x81;
+            } else {
+                return (byte) itd;
             }
         }
-        bdepth = (byte) itd;
 
-        return bdepth;
     }
 
     /**
@@ -117,16 +121,17 @@ public class AlleleDepthUtil {
     }
 
     private static int decode(byte bdepth) {
-        int depth;
-        if (bdepth >= 0) {
-            depth = bdepth;
+
+        if (bdepth == (byte) 0x80) {
+            return DEPTH_MISSING;
+        } else if (bdepth >= 0) {
+            return bdepth;
         } else if (bdepth >= MIN_ACC_BYTE) {
-            depth = 127 - bdepth;
+            return 127 - bdepth;
         } else {
-            depth = OFFSET + (int) (Math.exp(-LOG_CONV * (bdepth - ADJ)));
+            return OFFSET + (int) (Math.exp(-LOG_CONV * (bdepth - ADJ)));
         }
 
-        return depth;
     }
 
 }
