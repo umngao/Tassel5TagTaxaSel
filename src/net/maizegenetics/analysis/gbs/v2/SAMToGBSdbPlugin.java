@@ -116,7 +116,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         String alignmentScore=s[alignScoreIndex].split(":")[2];
         boolean forwardStrand=isForwardStrand(s[flag]);
         if(!forwardStrand) tag=TagBuilder.reverseComplement(tag).build();
-        String mappingApproach = isBowtie? "Bowtie" : "BWA"; // these are only 2 aligners we currently support
+        String mappingApproach = isBowtie? "Bowtie2" : "BWA"; // these are only 2 aligners we currently support
         Position position=new GeneralPosition
                 .Builder(chromosome,Integer.parseInt(s[pos]))
                 .strand((byte)1)
