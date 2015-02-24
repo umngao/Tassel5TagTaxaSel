@@ -1091,7 +1091,7 @@ public class PhenotypeBuilder {
 				obsCount = 0;
 				for (int[] ndx : mergeObservation) {
 					boolean pheno1HasNonmissingValue = attrnum[0] > -1 && ndx[0] > -1 && !pheno1.isMissing(ndx[0], attrnum[0]);
-					boolean pheno2HasNonmissingValue = attrnum[1] > -1 && ndx[1] > -1 && !pheno1.isMissing(ndx[1], attrnum[1]);
+					boolean pheno2HasNonmissingValue = attrnum[1] > -1 && ndx[1] > -1 && !pheno2.isMissing(ndx[1], attrnum[1]);
 					if (pheno1HasNonmissingValue && pheno2HasNonmissingValue) {
 						if (isMergeAttribute) myStringData[obsCount] = (String) pheno1.value(ndx[0], attrnum[0]);
 						else throw new IllegalArgumentException("Data sets will not be joined because both phenotypes have values for " + attrName);

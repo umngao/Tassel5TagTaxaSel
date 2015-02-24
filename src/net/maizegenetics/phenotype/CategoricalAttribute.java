@@ -32,10 +32,7 @@ public class CategoricalAttribute implements PhenotypeAttribute {
 		missing = new OpenBitSet(n);
 		values = new int[n];
 		
-		TreeSet<String> labelSet = new TreeSet<String>();
-		for (String label : stringValues) {
-			if (!label.contains(missingValue)) labelSet.add(label);
-		}
+		TreeSet<String> labelSet = Arrays.stream(stringValues).collect(TreeSet::new, TreeSet::add, TreeSet::addAll);
 		
 		int nlevels = labelSet.size();
 		categoryNames = new String[nlevels];
