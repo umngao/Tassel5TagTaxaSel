@@ -236,7 +236,13 @@ public class BuilderFromHapMap {
                         myChromosomeLookup.put(chrName, currChr);
                     }
                     String variants = input.substring(tabPos[VARIANT_INDEX - 1] + 1, tabPos[VARIANT_INDEX]);
-                    GeneralPosition.Builder apb = new GeneralPosition.Builder(currChr, Integer.parseInt(input.substring(tabPos[POSITION_INDEX - 1] + 1, tabPos[POSITION_INDEX])))
+                    int physicalPos;
+                    try {
+                        physicalPos = Integer.parseInt(input.substring(tabPos[POSITION_INDEX - 1] + 1, tabPos[POSITION_INDEX]));
+                    } catch (Exception ex) {
+                        throw new IllegalArgumentException("BuilderFromHapMap: Position must be an integer: " + input.substring(tabPos[POSITION_INDEX - 1] + 1, tabPos[POSITION_INDEX]).trim());
+                    }
+                    GeneralPosition.Builder apb = new GeneralPosition.Builder(currChr, physicalPos)
                             .snpName(input.substring(0, tabPos[SNPID_INDEX]))
                             .knownVariants(variants) //TODO   strand, variants,
                             ;
@@ -286,7 +292,7 @@ public class BuilderFromHapMap {
                 } catch (Exception e) {
                     myLogger.error("Error parsing this row " + input);
                     myLogger.debug(e.getMessage(), e);
-                    throw new IllegalStateException("BuilderFromHapMap: Error Parsing Line: " + input.substring(0, Math.min(25, input.length())) + "...");
+                    throw new IllegalStateException("BuilderFromHapMap: Error Parsing Line: " + input.substring(0, Math.min(25, input.length())) + "...\n" + e.getMessage());
                 }
             }
             myInputLines = null;
