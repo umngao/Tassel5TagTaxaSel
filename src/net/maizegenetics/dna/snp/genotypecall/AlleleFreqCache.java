@@ -3,13 +3,16 @@
  */
 package net.maizegenetics.dna.snp.genotypecall;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * Cache for allele frequency statistics.  Allele frequency can be expensive to recalculate at large scale, so these class
- * efficiently loops through blocks of sites and caches the statistics on them.
+ * Cache for allele frequency statistics. Allele frequency can be expensive to
+ * recalculate at large scale, so these class efficiently loops through blocks
+ * of sites and caches the statistics on them.
  *
  * @author Terry Casstevens
  * @author Ed Buckler
@@ -45,15 +48,19 @@ public class AlleleFreqCache {
         int startSite = getStartSite(site);
         int[][][] result = myCachedAlleleFreqs.get(startSite);
         if (result == null) {
-            if (myNumRunningThreads < myMaxNumThreads) {
-                new Thread(new LookAheadSiteStats(startSite + NUM_SITES_TO_CACHE * 10)).start();
+            startLookAhead(startSite);
+            if (site == startSite) {
+                startLookAhead(startSite + NUM_SITES_TO_CACHE);
+                startLookAhead(startSite + NUM_SITES_TO_CACHE * 2);
             }
-            result = calculateAlleleFreq(startSite);
+            return alleleFreq(site);
         }
 
-        if ((site == startSite) && (myNumRunningThreads < myMaxNumThreads)) {
-            new Thread(new LookAheadSiteStats(startSite + NUM_SITES_TO_CACHE * 20)).start();
+        if (site == startSite) {
+            startLookAhead(startSite + NUM_SITES_TO_CACHE);
+            startLookAhead(startSite + NUM_SITES_TO_CACHE * 2);
         }
+
         return result[site - startSite];
     }
 
@@ -99,6 +106,34 @@ public class AlleleFreqCache {
         return alleleCounts;
     }
 
+    private int[][] alleleFreq(int site) {
+        int numTaxa = myGenotype.numberOfTaxa();
+        int[] alleleFreq = new int[myMaxNumAlleles];
+        for (int taxon = 0; taxon < numTaxa; taxon++) {
+            byte[] b = myGenotype.genotypeArray(taxon, site);
+            if (b[0] < myMaxNumAlleles) {
+                alleleFreq[b[0]]++;
+            }
+            if (b[1] < myMaxNumAlleles) {
+                alleleFreq[b[1]]++;
+            }
+        }
+
+        for (byte i = 0; i < myMaxNumAlleles; i++) {
+            // size | allele (the 5-i is to get the sort right, so if case of ties A is first)
+            alleleFreq[i] = (alleleFreq[i] << 4) | (myMaxNumAlleles - 1 - i);
+        }
+
+        int numAlleles = sort(alleleFreq);
+        int[][] alleleCounts = new int[2][numAlleles];
+        for (int i = 0; i < numAlleles; i++) {
+            alleleCounts[0][i] = (byte) (5 - (0xF & alleleFreq[i]));
+            alleleCounts[1][i] = alleleFreq[i] >>> 4;
+        }
+
+        return alleleCounts;
+    }
+
     private int sort(int[] data) {
         int countNotZero = 0;
         for (int j = 0; j < myMaxNumAlleles - 1; j++) {
@@ -123,6 +158,18 @@ public class AlleleFreqCache {
         return countNotZero;
     }
 
+    private static final List<Integer> SITES_IN_PROGRESS = new ArrayList<>();
+
+    private void startLookAhead(int site) {
+        int startSite = getStartSite(site);
+        if ((!SITES_IN_PROGRESS.contains(startSite))
+                && (myNumRunningThreads < myMaxNumThreads)
+                && (myCachedAlleleFreqs.get(startSite) == null)) {
+            new Thread(new LookAheadSiteStats(startSite)).start();
+            SITES_IN_PROGRESS.add(startSite);
+        }
+    }
+
     private class LookAheadSiteStats implements Runnable {
 
         private final int myStartSite;
@@ -143,6 +190,7 @@ public class AlleleFreqCache {
                 }
             } finally {
                 myNumRunningThreads--;
+                SITES_IN_PROGRESS.remove(Integer.valueOf(myStartSite));
             }
         }
     }
