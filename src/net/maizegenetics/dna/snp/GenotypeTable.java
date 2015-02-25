@@ -1,6 +1,7 @@
 package net.maizegenetics.dna.snp;
 
 import java.util.Set;
+import java.util.stream.Stream;
 
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.depth.AlleleDepth;
@@ -936,4 +937,6 @@ public interface GenotypeTable {
      * @return Annotations or null
      */
     public GeneralAnnotationStorage annotations();
+    
+    public Stream<Byte> streamGenotype();
 }

@@ -7,6 +7,7 @@ import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.taxa.TaxaList;
@@ -15,6 +16,12 @@ import net.maizegenetics.util.Tassel5HDF5Constants;
 import net.maizegenetics.util.HDF5Utils;
 
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
+import java.util.Spliterator;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+
+import org.apache.log4j.Logger;
 
 /**
  * HDF5 implementation of GenotypeTable. Uses caching of GenotypeTable,
@@ -24,6 +31,8 @@ import java.util.concurrent.ExecutionException;
  * @author Terry Casstevens
  */
 class HDF5ByteGenotypeCallTable extends AbstractGenotypeCallTable {
+
+    private static final Logger myLogger = Logger.getLogger(HDF5ByteGenotypeCallTable.class);
 
     private static final int SHIFT_AMOUNT = 16;
 
@@ -162,13 +171,12 @@ class HDF5ByteGenotypeCallTable extends AbstractGenotypeCallTable {
 
     @Override
     public byte genotype(int taxon, int site) {
-        long key = getCacheKey(taxon, site);
         try {
-            byte[] data = myGenoCache.get(key);
+            byte[] data = myGenoCache.get(getCacheKey(taxon, site));
             return data[site % HDF5_GENOTYPE_BLOCK_SIZE];
-        } catch (ExecutionException e) {
-            e.printStackTrace();
-            throw new IllegalStateException("HDF5ByteGenotype: getBase: Error getting base from cache.");
+        } catch (ExecutionException ex) {
+            myLogger.error(ex.getMessage(), ex);
+            throw new IllegalStateException("HDF5ByteGenotyeCallTable: getBase: Error getting base from cache: " + ex.getMessage());
         }
     }
 
@@ -207,5 +215,83 @@ class HDF5ByteGenotypeCallTable extends AbstractGenotypeCallTable {
     @Override
     public void transposeData(boolean siteInnerLoop) {
         throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public Stream<Byte> stream() {
+        return StreamSupport.stream(spliterator(), true);
+    }
+
+    @Override
+    public Spliterator<Byte> spliterator() {
+        return new HDF5ByteGenotypeCallTableSpliterator<>(0, 0, numberOfSites(), numberOfTaxa() - 1, numberOfSites());
+    }
+
+    class HDF5ByteGenotypeCallTableSpliterator<T extends Byte> extends AbstractGenotypeCallTableSpliterator<Byte> {
+
+        HDF5ByteGenotypeCallTableSpliterator(int taxaOrigin, int siteOrigin, int numSites, int taxaFence, int siteFence) {
+            super(taxaOrigin, siteOrigin, numSites, taxaFence, siteFence);
+        }
+
+        @Override
+        public void forEachRemaining(Consumer<? super Byte> action) {
+
+            for (; myTaxaOrigin < myTaxaFence; myTaxaOrigin++) {
+                while (mySiteOrigin < myNumSites) {
+                    try {
+                        byte[] data = myGenoCache.get(getCacheKey(myTaxaOrigin, mySiteOrigin));
+                        int startIndex = mySiteOrigin % HDF5_GENOTYPE_BLOCK_SIZE;
+                        int endIndex = data.length;
+                        for (int i = startIndex; i < endIndex; i++) {
+                            action.accept(data[i]);
+                        }
+                        mySiteOrigin += endIndex - startIndex;
+                    } catch (ExecutionException ex) {
+                        myLogger.error(ex.getMessage(), ex);
+                        throw new IllegalStateException("HDF5ByteGenotyeCallTable: HDF5ByteGenotypeCallTableSpliterator: forEachRemaining: Error getting base from cache: " + ex.getMessage());
+                    }
+                }
+                mySiteOrigin = 0;
+            }
+            while (mySiteOrigin < mySiteFence) {
+                try {
+                    byte[] data = myGenoCache.get(getCacheKey(myTaxaOrigin, mySiteOrigin));
+                    int startIndex = mySiteOrigin % HDF5_GENOTYPE_BLOCK_SIZE;
+                    int endIndex = Math.min(data.length, mySiteFence - mySiteOrigin);
+                    for (int i = startIndex; i < endIndex; i++) {
+                        action.accept(data[i]);
+                    }
+                    mySiteOrigin += endIndex - startIndex;
+                } catch (ExecutionException ex) {
+                    myLogger.error(ex.getMessage(), ex);
+                    throw new IllegalStateException("HDF5ByteGenotyeCallTable: HDF5ByteGenotypeCallTableSpliterator: forEachRemaining: Error getting base from cache: " + ex.getMessage());
+                }
+            }
+        }
+
+        @Override
+        public Spliterator<Byte> trySplit() {
+            long size = estimateSize();
+            if (size > HDF5_GENOTYPE_BLOCK_SIZE) {
+                size >>>= 1;
+                int loTaxa = myTaxaOrigin;
+                int loSite = mySiteOrigin;
+                int midTaxa = myTaxaOrigin;
+                int midSite = mySiteOrigin;
+                midTaxa += size / myNumSites;
+                midSite += size % myNumSites;
+                if (midSite > myNumSites) {
+                    midTaxa++;
+                    midSite -= myNumSites;
+                }
+                midSite -= midSite % HDF5_GENOTYPE_BLOCK_SIZE;
+                myTaxaOrigin = midTaxa;
+                mySiteOrigin = midSite;
+                return new HDF5ByteGenotypeCallTableSpliterator<>(loTaxa, loSite, myNumSites, midTaxa, midSite);
+            } else {
+                return null;
+            }
+        }
+
     }
 }

@@ -3,6 +3,8 @@
  */
 package net.maizegenetics.dna.snp.genotypecall;
 
+import java.util.stream.Stream;
+
 /**
  * Interface for genotype calls for a table of taxa and sites. GenotypeCallTable
  * only contain information on the genotype calls - the call table does not have
@@ -492,4 +494,11 @@ public interface GenotypeCallTable {
      * @param siteInnerLoop flag for which iteration
      */
     public void transposeData(boolean siteInnerLoop);
+
+    /**
+     * Returns a Stream over the genotype calls.
+     *
+     * @return Stream over the genotype calls
+     */
+    public Stream<Byte> stream();
 }

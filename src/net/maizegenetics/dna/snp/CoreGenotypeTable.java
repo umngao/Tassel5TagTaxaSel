@@ -16,6 +16,7 @@ import net.maizegenetics.dna.snp.score.Dosage;
 import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 
 import org.apache.log4j.Logger;
 
@@ -23,7 +24,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import net.maizegenetics.util.GeneralAnnotationStorage;
+import java.util.stream.Stream;
 
 /**
  * Basic implementation of a {@link GenotypeTable}. Use the GenotypeTableBuilder
@@ -564,6 +565,11 @@ public class CoreGenotypeTable implements GenotypeTable {
     @Override
     public GeneralAnnotationStorage annotations() {
         return myAnnotations;
+    }
+
+    @Override
+    public Stream<Byte> streamGenotype() {
+        return myGenotype.stream();
     }
 
 }

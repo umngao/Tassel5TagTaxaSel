@@ -3,6 +3,8 @@
  */
 package net.maizegenetics.util;
 
+import java.util.stream.Stream;
+
 /**
  *
  * @author Terry Casstevens
@@ -119,4 +121,11 @@ public interface SuperByteMatrix {
      * @param value value
      */
     public void setHetsTo(byte value);
+
+    /**
+     * Returns a Stream over the bytes of this matrix.
+     *
+     * @return Stream over the bytes of this matrix
+     */
+    public Stream<Byte> stream();
 }

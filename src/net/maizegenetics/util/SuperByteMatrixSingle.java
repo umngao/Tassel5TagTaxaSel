@@ -4,6 +4,10 @@
 package net.maizegenetics.util;
 
 import java.util.Arrays;
+import java.util.Spliterator;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  *
@@ -34,7 +38,7 @@ public class SuperByteMatrixSingle implements SuperByteMatrix {
     public void set(int row, int column, byte value) {
         myData[getIndex(row, column)] = value;
     }
-    
+
     @Override
     public void arraycopy(int row, byte[] src, int startColumn) {
         int start = getIndex(row, startColumn);
@@ -271,6 +275,66 @@ public class SuperByteMatrixSingle implements SuperByteMatrix {
             if (((myData[i] >>> 4) & 0xf) != (myData[i] & 0xf)) {
                 myData[i] = value;
             }
+        }
+    }
+
+    @Override
+    public Stream<Byte> stream() {
+        return StreamSupport.stream(this.spliterator(), true);
+    }
+
+    public Spliterator<Byte> spliterator() {
+        return new SuperByteMatrixSingleSpliterator<>(0, myData.length);
+    }
+
+    class SuperByteMatrixSingleSpliterator<T extends Byte> implements Spliterator<Byte> {
+
+        private int myCurrentIndex;
+        private final int myFence;
+
+        SuperByteMatrixSingleSpliterator(int currentIndex, int fence) {
+            myCurrentIndex = currentIndex;
+            myFence = fence;
+        }
+
+        @Override
+        public void forEachRemaining(Consumer<? super Byte> action) {
+            for (; myCurrentIndex < myFence; myCurrentIndex++) {
+                action.accept(Byte.valueOf(myData[myCurrentIndex]));
+            }
+        }
+
+        @Override
+        public boolean tryAdvance(Consumer<? super Byte> action) {
+            if (myCurrentIndex < myFence) {
+                action.accept(Byte.valueOf(myData[myCurrentIndex]));
+                myCurrentIndex++;
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        @Override
+        public Spliterator<Byte> trySplit() {
+            int lo = myCurrentIndex;
+            int mid = (lo + myFence) >>> 1;
+            if (lo < mid) {
+                myCurrentIndex = mid;
+                return new SuperByteMatrixSingleSpliterator<>(lo, mid);
+            } else {
+                return null;
+            }
+        }
+
+        @Override
+        public long estimateSize() {
+            return (long) (myFence - myCurrentIndex);
+        }
+
+        @Override
+        public int characteristics() {
+            return ORDERED | SIZED | IMMUTABLE | SUBSIZED;
         }
     }
 

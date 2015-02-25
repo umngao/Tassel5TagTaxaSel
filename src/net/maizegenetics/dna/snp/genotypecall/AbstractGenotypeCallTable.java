@@ -12,9 +12,18 @@ import org.apache.log4j.Logger;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Spliterator;
+import static java.util.Spliterator.IMMUTABLE;
+import static java.util.Spliterator.ORDERED;
+import static java.util.Spliterator.SIZED;
+import static java.util.Spliterator.SUBSIZED;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * Abstract implementation of methods of GenotypeCallTable.
+ *
  * @author Terry Casstevens
  */
 abstract class AbstractGenotypeCallTable implements GenotypeCallTable {
@@ -266,7 +275,7 @@ abstract class AbstractGenotypeCallTable implements GenotypeCallTable {
             return GenotypeTable.UNKNOWN_ALLELE;
         }
     }
-    
+
     @Override
     public int minorAlleleCount(int site) {
 
@@ -642,4 +651,93 @@ abstract class AbstractGenotypeCallTable implements GenotypeCallTable {
         }
         return result;
     }
+
+    @Override
+    public Stream<Byte> stream() {
+        return StreamSupport.stream(spliterator(), true);
+    }
+
+    public Spliterator<Byte> spliterator() {
+        return new AbstractGenotypeCallTableSpliterator<>(0, 0, numberOfSites(), numberOfTaxa() - 1, numberOfSites());
+    }
+
+    class AbstractGenotypeCallTableSpliterator<T extends Byte> implements Spliterator<Byte> {
+
+        protected int myTaxaOrigin;
+        protected int mySiteOrigin;
+        protected final int myNumSites;
+        protected final int myTaxaFence;
+        protected final int mySiteFence;
+
+        AbstractGenotypeCallTableSpliterator(int taxaOrigin, int siteOrigin, int numSites, int taxaFence, int siteFence) {
+            myTaxaOrigin = taxaOrigin;
+            mySiteOrigin = siteOrigin;
+            myNumSites = numSites;
+            myTaxaFence = taxaFence;
+            mySiteFence = siteFence;
+        }
+
+        @Override
+        public void forEachRemaining(Consumer<? super Byte> action) {
+            for (; myTaxaOrigin < myTaxaFence; myTaxaOrigin++) {
+                for (; mySiteOrigin < myNumSites; mySiteOrigin++) {
+                    action.accept(genotype(myTaxaOrigin, mySiteOrigin));
+                }
+                mySiteOrigin = 0;
+            }
+            for (; mySiteOrigin < mySiteFence; mySiteOrigin++) {
+                action.accept(genotype(myTaxaOrigin, mySiteOrigin));
+            }
+        }
+
+        @Override
+        public boolean tryAdvance(Consumer<? super Byte> action) {
+            if (((myTaxaOrigin < myTaxaFence) && (mySiteOrigin < myNumSites))
+                    || ((myTaxaOrigin == myTaxaFence) && (mySiteOrigin < mySiteFence))) {
+                action.accept(genotype(myTaxaOrigin, mySiteOrigin));
+                mySiteOrigin++;
+                if (mySiteOrigin >= myNumSites) {
+                    mySiteOrigin = 0;
+                    myTaxaOrigin++;
+                }
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        @Override
+        public Spliterator<Byte> trySplit() {
+            long size = estimateSize();
+            if (size > 1) {
+                size >>>= 1;
+                int loTaxa = myTaxaOrigin;
+                int loSite = mySiteOrigin;
+                int midTaxa = myTaxaOrigin;
+                int midSite = mySiteOrigin;
+                midTaxa += size / myNumSites;
+                midSite += size % myNumSites;
+                if (midSite > myNumSites) {
+                    midTaxa++;
+                    midSite -= myNumSites;
+                }
+                myTaxaOrigin = midTaxa;
+                mySiteOrigin = midSite;
+                return new AbstractGenotypeCallTableSpliterator<>(loTaxa, loSite, myNumSites, midTaxa, midSite);
+            } else {
+                return null;
+            }
+        }
+
+        @Override
+        public long estimateSize() {
+            return (long) (myTaxaFence - myTaxaOrigin) * (long) myNumSites - (long) mySiteOrigin + (long) mySiteFence;
+        }
+
+        @Override
+        public int characteristics() {
+            return ORDERED | SIZED | IMMUTABLE | SUBSIZED;
+        }
+    }
+
 }

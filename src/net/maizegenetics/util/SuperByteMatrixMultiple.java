@@ -4,6 +4,14 @@
 package net.maizegenetics.util;
 
 import java.util.Arrays;
+import java.util.Spliterator;
+import static java.util.Spliterator.IMMUTABLE;
+import static java.util.Spliterator.ORDERED;
+import static java.util.Spliterator.SIZED;
+import static java.util.Spliterator.SUBSIZED;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  *
@@ -15,27 +23,29 @@ public class SuperByteMatrixMultiple implements SuperByteMatrix {
     private final int myNumRows;
     private final int myNumColumns;
     private final int myNumRowsPerSingleDimArray;
+    private final long myNumElements;
+    private final int myNumElementsPerSingleDimArray;
 
     SuperByteMatrixMultiple(int rows, int columns) {
 
         myNumRows = rows;
         myNumColumns = columns;
 
-        long numElements = (long) myNumRows * (long) myNumColumns;
+        myNumElements = (long) myNumRows * (long) myNumColumns;
         myNumRowsPerSingleDimArray = Integer.MAX_VALUE / myNumColumns;
-        int numElementsPerSingleDimArray = myNumRowsPerSingleDimArray * myNumColumns;
-        int numSingleDimArrays = (int) (numElements / (long) numElementsPerSingleDimArray);
-        int numRemaining = (int) (numElements % (long) numElementsPerSingleDimArray);
+        myNumElementsPerSingleDimArray = myNumRowsPerSingleDimArray * myNumColumns;
+        int numSingleDimArrays = (int) (myNumElements / (long) myNumElementsPerSingleDimArray);
+        int numRemaining = (int) (myNumElements % (long) myNumElementsPerSingleDimArray);
         if (numRemaining != 0) {
             myData = new byte[numSingleDimArrays + 1][];
             for (int i = 0; i < numSingleDimArrays; i++) {
-                myData[i] = new byte[numElementsPerSingleDimArray];
+                myData[i] = new byte[myNumElementsPerSingleDimArray];
             }
             myData[numSingleDimArrays] = new byte[numRemaining];
         } else {
             myData = new byte[numSingleDimArrays][];
             for (int i = 0; i < numSingleDimArrays; i++) {
-                myData[i] = new byte[numElementsPerSingleDimArray];
+                myData[i] = new byte[myNumElementsPerSingleDimArray];
             }
         }
 
@@ -250,6 +260,97 @@ public class SuperByteMatrixMultiple implements SuperByteMatrix {
     @Override
     public void arraycopy(int row, byte[] src, int startColumn) {
         System.arraycopy(src, 0, myData[getFirstIndex(row)], getSecondIndex(row, startColumn), src.length);
+    }
+
+    @Override
+    public Stream<Byte> stream() {
+        return StreamSupport.stream(this.spliterator(), true);
+    }
+
+    public Spliterator<Byte> spliterator() {
+        return new SuperByteMatrixMultipleSpliterator<>(0, myNumElements);
+    }
+
+    class SuperByteMatrixMultipleSpliterator<T extends Byte> implements Spliterator<Byte> {
+
+        private long myCurrentIndex;
+        private final long myFence;
+
+        SuperByteMatrixMultipleSpliterator(long currentIndex, long fence) {
+            myCurrentIndex = currentIndex;
+            myFence = fence;
+        }
+
+        private int firstIndex(long index) {
+            return (int) (index / myNumElementsPerSingleDimArray);
+        }
+
+        private int secondIndex(long index) {
+            return (int) (index % myNumElementsPerSingleDimArray);
+        }
+
+        @Override
+        public void forEachRemaining(Consumer<? super Byte> action) {
+
+            int firstIndex = firstIndex(myCurrentIndex);
+            int secondIndex = secondIndex(myCurrentIndex);
+            int fenceFirst = firstIndex(myFence);
+            int fenceSecond = secondIndex(myFence);
+
+            if (firstIndex == fenceFirst) {
+                for (int i = secondIndex; i < fenceSecond; i++) {
+                    action.accept(Byte.valueOf(myData[firstIndex][i]));
+                }
+            } else {
+                for (int i = secondIndex; i < myNumElementsPerSingleDimArray; i++) {
+                    action.accept(Byte.valueOf(myData[firstIndex][i]));
+                }
+                for (int i = firstIndex + 1; i < fenceFirst; i++) {
+                    for (int j = 0; j < myNumElementsPerSingleDimArray; j++) {
+                        action.accept(Byte.valueOf(myData[i][j]));
+                    }
+                }
+                for (int i = 0; i < fenceSecond; i++) {
+                    action.accept(Byte.valueOf(myData[fenceFirst][i]));
+                }
+            }
+
+            myCurrentIndex = myFence;
+
+        }
+
+        @Override
+        public boolean tryAdvance(Consumer<? super Byte> action) {
+            if (myCurrentIndex < myFence) {
+                action.accept(Byte.valueOf(myData[firstIndex(myCurrentIndex)][secondIndex(myCurrentIndex)]));
+                myCurrentIndex++;
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        @Override
+        public Spliterator<Byte> trySplit() {
+            long lo = myCurrentIndex;
+            long mid = (lo + myFence) >>> 1;
+            if (lo < mid) {
+                myCurrentIndex = mid;
+                return new SuperByteMatrixMultipleSpliterator<>(lo, mid);
+            } else {
+                return null;
+            }
+        }
+
+        @Override
+        public long estimateSize() {
+            return myFence - myCurrentIndex;
+        }
+
+        @Override
+        public int characteristics() {
+            return ORDERED | SIZED | IMMUTABLE | SUBSIZED;
+        }
     }
 
 }

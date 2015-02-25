@@ -3,6 +3,8 @@
  */
 package net.maizegenetics.util;
 
+import java.util.stream.Stream;
+
 /**
  *
  * @author Terry Casstevens
@@ -85,5 +87,10 @@ public class SuperByteMatrixTranspose implements SuperByteMatrix {
         for (int i = 0; i < src.length; i++) {
             set(row, startColumn + i, src[i]);
         }
+    }
+
+    @Override
+    public Stream<Byte> stream() {
+        return myMatrix.stream();
     }
 }

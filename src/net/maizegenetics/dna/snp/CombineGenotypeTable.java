@@ -16,10 +16,11 @@ import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.dna.snp.score.ReferenceProbability;
 import net.maizegenetics.dna.snp.score.Dosage;
 import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
+import net.maizegenetics.dna.snp.genotypecall.CombineGenotypeCallTable;
 import net.maizegenetics.util.GeneralAnnotationStorage;
 
 import java.util.*;
-import net.maizegenetics.dna.snp.genotypecall.CombineGenotypeCallTable;
+import java.util.stream.Stream;
 
 /**
  * Combines multiple GenotypeTables together.
@@ -969,6 +970,11 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public GeneralAnnotationStorage annotations() {
         throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public Stream<Byte> streamGenotype() {
+        return myGenotype.stream();
     }
 
 }

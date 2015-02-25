@@ -25,11 +25,12 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 
 import org.apache.log4j.Logger;
 
 import java.util.*;
-import net.maizegenetics.util.GeneralAnnotationStorage;
+import java.util.stream.Stream;
 
 /**
  * Taxa and site filtering of GenotypeTables. The class essentially creates
@@ -1159,5 +1160,10 @@ public class FilterGenotypeTable implements GenotypeTable {
     @Override
     public GeneralAnnotationStorage annotations() {
         return myBaseAlignment.annotations();
+    }
+
+    @Override
+    public Stream<Byte> streamGenotype() {
+        return myGenotype.stream();
     }
 }

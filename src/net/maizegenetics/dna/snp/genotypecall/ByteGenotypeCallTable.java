@@ -3,14 +3,18 @@
  */
 package net.maizegenetics.dna.snp.genotypecall;
 
+import java.util.stream.Stream;
+
 import net.maizegenetics.util.SuperByteMatrix;
 import net.maizegenetics.util.SuperByteMatrixBuilder;
+
 import org.apache.log4j.Logger;
 
 /**
- * In memory byte implementation of GenotypeCallTable backed the high efficiency SuperByteMatrix class.
- * Although the GenotypeCallTable is accessed as two dimensional array, for efficiency it is actually
- * backed single dimension arrays with either site or taxa as the inner loop.
+ * In memory byte implementation of GenotypeCallTable backed the high efficiency
+ * SuperByteMatrix class. Although the GenotypeCallTable is accessed as two
+ * dimensional array, for efficiency it is actually backed single dimension
+ * arrays with either site or taxa as the inner loop.
  *
  * @see SuperByteMatrix
  *
@@ -79,5 +83,10 @@ class ByteGenotypeCallTable extends AbstractGenotypeCallTable {
             myGenotype = myTaxonInnerLoop;
         }
 
+    }
+
+    @Override
+    public Stream<Byte> stream() {
+        return myGenotype.stream();
     }
 }
