@@ -108,7 +108,19 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
 
 			maxNumberOfMarkers = myDialog.getMaxNumberOfMarkers();
 			myDialog.dispose();
-		}
+		}else { // Guessing the factor column is nearly impossible, so have program take care of it if necessary
+            if (nestMarkers) {
+                boolean factorCorrect = myGenoPheno.phenotype().attribute(nestingFactorIndex).isTypeCompatible(ATTRIBUTE_TYPE.factor);
+                if(!factorCorrect){
+                    myLogger.error("Error: Selected factor index for nesting is not a valid factor! Please choose from the list below");
+                    int[] factorIndices = myGenoPheno.phenotype().attributeIndicesOfType(ATTRIBUTE_TYPE.factor);
+                    Phenotype mypheno = myGenoPheno.phenotype();
+                    for(int i: factorIndices){
+                        myLogger.info("     Factor \"" + mypheno.attributeName(i) + "\" is at index " + i);
+                    }
+                }
+            }
+        }
 
 		StepwiseOLSModelFitter modelFitter = new StepwiseOLSModelFitter(myGenoPheno, datasets.get(0).getName());
 		modelFitter.setEnterlimit(enterlimit);
@@ -121,7 +133,7 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
 		modelFitter.setModelType(modelType);
                 modelFitter.setNumberOfPermutations(numberOfPermutations);
                 modelFitter.setAlpha(alpha);
-                
+
 		modelFitter.runAnalysis();
 		
 		TableReport trResults = modelFitter.getAnovaReport();
