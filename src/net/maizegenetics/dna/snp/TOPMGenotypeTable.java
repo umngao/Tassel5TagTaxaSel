@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import net.maizegenetics.dna.BaseEncoder;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Chromosome;
@@ -741,6 +742,11 @@ public class TOPMGenotypeTable implements GenotypeTable {
 
     @Override
     public float referenceProbability(int taxon, int site) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public Stream<Byte> streamGenotype() {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
