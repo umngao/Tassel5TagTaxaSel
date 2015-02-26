@@ -409,9 +409,17 @@ public class ExportPlugin extends AbstractPlugin {
         myFileChooserSave.setMultiSelectionEnabled(false);
         File result = null;
         int returnVal = myFileChooserSave.showSaveDialog(getParentFrame());
-        if (returnVal == JFileChooser.SAVE_DIALOG || returnVal == JFileChooser.APPROVE_OPTION) {
+        if (returnVal == JFileChooser.APPROVE_OPTION) {
             result = myFileChooserSave.getSelectedFile();
             TasselPrefs.putSaveDir(myFileChooserSave.getCurrentDirectory().getPath());
+        } else {
+            return null;
+        }
+        if (result.exists()) {
+            int val = JOptionPane.showConfirmDialog(getParentFrame(), "This file already exists: " + result.getName() + "\nDo you want to overwrite it?", "Warning", JOptionPane.YES_NO_OPTION);
+            if (val == JOptionPane.NO_OPTION) {
+                return null;
+            }
         }
         return result;
     }
