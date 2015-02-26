@@ -95,6 +95,10 @@ public class ExportUtils {
      * @return name of the outfile with the appropriate suffix
      */
     public static String writeToHapmap(GenotypeTable alignment, boolean diploid, String filename, char delimChar, ProgressListener listener) {
+        return writeToHapmap(alignment, diploid, filename, delimChar, true, listener);
+    }
+
+    public static String writeToHapmap(GenotypeTable alignment, boolean diploid, String filename, char delimChar, boolean includeTaxaAnnotations, ProgressListener listener) {
         if (delimChar != ' ' && delimChar != '\t') {
             throw new IllegalArgumentException("Delimiter charater must be either a blank space or a tab.");
         }
@@ -103,7 +107,7 @@ public class ExportUtils {
         try {
             String fullFileName = Utils.addSuffixIfNeeded(filename, ".hmp.txt", new String[]{".hmp.txt", ".hmp.txt.gz"});
             bw = Utils.getBufferedWriter(fullFileName);
-            if (true) {
+            if (includeTaxaAnnotations) {
                 for (Taxon taxon : alignment.taxa()) {
                     GeneralAnnotation annotation = taxon.getAnnotation();
                     if ((annotation == null) || (annotation.numAnnotations() == 0)) {

@@ -37,6 +37,16 @@ public class TasselPrefs {
     public static final String TASSEL_LOG_Y_DIM = "logyDimension";
     public static final int TASSEL_LOG_Y_DIM_DEFAULT = -1;
     //
+    // ExportPlugin preferences
+    //
+    public static final String EXPORT_PLUGIN_TOP = "/tassel/plugins/export";
+    // Export as Diploids
+    public static final String EXPORT_PLUGIN_EXPORT_DIPLOIDS = "exportDiploids";
+    public static final boolean EXPORT_PLUGIN_EXPORT_DIPLOIDS_DEFAULT = false;
+    // Include Taxa Annotations
+    public static final String EXPORT_PLUGIN_INCLUDE_TAXA_ANNOTATIONS = "includeTaxaAnnotations";
+    public static final boolean EXPORT_PLUGIN_INCLUDE_TAXA_ANNOTATIONS_DEFAULT = true;
+    //
     // FilterAlignmentPlugin preferences
     //
     public static final String FILTER_ALIGN_PLUGIN_TOP = "/tassel/plugins/filterAlign";
@@ -257,6 +267,25 @@ public class TasselPrefs {
 
     public static void putLogYDim(int value) {
         putIntPref(TASSEL_TOP, TASSEL_LOG_Y_DIM, value);
+    }
+
+    //
+    // FilterAlignmentPlugin preferences
+    //
+    public static boolean getExportPluginExportDiploids() {
+        return getBooleanPref(EXPORT_PLUGIN_TOP, EXPORT_PLUGIN_EXPORT_DIPLOIDS, EXPORT_PLUGIN_EXPORT_DIPLOIDS_DEFAULT);
+    }
+
+    public static void putExportPluginExportDiploids(boolean value) {
+        putBooleanPref(EXPORT_PLUGIN_TOP, EXPORT_PLUGIN_EXPORT_DIPLOIDS, value);
+    }
+
+    public static boolean getExportPluginIncludeTaxaAnnotations() {
+        return getBooleanPref(EXPORT_PLUGIN_TOP, EXPORT_PLUGIN_INCLUDE_TAXA_ANNOTATIONS, EXPORT_PLUGIN_INCLUDE_TAXA_ANNOTATIONS_DEFAULT);
+    }
+
+    public static void putExportPluginIncludeTaxaAnnotations(boolean value) {
+        putBooleanPref(EXPORT_PLUGIN_TOP, EXPORT_PLUGIN_INCLUDE_TAXA_ANNOTATIONS, value);
     }
 
     //

@@ -9,7 +9,6 @@ package net.maizegenetics.analysis.data;
 import net.maizegenetics.dna.snp.ExportUtils;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.gui.DialogUtils;
-import net.maizegenetics.gui.GenotypeTableMask;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -17,14 +16,12 @@ import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.taxa.distance.WriteDistanceMatrix;
 import net.maizegenetics.taxa.tree.SimpleTree;
 import net.maizegenetics.prefs.TasselPrefs;
-import net.maizegenetics.tassel.TASSELMainFrame;
 import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.phenotype.PhenotypeUtils;
 import net.maizegenetics.util.*;
 import org.apache.log4j.Logger;
 
 import javax.swing.*;
-import javax.swing.tree.DefaultMutableTreeNode;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -43,7 +40,6 @@ public class ExportPlugin extends AbstractPlugin {
     private static final Logger myLogger = Logger.getLogger(ExportPlugin.class);
     private FileLoadPlugin.TasselFileType myFileType = FileLoadPlugin.TasselFileType.Hapmap;
     private String mySaveFile = null;
-    private boolean myIsDiploid = false;
     private boolean myKeepDepth = true;
     private final JFileChooser myFileChooserSave = new JFileChooser(TasselPrefs.getSaveDir());
 
@@ -206,50 +202,25 @@ public class ExportPlugin extends AbstractPlugin {
         String resultFile = mySaveFile;
 
         if ((myFileType == FileLoadPlugin.TasselFileType.Hapmap) || (myFileType == FileLoadPlugin.TasselFileType.HapmapDiploid)) {
-            int n = 0;
-            DefaultMutableTreeNode node = null;
+            boolean isDiploid = false;
+            boolean includeTaxaAnnotations = true;
             if (isInteractive()) {
-                DiploidOptionDialog diploidDialog = new DiploidOptionDialog();
+                HapmapOptionDialog diploidDialog = new HapmapOptionDialog();
                 diploidDialog.setLocationRelativeTo(getParentFrame());
                 diploidDialog.setVisible(true);
-                myIsDiploid = diploidDialog.getDiploid();
-                node = (DefaultMutableTreeNode) ((TASSELMainFrame) this.getParentFrame()).getDataTreePanel().getTree().getLastSelectedPathComponent();
-                n = node.getChildCount();
+                if (diploidDialog.isCancel()) {
+                    return null;
+                }
+                isDiploid = diploidDialog.getDiploid();
+                includeTaxaAnnotations = diploidDialog.includeTaxaAnnotations();
             } else {
                 if (myFileType == FileLoadPlugin.TasselFileType.Hapmap) {
-                    myIsDiploid = false;
+                    isDiploid = false;
                 } else if (myFileType == FileLoadPlugin.TasselFileType.HapmapDiploid) {
-                    myIsDiploid = true;
+                    isDiploid = true;
                 }
             }
-
-            boolean foundImputed = false;
-            if ((n == 0) || (!isInteractive())) {
-                resultFile = ExportUtils.writeToHapmap(inputAlignment, myIsDiploid, mySaveFile, '\t', this);
-            } else {
-                int i = 0;
-                while (i < n && !foundImputed) {
-                    DefaultMutableTreeNode currentNode = (DefaultMutableTreeNode) node.getChildAt(i);
-                    Datum currentDatum = (Datum) currentNode.getUserObject();
-                    Object currentMask = currentDatum.getData();
-                    if (currentMask instanceof GenotypeTableMask) {
-                        GenotypeTableMask.MaskType maskType = ((GenotypeTableMask) currentMask).getMaskType();
-                        if (maskType == GenotypeTableMask.MaskType.imputed) {
-                            ImputeDisplayOptionDialog imputeOptionDialog = new ImputeDisplayOptionDialog();
-                            imputeOptionDialog.setLocationRelativeTo(getParentFrame());
-                            imputeOptionDialog.setVisible(true);
-                            if (imputeOptionDialog.getDisplayImputed()) {
-                                //TODO emailed Terry about whether to keep
-//                                resultFile = ExportUtils.writeToHapmap(inputAlignment, (GenotypeTableMask) currentMask, myIsDiploid, mySaveFile, '\t', this);
-//                                foundImputed = true;
-                            } else if (i == (n - 1)) {
-                                resultFile = ExportUtils.writeToHapmap(inputAlignment, myIsDiploid, mySaveFile, '\t', this);
-                            }
-                        }
-                    }
-                    i++;
-                }
-            }
+            resultFile = ExportUtils.writeToHapmap(inputAlignment, isDiploid, mySaveFile, '\t', includeTaxaAnnotations, this);
         } else if (myFileType == FileLoadPlugin.TasselFileType.Plink) {
             resultFile = ExportUtils.writeToPlink(inputAlignment, mySaveFile, '\t');
         } else if (myFileType == FileLoadPlugin.TasselFileType.Phylip_Seq) {
@@ -399,10 +370,6 @@ public class ExportPlugin extends AbstractPlugin {
 
     public void setAlignmentFileType(FileLoadPlugin.TasselFileType type) {
         myFileType = type;
-    }
-
-    public void setIsDiploid(boolean isDiploid) {
-        myIsDiploid = isDiploid;
     }
 
     private File getFileByChooser() {
@@ -679,74 +646,74 @@ class ImputeDisplayOptionDialog extends JDialog {
     }
 }
 
-class DiploidOptionDialog extends JDialog {
+class HapmapOptionDialog extends JDialog {
 
-    boolean displayDiploid = true;
-    private JPanel mainPanel = new JPanel();
-    private JLabel lbl = new JLabel();
-    private JButton yesButton = new JButton();
-    private JButton noButton = new JButton();
-    private GridBagLayout gridBagLayout = new GridBagLayout();
+    private boolean exportDiploids = TasselPrefs.getExportPluginExportDiploids();
+    private boolean includeTaxaAnnotations = TasselPrefs.getExportPluginIncludeTaxaAnnotations();
+    private boolean isCancel = false;
+    private final JPanel mainPanel = new JPanel();
+    private final JCheckBox diploidCheckBox = new JCheckBox("Export as Diploids");
+    private final JCheckBox taxaAnnotationsCheckBox = new JCheckBox("Include Taxa Annotations");
+    private final JButton okButton = new JButton("Ok");
+    private final JButton cancelButton = new JButton("Cancel");
 
-    public DiploidOptionDialog() {
-        super((Frame) null, "File Loader", true);
-        try {
-            initUI();
-            pack();
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
+    public HapmapOptionDialog() {
+        super((Frame) null, "Hapmap Options", true);
+        initUI();
     }
 
-    void initUI() throws Exception {
+    private void initUI() {
 
-        lbl.setFont(new java.awt.Font("Dialog", 1, 12));
-        lbl.setText("Would you like SNPs to be exported as Diploids?");
+        setLayout(new BorderLayout());
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        mainPanel.setMinimumSize(new Dimension(480, 150));
-        mainPanel.setPreferredSize(new Dimension(480, 150));
-        mainPanel.setLayout(gridBagLayout);
-
-        yesButton.setMaximumSize(new Dimension(63, 27));
-        yesButton.setMinimumSize(new Dimension(63, 27));
-        yesButton.setText("Yes");
-        yesButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                yesButton_actionPerformed(e);
-            }
+        okButton.addActionListener((ActionEvent e) -> {
+            okButton_actionPerformed(e);
         });
 
-        noButton.setMaximumSize(new Dimension(63, 27));
-        noButton.setMinimumSize(new Dimension(63, 27));
-        noButton.setText("No");
-        noButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                noButton_actionPerformed(e);
-            }
+        cancelButton.addActionListener((ActionEvent e) -> {
+            cancelButton_actionPerformed(e);
         });
 
         JPanel buttonPanel = new JPanel();
-        buttonPanel.add(yesButton);
-        buttonPanel.add(noButton);
+        buttonPanel.add(okButton);
+        buttonPanel.add(cancelButton);
 
-        mainPanel.add(lbl, new GridBagConstraints(0, 0, 1, 1, 1.0, 1.0, GridBagConstraints.CENTER, GridBagConstraints.NONE, new Insets(5, 0, 5, 0), 0, 0));
-        mainPanel.add(buttonPanel, new GridBagConstraints(0, 1, 1, 1, 1.0, 1.0, GridBagConstraints.PAGE_END, GridBagConstraints.NONE, new Insets(5, 0, 5, 0), 0, 0));
+        diploidCheckBox.setSelected(exportDiploids);
+        taxaAnnotationsCheckBox.setSelected(includeTaxaAnnotations);
+        mainPanel.add(diploidCheckBox);
+        mainPanel.add(taxaAnnotationsCheckBox);
 
-        this.add(mainPanel, BorderLayout.CENTER);
+        add(mainPanel, BorderLayout.CENTER);
+        add(buttonPanel, BorderLayout.SOUTH);
+        pack();
     }
 
-    private void yesButton_actionPerformed(ActionEvent e) {
-        displayDiploid = true;
+    private void okButton_actionPerformed(ActionEvent e) {
+        exportDiploids = diploidCheckBox.isSelected();
+        TasselPrefs.putExportPluginExportDiploids(exportDiploids);
+        includeTaxaAnnotations = taxaAnnotationsCheckBox.isSelected();
+        TasselPrefs.putExportPluginIncludeTaxaAnnotations(includeTaxaAnnotations);
+        isCancel = false;
         setVisible(false);
     }
 
-    private void noButton_actionPerformed(ActionEvent e) {
-        displayDiploid = false;
+    private void cancelButton_actionPerformed(ActionEvent e) {
+        isCancel = true;
         setVisible(false);
     }
 
     public boolean getDiploid() {
-        return displayDiploid;
+        return exportDiploids;
+    }
+
+    public boolean includeTaxaAnnotations() {
+        return includeTaxaAnnotations;
+    }
+
+    public boolean isCancel() {
+        return isCancel;
     }
 }
 
