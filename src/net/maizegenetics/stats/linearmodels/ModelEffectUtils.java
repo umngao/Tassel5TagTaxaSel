@@ -1,21 +1,35 @@
 package net.maizegenetics.stats.linearmodels;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
+import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 
 public class ModelEffectUtils {
-
+	private static final List<Byte> homGeno = Arrays.asList(
+			NucleotideAlignmentConstants.getNucleotideDiploidByte("A"),
+			NucleotideAlignmentConstants.getNucleotideDiploidByte("C"),
+			NucleotideAlignmentConstants.getNucleotideDiploidByte("G"),
+			NucleotideAlignmentConstants.getNucleotideDiploidByte("T"),
+			NucleotideAlignmentConstants.getNucleotideDiploidByte("Z"),
+			NucleotideAlignmentConstants.getNucleotideDiploidByte("+"),
+			NucleotideAlignmentConstants.getNucleotideDiploidByte("-"));
+	
 	private ModelEffectUtils() {}
 	
 	public static DoubleMatrix getXtY(ModelEffect X, ModelEffect Y) {
@@ -99,6 +113,34 @@ public class ModelEffectUtils {
     	return intLevels;
     }
     
+    /**
+     * @param genotypes		a byte array of genotypes
+     * @param ids			an empty array list that will hold the Bytes corresponding to each level
+     * @return				these genotypes translated into factor levels. On return, ids will hold the Byte labels for each level.
+     * 						Levels will be sorted with homozygotes first then heterozygotes.
+     */
+    public static int[] getIntegerLevels(byte[] genotypes, ArrayList<Byte> ids) {
+    	int n = genotypes.length;
+    	
+    	//create a tree set that sorts genotypes with homozygotes first
+    	TreeSet<Byte> genotypeSet = new TreeSet<>((a,b) -> {
+    		if (homGeno.contains(a)) {
+    			if (homGeno.contains(b)) return a.compareTo(b);
+    			return -1;
+    		} else {
+    			if (homGeno.contains(b)) return 1;
+    			else return a.compareTo(b);
+    		}
+    	});
+    	
+    	for (byte b : genotypes) genotypeSet.add(b);
+    	ids.addAll(genotypeSet);
+    	HashMap<Byte,Integer> genoMap = new HashMap<>();
+    	for (int i = 0; i < ids.size(); i++) genoMap.put(ids.get(i), i);
+    	
+    	return IntStream.range(0,n).map(i -> genoMap.get(genotypes[i]).intValue()).toArray();
+    }
+    
     public static <T> int[] getIntegerLevels(ArrayList<T> originalLevels, ArrayList<T> ids) {
     	int[] intLevels = new int[originalLevels.size()];
     	HashMap<T, Integer> levelMap = new HashMap<T,Integer>();
@@ -161,6 +203,11 @@ public class ModelEffectUtils {
     	return values;
     }
     
+    /**
+     * @param marker	the genotypes for a taxon at all sites as bytes
+     * @param allele	the allele that should be coded as 1. all others will be 0
+     * @return			a vector of values (0,1,2) that encode genotypes equal to the dosage of allele
+     */
     public static double[] getNumericCodingForAdditiveModel(byte[] marker, byte allele) {
     	int nmarkers = marker.length;
     	double[] values = new double[nmarkers];

@@ -4,6 +4,7 @@ import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
 import net.maizegenetics.matrixalgebra.decomposition.EigenvalueDecomposition;
 import net.maizegenetics.stats.linearmodels.LinearModelUtils;
+
 import org.apache.log4j.Logger;
 
 import java.util.ArrayList;
@@ -491,6 +492,10 @@ public class EMMAforDoubleMatrix {
 	}
 
         
+	/**
+	 * @return	For markers with 2 df, F.fullModel, p.fullModel, additive effect, Fadd, padd, dominance effect, Fdom, pdom
+	 * 			For markers with other than 2 df, F and p for the full model only
+	 */
 	public double[] getMarkerFp() {
 		if (dfMarker < 1) return new double[]{Double.NaN, Double.NaN, Double.NaN}; 
 		int nparm = beta.numberOfRows();
@@ -508,7 +513,48 @@ public class EMMAforDoubleMatrix {
 			p = LinearModelUtils.Ftest(F, dfMarker, N - q);
 		} catch (Exception e) {p = Double.NaN;}
 		
-		return new double[]{F,p};
+		if (dfMarker != 2) return new double[]{F,p};
+		
+		//calculate add and dom effects and tests
+		//assumes the betas are for the two homozygous classes and that the het effect = 0;
+    	//additive test
+		double Fadd, Fdom, padd, pdom;
+        M = DoubleMatrixFactory.DEFAULT.make(1, nparm, 0);
+        M.set(0, nparm - 2, 1);
+        M.set(0, nparm - 1, -1);
+            
+        MB = M.mult(beta);
+        double addEffect = MB.get(0, 0);
+        try {
+        	Fadd = addEffect * addEffect / (M.mult(invXHX.tcrossproduct(M))).get(0,0) / varRandomEffect;
+        } catch (Exception ex) {
+        	Fadd = Double.NaN;
+        }
+        try {
+            padd = LinearModelUtils.Ftest(Fadd, 1, N - q);
+        } catch (Exception e) {
+            padd = Double.NaN;
+        }
+
+        //dominance test
+        M = DoubleMatrixFactory.DEFAULT.make(1, nparm, 0);
+        M.set(0, nparm - 2, 0.5);
+        M.set(0, nparm - 1, 0.5);
+            
+        MB = M.mult(beta);
+        double domEffect = MB.get(0, 0);
+        try {
+        	Fdom = domEffect * domEffect / (M.mult(invXHX.tcrossproduct(M))).get(0,0) / varRandomEffect;
+        } catch (Exception ex) {
+        	Fdom = Double.NaN;
+        }
+        try {
+            pdom = LinearModelUtils.Ftest(Fdom, 1, N - q);
+        } catch (Exception e) {
+            pdom = Double.NaN;
+        }
+
+        return new double[]{F,p,addEffect,Fadd,padd,domEffect,Fdom,pdom};
 	}
 	
 	public void solveWithNewData(DoubleMatrix y) {

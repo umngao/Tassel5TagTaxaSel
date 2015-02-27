@@ -2,6 +2,8 @@ package net.maizegenetics.analysis.association;
 
 import net.maizegenetics.analysis.data.ExportPlugin;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTableUtils;
+import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
 import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.phenotype.NumericAttribute;
@@ -32,6 +34,7 @@ import net.maizegenetics.stats.linearmodels.SweepFast;
 import net.maizegenetics.stats.linearmodels.SymmetricMatrixInverterDM;
 
 import org.apache.log4j.Logger;
+import org.slf4j.helpers.MarkerIgnoringBase;
 
 import javax.swing.*;
 
@@ -40,6 +43,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.TreeSet;
@@ -48,6 +52,8 @@ import java.util.stream.IntStream;
 public class CompressedMLMusingDoubleMatrix {
 
     private static final Logger myLogger = Logger.getLogger(CompressedMLMusingDoubleMatrix.class);
+    private static final List<String> homGenotypes = Arrays.asList("A","C","G","T","Z");
+    private static final List<String> hetGenotypes = Arrays.asList("R","W","K","Y","S","M","0");
     private final boolean useCompression;
     private final boolean useP3D;
     private final double compression;
@@ -99,7 +105,8 @@ public class CompressedMLMusingDoubleMatrix {
             hasGenotype = false;
         }
         
-        String[] headerMain = new String[]{"Trait", "Marker", "Locus", "Site", "df", "F", "p", "errordf", "markerR2", "Genetic Var", "Residual Var", "-2LnLikelihood"};
+//        String[] headerMain = new String[]{"Trait", "Marker", "Locus", "Site", "df", "F", "p", "errordf", "markerR2", "Genetic Var", "Residual Var", "-2LnLikelihood"};
+        String[] headerMain = new String[]{"Trait","Marker","Chr","Pos","df","F","p","add_effect","add_F","add_p","dom_effect","dom_F","dom_p","errordf","MarkerR2","Genetic Var","Residual Var", "-2LnLikelihood"};
         String[] headerAlleles = new String[]{"Trait", "Marker", "Locus", "Site", "Allele", "Effect", "Obs"};
         String[] headerCompression = new String[]{"Trait", "# groups", "Compression", "-2LnLk", "Var_genetic", "Var_error"};
         
@@ -217,12 +224,19 @@ public class CompressedMLMusingDoubleMatrix {
             
             Object[] tableRow;
             //{"Trait", "Marker", "Locus", "Site", "df", "F", "p", "errordf", "markerR2", "Genetic Var", "Residual Var", "-2LnLikelihood"}
+            //{"Trait","Marker","Chr","Pos","Locus","Site","df","F","p","add_effect","add_F","add_p","dom_effect","dom_F","dom_p","errordf","MarkerR2","Genetic Var","Residual Var", "-2LnLikelihood"}
             tableRow = new Object[]{
             		attr.name(),
             		"None",
             		"",
             		"",
             		new Integer(0),
+            		new Double(Double.NaN),
+            		new Double(Double.NaN),
+            		new Double(Double.NaN),
+            		new Double(Double.NaN),
+            		new Double(Double.NaN),
+            		new Double(Double.NaN),
             		new Double(Double.NaN),
             		new Double(Double.NaN),
             		new Integer(nonMissingObs - baseModeldf),
@@ -269,14 +283,15 @@ public class CompressedMLMusingDoubleMatrix {
                     DoubleMatrix fixed2 = AssociationUtils.getNonMissingValues(fixed, missingFromZ);
 
                     //add marker data to fixed effects
-                    ArrayList<String> markerIds = new ArrayList<>();
+                    ArrayList<Byte> markerIds = new ArrayList<>();
                     int nAlleles = 0;
                     int markerdf = 0;
                     DoubleMatrix X;
                     int[] alleleCounts = null;
                     
                     if (useGenotypeCalls) {
-                    	String[] genotypes = AssociationUtils.getNonMissingValues(myGenoPheno.getStringGenotype(m), missingObsForSite);
+//                    	String[] genotypes = AssociationUtils.getNonMissingValues(myGenoPheno.getStringGenotype(m), missingObsForSite);
+                    	byte[] genotypes = AssociationUtils.getNonMissingBytes(myGenoPheno.genotypeAllTaxa(m), missingObsForSite);
                         FactorModelEffect markerEffect = new FactorModelEffect(ModelEffectUtils.getIntegerLevels(genotypes, markerIds), true);
                         X = fixed2.concatenate(markerEffect.getX(), false);
                         nAlleles = markerEffect.getNumberOfLevels();
@@ -297,10 +312,10 @@ public class CompressedMLMusingDoubleMatrix {
                     //need to add marker information to result once Alignment is stable
 
                     if (useP3D) {
-                        testMarkerUsingP3D(result, ymarker, X, Vminus.getInverse(missingFromZ, nonMissingObs), markerdf);
+                        testMarkerUsingP3D(result, ymarker, X, Vminus.getInverse(missingFromZ, nonMissingObs), markerdf, markerIds);
                     } else {
                     	DoubleMatrix Zsel = AssociationUtils.getNonMissingValues(zk[0], missingFromZ);
-                        testMarkerUsingEMMA(result, ymarker, X, zk[1], Zsel, nAlleles);
+                        testMarkerUsingEMMA(result, ymarker, X, zk[1], Zsel, nAlleles, markerIds);
                         markerdf = result.modeldf - baseModeldf;
                     }
 
@@ -313,6 +328,9 @@ public class CompressedMLMusingDoubleMatrix {
                     if (recordTheseResults) {
                         //add result to main
                         //{"Trait","Marker","Chr","Pos","Locus","Site","df","F","p","errordf","MarkerR2","Genetic Var","Residual Var", "-2LnLikelihood"};
+                    	//results with additive and dominance effects
+                    	//{"Trait","Marker","Chr","Pos","Locus","Site","df","F","p","add_effect","add_F","add_p","dom_effect","dom_F","dom_p","errordf","MarkerR2","Genetic Var","Residual Var", "-2LnLikelihood"}
+                    	
                         String markername = myGenotype.siteName(m);
                         String chr = "";
                         String pos = "";
@@ -327,6 +345,12 @@ public class CompressedMLMusingDoubleMatrix {
                         		new Integer(markerdf),
                         		new Double(result.F),
                         		new Double(result.p),
+                        		new Double(result.addEffect),
+                        		new Double(result.Fadd),
+                        		new Double(result.padd),
+                        		new Double(result.domEffect),
+                        		new Double(result.Fdom),
+                        		new Double(result.pdom),
                         		new Double(errordf),
                         		new Double(result.r2),
                         		new Double(genvar),
@@ -361,7 +385,8 @@ public class CompressedMLMusingDoubleMatrix {
                                 		markername,
                                 		locus,
                                 		site,
-                                		markerIds.get(a),
+//                                		markerIds.get(a),
+                                		NucleotideAlignmentConstants.getNucleotideIUPAC(markerIds.get(a)),
                                 		estimate,
                                 		alleleCounts[a]
                                 };
@@ -636,7 +661,7 @@ public class CompressedMLMusingDoubleMatrix {
         return zkMatrices;
     }
 
-    public void testMarkerUsingEMMA(CompressedMLMResult result, DoubleMatrix y, DoubleMatrix X, DoubleMatrix K, DoubleMatrix Z, int nAlleles) {
+    public void testMarkerUsingEMMA(CompressedMLMResult result, DoubleMatrix y, DoubleMatrix X, DoubleMatrix K, DoubleMatrix Z, int nAlleles, ArrayList<Byte> markerIds) {
         EMMAforDoubleMatrix emlm = new EMMAforDoubleMatrix(y, X, K, Z, nAlleles, Double.NaN);
         emlm.solve();
         result.beta = emlm.getBeta();
@@ -647,11 +672,27 @@ public class CompressedMLMusingDoubleMatrix {
         genvar = emlm.getVarRan();
         resvar = emlm.getVarRes();
         lnlk = emlm.getLnLikelihood();
-
+        
         calculateRsquare(X, y, emlm.getInvH(), result, nAlleles - 1);
+        
+        boolean markerTest = markerIds.size() == 3;
+        if (markerTest) {
+        	markerTest = markerTest && !GenotypeTableUtils.isHeterozygous(markerIds.get(0));
+        	markerTest = markerTest && !GenotypeTableUtils.isHeterozygous(markerIds.get(1));
+        	markerTest = markerTest && GenotypeTableUtils.isHeterozygous(markerIds.get(2));
+        }
+        if (markerTest && Fp.length == 8) { //calculate additive and dominance tests and effects
+        	//from EMMA,  return new double[]{F,p,addEffect,Fadd,padd,domEffect,Fdom,pdom}
+        	result.addEffect = Fp[2];
+        	result.Fadd = Fp[3];
+        	result.padd = Fp[4];
+        	result.domEffect = Fp[5];
+        	result.Fdom = Fp[6];
+        	result.pdom = Fp[7];
+        }
     }
 
-    public void testMarkerUsingP3D(CompressedMLMResult result, DoubleMatrix y, DoubleMatrix X, DoubleMatrix invV, int markerdf) {
+    public void testMarkerUsingP3D(CompressedMLMResult result, DoubleMatrix y, DoubleMatrix X, DoubleMatrix invV, int markerdf, ArrayList<Byte> markerIds) {
         //calculate beta
         DoubleMatrix invXVX = X.crossproduct(invV).mult(X);
         invXVX.invert();
@@ -662,7 +703,8 @@ public class CompressedMLMusingDoubleMatrix {
             result.F = Double.NaN;
             result.p = Double.NaN;
             result.r2 = 0.0;
-        } else {
+        } else {  //full model
+        	
             //calculate F test, p-value of F test
             int nparm = result.beta.numberOfRows();
             DoubleMatrix M = DoubleMatrixFactory.DEFAULT.make(markerdf, nparm, 0);
@@ -684,10 +726,56 @@ public class CompressedMLMusingDoubleMatrix {
             }
 
             calculateRsquare(X, y, invV, result, markerdf);
+            
+            boolean markerTest = markerIds.size() == 3;
+            if (markerTest) {
+            	markerTest = markerTest && !GenotypeTableUtils.isHeterozygous(markerIds.get(0));
+            	markerTest = markerTest && !GenotypeTableUtils.isHeterozygous(markerIds.get(1));
+            	markerTest = markerTest && GenotypeTableUtils.isHeterozygous(markerIds.get(2));
+            }
+            if (markerdf == 2 && markerTest) { //calculate additive and dominance tests and effects
+            	result.addEffect = result.beta.get(nparm - 2, 0) - result.beta.get(nparm - 1, 0);
+            	result.domEffect = (result.beta.get(nparm - 2, 0) + result.beta.get(nparm - 1, 0)) / 2.0;
+            	
+            	//additive test 
+                M = DoubleMatrixFactory.DEFAULT.make(1, nparm, 0);
+                M.set(0, nparm - 2, 1);
+                M.set(0, nparm - 1, -1);
+                    
+                Mb = M.mult(result.beta);
+                try {
+                   result.Fadd = Mb.get(0, 0) * Mb.get(0,0) / (M.mult(invXVX.tcrossproduct(M))).get(0,0);
+                } catch (Exception ex) {
+                    result.Fadd = Double.NaN;
+                }
+                try {
+                    result.padd = LinearModelUtils.Ftest(result.Fadd, 1, y.numberOfRows() - nparm);
+                } catch (Exception e) {
+                    result.padd = Double.NaN;
+                }
+
+                //dominance test
+                M = DoubleMatrixFactory.DEFAULT.make(1, nparm, 0);
+                M.set(0, nparm - 2, 0.5);
+                M.set(0, nparm - 1, 0.5);
+                    
+                Mb = M.mult(result.beta);
+                try {
+                    result.Fdom = Mb.get(0, 0) * Mb.get(0,0) / (M.mult(invXVX.tcrossproduct(M))).get(0,0);
+                } catch (Exception ex) {
+                    result.Fdom = Double.NaN;
+                }
+                try {
+                    result.pdom = LinearModelUtils.Ftest(result.Fdom, 1, y.numberOfRows() - nparm);
+                } catch (Exception e) {
+                    result.pdom = Double.NaN;
+                }
+                
+            }
         }
 
     }
-
+    
     private void calculateRsquare(DoubleMatrix X, DoubleMatrix y, DoubleMatrix invV, CompressedMLMResult result, int markerdf) {
         //calculate R2
         //from Buse(1973) Am. Stat. 27:106-108.
@@ -809,8 +897,15 @@ public class CompressedMLMusingDoubleMatrix {
         DoubleMatrix beta = null;
         double F = Double.NaN;
         double p = Double.NaN;
+        double Fadd = Double.NaN;
+        double padd = Double.NaN;
+        double Fdom = Double.NaN;
+        double pdom = Double.NaN;
         double r2 = Double.NaN;
+        double addEffect = Double.NaN;
+        double domEffect = Double.NaN;
         int modeldf;
+        int markerdf;
         int ngroups;
     }
 
