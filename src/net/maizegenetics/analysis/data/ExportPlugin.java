@@ -41,6 +41,7 @@ public class ExportPlugin extends AbstractPlugin {
     private FileLoadPlugin.TasselFileType myFileType = FileLoadPlugin.TasselFileType.Hapmap;
     private String mySaveFile = null;
     private boolean myKeepDepth = true;
+    private boolean myIncludeTaxaAnnotations = TasselPrefs.EXPORT_PLUGIN_INCLUDE_TAXA_ANNOTATIONS_DEFAULT;
     private final JFileChooser myFileChooserSave = new JFileChooser(TasselPrefs.getSaveDir());
 
     /**
@@ -203,7 +204,6 @@ public class ExportPlugin extends AbstractPlugin {
 
         if ((myFileType == FileLoadPlugin.TasselFileType.Hapmap) || (myFileType == FileLoadPlugin.TasselFileType.HapmapDiploid)) {
             boolean isDiploid = false;
-            boolean includeTaxaAnnotations = true;
             if (isInteractive()) {
                 HapmapOptionDialog diploidDialog = new HapmapOptionDialog();
                 diploidDialog.setLocationRelativeTo(getParentFrame());
@@ -212,7 +212,7 @@ public class ExportPlugin extends AbstractPlugin {
                     return null;
                 }
                 isDiploid = diploidDialog.getDiploid();
-                includeTaxaAnnotations = diploidDialog.includeTaxaAnnotations();
+                myIncludeTaxaAnnotations = diploidDialog.includeTaxaAnnotations();
             } else {
                 if (myFileType == FileLoadPlugin.TasselFileType.Hapmap) {
                     isDiploid = false;
@@ -220,7 +220,7 @@ public class ExportPlugin extends AbstractPlugin {
                     isDiploid = true;
                 }
             }
-            resultFile = ExportUtils.writeToHapmap(inputAlignment, isDiploid, mySaveFile, '\t', includeTaxaAnnotations, this);
+            resultFile = ExportUtils.writeToHapmap(inputAlignment, isDiploid, mySaveFile, '\t', myIncludeTaxaAnnotations, this);
         } else if (myFileType == FileLoadPlugin.TasselFileType.Plink) {
             resultFile = ExportUtils.writeToPlink(inputAlignment, mySaveFile, '\t');
         } else if (myFileType == FileLoadPlugin.TasselFileType.Phylip_Seq) {
@@ -261,6 +261,10 @@ public class ExportPlugin extends AbstractPlugin {
 
         return resultFile;
 
+    }
+    
+    public void setIncludeAnnotations(boolean include) {
+        myIncludeTaxaAnnotations = include;
     }
 
     public String performFunctionForSimpleTree(SimpleTree input) {

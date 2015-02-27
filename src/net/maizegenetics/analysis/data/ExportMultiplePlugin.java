@@ -20,7 +20,7 @@ import org.apache.log4j.Logger;
 
 /**
  *
- * @author terry
+ * @author Terry Casstevens
  */
 public class ExportMultiplePlugin extends AbstractPlugin {
 
@@ -98,6 +98,7 @@ public class ExportMultiplePlugin extends AbstractPlugin {
      *
      * @return ImageIcon
      */
+    @Override
     public ImageIcon getIcon() {
         return null;
     }
@@ -107,6 +108,7 @@ public class ExportMultiplePlugin extends AbstractPlugin {
      *
      * @return String
      */
+    @Override
     public String getButtonName() {
         return "Export Multiple";
     }
@@ -116,6 +118,7 @@ public class ExportMultiplePlugin extends AbstractPlugin {
      *
      * @return String
      */
+    @Override
     public String getToolTipText() {
         return "Export multiple data sets to files on your computer.";
     }
@@ -134,5 +137,9 @@ public class ExportMultiplePlugin extends AbstractPlugin {
 
     public void setAlignmentFileType(FileLoadPlugin.TasselFileType type) {
         myFileTypes = new FileLoadPlugin.TasselFileType[]{type};
+    }
+    
+    public void setIncludeAnnotations(boolean include) {
+        myExportPlugin.setIncludeAnnotations(include);
     }
 }

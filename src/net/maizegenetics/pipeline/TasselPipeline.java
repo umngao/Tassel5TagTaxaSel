@@ -988,6 +988,25 @@ public class TasselPipeline implements PluginListener {
                     }
                     plugin.setAlignmentFileType(fileType);
 
+                } else if (current.equalsIgnoreCase("-exportIncludeAnno")) {
+
+                    ExportMultiplePlugin plugin = (ExportMultiplePlugin) findLastPluginFromCurrentPipe(new Class[]{ExportMultiplePlugin.class});
+                    if (plugin == null) {
+                        throw new IllegalArgumentException("TasselPipeline: parseArgs: No Export step defined: " + current);
+                    }
+
+                    String temp = args[index++].trim();
+                    boolean value = true;
+                    if (temp.equalsIgnoreCase("false")) {
+                        value = false;
+                    } else if (temp.equalsIgnoreCase("true")) {
+                        value = true;
+                    } else {
+                        throw new IllegalArgumentException("TasselPipeline: parseArgs: -exportIncludeAnno must be true or false: " + value);
+                    }
+                    
+                    plugin.setIncludeAnnotations(value);
+
                 } else if (current.equalsIgnoreCase("-filterAlign")) {
                     FilterAlignmentPlugin plugin = new FilterAlignmentPlugin(myMainFrame, false);
                     integratePlugin(plugin, true);
