@@ -71,7 +71,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
                     continue;
                 }
                 Tuple<Tag,Optional<Position>> tagPositionTuple=parseRow(inputLine);
-                if (tagPositionTuple == null) continue;
+                if (tagPositionTuple == null) continue;            
                 if(!knownTags.contains(tagPositionTuple.x)) tagsNotFoundInDB++;
                 if(tagPositionTuple.y.isPresent()) {
                     tagPositions.put(tagPositionTuple.x,tagPositionTuple.y.get());
@@ -107,15 +107,16 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         Tag tag= TagBuilder.instance(s[tagS]).build();
         // A tag consisting of 32 T's become -1 in "getLongFromSequence", which results in a "null" tag
         // This was seen in the Zea_mays.AGPv3 chromosome files
-        if (tag == null) return null; 
+        if (tag == null) return null;
+        // The two lines need to be here to make sure the sequence can be found in the DB
+        boolean forwardStrand=isForwardStrand(s[flag]);
+        if(!forwardStrand) tag=TagBuilder.reverseComplement(tag).build();
         if (!hasAlignment(s[flag])) return new Tuple<>(tag,Optional.<Position>empty());
         // Check for minimum alignment length and proportion
         if (!hasMinAlignLength(s)) return new Tuple<> (tag,Optional.<Position>empty());
         if (!hasMinAlignProportion(s)) return new Tuple<> (tag,Optional.<Position>empty());
         Chromosome chromosome=new Chromosome(s[chr].replace("chr", ""));
-        String alignmentScore=s[alignScoreIndex].split(":")[2];
-        boolean forwardStrand=isForwardStrand(s[flag]);
-        if(!forwardStrand) tag=TagBuilder.reverseComplement(tag).build();
+        String alignmentScore=s[alignScoreIndex].split(":")[2];       
         String mappingApproach = isBowtie? "Bowtie2" : "BWA"; // these are only 2 aligners we currently support
         Position position=new GeneralPosition
                 .Builder(chromosome,Integer.parseInt(s[pos]))
