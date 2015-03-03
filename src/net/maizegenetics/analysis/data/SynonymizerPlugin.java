@@ -107,52 +107,6 @@ public class SynonymizerPlugin extends AbstractPlugin {
                         if(menuArray[0] == true) {
                             int[] fileOptions = getFileChoice(data,datumArray);
                             return runStep1(data,datumArray,fileOptions);
-                           /*
-                            //Check to see if user has selected files like before
-                            String[] initialSelections = new String[2];
-                            if(data.size()>1) {
-                                //Set comboboxes to match
-                                initialSelections[0] = data.get(0).getName();
-                                initialSelections[1] = data.get(1).getName();
-                            }
-                            else {
-                                //First and Second file
-                                Datum firstDatum = (Datum)datumArray[0];
-                                initialSelections[0] = firstDatum.getName();
-                                Datum secondDatum = (Datum)datumArray[1];
-                                initialSelections[1] = secondDatum.getName();
-                            }
-    
-                            int[] fileOptions = new int[3];
-                            SynonymizerFileChooser fileChooseDiag= new SynonymizerFileChooser(getParentFrame(),datumArray,fileOptions,initialSelections,"Step1");
-                            fileChooseDiag.setLocationRelativeTo(getParentFrame());
-                            fileChooseDiag.setVisible(true);
-                            if(fileOptions[0]!=-1) {
-                                ArrayList<Datum> datumList = new ArrayList<Datum>();
-                                for(int i = 0; i<fileOptions.length-1;i++) {
-                                    Datum current = (Datum)datumArray[fileOptions[i]];
-                                    Object currentData = current.getData();
-                                    if (currentData instanceof GenotypeTable) {
-                                        TaxaList idGroup = ((GenotypeTable) currentData).taxa();
-                                        Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
-                                        datumList.add(idGroupDatum);
-                                    } else if (currentData instanceof Phenotype) {
-                                        TaxaList idGroup = ((Phenotype) currentData).taxa();
-                                        Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
-                                        datumList.add(idGroupDatum);
-                                    } else {
-                                        datumList.add(current);
-                                    }
-                                }
-                               
-                                DataSet newInputDataSet = new DataSet(datumList, this);
-                                Datum td = createSynonymizer(newInputDataSet);
-                                DataSet output = new DataSet(td, this);
-                                fireDataSetReturned(new PluginEvent(output, SynonymizerPlugin.class));
-                                return output;
-                            
-                            }
-                            */
                         }
                         else if(menuArray[1] == true) {
     
@@ -372,6 +326,42 @@ public class SynonymizerPlugin extends AbstractPlugin {
         }
         return td;
     }
+    
+    private Datum createSynonymizer(DataSet input,int technique) {
+        Datum td = null;
+        StringBuilder synonymSets = new StringBuilder();
+        for (int i = 1; i < input.getSize(); i++) {
+            synonymSets.append(input.getData(i).getName());
+            synonymSets.append("\n");
+        }
+        boolean performFunction = true;
+        //String msg = "You have selected to apply synonym list " + input.getData(0).getName() + " to the following dataset:\n"
+        //        + synonymSets.toString();
+        String msg = "You have selected to generate a synonym list from " + input.getData(0).getName() + " to be applied to the following dataset:\n"
+                + synonymSets.toString();
+        
+        if (isInteractive()) {
+            int response = JOptionPane.showOptionDialog(getParentFrame(), msg, "Verify Selection",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, null, null);
+            if (response == JOptionPane.CANCEL_OPTION) {
+                performFunction = false;
+            }
+        } else {
+            myLogger.info(msg);
+        }
+        if (performFunction) {
+            List<Datum> idList = input.getDataOfType(TaxaList.class);
+            TaxaList[] aa = new TaxaList[idList.size() - 1];
+            for (int i = 1; i < idList.size(); i++) {
+                aa[i - 1] = (TaxaList) idList.get(i).getData();
+            }
+            IdentifierSynonymizer ts = new IdentifierSynonymizer((TaxaList) idList.get(0).getData(), aa,technique);
+            StringWriter sw = new StringWriter();
+            ts.report(new PrintWriter(sw));
+            td = new Datum(input.getData(0).getName() + " Synonyms", ts, "Taxa synonyms\n" + sw.toString());
+        }
+        return td;
+    }
 
     private void applySynonymsToIdGroups(DataSet input) {
         StringBuilder synonymSets = new StringBuilder();
@@ -477,9 +467,8 @@ public class SynonymizerPlugin extends AbstractPlugin {
                     datumList.add(current);
                 }
             }
-           
             DataSet newInputDataSet = new DataSet(datumList, this);
-            Datum td = createSynonymizer(newInputDataSet);
+            Datum td = createSynonymizer(newInputDataSet,fileOptions[2]);
             DataSet output = new DataSet(td, this);
             fireDataSetReturned(new PluginEvent(output, SynonymizerPlugin.class));
             return output;
@@ -556,6 +545,7 @@ class SynonymizerDialog extends JDialog {
             theNameTable.setAutoCreateRowSorter(true);
             theNameTable.setCellEditor(null);
             theNameTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+            
             matchList.setAutoscrolls(true);
             theATP = new JScrollPane(theNameTable);
             jbInit();
@@ -652,6 +642,11 @@ class SynonymizerDialog extends JDialog {
     }
 
     void deleteByThreshold(double threshold) {
+        /*theTS.deleteByThreshold(threshold);
+        TableReportNoPagingTableModel model = (TableReportNoPagingTableModel)theNameTable.getModel();
+        model.fireTableChanged();
+        */
+        
         TableModel dm = theNameTable.getModel();
         String synName, realName;
         double score;
@@ -664,6 +659,7 @@ class SynonymizerDialog extends JDialog {
                 dm.setValueAt("-1", i, 2);
             }
         }
+        
     }
 
     void setThresholdButton_actionPerformed(ActionEvent e) {
@@ -694,6 +690,7 @@ class SynonymizerDialog extends JDialog {
     }
 
     void selectSynButton_actionPerformed(ActionEvent e) {
+        //Need to write an update method in IdentifierSynonimizer to do the functionality
         try {
             String newRealName = (String) matchList.getSelectedValue();
             int theRow = theNameTable.getSelectedRow();
@@ -705,10 +702,14 @@ class SynonymizerDialog extends JDialog {
     }
 
     void setNoSynButton_actionPerformed(ActionEvent e) {
+      //Need to write an update method in IdentifierSynonimizer to do the functionality
         try {
             int theRow = theNameTable.getSelectedRow();
+            //System.out.println(theNameTable.getModel().getValueAt(theRow, 1)+","+theNameTable.getModel().getValueAt(theRow,2));
+            
             theNameTable.getModel().setValueAt("", theRow, 1);
             theNameTable.getModel().setValueAt("-1", theRow, 2);
+            //System.out.println(theNameTable.getModel().getValueAt(theRow, 1)+","+theNameTable.getModel().getValueAt(theRow,2));
         } catch (Exception ex) {
             System.out.println("Make sure a row is selected");
         }
@@ -968,7 +969,14 @@ class SynonymizerFileChooser extends JDialog {
         gbc_lblSynonimizeTechnique.anchor = GridBagConstraints.WEST;
         panel.add(lblSynonimizeTechnique, gbc_lblSynonimizeTechnique);
         
-        comboBoxes.add(getComboBoxWithSelection(new String[] {"Dice's Coefficient(Default Technique)"},"Default Technique"));
+        comboBoxes.add(getComboBoxWithSelection(new String[] {"Dice's Coefficient(Default Technique)",
+                                                                "Edit Distance",
+                                                                "Dynamic Time Warping using Hamming Distance",
+                                                                "Dynamic Time Warping using Keyboard Distance",
+                                                                "Hamming Distance using Soundex Encoding",
+                                                                "Dice's Coefficient using Metaphone Encoding",
+                                                                "Edit Distance using Metaphone Encoding"
+                                                                },"Dice's Coefficient(Default Technique)"));
 
         GridBagConstraints gbc_comboBoxTechniques = getConstraints(1,8,new Insets(0, 10, 0, 10));
         gbc_comboBoxTechniques.fill = GridBagConstraints.HORIZONTAL;
