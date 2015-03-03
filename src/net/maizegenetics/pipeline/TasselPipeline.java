@@ -40,6 +40,7 @@ import net.maizegenetics.analysis.tree.CreateTreePlugin;
 import net.maizegenetics.analysis.association.RidgeRegressionEmmaPlugin;
 import net.maizegenetics.dna.map.TagsOnPhysMapHDF5;
 import net.maizegenetics.dna.map.TagsOnPhysicalMap;
+import net.maizegenetics.dna.snp.score.SiteScore;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibriumComponent;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibrium.HetTreatment;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibrium.testDesign;
@@ -980,13 +981,15 @@ public class TasselPipeline implements PluginListener {
                     }
 
                     String type = args[index++].trim();
-                    FileLoadPlugin.TasselFileType fileType = null;
                     try {
-                        fileType = FileLoadPlugin.TasselFileType.valueOf(type);
+                        plugin.setAlignmentFileType(FileLoadPlugin.TasselFileType.valueOf(type));
                     } catch (Exception e) {
-                        throw new IllegalArgumentException("TasselPipeline: parseArgs: -exportType: Unknown type: " + type + "  Should be: " + Arrays.toString(FileLoadPlugin.TasselFileType.values()));
+                        try {
+                            plugin.setSiteScoreType(SiteScore.SITE_SCORE_TYPE.valueOf(type));
+                        } catch (Exception ex) {
+                            throw new IllegalArgumentException("TasselPipeline: parseArgs: -exportType: Unknown type: " + type + "  Should be: " + Arrays.toString(FileLoadPlugin.TasselFileType.values()) + " or " + Arrays.toString(SiteScore.SITE_SCORE_TYPE.values()));
+                        }
                     }
-                    plugin.setAlignmentFileType(fileType);
 
                 } else if (current.equalsIgnoreCase("-exportIncludeAnno")) {
 

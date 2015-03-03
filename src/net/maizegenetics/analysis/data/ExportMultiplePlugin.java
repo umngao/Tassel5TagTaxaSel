@@ -12,6 +12,7 @@ import java.util.List;
 
 import javax.swing.ImageIcon;
 
+import net.maizegenetics.dna.snp.score.SiteScore;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -141,5 +142,9 @@ public class ExportMultiplePlugin extends AbstractPlugin {
     
     public void setIncludeAnnotations(boolean include) {
         myExportPlugin.setIncludeAnnotations(include);
+    }
+    
+    public void setSiteScoreType(SiteScore.SITE_SCORE_TYPE type) {
+        myExportPlugin.setSiteScoreType(type);
     }
 }
