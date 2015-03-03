@@ -240,7 +240,7 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
 				enterlimit = Double.parseDouble(args[++i]);
 			}
 			else if (args[i].equals("-x") || args[i].equalsIgnoreCase("-exit")) {
-				exitlimit = Integer.parseInt(args[++i]);
+				exitlimit = Double.parseDouble(args[++i]);
 			}
 			else if (args[i].equals("-es") || args[i].equalsIgnoreCase("-enterlimits")) {
 				enterlimits = parseDoubles(args[++i], ",");
