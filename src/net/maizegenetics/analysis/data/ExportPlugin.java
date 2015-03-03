@@ -8,6 +8,8 @@ package net.maizegenetics.analysis.data;
 
 import net.maizegenetics.dna.snp.ExportUtils;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.io.SiteScoresIO;
+import net.maizegenetics.dna.snp.score.SiteScore;
 import net.maizegenetics.gui.DialogUtils;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
@@ -30,6 +32,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.net.URL;
+import java.util.ArrayList;
 
 /**
  *
@@ -42,6 +45,7 @@ public class ExportPlugin extends AbstractPlugin {
     private String mySaveFile = null;
     private boolean myKeepDepth = true;
     private boolean myIncludeTaxaAnnotations = TasselPrefs.EXPORT_PLUGIN_INCLUDE_TAXA_ANNOTATIONS_DEFAULT;
+    private SiteScore.SITE_SCORE_TYPE mySiteScoreType = null;
     private final JFileChooser myFileChooserSave = new JFileChooser(TasselPrefs.getSaveDir());
 
     /**
@@ -182,16 +186,43 @@ public class ExportPlugin extends AbstractPlugin {
     public String performFunctionForAlignment(GenotypeTable inputAlignment) {
 
         if (isInteractive()) {
-            ExportPluginDialog theDialog = new ExportPluginDialog();
-            theDialog.setLocationRelativeTo(getParentFrame());
-            theDialog.setVisible(true);
-            if (theDialog.isCancel()) {
-                return null;
-            }
-            myFileType = theDialog.getTasselFileType();
-            myKeepDepth = theDialog.keepDepth();
 
-            theDialog.dispose();
+            java.util.List<GenotypeTable.GENOTYPE_TABLE_COMPONENT> components = new ArrayList<>();
+            if (inputAlignment.hasGenotype()) {
+                components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype);
+            }
+            if (inputAlignment.hasReferenceProbablity()) {
+                components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability);
+            }
+            if (inputAlignment.hasAlleleProbabilities()) {
+                components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability);
+            }
+            if (inputAlignment.hasDepth()) {
+                components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Depth);
+            }
+            if (inputAlignment.hasDosage()) {
+                components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Dosage);
+            }
+
+            myFileType = null;
+            mySiteScoreType = null;
+            if ((components.contains(GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability)) && (components.size() == 1)) {
+                mySiteScoreType = SiteScore.SITE_SCORE_TYPE.ReferenceProbablity;
+            } else {
+                ExportPluginDialog theDialog = new ExportPluginDialog(components);
+                theDialog.setLocationRelativeTo(getParentFrame());
+                theDialog.setVisible(true);
+                if (theDialog.isCancel()) {
+                    return null;
+                }
+                myFileType = theDialog.getTasselFileType();
+                if (myFileType == null) {
+                    mySiteScoreType = theDialog.getSiteScoreType();
+                }
+                myKeepDepth = theDialog.keepDepth();
+
+                theDialog.dispose();
+            }
 
             setSaveFile(getFileByChooser());
         }
@@ -202,7 +233,9 @@ public class ExportPlugin extends AbstractPlugin {
 
         String resultFile = mySaveFile;
 
-        if ((myFileType == FileLoadPlugin.TasselFileType.Hapmap) || (myFileType == FileLoadPlugin.TasselFileType.HapmapDiploid)) {
+        if (mySiteScoreType == SiteScore.SITE_SCORE_TYPE.ReferenceProbablity) {
+            resultFile = SiteScoresIO.writeReferenceProbability(inputAlignment, resultFile);
+        } else if ((myFileType == FileLoadPlugin.TasselFileType.Hapmap) || (myFileType == FileLoadPlugin.TasselFileType.HapmapDiploid)) {
             boolean isDiploid = false;
             if (isInteractive()) {
                 HapmapOptionDialog diploidDialog = new HapmapOptionDialog();
@@ -265,6 +298,10 @@ public class ExportPlugin extends AbstractPlugin {
     
     public void setIncludeAnnotations(boolean include) {
         myIncludeTaxaAnnotations = include;
+    }
+
+    public void setSiteScoreType(SiteScore.SITE_SCORE_TYPE type) {
+        mySiteScoreType = type;
     }
 
     public String performFunctionForSimpleTree(SimpleTree input) {
@@ -407,10 +444,15 @@ public class ExportPlugin extends AbstractPlugin {
         private JRadioButton myPhylipInterRadioButton = new JRadioButton("Write Phylip (Interleaved)");
         private JRadioButton myTabTableRadioButton = new JRadioButton("Write Tab Delimited");
 
+        private JRadioButton myReferenceProbabilityRadioButton = new JRadioButton("Reference Probability");
+
         private JCheckBox myKeepDepthCheck = new JCheckBox("Keep Depth (VCF or HDF5)", true);
 
-        public ExportPluginDialog() {
+        private java.util.List<GenotypeTable.GENOTYPE_TABLE_COMPONENT> myComponents;
+
+        public ExportPluginDialog(java.util.List<GenotypeTable.GENOTYPE_TABLE_COMPONENT> components) {
             super((Frame) null, "Export...", true);
+            myComponents = components;
             try {
                 jbInit();
                 pack();
@@ -432,6 +474,7 @@ public class ExportPlugin extends AbstractPlugin {
             contentPane.add(main);
             pack();
             setResizable(false);
+
             myButtonGroup.add(myHapMapRadioButton);
             myButtonGroup.add(myByteHDF5RadioButton);
             myButtonGroup.add(myVCFRadioButton);
@@ -439,12 +482,14 @@ public class ExportPlugin extends AbstractPlugin {
             myButtonGroup.add(myPhylipRadioButton);
             myButtonGroup.add(myPhylipInterRadioButton);
             myButtonGroup.add(myTabTableRadioButton);
-            myHapMapRadioButton.setSelected(true);
+
+            myButtonGroup.add(myReferenceProbabilityRadioButton);
 
         }
 
         private JPanel getMain() {
             JPanel inputs = new JPanel();
+            inputs.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
             BoxLayout layout = new BoxLayout(inputs, BoxLayout.Y_AXIS);
             inputs.setLayout(layout);
             inputs.setAlignmentX(JPanel.CENTER_ALIGNMENT);
@@ -478,15 +523,34 @@ public class ExportPlugin extends AbstractPlugin {
             result.setAlignmentX(JPanel.CENTER_ALIGNMENT);
             result.setBorder(BorderFactory.createEtchedBorder());
 
-            result.add(myHapMapRadioButton);
-            result.add(myByteHDF5RadioButton);
-            result.add(myVCFRadioButton);
-            result.add(myPlinkRadioButton);
-            result.add(myPhylipRadioButton);
-            result.add(myPhylipInterRadioButton);
-            result.add(myTabTableRadioButton);
+            boolean defaultButtonNeedSelected = true;
 
-            result.add(Box.createRigidArea(new Dimension(1, 20)));
+            result.add(Box.createRigidArea(new Dimension(1, 10)));
+            if (myComponents.contains(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype)) {
+                result.add(myHapMapRadioButton);
+                result.add(myByteHDF5RadioButton);
+                result.add(myVCFRadioButton);
+                result.add(myPlinkRadioButton);
+                result.add(myPhylipRadioButton);
+                result.add(myPhylipInterRadioButton);
+                result.add(myTabTableRadioButton);
+
+                result.add(Box.createRigidArea(new Dimension(1, 10)));
+                myHapMapRadioButton.setSelected(true);
+                defaultButtonNeedSelected = false;
+            }
+
+            if (!myComponents.isEmpty()) {
+                if (myComponents.contains(GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability)) {
+                    result.add(myReferenceProbabilityRadioButton);
+                    if (defaultButtonNeedSelected) {
+                        myReferenceProbabilityRadioButton.setSelected(true);
+                        defaultButtonNeedSelected = false;
+                    }
+                }
+                result.add(Box.createRigidArea(new Dimension(1, 10)));
+
+            }
 
             return result;
 
@@ -559,6 +623,13 @@ public class ExportPlugin extends AbstractPlugin {
             return null;
         }
 
+        public SiteScore.SITE_SCORE_TYPE getSiteScoreType() {
+            if (myReferenceProbabilityRadioButton.isSelected()) {
+                return SiteScore.SITE_SCORE_TYPE.ReferenceProbablity;
+            }
+            return null;
+        }
+
         public boolean keepDepth() {
             return myKeepDepthCheck.isSelected();
         }
@@ -576,77 +647,6 @@ public class ExportPlugin extends AbstractPlugin {
         public boolean isCancel() {
             return myIsCancel;
         }
-    }
-}
-
-class ImputeDisplayOptionDialog extends JDialog {
-
-    boolean displayImputed = true;
-    private JPanel mainPanel = new JPanel();
-    private JLabel lbl = new JLabel();
-    private JButton yesButton = new JButton();
-    private JButton noButton = new JButton();
-    private GridBagLayout gridBagLayout = new GridBagLayout();
-
-    public ImputeDisplayOptionDialog() {
-        super((Frame) null, "File Loader", true);
-        try {
-            initUI();
-            pack();
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-    }
-
-    void initUI() throws Exception {
-
-        lbl.setFont(new java.awt.Font("Dialog", 1, 12));
-        lbl.setText("Would you like Imputed data to be exported in lower case?");
-
-        mainPanel.setMinimumSize(new Dimension(480, 150));
-        mainPanel.setPreferredSize(new Dimension(480, 150));
-        mainPanel.setLayout(gridBagLayout);
-
-        yesButton.setMaximumSize(new Dimension(63, 27));
-        yesButton.setMinimumSize(new Dimension(63, 27));
-        yesButton.setText("Yes");
-        yesButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                yesButton_actionPerformed(e);
-            }
-        });
-
-        noButton.setMaximumSize(new Dimension(63, 27));
-        noButton.setMinimumSize(new Dimension(63, 27));
-        noButton.setText("No");
-        noButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                noButton_actionPerformed(e);
-            }
-        });
-
-        JPanel buttonPanel = new JPanel();
-        buttonPanel.add(yesButton);
-        buttonPanel.add(noButton);
-
-        mainPanel.add(lbl, new GridBagConstraints(0, 0, 1, 1, 1.0, 1.0, GridBagConstraints.CENTER, GridBagConstraints.NONE, new Insets(5, 0, 5, 0), 0, 0));
-        mainPanel.add(buttonPanel, new GridBagConstraints(0, 1, 1, 1, 1.0, 1.0, GridBagConstraints.PAGE_END, GridBagConstraints.NONE, new Insets(5, 0, 5, 0), 0, 0));
-
-        this.add(mainPanel, BorderLayout.CENTER);
-    }
-
-    private void yesButton_actionPerformed(ActionEvent e) {
-        displayImputed = true;
-        setVisible(false);
-    }
-
-    private void noButton_actionPerformed(ActionEvent e) {
-        displayImputed = false;
-        setVisible(false);
-    }
-
-    public boolean getDisplayImputed() {
-        return displayImputed;
     }
 }
 
