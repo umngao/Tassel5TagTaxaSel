@@ -987,7 +987,7 @@ public class TasselPipeline implements PluginListener {
                         try {
                             plugin.setSiteScoreType(SiteScore.SITE_SCORE_TYPE.valueOf(type));
                         } catch (Exception ex) {
-                            throw new IllegalArgumentException("TasselPipeline: parseArgs: -exportType: Unknown type: " + type + "  Should be: " + Arrays.toString(FileLoadPlugin.TasselFileType.values()) + " or " + Arrays.toString(SiteScore.SITE_SCORE_TYPE.values()));
+                            throw new IllegalArgumentException("TasselPipeline: parseArgs: -exportType: Unknown type: " + type + "  Should be: " + Arrays.toString(FileLoadPlugin.TasselFileType.values()) + " or " + "ReferenceProbablity");
                         }
                     }
 
