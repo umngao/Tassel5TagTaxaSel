@@ -73,6 +73,12 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
     }
    
 
+    public int getTechnique() {
+        return technique;
+    }
+    public void setGlobalMax(double max) {
+        this.globalMax = max;
+    }
     private ArrayList<String> findBestMatch(String unmatchedString) {
         ArrayList<String> bestMatches = new ArrayList<>();
         double maxScore = -1;
@@ -146,7 +152,7 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
         for (int i = 0; i < referenceIDGroup.numberOfTaxa(); i++) {
             //sm = scoreMatch(referenceIDGroup.taxaName(i), unmatchedString, ignoreCase, ignoreWhite, ignorePunc);
             sm = getScore(referenceIDGroup.taxaName(i), unmatchedString, ignoreCase, ignoreWhite, ignorePunc,technique);
-            
+            sm = 1.0-((sm - globalMin)/(globalMax-globalMin));
             //theSortMap.put(1 - sm - ((double) i / 100000.0), referenceIDGroup.taxaName(i));
             theSortMap.put(sm - ((double) i / 100000.0), referenceIDGroup.taxaName(i));
         }
@@ -155,33 +161,36 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
 
     public static double getScore(String s1, String s2, boolean ignoreCase, boolean ignoreWhite, boolean ignorePunc, int technique) {
         double score = 0.0;
+        if(s1.equals(s2)) {
+            return score;
+        }
       
         //dice need to do a 1- as high similarity = low distance
-        if(technique==0) {
+        if(technique == 0) {
             score = 1.0 - scoreMatch(s1,s2,ignoreCase,ignoreWhite,ignorePunc);
         }
         //String edit
-        else if(technique==1) {
+        else if(technique == 1) {
             score = editDistanceScoreMatch(s1,s2,ignoreCase,ignoreWhite,ignorePunc);
         }
         //DTW with hamming
-        else if(technique==2) {
+        else if(technique == 2) {
             score = dtwDist(s1,s2,"hamming",ignoreCase,true,ignorePunc);
         }
         //DTW with keyboard dist
-        else if(technique==3) {
+        else if(technique == 3) {
             score = dtwDist(s1,s2,"key",ignoreCase,true,ignorePunc);
         }
         //Hamming with soundex
-        else if(technique==4) {
+        else if(technique == 4) {
             score = hammingDistSoundex(s1,s2,ignoreCase,ignoreWhite,ignorePunc);
         }
         //Dice with metaphone  need to do a 1- as high similarity = low distance
-        else if(technique==5) {
+        else if(technique == 5) {
             score = 1 - diceWithMetaphone(s1,s2,ignoreCase,ignoreWhite,ignorePunc);
         }
         //Edit Distance with metaphone
-        else if(technique==6) {
+        else if(technique == 6) {
             score=editWithMetaphone(s1,s2,ignoreCase,ignoreWhite,ignorePunc);
         }
         return score;
@@ -257,6 +266,13 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
         s1 = cleanName(s1, ignoreCase, ignoreWhite, ignorePunc);
         s2 = cleanName(s2, ignoreCase, ignoreWhite, ignorePunc);
         
+        if(s1.equals("")) {
+            return s2.length();
+        }
+        if(s2.equals("")) {
+            return s1.length();
+        }
+        
         double[][] editMatrix = new double[s1.length()][s2.length()];
         
         //Init first row and column of editMatrix
@@ -294,19 +310,6 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
                 }
             }
         }
-        //Return the last position of the matrix as similarity score
-        /*
-        for(int i = 0; i<editMatrix.length;i++) {
-            for(int j = 0; j<editMatrix[i].length;j++) {
-                System.out.print(editMatrix[i][j]+",");
-            }
-            System.out.println();
-        }
-        System.out.println();
-        if(s2.equals("VA22")) {
-            System.out.println();
-        }
-        */
         return editMatrix[editMatrix.length-1][editMatrix[editMatrix.length-1].length-1];
     }
 
@@ -570,12 +573,18 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
             if(!Character.isDigit(parsed.get(i).charAt(0))) {
                encodedString += metaphone.encode(parsed.get(i)); 
             }
+            else {
+                encodedString+=parsed.get(i);
+            }
         }
         return encodedString;
         //return metaphone.metaphone(s1);
     }
     public static String soundex2(String s1, boolean ignoreCase, boolean ignoreWhite, boolean ignorePunc) {
         s1 = cleanName(s1, true, true, true);
+        if(s1.equals("")) {
+            return "1abcd";
+        }
         Soundex soundex = new Soundex();
         return soundex.soundex(s1);
     }
@@ -780,20 +789,6 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
             }
         }
         //return end point
-        
-        /*
-        if(distMeas.equals("key")) {
-        System.out.println(str2);
-        for(int i = 1; i<costMat.length;i++) {
-            System.out.print(str1.charAt(i-1)+": ");
-            for(int j = 1; j<costMat[i].length;j++) {
-                System.out.print(costMat[i][j]+",");
-            }
-            System.out.println();
-        }
-        System.out.println("END:"+costMat[costMat.length-1][costMat[costMat.length-1].length-1]);
-        }
-        */
         return costMat[costMat.length-1][costMat[costMat.length-1].length-1];
     }
     /** @return an array of adjacent letter pairs contained in the input string */
@@ -886,7 +881,14 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
             synName = "" + (String) keyArray[i];
             if (getPreferredIndex(synName) > -1) {
                 realName = "" + getPreferredName(synName);
-                score = scoreMatch(synName, realName, true, false, false);
+                score = getScore(synName,realName, true, false, false, technique);
+                //To Fix a NaN bug
+                if(technique==4) {
+                    globalMax = 4.0;
+                }
+                //score = scoreMatch(synName, realName, true, false, false);
+                score = 1.0-((score - globalMin)/(globalMax-globalMin));
+                
                 if (score < threshold) {
                     idSynonyms.put(synName, new Integer(-1));
                 }
@@ -954,6 +956,9 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
         data[0] = (String) keyArray[row];
         data[1] = getPreferredName((String) keyArray[row]);
         data[2] = "" + getPreferredIndex((String) keyArray[row]);
+        if(technique == 4) {
+            globalMax = 4.0;
+        }
         if(technique==0) {
             data[3] = "" + scoreMatch("" + data[0], "" + data[1], true, false, false);
         }
@@ -963,13 +968,11 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
                 data[3] = ""+0;
             }
             else {
-                //System.out.println("GlMin: "+globalMin + " GLMax: "+globalMax+" Val: "+getScore("" + data[0], "" + data[1], true, false, false,technique));
                 data[3] = "" + (1.0-((getScore("" + data[0], "" + data[1], true, false, false,technique) - globalMin)/(globalMax-globalMin)));
                 //data[3] = "" + getScore("" + data[0], "" + data[1], true, false, false,technique);
             }
         }
         return data;
-
     }
 
     public void deleteElements(Object[] key) {

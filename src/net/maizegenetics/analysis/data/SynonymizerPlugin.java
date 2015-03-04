@@ -653,7 +653,12 @@ class SynonymizerDialog extends JDialog {
         for (int i = 0; i < dm.getRowCount(); i++) {
             synName = (String) dm.getValueAt(i, 0);
             realName = (String) dm.getValueAt(i, 1);
-            score = IdentifierSynonymizer.scoreMatch(synName, realName, true, false, false);
+            //score = IdentifierSynonymizer.scoreMatch(synName, realName, true, false, false);
+            //To Fix a NaN bug
+            if(theTS.getTechnique()==4) {
+                theTS.setGlobalMax(4.0);
+            }
+            score = IdentifierSynonymizer.getScore(synName, realName, true, false, false, theTS.getTechnique());
             if (score < threshold) {
                 dm.setValueAt("", i, 1);
                 dm.setValueAt("-1", i, 2);
