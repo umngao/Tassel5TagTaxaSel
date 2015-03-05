@@ -102,7 +102,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
 
     //should this be converted to a stream?
     private Tuple<Tag,Optional<Position>> parseRow(String inputLine) {
-        final int name = 0, flag = 1, chr = 2, pos = 3, cigar = 5, tagS = 9, alignScoreIndex=11; // column indices in inputLine
+        final int name = 0, flag = 1, chr = 2, pos = 3, cigar = 5, tagS = 9; // column indices in inputLine
         String[] s=inputLine.split("\\s");
         Tag tag= TagBuilder.instance(s[tagS]).build();
         // A tag consisting of 32 T's become -1 in "getLongFromSequence", which results in a "null" tag
@@ -115,8 +115,8 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         // Check for minimum alignment length and proportion
         if (!hasMinAlignLength(s)) return new Tuple<> (tag,Optional.<Position>empty());
         if (!hasMinAlignProportion(s)) return new Tuple<> (tag,Optional.<Position>empty());
-        Chromosome chromosome=new Chromosome(s[chr].replace("chr", ""));
-        String alignmentScore=s[alignScoreIndex].split(":")[2];       
+        Chromosome chromosome=new Chromosome(s[chr].replace("chr", "")); 
+        String alignmentScore=getAlignmentScore(s); 
         String mappingApproach = isBowtie? "Bowtie2" : "BWA"; // these are only 2 aligners we currently support
         Position position=new GeneralPosition
                 .Builder(chromosome,Integer.parseInt(s[pos]))
@@ -128,7 +128,6 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
                 .build();
         return new Tuple<>(tag,Optional.of(position));
     }
-
 
     /**Bit 3 of the flag (16) indicates whether forward strand*/
     private boolean hasAlignment(String samFlag){
@@ -211,7 +210,21 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
     	return matchLen;
     }
 
-
+    private String getAlignmentScore(String[] samRead) {
+    	String asField = null;
+    	for (int index=11; index < samRead.length; index++) {
+    		String[] optField = samRead[index].split(":");
+    		if (optField[0].equals("AS")) {
+    			asField = samRead[index].split(":")[2];
+    			break;
+    		}
+    	}
+    	if (asField == null) {
+    		myLogger.info("SAMToGBSDbPluginV2: warning: alignmentScore not present in Sam File, defaulting to 0");
+    		asField = "0";
+    	} 
+    	return asField;
+    }
     /**
      * Reads SAM files output from BWA or bowtie2
      */
