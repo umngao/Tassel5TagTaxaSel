@@ -160,15 +160,21 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 //			System.out.printf("Sites analyzed in %d ms\n", System.currentTimeMillis() - start);
 			if (permute) updateReportsWithPermutationP();
 		}
+		if (saveToFile) {
+			siteReportBuilder.build();
+			alleleReportBuilder.build();
+		}
 	}
 	
 	@Override
 	public TableReport siteReport() {
+		saveToFile = true;
 		return siteReportBuilder.build();
 	}
 	
 	@Override
 	public TableReport alleleReport() {
+		saveToFile = true;
 		return alleleReportBuilder.build();
 	}
 	
@@ -380,11 +386,14 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 
 	@Override
 	public void siteReportFilepath(String savefile) {
+		saveToFile = true;
 		siteReportFilename = savefile;
+		
 	}
 
 	@Override
 	public void alleleReportFilepath(String savefile) {
+		saveToFile = true;
 		alleleReportFilename = savefile;
 	}
 
