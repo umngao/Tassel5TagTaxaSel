@@ -107,8 +107,8 @@ import net.maizegenetics.analysis.numericaltransform.ImputationPlugin;
 public class TASSELMainFrame extends JFrame implements ActionListener {
 
     private static final Logger myLogger = Logger.getLogger(TASSELMainFrame.class);
-    public static final String version = "5.2.4";
-    public static final String versionDate = "February 19, 2015";
+    public static final String version = "5.2.5";
+    public static final String versionDate = "March 5, 2015";
     private DataTreePanel myDataTreePanel;
     private String tasselDataFile = "TasselDataFile";
     //a variable to control when the progress bar was last updated
