@@ -86,7 +86,7 @@ public class UTagCountToTagPairPlugin extends AbstractPlugin {
 
     @Override
     public String getToolTipText() {
-        return "Tag Counts to Tag Pairs";
+        return "Deprecated: Reference Pipeline is Better";
     }
 
     // The following getters and setters were auto-generated.

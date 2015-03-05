@@ -167,7 +167,7 @@ public class UTagPairToTOPMPlugin extends AbstractPlugin {
 
     @Override
     public String getToolTipText() {
-        return("Tag Pairs to TOPM");
+        return "Deprecated: Reference Pipeline is Better";
     }
 
     // The following getters and setters were auto-generated.
