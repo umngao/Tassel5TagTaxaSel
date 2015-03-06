@@ -192,24 +192,24 @@ public class ExportPlugin extends AbstractPlugin {
 
     public String performFunctionForAlignment(GenotypeTable inputAlignment) {
 
-        if (isInteractive()) {
+        java.util.List<GenotypeTable.GENOTYPE_TABLE_COMPONENT> components = new ArrayList<>();
+        if (inputAlignment.hasGenotype()) {
+            components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype);
+        }
+        if (inputAlignment.hasReferenceProbablity()) {
+            components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability);
+        }
+        if (inputAlignment.hasAlleleProbabilities()) {
+            components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability);
+        }
+        if (inputAlignment.hasDepth()) {
+            components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Depth);
+        }
+        if (inputAlignment.hasDosage()) {
+            components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Dosage);
+        }
 
-            java.util.List<GenotypeTable.GENOTYPE_TABLE_COMPONENT> components = new ArrayList<>();
-            if (inputAlignment.hasGenotype()) {
-                components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype);
-            }
-            if (inputAlignment.hasReferenceProbablity()) {
-                components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability);
-            }
-            if (inputAlignment.hasAlleleProbabilities()) {
-                components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability);
-            }
-            if (inputAlignment.hasDepth()) {
-                components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Depth);
-            }
-            if (inputAlignment.hasDosage()) {
-                components.add(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Dosage);
-            }
+        if (isInteractive()) {
 
             myFileType = null;
             mySiteScoreType = null;
@@ -232,6 +232,8 @@ public class ExportPlugin extends AbstractPlugin {
             }
 
             setSaveFile(getFileByChooser());
+        } else if ((components.contains(GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability)) && (components.size() == 1)) {
+            mySiteScoreType = SiteScore.SITE_SCORE_TYPE.ReferenceProbablity;
         }
 
         if ((mySaveFile == null) || (mySaveFile.length() == 0)) {
