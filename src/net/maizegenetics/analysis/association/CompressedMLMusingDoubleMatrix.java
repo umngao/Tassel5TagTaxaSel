@@ -735,7 +735,7 @@ public class CompressedMLMusingDoubleMatrix {
             }
             if (markerdf == 2 && markerTest) { //calculate additive and dominance tests and effects
             	result.addEffect = result.beta.get(nparm - 2, 0) - result.beta.get(nparm - 1, 0);
-            	result.domEffect = (result.beta.get(nparm - 2, 0) + result.beta.get(nparm - 1, 0)) / 2.0;
+            	result.domEffect = -(result.beta.get(nparm - 2, 0) + result.beta.get(nparm - 1, 0)) / 2.0;
             	
             	//additive test 
                 M = DoubleMatrixFactory.DEFAULT.make(1, nparm, 0);
@@ -756,8 +756,8 @@ public class CompressedMLMusingDoubleMatrix {
 
                 //dominance test
                 M = DoubleMatrixFactory.DEFAULT.make(1, nparm, 0);
-                M.set(0, nparm - 2, 0.5);
-                M.set(0, nparm - 1, 0.5);
+                M.set(0, nparm - 2, -0.5);
+                M.set(0, nparm - 1, -0.5);
                     
                 Mb = M.mult(result.beta);
                 try {

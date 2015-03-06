@@ -9,19 +9,18 @@ import net.maizegenetics.util.OpenBitSet;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 import static net.maizegenetics.dna.snp.GenotypeTable.*;
 
 /**
  * Utility methods for comparing, sorting, and counting genotypes.
+ *
  * @author Terry Casstevens
  * @author Ed Buckler
  */
 public class GenotypeTableUtils {
 
-    private static final Integer ONE = Integer.valueOf(1);
+    private static final Integer ONE = 1;
     private static final byte HIGHMASK = (byte) 0x0F;
 
     private GenotypeTableUtils() {
@@ -249,11 +248,12 @@ public class GenotypeTableUtils {
 
     /**
      * Converts the byte representation of genotypes to string list of genotypes
+     *
      * @param data
      * @return list of the genotypes.
      */
     public static List<String> convertNucleotideGenotypesToStringList(byte[] data) {
-        List<String> result=new ArrayList<>();
+        List<String> result = new ArrayList<>();
         for (byte b : data) {
             result.add(NucleotideAlignmentConstants.getHaplotypeNucleotide(b));
         }
@@ -507,9 +507,11 @@ public class GenotypeTableUtils {
      * or ?), where GAP IS CONSIDERED A GOOD BASE
      */
     public static GenotypeTable removeSitesBasedOnFreqIgnoreMissing(GenotypeTable aa, double minimumProportion, double maximumProportion, int minimumCount) {
+        if (!aa.hasGenotype()) {
+            return aa;
+        }
         int[] includeSites = getIncludedSitesBasedOnFreqIgnoreMissing(aa, minimumProportion, maximumProportion, minimumCount);
-        GenotypeTable mlaa = FilterGenotypeTable.getInstance(aa, includeSites);
-        return mlaa;
+        return FilterGenotypeTable.getInstance(aa, includeSites);
     }
 
     /**
@@ -598,12 +600,8 @@ public class GenotypeTableUtils {
      */
     public static boolean isEqual(byte[] alleles1, byte[] alleles2) {
 
-        if (((alleles1[0] == alleles2[0]) && (alleles1[1] == alleles2[1]))
-                || ((alleles1[0] == alleles2[1]) && (alleles1[1] == alleles2[0]))) {
-            return true;
-        } else {
-            return false;
-        }
+        return ((alleles1[0] == alleles2[0]) && (alleles1[1] == alleles2[1]))
+                || ((alleles1[0] == alleles2[1]) && (alleles1[1] == alleles2[0]));
 
     }
 
@@ -778,7 +776,7 @@ public class GenotypeTableUtils {
      * @return diploid value
      */
     public static byte getUnphasedDiploidValueNoHets(byte g1, byte g2) {
-        if ((g2 == g1)&&(!isHeterozygous(g1))) {
+        if ((g2 == g1) && (!isHeterozygous(g1))) {
             return g1;
         }
         if (g1 == UNKNOWN_DIPLOID_ALLELE) {
@@ -853,7 +851,7 @@ public class GenotypeTableUtils {
         }
         return new BitSet[]{rMj, rMn};
     }
-    
+
     public static BitSet calcBitPresenceFromGenotype(byte[] genotype, byte[] referenceValues) {
         int sites = genotype.length;
         if (genotype.length != referenceValues.length) {
@@ -861,12 +859,25 @@ public class GenotypeTableUtils {
         }
         OpenBitSet result = new OpenBitSet(genotype.length);
         for (int i = 0; i < sites; i++) {
-            
+
             if (referenceValues[i] == UNKNOWN_ALLELE) {
                 // do nothing
             } else if (referenceValues[i] == (byte) (genotype[i] & 0xf)) {
                 result.fastSet(i);
             } else if (referenceValues[i] == (byte) ((genotype[i] >>> 4) & 0xf)) {
+                result.fastSet(i);
+            }
+
+        }
+        return result;
+    }
+
+    public static BitSet calcBitUnknownPresenceFromGenotype(byte[] genotype) {
+        int length = genotype.length;
+        OpenBitSet result = new OpenBitSet(genotype.length);
+        for (int i = 0; i < length; i++) {
+
+            if (genotype[i] == UNKNOWN_DIPLOID_ALLELE) {
                 result.fastSet(i);
             }
 
@@ -956,14 +967,14 @@ public class GenotypeTableUtils {
         }
         return new BitSet[]{rMj, rMn};
     }
-    
+
     public static BitSet calcBitPresenceFromGenotype(byte[] genotype, byte referenceValue) {
-        int sites = genotype.length;
+        int length = genotype.length;
         OpenBitSet result = new OpenBitSet(genotype.length);
         if (referenceValue == UNKNOWN_ALLELE) {
             return result;
         }
-        for (int i = 0; i < sites; i++) {
+        for (int i = 0; i < length; i++) {
 
             if (referenceValue == (byte) (genotype[i] & 0xf)) {
                 result.fastSet(i);
@@ -974,72 +985,96 @@ public class GenotypeTableUtils {
         }
         return result;
     }
-    
+
     public static float[][] convertGenotypeToFloatProbability(GenotypeTable genotype, boolean sitesByTaxa) {
-    	int nsites = genotype.numberOfSites();
-    	int ntaxa = genotype.numberOfTaxa();
-    	float[][] out = null;
-    	if (sitesByTaxa) {
-    		out = new float[nsites][ntaxa];
-    		for (int s = 0; s < nsites; s++) {
-    			byte major = genotype.majorAllele(s);
-    			for (int t = 0; t < ntaxa; t++) {
-    				byte geno = genotype.genotype(t, s);
-    				if (geno == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) out[s][t] = Float.NaN;
-    				byte[] alleles = GenotypeTableUtils.getDiploidValues(geno);
-    				if (alleles[0] == major) out[s][t] += 0.5;
-    				if (alleles[1] == major) out[s][t] += 0.5;
-    			}
-    		} 
-    	}
-    	if (!sitesByTaxa) {
-    		out = new float[ntaxa][nsites];
-    		for (int s = 0; s < nsites; s++) {
-    			byte major = genotype.majorAllele(s);
-    			for (int t = 0; t < ntaxa; t++) {
-    				byte geno = genotype.genotype(t, s);
-    				if (geno == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) out[t][s] = Float.NaN;
-    				byte[] alleles = GenotypeTableUtils.getDiploidValues(geno);
-    				if (alleles[0] == major) out[t][s] += 0.5;
-    				if (alleles[1] == major) out[t][s] += 0.5;
-    			}
-    		} 
-    	}
-    	return out;
-	
+        int nsites = genotype.numberOfSites();
+        int ntaxa = genotype.numberOfTaxa();
+        float[][] out = null;
+        if (sitesByTaxa) {
+            out = new float[nsites][ntaxa];
+            for (int s = 0; s < nsites; s++) {
+                byte major = genotype.majorAllele(s);
+                for (int t = 0; t < ntaxa; t++) {
+                    byte geno = genotype.genotype(t, s);
+                    if (geno == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+                        out[s][t] = Float.NaN;
+                    }
+                    byte[] alleles = GenotypeTableUtils.getDiploidValues(geno);
+                    if (alleles[0] == major) {
+                        out[s][t] += 0.5;
+                    }
+                    if (alleles[1] == major) {
+                        out[s][t] += 0.5;
+                    }
+                }
+            }
+        }
+        if (!sitesByTaxa) {
+            out = new float[ntaxa][nsites];
+            for (int s = 0; s < nsites; s++) {
+                byte major = genotype.majorAllele(s);
+                for (int t = 0; t < ntaxa; t++) {
+                    byte geno = genotype.genotype(t, s);
+                    if (geno == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+                        out[t][s] = Float.NaN;
+                    }
+                    byte[] alleles = GenotypeTableUtils.getDiploidValues(geno);
+                    if (alleles[0] == major) {
+                        out[t][s] += 0.5;
+                    }
+                    if (alleles[1] == major) {
+                        out[t][s] += 0.5;
+                    }
+                }
+            }
+        }
+        return out;
+
     }
 
     public static double[][] convertGenotypeToDoubleProbability(GenotypeTable genotype, boolean sitesByTaxa) {
-    	int nsites = genotype.numberOfSites();
-    	int ntaxa = genotype.numberOfTaxa();
-    	double[][] out = null;
-    	if (sitesByTaxa) {
-    		out = new double[nsites][ntaxa];
-    		for (int s = 0; s < nsites; s++) {
-    			byte major = genotype.majorAllele(s);
-    			for (int t = 0; t < ntaxa; t++) {
-    				byte geno = genotype.genotype(t, s);
-    				if (geno == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) out[s][t] = Double.NaN;
-    				byte[] alleles = GenotypeTableUtils.getDiploidValues(geno);
-    				if (alleles[0] == major) out[s][t] += 0.5;
-    				if (alleles[1] == major) out[s][t] += 0.5;
-    			}
-    		} 
-    	}
-    	if (!sitesByTaxa) {
-    		out = new double[ntaxa][nsites];
-    		for (int s = 0; s < nsites; s++) {
-    			byte major = genotype.majorAllele(s);
-    			for (int t = 0; t < ntaxa; t++) {
-    				byte geno = genotype.genotype(t, s);
-    				if (geno == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) out[t][s] = Double.NaN;
-    				byte[] alleles = GenotypeTableUtils.getDiploidValues(geno);
-    				if (alleles[0] == major) out[t][s] += 0.5;
-    				if (alleles[1] == major) out[t][s] += 0.5;
-    			}
-    		} 
-    	}
-    	return out;
+        int nsites = genotype.numberOfSites();
+        int ntaxa = genotype.numberOfTaxa();
+        double[][] out = null;
+        if (sitesByTaxa) {
+            out = new double[nsites][ntaxa];
+            for (int s = 0; s < nsites; s++) {
+                byte major = genotype.majorAllele(s);
+                for (int t = 0; t < ntaxa; t++) {
+                    byte geno = genotype.genotype(t, s);
+                    if (geno == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+                        out[s][t] = Double.NaN;
+                    }
+                    byte[] alleles = GenotypeTableUtils.getDiploidValues(geno);
+                    if (alleles[0] == major) {
+                        out[s][t] += 0.5;
+                    }
+                    if (alleles[1] == major) {
+                        out[s][t] += 0.5;
+                    }
+                }
+            }
+        }
+        if (!sitesByTaxa) {
+            out = new double[ntaxa][nsites];
+            for (int s = 0; s < nsites; s++) {
+                byte major = genotype.majorAllele(s);
+                for (int t = 0; t < ntaxa; t++) {
+                    byte geno = genotype.genotype(t, s);
+                    if (geno == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+                        out[t][s] = Double.NaN;
+                    }
+                    byte[] alleles = GenotypeTableUtils.getDiploidValues(geno);
+                    if (alleles[0] == major) {
+                        out[t][s] += 0.5;
+                    }
+                    if (alleles[1] == major) {
+                        out[t][s] += 0.5;
+                    }
+                }
+            }
+        }
+        return out;
     }
-    
+
 }

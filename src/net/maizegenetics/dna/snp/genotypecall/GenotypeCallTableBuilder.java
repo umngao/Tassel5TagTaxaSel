@@ -53,7 +53,7 @@ public class GenotypeCallTableBuilder {
     public static GenotypeCallTableBuilder getInstance(int numTaxa, int numSites) {
         return getUnphasedNucleotideGenotypeBuilder(numTaxa, numSites);
     }
-    
+
     /**
      * Get Genotype Builder given number of taxa and sites. Performance
      * optimized for taxon loop inside site loop. Default is unphased and
@@ -87,10 +87,16 @@ public class GenotypeCallTableBuilder {
     }
 
     public static GenotypeCallTable getFilteredInstance(GenotypeCallTable genotype, int numTaxa, int[] taxaRedirect, int numSites, int rangeStart, int rangeEnd) {
+        if (genotype == null) {
+            return null;
+        }
         return new FilterGenotypeCallTable(genotype, numTaxa, taxaRedirect, numSites, rangeStart, rangeEnd);
     }
 
     public static GenotypeCallTable getFilteredInstance(GenotypeCallTable genotype, int numTaxa, int[] taxaRedirect, int numSites, int[] siteRedirect) {
+        if (genotype == null) {
+            return null;
+        }
         return new FilterGenotypeCallTable(genotype, numTaxa, taxaRedirect, numSites, siteRedirect);
     }
 

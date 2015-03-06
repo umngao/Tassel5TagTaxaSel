@@ -44,7 +44,11 @@ public enum WHICH_ALLELE {
     /**
      * Ancestral Allele
      */
-    Ancestral(12)
+    Ancestral(12),
+    /**
+     * Diploid Unknown
+     */
+    Unknown(13)
     ;
 
     private final int myIndex;

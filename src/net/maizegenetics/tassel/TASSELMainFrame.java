@@ -63,11 +63,18 @@ import org.apache.log4j.Logger;
 
 import javax.swing.*;
 
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.Insets;
+import java.awt.Point;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
+import java.awt.font.TextAttribute;
 import java.io.*;
 import java.net.URL;
 import java.util.HashMap;
@@ -107,8 +114,8 @@ import net.maizegenetics.analysis.numericaltransform.ImputationPlugin;
 public class TASSELMainFrame extends JFrame implements ActionListener {
 
     private static final Logger myLogger = Logger.getLogger(TASSELMainFrame.class);
-    public static final String version = "5.2.4";
-    public static final String versionDate = "February 19, 2015";
+    public static final String version = "5.2.5";
+    public static final String versionDate = "March 5, 2015";
     private DataTreePanel myDataTreePanel;
     private String tasselDataFile = "TasselDataFile";
     //a variable to control when the progress bar was last updated
@@ -780,8 +787,17 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
         JMenu result = new JMenu("UNEAK (No Reference)");
 
-        result.add(createMenuItem(new UTagCountToTagPairPlugin(this, true)));
-        result.add(createMenuItem(new UTagPairToTOPMPlugin(this, true)));
+        JMenuItem item = createMenuItem(new UTagCountToTagPairPlugin(this, true));
+        Map attributes = item.getFont().getAttributes();
+        attributes.put(TextAttribute.STRIKETHROUGH, TextAttribute.STRIKETHROUGH_ON);
+        item.setFont(new Font(attributes));
+        result.add(item);
+
+        item = createMenuItem(new UTagPairToTOPMPlugin(this, true));
+        attributes = item.getFont().getAttributes();
+        attributes.put(TextAttribute.STRIKETHROUGH, TextAttribute.STRIKETHROUGH_ON);
+        item.setFont(new Font(attributes));
+        result.add(item);
 
         return result;
     }

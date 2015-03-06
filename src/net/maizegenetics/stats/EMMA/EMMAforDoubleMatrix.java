@@ -538,8 +538,8 @@ public class EMMAforDoubleMatrix {
 
         //dominance test
         M = DoubleMatrixFactory.DEFAULT.make(1, nparm, 0);
-        M.set(0, nparm - 2, 0.5);
-        M.set(0, nparm - 1, 0.5);
+        M.set(0, nparm - 2, -0.5);
+        M.set(0, nparm - 1, -0.5);
             
         MB = M.mult(beta);
         double domEffect = MB.get(0, 0);
