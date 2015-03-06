@@ -112,7 +112,6 @@ public final class GeneralPosition implements Position {
             myChromosome = Chromosome.getCanonicalChromosome(chr);
             myPosition = position;
             Arrays.fill(myAlleles, GenotypeTable.UNKNOWN_ALLELE);
-            myAnnotations.addAnnotation("VARIANT", "");
         }
 
         /**
