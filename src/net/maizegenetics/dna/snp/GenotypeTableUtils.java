@@ -872,6 +872,19 @@ public class GenotypeTableUtils {
         return result;
     }
 
+    public static BitSet calcBitUnknownPresenceFromGenotype(byte[] genotype) {
+        int length = genotype.length;
+        OpenBitSet result = new OpenBitSet(genotype.length);
+        for (int i = 0; i < length; i++) {
+
+            if (genotype[i] == UNKNOWN_DIPLOID_ALLELE) {
+                result.fastSet(i);
+            }
+
+        }
+        return result;
+    }
+
     /**
      * Method for getting TBits rapidly from major and minor allele arrays
      *
@@ -956,12 +969,12 @@ public class GenotypeTableUtils {
     }
 
     public static BitSet calcBitPresenceFromGenotype(byte[] genotype, byte referenceValue) {
-        int sites = genotype.length;
+        int length = genotype.length;
         OpenBitSet result = new OpenBitSet(genotype.length);
         if (referenceValue == UNKNOWN_ALLELE) {
             return result;
         }
-        for (int i = 0; i < sites; i++) {
+        for (int i = 0; i < length; i++) {
 
             if (referenceValue == (byte) (genotype[i] & 0xf)) {
                 result.fastSet(i);

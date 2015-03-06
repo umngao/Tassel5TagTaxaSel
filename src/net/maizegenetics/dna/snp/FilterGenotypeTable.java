@@ -1067,6 +1067,9 @@ public class FilterGenotypeTable implements GenotypeTable {
             case Minor2:
                 result = new DynamicBitStorage(myGenotype, allele, myGenotype.thirdAlleleForAllSites());
                 break;
+            case Unknown:
+                result = DynamicBitStorage.getUnknownInstance(myGenotype);
+                break;
             default:
                 myLogger.warn("bitStorage: Unsupported allele: " + allele);
                 return null;
