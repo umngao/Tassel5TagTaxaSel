@@ -294,7 +294,7 @@ public class DataTreePanel extends JPanel implements PluginListener {
                     if (book.getData() instanceof GenotypeTable) {
                         try {
                             GenotypeTable a = (GenotypeTable) book.getData();
-                            if (NucleotideAlignmentConstants.isNucleotideEncodings(a.alleleDefinitions())) {
+                            if ((a.hasGenotype()) && (NucleotideAlignmentConstants.isNucleotideEncodings(a.alleleDefinitions()))) {
                                 builder.append("\n");
                                 builder.append("Nucleotide Codes\n(Derived from IUPAC)...\n");
                                 builder.append("A     A:A\n");
