@@ -507,9 +507,11 @@ public class GenotypeTableUtils {
      * or ?), where GAP IS CONSIDERED A GOOD BASE
      */
     public static GenotypeTable removeSitesBasedOnFreqIgnoreMissing(GenotypeTable aa, double minimumProportion, double maximumProportion, int minimumCount) {
+        if (!aa.hasGenotype()) {
+            return aa;
+        }
         int[] includeSites = getIncludedSitesBasedOnFreqIgnoreMissing(aa, minimumProportion, maximumProportion, minimumCount);
-        GenotypeTable mlaa = FilterGenotypeTable.getInstance(aa, includeSites);
-        return mlaa;
+        return FilterGenotypeTable.getInstance(aa, includeSites);
     }
 
     /**
