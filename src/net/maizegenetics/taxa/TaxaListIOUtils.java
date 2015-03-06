@@ -2,17 +2,15 @@ package net.maizegenetics.taxa;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.*;
+
 import net.maizegenetics.util.Utils;
 import net.maizegenetics.util.TableReportUtils;
-import net.maizegenetics.util.GeneralAnnotation;
-import net.maizegenetics.util.GeneralAnnotationStorage;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.util.*;
+
 import org.apache.log4j.Logger;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
 
 /**
  * Utilities for reading and writing IdGroup and PedigreeIdGroups.
@@ -130,28 +128,6 @@ public class TaxaListIOUtils {
             }
         }
         return keepers.build();
-    }
-
-    public static void exportAnnotatedTaxaListJSON(TaxaList taxa, String filename) {
-        JSONObject json = new JSONObject();
-        JSONArray array = new JSONArray();
-        json.put("TaxaList", array);
-        taxa.stream().forEach(taxon -> addTaxonToJSON(taxon, array));
-        try (BufferedWriter writer = Utils.getBufferedWriter(filename)) {
-            json.writeJSONString(writer);
-        } catch (Exception e) {
-            myLogger.debug(e.getMessage(), e);
-            throw new IllegalStateException("TaxaListIOUtils: exportAnnotatedTaxaListJSON: problem saving file: " + filename);
-        }
-    }
-
-    private static void addTaxonToJSON(Taxon taxon, JSONArray array) {
-        JSONObject current = new JSONObject();
-        current.put("name", taxon.getName());
-        for (Map.Entry<String, String> pair : taxon.getAnnotation().getAllAnnotationEntries()) {
-            current.put(pair.getKey(), pair.getValue());
-        }
-        array.add(current);
     }
 
     public static void exportAnnotatedTaxaListTable(TaxaList taxa, String filename) {

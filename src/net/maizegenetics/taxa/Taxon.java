@@ -78,13 +78,13 @@ public class Taxon implements Serializable, Comparable<Taxon> {
     private final int hashCode;
 
     public Taxon(String name) {
-        this(new Builder(name));
+        this(name, GeneralAnnotationStorage.EMPTY_ANNOTATION_STORAGE);
     }
 
-    private Taxon(Builder builder) {
-        myName = builder.myTaxonName;
+    public Taxon(String name, GeneralAnnotation anno) {
+        myName = name;
         hashCode = myName.hashCode();
-        myAnno = builder.myAnnotations.build();
+        myAnno = anno;
     }
 
     @Override
@@ -247,7 +247,7 @@ public class Taxon implements Serializable, Comparable<Taxon> {
         }
 
         public Taxon build() {
-            return new Taxon(this);
+            return new Taxon(myTaxonName, myAnnotations.build());
         }
     }
 }

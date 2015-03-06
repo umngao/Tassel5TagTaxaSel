@@ -35,6 +35,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import net.maizegenetics.dna.snp.io.JSONUtils;
 
 /**
  *
@@ -55,7 +56,7 @@ public class FileLoadPlugin extends AbstractPlugin {
 
         SqrMatrix, Sequence, Unknown, Fasta,
         Hapmap, Plink, Phenotype, ProjectionAlignment, ProjectPCsandRunModelSelection, Phylip_Seq, Phylip_Inter, Table,
-        Serial, HapmapDiploid, Text, VCF, HDF5, TOPM, HDF5Schema, Filter, NumericGenotype
+        Serial, HapmapDiploid, Text, VCF, HDF5, TOPM, HDF5Schema, Filter, NumericGenotype, TaxaList
     };
     public static final String FILE_EXT_HAPMAP = ".hmp.txt";
     public static final String FILE_EXT_HAPMAP_GZ = ".hmp.txt.gz";
@@ -219,11 +220,28 @@ public class FileLoadPlugin extends AbstractPlugin {
                 br = new BufferedReader(new FileReader(filename));
             }
 
-            String line1 = br.readLine().trim();
+            String line1 = br.readLine();
+            while (line1 != null) {
+                line1 = line1.trim();
+                if (!line1.isEmpty()) {
+                    break;
+                }
+                line1 = br.readLine();
+            }
+            if (line1 == null) {
+                throw new IllegalArgumentException("FileLoadPlugin: guessAtUnknowns: File is empty: " + filename);
+            }
             String[] sval1 = line1.split("\\s");
             String line2 = br.readLine().trim();
             String[] sval2 = line2.split("\\s");
-            if (line1.startsWith("<") || line1.startsWith("#")) {
+            if (line1.startsWith("{")) {
+                if (line2.startsWith("\"TaxaList\"")) {
+                    guess = TasselFileType.TaxaList;
+                    System.out.println("made it!");
+                }
+            } else if (line1.equalsIgnoreCase("<TaxaList>")) {
+                guess = TasselFileType.TaxaList;
+            } else if (line1.startsWith("<") || line1.startsWith("#")) {
                 boolean isTrait = false;
                 boolean isMarker = false;
                 boolean isNumeric = false;
@@ -371,6 +389,10 @@ public class FileLoadPlugin extends AbstractPlugin {
                 }
                 case NumericGenotype: {
                     result = ReadNumericMarkerUtils.readNumericMarkerFile(inFile);
+                    break;
+                }
+                case TaxaList: {
+                    result = JSONUtils.importTaxaListFromJSON(inFile);
                     break;
                 }
                 case Table: {

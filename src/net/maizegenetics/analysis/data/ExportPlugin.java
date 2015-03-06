@@ -9,11 +9,14 @@ package net.maizegenetics.analysis.data;
 import net.maizegenetics.dna.snp.ExportUtils;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.io.SiteScoresIO;
+import net.maizegenetics.dna.snp.io.JSONUtils;
 import net.maizegenetics.dna.snp.score.SiteScore;
 import net.maizegenetics.gui.DialogUtils;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.TaxaListTableReport;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.taxa.distance.WriteDistanceMatrix;
 import net.maizegenetics.taxa.tree.SimpleTree;
@@ -79,6 +82,10 @@ public class ExportPlugin extends AbstractPlugin {
                     filename = performFunctionForPhenotype((Phenotype) data);
                 } else if (data instanceof DistanceMatrix) {
                     filename = performFunctionForDistanceMatrix((DistanceMatrix) data);
+                } else if (data instanceof TaxaList) {
+                    filename = performFunctionForTaxaList((TaxaList) data);
+                } else if (data instanceof TaxaListTableReport) {
+                    filename = performFunctionForTaxaList(((TaxaListTableReport) data).getTaxaList());
                 } else if (data instanceof TableReport) {
                     filename = performFunctionForTableReport((TableReport) data);
                 } else if (data instanceof SimpleTree) {
@@ -356,6 +363,28 @@ public class ExportPlugin extends AbstractPlugin {
             }
         }
         return resultFile;
+
+    }
+
+    public String performFunctionForTaxaList(TaxaList input) {
+
+        if (isInteractive()) {
+            setSaveFile(getFileByChooser());
+        }
+
+        if ((mySaveFile == null) || (mySaveFile.length() == 0)) {
+            return null;
+        }
+
+        String filename = "";
+        try {
+            filename = Utils.addSuffixIfNeeded(mySaveFile, ".json");
+            filename = JSONUtils.exportTaxaListToJSON(input, filename);
+            return new File(filename).getCanonicalPath();
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("ExportPlugin: performFunctionForTaxaList: Problem writing file: " + filename);
+        }
 
     }
 

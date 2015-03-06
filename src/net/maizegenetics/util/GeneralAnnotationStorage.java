@@ -27,7 +27,7 @@ import java.util.Set;
  */
 public class GeneralAnnotationStorage implements GeneralAnnotation {
 
-    private static final GeneralAnnotationStorage EMPTY_ANNOTATION_STORAGE = new GeneralAnnotationStorage();
+    public static final GeneralAnnotationStorage EMPTY_ANNOTATION_STORAGE = new GeneralAnnotationStorage();
 
     private static final double[] EMPTY_DOUBLE_ARRAY = new double[0];
 
