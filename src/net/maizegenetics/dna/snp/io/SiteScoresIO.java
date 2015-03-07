@@ -7,6 +7,8 @@ package net.maizegenetics.dna.snp.io;
 
 import java.io.BufferedWriter;
 
+import java.text.NumberFormat;
+
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.GenotypeTable;
@@ -25,6 +27,12 @@ public class SiteScoresIO {
     private static final Logger myLogger = Logger.getLogger(SiteScoresIO.class);
 
     private static final String DELIMITER = "\t";
+
+    private static final NumberFormat DECIMAL_FORMAT = NumberFormat.getNumberInstance();
+
+    static {
+        DECIMAL_FORMAT.setMaximumFractionDigits(3);
+    }
 
     private SiteScoresIO() {
         // utility
@@ -56,7 +64,7 @@ public class SiteScoresIO {
                 writer.write(taxa.get(r).getName());
                 for (int i = 0; i < probability.numSites(); i++) {
                     writer.write(DELIMITER);
-                    writer.write(Float.toString(probability.value(r, i)));
+                    writer.write(DECIMAL_FORMAT.format(probability.value(r, i)));
                 }
                 writer.write("\n");
             }
