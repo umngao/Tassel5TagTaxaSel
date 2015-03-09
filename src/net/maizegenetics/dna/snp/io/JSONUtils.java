@@ -95,7 +95,7 @@ public class JSONUtils {
             return filename;
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
-            throw new IllegalStateException("TaxaListIOUtils: exportTaxaListToJSON: problem saving file: " + filename + "\n" + e.getMessage());
+            throw new IllegalStateException("JSONUtils: exportTaxaListToJSON: problem saving file: " + filename + "\n" + e.getMessage());
         }
     }
 
@@ -112,13 +112,13 @@ public class JSONUtils {
                 JsonObject obj = jsonReader.readObject();
                 JsonArray taxaList = obj.getJsonArray("TaxaList");
                 if (taxaList == null) {
-                    throw new IllegalArgumentException("TaxaListIOUtils: importTaxaListFromJSON: There is no TaxaList in this file: " + filename);
+                    throw new IllegalArgumentException("JSONUtils: importTaxaListFromJSON: There is no TaxaList in this file: " + filename);
                 }
                 return taxaListFromJSON(taxaList);
             }
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
-            throw new IllegalStateException("TaxaListIOUtils: importTaxaListFromJSON: problem reading file: " + filename + "\n" + e.getMessage());
+            throw new IllegalStateException("JSONUtils: importTaxaListFromJSON: problem reading file: " + filename + "\n" + e.getMessage());
         }
     }
 
@@ -136,7 +136,7 @@ public class JSONUtils {
     private static Taxon taxonFromJSON(JsonObject json) {
         String name = json.getString("name");
         if (name == null) {
-            throw new IllegalStateException("TaxaListIOUtils: taxonFromJSON: All Taxa must have a name.");
+            throw new IllegalStateException("JSONUtils: taxonFromJSON: All Taxa must have a name.");
         }
 
         JsonObject anno = json.getJsonObject("anno");
@@ -158,7 +158,7 @@ public class JSONUtils {
             } else if (value instanceof JsonString) {
                 builder.addAnnotation(key, ((JsonString) value).getString());
             } else {
-                throw new IllegalArgumentException("TaxaListIOUtils: generalAnnotationFromJSON: unknown value type: " + value.getClass().getName());
+                throw new IllegalArgumentException("JSONUtils: generalAnnotationFromJSON: unknown value type: " + value.getClass().getName());
             }
         });
         return builder.build();
