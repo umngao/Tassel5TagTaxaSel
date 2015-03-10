@@ -404,12 +404,12 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             if (rs.next()) {
             	System.out.println("Number of cut sites with 1 tag: " + rs.getInt("numSites"));
             }
-            cutSiteNumFromTCPPS.setInt(1, 2);// having 1 tag
+            cutSiteNumFromTCPPS.setInt(1, 2);// having 2 tag
             rs = cutSiteNumFromTCPPS.executeQuery();
             if (rs.next()) {
             	System.out.println("Number of cut sites with 2 tags: " + rs.getInt("numSites"));
             }
-            cutSiteNumFromTCPPS.setInt(1, 3);// having 2 tags
+            cutSiteNumFromTCPPS.setInt(1, 3);// having 3 tags
             rs = cutSiteNumFromTCPPS.executeQuery();
             if (rs.next()) {
             	System.out.println("Number of cut sites with 3 tags: " + rs.getInt("numSites"));
@@ -417,8 +417,8 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             
             PreparedStatement cutSiteGreaterThanPS = connection.prepareStatement(
                     "select count(*) as numSites from (select count(*) as tgcnt,positionid from tagCutPosition " +
-                    "GROUP BY positionid) where tgcnt=?");
-            cutSiteGreaterThanPS.setInt(1, 3);// having 3 tags
+                    "GROUP BY positionid) where tgcnt>?");
+            cutSiteGreaterThanPS.setInt(1, 3);// having > 3 tags
             rs = cutSiteGreaterThanPS.executeQuery();
             if (rs.next()) {
             	System.out.println("Number of cut sites with more than 3 tags: " + rs.getInt("numSites"));
