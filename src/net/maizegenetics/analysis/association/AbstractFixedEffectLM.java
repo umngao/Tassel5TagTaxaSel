@@ -3,22 +3,18 @@ package net.maizegenetics.analysis.association;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 
-import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.score.SiteScore;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.phenotype.GenotypePhenotype;
-import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.phenotype.PhenotypeAttribute;
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.Plugin;
 import net.maizegenetics.stats.linearmodels.CovariateModelEffect;
 import net.maizegenetics.stats.linearmodels.FactorModelEffect;
 import net.maizegenetics.stats.linearmodels.LinearModelUtils;
@@ -28,7 +24,6 @@ import net.maizegenetics.stats.linearmodels.SolveByOrthogonalizing;
 import net.maizegenetics.stats.linearmodels.SweepFastLinearModel;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
-import net.maizegenetics.util.LoggingUtils;
 import net.maizegenetics.util.OpenBitSet;
 import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.TableReportBuilder;
@@ -103,7 +98,6 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		myCovariateAttributes = myGenoPheno.phenotype().attributeListOfType(ATTRIBUTE_TYPE.covariate);
 		siteTableReportRows = new ArrayList<Object[]>();
 		testTaxaReplication();
-//		LoggingUtils.setupDebugLogging();
 	}
 
 	@Override
@@ -212,12 +206,12 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	protected String[] siteReportColumnNames() {
 		markerpvalueColumn = 5;
 		permpvalueColumn = 6;
-		if (permute) return new String[]{"Trait","Marker","Chr","Position","marker_F","marker_p","perm_p","marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
-		return new String[] {"Trait","Marker","Chr","Position","marker_F","marker_p","marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
+		if (permute) return new String[]{AssociationConstants.STATS_HEADER_TRAIT,AssociationConstants.STATS_HEADER_MARKER,AssociationConstants.STATS_HEADER_CHR,AssociationConstants.STATS_HEADER_POSITION,"marker_F",AssociationConstants.STATS_HEADER_P_VALUE,"perm_p","marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
+		return new String[] {AssociationConstants.STATS_HEADER_TRAIT,AssociationConstants.STATS_HEADER_MARKER,AssociationConstants.STATS_HEADER_CHR,AssociationConstants.STATS_HEADER_POSITION,"marker_F",AssociationConstants.STATS_HEADER_P_VALUE,"marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
 	}
 	
 	protected String[] alleleReportColumnNames() {
-		return new String[]{"Trait","Marker","Chr","Position","Obs","Allele","Estimate"};
+		return new String[]{AssociationConstants.STATS_HEADER_TRAIT,AssociationConstants.STATS_HEADER_MARKER,AssociationConstants.STATS_HEADER_CHR,AssociationConstants.STATS_HEADER_POSITION,"Obs","Allele","Estimate"};
 	}
 	
 	protected ArrayList<ModelEffect> baseModel() {

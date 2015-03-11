@@ -4,6 +4,8 @@
 package net.maizegenetics.analysis.chart;
 
 import net.maizegenetics.util.TableReport;
+import net.maizegenetics.analysis.association.AssociationConstants;
+
 import org.jfree.data.xy.DefaultTableXYDataset;
 
 import java.util.HashMap;
@@ -76,7 +78,7 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
 
     private void setTraitColumnIndex() {
         for (int i = 0; i < myColumnNames.length; i++) {
-            if (myColumnNames[i].equals("Trait")) {
+            if (myColumnNames[i].equals(AssociationConstants.STATS_HEADER_TRAIT)) {
                 myTraitColumnIndex = i;
                 return;
             }
@@ -85,7 +87,7 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
 
     private void setPValueColumnIndex() {
         for (int i = 0; i < myColumnNames.length; i++) {
-            if (myColumnNames[i].equals("p") || myColumnNames[i].equals("marker_p")) {
+            if (myColumnNames[i].equals(AssociationConstants.STATS_HEADER_P_VALUE)) {
                 myPValueColumnIndex = i;
                 return;
             }
@@ -95,7 +97,7 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
 
     private void setChromColumnIndex() {
         for (int i = 0; i < myColumnNames.length; i++) {
-            if (myColumnNames[i].equals("Chr") || myColumnNames[i].equals("Locus")) {
+            if (myColumnNames[i].equals(AssociationConstants.STATS_HEADER_CHR)) {
                 myChromColumnIndex = i;
                 return;
             }
@@ -105,7 +107,7 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
 
     private void setMarkerColumnIndex() {
         for (int i = 0; i < myColumnNames.length; i++) {
-            if (myColumnNames[i].equals("Marker")) {
+            if (myColumnNames[i].equals(AssociationConstants.STATS_HEADER_MARKER)) {
                 myMarkerColumnIndex = i;
                 return;
             }
@@ -114,7 +116,7 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
 
     private void setPositionColumnIndex() {
         for (int i = 0; i < myColumnNames.length; i++) {
-            if (myColumnNames[i].equals("Position") || myColumnNames[i].equals("Locus_pos") || myColumnNames[i].equals("Site")) {
+            if (myColumnNames[i].equals(AssociationConstants.STATS_HEADER_POSITION)) {
                 myPositionColumnIndex = i;
                 return;
             }

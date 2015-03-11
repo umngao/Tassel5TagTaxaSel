@@ -2,15 +2,12 @@ package net.maizegenetics.analysis.association;
 
 import java.util.ArrayList;
 
-import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.stats.linearmodels.FactorModelEffect;
 import net.maizegenetics.stats.linearmodels.LinearModelUtils;
 import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.ModelEffectUtils;
 import net.maizegenetics.stats.linearmodels.SweepFastLinearModel;
-import net.maizegenetics.stats.linearmodels.SweepFastNestedModel;
-import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
 import net.maizegenetics.util.TableReportBuilder;

@@ -83,30 +83,30 @@ public class ManhattanDisplayPlugin extends AbstractDisplayPlugin {
     }
 
     private ArrayList<Integer> splitTable(TableReport table) {
-        ArrayList<Integer> indexes = new ArrayList<Integer>();
+        ArrayList<Integer> indexes = new ArrayList<>();
         int numRows = (int) table.getRowCount();
         String previousTrait = "";
         for (int i = 0; i < numRows; i++) {
             if (!previousTrait.equals((String) table.getValueAt(i, 0))) {
                 if (!((String) table.getValueAt(i, 1)).equals("None")) {
-                    indexes.add(new Integer(i));
+                    indexes.add(i);
                     previousTrait = (String) table.getValueAt(i, 0);
                     if (i > 1) {
-                        indexes.add(new Integer(i));
+                        indexes.add(i);
                     }
                 } else if (i != 0) {
-                    indexes.add(new Integer(i));
-                    indexes.add(new Integer(i + 1));
+                    indexes.add(i);
+                    indexes.add(i + 1);
                     previousTrait = (String) table.getValueAt(i + 1, 0);
                 }
             }
         }
-        indexes.add(new Integer(numRows));
+        indexes.add(numRows);
         return indexes;
     }
 
     private String[] getTraits(TableReport table) {
-        ArrayList<String> traitArray = new ArrayList<String>();
+        ArrayList<String> traitArray = new ArrayList<>();
         int numRows = (int) table.getRowCount();
         String previousTrait = "";
         for (int i = 0; i < numRows; i++) {
@@ -173,7 +173,6 @@ class ManhattanDisplayPluginDialog extends JDialog {
         try {
             jbInit();
             myManhattanPlot = new XYScatterMultipleYPanel(plugin, theTableReport, start, end);
-//            myQQFigurePanel = new QQComponent(theTableReport);
             getContentPane().add(myManhattanPlot, BorderLayout.CENTER);
             pack();
         } catch (Exception ex) {
@@ -203,13 +202,10 @@ class ManhattanDisplayPluginDialog extends JDialog {
 class PlotOptionsDialog extends JDialog {
 
     boolean isCanceled = true;
-    private final static int TEXT_FIELD_WIDTH = 8;
-    private final static int INVALID_VALUE = -999;   // what is returned when inappropriate to return any value
     private JPanel mainPanel = new JPanel();
     private JButton okayButton = new JButton();
     private JButton cancelButton = new JButton();
     private JComboBox traitList;
-    private JPanel checkBoxPanel = new JPanel();
     private GridBagLayout gridBagLayout2 = new GridBagLayout();
 
     public PlotOptionsDialog(Frame f, String[] traits) {

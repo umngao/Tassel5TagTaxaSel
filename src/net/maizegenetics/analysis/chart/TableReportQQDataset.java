@@ -6,6 +6,7 @@ package net.maizegenetics.analysis.chart;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import net.maizegenetics.analysis.association.AssociationConstants;
 import net.maizegenetics.util.TableReport;
 import org.jfree.data.xy.DefaultTableXYDataset;
 
@@ -84,7 +85,7 @@ public class TableReportQQDataset extends DefaultTableXYDataset {
 
     private void setPValueColumnIndex() {
         for (int i = 0; i < myColumnNames.length; i++) {
-            if (myColumnNames[i].equals("p") || myColumnNames[i].equals("marker_p")) {
+            if (myColumnNames[i].equals(AssociationConstants.STATS_HEADER_P_VALUE)) {
                 myPValueColumnIndex = i;
                 return;
             }
@@ -94,25 +95,27 @@ public class TableReportQQDataset extends DefaultTableXYDataset {
 
     private void setPositionColumnIndex() {
         for (int i = 0; i < myColumnNames.length; i++) {
-            if (myColumnNames[i].equals("Position") || myColumnNames[i].equals("Locus_pos") || myColumnNames[i].equals("Site")) {
+            if (myColumnNames[i].equals(AssociationConstants.STATS_HEADER_POSITION)) {
                 myPositionColumnIndex = i;
                 return;
             }
         }
+        throw new IllegalArgumentException("No positions in selected data");
     }
 
     private void setTraitColumnIndex() {
         for (int i = 0; i < myColumnNames.length; i++) {
-            if (myColumnNames[i].equals("Trait")) {
+            if (myColumnNames[i].equals(AssociationConstants.STATS_HEADER_TRAIT)) {
                 myTraitColumnIndex = i;
                 return;
             }
         }
+        throw new IllegalArgumentException("No traits in selected data");
     }
 
     private void setMarkerColumnIndex() {
         for (int i = 0; i < myColumnNames.length; i++) {
-            if (myColumnNames[i].equals("Marker")) {
+            if (myColumnNames[i].equals(AssociationConstants.STATS_HEADER_MARKER)) {
                 myMarkerColumnIndex = i;
                 return;
             }

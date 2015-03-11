@@ -42,23 +42,19 @@ public class XYScatterAndLinePanel extends BasicChartPanel {
         myTableReport = table;
         datasets = new TableReportQQDataset[indices.length];
         for (int i = 0; i < datasets.length; i++) {
-            datasets[i] = new TableReportQQDataset(table, tableIndices.get(indices[i] * 2).intValue(), tableIndices.get(indices[i] * 2 + 1).intValue(), countToDisplay);
+            datasets[i] = new TableReportQQDataset(table, tableIndices.get(indices[i] * 2), tableIndices.get(indices[i] * 2 + 1), countToDisplay);
         }
-        try {
-            chart = createChart(datasets[0]);
-            myChartPanel = new ChartPanel(chart);
-            myChartPanel.setPreferredSize(new java.awt.Dimension(900, 500));
-            for (int i = 1; i < datasets.length; i++) {
-                addSeries(chart.getXYPlot(), datasets[i], i);
-            }
-            createLine(chart.getXYPlot(), datasets[0], 0, Color.BLACK);
-            jbInit();
-        } catch (Exception ex) {
-            ex.printStackTrace();
+        chart = createChart(datasets[0]);
+        myChartPanel = new ChartPanel(chart);
+        myChartPanel.setPreferredSize(new java.awt.Dimension(900, 500));
+        for (int i = 1; i < datasets.length; i++) {
+            addSeries(chart.getXYPlot(), datasets[i], i);
         }
+        createLine(chart.getXYPlot(), datasets[0], 0, Color.BLACK);
+        jbInit();
     }
 
-    private void jbInit() throws Exception {
+    private void jbInit() {
         this.setLayout(new BoxLayout(this, BoxLayout.PAGE_AXIS));
         this.add(myChartPanel);
         saveButton.setAlignmentX(Component.RIGHT_ALIGNMENT);
@@ -144,25 +140,25 @@ public class XYScatterAndLinePanel extends BasicChartPanel {
     }
 
     public ArrayList<Integer> splitTable(TableReport table) {
-        ArrayList<Integer> indexes = new ArrayList<Integer>();
+        ArrayList<Integer> indexes = new ArrayList<>();
         int numRows = (int) table.getRowCount();
         String previousTrait = "";
         for (int i = 0; i < numRows; i++) {
             if (!previousTrait.equals((String) table.getValueAt(i, 0))) {
                 if (!((String) table.getValueAt(i, 1)).equals("None")) {
-                    indexes.add(new Integer(i));
+                    indexes.add(i);
                     previousTrait = (String) table.getValueAt(i, 0);
                     if (i > 1) {
-                        indexes.add(new Integer(i));
+                        indexes.add(i);
                     }
                 } else if (i != 0) {
-                    indexes.add(new Integer(i));
-                    indexes.add(new Integer(i + 1));
+                    indexes.add(i);
+                    indexes.add(i + 1);
                     previousTrait = (String) table.getValueAt(i + 1, 0);
                 }
             }
         }
-        indexes.add(new Integer(numRows));
+        indexes.add(numRows);
         return indexes;
     }
 }

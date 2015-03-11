@@ -29,19 +29,15 @@ public class XYScatterMultipleYPanel extends BasicChartPanel {
     public XYScatterMultipleYPanel(ManhattanDisplayPlugin plugin, TableReport theTable, int start, int end) {
         myManhattanDisplayPlugin = plugin;
         myTableReport = theTable;
-        try {
-            dataset = new TableReportManhattanDataset(theTable, start, end);
-            chart = createChart(dataset);
-            myChartPanel = new ChartPanel(chart);
-            myChartPanel.setPreferredSize(new java.awt.Dimension(900, 500));
-            myTableReport = theTable;
-            jbInit();
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
+        dataset = new TableReportManhattanDataset(theTable, start, end);
+        chart = createChart(dataset);
+        myChartPanel = new ChartPanel(chart);
+        myChartPanel.setPreferredSize(new java.awt.Dimension(900, 500));
+        myTableReport = theTable;
+        jbInit();
     }
 
-    private void jbInit() throws Exception {
+    private void jbInit() {
         this.setLayout(new BoxLayout(this, BoxLayout.PAGE_AXIS));
         this.add(myChartPanel);
         saveButton.setAlignmentX(Component.RIGHT_ALIGNMENT);

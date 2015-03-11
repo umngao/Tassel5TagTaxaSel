@@ -18,7 +18,6 @@ import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
-import net.maizegenetics.util.SimpleTableReport;
 import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.TableReportBuilder;
 import net.maizegenetics.taxa.TaxaList;
@@ -34,20 +33,10 @@ import net.maizegenetics.stats.linearmodels.SweepFast;
 import net.maizegenetics.stats.linearmodels.SymmetricMatrixInverterDM;
 
 import org.apache.log4j.Logger;
-import org.slf4j.helpers.MarkerIgnoringBase;
-
-import javax.swing.*;
-
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.TreeSet;
-import java.util.stream.IntStream;
 
 public class CompressedMLMusingDoubleMatrix {
 
@@ -105,8 +94,12 @@ public class CompressedMLMusingDoubleMatrix {
             hasGenotype = false;
         }
         
-//        String[] headerMain = new String[]{"Trait", "Marker", "Locus", "Site", "df", "F", "p", "errordf", "markerR2", "Genetic Var", "Residual Var", "-2LnLikelihood"};
-        String[] headerMain = new String[]{"Trait","Marker","Chr","Pos","df","F","p","add_effect","add_F","add_p","dom_effect","dom_F","dom_p","errordf","MarkerR2","Genetic Var","Residual Var", "-2LnLikelihood"};
+        // String[] headerMain = new String[]{"Trait", "Marker", "Locus", "Site", "df", "F", "p", "errordf", "markerR2", "Genetic Var", "Residual Var", "-2LnLikelihood"};
+        String[] headerMain = new String[]{AssociationConstants.STATS_HEADER_TRAIT, AssociationConstants.STATS_HEADER_MARKER,
+            AssociationConstants.STATS_HEADER_CHR, AssociationConstants.STATS_HEADER_POSITION,
+            "df", "F", AssociationConstants.STATS_HEADER_P_VALUE,
+            "add_effect", "add_F", "add_p", "dom_effect", "dom_F", "dom_p", "errordf",
+            "MarkerR2", "Genetic Var", "Residual Var", "-2LnLikelihood"};
         String[] headerAlleles = new String[]{"Trait", "Marker", "Locus", "Site", "Allele", "Effect", "Obs"};
         String[] headerCompression = new String[]{"Trait", "# groups", "Compression", "-2LnLk", "Var_genetic", "Var_error"};
         
