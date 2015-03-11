@@ -91,6 +91,9 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
     private PluginParameter<Double> myGapAlignmentThreshold = new PluginParameter.Builder<>("gapAlignRatio", 1.0, Double.class).guiName("Gap Alignment Threshold")
             .description("Gap alignment threshold ratio of indel contrasts to non indel contrasts: IC/(IC + NC)."
             		+ " Any loci with a tag alignment value above this threshold will be excluded from the pool.").build();
+    private PluginParameter<Integer> maxTagsPerCutSite = new PluginParameter.Builder<Integer>("maxTagsCutSite", 64, Integer.class).guiName("Max Number of Cut Sites").required(false)
+            .description("Maximum number of tags per cut site").build();
+    
     private TagDataWriter tagDataWriter = null;
     private boolean includeReference = false;
     private long[] refGenomeChr = null;
@@ -118,9 +121,9 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                                 .forEach(emp -> {
                                     Multimap<Tag, Allele> tm = findAlleleByAlignment(emp.getKey(), emp.getValue());
                                     if (tm != null) chromosomeAllelemap.putAll(tm);
-                                });
+                                }); 
                         myLogger.info("Finished processing chromosome " + chr + "\n\n");
-                        tagDataWriter.putTagAlleles(chromosomeAllelemap);
+                        tagDataWriter.putTagAlleles(chromosomeAllelemap);                       
                     }
             );
         ConcurrencyTools.shutdown();
@@ -197,11 +200,11 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         if(taxaCoverage < myMinLocusCoverage.value()) {
             return null;  //consider reporting low coverage
         }
-        Map<Tag,String> alignedTagsUnfiltered=alignTags(tagTaxaMap);
+        Map<Tag,String> alignedTagsUnfiltered=alignTags(tagTaxaMap,maxTagsPerCutSite());
         if (alignedTagsUnfiltered == null || alignedTagsUnfiltered.size() == 0) {
         	// Errors related to CompoundNotFound were logged in alignTags. 
         	return null;
-        }
+        }        
         // Filter the aligned tags.  Throw out all tags from a loci
         // that has any tag with a gap ratio that exceeds the threshold
         Map<Tag,String> alignedTags = filterAlignedTags(alignedTagsUnfiltered, cutPosition, myGapAlignmentThreshold.value());
@@ -259,23 +262,23 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      * Aligns a set of tags anchored to the same reference position.
      * @return map with tag(values) mapping to String with alignment
      */
-    private static Map<Tag,String> alignTags(Map<Tag,Tuple<Boolean,TaxaDistribution>> tags) {
+    private static Map<Tag,String> alignTags(Map<Tag,Tuple<Boolean,TaxaDistribution>> tags, int maxTagsPerCutSite) {
         List<DNASequence> lst=new ArrayList<>();
-         /*
-        tags.forEach((tag, dir) -> {
-            String sequence = (dir.x) ? tag.sequence() : tag.toReverseComplement();
-            try {
-                DNASequence ds = new DNASequence(sequence);
-                ds.setUserCollection(ImmutableList.of(tag));
-                lst.add(ds);
-            } catch (CompoundNotFoundException ex) {
-                // Skip any tag whose sequence could not be made into a DNASequence object.
-                myLogger.error("DSNPCaller:alignTags, compoundNotFound exception from DNASequence call for: " + sequence);
-                myLogger.debug(ex.getMessage(),ex); 
-                return;
-            }
-        }); 
-        */
+ 
+//        tags.forEach((tag, dir) -> {
+//            String sequence = (dir.x) ? tag.sequence() : tag.toReverseComplement();
+//            try {
+//                DNASequence ds = new DNASequence(sequence);
+//                ds.setUserCollection(ImmutableList.of(tag));
+//                lst.add(ds);
+//            } catch (CompoundNotFoundException ex) {
+//                // Skip any tag whose sequence could not be made into a DNASequence object.
+//                myLogger.error("DSNPCaller:alignTags, compoundNotFound exception from DNASequence call for: " + sequence);
+//                myLogger.debug(ex.getMessage(),ex); 
+//                return;
+//            }
+//        }); 
+        
         // Replacing the  streams code above with the old style forEach due to
         // the biojava 4 CompoundNotFoundException.  Group consensus is that a
         // CompoundNotFoundException should halt processing and return.
@@ -295,7 +298,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 myLogger.debug(ex.getMessage(),ex); 
                 return null;
             }
-        }
+        }        
         ImmutableMap.Builder<Tag,String> result=new ImmutableMap.Builder<>();
         if(lst.size()==1) {
             Tag tag=(Tag)((ImmutableList)lst.get(0).getUserCollection()).get(0);
@@ -303,6 +306,10 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             return result.build();
         }
         
+        if (lst.size() > maxTagsPerCutSite) {
+            // biojava getMultipleSequenceAligment() can handle aligning only so many tags.
+            return null;
+        }
         // Alignments.getmultipleSequenceAlignment aligns the tags against each other using
         // the ClustalW algorithm
         Profile<DNASequence, NucleotideCompound> profile = Alignments.getMultipleSequenceAlignment(lst);
@@ -688,6 +695,29 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         return this;
     }
     
+    /**
+     * Maximum number of tags per cut site (for alignment)
+     *
+     * @return MaxTagsPerCutSite
+     */
+    public Integer maxTagsPerCutSite() {
+        return maxTagsPerCutSite.value();
+    }
+
+    /**
+     * Set maxTagsPerCutSite. This is the maximum number of tags
+     * allowed per cute site when performaing an alignment.  Too
+     * many tags and biojava 4 getMultipleSequenceAlignment grinds to a halt.
+     *
+     * @param value Max number of tags per cut site
+     *
+     * @return this plugin
+     */
+    public DiscoverySNPCallerPluginV2 maxTagsPerCutSite(Integer value) {
+    	maxTagsPerCutSite = new PluginParameter<>(maxTagsPerCutSite, value);
+        return this;
+    }
+
     private static Map<String,Integer> keyFileStringToInt = null;
 
     // For junit testing.  Used for ReferenceGenomeSequence:readReferenceGenomeChr() tests
