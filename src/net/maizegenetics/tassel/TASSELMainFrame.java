@@ -127,10 +127,6 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
     JPanel mainDisplayPanel = new JPanel();
     private JTextArea mainPanelTextArea = new JTextArea();
     private JTextField myStatusTextField = new JTextField();
-    private JMenuItem openCompleteDataTreeMenuItem = new JMenuItem();
-    private JMenuItem openDataMenuItem = new JMenuItem();
-    private JMenuItem saveCompleteDataTreeMenuItem = new JMenuItem();
-    private JMenuItem saveDataTreeAsMenuItem = new JMenuItem();
     private PreferencesDialog thePreferencesDialog;
     private final ProgressPanel myProgressPanel = ProgressPanel.getInstance();
     private HashMap<JMenuItem, Plugin> myMenuItemHash = new HashMap<JMenuItem, Plugin>();
@@ -189,33 +185,6 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
         myStatusTextField.setBackground(Color.lightGray);
         myStatusTextField.setBorder(null);
-        saveCompleteDataTreeMenuItem.setText("Save Data Tree");
-        saveCompleteDataTreeMenuItem.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                saveCompleteDataTreeMenuItem_actionPerformed(e);
-            }
-        });
-        saveDataTreeAsMenuItem.setText("Save Data Tree As ...");
-        saveDataTreeAsMenuItem.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                saveDataTreeMenuItem_actionPerformed(e);
-            }
-        });
-        openCompleteDataTreeMenuItem.setText("Open Data Tree");
-        openCompleteDataTreeMenuItem.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-
-                openCompleteDataTreeMenuItem_actionPerformed(e);
-            }
-        });
-
-        openDataMenuItem.setText("Open Data Tree...");
-        openDataMenuItem.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-
-                openDataMenuItem_actionPerformed(e);
-            }
-        });
 
         JSplitPane dataTreeReportMainPanelsSplitPanel = new JSplitPane();
 
@@ -720,31 +689,51 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
     private JMenu getFileMenu() {
         JMenu fileMenu = new JMenu();
         fileMenu.setText("File");
+        
+        JMenuItem saveCompleteDataTreeMenuItem = new JMenuItem();
+        saveCompleteDataTreeMenuItem.setText("Save Data Tree");
+        saveCompleteDataTreeMenuItem.addActionListener((ActionEvent e) -> {
+            saveCompleteDataTreeMenuItem_actionPerformed(e);
+        });
         fileMenu.add(saveCompleteDataTreeMenuItem);
+        
+        JMenuItem openCompleteDataTreeMenuItem = new JMenuItem();
+        openCompleteDataTreeMenuItem.setText("Open Data Tree");
+        openCompleteDataTreeMenuItem.addActionListener((ActionEvent e) -> {
+            openCompleteDataTreeMenuItem_actionPerformed(e);
+        });
         fileMenu.add(openCompleteDataTreeMenuItem);
+        
+        JMenuItem saveDataTreeAsMenuItem = new JMenuItem();
+        saveDataTreeAsMenuItem.setText("Save Data Tree As ...");
+        saveDataTreeAsMenuItem.addActionListener((ActionEvent e) -> {
+            saveDataTreeMenuItem_actionPerformed(e);
+        });
         fileMenu.add(saveDataTreeAsMenuItem);
+        
+        JMenuItem openDataMenuItem = new JMenuItem();
+        openDataMenuItem.setText("Open Data Tree...");
+        openDataMenuItem.addActionListener((ActionEvent e) -> {
+            openDataMenuItem_actionPerformed(e);
+        });
         fileMenu.add(openDataMenuItem);
+        
         JMenuItem preferencesMenuItem = new JMenuItem();
         preferencesMenuItem.setText("Set Preferences");
 
-        preferencesMenuItem.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-
-                preferencesMenuItem_actionPerformed(e);
-
-            }
+        preferencesMenuItem.addActionListener((ActionEvent e) -> {
+            preferencesMenuItem_actionPerformed(e);
         });
         fileMenu.add(preferencesMenuItem);
+        
         fileMenu.addSeparator();
 
         JMenuItem exitMenuItem = new JMenuItem("Exit");
-        exitMenuItem.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                TasselLogging.closeInstance();
-                TasselPrefs.putXDim(getWidth());
-                TasselPrefs.putYDim(getHeight());
-                System.exit(0);
-            }
+        exitMenuItem.addActionListener((ActionEvent e) -> {
+            TasselLogging.closeInstance();
+            TasselPrefs.putXDim(getWidth());
+            TasselPrefs.putYDim(getHeight());
+            System.exit(0);
         });
         fileMenu.add(exitMenuItem);
 
