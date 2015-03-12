@@ -12,6 +12,40 @@ import net.maizegenetics.util.GeneralAnnotation;
  */
 public interface Position extends Comparable<Position> {
 
+    public static final byte STRAND_PLUS = (byte) 1;
+    public static final byte STRAND_MINUS = (byte) 0;
+    public static final byte STRAND_UNKNOWN = Byte.MIN_VALUE;
+
+    public static final String STRAND_PLUS_STR = "+";
+    public static final String STRAND_MINUS_STR = "-";
+    public static final String STRAND_UNKNOWN_STR = "N";
+
+    public static String getStrand(byte value) {
+        switch (value) {
+            case STRAND_PLUS:
+                return STRAND_PLUS_STR;
+            case STRAND_MINUS:
+                return STRAND_MINUS_STR;
+            case STRAND_UNKNOWN:
+                return STRAND_UNKNOWN_STR;
+            default:
+                throw new IllegalStateException("Position: getStrand: unknown strand value: " + value);
+        }
+    }
+
+    public static byte getStrand(String value) {
+        switch (value) {
+            case STRAND_PLUS_STR:
+                return STRAND_PLUS;
+            case STRAND_MINUS_STR:
+                return STRAND_MINUS;
+            case STRAND_UNKNOWN_STR:
+                return STRAND_UNKNOWN;
+            default:
+                throw new IllegalStateException("Position: getStrand: unknown strand value: " + value);
+        }
+    }
+
     /**
      * Return the locus (generally a chromosome) of a site
      */

@@ -91,7 +91,7 @@ public final class GeneralPosition implements Position {
         private Chromosome myChromosome;
         private int myPosition;
         // Optional parameters - initialized to default values
-        private byte myStrand = 1;
+        private byte myStrand = Position.STRAND_PLUS;
         private float myCM = Float.NaN;
         private String mySNPID = null;
         private boolean isNucleotide = true;
