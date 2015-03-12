@@ -158,6 +158,11 @@ public final class GeneralPosition implements Position {
             return this;
         }
 
+        public Builder strand(String val) {
+            myStrand = Position.getStrand(val);
+            return this;
+        }
+
         /**
          * Set strand (default=Float.NaN)
          */
@@ -393,6 +398,11 @@ public final class GeneralPosition implements Position {
     @Override
     public byte getStrand() {
         return myStrand;
+    }
+
+    @Override
+    public String getStrandStr() {
+        return Position.getStrand(myStrand);
     }
 
     @Override

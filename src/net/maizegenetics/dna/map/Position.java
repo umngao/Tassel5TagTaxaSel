@@ -60,6 +60,8 @@ public interface Position extends Comparable<Position> {
      * Return the strand for a site definition
      */
     public byte getStrand();
+    
+    public String getStrandStr();
 
     /**
      * Return the strand for a site definition
