@@ -104,6 +104,8 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             .description("Keep hdf5 genotypes open for future runs that add more taxa or more depth").build();
     private PluginParameter<Boolean> myNoDepthOutput = new PluginParameter.Builder<>("ndo", false, Boolean.class).guiName("No Depth to Output")
             .description("No depth output: do not write depths to the output hdf5 genotypes file").build();
+    private PluginParameter<Integer> myMaxTagLength = new PluginParameter.Builder<>("mxTagL", 64, Integer.class).guiName("Maximum Tag Length")
+            .description("Maximum Tag Length").build();
     //private PluginParameter<Boolean> myStacksLikelihood = new PluginParameter.Builder<>("sL", false, Boolean.class).guiName("Use Stacks Likelihood")
     //        .description("Use STACKS likelihood method to call heterozygotes (default: use tasselGBS likelihood ratio method)").build();
 
@@ -154,11 +156,10 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         tagDataReader.getTags().stream().forEach(t -> canonicalTag.put(t,t));
         inputSeqFiles.parallelStream()
                 .forEach(inputSeqFile -> {
-                    processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),canonicalTag,64);
+                    processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),canonicalTag,maximumTagLength());
                 });
 
         final PositionList positionList=tagDataReader.getSNPPositions();
-
         final Multimap<Tag,AlleleWithPosIndex> tagsToIndex=ArrayListMultimap.create();
         tagDataReader.getAlleleMap().entries().stream()
                 .forEach(e -> {
@@ -170,7 +171,6 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
                 .map(e -> callGenotypes(e.getKey(), e.getValue(), tagsToIndex, positionList, genoMergeRule))
                 .forEach(e -> gtb.addTaxon(e.x,e.y));
                 //.forEach(e -> System.out.println(e.x.getName()+ Arrays.toString(Arrays.copyOfRange(e.y,0,10))));  //change this to a collector insert someplace
-
 
         if (keepGenotypesOpen()) {
             gtb.closeUnfinished();
@@ -656,7 +656,30 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         return myNoDepthOutput.value();
     }
 
+    /**
+     * Maximum Tag Length
+     *
+     * @return Maximum Tag Length
+     */
+    public Integer maximumTagLength() {
+        return myMaxTagLength.value();
+    }
 
+    /**
+     * Set Maximum Tag Length:  User should set this value
+     * equivalent to what was used in GBSSeqToTagDBPlugin
+     * for maximum tag length when creating the database.
+     * If the two values are not equal inconsistent results
+     * may occur.
+     *
+     * @param value Maximum Tag Length
+     *
+     * @return this plugin
+     */
+    public ProductionSNPCallerPluginV2 maximumTagLength(Integer value) {
+        myMaxTagLength = new PluginParameter<>(myMaxTagLength, value);
+        return this;
+    }
     /**
      * Use STACKS likelihood method to call heterozygotes (default: use
      * tasselGBS likelihood ratio method)
