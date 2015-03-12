@@ -2,6 +2,7 @@ package net.maizegenetics.dna.tag;
 
 import com.google.common.collect.*;
 import com.google.common.io.CharStreams;
+
 import net.maizegenetics.dna.map.*;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.snp.SimpleAllele;
@@ -9,6 +10,7 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.Tuple;
+
 import org.sqlite.SQLiteConfig;
 
 import java.io.InputStreamReader;
@@ -17,7 +19,10 @@ import java.nio.file.Paths;
 import java.sql.*;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import net.maizegenetics.util.GeneralAnnotation;
+import net.maizegenetics.util.db.SQL;
 
 /**
  * Defines xxxx
@@ -619,19 +624,25 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         return atdBuilder.build();
     }
 
-//    public Stream<Multimap<Allele,TaxaDistribution>> getAllAllelesTaxaDistForSNP() {
-//        ImmutableMultimap.Builder<Allele,TaxaDistribution> atdBuilder=ImmutableMultimap.builder();
-//        try{
-//            ResultSet rs= allAlleleTaxaDistForSnpidPS.executeQuery();
-//            while(rs.next()) {
-//                Allele allele=new SimpleAllele((byte)rs.getInt("allelecall"),position);
-//                atdBuilder.put(allele,TaxaDistBuilder.create(rs.getBytes("depthsRLE")));
-//            }
-//        } catch (SQLException e) {
-//            e.printStackTrace();
-//        }
-//        return atdBuilder.build();
-//    }
+    public Stream<ImmutableMultimap<Allele,TaxaDistribution>> getAllAllelesTaxaDistForSNP() {
+        if(snpPosToIDMap==null) {
+            System.out.println("Loading SNPPosToIDMap");
+            loadSNPPositionHash();
+            System.out.println("Loaded SNPPosToIDMap");
+        }
+        Stream<ImmutableMultimap<Allele,TaxaDistribution>> stream = SQL.stream(connection, "select a.*, td.* from allele a, tagallele ta, tagtaxadistribution td\n" +
+                "where a.alleleid=ta.alleleid and ta.tagid=td.tagid order by a.snpid")
+                .map(entry -> {
+                    ImmutableMultimap.Builder<Allele,TaxaDistribution> atdBuilder = ImmutableMultimap.builder();
+                    Position pos = snpPosToIDMap.inverse().get(entry.asInt("snpid"));
+                    Allele allele=new SimpleAllele((byte)entry.asInt("allelecall"),pos);
+                    byte[] byteArray = (byte[])entry.val("depthsRLE").get();
+                    
+                    atdBuilder.put(allele,TaxaDistBuilder.create(byteArray));
+                    return atdBuilder.build();
+                });
+        return stream;
+    }
 
     @Override
     public Set<Tag> getTags() {
