@@ -223,6 +223,11 @@ class HDF5ByteGenotypeCallTable extends AbstractGenotypeCallTable {
     }
 
     @Override
+    public Stream<Byte> stream(int taxon) {
+        return StreamSupport.stream(new HDF5ByteGenotypeCallTableSpliterator<>(taxon, 0, numberOfSites(), taxon, numberOfSites()), true);
+    }
+
+    @Override
     public Spliterator<Byte> spliterator() {
         return new HDF5ByteGenotypeCallTableSpliterator<>(0, 0, numberOfSites(), numberOfTaxa() - 1, numberOfSites());
     }

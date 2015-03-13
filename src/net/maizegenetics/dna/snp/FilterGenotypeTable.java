@@ -1169,4 +1169,10 @@ public class FilterGenotypeTable implements GenotypeTable {
     public Stream<Byte> streamGenotype() {
         return myGenotype.stream();
     }
+
+    @Override
+    public Stream<Byte> streamGenotype(int taxon) {
+        return myGenotype.stream(taxon);
+    }
+    
 }

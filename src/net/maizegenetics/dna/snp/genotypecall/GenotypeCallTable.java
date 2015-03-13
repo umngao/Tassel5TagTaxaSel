@@ -501,4 +501,6 @@ public interface GenotypeCallTable {
      * @return Stream over the genotype calls
      */
     public Stream<Byte> stream();
+
+    public Stream<Byte> stream(int taxon);
 }

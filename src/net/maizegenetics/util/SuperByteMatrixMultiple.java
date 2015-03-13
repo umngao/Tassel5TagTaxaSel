@@ -264,7 +264,13 @@ public class SuperByteMatrixMultiple implements SuperByteMatrix {
 
     @Override
     public Stream<Byte> stream() {
-        return StreamSupport.stream(this.spliterator(), true);
+        return StreamSupport.stream(spliterator(), true);
+    }
+
+    @Override
+    public Stream<Byte> stream(int row) {
+        long start = (long) row * (long) myNumColumns;
+        return StreamSupport.stream(new SuperByteMatrixMultipleSpliterator<>(start, start + (long) myNumColumns), true);
     }
 
     public Spliterator<Byte> spliterator() {

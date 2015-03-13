@@ -657,6 +657,11 @@ abstract class AbstractGenotypeCallTable implements GenotypeCallTable {
         return StreamSupport.stream(spliterator(), true);
     }
 
+    @Override
+    public Stream<Byte> stream(int taxon) {
+        return StreamSupport.stream(new AbstractGenotypeCallTableSpliterator<>(taxon, 0, numberOfSites(), taxon, numberOfSites()), true);
+    }
+
     public Spliterator<Byte> spliterator() {
         return new AbstractGenotypeCallTableSpliterator<>(0, 0, numberOfSites(), numberOfTaxa() - 1, numberOfSites());
     }

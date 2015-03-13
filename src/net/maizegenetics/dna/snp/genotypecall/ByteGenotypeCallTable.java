@@ -89,4 +89,9 @@ class ByteGenotypeCallTable extends AbstractGenotypeCallTable {
     public Stream<Byte> stream() {
         return myGenotype.stream();
     }
+
+    @Override
+    public Stream<Byte> stream(int taxon) {
+        return myGenotype.stream(taxon);
+    }
 }

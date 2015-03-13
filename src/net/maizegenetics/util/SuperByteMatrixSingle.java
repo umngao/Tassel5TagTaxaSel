@@ -280,7 +280,13 @@ public class SuperByteMatrixSingle implements SuperByteMatrix {
 
     @Override
     public Stream<Byte> stream() {
-        return StreamSupport.stream(this.spliterator(), true);
+        return StreamSupport.stream(spliterator(), true);
+    }
+
+    @Override
+    public Stream<Byte> stream(int row) {
+        int start = row * myNumColumns;
+        return StreamSupport.stream(new SuperByteMatrixSingleSpliterator<>(start, start + myNumColumns), true);
     }
 
     public Spliterator<Byte> spliterator() {

@@ -575,4 +575,9 @@ public class CoreGenotypeTable implements GenotypeTable {
         return myGenotype.stream();
     }
 
+    @Override
+    public Stream<Byte> streamGenotype(int taxon) {
+        return myGenotype.stream(taxon);
+    }
+
 }

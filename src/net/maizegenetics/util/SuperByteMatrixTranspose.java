@@ -93,4 +93,9 @@ public class SuperByteMatrixTranspose implements SuperByteMatrix {
     public Stream<Byte> stream() {
         return myMatrix.stream();
     }
+
+    @Override
+    public Stream<Byte> stream(int row) {
+        return myMatrix.stream(row);
+    }
 }

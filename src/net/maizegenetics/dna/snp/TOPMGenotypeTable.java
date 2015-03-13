@@ -750,4 +750,9 @@ public class TOPMGenotypeTable implements GenotypeTable {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
+    @Override
+    public Stream<Byte> streamGenotype(int taxon) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
 }

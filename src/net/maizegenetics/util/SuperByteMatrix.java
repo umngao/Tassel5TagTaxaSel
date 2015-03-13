@@ -128,4 +128,6 @@ public interface SuperByteMatrix {
      * @return Stream over the bytes of this matrix
      */
     public Stream<Byte> stream();
+    
+    public Stream<Byte> stream(int row);
 }
