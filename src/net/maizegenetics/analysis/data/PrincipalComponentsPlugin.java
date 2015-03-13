@@ -14,7 +14,6 @@ import org.apache.log4j.Logger;
 
 import com.google.common.collect.Range;
 
-import net.maizegenetics.analysis.association.FixedEffectLMPlugin;
 import net.maizegenetics.analysis.numericaltransform.ImputationPlugin;
 import net.maizegenetics.analysis.numericaltransform.NumericalGenotypePlugin;
 import net.maizegenetics.dna.snp.GenotypeTable;
@@ -34,12 +33,11 @@ import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.stats.PCA.PrinComp;
 import net.maizegenetics.stats.PCA.PrinComp.PC_TYPE;
-import net.maizegenetics.util.LoggingUtils;
 import net.maizegenetics.util.OpenBitSet;
 import net.maizegenetics.util.SimpleTableReport;
 
 public class PrincipalComponentsPlugin extends AbstractPlugin {
-    private static final Logger myLogger = Logger.getLogger(FixedEffectLMPlugin.class);
+    private static final Logger myLogger = Logger.getLogger(PrincipalComponentsPlugin.class);
     public static enum PCA_LIMIT {number_of_components, min_eigenvalue, total_variance};
     
     private PluginParameter<Boolean> useCovariance = new PluginParameter.Builder<>("covariance", true, Boolean.class)
@@ -237,7 +235,7 @@ public class PrincipalComponentsPlugin extends AbstractPlugin {
 			Object[][] tableData = new Object[nEigenvalues][4];
 			double sumvalues = cumulativeEigenvalues[nEigenvalues - 1];
 			for (int i = 0; i < nEigenvalues; i++) {
-				tableData[i][0] = String.format("PC%d",i+1);
+				tableData[i][0] = String.format("%d",i+1);
 				tableData[i][1] = new Double(eigenvalues[i]);
 				tableData[i][2] = new Double(eigenvalues[i]/sumvalues);
 				tableData[i][3] = new Double(cumulativeEigenvalues[i]/sumvalues);
@@ -338,7 +336,7 @@ public class PrincipalComponentsPlugin extends AbstractPlugin {
 			Object[][] tableData = new Object[nEigenvalues][4];
 			double sumvalues = cumulativeEigenvalues[nEigenvalues - 1];
 			for (int i = 0; i < nEigenvalues; i++) {
-				tableData[i][0] = String.format("PC%d",i);
+				tableData[i][0] = String.format("%d",i);
 				tableData[i][1] = new Double(eigenvalues[i]);
 				tableData[i][2] = new Double(eigenvalues[i]/sumvalues);
 				tableData[i][3] = new Double(cumulativeEigenvalues[i]/sumvalues);
