@@ -42,7 +42,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     private BiMap<Tag,Integer> tagTagIDMap;
     private Map<String,Integer> mappingApproachToIDMap;
     private SortedMap<Position,Integer> cutPosToIDMap;
-    private BiMap<Position,Integer> snpPosToIDMap;
+    public BiMap<Position,Integer> snpPosToIDMap;
     private BiMap<Allele,Integer> alleleToIDMap;
 
     private TaxaList myTaxaList;
@@ -626,9 +626,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     public Stream<ImmutableMultimap<Allele,TaxaDistribution>> getAllAllelesTaxaDistForSNP() {
         if(snpPosToIDMap==null) {
-            System.out.println("Loading SNPPosToIDMap");
             loadSNPPositionHash();
-            System.out.println("Loaded SNPPosToIDMap");
         }
         Stream<ImmutableMultimap<Allele,TaxaDistribution>> stream = SQL.stream(connection, "select a.*, td.* from allele a, tagallele ta, tagtaxadistribution td\n" +
                 "where a.alleleid=ta.alleleid and ta.tagid=td.tagid order by a.snpid")

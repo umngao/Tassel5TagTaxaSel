@@ -68,18 +68,22 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
             subTaxa=TaxaListIOUtils.readTaxaAnnotationFile(taxaFile(), "<NAME>");
             if (myTaxaListName.isEmpty()) taxaListName(taxaFile());
         }
-        System.out.println("sublist");
-
-
+        
 
         subTaxa.stream().filter(t -> taxaList.indexOf(t)<0).forEach(t-> System.err.println("Missing taxon from master:" + t));
         int[] subsetIndices=subTaxa.stream().mapToInt(taxaList::indexOf).filter(i -> i > -1).sorted().toArray();
        // int[] subsetIndices= IntStream.range(0,taxaList.numberOfTaxa()).toArray();  //for testing using all taxa
+        System.out.println("sublist");
+        System.out.println(Arrays.toString(subsetIndices));
+        
+
+        int totalRecords = 2000;
+        long startTimeNew = System.currentTimeMillis();
+        
         Comparator<int[]> arrayCompare=Comparator.comparing(depths -> -Arrays.stream(depths).sum());
         Stream<ImmutableMultimap<Allele,TaxaDistribution>> streamOfAlleles = tagDataWriter.getAllAllelesTaxaDistForSNP();
         LongAdder adder=new LongAdder();
-        LongAdder adder2 = new LongAdder();
-        adder2.increment();
+        
         //These multimaps only have one single entry in them.
         Iterator<ImmutableMultimap<Allele,TaxaDistribution>> streamIterator = streamOfAlleles.iterator();
         //Set up aggregate objects
@@ -90,9 +94,11 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
         ImmutableMultimap<Allele,TaxaDistribution> currentMap = streamIterator.next();
         Position currentPosition = currentMap.keySet().asList().get(0).position();
         aggMapBuilder.putAll(currentMap);
+        
+        System.out.print("Processing Positions between 0 and 10,000.");
         //Iterate through streamIterator
         while(streamIterator.hasNext()) {
-            adder2.increment();
+            
             //Grab the object
             currentMap = streamIterator.next();
             
@@ -140,15 +146,20 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
 //                    if ((Double) qualMap.getOrDefault("inbredF_DGE2", 0.0) > 0.9 && qualMap.getOrDefault("genotypeCnt", 0.0) > 10) {
 //                        MAF.out.println(adder.intValue() + "\t" + qualMap.get("inbredF_DGE2") + "\t" + qualMap.get("minorDepthProp"));
 //                    }
-                    adder.increment();
-                    
                     
                     Map<Position, Map<String,Double>> resultMap = new HashMap<>();
-                    
                     resultMap.put(currentPosition,qualMap);
                     tagDataWriter.putSNPQualityProfile(resultMap,myTaxaListName.value());
                     
-                    System.out.println(adder.intValue());
+                    adder.increment();
+                    if(adder.intValue()%2000==0) {
+                        System.out.print(".");
+                    }
+                    if(adder.intValue()%10000 == 0) {
+                        System.out.println("DONE. Time: "+(((double)System.currentTimeMillis()-startTimeNew)/1000));
+                        System.out.print("Processing Positions between "+(adder.intValue())+" and "+(adder.intValue()+10000)+".");
+                    }
+                    
                 }
                 
                 //Reset currentPosition and aggregatorBuilder
@@ -157,6 +168,8 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                 aggMapBuilder.putAll(currentMap);
             }
         }
+        System.out.println("DONE");
+        long totalTimeNew = System.currentTimeMillis() - startTimeNew;
         //Build final Aggregator object
         Multimap<Allele,TaxaDistribution> aTDMMap = aggMapBuilder.build();
         //Run setup from old code
@@ -190,20 +203,22 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
             qualMap.put("minorAlleleFreqGE2",Double.isNaN(genotypeCnt.minorFreq)?0.0:genotypeCnt.minorFreq);
             qualMap.put("hetFreq_DGE2", (double) genotypeCnt.hetCnt);
             qualMap.put("inbredF_DGE2", genotypeCnt.f);
-            
+
             //System.out.println("jsonObject:" + jsonObject.toJSONString());
 //            if ((Double) qualMap.getOrDefault("inbredF_DGE2", 0.0) > 0.9 && qualMap.getOrDefault("genotypeCnt", 0.0) > 10) {
 //                MAF.out.println(adder.intValue() + "\t" + qualMap.get("inbredF_DGE2") + "\t" + qualMap.get("minorDepthProp"));
 //            }
             adder.increment();
-            
-          
+                        
             Map<Position, Map<String,Double>> resultMap = new HashMap<>();
             resultMap.put(currentPosition,qualMap);
             tagDataWriter.putSNPQualityProfile(resultMap,myTaxaListName.value());
             
-            System.out.println(adder.intValue());
         }
+         
+        System.out.println("Total Time: " + (double)totalTimeNew/1000+" seconds.\nProcessed "+adder.intValue()+" positions.");
+        
+        
         //OLD METHOD HERE IN CASE WE HAVE TO REVERT
     /*    
         tagDataWriter.getSNPPositions().stream()
@@ -263,8 +278,7 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                 });
 
         */
-        System.out.println(Arrays.toString(subsetIndices));
-        
+       
         //TaxaListIOUtils.exportAnnotatedTaxaListTable();
         return null;
     }
