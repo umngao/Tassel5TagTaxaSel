@@ -185,6 +185,8 @@ import static net.maizegenetics.util.db.Pair.cons;
  * Time: 9:41 AM
  * PROJECT: ${PROJECT}
  * DESCRIPTION:
+ *      Code Borrowed from http://java.dzone.com/articles/adding-java-8-lambda-goodness
+ *      Original package can be downloaded from https://github.com/jexenberger/lambda-tuples
  */
 public class TransformerService {
 

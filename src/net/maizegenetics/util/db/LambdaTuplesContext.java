@@ -170,7 +170,6 @@ Apache License
    limitations under the License.
 */
 
-
 package net.maizegenetics.util.db;
 
 import javax.sql.DataSource;
@@ -182,6 +181,8 @@ import javax.sql.DataSource;
  * Time: 7:13 PM
  * PROJECT: ${PROJECT}
  * DESCRIPTION:
+ *      Code Borrowed from http://java.dzone.com/articles/adding-java-8-lambda-goodness
+ *      Original package can be downloaded from https://github.com/jexenberger/lambda-tuples
  */
 public class LambdaTuplesContext {
 

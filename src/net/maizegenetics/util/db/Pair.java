@@ -169,6 +169,7 @@ Apache License
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+package net.maizegenetics.util.db;
 
 /**
  * Pair utility type
@@ -177,9 +178,9 @@ Apache License
  * Time: 7:06 PM
  * PROJECT: ${PROJECT}
  * DESCRIPTION:
+ *      Code Borrowed from http://java.dzone.com/articles/adding-java-8-lambda-goodness
+ *      Original package can be downloaded from https://github.com/jexenberger/lambda-tuples
  */
-
-package net.maizegenetics.util.db;
 
 public class Pair<T,K> {
 

@@ -187,6 +187,8 @@ import static net.maizegenetics.util.db.TransformerService.convert;
  * Time: 7:05 PM
  * PROJECT: lambda_tuples
  * DESCRIPTION:
+ *      Code Borrowed from http://java.dzone.com/articles/adding-java-8-lambda-goodness
+ *      Original package can be downloaded from https://github.com/jexenberger/lambda-tuples
  */
 public class DefaultDBTuple extends AbstractList<Pair<String, ? extends Object>> implements DBTuple {
 

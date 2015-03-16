@@ -182,6 +182,8 @@ import java.sql.SQLException;
  * Time: 7:15 PM
  * PROJECT: ${PROJECT}
  * DESCRIPTION:
+ *      Code Borrowed from http://java.dzone.com/articles/adding-java-8-lambda-goodness
+ *      Original package can be downloaded from https://github.com/jexenberger/lambda-tuples
  */
 public class DataAccessException extends RuntimeException{
 

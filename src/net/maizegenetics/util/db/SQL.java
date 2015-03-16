@@ -1,5 +1,3 @@
-package net.maizegenetics.util.db;
-
 /*
 Apache License
                            Version 2.0, January 2004
@@ -171,6 +169,7 @@ Apache License
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+package net.maizegenetics.util.db;
 
 import javax.sql.DataSource;
 
@@ -190,6 +189,8 @@ import static net.maizegenetics.util.db.Pair.cons;
  * Time: 7:14 PM
  * PROJECT: ${PROJECT}
  * DESCRIPTION:
+ *      Code Borrowed from http://java.dzone.com/articles/adding-java-8-lambda-goodness
+ *      Original package can be downloaded from https://github.com/jexenberger/lambda-tuples
  */
 public class SQL {
 

@@ -178,7 +178,16 @@ package net.maizegenetics.util.db;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-
+/**
+ * Result Set Processor
+ * User: julian3
+ * Date:
+ * Time:
+ * PROJECT: ${PROJECT}
+ * DESCRIPTION:
+ *      Code Borrowed from http://java.dzone.com/articles/adding-java-8-lambda-goodness
+ *      Original package can be downloaded from https://github.com/jexenberger/lambda-tuples
+ */
 @FunctionalInterface
 public interface ResultSetProcessor {
 

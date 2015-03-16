@@ -183,6 +183,8 @@ import java.util.Optional;
  * Time: 7:20 AM
  * PROJECT: lambda tuples
  * DESCRIPTION:
+ *      Code Borrowed from http://java.dzone.com/articles/adding-java-8-lambda-goodness
+ *      Original package can be downloaded from https://github.com/jexenberger/lambda-tuples
  */
 public class Transformations {
 

@@ -169,6 +169,10 @@ Apache License
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+
+package net.maizegenetics.util.db;
+
+
 /**
  * Functional interface for transforming instance of one type to another
  * User: julian3
@@ -176,9 +180,9 @@ Apache License
  * Time: 9:42 AM
  * PROJECT: lambda-tuples
  * DESCRIPTION:
+ *      Code Borrowed from http://java.dzone.com/articles/adding-java-8-lambda-goodness
+ *      Original package can be downloaded from https://github.com/jexenberger/lambda-tuples
  */
-
-package net.maizegenetics.util.db;
 
 @FunctionalInterface
 public interface TypeTransformer<T,K> {

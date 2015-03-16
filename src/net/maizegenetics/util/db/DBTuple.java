@@ -172,7 +172,6 @@ Apache License
 
 package net.maizegenetics.util.db;
 
-
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -188,6 +187,8 @@ import static net.maizegenetics.util.db.TransformerService.convert;
  * Time: 12:12 PM
  * PROJECT: ${PROJECT}
  * DESCRIPTION:
+ *      Code Borrowed from http://java.dzone.com/articles/adding-java-8-lambda-goodness
+ *      Original package can be downloaded from https://github.com/jexenberger/lambda-tuples
  */
 public interface DBTuple extends Collection<Pair<String, ? extends Object>> {
     public default <T> Optional<T> val(String name) {

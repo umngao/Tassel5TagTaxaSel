@@ -170,10 +170,6 @@ Apache License
    limitations under the License.
 */
 
-/*
- * Code Borrowed from http://java.dzone.com/articles/adding-java-8-lambda-goodness
- */
-
 package net.maizegenetics.util.db;
 
 import java.sql.Connection;
@@ -182,6 +178,16 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Iterator;
 
+/**
+ * Result Set Iterator
+ * User: julian3
+ * Date:
+ * Time:
+ * PROJECT: ${PROJECT}
+ * DESCRIPTION:
+ *      Code Borrowed from http://java.dzone.com/articles/adding-java-8-lambda-goodness
+ *      Original package can be downloaded from https://github.com/jexenberger/lambda-tuples
+ */
 public class ResultSetIterator implements Iterator<DBTuple> {
 
     private ResultSet rs;
