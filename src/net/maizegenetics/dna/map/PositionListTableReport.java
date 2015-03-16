@@ -92,5 +92,9 @@ public class PositionListTableReport implements TableReport {
                 }
         }
     }
+    
+    public PositionList getPositionList() {
+        return myPositionList;
+    }
 
 }

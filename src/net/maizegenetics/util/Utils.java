@@ -109,7 +109,11 @@ public final class Utils {
         String result = str.substring(index);
         if ((suffix != null) && (result.lastIndexOf(suffix) > 0)) {
             result = result.substring(0, result.lastIndexOf(suffix));
-        } else if (result.lastIndexOf('.') > 0) {
+        } 
+        if (result.endsWith(".gz")) {
+            result = result.substring(0, result.lastIndexOf(".gz"));
+        }
+        if (result.lastIndexOf('.') > 0) {
             result = result.substring(0, result.lastIndexOf('.'));
         }
 
@@ -346,6 +350,11 @@ public final class Utils {
 
     }
 
+    public static String addGzSuffixIfNeeded(String filename, String suffix) {
+        String gzipSuffix = suffix + ".gz";
+        return addSuffixIfNeeded(filename, gzipSuffix, new String[]{suffix, gzipSuffix});
+    }
+
     /**
      * Adds default suffix if not already one of the possible suffixes.
      *
@@ -356,25 +365,24 @@ public final class Utils {
      * @return filename with suffix
      */
     public static String addSuffixIfNeeded(String filename, String defaultSuffix, String[] possible) {
-
+        
         String temp = filename.toLowerCase();
 
-        for (int i = 0; i < possible.length; i++) {
-            String current = possible[i].toLowerCase();
+        for (String possible1 : possible) {
+            String current = possible1.toLowerCase();
             if (current.charAt(0) != '.') {
                 current = '.' + current;
             }
-
             if (temp.endsWith(current)) {
                 return filename;
             }
-
         }
 
         if (defaultSuffix.charAt(0) != '.') {
-            defaultSuffix = '.' + defaultSuffix;
+            return filename + '.' + defaultSuffix;
+        } else {
+            return filename + defaultSuffix;
         }
-        return filename + defaultSuffix;
 
     }
 
@@ -414,62 +422,64 @@ public final class Utils {
     }
 
     /**
-     * Read all lines from a file as a {@code Stream}. Unlike Path.readAllLines, this method does not read
-     * all lines into a {@code List}, but instead populates lazily as the stream
-     * is consumed.
+     * Read all lines from a file as a {@code Stream}. Unlike Path.readAllLines,
+     * this method does not read all lines into a {@code List}, but instead
+     * populates lazily as the stream is consumed.
      *
-     * <p> Bytes from the file are decoded into characters using the specified
+     * <p>
+     * Bytes from the file are decoded into characters using the specified
      * charset and the same line terminators as specified by {@code
      * readAllLines} are supported.
      *
-     * <p> After this method returns, then any subsequent I/O exception that
-     * occurs while reading from the file or when a malformed or unmappable byte
-     * sequence is read, is wrapped in an {@link java.io.UncheckedIOException} that will
-     * be thrown from the
-     * {@link java.util.stream.Stream} method that caused the read to take
-     * place. In case an {@code IOException} is thrown when closing the file,
-     * it is also wrapped as an {@code UncheckedIOException}.
+     * <p>
+     * After this method returns, then any subsequent I/O exception that occurs
+     * while reading from the file or when a malformed or unmappable byte
+     * sequence is read, is wrapped in an {@link java.io.UncheckedIOException}
+     * that will be thrown from the {@link java.util.stream.Stream} method that
+     * caused the read to take place. In case an {@code IOException} is thrown
+     * when closing the file, it is also wrapped as an
+     * {@code UncheckedIOException}.
      *
-     * <p> The returned stream encapsulates a {@link java.io.Reader}.  If timely
+     * <p>
+     * The returned stream encapsulates a {@link java.io.Reader}. If timely
      * disposal of file system resources is required, the try-with-resources
      * construct should be used to ensure that the stream's
-     * {@link java.util.stream.Stream#close close} method is invoked after the stream operations
-     * are completed.
+     * {@link java.util.stream.Stream#close close} method is invoked after the
+     * stream operations are completed.
      *
      *
-     * @param   path
-     *          the path to the file
+     * @param path the path to the file
      *
-     * @return  the lines from the file as a {@code Stream}
+     * @return the lines from the file as a {@code Stream}
      *
-     * @throws  IOException
-     *          if an I/O error occurs opening the file
-     * @throws  SecurityException
-     *          In the case of the default provider, and a security manager is
-     *          installed, the {@link SecurityManager#checkRead(String) checkRead}
-     *          method is invoked to check read access to the file
-     * @see     java.io.BufferedReader#lines()
-     * @since   1.8
+     * @throws IOException if an I/O error occurs opening the file
+     * @throws SecurityException In the case of the default provider, and a
+     * security manager is installed, the
+     * {@link SecurityManager#checkRead(String) checkRead} method is invoked to
+     * check read access to the file
+     * @see java.io.BufferedReader#lines()
+     * @since 1.8
      */
     public static Stream<String> lines(Path path, int bufSize) throws IOException {
-        BufferedReader br = getBufferedReader(path.toString(),bufSize);
+        BufferedReader br = getBufferedReader(path.toString(), bufSize);
         try {
             return br.lines().onClose(asUncheckedRunnable(br));
-        } catch (Error|RuntimeException e) {
+        } catch (Error | RuntimeException e) {
             try {
                 br.close();
             } catch (IOException ex) {
                 try {
                     e.addSuppressed(ex);
-                } catch (Throwable ignore) {}
+                } catch (Throwable ignore) {
+                }
             }
             throw e;
         }
     }
 
     /**
-     * Convert a Closeable to a Runnable by converting checked IOException
-     * to UncheckedIOException
+     * Convert a Closeable to a Runnable by converting checked IOException to
+     * UncheckedIOException
      */
     private static Runnable asUncheckedRunnable(Closeable c) {
         return () -> {

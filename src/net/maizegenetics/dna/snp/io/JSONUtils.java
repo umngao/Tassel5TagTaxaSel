@@ -17,6 +17,9 @@ import javax.json.JsonReader;
 import javax.json.JsonString;
 import javax.json.stream.JsonGenerator;
 import javax.json.stream.JsonGeneratorFactory;
+import net.maizegenetics.dna.map.Chromosome;
+import net.maizegenetics.dna.map.Position;
+import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
@@ -53,6 +56,9 @@ public class JSONUtils {
     }
 
     private static void generalAnnotationToJSON(GeneralAnnotation annotation, JsonGenerator generator) {
+        if (annotation == null) {
+            return;
+        }
         Set<String> keys = annotation.getAnnotationKeys();
         if (keys.isEmpty()) {
             return;
@@ -82,7 +88,7 @@ public class JSONUtils {
      * @return final filename
      */
     public static String exportTaxaListToJSON(TaxaList taxa, String filename) {
-        filename = Utils.addSuffixIfNeeded(filename, ".json");
+        filename = Utils.addGzSuffixIfNeeded(filename, ".json");
         try (BufferedWriter writer = Utils.getBufferedWriter(filename)) {
             Map<String, Object> properties = new HashMap<>(1);
             properties.put(JsonGenerator.PRETTY_PRINTING, true);
@@ -162,6 +168,79 @@ public class JSONUtils {
             }
         });
         return builder.build();
+    }
+
+    public static String exportPositionListToJSON(PositionList positions, String filename) {
+        filename = Utils.addGzSuffixIfNeeded(filename, ".json");
+        try (BufferedWriter writer = Utils.getBufferedWriter(filename)) {
+            Map<String, Object> properties = new HashMap<>(1);
+            properties.put(JsonGenerator.PRETTY_PRINTING, true);
+            JsonGeneratorFactory factory = Json.createGeneratorFactory(properties);
+            try (JsonGenerator generator = factory.createGenerator(writer)) {
+                generator.writeStartObject();
+                positionListToJSON(positions, generator);
+                generator.writeEnd();
+            }
+            return filename;
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("JSONUtils: exportTaxaListToJSON: problem saving file: " + filename + "\n" + e.getMessage());
+        }
+    }
+
+    private static void positionListToJSON(PositionList positions, JsonGenerator generator) {
+        generator.writeStartArray("PositionList");
+        positions.stream().forEach((current) -> {
+            positionToJSON(current, generator);
+        });
+        generator.writeEnd();
+    }
+
+    private static void positionToJSON(Position position, JsonGenerator generator) {
+        generator.writeStartObject();
+
+        String snpID = position.getSNPID();
+        if (snpID != null) {
+            generator.write("SNPID", snpID);
+        }
+
+        chromosomeToJSON(position.getChromosome(), generator);
+        generator.write("position", position.getPosition());
+
+        float cm = position.getCM();
+        if (!Float.isNaN(cm)) {
+            generator.write("CM", cm);
+        }
+
+        float globalMAF = position.getGlobalMAF();
+        if (!Float.isNaN(globalMAF)) {
+            generator.write("globalMAF", globalMAF);
+        }
+
+        float globalSiteCoverage = position.getGlobalSiteCoverage();
+        if (!Float.isNaN(globalSiteCoverage)) {
+            generator.write("globalSiteCoverage", globalSiteCoverage);
+        }
+
+        generator.write("strand", Position.getStrand(position.getStrand()));
+
+        generalAnnotationToJSON(position.getAnnotation(), generator);
+
+        generator.writeEnd();
+    }
+
+    private static void chromosomeToJSON(Chromosome chromosome, JsonGenerator generator) {
+        if (chromosome == null) {
+            return;
+        }
+        generator.writeStartObject("chr ");
+        generator.write("name", chromosome.getName());
+        int length = chromosome.getLength();
+        if (length != -1) {
+            generator.write("length", length);
+        }
+        generalAnnotationToJSON(chromosome.getAnnotation(), generator);
+        generator.writeEnd();
     }
 
 }
