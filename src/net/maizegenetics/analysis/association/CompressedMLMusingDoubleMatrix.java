@@ -727,15 +727,14 @@ public class CompressedMLMusingDoubleMatrix {
             	markerTest = markerTest && GenotypeTableUtils.isHeterozygous(markerIds.get(2));
             }
             if (markerdf == 2 && markerTest) { //calculate additive and dominance tests and effects
-            	result.addEffect = result.beta.get(nparm - 2, 0) - result.beta.get(nparm - 1, 0);
-            	result.domEffect = -(result.beta.get(nparm - 2, 0) + result.beta.get(nparm - 1, 0)) / 2.0;
             	
             	//additive test 
                 M = DoubleMatrixFactory.DEFAULT.make(1, nparm, 0);
-                M.set(0, nparm - 2, 1);
-                M.set(0, nparm - 1, -1);
+                M.set(0, nparm - 2, 0.5);
+                M.set(0, nparm - 1, -0.5);
                     
                 Mb = M.mult(result.beta);
+                result.addEffect = Mb.get(0, 0);
                 try {
                    result.Fadd = Mb.get(0, 0) * Mb.get(0,0) / (M.mult(invXVX.tcrossproduct(M))).get(0,0);
                 } catch (Exception ex) {
@@ -753,6 +752,7 @@ public class CompressedMLMusingDoubleMatrix {
                 M.set(0, nparm - 1, -0.5);
                     
                 Mb = M.mult(result.beta);
+                result.domEffect = Mb.get(0, 0);
                 try {
                     result.Fdom = Mb.get(0, 0) * Mb.get(0,0) / (M.mult(invXVX.tcrossproduct(M))).get(0,0);
                 } catch (Exception ex) {

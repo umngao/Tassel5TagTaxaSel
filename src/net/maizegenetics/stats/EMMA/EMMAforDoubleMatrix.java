@@ -520,8 +520,8 @@ public class EMMAforDoubleMatrix {
     	//additive test
 		double Fadd, Fdom, padd, pdom;
         M = DoubleMatrixFactory.DEFAULT.make(1, nparm, 0);
-        M.set(0, nparm - 2, 1);
-        M.set(0, nparm - 1, -1);
+        M.set(0, nparm - 2, 0.5);
+        M.set(0, nparm - 1, -0.5);
             
         MB = M.mult(beta);
         double addEffect = MB.get(0, 0);
