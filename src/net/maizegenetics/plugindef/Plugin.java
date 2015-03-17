@@ -194,24 +194,29 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
 
     static final Logger myLogger = Logger.getLogger(Plugin.class);
 
+    public static Plugin getPluginInstance(String className, Frame frame) {
+        return getPluginInstance(className, frame, false);
+    }
+
     /**
      * Gets instance of Plugin
      *
      * @param className class name
      * @param frame frame (can be null)
+     * @param isInteractive is interactive
      *
      * @return Plugin
      */
-    public static Plugin getPluginInstance(String className, Frame frame) {
+    public static Plugin getPluginInstance(String className, Frame frame, boolean isInteractive) {
         try {
             Class currentMatch = Class.forName(className);
-            Constructor constructor = currentMatch.getConstructor(Frame.class);
-            return (Plugin) constructor.newInstance(frame);
+            Constructor constructor = currentMatch.getConstructor(Frame.class, boolean.class);
+            return (Plugin) constructor.newInstance(frame, isInteractive);
         } catch (Exception ex) {
             try {
                 Class currentMatch = Class.forName(className);
-                Constructor constructor = currentMatch.getConstructor(Frame.class, boolean.class);
-                return (Plugin) constructor.newInstance(frame, false);
+                Constructor constructor = currentMatch.getConstructor(Frame.class);
+                return (Plugin) constructor.newInstance(frame);
             } catch (NoSuchMethodException nsme) {
                 myLogger.warn("Self-describing Plugins should implement this constructor: " + className);
                 myLogger.warn("public Plugin(Frame parentFrame, boolean isInteractive) {");
