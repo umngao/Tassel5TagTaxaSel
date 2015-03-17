@@ -123,7 +123,9 @@ public class PrincipalComponentsPlugin extends AbstractPlugin {
 				if (!myGenotype.hasReferenceProbablity()) {
 					myGenotype = NumericalGenotypePlugin.setAlternateMinorAllelesToMinor(myGenotype);
 					DataSet myDataset = new DataSet(new Datum("name", myGenotype, "comment"), this);
-					DataSet imputedDataset = new ImputationPlugin(null, false).performFunction(myDataset);
+					ImputationPlugin myImputer = new ImputationPlugin(null, false);
+					myImputer.by_mean(true);
+					DataSet imputedDataset = myImputer.performFunction(myDataset);
 					myGenotype = (GenotypeTable) imputedDataset.getData(0).getData();
 				} else if (areAnyGenotypesMissingInReferenceProbability(myGenotype)) {
 					StringBuilder msgBuilder = new StringBuilder();
