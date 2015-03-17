@@ -56,7 +56,7 @@ public class FileLoadPlugin extends AbstractPlugin {
 
         SqrMatrix, Sequence, Unknown, Fasta,
         Hapmap, Plink, Phenotype, ProjectionAlignment, ProjectPCsandRunModelSelection, Phylip_Seq, Phylip_Inter, Table,
-        Serial, HapmapDiploid, Text, VCF, HDF5, TOPM, HDF5Schema, Filter, NumericGenotype, TaxaList
+        Serial, HapmapDiploid, Text, VCF, HDF5, TOPM, HDF5Schema, Filter, NumericGenotype, TaxaList, PositionList
     };
     public static final String FILE_EXT_HAPMAP = ".hmp.txt";
     public static final String FILE_EXT_HAPMAP_GZ = ".hmp.txt.gz";
@@ -211,14 +211,7 @@ public class FileLoadPlugin extends AbstractPlugin {
         TasselFileType guess = TasselFileType.Sequence;
         DataSet tds = null;
 
-        try {
-            BufferedReader br = null;
-            if (filename.startsWith("http")) {
-                URL url = new URL(filename);
-                br = new BufferedReader(new InputStreamReader(url.openStream()));
-            } else {
-                br = new BufferedReader(new FileReader(filename));
-            }
+        try (BufferedReader br = Utils.getBufferedReader(filename)) {
 
             String line1 = br.readLine();
             while (line1 != null) {
@@ -235,12 +228,17 @@ public class FileLoadPlugin extends AbstractPlugin {
             String line2 = br.readLine().trim();
             String[] sval2 = line2.split("\\s");
             if (line1.startsWith("{")) {
-                if (line2.startsWith("\"TaxaList\"")) {
-                    guess = TasselFileType.TaxaList;
-                    System.out.println("made it!");
+                String temp;
+                if (sval1.length > 1) {
+                    temp = sval1[1];
+                } else {
+                    temp = line2;
                 }
-            } else if (line1.equalsIgnoreCase("<TaxaList>")) {
-                guess = TasselFileType.TaxaList;
+                if (temp.startsWith("\"TaxaList\"")) {
+                    guess = TasselFileType.TaxaList;
+                } else if (temp.startsWith("\"PositionList\"")) {
+                    guess = TasselFileType.PositionList;
+                }
             } else if (line1.startsWith("<") || line1.startsWith("#")) {
                 boolean isTrait = false;
                 boolean isMarker = false;
@@ -302,7 +300,6 @@ public class FileLoadPlugin extends AbstractPlugin {
             myLogger.info("guessAtUnknowns: type: " + guess);
             tds = processDatum(filename, guess);
 
-            br.close();
         } catch (Exception e) {
             showError(e, filename);
         }
@@ -393,6 +390,10 @@ public class FileLoadPlugin extends AbstractPlugin {
                 }
                 case TaxaList: {
                     result = JSONUtils.importTaxaListFromJSON(inFile);
+                    break;
+                }
+                case PositionList: {
+                    result = JSONUtils.importPositionListFromJSON(inFile);
                     break;
                 }
                 case Table: {

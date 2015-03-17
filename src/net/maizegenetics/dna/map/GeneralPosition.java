@@ -103,15 +103,20 @@ public final class GeneralPosition implements Position {
         private float mySiteCoverage = Float.NaN;
         private byte[] myAlleles = new byte[WHICH_ALLELE.COUNT];
         private long myAllelesAsLong;
-        private final GeneralAnnotationStorage.Builder myAnnotations = GeneralAnnotationStorage.getBuilder();
+        private final GeneralAnnotationStorage.Builder myAnnotations;
 
         /**
          * Constructor requires a Position before annotation of the position
          */
         public Builder(Chromosome chr, int position) {
+            this(chr, position, GeneralAnnotationStorage.getBuilder());
+        }
+
+        public Builder(Chromosome chr, int position, GeneralAnnotationStorage.Builder annotationBuilder) {
             myChromosome = Chromosome.getCanonicalChromosome(chr);
             myPosition = position;
             Arrays.fill(myAlleles, GenotypeTable.UNKNOWN_ALLELE);
+            myAnnotations = annotationBuilder;
             myAnnotations.addAnnotation("VARIANT", "");
         }
 
