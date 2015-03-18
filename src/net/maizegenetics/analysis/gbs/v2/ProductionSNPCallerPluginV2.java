@@ -29,6 +29,7 @@ import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.dna.snp.SimpleAllele;
+import net.maizegenetics.dna.snp.depth.AlleleDepthUtil;
 import net.maizegenetics.dna.snp.genotypecall.BasicGenotypeMergeRule;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeMergeRule;
 import net.maizegenetics.dna.tag.Tag;
@@ -168,9 +169,10 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
                 });
         GenotypeTableBuilder gtb=setUpGenotypeTableBuilder(outputHDF5GenotypesFile(),positionList, genoMergeRule);
         tagCntMap.asMap().entrySet().stream()
-                .map(e -> callGenotypes(e.getKey(), e.getValue(), tagsToIndex, positionList, genoMergeRule))
-                .forEach(e -> gtb.addTaxon(e.x,e.y));
-                //.forEach(e -> System.out.println(e.x.getName()+ Arrays.toString(Arrays.copyOfRange(e.y,0,10))));  //change this to a collector insert someplace
+                .forEach(e -> {
+                    callGenotypes(e.getKey(), e.getValue(), tagsToIndex, positionList, genoMergeRule,gtb);
+                    //System.out.println(e.x.getName()+ Arrays.toString(Arrays.copyOfRange(e.y,0,10))));
+                });
 
         if (keepGenotypesOpen()) {
             gtb.closeUnfinished();
@@ -181,12 +183,13 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         return null;
     }
 
-    private static Tuple<Taxon,byte[]> callGenotypes(Taxon taxon, Collection<Tag> tags, Multimap<Tag,AlleleWithPosIndex> tagsToIndex,
-                                 PositionList positionList, GenotypeMergeRule genoMergeRule) {
+    private static void callGenotypes(Taxon taxon, Collection<Tag> tags, Multimap<Tag,AlleleWithPosIndex> tagsToIndex,
+            PositionList positionList, GenotypeMergeRule genoMergeRule, GenotypeTableBuilder gtb) {
         int[][] alleleDepths = new int[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][positionList.numberOfSites()];
         tags.stream().map(t -> tagsToIndex.get(t)).flatMap(c -> c.stream())
                 .forEach(a -> alleleDepths[a.allele()][a.positionIndex()]++);
-        return new Tuple<>(taxon,resolveGenosForTaxon(alleleDepths, genoMergeRule));
+        byte[][] byteDepths = AlleleDepthUtil.depthIntToByte(alleleDepths);
+        gtb.addTaxon(taxon, resolveGenosForTaxon(alleleDepths, genoMergeRule),byteDepths);
     }
 
     private class AlleleWithPosIndex extends SimpleAllele {
