@@ -50,7 +50,7 @@ public class FileLoadPlugin extends AbstractPlugin {
     private PlinkLoadPlugin myPlinkLoadPlugin = null;
     private ProjectionLoadPlugin myProjectionLoadPlugin = null;
     private ProjectPcsAndRunModelSelectionPlugin myProjectPcsAndRunModelSelectionPlugin = null;
-    private JFileChooser myOpenFileChooser = new JFileChooser(TasselPrefs.getOpenDir());
+    private JFileChooser myOpenFileChooser = null;
 
     public enum TasselFileType {
 
@@ -443,7 +443,10 @@ public class FileLoadPlugin extends AbstractPlugin {
      * opened from
      */
     private File[] getOpenFilesByChooser() {
-        myOpenFileChooser.setMultiSelectionEnabled(true);
+        if (myOpenFileChooser == null) {
+            myOpenFileChooser = new JFileChooser(TasselPrefs.getOpenDir());
+            myOpenFileChooser.setMultiSelectionEnabled(true);
+        }
         File[] lopenFiles = null;
         myOpenFileChooser.setVisible(true);
         int returnVal = myOpenFileChooser.showOpenDialog(getParentFrame());
