@@ -84,7 +84,7 @@ public class RidgeRegressionEmmaPlugin extends AbstractPlugin {
         GenotypeTable myGenotype = myGenoPheno.genotypeTable();
         Phenotype myPhenotype = myGenoPheno.phenotype();
         
-        if (!myGenotype.hasReference()) {
+        if (!myGenotype.hasReferenceProbablity()) {
         	throw new IllegalArgumentException("Incorrect data type. A numeric genotype was not found.");
         }
         
