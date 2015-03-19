@@ -3,6 +3,7 @@
  */
 package net.maizegenetics.dna.map;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.*;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTable;
@@ -117,7 +118,6 @@ public final class GeneralPosition implements Position {
             myPosition = position;
             Arrays.fill(myAlleles, GenotypeTable.UNKNOWN_ALLELE);
             myAnnotations = annotationBuilder;
-            myAnnotations.addAnnotation("VARIANT", "");
         }
 
         /**
@@ -351,7 +351,10 @@ public final class GeneralPosition implements Position {
         sb.append("\tPos:").append(getPosition());
         sb.append("\tName:").append(getSNPID());
         if (myVariantsAndAnno != null) {
-            sb.append("\tVariants:").append(myVariantsAndAnno.getTextAnnotation("VARIANT")[0]);
+            String[] variants = myVariantsAndAnno.getTextAnnotation("VARIANT");
+            if ((variants != null) && (variants.length != 0)) {
+                sb.append("\tVariants:").append(Joiner.on(",").join(variants));
+            }
         }
         sb.append("\tMAF:").append(getGlobalMAF());
         sb.append("\tRef:").append(NucleotideAlignmentConstants.getHaplotypeNucleotide(getAllele(WHICH_ALLELE.Reference)));
@@ -423,7 +426,7 @@ public final class GeneralPosition implements Position {
             return new String(mySNPIDAsBytes);
         }
     }
-    
+
     @Override
     public String getActualSNPID() {
         if (mySNPIDAsBytes == null) {
