@@ -423,6 +423,15 @@ public final class GeneralPosition implements Position {
             return new String(mySNPIDAsBytes);
         }
     }
+    
+    @Override
+    public String getActualSNPID() {
+        if (mySNPIDAsBytes == null) {
+            return null;
+        } else {
+            return new String(mySNPIDAsBytes);
+        }
+    }
 
     @Override
     public boolean isNucleotide() {

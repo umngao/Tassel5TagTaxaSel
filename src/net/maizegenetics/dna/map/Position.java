@@ -60,7 +60,7 @@ public interface Position extends Comparable<Position> {
      * Return the strand for a site definition
      */
     public byte getStrand();
-    
+
     public String getStrandStr();
 
     /**
@@ -72,6 +72,14 @@ public interface Position extends Comparable<Position> {
      * Return the ID (name) for a site
      */
     public String getSNPID();
+
+    /**
+     * Returns SNP ID only if assigned. getSNPID() returns a default if not
+     * assigned.
+     *
+     * @return SNP ID
+     */
+    public String getActualSNPID();
 
     /**
      * Whether the position is a nucleotide position or another marker type

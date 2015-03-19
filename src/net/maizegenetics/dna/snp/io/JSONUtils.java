@@ -212,7 +212,7 @@ public class JSONUtils {
     private static void positionToJSON(Position position, JsonGenerator generator) {
         generator.writeStartObject();
 
-        String snpID = position.getSNPID();
+        String snpID = position.getActualSNPID();
         if (snpID != null) {
             generator.write("SNPID", snpID);
         }
