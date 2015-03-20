@@ -7,15 +7,14 @@ package net.maizegenetics.plugindef;
 import java.io.Serializable;
 
 /**
- * This wraps data elements used as input or output to
- * Tassel modules.
+ * This wraps data elements used as input or output to Tassel modules.
  *
  * @author Terry Casstevens
  */
 public class Datum implements Serializable {
 
     private static final long serialVersionUID = -5197800047652332969L;
-    
+
     private String myName;
     private final Object myData;
     private String myComment;
@@ -68,20 +67,21 @@ public class Datum implements Serializable {
     public String toString() {
         return myName;
     }
-    
+
     @Override
     public boolean equals(Object obj) {
+
+        if (obj == this) {
+            return true;
+        }
+
         Datum instance;
         if (obj instanceof Datum) {
             instance = (Datum) obj;
         } else {
             return false;
         }
-        
-        if ((myName.equals(instance.getName()) && (myData == instance.getData()) && (myComment.equals(instance.getComment())))) {
-            return true;
-        } else {
-            return false;
-        }
+
+        return myName.equals(instance.getName()) && (myData == instance.getData()) && (myComment.equals(instance.getComment()));
     }
 }
