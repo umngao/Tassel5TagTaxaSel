@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -170,8 +171,8 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         GenotypeTableBuilder gtb=setUpGenotypeTableBuilder(outputHDF5GenotypesFile(),positionList, genoMergeRule);
         tagCntMap.asMap().entrySet().stream()
                 .forEach(e -> {
-                    callGenotypes(e.getKey(), e.getValue(), tagsToIndex, positionList, genoMergeRule,gtb);
-                    //System.out.println(e.x.getName()+ Arrays.toString(Arrays.copyOfRange(e.y,0,10))));
+                	callGenotypes(e.getKey(), e.getValue(), tagsToIndex, positionList, genoMergeRule,gtb);
+                	//System.out.println(e.x.getName()+ Arrays.toString(Arrays.copyOfRange(e.y,0,10)))); 
                 });
 
         if (keepGenotypesOpen()) {
@@ -184,7 +185,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     }
 
     private static void callGenotypes(Taxon taxon, Collection<Tag> tags, Multimap<Tag,AlleleWithPosIndex> tagsToIndex,
-            PositionList positionList, GenotypeMergeRule genoMergeRule, GenotypeTableBuilder gtb) {
+                                 PositionList positionList, GenotypeMergeRule genoMergeRule, GenotypeTableBuilder gtb) {
         int[][] alleleDepths = new int[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][positionList.numberOfSites()];
         tags.stream().map(t -> tagsToIndex.get(t)).flatMap(c -> c.stream())
                 .forEach(a -> alleleDepths[a.allele()][a.positionIndex()]++);
@@ -216,8 +217,8 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
 
     private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
                                   Map<Tag,Tag> canonicalTags, int preferredTagLength) {
-        TaxaList tl=GBSSeqToTagDBPlugin.getLaneAnnotatedTaxaList(keyPath, fastQPath);
-        BarcodeTrie barcodeTrie=GBSSeqToTagDBPlugin.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
+    	ArrayList<Taxon> tl=GBSSeqToTagDBPlugin.getLaneAnnotatedTaxaList(keyPath, fastQPath);
+    	BarcodeTrie barcodeTrie=GBSSeqToTagDBPlugin.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
         processFastQ(fastQPath,barcodeTrie,canonicalTags,preferredTagLength);
     }
 

@@ -216,12 +216,32 @@ public class TaxaListIOUtils {
      * file is processed.
      * @return TaxaList with annotations
      */
-    public static TaxaList readTaxaAnnotationFile(String fileName, String taxaNameField, Map<String, String> filters, boolean mergeSameNames) {
+    
+    // New version calls readTaxaAnnotationFileAL, then creates TaxaList from ArrayList
+    public static TaxaList readTaxaAnnotationFile(String fileName, String taxaNameField, Map<String, String> filters, boolean mergeSameNames) {    
+    	// create list
+    	ArrayList<Taxon> taxaAL = readTaxaAnnotationFileAL( fileName,  taxaNameField, filters);
+    	if (taxaAL == null) return null;
+        TaxaListBuilder tlb = new TaxaListBuilder();
+    	taxaAL.stream().forEach(taxa -> {
+    		if (mergeSameNames) {
+    			tlb.addOrMerge(taxa);
+    		} else {
+    			tlb.add(taxa);
+    		}
+    	});
+    	return tlb.build();   	
+    }
+    
+    //  Version of readTaxaAnnotationFile that returns an ArrayList.  This is called
+    // from places that wish to allow duplicate taxa.  The TaxaList does not allow for
+    // duplicate entries.  An ArrayList does.
+    public static ArrayList<Taxon> readTaxaAnnotationFileAL(String fileName, String taxaNameField, Map<String, String> filters) {
         try {
             BufferedReader fileIn = Utils.getBufferedReader(fileName, 1000000);
             fileIn.mark(1 << 16);
             String line = fileIn.readLine();
-            TaxaListBuilder tlb = new TaxaListBuilder();
+            ArrayList<Taxon> taxaAL = new ArrayList<Taxon>();
             int indexOfName = 0;
             //parse headers
             List<String> headers = new ArrayList<>();
@@ -264,15 +284,11 @@ public class TaxaListIOUtils {
                     }
                 }
                 Taxon t = anID.build();
-                if (doesTaxonHaveAllAnnotations(t, filters)) {
-                    if (mergeSameNames) {
-                        tlb.addOrMerge(t);
-                    } else {
-                        tlb.add(t);  //this will throw an error if the taxon already exists
-                    }
+                if (doesTaxonHaveAllAnnotations(t, filters)) {           	
+                	taxaAL.add(t);
                 }
             }
-            return tlb.build();
+            return taxaAL;
         } catch (Exception e) {
             System.err.println("Error in Reading Annotated Taxon File:" + fileName);
             e.printStackTrace();
@@ -326,7 +342,7 @@ public class TaxaListIOUtils {
             for (String s1 : taxonAnno.get(entry.getKey())) {
                 if (s1.equals(entry.getValue())) {
                     keep = true;
-                }
+                } 
             }
             if (keep == false) {
                 break;

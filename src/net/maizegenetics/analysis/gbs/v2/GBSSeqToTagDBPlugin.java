@@ -203,7 +203,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
 
     private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
                      int minQuality, TagDistributionMap masterTagTaxaMap, int preferredTagLength) {
-        TaxaList tl=getLaneAnnotatedTaxaList(keyPath, fastQPath);
+    	ArrayList<Taxon> tl=getLaneAnnotatedTaxaList(keyPath, fastQPath);
         BarcodeTrie barcodeTrie=initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
         processFastQ(fastQPath,barcodeTrie,masterTaxaList,masterTagTaxaMap,preferredTagLength,minQuality);
     }
@@ -215,7 +215,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      * @param myEnzyme
      * @return Barcode trie for examining the prefixes
      */
-    static BarcodeTrie initializeBarcodeTrie(TaxaList taxaList, TaxaList masterTaxaList, GBSEnzyme myEnzyme){
+    static BarcodeTrie initializeBarcodeTrie(ArrayList<Taxon> taxaList, TaxaList masterTaxaList, GBSEnzyme myEnzyme){
         BarcodeTrie aTrie=new BarcodeTrie();
         for (Taxon taxon : taxaList) {
             int masterIndex=masterTaxaList.indexOf(taxon.getName());
@@ -233,19 +233,21 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      * @param fastQpath
      * @return
      */
-    static TaxaList getLaneAnnotatedTaxaList(Path keyPath, Path fastQpath) {
+    //static TaxaList getLaneAnnotatedTaxaList(Path keyPath, Path fastQpath) {
+    static ArrayList<Taxon> getLaneAnnotatedTaxaList(Path keyPath, Path fastQpath) {
         String[] filenameField = fastQpath.getFileName().toString().split("_");
-        TaxaList annoTL;
+        //TaxaList annoTL;
+        ArrayList<Taxon> annoTL;
         if (filenameField.length == 3) {
-            annoTL = TaxaListIOUtils.readTaxaAnnotationFile(keyPath.toAbsolutePath().toString(), sampleNameField,
-                    ImmutableMap.of(flowcellField, filenameField[0], laneField, filenameField[1]), false);
+            annoTL = TaxaListIOUtils.readTaxaAnnotationFileAL(keyPath.toAbsolutePath().toString(), sampleNameField,
+                    ImmutableMap.of(flowcellField, filenameField[0], laneField, filenameField[1])); // LCJ removed FALSE
         } else if (filenameField.length == 4) {
-            annoTL = TaxaListIOUtils.readTaxaAnnotationFile(keyPath.toAbsolutePath().toString(),sampleNameField,
-                    ImmutableMap.of(flowcellField, filenameField[0], laneField, filenameField[2]),false);
+            annoTL = TaxaListIOUtils.readTaxaAnnotationFileAL(keyPath.toAbsolutePath().toString(),sampleNameField,
+                    ImmutableMap.of(flowcellField, filenameField[0], laneField, filenameField[2]));
         }
         else if (filenameField.length == 5) {
-            annoTL = TaxaListIOUtils.readTaxaAnnotationFile(keyPath.toAbsolutePath().toString(),sampleNameField,
-                    ImmutableMap.of(flowcellField, filenameField[1], laneField, filenameField[3]),false);
+            annoTL = TaxaListIOUtils.readTaxaAnnotationFileAL(keyPath.toAbsolutePath().toString(),sampleNameField,
+                    ImmutableMap.of(flowcellField, filenameField[1], laneField, filenameField[3]));
         } else {
             myLogger.error("Error in parsing file name: " + fastQpath.toString());
             myLogger.error("   The filename does not contain either 3, 4, or 5 underscore-delimited values.");
