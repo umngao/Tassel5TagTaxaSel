@@ -386,7 +386,7 @@ public class ExportPlugin extends AbstractPlugin {
 
         String filename = "";
         try {
-            filename = JSONUtils.exportTaxaListToJSON(input, filename);
+            filename = JSONUtils.exportTaxaListToJSON(input, mySaveFile);
             return new File(filename).getCanonicalPath();
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
