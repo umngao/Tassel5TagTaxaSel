@@ -50,7 +50,7 @@ public class FileLoadPlugin extends AbstractPlugin {
     private PlinkLoadPlugin myPlinkLoadPlugin = null;
     private ProjectionLoadPlugin myProjectionLoadPlugin = null;
     private ProjectPcsAndRunModelSelectionPlugin myProjectPcsAndRunModelSelectionPlugin = null;
-    private JFileChooser myOpenFileChooser = null;
+    private final JFileChooser myOpenFileChooser;
 
     public enum TasselFileType {
 
@@ -74,6 +74,12 @@ public class FileLoadPlugin extends AbstractPlugin {
      */
     public FileLoadPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
+        if (isInteractive) {
+            myOpenFileChooser = new JFileChooser(TasselPrefs.getOpenDir());
+            myOpenFileChooser.setMultiSelectionEnabled(true);
+        } else {
+            myOpenFileChooser = null;
+        }
     }
 
     public FileLoadPlugin(Frame parentFrame, boolean isInteractive, PlinkLoadPlugin plinkLoadPlugin,
@@ -82,6 +88,12 @@ public class FileLoadPlugin extends AbstractPlugin {
         myPlinkLoadPlugin = plinkLoadPlugin;
         myProjectionLoadPlugin = projectionLoadPlugin;
         myProjectPcsAndRunModelSelectionPlugin = projectPcsAndRunModelSelectionPlugin;
+        if (isInteractive) {
+            myOpenFileChooser = new JFileChooser(TasselPrefs.getOpenDir());
+            myOpenFileChooser.setMultiSelectionEnabled(true);
+        } else {
+            myOpenFileChooser = null;
+        }
     }
 
     public DataSet performFunction(DataSet input) {
@@ -443,10 +455,6 @@ public class FileLoadPlugin extends AbstractPlugin {
      * opened from
      */
     private File[] getOpenFilesByChooser() {
-        if (myOpenFileChooser == null) {
-            myOpenFileChooser = new JFileChooser(TasselPrefs.getOpenDir());
-            myOpenFileChooser.setMultiSelectionEnabled(true);
-        }
         File[] lopenFiles = null;
         myOpenFileChooser.setVisible(true);
         int returnVal = myOpenFileChooser.showOpenDialog(getParentFrame());
