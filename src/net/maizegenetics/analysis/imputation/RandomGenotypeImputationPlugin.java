@@ -39,6 +39,7 @@ public class RandomGenotypeImputationPlugin extends AbstractPlugin {
 		Random ran = new Random();
 		byte NN = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
 		List<Datum> outData = new ArrayList<>();
+		String comment = "Missing genotypes imputed randomly\nImputed genotypes selected from genotype distribution for each site.";
 		for (Datum nextDatum : genotypeList) {
 			GenotypeTable myGenotype = (GenotypeTable) nextDatum.getData();
 			GenotypeTableBuilder myBuilder = GenotypeTableBuilder.getSiteIncremental(myGenotype.taxa());
@@ -61,10 +62,12 @@ public class RandomGenotypeImputationPlugin extends AbstractPlugin {
 				myBuilder.addSite(myGenotype.positions().get(s), sitegeno);
 			}
 			
+			Datum outDatum = new Datum("Imputed_" + nextDatum.getName(), myBuilder.build(), comment);
+			outData.add(outDatum);
 			
 		}
 		
-		return super.processData(input);
+		return new DataSet(outData, this);
 	}
 
 	public static Object[] byteCounts(byte[] genotypes) {
