@@ -59,7 +59,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             .description("Minimum Tag Length").build();
     private PluginParameter<Integer> myMinTagCount = new PluginParameter.Builder<>("c", 10, Integer.class).guiName("Min Tag Count")
             .description("Minimum tag count").build();
-    private PluginParameter<String> myOutputDB = new PluginParameter.Builder<>("o", null, String.class).guiName("Output Database File").required(true).outFile()
+    private PluginParameter<String> myOutputDB = new PluginParameter.Builder<>("db", null, String.class).guiName("Output Database File").required(true).outFile()
             .description("Output Database File").build();
     private PluginParameter<Integer> myMinQualScore = new PluginParameter.Builder<>("mnQS", 0, Integer.class).guiName("Minimum quality score").required(false)
             .description("Minimum quality score within the barcode and read length to be accepted").build();

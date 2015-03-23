@@ -42,7 +42,7 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
 
     private PluginParameter<String> myTaxaFile = new PluginParameter.Builder<String>("taxa", null, String.class).guiName("Taxa List File").inFile()
             .description("Name of taxa list input file in taxa list format").build();
-    private PluginParameter<String> myDBFile = new PluginParameter.Builder<String>("o", null, String.class).guiName("GBS DB File").required(true).outFile()
+    private PluginParameter<String> myDBFile = new PluginParameter.Builder<String>("db", null, String.class).guiName("GBS DB File").required(true).outFile()
             .description("Name of output file (e.g. GBSv2.db)").build();
     private PluginParameter<String> myTaxaListName = new PluginParameter.Builder<String>("tname", null, String.class).guiName("Name for taxa set in DB")
             .description("Name of taxa set for database").build();

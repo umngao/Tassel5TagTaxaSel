@@ -67,7 +67,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(DiscoverySNPCallerPluginV2.class);
 
-    private PluginParameter<String> myInputDB = new PluginParameter.Builder<>("i", null, String.class).guiName("Input GBS Database").required(true).inFile()
+    private PluginParameter<String> myInputDB = new PluginParameter.Builder<>("db", null, String.class).guiName("Input GBS Database").required(true).inFile()
             .description("Input Database file if using SQLite").build();
     private PluginParameter<Double> myMinMinorAlleleFreq = new PluginParameter.Builder<>("mnMAF", 0.01, Double.class).guiName("Min Minor Allele Freq")
             .description("Minimum minor allele frequency").build();

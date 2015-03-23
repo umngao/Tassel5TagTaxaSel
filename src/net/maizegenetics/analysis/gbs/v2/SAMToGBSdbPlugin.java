@@ -40,7 +40,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
 
     private PluginParameter<String> myInputFile = new PluginParameter.Builder<String>("i", null, String.class).guiName("SAM Input File").required(true).inFile()
             .description("Name of input file in SAM text format").build();
-    private PluginParameter<String> myOutputFile = new PluginParameter.Builder<String>("o", null, String.class).guiName("GBS DB File").required(true).outFile()
+    private PluginParameter<String> myOutputFile = new PluginParameter.Builder<String>("db", null, String.class).guiName("GBS DB File").required(true).outFile()
             .description("Name of output file (e.g. GBSv2.db)").build();
     private PluginParameter<Double> alignProportion = new PluginParameter.Builder<Double>("aProp", 0.0, Double.class).guiName("SAM Min Align Proportion").required(false)
             .range(Range.closed(0.0, 1.0) ).description("Minimum proportion of sequence that must align to store the SAM entry").build();

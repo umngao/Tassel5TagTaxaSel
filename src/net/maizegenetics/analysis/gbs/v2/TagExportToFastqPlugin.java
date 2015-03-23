@@ -32,7 +32,7 @@ public class TagExportToFastqPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(TagExportToFastqPlugin.class);
 
-    private PluginParameter<String> myDBFile = new PluginParameter.Builder<String>("i", null, String.class).guiName("Input DB").required(true).inFile()
+    private PluginParameter<String> myDBFile = new PluginParameter.Builder<String>("db", null, String.class).guiName("Input DB").required(true).inFile()
             .description("Input database file with tags and taxa distribution").build();
     private PluginParameter<String> myOutputFile = new PluginParameter.Builder<String>("o", null, String.class).guiName("Output File").required(true).outFile()
             .description("Output fastq file to use as input for BWA or bowtie2").build();
