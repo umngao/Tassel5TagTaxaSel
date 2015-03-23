@@ -230,7 +230,7 @@ public class TaxaListIOUtils {
     			tlb.add(taxa);
     		}
     	});
-    	return tlb.build();   	
+    	return tlb.sortTaxaAlphabetically().build();   	
     }
     
     //  Version of readTaxaAnnotationFile that returns an ArrayList.  This is called
@@ -288,6 +288,13 @@ public class TaxaListIOUtils {
                 	taxaAL.add(t);
                 }
             }
+            // Sort alphabetically based on name.  This is to remain consistent
+            // with the readTaxaAnnotationFile(), which alphabetizes the taxaList
+            Collections.sort(taxaAL, new Comparator<Taxon>() {
+                public int compare(Taxon taxa1, Taxon taxa2) {
+                    return taxa1.getName().compareTo(taxa2.getName());
+                }
+            });
             return taxaAL;
         } catch (Exception e) {
             System.err.println("Error in Reading Annotated Taxon File:" + fileName);
