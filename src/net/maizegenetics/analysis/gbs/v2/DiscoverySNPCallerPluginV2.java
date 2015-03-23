@@ -25,6 +25,8 @@ import javax.swing.ImageIcon;
 
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.GeneralPosition;
+import net.maizegenetics.dna.map.GenomeSequence;
+import net.maizegenetics.dna.map.GenomeSequenceBuilder;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.snp.SimpleAllele;
@@ -32,6 +34,7 @@ import net.maizegenetics.dna.tag.Tag;
 import net.maizegenetics.dna.tag.TagBuilder;
 import net.maizegenetics.dna.tag.TagDataSQLite;
 import net.maizegenetics.dna.tag.TagDataWriter;
+import net.maizegenetics.dna.tag.TaxaDistBuilder;
 import net.maizegenetics.dna.tag.TaxaDistribution;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
@@ -96,7 +99,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
     
     private TagDataWriter tagDataWriter = null;
     private boolean includeReference = false;
-    private long[] refGenomeChr = null;
+    private static GenomeSequence myRefSequence = null; 
     private boolean customSNPLogging = true;  // a custom SNP log that collects useful info for filtering SNPs through machine learning criteria
 //    private CustomSNPLog myCustomSNPLog = null;
     private boolean customFiltering = false;
@@ -119,7 +122,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                         Multimap<Tag, Allele> chromosomeAllelemap = HashMultimap.create();
                         tagDataWriter.getCutPositionTagTaxaMap(new Chromosome("" + chr), -1, -1).entrySet().stream()
                                 .forEach(emp -> {
-                                    Multimap<Tag, Allele> tm = findAlleleByAlignment(emp.getKey(), emp.getValue());
+                                    Multimap<Tag, Allele> tm = findAlleleByAlignment(emp.getKey(), emp.getValue(), chr);
                                     if (tm != null) chromosomeAllelemap.putAll(tm);
                                 }); 
                         myLogger.info("Finished processing chromosome " + chr + "\n\n");
@@ -141,6 +144,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         }
         if (!myRefGenome.isEmpty()) {
             includeReference = true;
+            myRefSequence = GenomeSequenceBuilder.instance(referenceGenomeFile());
         }
         if (callBiallelicSNPsWithGap() && includeGaps()) {
             throw new IllegalArgumentException("The callBiSNPsWGap option is mutually exclusive with the inclGaps option.");
@@ -187,14 +191,19 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      * @param tagTaxaMap  map of Tag -> Tuple (Boolean if reference, TaxaDistribution)
      * @return multimap of tag -> allele
      */
-    Multimap<Tag,Allele> findAlleleByAlignment(Position cutPosition, Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap) {
+    Multimap<Tag,Allele> findAlleleByAlignment(Position cutPosition, Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap, int chromosome) {
         if(tagTaxaMap.isEmpty()) return null;  //todo why would this be empty?
         final int numberOfTaxa=tagTaxaMap.values().stream().findFirst().get().y.maxTaxa();
         if((minMinorAlleleFreq()>0) && (tagTaxaMap.size()<2)) {//homozygous
             return null;  //consider reporting homozygous
         }
         if(!tagTaxaMap.keySet().stream().anyMatch(Tag::isReference)) {
-            tagTaxaMap=setCommonToReference(tagTaxaMap);
+        	if (myRefSequence != null) {
+               	tagTaxaMap = createReferenceTag(cutPosition.getPosition(), tagTaxaMap, chromosome, numberOfTaxa);
+               	if (tagTaxaMap == null) return null;
+        	} else {
+        		tagTaxaMap=setCommonToReference(tagTaxaMap);
+        	}
         }
         final double taxaCoverage=tagTaxaMap.values().stream().mapToInt(t -> t.y.numberOfTaxaWithTag()).sum()/(double)numberOfTaxa;  //todo this could be changed to taxa with tag
         if(taxaCoverage < myMinLocusCoverage.value()) {
@@ -245,6 +254,37 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         for (Map.Entry<Tag, Tuple<Boolean, TaxaDistribution>> entry : tagTaxaMap.entrySet()) {
             if(entry.getKey()!=commonTag) {tagTaxaMapBuilder.put(entry);}
             else {tagTaxaMapBuilder.put(refTag,commonTD);}
+        }
+        return tagTaxaMapBuilder.build();
+    }
+
+    private static Map<Tag,Tuple<Boolean,TaxaDistribution>> createReferenceTag(int cutPosition, 
+    		Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap, int chromosome, int numberOfTaxa) {
+
+    	Tag refTag = null;
+        // Find the longest sequence length of all tags
+        short longestTag = tagTaxaMap.keySet().stream()
+        		.max(Comparator.comparingInt(key -> key.seqLength()))
+        		.map(key -> key.seqLength())
+        		.get();
+        	
+        // Create reference tag from reference genome, where start position=cutPosition,
+        // and end position = cutPosition+longestTag-1
+		Chromosome myChrom = new Chromosome(String.valueOf(chromosome)); 
+		byte[] seqInBytes = myRefSequence.chromosomeSequence(myChrom, cutPosition, cutPosition + longestTag-1 );
+		if (seqInBytes == null) {
+			String msg = "Error creating reference tag at position " + cutPosition + " with length " + longestTag
+					+ ". Position not found in reference file.  " 
+					+ ". Please verify the reference file used for the plugin matches the reference file used for the aligner.";
+			myLogger.error(msg);
+			return null;
+		}
+		refTag = TagBuilder.instance(seqInBytes,longestTag).reference().build();  // setting reference in the tag     
+		ImmutableMap.Builder<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMapBuilder=new ImmutableMap.Builder<>();
+        TaxaDistribution refTD=TaxaDistBuilder.create(numberOfTaxa); // is numberOfTaxa an appropriate value to use?  		
+		tagTaxaMapBuilder.put(refTag,new Tuple<>(true,refTD));
+        for (Map.Entry<Tag, Tuple<Boolean, TaxaDistribution>> entry : tagTaxaMap.entrySet()) {
+        	tagTaxaMapBuilder.put(entry);
         }
         return tagTaxaMapBuilder.build();
     }
