@@ -55,6 +55,7 @@ abstract public class AbstractPlugin implements Plugin {
     private final boolean myIsInteractive;
     private boolean myTrace = false;
     private boolean myThreaded = false;
+    protected boolean myWasCancelled = false;
 
     /**
      * Creates a new instance of AbstractPlugin
@@ -1529,6 +1530,11 @@ abstract public class AbstractPlugin implements Plugin {
     @Override
     public void progress(int percent, Object meta) {
         fireProgress(percent);
+    }
+
+    @Override
+    public boolean wasCancelled() {
+        return myWasCancelled;
     }
 
 }

@@ -191,6 +191,8 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
      * @return Usage Statement
      */
     public String getUsage();
+    
+    public boolean wasCancelled();
 
     static final Logger myLogger = Logger.getLogger(Plugin.class);
 

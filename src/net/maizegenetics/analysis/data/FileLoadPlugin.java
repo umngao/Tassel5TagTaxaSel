@@ -98,6 +98,8 @@ public class FileLoadPlugin extends AbstractPlugin {
 
     public DataSet performFunction(DataSet input) {
 
+        myWasCancelled = true;
+        
         try {
 
             if (isInteractive()) {
@@ -201,6 +203,7 @@ public class FileLoadPlugin extends AbstractPlugin {
                 }
 
                 if (tds != null) {
+                    myWasCancelled = false;
                     result.add(tds);
                     fireDataSetReturned(new PluginEvent(tds, FileLoadPlugin.class));
                 }
