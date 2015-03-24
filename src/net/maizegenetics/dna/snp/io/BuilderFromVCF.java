@@ -165,14 +165,13 @@ public class BuilderFromVCF {
                 futures.add(pool.submit(pb));
             }
             pool.shutdown();
-            if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
-                throw new IllegalStateException("BuilderFromVCF: processing threads timed out.");
-            }
+            
             if(inMemory) {
                 result=completeInMemoryBuilding(futures, taxaList, sitesRead, includeDepth, fullSort);
             } else {
                 gtbDiskBuild.build();
             }
+            
 //            int currentSite=0;
 //            PositionListBuilder posBuild=new PositionListBuilder();
 //            GenotypeCallTableBuilder gb=GenotypeCallTableBuilder.getUnphasedNucleotideGenotypeBuilder(taxaList.numberOfTaxa(), lines);
@@ -198,7 +197,9 @@ public class BuilderFromVCF {
 //            GenotypeCallTable g=gb.build();
 //            if(includeDepth) {result=GenotypeTableBuilder.getInstance(g, posBuild.build(), taxaList, null, db.build());}
 //            else {result=GenotypeTableBuilder.getInstance(g, posBuild.build(), taxaList);}
-        } catch (IOException|InterruptedException e) {
+        } 
+        
+        catch (IOException e) {  
             e.printStackTrace();
         }
         catch(IllegalStateException e) {
@@ -218,25 +219,28 @@ public class BuilderFromVCF {
         PositionListBuilder posBuild=new PositionListBuilder();
         GenotypeCallTableBuilder gb=GenotypeCallTableBuilder.getUnphasedNucleotideGenotypeBuilder(taxaList.numberOfTaxa(), numberOfSites);
         AlleleDepthBuilder db=null;
-        //if(includeDepth) db=AlleleDepthBuilder.getAlleleDepthInstance(taxaList.numberOfTaxa(),numberOfSites,taxaList);
+       
+        //if(includeDepth) db=AlleleDepthBuilder.getInstance(taxaList.numberOfTaxa(),numberOfSites,taxaList);
         if(includeDepth) db=AlleleDepthBuilder.getInstance(taxaList.numberOfTaxa(),numberOfSites,6);
-        
+     
         try{
-	        for (Future<ProcessVCFBlock> future : pbs) {
-	        	ProcessVCFBlock pb = future.get();
-	            posBuild.addAll(pb.getBlkPosList());
-	            byte[][] bgTS=pb.getGenoTS();
-	            for (int t=0; t<bgTS.length; t++) {
-	                gb.setBaseRangeForTaxon(t, currentSite, bgTS[t]);
-	            }
-	            if(includeDepth) {
-	                byte[][][] bdTS=pb.getDepthTS();
-	                for (int t=0; t<bgTS.length; t++) {
-	                    db.setDepthRangeForTaxon(t, currentSite, bdTS[t]);
-	                }
-	            }
-	            currentSite+=pb.getSiteNumber();
+	    for (Future<ProcessVCFBlock> future : pbs) {
+	    	ProcessVCFBlock pb = future.get();
+	    	posBuild.addAll(pb.getBlkPosList());
+	        byte[][] bgTS=pb.getGenoTS();
+	        for (int t=0; t<bgTS.length; t++) {
+	            gb.setBaseRangeForTaxon(t, currentSite, bgTS[t]);
 	        }
+	        if(includeDepth) {
+	            byte[][][] bdTS=pb.getDepthTS();
+	            for (int t=0; t<bgTS.length; t++) {
+	                db.setDepthRangeForTaxon(t, currentSite, bdTS[t]);
+	                //db.addTaxon(t, bdTS[t]);
+	            }
+	            
+	        }
+	        currentSite+=pb.getSiteNumber();
+            }
         }catch(Exception e) {
         	myLogger.debug(e.getMessage(), e);
             throw new IllegalStateException(e.getMessage());
@@ -380,7 +384,7 @@ class ProcessVCFBlock implements Callable<ProcessVCFBlock> {
     private byte[][][] dTS; //depth
     private final ArrayList<Position> blkPosList;
     private final boolean keepDepth;
-
+    
 
     private ProcessVCFBlock(int taxaN, HeaderPositions hp, ArrayList<String> txtL, int startSite,
                             GenotypeTableBuilder hdf5Builder, boolean keepDepth) {
@@ -456,27 +460,38 @@ class ProcessVCFBlock implements Callable<ProcessVCFBlock> {
                     String[] formatS=input.substring(tabPos[hp.FORMAT_INDEX-1]+1, tabPos[hp.FORMAT_INDEX]).split(":");
                     iAD=firstEqualIndex(formatS,"AD");
                 }
+               
                 int t=0;
                 for(String taxaAllG: Splitter.on("\t").split(input.substring(tabPos[hp.NUM_HAPMAP_NON_TAXA_HEADERS-1]+1))) {
                     int f=0;
                     for(String fieldS: Splitter.on(":").split(taxaAllG)) {
                         if(f==iGT) {
-                        	//String "[.0-9]\\/[.0-9]||[.0-9]\\|[.0-9]" will match a valid diploid
-                        	if(!fieldS.equals(".")) { //[TAS-509] Check to make sure we are using diploids in the form 0/1 or 0|0
-	                            int a1=fieldS.charAt(0)-'0';
-	                            int a2=fieldS.charAt(2)-'0';
-	                            if(a1<0 || a2<0 ) {gTS[t][s]=GenotypeTable.UNKNOWN_DIPLOID_ALLELE;}
-	                            else {gTS[t][s]=GenotypeTableUtils.getDiploidValue(alleles[a1],alleles[a2]);}
-                        	}
-                        	else {	//[TAS-509] if it isnt a diploid error out early
-                        		throw new IllegalStateException("Error Processing VCF block: Found haploid information for the element: "+taxaAllG+".\nExpected a diploid entry.");
-                        	}
+                            //String "[.0-9]\\/[.0-9]||[.0-9]\\|[.0-9]" will match a valid diploid
+                            if (!fieldS.equals(".")) { //[TAS-509] Check to make sure we are using diploids in the form 0/1 or 0|0
+                                int a1 = fieldS.charAt(0) - '0';
+                                int a2 = fieldS.charAt(2) - '0';
+                                if (a1 < 0 || a2 < 0) {
+                                    gTS[t][s] = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+                                }
+                                else {
+                                    gTS[t][s] =
+                                            GenotypeTableUtils.getDiploidValue(alleles[a1], alleles[a2]);
+                                }
+                            }
+                            else {	//[TAS-509] if it isnt a diploid error out early
+                                throw new IllegalStateException("Error Processing VCF block: Found haploid information for the element: "
+                                        + taxaAllG + ".\nExpected a diploid entry.");
+                            }
                         } else if((f==iAD)&&keepDepth) {
                             int i=0;
                             for(String ad: Splitter.on(",").split(fieldS)){
                                 if(alleles[i]==GenotypeTable.UNKNOWN_ALLELE) {  //no position for depth of unknown alleles, so skip
+                                    //Uncomment when converted
+                                    //dTS[t][alleles[i++]][s] = AlleleDepthUtil.depthIntToByte(AlleleDepthUtil.DEPTH_MISSING);
+                                    //Comment next two lines when converted
                                     i++;
-                                    continue;}
+                                    continue;
+                                    }
                                 int adInt=Integer.parseInt(ad);
                                 dTS[t][alleles[i++]][s]=AlleleDepthUtil.depthIntToByte(adInt);
                             }
