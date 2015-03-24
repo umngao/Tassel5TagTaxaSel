@@ -299,6 +299,21 @@ public class ParseBarcodeRead {
             initialCutSiteRemnant=new String[]{""};
             likelyReadEnd = new String[]{"AGATCGGA"}; // common adapter start only (too many possible cut sites!)
             readEndCutSiteRemnantLength = 0;  
+        } else if(enzyme.matches("(?i)ase[i1]")){
+            theEnzyme = "AseI";  // AT^TAAT
+            initialCutSiteRemnant=new String[]{"TAAT"};
+            likelyReadEnd = new String[]{"ATTAAT","ATTAAGAT"};  // full cut site (from partial digest or chimera) or common adapter start
+            readEndCutSiteRemnantLength = 4;  
+        } else if(enzyme.matches("(?i)avaii|(?i)ava2")){
+            theEnzyme = "AvaII";  // G^GWCC
+            initialCutSiteRemnant=new String[]{"GACC","GTCC"};
+            likelyReadEnd = new String[]{"GGACC","GGTCC","GGACAGAT","GGTCAGAT"};  // full cut site (from partial digest or chimera) or common adapter start
+            readEndCutSiteRemnantLength = 4;  
+        } else if (enzyme.matches("(?i)kpn[i1]-msp[i1]")) {
+            theEnzyme = "KpnI-MspI";  //  KpnI: GGTAC^C  MspI: C^CGG
+            initialCutSiteRemnant = new String[]{"GTACC"};
+            likelyReadEnd = new String[]{"CCGG", "GGTACC", "CCGAGATC"}; // look for MspI site, KpnI site, or common adapter start for MspI
+            readEndCutSiteRemnantLength = 3;
         } else if (enzyme.matches("(?i)RBSTA")) {
             theEnzyme = "RBSTA";
             initialCutSiteRemnant = new String[]{"TA"};
@@ -319,6 +334,8 @@ public class ParseBarcodeRead {
                     +"Currently, only the following enzymes are recognized for single enzyme digests:\n"
                     +"  ApeKI"    +"\n"
                     +"  ApoI"     +"\n"
+                    +"  AseI"     +"\n"
+                    +"  AvaII"    +"\n"
                     +"  BamHI"    +"\n"
                     +"  Csp6I"    +"\n"
                     +"  CviQI"    +"\n"
@@ -358,6 +375,7 @@ public class ParseBarcodeRead {
                     +"  FseI-MspI"    +"\n"
                     +"  HindIII-MspI" +"\n"
                     +"  HindIII-NlaIII" +"\n"
+                    +"  KpnI-MspI"    +"\n"
                     +"  PaeR7I-HhaI"  +"\n"
                     +"  PstI-ApeKI"   +"\n"
                     +"  PstI-EcoT22I" +"\n"

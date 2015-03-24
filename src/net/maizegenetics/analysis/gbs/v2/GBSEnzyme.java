@@ -64,14 +64,18 @@ public class GBSEnzyme {
         } else if (enzyme.matches("(?i)pst[i1]-msp[i1]")) {
             theEnzyme = "PstI-MspI";
             initialCutSiteRemnant = new String[]{"TGCAG"};
-            // corrected, change from  CCGAGATC to CCGCTCAGG, as Y adapter was used for MspI  -QS
-            likelyReadEnd = new String[]{"CCGG", "CTGCAG", "CCGCTCAGG"}; // look for MspI site, PstI site, or common adapter for MspI
+            likelyReadEnd = new String[]{"CCGG", "CTGCAG", "CCGAGATC"}; // look for MspI site, PstI site, or common adapter for MspI
+            readEndCutSiteRemnantLength = 3;
+        } else if (enzyme.matches("(?i)pst[i1]-msp[i1]-GDFcustom")) {
+            theEnzyme = "PstI-MspI-GDFcustom";
+            initialCutSiteRemnant = new String[]{"TGCAG"};
+            // changed from  CCGAGAT to CCGCTCAGG, as IGD/GDF used a custom Y adapter for MspI
+            likelyReadEnd = new String[]{"CCGG", "CTGCAG", "CCGCTCAGG"}; // look for MspI site, PstI site, or GDF custom common adapter for MspI
             readEndCutSiteRemnantLength = 3;
         } else if (enzyme.matches("(?i)pst[i1]-taq[i1]")) {
             theEnzyme = "PstI-TaqI";
-            // corrected, change from  TCGAGATC to TCGCTCAGG, as Y adapter was used for TaqI  -QS
             initialCutSiteRemnant = new String[]{"TGCAG"};
-            likelyReadEnd = new String[]{"TCGA", "CTGCAG", "TCGCTCAGG"}; // look for TaqI site, PstI site, or common adapter for TaqI
+            likelyReadEnd = new String[]{"TCGA", "CTGCAG", "TCGAGATC"}; // look for TaqI site, PstI site, or common adapter for TaqI
             readEndCutSiteRemnantLength = 3;
         } else if(enzyme.matches("(?i)PaeR7[i1]-Hha[i1]")) {
             theEnzyme = "PaeR7I-HhaI";
@@ -82,32 +86,27 @@ public class GBSEnzyme {
         } else if (enzyme.matches("(?i)sbf[i1]-msp[i1]")) {
             theEnzyme = "SbfI-MspI";
             initialCutSiteRemnant = new String[]{"TGCAGG"};
-            // corrected, change from  CCGAGATC to CCGCTCAGG, as Y adapter was used for MspI  -QS
-            likelyReadEnd = new String[]{"CCGG", "CCTGCAGG", "CCGCTCAGG"}; // look for MspI site, SbfI site, or common adapter for MspI
+            likelyReadEnd = new String[]{"CCGG", "CCTGCAGG", "CCGAGATC"}; // look for MspI site, SbfI site, or common adapter for MspI
             readEndCutSiteRemnantLength = 3;
         } else if (enzyme.matches("(?i)asis[i1]-msp[i1]")) {
             theEnzyme = "AsiSI-MspI";
             initialCutSiteRemnant = new String[]{"ATCGC"};
-            // likelyReadEnd for common adapter is CCGCTCAGG, as the Poland et al.(2012) Y adapter was used for MspI
-            likelyReadEnd = new String[]{"CCGG", "GCGATCGC", "CCGCTCAGG"}; // look for MspI site, AsiSI site, or common adapter for MspI
+            likelyReadEnd = new String[]{"CCGG", "GCGATCGC", "CCGAGATC"}; // look for MspI site, AsiSI site, or common adapter for MspI
             readEndCutSiteRemnantLength = 3;
         } else if (enzyme.matches("(?i)bsshii-msp[i1]|(?i)bssh2-msp[i1]")) {
             theEnzyme = "BssHII-MspI";
             initialCutSiteRemnant = new String[]{"CGCGC"};
-            // likelyReadEnd for common adapter is CCGCTCAGG, as the Poland et al.(2012) Y adapter was used for MspI
-            likelyReadEnd = new String[]{"CCGG", "GCGCGC", "CCGCTCAGG"}; // look for MspI site, BssHII site, or common adapter for MspI
+            likelyReadEnd = new String[]{"CCGG", "GCGCGC", "CCGAGATC"}; // look for MspI site, BssHII site, or common adapter for MspI
             readEndCutSiteRemnantLength = 3;
         } else if (enzyme.matches("(?i)fse[i1]-msp[i1]")) {
             theEnzyme = "FseI-MspI";
             initialCutSiteRemnant = new String[]{"CCGGCC"};
-            // likelyReadEnd for common adapter is CCGCTCAGG, as the Poland et al.(2012) Y adapter was used for MspI
-            likelyReadEnd = new String[]{"CCGG", "GGCCGGCC", "CCGCTCAGG"}; // look for MspI site, FseI site, or common adapter for MspI
+            likelyReadEnd = new String[]{"CCGG", "GGCCGGCC", "CCGAGATC"}; // look for MspI site, FseI site, or common adapter for MspI
             readEndCutSiteRemnantLength = 3;
         } else if (enzyme.matches("(?i)sal[i1]-msp[i1]")) {
             theEnzyme = "SalI-MspI";
             initialCutSiteRemnant = new String[]{"TCGAC"};
-            // likelyReadEnd for common adapter is CCGCTCAGG, as the Poland et al.(2012) Y adapter was used for MspI
-            likelyReadEnd = new String[]{"CCGG", "GTCGAC", "CCGCTCAGG"}; // look for MspI site, SalI site, or common adapter for MspI
+            likelyReadEnd = new String[]{"CCGG", "GTCGAC", "CCGAGATC"}; // look for MspI site, SalI site, or common adapter for MspI
             readEndCutSiteRemnantLength = 3;
         } else if (enzyme.matches("(?i)ecor[i1]-msp[i1]")) {
             theEnzyme = "EcoRI-MspI";   //  G^AATTC  C^CGG
@@ -205,12 +204,12 @@ public class GBSEnzyme {
             initialCutSiteRemnant= new String[]{"AATTC"};
             likelyReadEnd = new String[]{"GAATTC","GAATTAGAT"}; // full cut site (from partial digest or chimera) or common adapter start
             readEndCutSiteRemnantLength = 5;
-        } else if(enzyme.matches("(?i)cviq[i1]")){
+        } else if(enzyme.matches("(?i)cviq[i1]")){  
             theEnzyme = "CviQI";  // CviQI and Csp6I are isoschizomers (same recognition seq and overhang)
             initialCutSiteRemnant=new String[]{"TAC"};
             likelyReadEnd = new String[]{"GTAC","GTAAGATCGG"}; // full cut site (from partial digest or chimera) or common adapter start
             readEndCutSiteRemnantLength = 3;
-        } else if(enzyme.matches("(?i)csp6[i1]")){
+        } else if(enzyme.matches("(?i)csp6[i1]")){  
             theEnzyme = "Csp6I";  // Csp6I and CviQI are isoschizomers (same recognition seq and overhang)
             initialCutSiteRemnant=new String[]{"TAC"};
             likelyReadEnd = new String[]{"GTAC","GTAAGATCGG"}; // full cut site (from partial digest or chimera) or common adapter start
@@ -235,6 +234,46 @@ public class GBSEnzyme {
             initialCutSiteRemnant=new String[]{"GTACC"};
             likelyReadEnd = new String[]{"GGTACC","GGTACAGAT"}; // full cut site (from partial digest or chimera) or common adapter start
             readEndCutSiteRemnantLength = 5;
+        } else if(enzyme.matches("(?i)sty[i1]")){
+            theEnzyme = "StyI";  // C^CWWGG
+            initialCutSiteRemnant=new String[]{"CAAGG","CATGG","CTAGG","CTTGG"};
+            likelyReadEnd = new String[]{"CCAAGG","CCATGG","CCTAGG","CCTTGG","CCAAGAGAT","CCATGAGAT","CCTAGAGAT","CCTTGAGAT"}; // full cut site (from partial digest or chimera) or common adapter start
+            readEndCutSiteRemnantLength = 5;
+        } else if(enzyme.matches("(?i)styi-msei|(?i)sty1-mse1")){
+            theEnzyme = "StyI-MseI";  // C^CWWGG & T^TAA
+            initialCutSiteRemnant=new String[]{"CAAGG","CATGG","CTAGG","CTTGG"};
+            likelyReadEnd = new String[]{"TTAA","CCAAGG","CCATGG","CCTAGG","CCTTGG","TTAAGAT"}; // full cut site (from partial digest or chimera) or common adapter start
+            readEndCutSiteRemnantLength = 3;
+        } else if(enzyme.matches("(?i)fse[i1]")){
+            theEnzyme = "FseI";  // GGCCGG^CC
+            initialCutSiteRemnant=new String[]{"CCGGCC"};
+            likelyReadEnd = new String[]{"GGCCGGCC","AGATCGGAAG"}; // full cut site (from partial digest or chimera) or Morishige et al (BMC Genomics, 2013) T adapter start
+            readEndCutSiteRemnantLength = 0;  // assumes that common T adapter is far more likely than a second full cut site
+        } else if(enzyme.matches("(?i)NgoMIV|(?i)NgoM4")){
+            theEnzyme = "NgoMIV";  // G^CCGGC
+            initialCutSiteRemnant=new String[]{"CCGGC"};
+            likelyReadEnd = new String[]{"GCCGGC","AGATCGGAAG"}; // full cut site (from partial digest or chimera) or Morishige et al (BMC Genomics, 2013) T adapter start
+            readEndCutSiteRemnantLength = 0;  // assumes that common T adapter is far more likely than a second full cut site
+        } else if(enzyme.matches("(?i)msl[i1]")){
+            theEnzyme = "MslI";  // CAYNN^NNRTG  -- has 32 different cut sites (assuming constrained to palindromic YNN -- 32^2 otherwise)
+            initialCutSiteRemnant=new String[]{""};
+            likelyReadEnd = new String[]{"AGATCGGA"}; // common adapter start only (too many possible cut sites!)
+            readEndCutSiteRemnantLength = 0;  
+        } else if(enzyme.matches("(?i)ase[i1]")){
+            theEnzyme = "AseI";  // AT^TAAT
+            initialCutSiteRemnant=new String[]{"TAAT"};
+            likelyReadEnd = new String[]{"ATTAAT","ATTAAGAT"};  // full cut site (from partial digest or chimera) or common adapter start
+            readEndCutSiteRemnantLength = 4;  
+        } else if(enzyme.matches("(?i)avaii|(?i)ava2")){
+            theEnzyme = "AvaII";  // G^GWCC
+            initialCutSiteRemnant=new String[]{"GACC","GTCC"};
+            likelyReadEnd = new String[]{"GGACC","GGTCC","GGACAGAT","GGTCAGAT"};  // full cut site (from partial digest or chimera) or common adapter start
+            readEndCutSiteRemnantLength = 4;  
+        } else if (enzyme.matches("(?i)kpn[i1]-msp[i1]")) {
+            theEnzyme = "KpnI-MspI";  //  KpnI: GGTAC^C  MspI: C^CGG
+            initialCutSiteRemnant = new String[]{"GTACC"};
+            likelyReadEnd = new String[]{"CCGG", "GGTACC", "CCGAGATC"}; // look for MspI site, KpnI site, or common adapter start for MspI
+            readEndCutSiteRemnantLength = 3;
         } else if (enzyme.matches("(?i)RBSTA")) {
             theEnzyme = "RBSTA";
             initialCutSiteRemnant = new String[]{"TA"};
@@ -245,6 +284,11 @@ public class GBSEnzyme {
             initialCutSiteRemnant = new String[]{"CG"};
             likelyReadEnd = new String[]{"CCGC", "TCGA", "GCGC", "CCGG", "ACGT", "CCGAGAT", "TCGAGAT", "GCGAGAT", "ACGAGAT"}; // full cut site (from partial digest or chimera) of AciI, TaqaI, HinpI, HpaII, HpyCH4IV or common adapter start
             readEndCutSiteRemnantLength = 3;
+        } else if(enzyme.matches("(?i)ignore")){
+            theEnzyme = "unspecified";  // can be used for new enzymes -- only looks for barcodes and common adapter starts
+            initialCutSiteRemnant=new String[]{""};
+            likelyReadEnd = new String[]{"AGATCGGA"}; // common adapter start only
+            readEndCutSiteRemnantLength = 0;  
         } else {
             enyzmeErrorMessage();
             theEnzyme = null;
@@ -256,55 +300,69 @@ public class GBSEnzyme {
     }
 
     private void enyzmeErrorMessage() {
-        System.out.println("The software didn't recognize your cut site.\n"
-                        +"Currently, only the following enzymes are recognized for single enzyme digests:\n"
-                        +"  ApeKI"    +"\n"
-                        +"  ApoI"     +"\n"
-                        +"  BamHI"    +"\n"
-                        +"  Csp6I"    +"\n"
-                        +"  CviQI"    +"\n"
-                        +"  EcoRI"    +"\n"
-                        +"  EcoT22I"  +"\n"
-                        +"  HindIII"  +"\n"
-                        +"  HinP1I"   +"\n"
-                        +"  HpaII"    +"\n"
-                        +"  KpnI"     +"\n"
-                        +"  MseI"     +"\n"
-                        +"  MspI"     +"\n"
-                        +"  NdeI"     +"\n"
-                        +"  NlaIII"   +"\n"
-                        +"  NspI"     +"\n"
-                        +"  PasI"     +"\n"
-                        +"  PstI"     +"\n"
-                        +"  Sau3AI"   +"\n"
-                        +"  SbfI"     +"\n"
-                        +"  SphI"     +"\n"
-                        +"  RBSTA"    +"\n"
-                        +"  RBSCG"    +"\n"
-                        +"Or the following for two-enzyme digests:\n"
-                        +"  AsiSI-MspI"   +"\n"
-                        +"  AvaII-MseI"   +"\n"
-                        +"  BamHI-MluCI"  +"\n"
-                        +"  BbvCI-MspI"   +"\n"
-                        +"  BssHII-MspI"  +"\n"
-                        +"  EcoRI-AvaII"  +"\n"
-                        +"  EcoRI-HinfI"  +"\n"
-                        +"  EcoRI-MseI"   +"\n"
-                        +"  EcoRI-MspI"   +"\n"
-                        +"  FseI-MspI"    +"\n"
-                        +"  HindIII-MspI" +"\n"
-                        +"  HindIII-NlaIII" +"\n"
-                        +"  PaeR7I-HhaI"  +"\n"
-                        +"  PstI-ApeKI"   +"\n"
-                        +"  PstI-EcoT22I" +"\n"
-                        +"  PstI-MseI"    +"\n"
-                        +"  PstI-MspI"    +"\n"
-                        +"  PstI-TaqI"    +"\n"
-                        +"  SalI-MspI"    +"\n"
-                        +"  SbfI-MspI"    +"\n"
-                        +"  SexAI-Sau3AI" +"\n"
-        );
-        System.out.println("For two-enzyme digest, enzyme names should be separated by a dash, e.g. PstI-MspI ");
+            System.out.println("The software didn't recognize your restriction enzyme (-e option).\n"
+                    +"Currently, only the following enzymes are recognized for single enzyme digests:\n"
+                    +"  ApeKI"    +"\n"
+                    +"  ApoI"     +"\n"
+                    +"  AseI"     +"\n"
+                    +"  AvaII"    +"\n"
+                    +"  BamHI"    +"\n"
+                    +"  Csp6I"    +"\n"
+                    +"  CviQI"    +"\n"
+                    +"  EcoRI"    +"\n"
+                    +"  EcoT22I"  +"\n"
+                    +"  FseI"     +"\n"
+                    +"  HindIII"  +"\n"
+                    +"  HinP1I"   +"\n"
+                    +"  HpaII"    +"\n"
+                    +"  KpnI"     +"\n"
+                    +"  MseI"     +"\n"
+                    +"  MslI"     +"\n"
+                    +"  MspI"     +"\n"
+                    +"  NdeI"     +"\n"
+                    +"  NgoMIV"   +"\n"
+                    +"  NlaIII"   +"\n"
+                    +"  NspI"     +"\n"
+                    +"  PasI"     +"\n"
+                    +"  PstI"     +"\n"
+                    +"  Sau3AI"   +"\n"
+                    +"  SbfI"     +"\n"
+                    +"  SphI"     +"\n"
+                    +"  StyI"     +"\n"
+                    +"  RBSTA"    +"\n"
+                    +"  RBSCG"    +"\n"
+                    +"  ignore"    +"\n"
+                    +"Or the following for two-enzyme digests:\n"
+                    +"  AsiSI-MspI"   +"\n"
+                    +"  AvaII-MseI"   +"\n"
+                    +"  BamHI-MluCI"  +"\n"
+                    +"  BbvCI-MspI"   +"\n"
+                    +"  BssHII-MspI"  +"\n"
+                    +"  EcoRI-AvaII"  +"\n"
+                    +"  EcoRI-HinfI"  +"\n"
+                    +"  EcoRI-MseI"   +"\n"
+                    +"  EcoRI-MspI"   +"\n"
+                    +"  FseI-MspI"    +"\n"
+                    +"  HindIII-MspI" +"\n"
+                    +"  HindIII-NlaIII" +"\n"
+                    +"  KpnI-MspI"    +"\n"
+                    +"  PaeR7I-HhaI"  +"\n"
+                    +"  PstI-ApeKI"   +"\n"
+                    +"  PstI-EcoT22I" +"\n"
+                    +"  PstI-MseI"    +"\n"
+                    +"  PstI-MspI"    +"\n"
+                    +"  PstI-MspI-GDFcustom"+"\n"
+                    +"  PstI-TaqI"    +"\n"
+                    +"  SalI-MspI"    +"\n"
+                    +"  SbfI-MspI"    +"\n"
+                    +"  SexAI-Sau3AI" +"\n"
+                    +"  StyI-MseI"    +"\n"
+                    +"  ignore"    +"\n"
+            );
+            System.out.println("For two-enzyme digest, enzyme names should be separated by a dash, e.g. -e PstI-MspI");
+            System.out.println("\nIf your enzyme is not on the above list you can use \"-e ignore\". In this case\n"
+                    +"   barcodes and common adapter start sequences will be recognized, but chimeric DNA\n"
+                    +"   fragments (or partial digests) will not be trimmed.");
     }
 
     public String enzyme() {
