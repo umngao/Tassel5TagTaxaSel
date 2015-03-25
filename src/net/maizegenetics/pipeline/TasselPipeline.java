@@ -717,6 +717,18 @@ public class TasselPipeline implements PluginListener {
 
                     plugin.setTestSite(testSite);
 
+                } else if (current.equalsIgnoreCase("-ldTestSiteName")) {
+
+                    LinkageDisequilibriumPlugin plugin = null;
+                    try {
+                        plugin = (LinkageDisequilibriumPlugin) myCurrentPipe.get(myCurrentPipe.size() - 1);
+                    } catch (Exception e) {
+                        throw new IllegalArgumentException("TasselPipeline: parseArgs: No LinkageDisequilibriumPlugin step defined: " + current);
+                    }
+
+                    String str = args[index++].trim();
+                    plugin.setTestSiteName(str);
+
                 } else if (current.equalsIgnoreCase("-ldWinSize")) {
 
                     LinkageDisequilibriumPlugin plugin = null;

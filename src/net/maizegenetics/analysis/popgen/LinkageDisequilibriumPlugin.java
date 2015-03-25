@@ -6,6 +6,7 @@
  */
 package net.maizegenetics.analysis.popgen;
 
+import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.plugindef.AbstractPlugin;
@@ -21,6 +22,7 @@ import java.awt.event.KeyEvent;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 
 /**
  *
@@ -34,6 +36,7 @@ public class LinkageDisequilibriumPlugin extends AbstractPlugin {
     private int myWindowSize = 50;
     private LinkageDisequilibrium.testDesign myLDType = LinkageDisequilibrium.testDesign.SlidingWindow;
     private int myTestSite = -1;
+    private String myTestSiteName = null;
     private int myNumAccumulateIntervals = 100;
     private boolean myIsAccumulateResults = false;
     private FilterGenotypeTable myPossibleAlignmentForSiteList;
@@ -126,6 +129,9 @@ public class LinkageDisequilibriumPlugin extends AbstractPlugin {
     private DataSet processDatum(Datum input) {
         GenotypeTable aa = (GenotypeTable) input.getData();
         try {
+            if(myTestSiteName != null){
+                setTestSiteFromName(aa);
+            }
             LinkageDisequilibrium theLD = new LinkageDisequilibrium(aa, myWindowSize, myLDType, myTestSite, this, myIsAccumulateResults, myNumAccumulateIntervals, myPossibleSiteList, myHetTreatment);
             theLD.run();
             Datum td = new Datum("LD:" + input.getName(), theLD, "LD Analysis");
@@ -202,12 +208,38 @@ public class LinkageDisequilibriumPlugin extends AbstractPlugin {
         return myTestSite;
     }
 
+    public void setTestSiteName(String siteName) {
+        myTestSiteName = siteName;
+    }
+
+    public String getTestSiteName() {
+        return myTestSiteName;
+    }
+
     public void setHetTreatment(LinkageDisequilibrium.HetTreatment treatment) {
         myHetTreatment = treatment;
     }
 
     public LinkageDisequilibrium.HetTreatment getHetTreatment() {
         return myHetTreatment;
+    }
+
+    private void setTestSiteFromName(GenotypeTable aa){
+        //Find index of any sites with the given names
+        int[] matches = IntStream.range(0, aa.numberOfSites())
+                .filter(i -> aa.siteName(i).equals(myTestSiteName))
+                .toArray();
+
+        // Checks
+        if(matches.length == 0){
+            throw new IllegalArgumentException("Error: No sites match supplied name of " + myTestSiteName);
+        }
+        if(matches.length > 1){
+            throw new IllegalArgumentException("Error: " + matches.length + " sites match supplied name of " + myTestSiteName);
+        }
+
+        // Set the test site
+        myTestSite = matches[0];
     }
 
     /**
