@@ -169,9 +169,9 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                     
                     Map<Position, Map<String,Double>> resultMap = new HashMap<>();
                     resultMap.put(currentPosition,qualMap);
-                    /*
+                    
                     tagDataWriter.putSNPQualityProfile(resultMap,myTaxaListName.value());
-                    */
+                    
                     
                     adder.increment();
                     if(adder.intValue()%2000==0) {
@@ -272,9 +272,9 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                         
             Map<Position, Map<String,Double>> resultMap = new HashMap<>();
             resultMap.put(currentPosition,qualMap);
-            /*
+            
             tagDataWriter.putSNPQualityProfile(resultMap,myTaxaListName.value());
-            */
+            
             
             strBuild.append(currentMap.keySet().asList().get(0).position().getSNPID());
             strBuild.append(",");
