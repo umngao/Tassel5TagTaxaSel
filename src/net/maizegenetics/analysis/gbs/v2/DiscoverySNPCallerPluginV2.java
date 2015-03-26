@@ -119,6 +119,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         tagDataWriter =new TagDataSQLite(inputDB());
         IntStream.rangeClosed(startChromosome(), endChromosome()).unordered()
             .forEach(chr -> {
+            	        myLogger.info("Start processing chromosome " + chr + "\n");
                         Multimap<Tag, Allele> chromosomeAllelemap = HashMultimap.create();
                         tagDataWriter.getCutPositionTagTaxaMap(new Chromosome("" + chr), -1, -1).entrySet().stream()
                                 .forEach(emp -> {
