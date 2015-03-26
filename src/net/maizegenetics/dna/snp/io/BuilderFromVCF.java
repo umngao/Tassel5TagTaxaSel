@@ -145,10 +145,16 @@ public class BuilderFromVCF {
                     else{
                         pb=ProcessVCFBlock.getInstance(taxaList.numberOfTaxa(), hp, txtLines, sitesRead-txtLines.size(),gtbDiskBuild, includeDepth);
                     }
-                    pbs.add(pb);
-                    //     pb.run(); //used for testing
-                    futures.add(pool.submit(pb));
-                    
+                    //pbs.add(pb);
+                        //     pb.run(); //used for testing
+                    //futures.add(pool.submit(pb));
+                    try {
+                        pbs.add(pool.submit(pb).get()); 
+                    }
+                    catch(Exception e) {
+                        myLogger.debug(e.getMessage(), e);
+                        throw new IllegalStateException(e.getMessage());
+                    }
                     txtLines=new ArrayList<>(linesAtTime);
                 }
             }
@@ -160,14 +166,22 @@ public class BuilderFromVCF {
                 else{
                     pb=ProcessVCFBlock.getInstance(taxaList.numberOfTaxa(), hp, txtLines, sitesRead-txtLines.size(),gtbDiskBuild, includeDepth);
                 }
-                pbs.add(pb);
-                //  pb.run(); //used for testing
-                futures.add(pool.submit(pb));
+                //pbs.add(pb);
+                    //  pb.run(); //used for testing
+                //futures.add(pool.submit(pb));
+                try {
+                    pbs.add(pool.submit(pb).get());
+                }
+                catch(Exception e) {
+                    myLogger.debug(e.getMessage(), e);
+                throw new IllegalStateException(e.getMessage());
+                }
             }
             pool.shutdown();
             
             if(inMemory) {
-                result=completeInMemoryBuilding(futures, taxaList, sitesRead, includeDepth, fullSort);
+                //result=completeInMemoryBuilding(futures, taxaList, sitesRead, includeDepth, fullSort);
+                result=completeInMemoryBuilding(pbs, taxaList, sitesRead, includeDepth, fullSort);
             } else {
                 gtbDiskBuild.build();
             }
@@ -214,7 +228,7 @@ public class BuilderFromVCF {
         return result;
     }
 
-    private static GenotypeTable completeInMemoryBuilding(List<Future<ProcessVCFBlock>> pbs, TaxaList taxaList, int numberOfSites, boolean includeDepth, boolean fullSort) {
+    private static GenotypeTable completeInMemoryBuilding(List<ProcessVCFBlock> pbs, TaxaList taxaList, int numberOfSites, boolean includeDepth, boolean fullSort) {
         int currentSite=0;
         PositionListBuilder posBuild=new PositionListBuilder();
         GenotypeCallTableBuilder gb=GenotypeCallTableBuilder.getUnphasedNucleotideGenotypeBuilder(taxaList.numberOfTaxa(), numberOfSites);
@@ -223,28 +237,24 @@ public class BuilderFromVCF {
         //if(includeDepth) db=AlleleDepthBuilder.getInstance(taxaList.numberOfTaxa(),numberOfSites,taxaList);
         if(includeDepth) db=AlleleDepthBuilder.getInstance(taxaList.numberOfTaxa(),numberOfSites,6);
      
-        try{
-	    for (Future<ProcessVCFBlock> future : pbs) {
-	    	ProcessVCFBlock pb = future.get();
-	    	posBuild.addAll(pb.getBlkPosList());
-	        byte[][] bgTS=pb.getGenoTS();
-	        for (int t=0; t<bgTS.length; t++) {
-	            gb.setBaseRangeForTaxon(t, currentSite, bgTS[t]);
-	        }
-	        if(includeDepth) {
-	            byte[][][] bdTS=pb.getDepthTS();
-	            for (int t=0; t<bgTS.length; t++) {
-	                db.setDepthRangeForTaxon(t, currentSite, bdTS[t]);
-	                //db.addTaxon(t, bdTS[t]);
-	            }
-	            
-	        }
-	        currentSite+=pb.getSiteNumber();
+        
+        for (ProcessVCFBlock pb: pbs) {
+            posBuild.addAll(pb.getBlkPosList());
+            byte[][] bgTS=pb.getGenoTS();
+            for (int t=0; t<bgTS.length; t++) {
+                gb.setBaseRangeForTaxon(t, currentSite, bgTS[t]);
             }
-        }catch(Exception e) {
-        	myLogger.debug(e.getMessage(), e);
-            throw new IllegalStateException(e.getMessage());
+            if(includeDepth) {
+                byte[][][] bdTS=pb.getDepthTS();
+                for (int t=0; t<bgTS.length; t++) {
+                    db.setDepthRangeForTaxon(t, currentSite, bdTS[t]);
+                    //db.addTaxon(t, bdTS[t]);
+                }
+                
+            }
+            currentSite+=pb.getSiteNumber();
         }
+       
 
         //Check that result is in correct order. If not, either try to sort or just throw an error (determined by what was passed to fullSort)
         if (posBuild.validateOrdering()==false) {
