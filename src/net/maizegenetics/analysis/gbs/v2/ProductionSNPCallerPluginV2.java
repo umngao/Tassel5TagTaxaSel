@@ -146,11 +146,12 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     @Override
     public DataSet processData(DataSet input) {
         Path keyPath= Paths.get(keyFile()).toAbsolutePath();
-        List<Path> inputSeqFiles= DirectoryCrawler.listPaths(GBSSeqToTagDBPlugin.inputFileGlob, Paths.get(myInputDir.value()).toAbsolutePath());
-        if(inputSeqFiles.isEmpty()) {
+        List<Path> directoryFiles= DirectoryCrawler.listPaths(GBSSeqToTagDBPlugin.inputFileGlob, Paths.get(myInputDir.value()).toAbsolutePath());
+        if(directoryFiles.isEmpty()) {
             myLogger.warn("No files matching:"+GBSSeqToTagDBPlugin.inputFileGlob);
             return null;
         }
+        List<Path> inputSeqFiles = GBSSeqToTagDBPlugin.culledFiles(directoryFiles,keyPath);
         tagDataReader =new TagDataSQLite(myInputDB.value());
         TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), GBSSeqToTagDBPlugin.sampleNameField, new HashMap<>(), true);
         //todo perhaps subset the masterTaxaList based on the files in there, but it seems like it will all be figure out.
@@ -230,7 +231,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             String[] seqAndQual;
             while ((seqAndQual=GBSSeqToTagDBPlugin.readFastQBlock(br, allReads)) != null) {
                 allReads++;
-                //After quality score is read, decode barcode using the current sequence & quality  score
+                // Decode barcode using the current sequence & quality  score
                 Barcode barcode=barcodeTrie.longestPrefix(seqAndQual[0]);
                 if(barcode==null) continue;
                 Tag tag= TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength() + preferredTagLength)).build();
