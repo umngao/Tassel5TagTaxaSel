@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,8 +77,7 @@ import com.google.common.collect.Multimaps;
  * Each taxon in the HDF5 file is named "ShortName:LibraryPrepID" and is
  * annotated with "Flowcell_Lanes" (=source seq data for current genotype).
  *
- * Requires a TOPM with variants added from a previous "Discovery Pipeline" run.
- * In binary tagDataReader or HDF5 format (TOPMInterface).
+ * Requires a database with variants added from a previous "Discovery Pipeline" run.
  *
  * TODO add the Stacks likelihood method to BasicGenotypeMergeRule
  *
@@ -119,9 +119,12 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     private GenotypeTableBuilder genos = null; //output genotype table
     private PositionList myPositionList = null;
 
-    //Documentation of read depth per sample (one recored per replicate)
-    private Map<String, Integer> rawReadCountsForFullSampleName = new TreeMap<>();
-    private Map<String, Integer> matchedReadCountsForFullSampleName = new TreeMap<>();
+    //Documentation of read depth per sample (one recorded per replicate)
+    // Treemap is synchronized as multiple threads may increment values.
+    private Map<String, Integer> rawReadCountsMap = new TreeMap<>();
+    private Map<String, Integer> rawReadCountsForFullSampleName = Collections.synchronizedMap(rawReadCountsMap);
+    private Map<String, Integer> matchedReadCountsMap = new TreeMap<>();
+    private Map<String, Integer> matchedReadCountsForFullSampleName = Collections.synchronizedMap(matchedReadCountsMap);
 
     private GenotypeMergeRule genoMergeRule = null;
 
@@ -154,6 +157,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         List<Path> inputSeqFiles = GBSSeqToTagDBPlugin.culledFiles(directoryFiles,keyPath);
         tagDataReader =new TagDataSQLite(myInputDB.value());
         TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), GBSSeqToTagDBPlugin.sampleNameField, new HashMap<>(), true);
+        writeInitialTaxaReadCounts(masterTaxaList); // initialize synchronized maps
         //todo perhaps subset the masterTaxaList based on the files in there, but it seems like it will all be figure out.
         Map<Tag,Tag> canonicalTag=new HashMap<>();  //canonicalize them OR eventually we will use a Trie
         tagDataReader.getTags().stream().forEach(t -> canonicalTag.put(t,t));
@@ -216,7 +220,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         LongAdder singleImperfectMatches=new LongAdder();
     }
 
-    private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
+	private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
                                   Map<Tag,Tag> canonicalTags, int preferredTagLength) {
     	ArrayList<Taxon> tl=GBSSeqToTagDBPlugin.getLaneAnnotatedTaxaList(keyPath, fastQPath);
     	BarcodeTrie barcodeTrie=GBSSeqToTagDBPlugin.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
@@ -232,13 +236,17 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             while ((seqAndQual=GBSSeqToTagDBPlugin.readFastQBlock(br, allReads)) != null) {
                 allReads++;
                 // Decode barcode using the current sequence & quality  score
-                Barcode barcode=barcodeTrie.longestPrefix(seqAndQual[0]);
+                Barcode barcode=barcodeTrie.longestPrefix(seqAndQual[0]);               
                 if(barcode==null) continue;
+                rawReadCountsForFullSampleName.put(barcode.getTaxaName(), rawReadCountsForFullSampleName.get(barcode.getTaxaName()) + 1);
                 Tag tag= TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength() + preferredTagLength)).build();
                 if(tag==null) continue;   //null occurs when any base was not A, C, G, T
                 goodBarcodedReads++;
                 Tag canonicalTag=canonicalTags.get(tag);
-                if(canonicalTag!=null) tagCntMap.put(barcode.getTaxon(),canonicalTag);
+                if(canonicalTag!=null) {
+                	tagCntMap.put(barcode.getTaxon(),canonicalTag);
+                	matchedReadCountsForFullSampleName.put(barcode.getTaxaName(), matchedReadCountsForFullSampleName.get(barcode.getTaxaName()) + 1);
+                }                       
                 if (allReads % 1000000 == 0) {
                     myLogger.info("Total Reads:" + allReads + " Reads with barcode and cut site overhang:" + goodBarcodedReads
                             + " rate:" + (System.nanoTime()-time)/allReads +" ns/read");
@@ -247,7 +255,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             myLogger.info("Total number of reads in lane=" + allReads);
             myLogger.info("Total number of good barcoded reads=" + goodBarcodedReads);
             myLogger.info("Timing process (sorting, collapsing, and writing TagCount to file).");
-            myLogger.info("Process took " + (System.nanoTime() - time)/1e6 + " milliseconds.");
+            myLogger.info("Process took " + (System.nanoTime() - time)/1e6 + " milliseconds for file " + fastqFile.toString());
             br.close();
         } catch (Exception e) {
             myLogger.error("Good Barcodes Read: " + goodBarcodedReads);
@@ -402,10 +410,12 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         outFileS = outFileS.replaceAll(".txt", "_ReadsPerSample.log");
         outFileS = outFileS.replaceAll("_key", "");
         try {
+        	String msg = "ReadsPerSample log file: " + outFileS;
+        	myLogger.info(msg);
             BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(outFileS))), 65536);
-            bw.write("FullSampleName\tgoodBarcodedReads\tgoodReadsMatchedToTOPM\n");
+            bw.write("FullSampleName\t\t\tgoodBarcodedReads\tgoodReadsMatchedToDataBase\n");
             for (String fullSampleName : rawReadCountsForFullSampleName.keySet()) {
-                bw.write(fullSampleName + "\t" + rawReadCountsForFullSampleName.get(fullSampleName) + "\t" + matchedReadCountsForFullSampleName.get(fullSampleName) + "\n");
+                bw.write(fullSampleName + "\t" + rawReadCountsForFullSampleName.get(fullSampleName) + "\t\t" + matchedReadCountsForFullSampleName.get(fullSampleName) + "\n");
             }
             bw.close();
         } catch (Exception e) {
@@ -414,6 +424,14 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             System.exit(1);
         }
         myLogger.info("   ...done\n");
+    }
+    
+    private void writeInitialTaxaReadCounts(TaxaList tl) {
+    	tl.stream() // Add initial taxa names with count of 0 to synchronized maps
+    	.forEach(taxon -> {
+    		 rawReadCountsForFullSampleName.put(taxon.getName(), 0); 
+    	     matchedReadCountsForFullSampleName.put(taxon.getName(), 0);
+    	});
     }
 
     private void printFileNameConventions(String actualFileName) {
