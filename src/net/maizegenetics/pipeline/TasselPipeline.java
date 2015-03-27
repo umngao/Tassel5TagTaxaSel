@@ -102,6 +102,9 @@ public class TasselPipeline implements PluginListener {
     private final Map<Plugin, Integer> myProgressValues = new HashMap<>();
     private final StringBuilder myDeprecatedWarning = new StringBuilder();
     private final boolean myIsInteractive;
+    private TasselPipelineStepsDialog myStepsDialog = null;
+    private String[] myDescriptions = null;
+    private int myCurrentDescriptionIndex = 0;
 
     /**
      * Creates a new instance of TasselPipeline
@@ -139,9 +142,13 @@ public class TasselPipeline implements PluginListener {
 
             TasselLogging.basicLoggingInfo();
 
+            if (myIsInteractive) {
+                myStepsDialog = new TasselPipelineStepsDialog();
+            }
+
             parseArgs(args);
 
-            if (myMainFrame != null) {
+            if ((myMainFrame != null) && (!myIsInteractive)) {
                 ProgressPanel progressPanel = myMainFrame.getProgressPanel();
                 if (progressPanel != null) {
                     Iterator<String> itr = myForks.keySet().iterator();
@@ -154,10 +161,13 @@ public class TasselPipeline implements PluginListener {
             }
 
             if (myIsInteractive) {
+                myStepsDialog.showDialog();
                 for (ThreadedPluginListener current : myThreads) {
-                    System.out.println("Thread: " + current.getPluginListener().getClass().getName());
                     try {
                         current.run();
+                        if (((Plugin) current.getPluginListener()).wasCancelled()) {
+                            break;
+                        }
                     } catch (Exception ex) {
                         myLogger.error(ex.getMessage(), ex);
                         break;
@@ -207,9 +217,9 @@ public class TasselPipeline implements PluginListener {
             TasselPipelineXMLUtil.writeArgsAsXML(xmlFilename, temp);
         } else if ((args.length >= 2) && (args[0].equalsIgnoreCase("-translateXML"))) {
             String xmlFilename = args[1].trim();
-            String[] result = TasselPipelineXMLUtil.readXMLAsArgs(xmlFilename);
-            for (int i = 0; i < result.length; i++) {
-                System.out.print(result[i]);
+            String[][] result = TasselPipelineXMLUtil.readXMLAsArgs(xmlFilename);
+            for (int i = 0; i < result[0].length; i++) {
+                System.out.print(result[0][i]);
                 System.out.print(" ");
             }
             System.out.println("");
@@ -249,20 +259,38 @@ public class TasselPipeline implements PluginListener {
 
     }
 
-    public void parseArgs(String[] args) {
+    public void parseArgs(String[] input) {
+
+        String[] args = input;
 
         if ((args.length >= 1) && (args[0].equalsIgnoreCase("-configFile"))) {
             if (args.length < 2) {
                 throw new IllegalArgumentException("TasselPipeline: parseArgs: a filename must follow -configFile flag.");
             }
             String xmlFilename = args[1].trim();
-            args = TasselPipelineXMLUtil.readXMLAsArgs(xmlFilename);
+            String[][] tempArgsDesc = TasselPipelineXMLUtil.readXMLAsArgs(xmlFilename);
+            args = tempArgsDesc[0];
+            myDescriptions = tempArgsDesc[1];
+        } else if ((args.length >= 1) && (args[0].equalsIgnoreCase("-configResourceFile"))) {
+            if (args.length < 2) {
+                throw new IllegalArgumentException("TasselPipeline: parseArgs: a filename must follow -configResourceFile flag.");
+            }
+            String xmlFilename = args[1].trim();
+            String[][] tempArgsDesc = TasselPipelineXMLUtil.readXMLAsArgsFromResource(xmlFilename);
+            args = tempArgsDesc[0];
+            myDescriptions = tempArgsDesc[1];
+            if ((myStepsDialog != null) && (tempArgsDesc[2] != null)) {
+                myStepsDialog.setOverallDescription(tempArgsDesc[2][0]);
+            }
+        } else {
+            args = addForkFlagsIfNeeded(args);
         }
 
-        args = addForkFlagsIfNeeded(args);
         myLogger.info("Tassel Pipeline Arguments: " + Arrays.deepToString(args));
         int index = 0;
         while (index < args.length) {
+
+            myCurrentDescriptionIndex = index;
 
             try {
 
@@ -320,12 +348,12 @@ public class TasselPipeline implements PluginListener {
                         } catch (Exception e) {
                             throw new IllegalArgumentException("TasselPipeline: parseArgs: -inputOnce must follow -combine flag.");
                         }
-                        Plugin endSpecifiedPipe = (Plugin) specifiedPipe.get(specifiedPipe.size() - 1);
+                        Plugin endSpecifiedPipe = specifiedPipe.get(specifiedPipe.size() - 1);
                         combinePlugin.receiveDataSetOnceFrom(endSpecifiedPipe);
                     }
                 } else if (current.startsWith("-combine")) {
                     current = current.replaceFirst("-combine", "-fork");
-                    if ((myCurrentPipe != null) && (myCurrentPipe.size() != 0)) {
+                    if ((myCurrentPipe != null) && (!myCurrentPipe.isEmpty())) {
                         myCurrentPipe.get(myCurrentPipe.size() - 1).setThreaded(true);
                     }
                     myCurrentFork = current;
@@ -1492,8 +1520,8 @@ public class TasselPipeline implements PluginListener {
 
     private void tracePipeline() {
 
-        for (ThreadedPluginListener myThread : myThreads) {
-            Plugin current = (Plugin) myThread.getPluginListener();
+        for (ThreadedPluginListener thread : myThreads) {
+            Plugin current = (Plugin) thread.getPluginListener();
             ((AbstractPlugin) current).trace(0);
         }
 
@@ -1592,15 +1620,19 @@ public class TasselPipeline implements PluginListener {
         }
 
         if (myCurrentPipe == null) {
-            myCurrentPipe = new ArrayList();
+            myCurrentPipe = new ArrayList<>();
 
         }
 
-        if (myCurrentPipe.size() == 0) {
+        if (myCurrentPipe.isEmpty()) {
             myCurrentPipe.add(plugin);
         } else {
-            plugin.receiveInput(((Plugin) myCurrentPipe.get(myCurrentPipe.size() - 1)));
+            plugin.receiveInput(myCurrentPipe.get(myCurrentPipe.size() - 1));
             myCurrentPipe.add(plugin);
+        }
+
+        if (myIsInteractive) {
+            myStepsDialog.addPlugin(plugin, myDescriptions[myCurrentDescriptionIndex]);
         }
 
     }
@@ -1672,6 +1704,7 @@ public class TasselPipeline implements PluginListener {
         DataSet tds = (DataSet) event.getSource();
         if ((tds != null) && (tds.getSize() != 0) && (myMainFrame != null)) {
             myMainFrame.getDataTreePanel().addDataSet(tds, DataTreePanel.NODE_TYPE_DEFAULT);
+            myMainFrame.getDataTreePanel().setSelectionPath(tds.getData(0));
         }
 
     }

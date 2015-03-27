@@ -700,13 +700,27 @@ public class DataTreePanel extends JPanel implements PluginListener {
         }
     }
 
+    public void setSelectionPath(Datum theDatum) {
+        DefaultMutableTreeNode temp = findOnTree(theDatum);
+        if (temp != null) {
+            myTree.scrollPathToVisible(new TreePath(temp.getPath()));
+            myTree.setSelectionPath(new TreePath(temp.getPath()));
+            myTree.validate();
+            myTree.repaint();
+        }
+    }
+
     private DefaultMutableTreeNode findOnTree(Datum theDatum) {
+
+        if (theDatum == null) {
+            return null;
+        }
 
         Iterator itr = myNodeHash.values().iterator();
         while (itr.hasNext()) {
             DefaultMutableTreeNode parentNode = (DefaultMutableTreeNode) itr.next();
             Datum current = (Datum) parentNode.getUserObject();
-            if (current.equals(theDatum)) {
+            if ((current != null) && (current.equals(theDatum))) {
                 return parentNode;
             }
         }

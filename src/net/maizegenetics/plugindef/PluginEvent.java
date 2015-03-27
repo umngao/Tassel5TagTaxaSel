@@ -17,14 +17,14 @@ public class PluginEvent extends EventObject {
     /**
      * Creates a new instance of PluginEvent
      */
-    public PluginEvent(Object source) {
+    public PluginEvent(DataSet source) {
         this(source, null);
     }
 
     /**
      * Creates a new instance of PluginEvent
      */
-    public PluginEvent(Object source, Object metaData) {
+    public PluginEvent(DataSet source, Object metaData) {
         super(source == null ? new DataSet((Datum) null, null) : source);
         myMetaData = metaData;
     }

@@ -5,6 +5,7 @@ package net.maizegenetics.pipeline;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,8 @@ import javax.xml.transform.stream.StreamResult;
 import net.maizegenetics.plugindef.Plugin;
 import net.maizegenetics.util.Utils;
 
+import org.apache.log4j.Logger;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -30,6 +33,8 @@ import org.w3c.dom.NodeList;
  * @author Terry Casstevens
  */
 public class TasselPipelineXMLUtil {
+
+    private static final Logger myLogger = Logger.getLogger(TasselPipelineXMLUtil.class);
 
     private TasselPipelineXMLUtil() {
         // Utility Class
@@ -57,7 +62,6 @@ public class TasselPipelineXMLUtil {
             transformer.transform(source, result);
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
         }
 
     }
@@ -217,16 +221,40 @@ public class TasselPipelineXMLUtil {
         }
     }
 
-    public static String[] readXMLAsArgs(String filename) {
-
-        List<String> temp = new ArrayList<>();
+    public static String[][] readXMLAsArgs(String filename) {
 
         try {
-
             File fXmlFile = new File(filename);
             DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
             DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
             Document doc = dBuilder.parse(fXmlFile);
+            return readXMLAsArgs(doc);
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("TasselPipelineXMLUtil: readXMLAsArgs: Problem reading XML file: " + filename + "\n" + e.getMessage());
+        }
+
+    }
+
+    public static String[][] readXMLAsArgsFromResource(String filename) {
+
+        try {
+            InputStream input = TasselPipelineXMLUtil.class.getResourceAsStream(filename);
+            DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+            Document doc = dBuilder.parse(input);
+            return readXMLAsArgs(doc);
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("TasselPipelineXMLUtil: readXMLAsArgsFromResource: Problem reading XML file: " + filename + "\n" + e.getMessage());
+        }
+
+    }
+
+    private static String[][] readXMLAsArgs(Document doc) {
+
+        try {
+
             doc.getDocumentElement().normalize();
 
             Element rootElement = doc.getDocumentElement();
@@ -234,30 +262,60 @@ public class TasselPipelineXMLUtil {
                 throw new IllegalArgumentException("TasselPipelineXMLUtil: readXMLAsArgs: Root Node must be TasselPipeline: " + rootElement.getNodeName());
             }
 
+            List<String> temp = new ArrayList<>();
+            List<String> workflow = new ArrayList<>();
             NodeList children = rootElement.getChildNodes();
+            String overallDescription = null;
             for (int i = 0; i < children.getLength(); i++) {
                 Node current = children.item(i);
-                getFlags(current, temp);
+                if ((current.getNodeType() == Node.ELEMENT_NODE) && (current.getNodeName().trim().equals("workflow"))) {
+                    NodeList descNodes = current.getChildNodes();
+                    for (int j = 0; j < descNodes.getLength(); j++) {
+                        Node currentDesc = descNodes.item(j);
+                        if (currentDesc.getNodeType() == Node.TEXT_NODE) {
+                            String value = currentDesc.getNodeValue().trim();
+                            overallDescription = formatDescription(value);
+                            break;
+                        }
+                    }
+                } else {
+                    getFlags(current, temp, workflow);
+                }
             }
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            if (temp.size() != workflow.size()) {
+                throw new IllegalStateException("TasselPipelineXMLUtil: readXMLAsArgs: number of flags and descriptions should be the same.");
+            }
 
-        String[] args = new String[temp.size()];
-        temp.toArray(args);
-        return args;
+            String[] args = new String[temp.size()];
+            temp.toArray(args);
+
+            String[] descriptions = new String[workflow.size()];
+            workflow.toArray(descriptions);
+
+            String[][] result = new String[3][];
+            result[0] = args;
+            result[1] = descriptions;
+            result[2] = new String[]{overallDescription};
+            return result;
+
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("TasselPipelineXMLUtil: readXMLAsArgs: Problem converting XML to Args: " + e.getMessage());
+        }
 
     }
 
-    private static void getFlags(Node node, List<String> flags) {
+    private static void getFlags(Node node, List<String> flags, List<String> workflow) {
 
         if (node.getNodeType() != Node.ELEMENT_NODE) {
             return;
         }
 
         String flagName = node.getNodeName().trim();
+        final int workflowIndex = flags.size();
         flags.add("-" + flagName);
+        workflow.add(null);
         NodeList children = node.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node current = children.item(i);
@@ -265,15 +323,49 @@ public class TasselPipelineXMLUtil {
                 String temp = current.getNodeValue().trim();
                 if (temp.length() != 0) {
                     flags.add(temp);
+                    workflow.add(null);
+                }
+            } else if ((current.getNodeType() == Node.ELEMENT_NODE) && (current.getNodeName().trim().equals("workflow"))) {
+                NodeList descNodes = current.getChildNodes();
+                for (int j = 0; j < descNodes.getLength(); j++) {
+                    Node currentDesc = descNodes.item(j);
+                    if (currentDesc.getNodeType() == Node.TEXT_NODE) {
+                        workflow.remove(workflowIndex);
+                        String value = currentDesc.getNodeValue().trim();
+                        workflow.add(workflowIndex, formatDescription(value));
+                        break;
+                    }
                 }
             } else {
-                getFlags(current, flags);
+                getFlags(current, flags, workflow);
             }
         }
 
         if (isSelfDescribingPlugin(flagName)) {
             flags.add("-endPlugin");
+            workflow.add(null);
         }
 
+    }
+
+    private static final int DEFAULT_LINE_LENGTH = 50;
+
+    private static String formatDescription(String description) {
+        description = description.replaceAll("\\s+", " ");
+        int count = 0;
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0, n = description.length(); i < n; i++) {
+            count++;
+            if (description.charAt(i) == '\n') {
+                builder.append("<br>");
+                count = 0;
+            } else if ((count > DEFAULT_LINE_LENGTH) && (description.charAt(i) == ' ')) {
+                builder.append("<br>");
+                count = 0;
+            } else {
+                builder.append(description.charAt(i));
+            }
+        }
+        return builder.toString();
     }
 }
