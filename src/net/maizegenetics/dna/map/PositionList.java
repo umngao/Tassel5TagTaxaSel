@@ -2,7 +2,16 @@ package net.maizegenetics.dna.map;
 
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.snp.GenotypeTable;
+
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.BinaryOperator;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collector;
 
 /**
  * List of positions in the genome. This type is used by every
@@ -12,6 +21,7 @@ import java.util.List;
  * @author Terry Casstevens and Ed Buckler
  */
 public interface PositionList extends List<Position> {
+
     /**
      * Return the (haploid) reference allele at given site.
      *
@@ -22,8 +32,8 @@ public interface PositionList extends List<Position> {
     public byte allele(WHICH_ALLELE alleleType, int site);
 
     /**
-     * Returns reference sequence alleles in specified range.
-     * End site not included. One haploid allele for each site.
+     * Returns reference sequence alleles in specified range. End site not
+     * included. One haploid allele for each site.
      *
      * @param startSite start site
      * @param endSite end site (not included in result)
@@ -39,40 +49,13 @@ public interface PositionList extends List<Position> {
      */
     public byte[] alleleForAllSites(WHICH_ALLELE alleleType);
 
-//    /**
-//     * Return the (haploid) reference allele at given site.
-//     *
-//     * @param site site
-//     *
-//     * @return byte from 0-15
-//     */
-//    public byte referenceAllele(int site);
-//
-//    /**
-//     * Returns reference sequence alleles in specified range.
-//     * End site not included. One haploid allele for each site.
-//     *
-//     * @param startSite start site
-//     * @param endSite end site (not included in result)
-//     *
-//     * @return reference sequence of haploid allele values.
-//     */
-//    public byte[] referenceAlleles(int startSite, int endSite);
-//
-//    /**
-//     * Returns reference sequence alleles. One haploid allele for each site.
-//     *
-//     * @return reference sequence of haploid allele values.
-//     */
-//    public byte[] referenceAlleleForAllSites();
-
     /**
      * Return whether this alignment has defined reference sequence.
      *
      * @return true if this alignment has reference sequence.
      */
     public boolean hasReference();
-    
+
     /**
      * Get SNP ID for specified site.
      *
@@ -229,5 +212,71 @@ public interface PositionList extends List<Position> {
      * @return whether is positive strand.
      */
     public boolean isPositiveStrand(int site);
+
+    /**
+     * Returns PositionList Collector that validates order of Positions.
+     *
+     * @return collector
+     */
+    public static Collector<Position, ?, PositionList> collectValidateOrder() {
+        return new PositionListCollector(true);
+    }
+
+    /**
+     * Returns PositionList Collector that reorders position if necessary.
+     *
+     * @return collector
+     */
+    public static Collector<Position, ?, PositionList> collectReorder() {
+        return new PositionListCollector(false);
+    }
+
+    public static class PositionListCollector implements Collector<Position, PositionListBuilder, PositionList> {
+
+        private final boolean myValidateOrder;
+
+        public PositionListCollector(boolean validateOrder) {
+            myValidateOrder = validateOrder;
+        }
+
+        @Override
+        public Supplier<PositionListBuilder> supplier() {
+            return PositionListBuilder::new;
+        }
+
+        @Override
+        public BiConsumer<PositionListBuilder, Position> accumulator() {
+            return PositionListBuilder::add;
+        }
+
+        @Override
+        public BinaryOperator<PositionListBuilder> combiner() {
+            return (left, right) -> {
+                left.addAll(right);
+                return left;
+            };
+        }
+
+        @Override
+        public Function<PositionListBuilder, PositionList> finisher() {
+            return (result) -> {
+                if (myValidateOrder && !result.validateOrdering()) {
+                    throw new IllegalStateException("PositionList: PositionListCollector: Postions are not in order.");
+                } else {
+                    return result.build();
+                }
+            };
+        }
+
+        @Override
+        public Set<Collector.Characteristics> characteristics() {
+            if (myValidateOrder) {
+                return Collections.EMPTY_SET;
+            } else {
+                return Collections.unmodifiableSet(EnumSet.of(Collector.Characteristics.UNORDERED));
+            }
+        }
+
+    }
 
 }
