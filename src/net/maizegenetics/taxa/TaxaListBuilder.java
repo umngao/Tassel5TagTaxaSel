@@ -97,6 +97,13 @@ public class TaxaListBuilder {
         }
         return this;
     }
+    
+    public TaxaListBuilder addAll(TaxaListBuilder builder) {
+        for (Taxon current : builder.myTaxaList) {
+            add(current);
+        }
+        return this;
+    }
 
     public TaxaList build() {
         return new TaxaArrayList(this);
