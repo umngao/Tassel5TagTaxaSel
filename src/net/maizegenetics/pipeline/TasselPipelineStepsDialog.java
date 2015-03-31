@@ -244,8 +244,10 @@ public class TasselPipelineStepsDialog extends JDialog implements PluginListener
         int index = myPluginOrder.indexOf(plugin);
         if (index < myPluginOrder.size() - 1) {
             setTextColor(myPluginOrder.get(index + 1), CURRENT_STEP_COLOR);
-            Rectangle rec = myTextAreas.get(myPluginOrder.get(index + 1)).getBounds();
-            myMainPane.scrollRectToVisible(rec);
+            if (index < myPluginOrder.size() - 2) {
+                Rectangle rec = myTextAreas.get(myPluginOrder.get(index + 2)).getBounds();
+                myMainPane.scrollRectToVisible(rec);
+            }
         }
     }
 

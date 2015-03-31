@@ -73,6 +73,7 @@
                 <include name="**/*.html"/>
                 <include name="**/*.png"/>
                 <include name="**/*.sql"/>
+                <include name="**/*.xml"/>
             </fileset>
         </copy>
         
