@@ -1,6 +1,8 @@
 package net.maizegenetics.taxa;
 
 
+import net.maizegenetics.taxa.Taxon.Builder;
+import net.maizegenetics.util.GeneralAnnotation;
 import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.AbstractTableReport;
 
@@ -13,6 +15,8 @@ import org.apache.commons.codec.language.Metaphone;
 import org.apache.commons.codec.language.RefinedSoundex;
 import org.apache.commons.codec.language.Soundex;
 
+import com.google.common.collect.ImmutableMultimap;
+
 
 /**
  * User: Ed
@@ -21,57 +25,96 @@ import org.apache.commons.codec.language.Soundex;
  */
 public class IdentifierSynonymizer extends AbstractTableReport implements Serializable, TableReport {
 
-    HashMap<String,Integer> idSynonyms = new HashMap<>();    //TODO needs to be entirely updated to new collections
+    ArrayList<TaxaList> taxaListSynonymized = new ArrayList<>();
+    TaxaList tempTaxaList = null;
     private TaxaList referenceIDGroup;
+    private int matchCount = 0;
     private int unmatchCount = 0;
     private int technique = 0;
     private double globalMin = Double.POSITIVE_INFINITY;
     private double globalMax = Double.NEGATIVE_INFINITY;
 
     public IdentifierSynonymizer(TaxaList preferredTaxa, TaxaList[] alternateTaxaSets) {
-        init(preferredTaxa, alternateTaxaSets);
+        init2(preferredTaxa, alternateTaxaSets);
     }
     public IdentifierSynonymizer(TaxaList preferredTaxa, TaxaList[] alternateTaxaSets,int technique) {
         this.technique = technique;
-        init(preferredTaxa, alternateTaxaSets);
+        init2(preferredTaxa, alternateTaxaSets);
     }
 
     public IdentifierSynonymizer(TaxaList preferredTaxa, TaxaList alternateTaxa) {
         TaxaList[] alternateTaxaSets = new TaxaList[1];
         alternateTaxaSets[0] = alternateTaxa;
-        init(preferredTaxa, alternateTaxaSets);
+        init2(preferredTaxa, alternateTaxaSets);
     }
 
-    private void init(TaxaList preferredTaxa, TaxaList[] alternateTaxaSets) {
-        //referenceIDGroup=preferredTaxa;
-        referenceIDGroup = preferredTaxa;
-        Taxon currID;
-        //Load up the synonym table with all the known names
-        for (int i = 0; i < referenceIDGroup.numberOfTaxa(); i++) {
-            idSynonyms.put(referenceIDGroup.taxaName(i), i);
+
+    //Taxa List implementation This will become init when finished
+    //TODO Stream implementation
+    private void init2(TaxaList referenceTaxa, TaxaList[] alternateTaxaSets) {
+        referenceIDGroup = referenceTaxa;
+        ImmutableMultimap.Builder<String,String> changeSynBuild = new ImmutableMultimap.Builder();
+        
+        //Go Through each alternateTaxaSet and compute the similarity to the referenceTaxa entries
+        for(TaxaList altTaxaList:alternateTaxaSets) { 
+            for(Taxon altTaxon:altTaxaList){
+                ArrayList<String> theBest = findBestMatch(altTaxon.getName(),referenceTaxa);
+                //If the score is better than the current score, put it on the change Syn
+                if (theBest.size() == 1) {
+                    String bs = theBest.get(0);
+                    if(!bs.equals(altTaxon.getName())) {
+                        changeSynBuild.put(altTaxon.getName(), bs);
+                    }
+                    matchCount++;
+                } else {
+                    for(String score:theBest) {
+                        changeSynBuild.put(altTaxon.getName(),score);
+                    }
+                    unmatchCount++;
+                }
+            } 
         }
-        //Find the unknown names and place them in a list
-        for (int a = 0; a < alternateTaxaSets.length; a++) {
-            for (int i = 0; i < alternateTaxaSets[a].numberOfTaxa(); i++) {
-                currID = alternateTaxaSets[a].get(i);
-                if (idSynonyms.containsKey(currID.getName()) == false) {
-                    ArrayList<String> theBest = findBestMatch(currID.toString());
-                    if (theBest.size() == 1) {
-                        String bs = (String) theBest.get(0);
-                        int indexOfBest = referenceIDGroup.indexOf(bs);
-                        idSynonyms.put(currID.toString(), indexOfBest);
-                    } else {
-                        idSynonyms.put(currID.toString(), -1);
-                        unmatchCount++;
+        ImmutableMultimap<String,String> changeSyn = changeSynBuild.build();
+        //Then go through and build a new taxaList adding the Synonyms to this
+        for(TaxaList altTaxaList:alternateTaxaSets) {
+            //Create a taxaList builder to make the new list
+            TaxaListBuilder tlb = new TaxaListBuilder();
+            
+            //Go through previous list(Taxon level)
+            for(Taxon taxon:altTaxaList) {
+                //Copy all previous datafrom altTaxaList
+                GeneralAnnotation ga = taxon.getAnnotation();
+                Taxon.Builder tb = new Taxon.Builder(taxon.getName());
+                Set<String> keys = ga.getAnnotationKeys();
+                //Copy Keys
+                for(String key:keys) {
+                    if(!key.equals(Taxon.SynonymKey)) {
+                        String[] values = ga.getTextAnnotation(key);
+                        for(String value:values) {
+                            tb.addAnno(key, value);
+                        }
                     }
                 }
-                else {
-                    globalMin = 0;
+                //If changeSyn has key for a given Taxon
+                if(changeSyn.keySet().contains(taxon.getName())) {
+                    //Add synonym to Taxon object
+                    for(String entry:changeSyn.get(taxon.getName())) {
+                        tb.addAnno(Taxon.SynonymKey,entry);
+                    }
                 }
+                //Build Taxon and Add Taxon to new list builder tlb
+                tlb.add(tb.build());
             }
+            //Build tlb and Add to taxaListToBeSyn
+            taxaListSynonymized.add(tlb.build());
         }
+        resetTempTaxaList();
+        System.out.println(toString());
     }
    
+    public TaxaList getTaxaList() {
+        return taxaListSynonymized.get(0);
+    }
 
     public int getTechnique() {
         return technique;
@@ -135,7 +178,48 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
         }
         return bestMatches;
     }
-
+    public ArrayList<String> findBestMatch(String taxaName, TaxaList referenceTaxa) {
+        ArrayList<String> bestMatches = new ArrayList<>();
+        double maxScore = -1;
+        double minScore = Double.POSITIVE_INFINITY;
+        double sm;
+        int levelOfRestriction = 0;
+        boolean ignoreCase = true, ignoreWhite = false, ignorePunc = false;
+        while ((bestMatches.size() != 1) && (levelOfRestriction < 4)) {
+            switch (levelOfRestriction) {
+                case 1:
+                    ignoreCase = true;
+                    break;
+                case 2:
+                    ignoreWhite = true;
+                    break;
+                case 3:
+                    ignorePunc = true;
+                    break;
+            }
+            for(Taxon refTaxa:referenceTaxa) {
+                sm = getScore(refTaxa.getName(), taxaName, ignoreCase, ignoreWhite, ignorePunc,technique);
+                if (sm < minScore) {
+                    bestMatches.clear();
+                    bestMatches.add(refTaxa.getName());
+                    minScore = sm;
+                    if(minScore<globalMin) {
+                        globalMin = minScore;
+                    } 
+                } else if (sm == minScore) {
+                    if(!bestMatches.contains(refTaxa.getName())) {
+                        bestMatches.add(refTaxa.getName());
+                    }
+                }
+            }
+            if(minScore>globalMax) {
+                globalMax = minScore;
+            }
+            
+            levelOfRestriction++;
+        }   
+        return bestMatches;
+    }
     public ArrayList<String> findOrderedMatches(String unmatchedString, int levelOfRestriction) {
         SortedMap<Double,String> theSortMap = new TreeMap<>();
         double sm;
@@ -153,8 +237,8 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
             //sm = scoreMatch(referenceIDGroup.taxaName(i), unmatchedString, ignoreCase, ignoreWhite, ignorePunc);
             sm = getScore(referenceIDGroup.taxaName(i), unmatchedString, ignoreCase, ignoreWhite, ignorePunc,technique);
             sm = 1.0-((sm - globalMin)/(globalMax-globalMin));
-            //theSortMap.put(1 - sm - ((double) i / 100000.0), referenceIDGroup.taxaName(i));
-            theSortMap.put(sm - ((double) i / 100000.0), referenceIDGroup.taxaName(i));
+            theSortMap.put(1 - sm - ((double) i / 100000.0), referenceIDGroup.taxaName(i));
+            //theSortMap.put(sm - ((double) i / 100000.0), referenceIDGroup.taxaName(i));
         }
         return new ArrayList<>(theSortMap.values());
     }
@@ -313,231 +397,6 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
         return editMatrix[editMatrix.length-1][editMatrix[editMatrix.length-1].length-1];
     }
 
-    public static String refinedSoundex(String s1, boolean ignoreCase, boolean ignoreWhite, boolean ignorePunc) {
-        s1 = cleanName(s1, true, true, true);
-        
-        StringBuilder soundexCode = new StringBuilder();
-        HashMap<Character, Character> consMap= new HashMap<Character,Character>();
-        consMap.put('B', '1');
-        consMap.put('C', '3');
-        consMap.put('D', '6');
-        consMap.put('F', '2');
-        consMap.put('G', '4');
-        consMap.put('J', '4');
-        consMap.put('K', '3');
-        consMap.put('L', '7');
-        consMap.put('M', '8');
-        consMap.put('N', '8');
-        consMap.put('P', '1');
-        consMap.put('Q', '5');
-        consMap.put('R', '9');
-        consMap.put('S', '3');
-        consMap.put('T', '6');
-        consMap.put('V', '2');
-        consMap.put('X', '5');
-        consMap.put('Z', '5');
-        consMap.put('0', 'a');
-        consMap.put('1', 'b');
-        consMap.put('2', 'c');
-        consMap.put('3', 'd');
-        consMap.put('4', 'e');
-        consMap.put('5', 'f');
-        consMap.put('6', 'g');
-        consMap.put('7', 'h');
-        consMap.put('8', 'i');
-        consMap.put('9', 'j');
-        soundexCode.append(s1.charAt(0));
-        if(s1.charAt(0) != 'H' && s1.charAt(0) != 'W') {
-            soundexCode.append(consMap.get(s1.charAt(0)));
-        }
-        for(int i = 1; i< s1.length();i++) {
-            if(s1.charAt(i) != 'W' && s1.charAt(i) != 'H' && s1.charAt(i) != 'A' && s1.charAt(i) != 'E' && s1.charAt(i) != 'I' && s1.charAt(i) != 'O' && s1.charAt(i) != 'U' && s1.charAt(i) != 'Y') {
-                char currentCharacter = consMap.get(s1.charAt(i));
-                char prevCharacter = soundexCode.charAt(soundexCode.length()-1);
-                if(currentCharacter != prevCharacter) {
-                    soundexCode.append(currentCharacter);
-                }
-            }
-            else {
-                
-                char prevCharacter = soundexCode.charAt(soundexCode.length()-1);
-                if(prevCharacter != '0') {
-                    soundexCode.append('0');
-                }
-                //soundexCode.append('0');
-            }
-        }
-        return soundexCode.toString();
-    }
-
-    public static String metaphone(String s1, boolean ignoreCase, boolean ignoreWhite, boolean ignorePunc) {
-        s1 = cleanName(s1, true, true, true);
-        
-        //Step1 remove all repeated letters except for duplicate C characters
-        StringBuilder sb = new StringBuilder();
-        char prevChar = s1.charAt(0);
-        sb.append(s1.charAt(0));
-        for(int i = 1; i<s1.length();i++) {
-            if(prevChar != s1.charAt(i) || s1.charAt(i) == 'C') {
-                prevChar = s1.charAt(i);
-                sb.append(s1.charAt(i));
-            }
-        }
-        //Step2 change first to characters if KN, GN, PN, AE, WR
-        s1 = sb.toString();
-        sb = new StringBuilder();
-        if(s1.startsWith("KN")) {
-            s1.replaceFirst("KN","N");
-        }
-        else if(s1.startsWith("GN")) {
-            s1.replaceFirst("GN", "N");
-        }
-        else if(s1.startsWith("PN")) {
-            s1.replaceFirst("PN", "N");
-        }
-        else if(s1.startsWith("AE")) {
-            s1.replaceFirst("AE", "E");
-        }
-        else if(s1.startsWith("WR")) {
-            s1.replaceFirst("WR", "R");
-        }
-        
-        //Step3 remove B character from end if preceded by M
-        if(s1.endsWith("MB")) {
-            s1 = s1.substring(s1.length()-2, s1.length()-1);
-        }
-        
-        //Step4 Replace occurrences of C depending on what surrounds it
-        s1.replaceAll("CIA", "XIA");
-        s1.replaceAll("SCH", "SKH");
-        s1.replaceAll("CH", "XH");
-        s1.replaceAll("CI", "SI");
-        s1.replaceAll("CE", "SE");
-        s1.replaceAll("CY", "SY");
-        s1.replaceAll("C", "K");
-        
-        //Step 5 Replace D with J or T
-        s1.replaceAll("DGE", "JGE");
-        s1.replaceAll("DGY", "JGY");
-        s1.replaceAll("DGI", "JGY");
-        s1.replaceAll("D", "T");
-        
-        //Step 6 Replace GH with H as long as its not before a vowel or ending the word
-        s1.replaceAll("GH[^AEIOU|]","H");
-        
-        //Step 7 fix GN or GNED ending words
-        s1.replaceAll("GN$", "N");
-        s1.replaceAll("GNED$", "NED");
-        
-        //Step 8 replace G characters
-        s1.replaceAll("GI", "JI");
-        s1.replaceAll("GE", "JE");
-        s1.replaceAll("GY", "JY");
-        s1.replaceAll("G", "K");
-        
-        //Step 9 remove H after a vowel but not before
-        for(int i = 0; i<s1.length()-2;i++) {
-            if(s1.charAt(i) == 'A' || s1.charAt(i) == 'E' || s1.charAt(i) == 'I' || s1.charAt(i) == 'O' || s1.charAt(i) == 'U') {
-                if(s1.charAt(i+1) != 'H') {
-                    sb.append(s1.charAt(i));
-                }
-                else {
-                    if(sb.charAt(i+2) == 'A' || s1.charAt(i+2) != 'E' || s1.charAt(i+2) == 'I' || s1.charAt(i+2) == 'O' || s1.charAt(i+2) == 'U') {
-                       sb.append(s1.charAt(i+1));
-                       sb.append(s1.charAt(i+2));
-                       i+=2;
-                    }
-                    else {
-                        //skip H character
-                        i+=1;
-                    }
-                }
-            }
-            else {
-                sb.append(s1.charAt(i));
-            }
-        }
-        sb.append(s1.charAt(s1.length()-2));
-        if(s1.charAt(s1.length()-1)=='H') {
-            if(s1.charAt(s1.length()-2)!='A' && s1.charAt(s1.length()-2)!='E' && s1.charAt(s1.length()-2)!='I' && s1.charAt(s1.length()-2)!='O' && s1.charAt(s1.length()-2)!='U') {
-                sb.append('H');
-            }
-        }
-        s1 = sb.toString();
-        sb = new StringBuilder();
-        
-        //Step10 Various transformations
-        s1.replaceAll("CK", "K");
-        s1.replaceAll("PH", "F");
-        s1.replaceAll("Q", "K");
-        s1.replaceAll("V", "F");
-        s1.replaceAll("Z", "S");
-        
-        //Step11 S to X
-        s1.replaceAll("SH","XH");
-        s1.replaceAll("SIO", "XIO");
-        s1.replaceAll("SIA", "XIA");
-        
-        //Step12 replace T
-        s1.replaceAll("TIA", "XIA");
-        s1.replaceAll("TIO", "XIO");
-        s1.replaceAll("TH", "0");
-        s1.replaceAll("TCH", "CH");
-        
-        //Step13 remove WH if it is at the start/ remove all W if no vowel after it
-        if(s1.charAt(0)=='W' && s1.charAt(1)=='H') {
-            s1="W"+s1.substring(2, s1.length());
-        }
-        for(int i = 0; i<s1.length()-1;i++) {
-            if(s1.charAt(i)=='W') {
-                if(s1.charAt(i+1) != 'A' && s1.charAt(i+1) != 'E' && s1.charAt(i+1) != 'I' && s1.charAt(i+1) != 'O' && s1.charAt(i+1) != 'U') {
-                    sb.append(s1.charAt(i));
-                }
-            }
-            else {
-                sb.append(s1.charAt(i));
-            }
-        }
-        if(s1.charAt(s1.length()-1)!='W') {
-            sb.append(s1.charAt(s1.length()-1));
-        }
-        s1 = sb.toString();
-        sb = new StringBuilder();
-        
-        //Step14 replace X
-        if(s1.charAt(0)=='X') {
-            s1 = "S"+s1.substring(1, s1.length());
-        }
-        s1.replaceAll("X", "KS");
-        
-        //Step15 Remove Y which are not before a vowel
-        for(int i = 0; i<s1.length()-1;i++) {
-            if(s1.charAt(i)=='Y') {
-                if(s1.charAt(i+1) != 'A' && s1.charAt(i+1) != 'E' && s1.charAt(i+1) != 'I' && s1.charAt(i+1) != 'O' && s1.charAt(i+1) != 'U') {
-                    sb.append(s1.charAt(i));
-                }
-            }
-            else {
-                sb.append(s1.charAt(i));
-            }
-        }
-        if(s1.charAt(s1.length()-1)!='Y') {
-            sb.append(s1.charAt(s1.length()-1));
-        }
-        s1 = sb.toString();
-        sb = new StringBuilder();
-        
-        //Step16 remove all vowels except if word starts with vowel
-        sb.append(s1.charAt(0));
-        for(int i = 1; i<s1.length();i++) {
-            if(s1.charAt(i) != 'A' && s1.charAt(i) != 'E' && s1.charAt(i) != 'I' && s1.charAt(i) != 'O' && s1.charAt(i) != 'U') {
-                sb.append(s1.charAt(i));
-            }
-        }
-        s1 = sb.toString();
-        return s1;
-    }
-
     public static String metaphone2(String s1, boolean ignoreCase, boolean ignoreWhite, boolean ignorePunc) {
         s1 = cleanName(s1, true, true, true);
         if(s1.equals("")) {
@@ -588,11 +447,7 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
         Soundex soundex = new Soundex();
         return soundex.soundex(s1);
     }
-    public static String refinedSoundex2(String s1, boolean ignoreCase, boolean ignoreWhite, boolean ignorePunc) {
-        s1 = cleanName(s1, true, true, true);
-        RefinedSoundex soundex = new RefinedSoundex();
-        return soundex.soundex(s1);
-    }
+    
     /*
      * Method to determine keyboard distance.
      * Idea borrowed from http://search.cpan.org/~krburton/String-KeyboardDistance-1.01/KeyboardDistance.pm
@@ -727,9 +582,7 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
      * Simple implementation of Dynamic Time Warping distance
      * 
      * Currently uses KeyboardDistance as the distance measurement
-     * More will be implemented soon
      */
-    
     private static double dtwDist(String str1, String str2, String distMeas,boolean ignoreCase, boolean ignoreWhite, boolean ignorePunc) {
         str1 = cleanName(str1,ignoreCase,ignoreWhite,ignorePunc);
         str2 = cleanName(str2,ignoreCase,ignoreWhite,ignorePunc);
@@ -826,95 +679,76 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
         changeAlignmentIdentifiers(aidg[0]);
     }
 
-    public void changeAlignmentIdentifiers(TaxaList[] alternateIdGroups) {
-        Taxon currID;
-        for (int a = 0; a < alternateIdGroups.length; a++) {
-            TaxaListBuilder tLB=new TaxaListBuilder();
-            for (int i = 0; i < alternateIdGroups[a].numberOfTaxa(); i++) {
-                currID = alternateIdGroups[a].get(i);
-                if (getPreferredIndex(currID.getName()) > -1) {
-                    tLB.add(new Taxon.Builder(getPreferredName(currID.getName())).build());
-                } else {
-                    tLB.add(new Taxon.Builder(currID).build());
-                }
-            }
-        }
-    }
-
+    
     public String toString() {
-        String s = "Synonym Table\n" + idSynonyms.toString() + "\n\n";
+        String s = "Synonym Table\n";
+        int counter = 0;
+        for(TaxaList tl:taxaListSynonymized) {
+            s+="SynonymFile "+counter+":\n";
+            for(Taxon tx:tl) {
+                s+="Name: " + tx.getName()+", Synonyms: ";
+                for(String syn:tx.getAnnotation().getTextAnnotation(Taxon.SynonymKey)) {
+                    s+=syn+", ";
+                }
+                s+="\n";
+            }
+            counter++;
+        }
         return s;    //To change body of overridden methods use File | Settings | File Templates.
     }
 
-    public String getPreferredName(String theID) {
-        int index = getPreferredIndex(theID);
-        if (index > -1) {
-            return referenceIDGroup.taxaName(index);
-        } else {
-            return "";
-        }
-    }
-
-    public int getPreferredIndex(String theID) {
-        Object index = idSynonyms.get(theID);
-        if (index == null) {
-            return -1;
-        } else {
-            return ((Integer) index).intValue();
-        }
-    }
-
-    public Taxon getPreferredIdentifier(Taxon theID) {
-        int index = getPreferredIndex(theID.getName());
-        if (index > -1) {
-            return referenceIDGroup.get(index);
-        } else {
-            return null;
-        }
-    }
-
     public void deleteByThreshold(double threshold) {
-        Object[] keyArray = idSynonyms.keySet().toArray();
-        String synName, realName;
-        double score;
-        for (int i = 0; i < keyArray.length; i++) {
-            synName = "" + (String) keyArray[i];
-            if (getPreferredIndex(synName) > -1) {
-                realName = "" + getPreferredName(synName);
-                score = getScore(synName,realName, true, false, false, technique);
-                //To Fix a NaN bug
+        ImmutableMultimap.Builder<String,String> removeBuilder = new ImmutableMultimap.Builder();
+        //Go through taxa list
+        for(Taxon tx:tempTaxaList) {
+            String taxonName = tx.getName();
+            //Go through the list of synonyms
+            for(String synName:tx.getAnnotation().getTextAnnotation(Taxon.SynonymKey)) {
+                double score = getScore(taxonName,synName,true,false,false,technique);
                 if(technique==4) {
                     globalMax = 4.0;
                 }
-                //score = scoreMatch(synName, realName, true, false, false);
                 score = 1.0-((score - globalMin)/(globalMax-globalMin));
-                
-                if (score < threshold) {
-                    idSynonyms.put(synName, new Integer(-1));
+                //If Score is less than thresh add to remove list
+                if(score<threshold) {
+                    removeBuilder.put(taxonName,synName);
                 }
             }
         }
-    }
-
-    public boolean setRealName(String synName, String realName) {
-        int synID = getPreferredIndex(synName);
-        int realID = referenceIDGroup.indexOf(realName);
-        if ((synID > -1) && (realID > -1)) {
-            realName = "" + getPreferredName(synName);
-            idSynonyms.put(synName, new Integer(realID));
-            return true;
-        } else {
-            return false;
+        ImmutableMultimap<String,String> removeMap = removeBuilder.build();
+        TaxaListBuilder tlb = new TaxaListBuilder();
+        for(Taxon tx:tempTaxaList) {
+            GeneralAnnotation ga = tx.getAnnotation();
+            Taxon.Builder tb = new Taxon.Builder(tx.getName());
+            Set<String> keys = ga.getAnnotationKeys();
+            //Copy Keys
+            for(String key:keys) {
+                if(!key.equals(Taxon.SynonymKey)) {
+                    String[] values = ga.getTextAnnotation(key);
+                    for(String value:values) {
+                        tb.addAnno(key, value);
+                    }
+                }
+            }
+            //If removeMap has key for a given Taxon
+            if(removeMap.keySet().contains(tx.getName())) {
+                //Loop through and ignore any that are in removeMap
+                for(String value:ga.getTextAnnotation(Taxon.SynonymKey)) {
+                    if(!removeMap.get(tx.getName()).contains(value)) {
+                        tb.addAnno(Taxon.SynonymKey, value);
+                    }
+                }
+            }
+            else {
+                //Loop through add add all the synonyms
+                for(String value:ga.getTextAnnotation(Taxon.SynonymKey)) {
+                    tb.addAnno(Taxon.SynonymKey, value);
+                }
+            }
+            //Build Taxon and Add Taxon to new list builder tlb
+            tlb.add(tb.build());
         }
-    }
-
-    public boolean setRealID(String synName, int realID) {
-        if ((realID <= referenceIDGroup.numberOfTaxa()) && (realID > -2)) {
-            idSynonyms.put(synName, new Integer(realID));
-            return true;
-        } else {
-            return false;
-        }
+        tempTaxaList = tlb.build();
     }
 
     public Object[] getRealNames() {
@@ -928,19 +762,20 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
     public void report(PrintWriter out) {
         //String s="Synonym Table\n"+idSynonyms.toString()+"\n\n"+"Unmatched\n"+unmatchedIDs.toString();
         out.println("Synonym Table");
-        out.println(idSynonyms.size() + " unique matches");
-        out.println(unmatchCount + " unmatched:");
+        //out.println(idSynonyms.size() + " unique matches");
+        out.println(matchCount + " unique matches");
+        out.println(unmatchCount + " multiple matches:");
     }
 
     public Object[] getTableColumnNames() {
-        String[] cn = new String[4];
-        cn[0] = "TaxaSynonym";
-        cn[1] = "TaxaRealName";
-        cn[2] = "RefIDNum";
-        cn[3] = "MatchScore";
+        String[] cn = new String[3];
+        cn[0] = "TaxaName";
+        cn[1] = "Synonyms";
+        cn[2] = "MatchScore";
         return cn;
     }
 
+    
     /**
      * Returns specified row.
      *
@@ -949,49 +784,203 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
      * @return row
      */
     public Object[] getRow(long rowLong) {
-
         int row = (int) rowLong;
-        Object[] data = new Object[4];
-        Object[] keyArray = idSynonyms.keySet().toArray();
-        data[0] = (String) keyArray[row];
-        data[1] = getPreferredName((String) keyArray[row]);
-        data[2] = "" + getPreferredIndex((String) keyArray[row]);
-        if(technique == 4) {
-            globalMax = 4.0;
+        Object[] data = new Object[3];
+        
+        //TaxaList tl = taxaListSynonymized.get(0);
+        TaxaList tl = tempTaxaList;
+        Taxon tx = tl.get(row);
+        
+        //Object[] keyArray = idSynonyms.keySet().toArray();
+        data[0] = tx.getName();
+        String synString = "";
+        String firstMatch = "";
+        boolean first = true;
+        for(String syn:tx.getAnnotation().getTextAnnotation(Taxon.SynonymKey)){
+            synString+=syn+",";
+            if(first) {
+                firstMatch = syn;
+                first = false;
+            }
         }
-        if(technique==0) {
-            data[3] = "" + scoreMatch("" + data[0], "" + data[1], true, false, false);
+        
+        data[2] = "";
+        if(firstMatch.equals("")) {
+            data[1] = "";
+            data[2] = "1.0";
         }
         else {
-            if(Integer.parseInt((String)data[2])==-1) {
-                //data[3] = ""+Double.POSITIVE_INFINITY;
-                data[3] = ""+0;
+            data[1] = synString.substring(0,synString.length()-1);
+            
+            if(technique == 4) {
+                globalMax = 4.0;
+            }
+            if(technique==0) {
+                data[2] = "" + scoreMatch("" + data[0], "" + firstMatch, true, false, false);
             }
             else {
-                data[3] = "" + (1.0-((getScore("" + data[0], "" + data[1], true, false, false,technique) - globalMin)/(globalMax-globalMin)));
-                //data[3] = "" + getScore("" + data[0], "" + data[1], true, false, false,technique);
+                data[2] = "" + (1.0-((getScore("" + data[0], "" + firstMatch, true, false, false,technique) - globalMin)/(globalMax-globalMin)));
             }
         }
+        
         return data;
     }
+    
+    
 
-    public void deleteElements(Object[] key) {
-        for (int i = 0; i < key.length; i++) {
-            idSynonyms.remove(key[i]);
+    public void resetTempTaxaList() {
+        TaxaListBuilder tlb = new TaxaListBuilder();
+        for(Taxon tx:taxaListSynonymized.get(0)) {
+            tlb.add(tx);
         }
+        tempTaxaList = tlb.build();
+    }
+    //Method to save changes from TempTaxaList and reset the TempTaxaList
+    public void saveTempTaxaList() {
+       taxaListSynonymized.set(0, tempTaxaList);
+       resetTempTaxaList();
     }
 
+    public void removeSynonyms(int rowNumber) {
+        TaxaListBuilder tlb = new TaxaListBuilder();
+        int rowCounter = 0;
+        for(Taxon tx:tempTaxaList) {
+            if(rowNumber == rowCounter) {
+                //Copy all annotations except for Synonyms
+                GeneralAnnotation ga = tx.getAnnotation();
+                Taxon.Builder tb = new Taxon.Builder(tx.getName());
+                Set<String> keys = ga.getAnnotationKeys();
+                //Copy Keys
+                for(String key:keys) {
+                    if(!key.equals(Taxon.SynonymKey)) {
+                        String[] values = ga.getTextAnnotation(key);
+                        for(String value:values) {
+                            tb.addAnno(key, value);
+                        }
+                    }
+                }
+                tlb.add(tb.build());
+            }
+            else {
+                //Copy taxon
+                tlb.add(tx);
+            }
+            rowCounter++;
+        }
+        tempTaxaList = tlb.build();
+    }
+    public void updateSynonym(int rowNumber, String newName) {
+        TaxaListBuilder tlb = new TaxaListBuilder();
+        int rowCounter = 0;
+        for(Taxon tx:tempTaxaList) {
+            if(rowNumber == rowCounter) {
+                //Copy all annotations except for Synonyms
+                GeneralAnnotation ga = tx.getAnnotation();
+                Taxon.Builder tb = new Taxon.Builder(tx.getName());
+                Set<String> keys = ga.getAnnotationKeys();
+                //Copy Keys
+                for(String key:keys) {
+                    if(!key.equals(Taxon.SynonymKey)) {
+                        String[] values = ga.getTextAnnotation(key);
+                        for(String value:values) {
+                            tb.addAnno(key, value);
+                        }
+                    }
+                    
+                }
+                tb.addAnno(Taxon.SynonymKey,newName);
+                tlb.add(tb.build());
+            }
+            else {
+                //Copy taxon
+                tlb.add(tx);
+            }
+            rowCounter++;
+        }
+        tempTaxaList = tlb.build();
+    }
+    
+    
+    public void deleteElements(String name) {
+        TaxaListBuilder tlb = new TaxaListBuilder();
+        for(Taxon tx:tempTaxaList) {
+            if(!tx.getName().equals(name)) {
+                tlb.add(tx);
+            }
+        }
+        tempTaxaList = tlb.build();
+    }
+
+    public boolean checkSynForDups() {
+        for(TaxaList tl:taxaListSynonymized) {
+            ArrayList<String> viewedTaxa = new ArrayList<String>();
+            for(Taxon tx:tl) {
+                GeneralAnnotation ga = tx.getAnnotation();
+                String[] values = ga.getTextAnnotation(Taxon.SynonymKey);
+                
+                if(values.length==0||values==null){
+                    viewedTaxa.add(tx.getName());
+                }
+                else if(viewedTaxa.contains(values[0])) {
+                    return true;
+                }
+                else {
+                    viewedTaxa.add(values[0]);
+                }
+            }
+                
+        }
+        return false;
+    }
+    
+    public ArrayList<TaxaList> swapSynonyms() {
+        ArrayList<TaxaList> newTaxaListArray = new ArrayList<>();
+        for(TaxaList tl:taxaListSynonymized) {
+            TaxaListBuilder tlb = new TaxaListBuilder();
+            for(Taxon tx:tl) {
+                GeneralAnnotation ga = tx.getAnnotation();
+                Taxon.Builder tb = null;
+                Set<String> keys = ga.getAnnotationKeys();
+                if(ga.getTextAnnotation(Taxon.SynonymKey).length==0) {
+                    tb = new Taxon.Builder(tx);
+                }
+                else {
+                    tb = new Taxon.Builder(ga.getTextAnnotation(Taxon.SynonymKey)[0]);
+                    //Copy Keys
+                    for(String key:keys) {
+                        if(!key.equals(Taxon.SynonymKey)) {
+                            String[] values = ga.getTextAnnotation(key);
+                            for(String value:values) {
+                                tb.addAnno(key, value);
+                            }
+                        }
+                    }
+                    String[] synVals = ga.getTextAnnotation(Taxon.SynonymKey);
+                    tb.addAnno(Taxon.SynonymKey, tx.getName());
+                    for(int i = 1; i<synVals.length;i++) {
+                        tb.addAnno(Taxon.SynonymKey, synVals[i]);
+                    }
+                }
+                tlb.add(tb.build());
+            }
+            newTaxaListArray.add(tlb.build());
+        }
+        return newTaxaListArray;
+    }
+    
+    //Table methods
     public String getTableTitle() {
         return "Taxa Synonym Table";
     }
 
     // interface ExtendedTableReport
     public int getColumnCount() {
-        return 4;
+        return 3;
     }
 
     public long getRowCount() {
-        return idSynonyms.size();
+        return tempTaxaList.size();
+        //return idSynonyms.size();
     }
 
     public long getElementCount() {

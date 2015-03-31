@@ -7,15 +7,22 @@
 package net.maizegenetics.analysis.data;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.PhenotypeAttribute;
+import net.maizegenetics.phenotype.PhenotypeBuilder;
+import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
+import net.maizegenetics.phenotype.TaxaAttribute;
 import net.maizegenetics.taxa.IdentifierSynonymizer;
 import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginEvent;
 import net.maizegenetics.gui.TableReportNoPagingTableModel;
 import net.maizegenetics.tassel.TASSELMainFrame;
+import net.maizegenetics.util.GeneralAnnotation;
 
 import org.apache.log4j.Logger;
 
@@ -35,6 +42,7 @@ import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -54,9 +62,7 @@ public class SynonymizerPlugin extends AbstractPlugin {
     }
 
     public DataSet performFunction(DataSet input) {
-
         try {
-
             List<Datum> data = new ArrayList<Datum>();
             for (int i = 0, n = input.getSize(); i < n; i++) {
                 Datum current = input.getData(i);
@@ -109,7 +115,6 @@ public class SynonymizerPlugin extends AbstractPlugin {
                             return runStep1(data,datumArray,fileOptions);
                         }
                         else if(menuArray[1] == true) {
-    
                             //Do a quick check to make sure there is at least one Synonym loaded
                             boolean hasSynonymFile = false;
                             for(int i = 0;i<datumArray.length;i++) {
@@ -220,7 +225,6 @@ public class SynonymizerPlugin extends AbstractPlugin {
                                         JOptionPane.showMessageDialog(getParentFrame(), msg);
                                         errorOut = true;
                                     }
-                                
                                 }
                                
                                 if(!errorOut) {
@@ -230,24 +234,119 @@ public class SynonymizerPlugin extends AbstractPlugin {
                                     fileChooseDiag.setVisible(true);
                                     
                                     if(fileOptions[0]!=-1) {
-                                        ArrayList<Datum> datumList = new ArrayList<Datum>();
-                                        for(int i = 0; i<fileOptions.length;i++) {
-                                            Datum current = (Datum)datumArray[fileOptions[i]];
-                                            Object currentData = current.getData();
-                                            if (currentData instanceof GenotypeTable) {
-                                                TaxaList idGroup = ((GenotypeTable) currentData).taxa();
-                                                Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
-                                                datumList.add(idGroupDatum);
-                                            } else if (currentData instanceof Phenotype) {
-                                                TaxaList idGroup = ((Phenotype) currentData).taxa();
-                                                Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
-                                                datumList.add(idGroupDatum);
-                                            } else {
-                                                datumList.add(current);
+                                        Datum firstDatum = (Datum)datumArray[fileOptions[0]];
+                                        IdentifierSynonymizer first = (IdentifierSynonymizer)firstDatum.getData();
+                                        
+                                        //Figure out what original Data Structure is
+                                        Datum current = (Datum)datumArray[fileOptions[1]];
+                                        
+                                        Object currentData = current.getData();
+                                        
+                                        if (currentData instanceof GenotypeTable) {
+                                            //Build a new Genotype table
+                                            //TaxaList idGroup = ((GenotypeTable) currentData).taxa();
+                                            //Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+                                            if(first.checkSynForDups()) {
+                                                String msg = "Error:  Duplicate Taxa to Be Synonymized.  Please Manually Update the Synonym List.";
+                                                JOptionPane.showMessageDialog(getParentFrame(), msg);
+                                                errorOut = true; 
                                             }
+                                            else {
+                                                //First tell Synonymizer to swap synonyms with real names
+                                                ArrayList<TaxaList> swapped = first.swapSynonyms();
+                                                
+                                                GenotypeTable currentGenotypeTable = (GenotypeTable)currentData;
+                                                GenotypeTable a=GenotypeTableBuilder.getInstance(currentGenotypeTable.genotypeMatrix(), 
+                                                                                                currentGenotypeTable.positions(), swapped.get(0)); 
+                                                Datum idGroupDatum = new Datum(current.getName()+"_Synonymized",a,current.getComment());
+                                                ArrayList<Datum> listOfDatum = new ArrayList<>();
+                                                listOfDatum.add(idGroupDatum);
+                                                //Fire off new genotype table
+                                                DataSet output = new DataSet(listOfDatum, this);
+                                                fireDataSetReturned(new PluginEvent(output, SynonymizerPlugin.class));
+                                            }
+                                        } else if (currentData instanceof Phenotype) {
+                                            Phenotype currentPhenotype = (Phenotype)currentData;
+                                            //Get all information in Phenotype
+                                            List<PhenotypeAttribute> attributeList = currentPhenotype.attributeListCopy();
+                                            ArrayList<PhenotypeAttribute> newAttributeList = new ArrayList<>();
+                                            ArrayList<Taxon> listOfTaxon = new ArrayList<Taxon>();
+                                            //Figure out the Types of each attribute
+                                            ArrayList<Phenotype.ATTRIBUTE_TYPE> types = new ArrayList<>();
+                                            for(int i = 0; i<attributeList.size();i++) {
+                                                types.add(currentPhenotype.attributeType(i));
+                                                if(currentPhenotype.attributeType(i).equals(Phenotype.ATTRIBUTE_TYPE.taxa)) {
+                                                    //For the Taxa attribute go through and update the names
+                                                    List<Taxon> oldTaxa = currentPhenotype.taxaAttribute().allTaxaAsList();
+                                                    TaxaList synTl = first.getTaxaList();
+                                                    HashMap<String,Taxon> taxonMap = new HashMap<String,Taxon>();
+                                                    for(Taxon taxon:synTl) {
+                                                        taxonMap.put(taxon.getName(),taxon);
+                                                    }
+                                                    for(Taxon taxon:oldTaxa) {
+                                                        //if taxonMap has the taxonName as a key
+                                                        if(taxonMap.containsKey(taxon.getName())){
+                                                            Taxon mappedTaxon = taxonMap.get(taxon.getName());
+                                                            //Check the SynonymList
+                                                            GeneralAnnotation ga = mappedTaxon.getAnnotation();
+                                                            String[] values = ga.getTextAnnotation(Taxon.SynonymKey);
+                                                            
+                                                            if(values.length==0 || values==null) {
+                                                                //Add taxon to listOfTaxon
+                                                                listOfTaxon.add(taxon);
+                                                            }
+                                                            else {
+                                                                //else make a new Taxon
+                                                                Taxon.Builder tb = new Taxon.Builder(ga.getTextAnnotation(Taxon.SynonymKey)[0]);
+                                                                String[] keys = ga.getTextAnnotation(Taxon.SynonymKey);
+                                                                //Copy Keys
+                                                                for(String key:keys) {
+                                                                    if(!key.equals(Taxon.SynonymKey)) {
+                                                                        String[] values2 = ga.getTextAnnotation(key);
+                                                                        for(String value:values2) {
+                                                                            tb.addAnno(key, value);
+                                                                        }
+                                                                    }
+                                                                }
+                                                                String[] synVals = ga.getTextAnnotation(Taxon.SynonymKey);
+                                                                tb.addAnno(Taxon.SynonymKey, taxon.getName());
+                                                                for(int j = 1; j<synVals.length;j++) {
+                                                                    tb.addAnno(Taxon.SynonymKey, synVals[j]);
+                                                                }
+                                                                listOfTaxon.add(tb.build());
+                                                            }
+                                                        } 
+                                                        else {
+                                                            //Add taxon to listOfTaxon
+                                                            listOfTaxon.add(taxon);
+                                                        }
+                                                    }
+                                                    //Add the new Taxon to the the type structure
+                                                    newAttributeList.add(new TaxaAttribute(listOfTaxon));
+                                                }
+                                                else {
+                                                    newAttributeList.add(attributeList.get(i));
+                                                }
+                                            }
+                                            //Use public PhenotypeBuilder fromAttributeList(List<PhenotypeAttribute> attributes, List<ATTRIBUTE_TYPE> types) 
+                                            PhenotypeBuilder phb = new PhenotypeBuilder();
+                                            phb.fromAttributeList(newAttributeList,types);
+                                            //Build Phenotype
+                                            Phenotype buildPhenotype = phb.build().get(0);
+                                            
+                                            Datum idGroupDatum = new Datum(current.getName()+"_Synonymized",buildPhenotype,current.getComment());
+                                            ArrayList<Datum> listOfDatum = new ArrayList<>();
+                                            listOfDatum.add(idGroupDatum);
+                                            //Fire off new genotype table
+                                            DataSet output = new DataSet(listOfDatum, this);
+                                            fireDataSetReturned(new PluginEvent(output, SynonymizerPlugin.class));
+                                           
+                                        } else {
+                                            //Dont do anything
+                                            String msg = "Error:  Unsupported File Type. Please use a GenotypeTable or Phenotype.";
+                                            JOptionPane.showMessageDialog(getParentFrame(), msg);
+                                            errorOut = true; 
                                         }
-                                        DataSet newInputDataSet = new DataSet(datumList, this);
-                                        applySynonymsToIdGroups(newInputDataSet);
                                     }
                                 }                          
                             }
@@ -259,14 +358,14 @@ public class SynonymizerPlugin extends AbstractPlugin {
             else {
                 int alignCnt = newInput.getDataOfType(TaxaList.class).size();
                 int synCnt = newInput.getDataOfType(IdentifierSynonymizer.class).size();
-                if ((synCnt == 0) && (alignCnt > 1)) {  //create a new synonymizer
+                if ((synCnt == 0) && (alignCnt > 1)) {  //create a new synonymizer Step 1
                     Datum td = createSynonymizer(newInput);
                     DataSet output = new DataSet(td, this);
                     fireDataSetReturned(new PluginEvent(output, SynonymizerPlugin.class));
                     return output;
-                } else if ((synCnt == 1) && (alignCnt > 0)) {   //apply synonymizer to alignments
-                    applySynonymsToIdGroups(newInput);
-                } else if ((synCnt == 1) && (alignCnt == 0)) {
+                } else if ((synCnt == 1) && (alignCnt > 0)) {   //apply synonymizer to alignments Step 3
+                    //applySynonymsToIdGroups(newInput);
+                } else if ((synCnt == 1) && (alignCnt == 0)) {  //Step 2
                     if (isInteractive()) {
                         Datum inputDatum = newInput.getDataOfType(IdentifierSynonymizer.class).get(0);
                         IdentifierSynonymizer is = (IdentifierSynonymizer) inputDatum.getData();
@@ -358,11 +457,13 @@ public class SynonymizerPlugin extends AbstractPlugin {
             IdentifierSynonymizer ts = new IdentifierSynonymizer((TaxaList) idList.get(0).getData(), aa,technique);
             StringWriter sw = new StringWriter();
             ts.report(new PrintWriter(sw));
-            td = new Datum(input.getData(0).getName() + " Synonyms", ts, "Taxa synonyms\n" + sw.toString());
+            //td = new Datum(input.getData(0).getName() + " Synonyms", ts, "Taxa synonyms\n" + sw.toString());
+            td = new Datum(input.getData(1).getName() + " Synonymizer Object", ts, "Taxa synonyms\n"+sw.toString());
         }
         return td;
     }
 
+    /*
     private void applySynonymsToIdGroups(DataSet input) {
         StringBuilder synonymSets = new StringBuilder();
         for (int i = 1; i < input.getSize(); i++) {
@@ -393,7 +494,120 @@ public class SynonymizerPlugin extends AbstractPlugin {
             is.changeAlignmentIdentifiers(aa);
         }
     }
+    */
 
+    private void applySynonymsToOldFile(Datum current, IdentifierSynonymizer first){
+        Object currentData = current.getData();
+        if (currentData instanceof GenotypeTable) {
+            //Build a new Genotype table
+            //TaxaList idGroup = ((GenotypeTable) currentData).taxa();
+            //Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+            if(first.checkSynForDups()) {
+                String msg = "Error:  Duplicate Taxa to Be Synonymized.  Please Manually Update the Synonym List.";
+                JOptionPane.showMessageDialog(getParentFrame(), msg);
+            }
+            else {
+                //First tell Synonymizer to swap synonyms with real names
+                ArrayList<TaxaList> swapped = first.swapSynonyms();
+                
+                GenotypeTable currentGenotypeTable = (GenotypeTable)currentData;
+                GenotypeTable a=GenotypeTableBuilder.getInstance(currentGenotypeTable.genotypeMatrix(), 
+                                                                currentGenotypeTable.positions(), swapped.get(0)); 
+                Datum idGroupDatum = new Datum(current.getName()+"_Synonymized",a,current.getComment());
+                ArrayList<Datum> listOfDatum = new ArrayList<>();
+                listOfDatum.add(idGroupDatum);
+                //Fire off new genotype table
+                DataSet output = new DataSet(listOfDatum, this);
+                fireDataSetReturned(new PluginEvent(output, SynonymizerPlugin.class));
+            }
+        } else if (currentData instanceof Phenotype) {
+            Phenotype currentPhenotype = (Phenotype)currentData;
+            //Get all information in Phenotype
+            List<PhenotypeAttribute> attributeList = currentPhenotype.attributeListCopy();
+            ArrayList<PhenotypeAttribute> newAttributeList = new ArrayList<>();
+            ArrayList<Taxon> listOfTaxon = new ArrayList<Taxon>();
+            //Figure out the Types of each attribute
+            ArrayList<Phenotype.ATTRIBUTE_TYPE> types = new ArrayList<>();
+            for(int i = 0; i<attributeList.size();i++) {
+                types.add(currentPhenotype.attributeType(i));
+                if(currentPhenotype.attributeType(i).equals(Phenotype.ATTRIBUTE_TYPE.taxa)) {
+                    //For the Taxa attribute go through and update the names
+                    List<Taxon> oldTaxa = currentPhenotype.taxaAttribute().allTaxaAsList();
+                    TaxaList synTl = first.getTaxaList();
+                    HashMap<String,Taxon> taxonMap = new HashMap<String,Taxon>();
+                    for(Taxon taxon:synTl) {
+                        taxonMap.put(taxon.getName(),taxon);
+                    }
+                    for(Taxon taxon:oldTaxa) {
+                        //if taxonMap has the taxonName as a key
+                        if(taxonMap.containsKey(taxon.getName())){
+                            Taxon mappedTaxon = taxonMap.get(taxon.getName());
+                            //Check the SynonymList
+                            GeneralAnnotation ga = mappedTaxon.getAnnotation();
+                            String[] values = ga.getTextAnnotation(Taxon.SynonymKey);
+                            
+                            if(values.length==0 || values==null) {
+                                //Add taxon to listOfTaxon
+                                listOfTaxon.add(taxon);
+                            }
+                            else {
+                                //else make a new Taxon
+                                Taxon.Builder tb = new Taxon.Builder(ga.getTextAnnotation(Taxon.SynonymKey)[0]);
+                                String[] keys = ga.getTextAnnotation(Taxon.SynonymKey);
+                                //Copy Keys
+                                for(String key:keys) {
+                                    if(!key.equals(Taxon.SynonymKey)) {
+                                        String[] values2 = ga.getTextAnnotation(key);
+                                        for(String value:values2) {
+                                            tb.addAnno(key, value);
+                                        }
+                                    }
+                                }
+                                String[] synVals = ga.getTextAnnotation(Taxon.SynonymKey);
+                                tb.addAnno(Taxon.SynonymKey, taxon.getName());
+                                for(int j = 1; j<synVals.length;j++) {
+                                    tb.addAnno(Taxon.SynonymKey, synVals[j]);
+                                }
+                                listOfTaxon.add(tb.build());
+                            }
+                        } 
+                        else {
+                            //Add taxon to listOfTaxon
+                            listOfTaxon.add(taxon);
+                        }
+                    }
+                    //Add the new Taxon to the the type structure
+                    newAttributeList.add(new TaxaAttribute(listOfTaxon));
+                }
+                else {
+                    newAttributeList.add(attributeList.get(i));
+                }
+            }
+            //Use public PhenotypeBuilder fromAttributeList(List<PhenotypeAttribute> attributes, List<ATTRIBUTE_TYPE> types) 
+            PhenotypeBuilder phb = new PhenotypeBuilder();
+            phb.fromAttributeList(newAttributeList,types);
+            //Build Phenotype
+            Phenotype buildPhenotype = phb.build().get(0);
+            //Build a new Phenotype object
+            
+            /*
+            TaxaList idGroup = ((Phenotype) currentData).taxa();
+            Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
+            */
+            
+            Datum idGroupDatum = new Datum(current.getName()+"_Synonymized",buildPhenotype,current.getComment());
+            ArrayList<Datum> listOfDatum = new ArrayList<>();
+            listOfDatum.add(idGroupDatum);
+            //Fire off new genotype table
+            DataSet output = new DataSet(listOfDatum, this);
+            fireDataSetReturned(new PluginEvent(output, SynonymizerPlugin.class));
+           
+        } else {
+            //Dont do anything
+            String msg = "Error:  Unsupported File Type. Please use a GenotypeTable or Phenotype.";
+            JOptionPane.showMessageDialog(getParentFrame(), msg);
+        }     
+    }
     /**
      * Icon for this plugin to be used in buttons, etc.
      *
@@ -488,25 +702,10 @@ public class SynonymizerPlugin extends AbstractPlugin {
     }
 
     public void runStep3(Object[] data, Datum step1Result, int[] fileOptions) {
-        ArrayList<Datum> datumList = new ArrayList<Datum>();
-        
-        datumList.add(step1Result);
+        IdentifierSynonymizer first = (IdentifierSynonymizer)step1Result.getData();
         Datum current = (Datum)data[fileOptions[1]];
         Object currentData = current.getData();
-        if (currentData instanceof GenotypeTable) {
-            TaxaList idGroup = ((GenotypeTable) currentData).taxa();
-            Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
-            datumList.add(idGroupDatum);
-        } else if (currentData instanceof Phenotype) {
-            TaxaList idGroup = ((Phenotype) currentData).taxa();
-            Datum idGroupDatum = new Datum(current.getName(), idGroup, current.getComment());
-            datumList.add(idGroupDatum);
-        } else {
-            datumList.add(current);
-        }
-       
-        DataSet newInputDataSet = new DataSet(datumList, this);
-        applySynonymsToIdGroups(newInputDataSet);
+        applySynonymsToOldFile(current,first);
     }
     
 }
@@ -535,6 +734,10 @@ class SynonymizerDialog extends JDialog {
     JTable theNameTable;
     IdentifierSynonymizer theTS;
     JCheckBox cbxSortAlphabetically = new JCheckBox();
+    
+    JLabel addTaxa = new JLabel("Add a new Synonym");
+    JTextField addTaxaField = new JTextField();
+    JButton addTaxaButton = new JButton();
 
     public SynonymizerDialog(IdentifierSynonymizer ts, Frame theFrame) {
         super((Frame) theFrame, true);
@@ -619,19 +822,32 @@ class SynonymizerDialog extends JDialog {
             }
         });
 
+        addTaxaButton.setText("Add Synonym");
+        addTaxaField.setPreferredSize(new Dimension(60, 30));
+        
+        addTaxaButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                addTaxaButton_actionPerformed(e);
+            }
+        });
+        
         this.getContentPane().add(jPanel1, BorderLayout.CENTER);
 
         jPanel2.add(theATP);
         newRealNameScrollPane1.getViewport().add(matchList);
         jPanel1.add(ThresholdTextField, new GridBagConstraints(1, 2, 1, 2, 1.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 50, 0));
-        jPanel1.add(setThresholdButton, new GridBagConstraints(2, 3, 3, 1, 0.0, 0.0, GridBagConstraints.CENTER, GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 37, 7));
+        jPanel1.add(setThresholdButton, new GridBagConstraints(2, 3, 3, 1, 0.0, 0.0, GridBagConstraints.CENTER, GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 10, 7));
         jPanel1.add(newRealNameScrollPane1, new GridBagConstraints(2, 1, 2, 1, 1.0, 1.0, GridBagConstraints.CENTER, GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 100, 300));
         jPanel1.add(selectSynButton, new GridBagConstraints(1, 1, 1, 1, 0.5, 0.5, GridBagConstraints.CENTER, GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 10, 4));
         jPanel1.add(setNoSynButton, new GridBagConstraints(0, 2, 1, 2, 0.5, 0.5, GridBagConstraints.CENTER, GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 10, 4));
-        jPanel1.add(CancelButton, new GridBagConstraints(2, 4, 1, 1, 0.0, 0.0, GridBagConstraints.CENTER, GridBagConstraints.NONE, new Insets(19, 0, 10, 25), 15, 7));
+        jPanel1.add(CancelButton, new GridBagConstraints(2, 5, 1, 1, 0.0, 0.0, GridBagConstraints.CENTER, GridBagConstraints.NONE, new Insets(19, 0, 10, 25), 15, 7));
         jPanel1.add(jLabel1, new GridBagConstraints(0, 0, 3, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(8, 20, 0, 0), 184, 5));
         jPanel1.add(theATP, new GridBagConstraints(0, 1, 1, 1, 2.0, 1.0, GridBagConstraints.CENTER, GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 200, 300));
-        jPanel1.add(okButton, new GridBagConstraints(0, 4, 1, 1, 0.0, 0.0, GridBagConstraints.CENTER, GridBagConstraints.NONE, new Insets(19, 69, 10, 49), 33, 10));
+        jPanel1.add(okButton, new GridBagConstraints(0, 5, 1, 1, 0.0, 0.0, GridBagConstraints.CENTER, GridBagConstraints.NONE, new Insets(19, 69, 10, 49), 33, 10));
+        jPanel1.add(addTaxa, new GridBagConstraints(0, 4, 1, 1, 0.0, 0.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(0,0,0,0), 33, 10));
+        jPanel1.add(addTaxaField, new GridBagConstraints(1, 4, 1, 1, 0.0, 0.0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(0, 0, 0, 0), 70, 7));
+        jPanel1.add(addTaxaButton, new GridBagConstraints(2, 4, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(0,0,0,0), 37, 7));
+        
         jPanel1.add(cbxSortAlphabetically, new GridBagConstraints(3, 2, 1, 1, 0.0, 0.0, GridBagConstraints.SOUTHWEST, GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
         this.setSize(800, 600);
         this.setTitle(" Threshold for synonymizer ");
@@ -642,29 +858,9 @@ class SynonymizerDialog extends JDialog {
     }
 
     void deleteByThreshold(double threshold) {
-        /*theTS.deleteByThreshold(threshold);
+        theTS.deleteByThreshold(threshold);
         TableReportNoPagingTableModel model = (TableReportNoPagingTableModel)theNameTable.getModel();
-        model.fireTableChanged();
-        */
-        
-        TableModel dm = theNameTable.getModel();
-        String synName, realName;
-        double score;
-        for (int i = 0; i < dm.getRowCount(); i++) {
-            synName = (String) dm.getValueAt(i, 0);
-            realName = (String) dm.getValueAt(i, 1);
-            //score = IdentifierSynonymizer.scoreMatch(synName, realName, true, false, false);
-            //To Fix a NaN bug
-            if(theTS.getTechnique()==4) {
-                theTS.setGlobalMax(4.0);
-            }
-            score = IdentifierSynonymizer.getScore(synName, realName, true, false, false, theTS.getTechnique());
-            if (score < threshold) {
-                dm.setValueAt("", i, 1);
-                dm.setValueAt("-1", i, 2);
-            }
-        }
-        
+        model.fireTableChanged();        
     }
 
     void setThresholdButton_actionPerformed(ActionEvent e) {
@@ -673,6 +869,7 @@ class SynonymizerDialog extends JDialog {
     }
 
     void CancelButton_actionPerformed(ActionEvent e) {
+        theTS.resetTempTaxaList();
         isCanceled = true;
         this.setVisible(false);
     }
@@ -695,28 +892,36 @@ class SynonymizerDialog extends JDialog {
     }
 
     void selectSynButton_actionPerformed(ActionEvent e) {
-        //Need to write an update method in IdentifierSynonimizer to do the functionality
         try {
             String newRealName = (String) matchList.getSelectedValue();
             int theRow = theNameTable.getSelectedRow();
-            theNameTable.getModel().setValueAt(newRealName, theRow, 1);
-            theNameTable.getModel().setValueAt("" + theTS.getPreferredIndex(newRealName), theRow, 2);
+            theTS.updateSynonym(theRow,newRealName);
+            TableReportNoPagingTableModel model = (TableReportNoPagingTableModel)theNameTable.getModel();
+            model.fireTableChanged();
+        } catch (Exception ex) {
+            System.out.println("Make sure both a row and a new name are selected");
+        }
+    }
+    void addTaxaButton_actionPerformed(ActionEvent e) {
+        try {
+            String newTaxa = addTaxaField.getText();
+            int theRow = theNameTable.getSelectedRow();
+            theTS.updateSynonym(theRow,newTaxa);
+            TableReportNoPagingTableModel model = (TableReportNoPagingTableModel)theNameTable.getModel();
+            model.fireTableChanged();
         } catch (Exception ex) {
             System.out.println("Make sure both a row and a new name are selected");
         }
     }
 
     void setNoSynButton_actionPerformed(ActionEvent e) {
-      //Need to write an update method in IdentifierSynonimizer to do the functionality
         try {
             int theRow = theNameTable.getSelectedRow();
-            //System.out.println(theNameTable.getModel().getValueAt(theRow, 1)+","+theNameTable.getModel().getValueAt(theRow,2));
-            
-            theNameTable.getModel().setValueAt("", theRow, 1);
-            theNameTable.getModel().setValueAt("-1", theRow, 2);
-            //System.out.println(theNameTable.getModel().getValueAt(theRow, 1)+","+theNameTable.getModel().getValueAt(theRow,2));
-        } catch (Exception ex) {
-            System.out.println("Make sure a row is selected");
+            theTS.removeSynonyms(theRow);
+            TableReportNoPagingTableModel model = (TableReportNoPagingTableModel)theNameTable.getModel();
+            model.fireTableChanged();
+        } catch(Exception ex) {
+            System.out.println("Make Sure a row is selected");
         }
     }
 
@@ -729,18 +934,7 @@ class SynonymizerDialog extends JDialog {
     }
 
     void okButton_actionPerformed(ActionEvent e) {
-        TableModel dm = theNameTable.getModel();
-        String synName, realName;
-        int newID;
-        for (int i = 0; i < dm.getRowCount(); i++) {
-            synName = (String) dm.getValueAt(i, 0);
-            newID = Integer.parseInt((String) dm.getValueAt(i, 2));
-            if (theTS.getPreferredIndex(synName) != newID) {
-                System.out.println("synName=" + synName + "  " + theTS.getPreferredName(synName));
-                theTS.setRealID(synName, newID);
-                System.out.println("synName=" + synName + "  " + theTS.getPreferredName(synName));
-            }
-        }
+        theTS.saveTempTaxaList();
         isCanceled = false;
         this.setVisible(false);
     }
@@ -945,7 +1139,7 @@ class SynonymizerFileChooser extends JDialog {
         gbl_panel.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
         panel.setLayout(gbl_panel);
                 
-        JLabel lblSelectAReference = new JLabel("Select a File to Be Referenced");
+        JLabel lblSelectAReference = new JLabel("Select a File to Generate Synonyms");
    
         GridBagConstraints gbc_lblSelectAReference = getConstraints(1,1,new Insets(0, 10, 5, 10));
         gbc_lblSelectAReference.anchor = GridBagConstraints.WEST;
