@@ -63,7 +63,8 @@ CREATE TABLE snpposition (
     snpid INTEGER   PRIMARY KEY,
     chromosome TEXT      NOT NULL,
     position   INTEGER   NOT NULL,
-    strand     INTEGER(1)  NOT NULL
+    strand     INTEGER(1)  NOT NULL,
+    qualityscore FLOAT(1)
 );
 CREATE UNIQUE INDEX snppos_idx ON snpposition(chromosome,position,strand);
 

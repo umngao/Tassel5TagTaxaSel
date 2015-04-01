@@ -177,7 +177,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             e.printStackTrace();
         }
     }
-
+    
     private void loadSNPPositionHash() {
         try{
             ResultSet rs=connection.createStatement().executeQuery("select count(*) from snpposition");
@@ -657,7 +657,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     public PositionList getSNPPositions(int minSupportValue) {
 		return null;
 	}
-
+	
     @Override
     public Set<Tag> getTagsForTaxon(Taxon taxon) {
         ImmutableSet.Builder<Tag> tagBuilder=new ImmutableSet.Builder<>();
@@ -907,4 +907,69 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         }
         return plb.build();
     }
+
+    // Store SNP quality positions for chromosomes
+	@Override
+	public void putSNPPositionQS(ListMultimap<String, Tuple<Integer, Float>> qsMap) {
+		int batchCount=0;
+		try {
+			connection.setAutoCommit(false);
+			PreparedStatement qsUpdatePS = connection.prepareStatement("update snpposition set qualityScore = ? where chromosome = ? and position = ?");
+			// if row to update doesnt' exist, no error is thrown.  If we checked "db.update()" value,
+			// it would return 0 if it couldn't execute a particular query.  We're not checking that
+			// Should we be?
+			for (Map.Entry<String, Tuple<Integer, Float>> entry : qsMap.entries()) {
+				String chrom = entry.getKey();
+				Tuple<Integer, Float> posQS = entry.getValue();
+				qsUpdatePS.setFloat(1,posQS.y);
+				qsUpdatePS.setString(2, chrom);
+				qsUpdatePS.setInt(3, posQS.x);
+				qsUpdatePS.addBatch();
+				batchCount++;
+				if(batchCount>100000) {
+					System.out.println("updateSNPPosition next "+batchCount);
+					qsUpdatePS.executeBatch();
+					batchCount=0;
+				}
+			}
+			qsUpdatePS.executeBatch();
+			connection.setAutoCommit(true);
+		} catch (SQLException e) {
+			System.out.println("Error executing UPDATE statement for TagDataSQLite:putSNPQualityPositions");
+			e.printStackTrace();
+		}		
+	}
+
+	// THis is intended to be used for junit verification, where there the query
+	// numbers will be small.
+	//  The method will need to be modified with batching if it is to be used in a more
+	// query intensive environment.
+	@Override
+	public ListMultimap<String, Tuple<Integer, Float>> getSNPPositionQS(HashMultimap<String, Integer> myMap) {
+	    ImmutableListMultimap.Builder<String, Tuple<Integer, Float>> qsMap = new ImmutableListMultimap.Builder<String, Tuple<Integer, Float>>()
+	                .orderKeysBy(Ordering.natural()).orderKeysBy(Ordering.natural());
+	    int batchCount = 0;
+		try {
+			connection.setAutoCommit(false);
+			PreparedStatement dbTestPS = connection.prepareStatement("select qualityScore from snpposition where chromosome = ? and position = ?");
+			for (Map.Entry<String, Integer> entry : myMap.entries()) {
+				String chrom = entry.getKey();
+				Integer posQS = entry.getValue();
+				dbTestPS.setString(1, chrom);
+				dbTestPS.setInt(2, posQS);
+				//dbTestPS.addBatch();
+				//batchCount++;
+				ResultSet rs=dbTestPS.executeQuery();
+	            while(rs.next()) {
+	                Float myQual = rs.getFloat("qualityScore");
+	                Tuple<Integer,Float> myTuple = new Tuple<Integer,Float>(posQS,myQual);
+	                qsMap.put(chrom, myTuple);
+	            }
+			}
+		} catch (Exception exc) {
+			exc.printStackTrace();
+			return null;
+		}
+		return qsMap.build();
+	}
 }

@@ -1,5 +1,6 @@
 package net.maizegenetics.dna.tag;
 
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 
@@ -152,5 +153,10 @@ public interface TagData {
      * @return TaxaList or null if not available.
      */
     TaxaList getTaxaList();
-
+    /**
+     * For a given map of chromosome/posiiton,
+     * Returns a map of chromsome (string) and Tuple (position,qualityScore)
+     * @return TaxaList or null if not available.
+     */
+    ListMultimap<String, Tuple<Integer, Float>> getSNPPositionQS(HashMultimap<String, Integer> myMap);
 }
