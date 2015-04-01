@@ -852,6 +852,32 @@ public class GenotypeTableUtils {
         return new BitSet[]{rMj, rMn};
     }
 
+    /**
+     * Returns BitSet indicating presence of given diploid value in genotype.
+     * This does unphased comparisons, so the order of the two allele values do
+     * not matter. If given diploid value is UNKNOWN, then it doesn't match
+     * anything. Bits set to 1 indicate match.
+     *
+     * @param genotype genotype
+     * @param diploidValue diploid value
+     *
+     * @return BitSet indicating presence
+     */
+    public static BitSet calcBitPresenceOfDiploidValueFromGenotype(byte[] genotype, byte diploidValue) {
+        int sites = genotype.length;
+        OpenBitSet result = new OpenBitSet(genotype.length);
+        for (int i = 0; i < sites; i++) {
+
+            if (diploidValue == UNKNOWN_DIPLOID_ALLELE) {
+                // do nothing
+            } else if (isEqual(diploidValue, genotype[i])) {
+                result.fastSet(i);
+            }
+
+        }
+        return result;
+    }
+
     public static BitSet calcBitPresenceFromGenotype(byte[] genotype, byte[] referenceValues) {
         int sites = genotype.length;
         if (genotype.length != referenceValues.length) {
