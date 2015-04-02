@@ -4,27 +4,26 @@
 package net.maizegenetics.analysis.gbs.v2;
 
 import java.awt.Frame;
-import java.io.BufferedReader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
 import javax.swing.ImageIcon;
+
+import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.map.PositionListIOUtils;
 import net.maizegenetics.dna.tag.TagDataSQLite;
 import net.maizegenetics.dna.tag.TagDataWriter;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.PluginParameter;
-import net.maizegenetics.util.Tuple;
-import net.maizegenetics.util.Utils;
+
 import org.apache.log4j.Logger;
-import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Ordering;
 
 /**
  * This plugin takes as input:
- *    csv file with columns chr, pos, qualityScore 
+ *    tab-delimited txt file with columns CHROM, POS, QUALITYSCORE 
  *    dbFile:  a GBSv2 database with snppositions recorded
- *  A map of the chromosome, position and qualityScore is sent to the database
+ *  A PositionList of positions with quality scores is sent to the database
  *  where the snpposition table is updated with a qualityScore value for the
  *  specified chromosome and position.
  *  
@@ -37,7 +36,7 @@ public class UpdateSNPPositionQualityPlugin extends AbstractPlugin {
     private PluginParameter<String> myDBFile = new PluginParameter.Builder<String>("db", null, String.class).guiName("Input DB").required(true).inFile()
             .description("Input database file with SNP positions stored").build();
     private PluginParameter<String> myQSFile = new PluginParameter.Builder<String>("qsFile", null, String.class).guiName("Quality Score File").required(true).inFile()
-            .description("CSV file containing headers chr(String), pos(Integer) and qualityScore(Float) for filtering SNP positions from database").build();
+            .description("tab-delimited txt file containing headers CHROM(String), POS(Integer) and QUALITYSCORE(Float) for filtering SNP positions from database").build();
 
     public UpdateSNPPositionQualityPlugin() {
         super(null, false);
@@ -55,17 +54,17 @@ public class UpdateSNPPositionQualityPlugin extends AbstractPlugin {
     public DataSet processData(DataSet input) {
         try {
             Path qsPath= Paths.get(qsFile()).toAbsolutePath();
-            ListMultimap<String, Tuple<Integer, Float>> qsMap = readQualityScoreFile(qsPath.toString());
-            if (qsMap == null) {
-            	String errMsg = "Error reading csv input file " + qsPath.toString();
+            PositionList posListWithQS = PositionListIOUtils.readQualityScoreFile(qsPath.toString());
+            if (posListWithQS == null) {
+            	String errMsg = "Error: no data read from file  " + qsPath.toString();
             	myLogger.error(errMsg);
             	return null;
             }
             TagDataWriter tdw=new TagDataSQLite(inputDB());
             // Write the qualityScore positions to the snpposition table
-            tdw.putSNPPositionQS(qsMap);           
+            tdw.putSNPPositionQS(posListWithQS);      
             ((TagDataSQLite)tdw).close();  
-            myLogger.info("Finished writing quality scores file to snpposition table.\n");
+            myLogger.info("UupdateSNPPositionQualityPlugin: Finished writing quality scores file to snpposition table.\n");
         } catch (Exception exc) {
             myLogger.error("Caught error adding quality scores to the database " + exc);
             exc.printStackTrace();
@@ -80,37 +79,38 @@ public class UpdateSNPPositionQualityPlugin extends AbstractPlugin {
      * @param filename: full name of csv file for processing
      * @return A multi-map with String (Chromosome) as key, and a tuple containing position and qualityScore
      */
-    public static ListMultimap<String, Tuple<Integer, Float>> readQualityScoreFile(String fileName) {
-        if (fileName == null) {
-            return null;
-        }
-        ImmutableListMultimap.Builder<String, Tuple<Integer, Float>> qsMap = new ImmutableListMultimap.Builder<String, Tuple<Integer, Float>>()
-                .orderKeysBy(Ordering.natural()).orderKeysBy(Ordering.natural());
-        try {
-            BufferedReader br = Utils.getBufferedReader(fileName, 1000000);
-            String line;
-            while((line=br.readLine())!=null) {
-                if(line.contains("qualityScore")) continue; // skip header
-                String[] myString = line.split(",");
-                if (myString.length < 3) {
-                	String msg = "ERROR: wrong number of fields in Quality Score File.\n" +
-                			"Expecting chr,pos,qualityScore but found:\n" + line + "\n";
-                	myLogger.error(msg);
-                	return null;
-                }
-                String myChr = myString[0];
-                Integer myPos = Integer.parseInt(myString[1]);
-                Float myQS = Float.parseFloat(myString[2]);
-                Tuple<Integer,Float> myTuple = new Tuple<Integer,Float>(myPos,myQS);
-                qsMap.put(myChr, myTuple);
-            }
-            br.close();           
-        } catch (Exception e) {
-            System.err.println("Error in Reading QualityScore  File:" + fileName);
-            e.printStackTrace();
-        }
-        return qsMap.build();
-    }
+//    public static ListMultimap<String, Tuple<Integer, Float>> readQualityScoreFile(String fileName) {
+//        if (fileName == null) {
+//            return null;
+//        }
+//        System.out.println("LCJ - in UpdateSNPPositionQUality:readQualityScoreFile");
+//        ImmutableListMultimap.Builder<String, Tuple<Integer, Float>> qsMap = new ImmutableListMultimap.Builder<String, Tuple<Integer, Float>>()
+//                .orderKeysBy(Ordering.natural()).orderKeysBy(Ordering.natural());
+//        try {
+//            BufferedReader br = Utils.getBufferedReader(fileName, 1000000);
+//            String line;
+//            while((line=br.readLine())!=null) {
+//                if(line.contains("QUALITYSCORE")) continue; // skip header
+//                String[] myString = line.split("\\t");
+//                if (myString.length < 3) {
+//                	String msg = "ERROR: wrong number of fields in Quality Score File.\n" +
+//                			"Expecting chr,pos,qualityScore but found:\n" + line + "\n";
+//                	myLogger.error(msg);
+//                	return null;
+//                }
+//                String myChr = myString[0];
+//                Integer myPos = Integer.parseInt(myString[1]);
+//                Float myQS = Float.parseFloat(myString[2]);
+//                Tuple<Integer,Float> myTuple = new Tuple<Integer,Float>(myPos,myQS);
+//                qsMap.put(myChr, myTuple);
+//            }
+//            br.close();           
+//        } catch (Exception e) {
+//            System.err.println("Error in Reading QualityScore  File:" + fileName);
+//            e.printStackTrace();
+//        }
+//        return qsMap.build();
+//    }
 
     @Override
     public String getToolTipText() {

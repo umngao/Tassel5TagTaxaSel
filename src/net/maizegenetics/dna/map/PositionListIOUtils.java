@@ -31,7 +31,7 @@ public class PositionListIOUtils {
             BufferedReader fileIn = Utils.getBufferedReader(fileName, 1000000);
             PositionListBuilder plb = new PositionListBuilder();
             //parse SNP position rows
-            // First value is Chromosome number, second is position, third is Strand
+            // First value is Chromosome number, second is position
             String line = fileIn.readLine(); // read/skip header
             while ((line = fileIn.readLine()) != null) {
                 String[] tokens = line.split("\\t");
@@ -50,6 +50,46 @@ public class PositionListIOUtils {
             e.printStackTrace();
         }
         return null;
+    }
+    
+    /**
+     * Returns a PositionList from a tab-delimited text SNP Quality Score file. The
+     * input file has 3 tab-delimited fields indicating Chromosome Number and Quality Score
+     * Position A header row is the first line and looks like this: CHROM	POS	QUALITYSCORE
+     * The remaining rows contains integer values as below: 9	18234	15.5
+     * NOTE: the CHROM field is a string.
+     *
+     * @param fileName with complete path
+     * @return PositionList
+     */
+    public static PositionList readQualityScoreFile(String fileName) {
+    	if (fileName == null) return null;
+        try {
+            BufferedReader fileIn = Utils.getBufferedReader(fileName, 1000000);
+            PositionListBuilder plb = new PositionListBuilder();
+            //parse SNP position rows
+            // First value is Chromosome string, second is position, third is qualityScore
+            String line = fileIn.readLine(); // read/skip header
+            while ((line = fileIn.readLine()) != null) {
+                String[] tokens = line.split("\\t");
+                if (tokens.length != 3) {
+                    System.err.println("Error in SNP Position QualityScore file format:" + fileName);
+                    System.err.println("Expecting tab-delimited file with 2 integer and 1 float value per row "
+                    		+ " with header values CHROM POS QUALITYSCORE");
+                }
+                Chromosome chrom = new Chromosome(tokens[0]);
+                int pos = Integer.parseInt(tokens[1]);
+                double qscore = Double.parseDouble(tokens[2]);
+                Position position = new GeneralPosition.Builder(chrom, pos)
+                		.addAnno("QualityScore",qscore).build();
+                plb.add(position);
+            }
+            return plb.build();
+        } catch (Exception e) {
+            System.err.println("Error in Reading Quality Score File:" + fileName);
+            e.printStackTrace();
+        }
+        return null;   	
     }
 
 }

@@ -126,7 +126,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                     "select tagtaxadistribution.* from tagCutPosition, tagtaxadistribution where tagCutPosition.positionid=? and " +
                             "tagCutPosition.tagid=tagtaxadistribution.tagid and tagCutPosition.bestmapping=1");
             snpPositionsForChromosomePS=connection.prepareStatement(
-            		"select position from snpposition where chromosome=?");
+            		"select position, qualityScore from snpposition where chromosome=?");
             alleleTaxaDistForSnpidPS =connection.prepareStatement("select a.*, td.* from allele a, tagallele ta, tagtaxadistribution td\n" +
                     "where a.alleleid=ta.alleleid and ta.tagid=td.tagid and a.snpid=?");
             allAlleleTaxaDistForSnpidPS =connection.prepareStatement("select a.*, td.* from allele a, tagallele ta, tagtaxadistribution td\n" +
@@ -178,7 +178,10 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         }
     }
     
-    private void loadSNPPositionHash() {
+    private void loadSNPPositionHash(boolean force) {
+    	if (force) { // reload as quality scores have changed.
+    		if (snpPosToIDMap != null) snpPosToIDMap.clear(); 
+    	}
         try{
             ResultSet rs=connection.createStatement().executeQuery("select count(*) from snpposition");
             int size=rs.getInt(1);
@@ -190,6 +193,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 Position p=new GeneralPosition
                         .Builder(new Chromosome(rs.getString("chromosome")),rs.getInt("position"))
                         .strand(rs.getByte("strand"))
+                        .addAnno("QualityScore",rs.getFloat("qualityScore"))
                         .build();
                 snpPosToIDMap.putIfAbsent(p, rs.getInt("snpid"));
             }
@@ -200,7 +204,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     private void loadAlleleHash() {
         try{
-            loadSNPPositionHash();
+            loadSNPPositionHash(false);
             ResultSet rs=connection.createStatement().executeQuery("select count(*) from allele");
             int size=rs.getInt(1);
             System.out.println("size of all alleles in allele table="+size);
@@ -505,7 +509,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             PreparedStatement alleleTagInsertPS=connection.prepareStatement(
                     "INSERT OR IGNORE into tagallele (alleleid, tagid) values(?,?)");
             putAllTag(tagAlleleMap.keySet());
-            loadSNPPositionHash();
+            loadSNPPositionHash(false);
             putSNPPositionsIfAbsent(tagAlleleMap.values().stream()
                     .map(a -> a.position())
                     .distinct()
@@ -626,7 +630,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     public Stream<ImmutableMultimap<Allele,TaxaDistribution>> getAllAllelesTaxaDistForSNP() {
         if(snpPosToIDMap==null) {
-            loadSNPPositionHash();
+            loadSNPPositionHash(false);
         }
         Stream<ImmutableMultimap<Allele,TaxaDistribution>> stream = SQL.stream(connection, "select a.*, td.* from allele a, tagallele ta, tagtaxadistribution td\n" +
                 "where a.alleleid=ta.alleleid and ta.tagid=td.tagid order by a.snpid")
@@ -649,13 +653,31 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
 	@Override
     public PositionList getSNPPositions() {
-        if(snpPosToIDMap==null) loadSNPPositionHash();
+        if(snpPosToIDMap==null) loadSNPPositionHash(false);
         return new PositionListBuilder().addAll(snpPosToIDMap.keySet()).build();
     }
 
 	@Override
     public PositionList getSNPPositions(int minSupportValue) {
 		return null;
+	}
+	
+	@Override
+    public PositionList getSNPPositions(double minQualityScore) {
+		// Add all positions whose quality score equals or exceeds 
+		// caller's minQualityScore
+		if(snpPosToIDMap==null) loadSNPPositionHash(false);
+		PositionListBuilder plb = new PositionListBuilder();
+		snpPosToIDMap.keySet().stream()
+		.forEach(pos -> {
+			double[] qs = pos.getAnnotation().getQuantAnnotation("QualityScore");
+			if (qs != null && qs.length > 0) {
+				if (qs[0] >=minQualityScore) {
+					plb.add(pos);
+				}
+			}			
+		});
+		return plb.build();
 	}
 	
     @Override
@@ -824,15 +846,21 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     private void putSNPPositionsIfAbsent(Collection<Position> positions) {
         try {
             int batchCount=0;
-            if(snpPosToIDMap==null) loadSNPPositionHash();
+            if(snpPosToIDMap==null) loadSNPPositionHash(false);
             connection.setAutoCommit(false);
             PreparedStatement snpPosInsertPS=connection.prepareStatement(
-                    "INSERT OR IGNORE into snpposition (chromosome, position, strand) values(?,?,?)");
+                    "INSERT OR IGNORE into snpposition (chromosome, position, strand,qualityScore) values(?,?,?,?)");
             for (Position p : positions) {
                 if(snpPosToIDMap.containsKey(p)) continue;
                 snpPosInsertPS.setString(1, p.getChromosome().toString());
                 snpPosInsertPS.setInt(2, p.getPosition());
                 snpPosInsertPS.setByte(3, p.getStrand());
+                double[] qsList = p.getAnnotation().getQuantAnnotation("QualityScore");               
+                if (qsList != null & qsList.length > 0) {
+                	snpPosInsertPS.setFloat(4, (float)qsList[0]);
+                } else {
+                	snpPosInsertPS.setFloat(4, (float)0.0);
+                }               
                 snpPosInsertPS.addBatch();
                 batchCount++;
                 if(batchCount>10000) {
@@ -842,12 +870,11 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 }
             }
             snpPosInsertPS.executeBatch();
-            if(batchCount>0) loadSNPPositionHash();
+            if(batchCount>0) loadSNPPositionHash(false);
             connection.setAutoCommit(true);
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
     }
 
     private void putAlleleIfAbsent(Collection<Allele> alleles) throws IllegalStateException {
@@ -898,7 +925,8 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 ResultSet rs=snpPositionsForChromosomePS.executeQuery();
                 while(rs.next()) {
                 	Chromosome chr= new Chromosome(Integer.toString(chrom));
-                	Position position = new GeneralPosition.Builder(chr,rs.getInt("position")).build();
+                	Position position = new GeneralPosition.Builder(chr,rs.getInt("position"))
+                	.addAnno("QualityScore",rs.getFloat("qualityScore")).build();
                     plb.add(position);
                 }
         	} 
@@ -908,36 +936,44 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         return plb.build();
     }
 
-    // Store SNP quality positions for chromosomes
+    // Store SNP quality score for positions in snpposition table
 	@Override
-	public void putSNPPositionQS(ListMultimap<String, Tuple<Integer, Float>> qsMap) {
+	public void putSNPPositionQS(PositionList qsPL) {
 		int batchCount=0;
 		try {
 			connection.setAutoCommit(false);
 			PreparedStatement qsUpdatePS = connection.prepareStatement("update snpposition set qualityScore = ? where chromosome = ? and position = ?");
-			// if row to update doesnt' exist, no error is thrown.  If we checked "db.update()" value,
-			// it would return 0 if it couldn't execute a particular query.  We're not checking that
-			// Should we be?
-			for (Map.Entry<String, Tuple<Integer, Float>> entry : qsMap.entries()) {
-				String chrom = entry.getKey();
-				Tuple<Integer, Float> posQS = entry.getValue();
-				qsUpdatePS.setFloat(1,posQS.y);
-				qsUpdatePS.setString(2, chrom);
-				qsUpdatePS.setInt(3, posQS.x);
-				qsUpdatePS.addBatch();
-				batchCount++;
+			// if row to update doesn't exist, update skips and continues.  A 0 return
+			// for any entry in qsUpdatePS.executeBatch() will mean update wasn't performed.
+			for (Position qsPos : qsPL) {
+	            double qscore = 0.0;
+				double[] qs = qsPos.getAnnotation().getQuantAnnotation("QualityScore");
+				if (qs != null && qs.length > 0) {
+					qscore = qs[0];	
+				}			
+	            qsUpdatePS.setFloat(1, (float)qscore);
+	            qsUpdatePS.setString(2,qsPos.getChromosome().getName());
+	            qsUpdatePS.setInt(3,qsPos.getPosition());
+	            qsUpdatePS.addBatch();
+	            batchCount++;
 				if(batchCount>100000) {
 					System.out.println("updateSNPPosition next "+batchCount);
+					int[] numGood = qsUpdatePS.executeBatch(); // use if want to see results
+					for (int idx=0;idx < numGood.length; idx++) {
+						System.out.printf("LCJ - numGood[%d]=%d\n", idx, numGood[idx]);
+					}
 					qsUpdatePS.executeBatch();
 					batchCount=0;
 				}
-			}
+			}				
+			//int[] lastBatch = qsUpdatePS.executeBatch(); // use to see results
 			qsUpdatePS.executeBatch();
 			connection.setAutoCommit(true);
 		} catch (SQLException e) {
 			System.out.println("Error executing UPDATE statement for TagDataSQLite:putSNPQualityPositions");
 			e.printStackTrace();
-		}		
+		}
+		loadSNPPositionHash(true); // reload this map to obtain the new position quality scores.
 	}
 
 	// THis is intended to be used for junit verification, where there the query

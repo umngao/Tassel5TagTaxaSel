@@ -5,6 +5,7 @@ import com.google.common.collect.Multimap;
 
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.Position;
+import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.Tuple;
@@ -58,10 +59,11 @@ public interface TagDataWriter extends TagData {
 
     /*Sets the taxaList for given set of Taxa, this is the order in which the taxa distribution is recorded*/
     void putTaxaList(TaxaList taxaList);
+    
     /**
-     * Stores a quality position in the snpposition map for each chromosome/position
+     * Stores a quality position in the snpposition table for each chromosome/position
      * @param qsMap
      */
-	void putSNPPositionQS(ListMultimap<String, Tuple<Integer, Float>> qsMap);
+	void putSNPPositionQS(PositionList qsPosL);
 
 }

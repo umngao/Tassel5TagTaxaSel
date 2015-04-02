@@ -81,6 +81,13 @@ public interface TagData {
      * @return PositionList of all SNPs
      */
     PositionList getSNPPositions(int minSupportValue);
+    /**
+     * Create the unique list of SNPs (variants) based on all alleles.
+     * Only positions with minimum quality score equal to or greater than
+     * the u are considered.
+     * @return PositionList of all SNPs
+     */
+    PositionList getSNPPositions(double minQualityScore);
     
     /**
      * Get SNPs for specified chromosomes
