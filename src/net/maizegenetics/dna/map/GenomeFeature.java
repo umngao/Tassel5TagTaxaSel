@@ -99,4 +99,14 @@ public class GenomeFeature {
         return annotationsCopy;
     }
 
+    @Override
+    public String toString() {
+        return "GenomeFeature{" +
+                "chr=" + chromosome() +
+                ", id=" + id() +
+                ", parentid=" + parentId() +
+                ", start=" + start +
+                ", stop=" + stop +
+                '}';
+    }
 }
