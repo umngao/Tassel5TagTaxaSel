@@ -72,46 +72,6 @@ public class UpdateSNPPositionQualityPlugin extends AbstractPlugin {
         return null;
     }
 
-    /**
-     * Parses a csv qualityScore file storing the chr, position and quality score values into a multimap.
-     * The chr (chromosome) is the key, which may have multiple associated position/quality scores.
-     *
-     * @param filename: full name of csv file for processing
-     * @return A multi-map with String (Chromosome) as key, and a tuple containing position and qualityScore
-     */
-//    public static ListMultimap<String, Tuple<Integer, Float>> readQualityScoreFile(String fileName) {
-//        if (fileName == null) {
-//            return null;
-//        }
-//        System.out.println("LCJ - in UpdateSNPPositionQUality:readQualityScoreFile");
-//        ImmutableListMultimap.Builder<String, Tuple<Integer, Float>> qsMap = new ImmutableListMultimap.Builder<String, Tuple<Integer, Float>>()
-//                .orderKeysBy(Ordering.natural()).orderKeysBy(Ordering.natural());
-//        try {
-//            BufferedReader br = Utils.getBufferedReader(fileName, 1000000);
-//            String line;
-//            while((line=br.readLine())!=null) {
-//                if(line.contains("QUALITYSCORE")) continue; // skip header
-//                String[] myString = line.split("\\t");
-//                if (myString.length < 3) {
-//                	String msg = "ERROR: wrong number of fields in Quality Score File.\n" +
-//                			"Expecting chr,pos,qualityScore but found:\n" + line + "\n";
-//                	myLogger.error(msg);
-//                	return null;
-//                }
-//                String myChr = myString[0];
-//                Integer myPos = Integer.parseInt(myString[1]);
-//                Float myQS = Float.parseFloat(myString[2]);
-//                Tuple<Integer,Float> myTuple = new Tuple<Integer,Float>(myPos,myQS);
-//                qsMap.put(myChr, myTuple);
-//            }
-//            br.close();           
-//        } catch (Exception e) {
-//            System.err.println("Error in Reading QualityScore  File:" + fileName);
-//            e.printStackTrace();
-//        }
-//        return qsMap.build();
-//    }
-
     @Override
     public String getToolTipText() {
         return "Update SNP Position quality score";
