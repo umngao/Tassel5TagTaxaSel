@@ -31,6 +31,7 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
     private int matchCount = 0;
     private int unmatchCount = 0;
     private int technique = 0;
+    private String delimiter = "";
     private double globalMin = Double.POSITIVE_INFINITY;
     private double globalMax = Double.NEGATIVE_INFINITY;
 
@@ -39,6 +40,11 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
     }
     public IdentifierSynonymizer(TaxaList preferredTaxa, TaxaList[] alternateTaxaSets,int technique) {
         this.technique = technique;
+        init2(preferredTaxa, alternateTaxaSets);
+    }
+    public IdentifierSynonymizer(TaxaList preferredTaxa, TaxaList[] alternateTaxaSets,int technique,String delimiter) {
+        this.technique = technique;
+        this.delimiter = delimiter;
         init2(preferredTaxa, alternateTaxaSets);
     }
 
@@ -155,7 +161,13 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
             }*/
             
             for (int i = 0; i < referenceIDGroup.numberOfTaxa(); i++) {
-                sm = getScore(referenceIDGroup.taxaName(i), unmatchedString, ignoreCase, ignoreWhite, ignorePunc,technique);
+                if(technique==7) {
+                    sm = getScore(referenceIDGroup.taxaName(i), unmatchedString, ignoreCase, ignoreWhite, ignorePunc,technique,delimiter);
+                    
+                }
+                else {
+                    sm = getScore(referenceIDGroup.taxaName(i), unmatchedString, ignoreCase, ignoreWhite, ignorePunc,technique);
+                }
                 
                 //sm = scoreMatch(referenceIDGroup.taxaName(i), unmatchedString, ignoreCase, ignoreWhite, ignorePunc);
                 if (sm < minScore) {
@@ -198,7 +210,12 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
                     break;
             }
             for(Taxon refTaxa:referenceTaxa) {
-                sm = getScore(refTaxa.getName(), taxaName, ignoreCase, ignoreWhite, ignorePunc,technique);
+                if(technique==7) {
+                    sm = getScore(refTaxa.getName(),taxaName,ignoreCase,ignoreWhite,ignorePunc,technique,delimiter);
+                }
+                else {
+                    sm = getScore(refTaxa.getName(), taxaName, ignoreCase, ignoreWhite, ignorePunc,technique);
+                }
                 if (sm < minScore) {
                     bestMatches.clear();
                     bestMatches.add(refTaxa.getName());
@@ -218,6 +235,8 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
             
             levelOfRestriction++;
         }   
+        System.out.println("GlobalMin"+globalMin);
+        System.out.println("GlobalMax"+globalMax);
         return bestMatches;
     }
     public ArrayList<String> findOrderedMatches(String unmatchedString, int levelOfRestriction) {
@@ -235,7 +254,12 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
         }
         for (int i = 0; i < referenceIDGroup.numberOfTaxa(); i++) {
             //sm = scoreMatch(referenceIDGroup.taxaName(i), unmatchedString, ignoreCase, ignoreWhite, ignorePunc);
-            sm = getScore(referenceIDGroup.taxaName(i), unmatchedString, ignoreCase, ignoreWhite, ignorePunc,technique);
+            if(technique==7) {
+                sm = getScore(referenceIDGroup.taxaName(i), unmatchedString, ignoreCase, ignoreWhite, ignorePunc,technique,delimiter);
+            }
+            else {
+                sm = getScore(referenceIDGroup.taxaName(i), unmatchedString, ignoreCase, ignoreWhite, ignorePunc,technique);
+            }
             sm = 1.0-((sm - globalMin)/(globalMax-globalMin));
             theSortMap.put(1 - sm - ((double) i / 100000.0), referenceIDGroup.taxaName(i));
             //theSortMap.put(sm - ((double) i / 100000.0), referenceIDGroup.taxaName(i));
@@ -276,6 +300,46 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
         //Edit Distance with metaphone
         else if(technique == 6) {
             score=editWithMetaphone(s1,s2,ignoreCase,ignoreWhite,ignorePunc);
+        }
+        
+        return score;
+    }
+    public static double getScore(String s1, String s2, boolean ignoreCase, boolean ignoreWhite, boolean ignorePunc, int technique,String delimiter) {
+        double score = 0.0;
+        if(s1.equals(s2)) {
+            return score;
+        }
+      
+        //dice need to do a 1- as high similarity = low distance
+        if(technique == 0) {
+            score = 1.0 - scoreMatch(s1,s2,ignoreCase,ignoreWhite,ignorePunc);
+        }
+        //String edit
+        else if(technique == 1) {
+            score = editDistanceScoreMatch(s1,s2,ignoreCase,ignoreWhite,ignorePunc);
+        }
+        //DTW with hamming
+        else if(technique == 2) {
+            score = dtwDist(s1,s2,"hamming",ignoreCase,true,ignorePunc);
+        }
+        //DTW with keyboard dist
+        else if(technique == 3) {
+            score = dtwDist(s1,s2,"key",ignoreCase,true,ignorePunc);
+        }
+        //Hamming with soundex
+        else if(technique == 4) {
+            score = hammingDistSoundex(s1,s2,ignoreCase,ignoreWhite,ignorePunc);
+        }
+        //Dice with metaphone  need to do a 1- as high similarity = low distance
+        else if(technique == 5) {
+            score = 1 - diceWithMetaphone(s1,s2,ignoreCase,ignoreWhite,ignorePunc);
+        }
+        //Edit Distance with metaphone
+        else if(technique == 6) {
+            score=editWithMetaphone(s1,s2,ignoreCase,ignoreWhite,ignorePunc);
+        }
+        else if(technique == 7) {
+            score= 1- delimiterDistance(s1,s2,ignoreCase,ignoreWhite,ignorePunc,delimiter);
         }
         return score;
     }
@@ -644,6 +708,57 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
         //return end point
         return costMat[costMat.length-1][costMat[costMat.length-1].length-1];
     }
+    
+    private static double subSetDist(String str1, String str2,boolean ignoreCase,boolean ignoreWhite, boolean ignorePunc) {
+        str1 = cleanName(str1,ignoreCase,ignoreWhite,ignorePunc);
+        str2 = cleanName(str2,ignoreCase,ignoreWhite,ignorePunc);
+        
+        double distance = 0.0;
+        int length = (str1.length()>str2.length())?str2.length():str1.length();
+        int errorCount = 0;
+        for(int i = 0; i<length;i++) {
+            if(str1.charAt(i)!=str2.charAt(i)) {
+                errorCount++;
+            }
+        }
+        distance = (double)errorCount/length;
+        return distance;
+    }
+    
+    private static double delimiterDistance(String str1, String str2, boolean ignoreCase, boolean ignoreWhite, boolean ignorePunc,String delimiter) {
+        double distance = 0.0;
+       
+        String[] str1Split = str1.split(delimiter);
+        String[] str2Split = str2.split(delimiter);
+        
+        if(str1Split.length == str2Split.length) {
+            for(int i = 0; i<str1Split.length;i++) {
+                distance += scoreMatch(str1Split[i],str2Split[i],ignoreCase,ignoreWhite,ignorePunc);
+            }
+            distance/=str1Split.length;
+            return distance;
+        }
+        //Make sure Str1Split is the longer of the two
+        if(str1Split.length<str2Split.length) {
+            String[] temp = str1Split;
+            str1Split = str2Split;
+            str2Split = temp;
+        }
+        //Use a sliding window
+        for(int i = 0; i<str1Split.length-str2Split.length;i++) {
+            double currDist = 0.0;
+            for(int j = 0; j<str2Split.length;j++) {
+                currDist += scoreMatch(str1Split[i+j],str2Split[j],ignoreCase,ignoreWhite,ignorePunc);
+            }
+            currDist/=str2Split.length;
+            if(currDist>distance) {
+                distance = currDist;
+            }
+        }
+        
+        return distance;
+    }
+    
     /** @return an array of adjacent letter pairs contained in the input string */
     private static ArrayList<String> letterPairs(String str) {
         ArrayList<String> allPairs = new ArrayList<>();
@@ -704,7 +819,15 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
             String taxonName = tx.getName();
             //Go through the list of synonyms
             for(String synName:tx.getAnnotation().getTextAnnotation(Taxon.SynonymKey)) {
-                double score = getScore(taxonName,synName,true,false,false,technique);
+                double score = 0.0;
+                if(technique==7) {
+                    score = getScore(taxonName,synName,true,false,false,technique,delimiter);
+                }
+                else {
+                    score = getScore(taxonName,synName,true,false,false,technique);
+                }
+                //double score = getScore(taxonName,synName,true,false,false,technique);
+                
                 if(technique==4) {
                     globalMax = 4.0;
                 }
@@ -811,18 +934,38 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
         }
         else {
             data[1] = synString.substring(0,synString.length()-1);
-            
             if(technique == 4) {
                 globalMax = 4.0;
             }
             if(technique==0) {
                 data[2] = "" + scoreMatch("" + data[0], "" + firstMatch, true, false, false);
             }
+            else if(technique==5) {
+                data[2] = "" + (1.0-getScore("" + data[0], "" + firstMatch, true, false, false,technique));  
+            }
+            else if(technique==7) {
+                data[2] = "" + (1.0-getScore("" + data[0], "" + firstMatch, true, false, false,technique,delimiter));  
+            }
             else {
-                data[2] = "" + (1.0-((getScore("" + data[0], "" + firstMatch, true, false, false,technique) - globalMin)/(globalMax-globalMin)));
+                //To fix the - number bug
+                if((1.0-((getScore("" + data[0], "" + firstMatch, true, false, false,technique) - globalMin)/(globalMax-globalMin)))<0.0) {
+                    if((1.0-((getScore("" + data[0], "" + firstMatch, true, true, false,technique) - globalMin)/(globalMax-globalMin)))<0.0) {
+                        if ((1.0-((getScore("" + data[0], "" + firstMatch, true, true, true,technique) - globalMin)/(globalMax-globalMin)))<0.0) {
+                            data[2] = ""+0.0;
+                        }
+                        else {
+                            data[2] = "" + (1.0-((getScore("" + data[0], "" + firstMatch, true, true, true,technique) - globalMin)/(globalMax-globalMin)));
+                        }
+                    }
+                    else {
+                        data[2] = "" + (1.0-((getScore("" + data[0], "" + firstMatch, true, true, false,technique) - globalMin)/(globalMax-globalMin)));
+                    }
+                }
+                else {
+                    data[2] = "" + (1.0-((getScore("" + data[0], "" + firstMatch, true, false, false,technique) - globalMin)/(globalMax-globalMin)));
+                }
             }
         }
-        
         return data;
     }
     
@@ -885,8 +1028,7 @@ public class IdentifierSynonymizer extends AbstractTableReport implements Serial
                         for(String value:values) {
                             tb.addAnno(key, value);
                         }
-                    }
-                    
+                    }  
                 }
                 tb.addAnno(Taxon.SynonymKey,newName);
                 tlb.add(tb.build());

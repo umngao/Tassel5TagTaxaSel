@@ -53,7 +53,7 @@ import java.util.Map;
 public class SynonymizerPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(SynonymizerPlugin.class);
-
+    private String delimiter;
     /**
      * Creates a new instance of SynonymizerPlugin
      */
@@ -462,6 +462,42 @@ public class SynonymizerPlugin extends AbstractPlugin {
         }
         return td;
     }
+    private Datum createSynonymizer(DataSet input,int technique,String delimiter) {
+        Datum td = null;
+        StringBuilder synonymSets = new StringBuilder();
+        for (int i = 1; i < input.getSize(); i++) {
+            synonymSets.append(input.getData(i).getName());
+            synonymSets.append("\n");
+        }
+        boolean performFunction = true;
+        //String msg = "You have selected to apply synonym list " + input.getData(0).getName() + " to the following dataset:\n"
+        //        + synonymSets.toString();
+        String msg = "You have selected to generate a synonym list from " + input.getData(0).getName() + " to be applied to the following dataset:\n"
+                + synonymSets.toString();
+        
+        if (isInteractive()) {
+            int response = JOptionPane.showOptionDialog(getParentFrame(), msg, "Verify Selection",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, null, null);
+            if (response == JOptionPane.CANCEL_OPTION) {
+                performFunction = false;
+            }
+        } else {
+            myLogger.info(msg);
+        }
+        if (performFunction) {
+            List<Datum> idList = input.getDataOfType(TaxaList.class);
+            TaxaList[] aa = new TaxaList[idList.size() - 1];
+            for (int i = 1; i < idList.size(); i++) {
+                aa[i - 1] = (TaxaList) idList.get(i).getData();
+            }
+            IdentifierSynonymizer ts = new IdentifierSynonymizer((TaxaList) idList.get(0).getData(), aa,technique,delimiter);
+            StringWriter sw = new StringWriter();
+            ts.report(new PrintWriter(sw));
+            //td = new Datum(input.getData(0).getName() + " Synonyms", ts, "Taxa synonyms\n" + sw.toString());
+            td = new Datum(input.getData(1).getName() + " Synonymizer Object", ts, "Taxa synonyms\n"+sw.toString());
+        }
+        return td;
+    }
 
     /*
     private void applySynonymsToIdGroups(DataSet input) {
@@ -660,6 +696,11 @@ public class SynonymizerPlugin extends AbstractPlugin {
         SynonymizerFileChooser fileChooseDiag= new SynonymizerFileChooser(getParentFrame(),datumArray,fileOptions,initialSelections,"Step1");
         fileChooseDiag.setLocationRelativeTo(getParentFrame());
         fileChooseDiag.setVisible(true);
+        if(fileOptions[2]==7) {
+            delimiter = fileChooseDiag.getDelim();
+        }
+        System.out.println("Delim: "+fileChooseDiag.getDelim());
+        
         return fileOptions;
     }
     public DataSet runStep1(List<Datum> data, Object[] datumArray, int[] fileOptions ) {
@@ -682,7 +723,14 @@ public class SynonymizerPlugin extends AbstractPlugin {
                 }
             }
             DataSet newInputDataSet = new DataSet(datumList, this);
-            Datum td = createSynonymizer(newInputDataSet,fileOptions[2]);
+            Datum td = null;
+            if(fileOptions[2] == 7) {
+                td = createSynonymizer(newInputDataSet,fileOptions[2],delimiter);
+            }
+            else {
+                td = createSynonymizer(newInputDataSet,fileOptions[2]);
+            }
+            //Datum td = createSynonymizer(newInputDataSet,fileOptions[2]);
             DataSet output = new DataSet(td, this);
             fireDataSetReturned(new PluginEvent(output, SynonymizerPlugin.class));
             return output;
@@ -1097,6 +1145,7 @@ class SynonymizerFileChooser extends JDialog {
     int[] fileOptions;
     String[] initialSelections;
     String step;
+    String delimiter;
     /**
      * Create the application.
      */
@@ -1163,10 +1212,10 @@ class SynonymizerFileChooser extends JDialog {
         gbc_comboBoxSynonym.fill = GridBagConstraints.HORIZONTAL;       
         panel.add(comboBoxes.get(1), gbc_comboBoxSynonym);
         
-        JLabel lblSynonimizeTechnique = new JLabel("Similarity Metric");
-        GridBagConstraints gbc_lblSynonimizeTechnique = getConstraints(1,7, new Insets(0, 10, 5, 10));
-        gbc_lblSynonimizeTechnique.anchor = GridBagConstraints.WEST;
-        panel.add(lblSynonimizeTechnique, gbc_lblSynonimizeTechnique);
+        JLabel lblSynonymizeTechnique = new JLabel("Similarity Metric");
+        GridBagConstraints gbc_lblSynonymizeTechnique = getConstraints(1,7, new Insets(0, 10, 5, 10));
+        gbc_lblSynonymizeTechnique.anchor = GridBagConstraints.WEST;
+        panel.add(lblSynonymizeTechnique, gbc_lblSynonymizeTechnique);
         
         comboBoxes.add(getComboBoxWithSelection(new String[] {"Dice's Coefficient(Default Technique)",
                                                                 "Edit Distance",
@@ -1174,13 +1223,46 @@ class SynonymizerFileChooser extends JDialog {
                                                                 "Dynamic Time Warping using Keyboard Distance",
                                                                 "Hamming Distance using Soundex Encoding",
                                                                 "Dice's Coefficient using Metaphone Encoding",
-                                                                "Edit Distance using Metaphone Encoding"
+                                                                "Edit Distance using Metaphone Encoding",
+                                                                "Delimiter Based Coefficient"
                                                                 },"Dice's Coefficient(Default Technique)"));
 
         GridBagConstraints gbc_comboBoxTechniques = getConstraints(1,8,new Insets(0, 10, 0, 10));
         gbc_comboBoxTechniques.fill = GridBagConstraints.HORIZONTAL;
+       
+        
+        
         panel.add(comboBoxes.get(2), gbc_comboBoxTechniques);
         
+        
+        JLabel lblSynonymizeDelim = new JLabel("Delimiter(Not Required)");
+        lblSynonymizeDelim.setToolTipText("For use with concatenated Taxa names");
+        GridBagConstraints gbc_lblSynonymizeDelim = getConstraints(1,10, new Insets(0, 10, 0, 10));
+        gbc_lblSynonymizeDelim.anchor = GridBagConstraints.WEST;
+        panel.add(lblSynonymizeDelim, gbc_lblSynonymizeDelim);
+        
+        JTextField fldSynonymizeDelim = new JTextField();
+        fldSynonymizeDelim.setPreferredSize(new Dimension(60,30));
+        GridBagConstraints gbc_fldSynonymizeDelim = getConstraints(1,11,new Insets(0,10,20,10));
+        gbc_fldSynonymizeDelim.anchor = GridBagConstraints.WEST;
+        gbc_fldSynonymizeDelim.fill = GridBagConstraints.HORIZONTAL;
+        panel.add(fldSynonymizeDelim, gbc_fldSynonymizeDelim);
+        
+        lblSynonymizeDelim.setVisible(false);
+        fldSynonymizeDelim.setVisible(false);
+        
+        comboBoxes.get(2).addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                if(comboBoxes.get(2).getSelectedIndex()==7) {
+                    lblSynonymizeDelim.setVisible(true);
+                    fldSynonymizeDelim.setVisible(true);
+                }
+                else {
+                    lblSynonymizeDelim.setVisible(false);
+                    fldSynonymizeDelim.setVisible(false);
+                }
+            }
+        });
         JLabel lblSelectFilesTo = new JLabel("Select Files to Generate Synonym List");
         lblSelectFilesTo.setHorizontalAlignment(SwingConstants.CENTER);
         this.getContentPane().add(lblSelectFilesTo, BorderLayout.NORTH);
@@ -1207,7 +1289,7 @@ class SynonymizerFileChooser extends JDialog {
         JButton btnSubmit = new JButton("Submit");
         btnSubmit.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                submitButtonPressed(comboBoxes);
+                submitButtonPressed(comboBoxes,fldSynonymizeDelim.getText());
             }
         });
       
@@ -1471,11 +1553,21 @@ class SynonymizerFileChooser extends JDialog {
         }
         setVisible(false);
     }
+    void submitButtonPressed(ArrayList<JComboBox> comboBoxes,String delim) {
+        for(int i = 0; i<fileOptions.length;i++) {
+            fileOptions[i] = comboBoxes.get(i).getSelectedIndex();
+        }
+        this.delimiter = delim;
+        setVisible(false);
+    }
     void submitButtonPressed(ArrayList<JComboBox> comboBoxes, ArrayList<ArrayList<Integer>> synListMap, ArrayList<Integer> comboBoxLabel) {
         for(int i = 0; i<fileOptions.length; i++) {
             fileOptions[i] = synListMap.get(comboBoxLabel.get(i))
                                        .get(comboBoxes.get(i).getSelectedIndex());
         }
         setVisible(false);
+    }
+    public String getDelim() {
+        return delimiter;
     }
 }
