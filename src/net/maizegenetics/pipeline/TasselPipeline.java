@@ -1014,20 +1014,20 @@ public class TasselPipeline implements PluginListener {
                     GenotypeSummaryPlugin plugin = new GenotypeSummaryPlugin(myMainFrame, myIsInteractive);
                     String temp = args[index++].trim();
                     String[] types = temp.split(",");
-                    plugin.setCaculateOverview(false);
-                    plugin.setCalculateSiteSummary(false);
-                    plugin.setCalculateTaxaSummary(false);
+                    plugin.overview(false);
+                    plugin.siteSummary(false);
+                    plugin.taxaSummary(false);
                     for (int i = 0; i < types.length; i++) {
                         if (types[i].equalsIgnoreCase("overall")) {
-                            plugin.setCaculateOverview(true);
+                            plugin.overview(true);
                         } else if (types[i].equalsIgnoreCase("site")) {
-                            plugin.setCalculateSiteSummary(true);
+                            plugin.siteSummary(true);
                         } else if (types[i].equalsIgnoreCase("taxa")) {
-                            plugin.setCalculateTaxaSummary(true);
+                            plugin.taxaSummary(true);
                         } else if (types[i].equalsIgnoreCase("all")) {
-                            plugin.setCaculateOverview(true);
-                            plugin.setCalculateSiteSummary(true);
-                            plugin.setCalculateTaxaSummary(true);
+                            plugin.overview(true);
+                            plugin.siteSummary(true);
+                            plugin.taxaSummary(true);
                         } else {
                             throw new IllegalArgumentException("TasselPipeline: parseArgs: -genotypeSummary illegal types: " + temp);
                         }

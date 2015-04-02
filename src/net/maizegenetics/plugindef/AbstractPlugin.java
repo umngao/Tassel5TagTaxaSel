@@ -100,7 +100,7 @@ abstract public class AbstractPlugin implements Plugin {
 
             if (isInteractive()) {
                 myLogger.debug(e.getMessage(), e);
-                DialogUtils.showError(getErrorMessage(e.getMessage()) + "\n", getParentFrame());
+                DialogUtils.showError(e.getMessage() + "\n", getParentFrame());
             } else {
                 myLogger.error(e.getMessage());
                 printUsage();
@@ -944,29 +944,6 @@ abstract public class AbstractPlugin implements Plugin {
                 count = 0;
             } else {
                 builder.append(description.charAt(i));
-            }
-        }
-        builder.append("</html>");
-        return builder.toString();
-    }
-
-    private String getErrorMessage(String message) {
-        if (message.length() <= DEFAULT_TOOL_TIP_LINE_LENGTH) {
-            return message;
-        }
-        int count = 0;
-        StringBuilder builder = new StringBuilder();
-        builder.append("<html>");
-        for (int i = 0, n = message.length(); i < n; i++) {
-            count++;
-            if (message.charAt(i) == '\n') {
-                builder.append("<br>");
-                count = 0;
-            } else if ((count > DEFAULT_TOOL_TIP_LINE_LENGTH) && (message.charAt(i) == ' ')) {
-                builder.append("<br>");
-                count = 0;
-            } else {
-                builder.append(message.charAt(i));
             }
         }
         builder.append("</html>");

@@ -350,9 +350,9 @@ public class QualityChecksPlugin extends AbstractPlugin {
 	private void runAndExportGenotypeSummaryForTaxa(GenotypeTable align, String outfile) {
 		
 		GenotypeSummaryPlugin gsp = new GenotypeSummaryPlugin(null,false);
-		gsp.setCaculateOverview(false);
-		gsp.setCalculateSiteSummary(false);
-		gsp.setCalculateTaxaSummary(true);
+		gsp.overview(false);
+		gsp.siteSummary(false);
+		gsp.taxaSummary(true);
 		DataSet result = gsp.performFunction(new DataSet(new Datum("alignment", align, "alignment"), this));
 		ExportPlugin exporter = new ExportPlugin(null, false);
 		exporter.setSaveFile(outfile);
