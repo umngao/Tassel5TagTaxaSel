@@ -20,6 +20,7 @@ import javax.swing.*;
 import org.apache.log4j.Logger;
 
 import java.awt.Frame;
+import java.net.URL;
 import java.util.*;
 
 /**
@@ -158,7 +159,12 @@ public class NumericalGenotypePlugin extends AbstractPlugin {
 
     @Override
     public  ImageIcon getIcon(){
-        return null;
+        URL imageURL = NumericalGenotypePlugin.class.getResource("/net/maizegenetics/analysis/images/NumericalGenotype.gif");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
     }
 
     @Override

@@ -519,6 +519,8 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         return createMenuItem(theTP, mnemonic, true);
     }
 
+    private static final int ICON_WIDTH_PLUS_GAP = 30;
+
     private JMenuItem createMenuItem(Plugin theTP, int mnemonic, boolean adjustForIcon) {
         ImageIcon icon = theTP.getIcon();
         JMenuItem menuItem = new JMenuItem(theTP.getButtonName(), icon);
@@ -526,7 +528,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
             menuItem.setMnemonic(mnemonic);
         }
         if (adjustForIcon) {
-            int pixels = 30;
+            int pixels = ICON_WIDTH_PLUS_GAP;
             if (icon != null) {
                 pixels -= icon.getIconWidth();
                 pixels /= 2;
@@ -550,7 +552,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         if (mnemonic != -1) {
             menuItem.setMnemonic(mnemonic);
         }
-        int pixels = 30;
+        int pixels = ICON_WIDTH_PLUS_GAP;
         if (icon != null) {
             pixels -= icon.getIconWidth();
             pixels /= 2;
@@ -567,8 +569,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
         JMenuItem menuItem = new JMenuItem(label);
         if (adjustForIcon) {
-            int pixels = 30;
-            menuItem.setIconTextGap(pixels);
+            menuItem.setIconTextGap(ICON_WIDTH_PLUS_GAP);
         }
         menuItem.setBackground(Color.white);
         menuItem.setMargin(new Insets(2, 2, 2, 2));
@@ -626,10 +627,16 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         delete.setToolTipText("Delete Dataset");
         URL imageURL = TASSELMainFrame.class.getResource("images/trash.gif");
         if (imageURL == null) {
-            delete.setIconTextGap(30);
+            delete.setIconTextGap(ICON_WIDTH_PLUS_GAP);
         } else {
-            delete.setIcon(new ImageIcon(imageURL));
-            delete.setIconTextGap(6);
+            int pixels = ICON_WIDTH_PLUS_GAP;
+            ImageIcon icon = new ImageIcon(imageURL);
+            if (icon != null) {
+                pixels -= icon.getIconWidth();
+                pixels /= 2;
+            }
+            delete.setIcon(icon);
+            delete.setIconTextGap(pixels);
         }
         delete.setIconTextGap(6);
         result.add(delete);
@@ -642,11 +649,11 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         JMenu result = new JMenu("Impute");
         result.setMnemonic(KeyEvent.VK_I);
 
-        result.add(createMenuItem(new FILLINFindHaplotypesPlugin(this, true)));
-        result.add(createMenuItem(new FILLINImputationPlugin(this, true)));
-        result.add(createMenuItem(new FSFHapImputationPlugin(this, true)));
-        result.add(createMenuItem(new ImputationPlugin(this, true)));
-        result.add(createMenuItem(new RemoveIndelsForBeaglePlugin(this, true)));
+        result.add(createMenuItem(new FILLINFindHaplotypesPlugin(this, true), false));
+        result.add(createMenuItem(new FILLINImputationPlugin(this, true), false));
+        result.add(createMenuItem(new FSFHapImputationPlugin(this, true), false));
+        result.add(createMenuItem(new ImputationPlugin(this, true), false));
+        result.add(createMenuItem(new RemoveIndelsForBeaglePlugin(this, true), false));
         return result;
     }
 
