@@ -491,8 +491,12 @@ final class PositionHDF5List implements PositionList {
 
     @Override
     public int indexOf(Object o) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-        //return mySiteList.indexOf(o);
+        if(o instanceof Position) {
+            Position p=(Position)o;
+            int site=siteOfPhysicalPosition(p.getPosition(),p.getChromosome());
+            if(site>=0) return site;
+        }
+        return -1;
     }
 
     @Override
