@@ -108,6 +108,8 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             .description("No depth output: do not write depths to the output hdf5 genotypes file").build();
     private PluginParameter<Integer> myMaxTagLength = new PluginParameter.Builder<>("mxTagL", 64, Integer.class).guiName("Maximum Tag Length")
             .description("Maximum Tag Length").build();
+    private PluginParameter<Double> minimumQualityScore = new PluginParameter.Builder<>("minQS", 0.0, Double.class).guiName("Minimun quality score for snp position to be included")
+            .description("Minimum quality score for position").build();
     //private PluginParameter<Boolean> myStacksLikelihood = new PluginParameter.Builder<>("sL", false, Boolean.class).guiName("Use Stacks Likelihood")
     //        .description("Use STACKS likelihood method to call heterozygotes (default: use tasselGBS likelihood ratio method)").build();
 
@@ -166,12 +168,16 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
                     processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),canonicalTag,maximumTagLength());
                 });
 
-        final PositionList positionList=tagDataReader.getSNPPositions();
+        final PositionList positionList=tagDataReader.getSNPPositions(minimumQualityScore());
         final Multimap<Tag,AlleleWithPosIndex> tagsToIndex=ArrayListMultimap.create();
         tagDataReader.getAlleleMap().entries().stream()
                 .forEach(e -> {
+                	// indexOf returns -1 if the list doesn't contain the element, which it won't
+                	// if there are snpposition entries with a quality score less than minimumQualityScore 
                     int posIndex=positionList.indexOf(e.getValue().position());
-                    tagsToIndex.put(e.getKey(),new AlleleWithPosIndex(e.getValue(),posIndex));
+                    if (posIndex >= 0) {
+                    	tagsToIndex.put(e.getKey(),new AlleleWithPosIndex(e.getValue(),posIndex));
+                    }                   
                 });
         GenotypeTableBuilder gtb=setUpGenotypeTableBuilder(outputHDF5GenotypesFile(),positionList, genoMergeRule);
         tagCntMap.asMap().entrySet().stream()
@@ -701,6 +707,29 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
      */
     public ProductionSNPCallerPluginV2 maximumTagLength(Integer value) {
         myMaxTagLength = new PluginParameter<>(myMaxTagLength, value);
+        return this;
+    }
+    /**
+     *  Minimum Quality Score
+     *
+     * @return Minimum quality score
+     */
+    public Double minimumQualityScore() {
+        return minimumQualityScore.value();
+    }
+
+    /**
+     * Set Minimum quality score:  This value is used to pull
+     * SNPs out of the snpposition table.  ONly snps with quality
+     * scores meeting or exceeding the specified value will be 
+     * processed.
+     *
+     * @param value Maximum Tag Lengt
+     *
+     * @return this plugin
+     */
+    public ProductionSNPCallerPluginV2 minimumQualityScore(Double value) {
+        minimumQualityScore = new PluginParameter<>(minimumQualityScore, value);
         return this;
     }
     /**
