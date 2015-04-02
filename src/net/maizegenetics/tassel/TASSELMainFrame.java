@@ -29,7 +29,6 @@ import net.maizegenetics.analysis.chart.QQDisplayPlugin;
 import net.maizegenetics.analysis.association.EqtlAssociationPlugin;
 import net.maizegenetics.analysis.association.FixedEffectLMPlugin;
 import net.maizegenetics.analysis.association.MLMPlugin;
-import net.maizegenetics.analysis.data.PlinkLoadPlugin;
 import net.maizegenetics.analysis.popgen.LinkageDiseqDisplayPlugin;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibriumPlugin;
 import net.maizegenetics.analysis.data.MergeGenotypeTablesPlugin;
@@ -594,16 +593,13 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         JMenu result = new JMenu("Data");
         result.setMnemonic(KeyEvent.VK_D);
 
-        PlinkLoadPlugin plinkLoadPlugin = new PlinkLoadPlugin(this, true);
-        plinkLoadPlugin.addListener(myDataTreePanel);
-
         ProjectionLoadPlugin projectionLoadPlugin = new ProjectionLoadPlugin(this, true);
         projectionLoadPlugin.addListener(myDataTreePanel);
 
         ProjectPcsAndRunModelSelectionPlugin projectPcsAndRunModelSelectionPlugin
                 = new ProjectPcsAndRunModelSelectionPlugin(this, true);
         projectPcsAndRunModelSelectionPlugin.addListener(myDataTreePanel);
-        result.add(createMenuItem(new FileLoadPlugin(this, true, plinkLoadPlugin, projectionLoadPlugin, projectPcsAndRunModelSelectionPlugin), KeyEvent.VK_L));
+        result.add(createMenuItem(new FileLoadPlugin(this, true, projectionLoadPlugin, projectPcsAndRunModelSelectionPlugin), KeyEvent.VK_L));
         result.add(createMenuItem(new ExportPlugin(this, true)));
         result.add(createMenuItem(new GetTaxaListPlugin(this, true)));
         result.add(createMenuItem(new GetPositionListPlugin(this, true)));

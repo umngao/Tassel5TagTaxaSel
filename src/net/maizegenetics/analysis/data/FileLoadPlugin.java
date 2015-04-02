@@ -20,8 +20,11 @@ import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginEvent;
+import net.maizegenetics.plugindef.PluginListener;
 import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.dna.map.TOPMUtils;
+import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.io.JSONUtils;
 
 import org.apache.log4j.Logger;
 
@@ -35,7 +38,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
-import net.maizegenetics.dna.snp.io.JSONUtils;
 
 /**
  *
@@ -82,10 +84,9 @@ public class FileLoadPlugin extends AbstractPlugin {
         }
     }
 
-    public FileLoadPlugin(Frame parentFrame, boolean isInteractive, PlinkLoadPlugin plinkLoadPlugin,
+    public FileLoadPlugin(Frame parentFrame, boolean isInteractive,
             ProjectionLoadPlugin projectionLoadPlugin, ProjectPcsAndRunModelSelectionPlugin projectPcsAndRunModelSelectionPlugin) {
         super(parentFrame, isInteractive);
-        myPlinkLoadPlugin = plinkLoadPlugin;
         myProjectionLoadPlugin = projectionLoadPlugin;
         myProjectPcsAndRunModelSelectionPlugin = projectPcsAndRunModelSelectionPlugin;
         if (isInteractive) {
@@ -112,6 +113,12 @@ public class FileLoadPlugin extends AbstractPlugin {
                 myFileType = theDialog.getTasselFileType();
 
                 if (myFileType == TasselFileType.Plink) {
+                    if (myPlinkLoadPlugin == null) {
+                        myPlinkLoadPlugin = new PlinkLoadPlugin(getParentFrame(), isInteractive());
+                        for (PluginListener current : getListeners()) {
+                            myPlinkLoadPlugin.addListener(current);
+                        }
+                    }
                     return myPlinkLoadPlugin.performFunction(null);
                 }
 
@@ -155,13 +162,15 @@ public class FileLoadPlugin extends AbstractPlugin {
                             String theMapFile = myOpenFiles[i].replaceFirst(FILE_EXT_PLINK_PED, FILE_EXT_PLINK_MAP);
                             alreadyLoaded.add(myOpenFiles[i]);
                             alreadyLoaded.add(theMapFile);
-                            myPlinkLoadPlugin.loadFile(myOpenFiles[i], theMapFile, null);
+                            GenotypeTable plink = ImportUtils.readFromPLink(myOpenFiles[i], theMapFile, this);
+                            tds = new DataSet(new Datum(Utils.getFilename(myOpenFiles[i], FileLoadPlugin.FILE_EXT_PLINK_PED), plink, null), this);
                         } else if (myOpenFiles[i].endsWith(FILE_EXT_PLINK_MAP)) {
                             myLogger.info("guessAtUnknowns: type: " + TasselFileType.Plink);
                             String thePedFile = myOpenFiles[i].replaceFirst(FILE_EXT_PLINK_MAP, FILE_EXT_PLINK_PED);
                             alreadyLoaded.add(myOpenFiles[i]);
                             alreadyLoaded.add(thePedFile);
-                            myPlinkLoadPlugin.loadFile(thePedFile, myOpenFiles[i], null);
+                            GenotypeTable plink = ImportUtils.readFromPLink(thePedFile, myOpenFiles[i], this);
+                            tds = new DataSet(new Datum(Utils.getFilename(thePedFile, FileLoadPlugin.FILE_EXT_PLINK_PED), plink, null), this);
                         } else if (myOpenFiles[i].endsWith(FILE_EXT_SERIAL_GZ)) {
                             myLogger.info("guessAtUnknowns: type: " + TasselFileType.Serial);
                             alreadyLoaded.add(myOpenFiles[i]);

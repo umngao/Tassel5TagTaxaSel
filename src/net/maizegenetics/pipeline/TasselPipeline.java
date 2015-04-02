@@ -402,8 +402,8 @@ public class TasselPipeline implements PluginListener {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: -plink must specify both ped and map files.");
                     }
                     PlinkLoadPlugin plugin = new PlinkLoadPlugin(myMainFrame, myIsInteractive);
-                    plugin.setPedFile(pedFile);
-                    plugin.setMapFile(mapFile);
+                    plugin.pedFile(pedFile);
+                    plugin.mapFile(mapFile);
                     integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-fasta")) {
                     String fastaFile = args[index++].trim();
