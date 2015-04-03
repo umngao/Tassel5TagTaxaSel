@@ -593,13 +593,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         JMenu result = new JMenu("Data");
         result.setMnemonic(KeyEvent.VK_D);
 
-        ProjectionLoadPlugin projectionLoadPlugin = new ProjectionLoadPlugin(this, true);
-        projectionLoadPlugin.addListener(myDataTreePanel);
-
-        ProjectPcsAndRunModelSelectionPlugin projectPcsAndRunModelSelectionPlugin
-                = new ProjectPcsAndRunModelSelectionPlugin(this, true);
-        projectPcsAndRunModelSelectionPlugin.addListener(myDataTreePanel);
-        result.add(createMenuItem(new FileLoadPlugin(this, true, projectionLoadPlugin, projectPcsAndRunModelSelectionPlugin), KeyEvent.VK_L));
+        result.add(createMenuItem(new FileLoadPlugin(this, true), KeyEvent.VK_L));
         result.add(createMenuItem(new ExportPlugin(this, true)));
         result.add(createMenuItem(new GetTaxaListPlugin(this, true)));
         result.add(createMenuItem(new GetPositionListPlugin(this, true)));

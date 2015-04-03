@@ -84,19 +84,6 @@ public class FileLoadPlugin extends AbstractPlugin {
         }
     }
 
-    public FileLoadPlugin(Frame parentFrame, boolean isInteractive,
-            ProjectionLoadPlugin projectionLoadPlugin, ProjectPcsAndRunModelSelectionPlugin projectPcsAndRunModelSelectionPlugin) {
-        super(parentFrame, isInteractive);
-        myProjectionLoadPlugin = projectionLoadPlugin;
-        myProjectPcsAndRunModelSelectionPlugin = projectPcsAndRunModelSelectionPlugin;
-        if (isInteractive) {
-            myOpenFileChooser = new JFileChooser(TasselPrefs.getOpenDir());
-            myOpenFileChooser.setMultiSelectionEnabled(true);
-        } else {
-            myOpenFileChooser = null;
-        }
-    }
-
     public DataSet performFunction(DataSet input) {
 
         myWasCancelled = true;
@@ -123,10 +110,22 @@ public class FileLoadPlugin extends AbstractPlugin {
                 }
 
                 if (myFileType == TasselFileType.ProjectionAlignment) {
+                    if (myProjectionLoadPlugin == null) {
+                        myProjectionLoadPlugin = new ProjectionLoadPlugin(getParentFrame(), isInteractive());
+                        for (PluginListener current : getListeners()) {
+                            myProjectionLoadPlugin.addListener(current);
+                        }
+                    }
                     return myProjectionLoadPlugin.performFunction(input);
                 }
 
                 if (myFileType == TasselFileType.ProjectPCsandRunModelSelection) {
+                    if (myProjectPcsAndRunModelSelectionPlugin == null) {
+                        myProjectPcsAndRunModelSelectionPlugin = new ProjectPcsAndRunModelSelectionPlugin(getParentFrame(), isInteractive());
+                        for (PluginListener current : getListeners()) {
+                            myProjectPcsAndRunModelSelectionPlugin.addListener(current);
+                        }
+                    }
                     return myProjectPcsAndRunModelSelectionPlugin.performFunction(input);
                 }
                 setOpenFiles(getOpenFilesByChooser());
