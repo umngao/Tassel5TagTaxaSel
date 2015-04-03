@@ -247,30 +247,14 @@ public final class GeneralPosition implements Position {
         }
 
         /**
-         * Add non-standard annotation
-         */
-        public Builder addAnno(String key, String value) {
-            myAnnotations.addAnnotation(key, value);
-            return this;
-        }
-
-        /**
-         * Add non-standard annotation
-         */
-        public Builder addAnno(String key, Number value) {
-            myAnnotations.addAnnotation(key, value);
-            return this;
-        }
-
-        /**
          * Add non-standard annotation, boolean and String are converted to String with toString, Number are stored as
          * Number
          */
         public Builder addAnno(String key, Object value) {
-            if (value instanceof String || value instanceof Boolean) {
-                myAnnotations.addAnnotation(key, value.toString());
-            } else {
+            if (value instanceof Number) {
                 myAnnotations.addAnnotation(key, (Number)value);
+            } else {
+                myAnnotations.addAnnotation(key, value.toString());
             }
             return this;
         }
