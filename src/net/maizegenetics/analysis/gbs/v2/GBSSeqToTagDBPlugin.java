@@ -30,6 +30,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -152,7 +153,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             //Get the list of fastq files
             Path keyPath= Paths.get(keyFile()).toAbsolutePath();
             List<Path> directoryFiles= DirectoryCrawler.listPaths(inputFileGlob, Paths.get(myInputDir.value()).toAbsolutePath());
-            if(directoryFiles.isEmpty()) {
+            if(directoryFiles.isEmpty()) { 
                 myLogger.warn("No files matching:"+inputFileGlob);
                 return null;
             } 
@@ -289,8 +290,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
     	List<Path> filesToProcess = new ArrayList<Path>();
     	// Get map  of flowcell/lanes from the key file
     	String keyFileName = keyFile.toString();
-    	ListMultimap<String, String> keyFileValues = parseKeyfileIntoMap(keyFileName);
-    	
+    	ListMultimap<String, String> keyFileValues = parseKeyfileIntoMap(keyFileName);   	
     	if (keyFileValues.isEmpty()) return filesToProcess; // no entries
     	
     	// each file in the directory, check if the flowcell and lane are represented 
@@ -313,7 +313,18 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 }
             }
     	});
-    	return filesToProcess;
+    	
+        // Sort alphabetically based on name.  This is to assure a consistent ordering 
+    	// of the files when GBSSeqToTagDBPlugin is run multiple times using the same
+    	// directory of files.  This matters as we want the same files in the same batches
+    	// so that "removeTagsWIhtoutReplication" always removes the same tags and pipeline
+    	// results remain consistent.
+        Collections.sort(filesToProcess, new Comparator<Path>() {
+            public int compare(Path path1, Path path2) {
+                return path1.toString().compareTo(path2.toString());
+            }
+        });
+    	return filesToProcess; 
     }
     private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
                      int minQuality, TagDistributionMap masterTagTaxaMap, int preferredTagLength) throws StringIndexOutOfBoundsException {
