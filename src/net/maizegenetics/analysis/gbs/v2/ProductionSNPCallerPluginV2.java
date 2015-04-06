@@ -191,7 +191,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         } else {
             gtb.build();
         }
-        writeReadsPerSampleReports();
+        writeReadsPerSampleReports(tagsToIndex.size());
         return null;
     }
 
@@ -410,7 +410,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         return genos;
     }
 
-    private void writeReadsPerSampleReports() {
+    private void writeReadsPerSampleReports(int tagsProcessed) {
         myLogger.info("\nWriting ReadsPerSample log file...");
         String outFileS = myOutputDir + File.separator + (new File(keyFile())).getName();
         outFileS = outFileS.replaceAll(".txt", "_ReadsPerSample.log");
@@ -429,6 +429,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             e.printStackTrace();
             System.exit(1);
         }
+        myLogger.info("\n\nTotal number of SNPs processed with minimum quality score " + minimumQualityScore() + " was " + tagsProcessed + ".\n");
         myLogger.info("   ...done\n");
     }
     
