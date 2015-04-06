@@ -319,11 +319,14 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
     	// directory of files.  This matters as we want the same files in the same batches
     	// so that "removeTagsWIhtoutReplication" always removes the same tags and pipeline
     	// results remain consistent.
-        Collections.sort(filesToProcess, new Comparator<Path>() {
-            public int compare(Path path1, Path path2) {
-                return path1.toString().compareTo(path2.toString());
-            }
-        });
+    	if (filesToProcess.size() > 1) {
+    	       Collections.sort(filesToProcess, new Comparator<Path>() {
+    	            public int compare(Path path1, Path path2) {
+    	                return path1.toString().compareTo(path2.toString());
+    	            }
+    	        });
+    	}
+ 
     	return filesToProcess; 
     }
     private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
