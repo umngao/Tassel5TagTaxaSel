@@ -566,7 +566,9 @@ abstract public class AbstractPlugin implements Plugin {
                         JComponent component = parameterFields.get(current.cmdLineName());
                         if (current.parameterType() == PluginParameter.PARAMETER_TYPE.GENOTYPE_TABLE) {
                             GenotypeWrapper input = (GenotypeWrapper) ((JComboBox) component).getSelectedItem();
-                            setParameter(current.cmdLineName(), input.myObj);
+                            if (input != null) {
+                                setParameter(current.cmdLineName(), input.myObj);
+                            }
                         } else if ((current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_MULTIPLE_SELECT)
                                 || (current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_SINGLE_SELECT)) {
                             List<?> selectedObjects = ((JList<?>) component).getSelectedValuesList();
@@ -586,6 +588,7 @@ abstract public class AbstractPlugin implements Plugin {
                         }
                     }
                 } catch (Exception ex) {
+                    myLogger.debug(ex.getMessage(), ex);
                     StringBuilder builder = new StringBuilder();
                     builder.append("Problem Setting Parameters: ");
                     builder.append("\n");
@@ -859,6 +862,20 @@ abstract public class AbstractPlugin implements Plugin {
                 ((JComboBox) component).setSelectedItem(current.defaultValue());
                 setParameter(current.cmdLineName(), current.defaultValue());
             }
+        }
+
+    }
+
+    @Override
+    public void setParametersToDefault() {
+
+        final List<PluginParameter<?>> parameterInstances = getParameterInstances();
+        if (parameterInstances.isEmpty()) {
+            return;
+        }
+
+        for (final PluginParameter<?> current : parameterInstances) {
+            setParameter(current.cmdLineName(), current.defaultValue());
         }
 
     }

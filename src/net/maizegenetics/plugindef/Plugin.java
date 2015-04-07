@@ -93,6 +93,11 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
     public Plugin setParameter(String key, String value);
 
     /**
+     * Sets all parameter values to default.
+     */
+    public void setParametersToDefault();
+
+    /**
      * Sets up this plugin to receive input from another plugin.
      *
      * @param input input
