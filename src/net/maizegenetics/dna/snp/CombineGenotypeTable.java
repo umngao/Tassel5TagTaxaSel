@@ -8,6 +8,7 @@ import net.maizegenetics.dna.snp.depth.AlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListUtils;
 import net.maizegenetics.util.BitSet;
@@ -38,6 +39,7 @@ public class CombineGenotypeTable implements GenotypeTable {
     private int[] myChromosomesOffsets;
     private final TaxaList myTaxaList;
     private String[][] myAlleleStates;
+    private PositionList myPositions = null;
 
     private CombineGenotypeTable(TaxaList taxaList, GenotypeTable[] genoTables) {
 
@@ -926,7 +928,14 @@ public class CombineGenotypeTable implements GenotypeTable {
 
     @Override
     public PositionList positions() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        if (myPositions == null) {
+            PositionListBuilder builder = new PositionListBuilder();
+            for (GenotypeTable current : myGenotypeTables) {
+                builder.addAll(current.positions());
+            }
+            myPositions = builder.build();
+        }
+        return myPositions;
     }
 
     @Override
