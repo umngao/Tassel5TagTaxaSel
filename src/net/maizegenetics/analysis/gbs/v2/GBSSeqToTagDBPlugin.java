@@ -292,10 +292,14 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
     	String keyFileName = keyFile.toString();
     	ListMultimap<String, String> keyFileValues = parseKeyfileIntoMap(keyFileName);   	
     	if (keyFileValues.isEmpty()) return filesToProcess; // no entries
-    	
-    	// each file in the directory, check if the flowcell and lane are represented 
-    	// in the key file.  If yes, add them.  Return list of files to process
-    	directoryFiles.parallelStream()
+
+    	// for each file in the directory, check if the flowcell and lane are represented 
+        // The directoryFile list is in alphabetical order.  It is quicker to run a non-parallel
+        // stream and skip sorting than run with parallel and have to sort at the end (entries
+        // in filesToProcess are not in alphabetical order when parallelStream is used). 
+        // Alphabetical order is necessary to ensure consistency of tags removed by 
+    	// "removeTagsWithoutReplication" when multiple runs are performed.
+      	directoryFiles.stream()
     	.forEach(directoryFile -> {   		
     		String[] filenameField = directoryFile.getFileName().toString().split("_");
             if (filenameField.length == 3) {
@@ -312,21 +316,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
              	   filesToProcess.add(directoryFile);
                 }
             }
-    	});
-    	
-        // Sort alphabetically based on name.  This is to assure a consistent ordering 
-    	// of the files when GBSSeqToTagDBPlugin is run multiple times using the same
-    	// directory of files.  This matters as we want the same files in the same batches
-    	// so that "removeTagsWIhtoutReplication" always removes the same tags and pipeline
-    	// results remain consistent.
-    	if (filesToProcess.size() > 1) {
-    	       Collections.sort(filesToProcess, new Comparator<Path>() {
-    	            public int compare(Path path1, Path path2) {
-    	                return path1.toString().compareTo(path2.toString());
-    	            }
-    	        });
-    	}
- 
+    	});    	   	
     	return filesToProcess; 
     }
     private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,

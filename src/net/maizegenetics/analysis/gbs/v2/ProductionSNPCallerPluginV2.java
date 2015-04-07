@@ -110,6 +110,8 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             .description("Maximum Tag Length").build();
     private PluginParameter<Double> minimumQualityScore = new PluginParameter.Builder<>("minQS", 0.0, Double.class).guiName("Minimun quality score for snp position to be included")
             .description("Minimum quality score for position").build();
+    private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 8, Integer.class).guiName("Batch size of fastq files").required(false)
+            .description("Number of flow cells being processed simultaneously").build();
     //private PluginParameter<Boolean> myStacksLikelihood = new PluginParameter.Builder<>("sL", false, Boolean.class).guiName("Use Stacks Likelihood")
     //        .description("Use STACKS likelihood method to call heterozygotes (default: use tasselGBS likelihood ratio method)").build();
 
@@ -150,6 +152,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
 
     @Override
     public DataSet processData(DataSet input) {
+        int batchSize = batchSize();
         Path keyPath= Paths.get(keyFile()).toAbsolutePath();
         List<Path> directoryFiles= DirectoryCrawler.listPaths(GBSSeqToTagDBPlugin.inputFileGlob, Paths.get(myInputDir.value()).toAbsolutePath());
         if(directoryFiles.isEmpty()) {
@@ -157,17 +160,31 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             return null;
         }
         List<Path> inputSeqFiles = GBSSeqToTagDBPlugin.culledFiles(directoryFiles,keyPath);
+        if (inputSeqFiles.size() == 0) return null; // no files to process
+
         tagDataReader =new TagDataSQLite(myInputDB.value());
         TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), GBSSeqToTagDBPlugin.sampleNameField, new HashMap<>(), true);
         writeInitialTaxaReadCounts(masterTaxaList); // initialize synchronized maps
         //todo perhaps subset the masterTaxaList based on the files in there, but it seems like it will all be figure out.
         Map<Tag,Tag> canonicalTag=new HashMap<>();  //canonicalize them OR eventually we will use a Trie
         tagDataReader.getTags().stream().forEach(t -> canonicalTag.put(t,t));
-        inputSeqFiles.parallelStream()
-                .forEach(inputSeqFile -> {
-                    processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),canonicalTag,maximumTagLength());
-                });
-
+        int batchNum = inputSeqFiles.size()/batchSize;
+       
+        if (inputSeqFiles.size() % batchSize !=0) batchNum++;
+        System.out.println("ProductionSNPCallerPluginV2: Total batches to process: " + batchNum);
+        for (int idx = 0; idx < inputSeqFiles.size(); idx+=batchSize) {
+            int end = idx+batchSize;
+            if (end > inputSeqFiles.size()) end = inputSeqFiles.size();
+            ArrayList<Path> sub = new ArrayList<Path>();
+            for (int jdx = idx; jdx < end; jdx++) sub.add(inputSeqFiles.get(jdx));
+            System.out.println("\nStart processing batch " + String.valueOf(idx/batchSize+1));
+            sub.parallelStream()
+            .forEach(inputSeqFile -> {
+                processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),canonicalTag,maximumTagLength());
+            });
+            System.out.println("\nFinished processing batch " + String.valueOf(idx/batchSize+1));
+        }
+ 
         final PositionList positionList=tagDataReader.getSNPPositions(minimumQualityScore());
         final Multimap<Tag,AlleleWithPosIndex> tagsToIndex=ArrayListMultimap.create();
         tagDataReader.getAlleleMap().entries().stream()
@@ -731,6 +748,24 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
      */
     public ProductionSNPCallerPluginV2 minimumQualityScore(Double value) {
         minimumQualityScore = new PluginParameter<>(minimumQualityScore, value);
+        return this;
+    }
+    
+    /**
+     *  Batch size for processing fastq files
+     *
+     * @return batchSize
+     */
+    public Integer batchSize() {
+        return myBatchSize.value();
+    }
+    /**
+     * Set number of Fastq files processed simultaneously
+     * @param value
+     * @return
+     */
+    public ProductionSNPCallerPluginV2 batchSize(Integer value) {
+        myBatchSize = new PluginParameter<>(myBatchSize, value);
         return this;
     }
     /**
