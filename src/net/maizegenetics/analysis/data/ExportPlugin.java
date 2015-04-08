@@ -51,13 +51,19 @@ public class ExportPlugin extends AbstractPlugin {
     private boolean myKeepDepth = true;
     private boolean myIncludeTaxaAnnotations = TasselPrefs.EXPORT_PLUGIN_INCLUDE_TAXA_ANNOTATIONS_DEFAULT;
     private SiteScore.SITE_SCORE_TYPE mySiteScoreType = null;
-    private final JFileChooser myFileChooserSave = new JFileChooser(TasselPrefs.getSaveDir());
+    private final JFileChooser myFileChooserSave;
 
     /**
      * Creates a new instance of ExportPlugin
      */
     public ExportPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
+        if (isInteractive) {
+            myFileChooserSave = new JFileChooser(TasselPrefs.getSaveDir());
+            myFileChooserSave.setMultiSelectionEnabled(false);
+        } else {
+            myFileChooserSave = null;
+        }
     }
 
     public DataSet performFunction(DataSet input) {
@@ -471,7 +477,6 @@ public class ExportPlugin extends AbstractPlugin {
     }
 
     private File getFileByChooser() {
-        myFileChooserSave.setMultiSelectionEnabled(false);
         File result = null;
         int returnVal = myFileChooserSave.showSaveDialog(getParentFrame());
         if (returnVal == JFileChooser.APPROVE_OPTION) {
