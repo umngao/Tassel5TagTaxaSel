@@ -64,7 +64,12 @@ public class SiteScoresIO {
                 writer.write(taxa.get(r).getName());
                 for (int i = 0; i < probability.numSites(); i++) {
                     writer.write(DELIMITER);
-                    writer.write(DECIMAL_FORMAT.format(probability.value(r, i)));
+                    float value = probability.value(r, i);
+                    if (Float.isNaN(value)) {
+                        writer.write("NA");
+                    } else {
+                        writer.write(DECIMAL_FORMAT.format(probability.value(r, i)));
+                    }
                 }
                 writer.write("\n");
             }
