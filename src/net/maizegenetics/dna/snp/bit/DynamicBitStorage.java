@@ -177,7 +177,7 @@ public class DynamicBitStorage implements BitStorage {
         myTaxaCount = myGenotype.numberOfTaxa();
         myPrefAllele = Arrays.copyOf(prefAllele, prefAllele.length);
         bitCache = CacheBuilder.newBuilder()
-                .maximumWeight(300_000_000)
+                .maximumWeight(2_000_000_000L)
                 .weigher(weighByLength)
                 .build(bitLoader);
     }
