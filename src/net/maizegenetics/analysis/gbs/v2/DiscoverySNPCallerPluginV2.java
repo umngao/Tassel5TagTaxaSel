@@ -236,7 +236,10 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             for (Map.Entry<Byte, List<TagTaxaDistribution>> entry : tAlign.row(position).entrySet()) {
                 Allele allele=new SimpleAllele(entry.getKey(),position);
                 for (TagTaxaDistribution tagTaxaDistribution : entry.getValue()) {
-                    tagAllelemap.put(tagTaxaDistribution.tag(),allele);
+                	Tag currentTag = tagTaxaDistribution.tag();
+                	if (currentTag.isReference() && myRefSequence != null) ; //don't add ref tag from ref genome to map
+                	else
+                        tagAllelemap.put(currentTag,allele);
                 }
             }
         }
