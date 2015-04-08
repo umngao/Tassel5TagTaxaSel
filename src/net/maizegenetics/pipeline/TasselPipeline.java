@@ -12,7 +12,6 @@ import net.maizegenetics.analysis.distance.DistanceMatrixRangesPlugin;
 import net.maizegenetics.analysis.distance.DistanceMatrixPlugin;
 import net.maizegenetics.analysis.chart.AbstractDisplayPlugin;
 import net.maizegenetics.analysis.chart.TableDisplayPlugin;
-import net.maizegenetics.analysis.numericaltransform.NumericalGenotypePlugin;
 import net.maizegenetics.analysis.data.ConvertAlignmentCoordinatesPlugin;
 import net.maizegenetics.analysis.association.FixedEffectLMPlugin;
 import net.maizegenetics.analysis.association.MLMPlugin;
@@ -1225,18 +1224,8 @@ public class TasselPipeline implements PluginListener {
                     }
                     plugin.setStepSize(stepLen);
                 } else if (current.equalsIgnoreCase("-numericalGenoTransform")) {
-                    NumericalGenotypePlugin plugin = new NumericalGenotypePlugin(myMainFrame, myIsInteractive);
-
-                    String temp = args[index++].trim();
-                    if (temp.equalsIgnoreCase(NumericalGenotypePlugin.TRANSFORM_TYPE.collapse.toString())) {
-                        plugin.setTransformType(NumericalGenotypePlugin.TRANSFORM_TYPE.collapse);
-                    } else if (temp.equalsIgnoreCase(NumericalGenotypePlugin.TRANSFORM_TYPE.separated.toString())) {
-                        plugin.setTransformType(NumericalGenotypePlugin.TRANSFORM_TYPE.separated);
-                    } else {
-                        throw new IllegalArgumentException("TasselPipeline: parseArgs: Not defined genotype transform type: " + temp);
-                    }
-
-                    integratePlugin(plugin, true);
+                    myLogger.warn("parseArgs: PLEASE USE NumericalGenotypePlugin.\n");
+                    System.exit(1);
                 } else if (current.equalsIgnoreCase("-includeTaxa")) {
                     FilterTaxaAlignmentPlugin plugin = new FilterTaxaAlignmentPlugin(myMainFrame, myIsInteractive);
                     String[] taxa = args[index++].trim().split(",");
