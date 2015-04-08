@@ -104,8 +104,8 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             .description("Maximum divergence (edit distance) between new read and previously mapped read (Default: 0 = perfect matches only)").build();
     private PluginParameter<Boolean> myKeepGenotypesOpen = new PluginParameter.Builder<>("ko", false, Boolean.class).guiName("Keep Genotypes Open")
             .description("Keep hdf5 genotypes open for future runs that add more taxa or more depth").build();
-    private PluginParameter<Boolean> myNoDepthOutput = new PluginParameter.Builder<>("ndo", false, Boolean.class).guiName("No Depth to Output")
-            .description("No depth output: do not write depths to the output hdf5 genotypes file").build();
+    private PluginParameter<Boolean> myDepthOutput = new PluginParameter.Builder<>("do", true, Boolean.class).guiName("Write Depths to Output")
+            .description("Depth output: True means write depths to the output hdf5 genotypes file, false means do NOT write depths to the hdf5 file").build();
     private PluginParameter<Integer> myMaxTagLength = new PluginParameter.Builder<>("mxTagL", 64, Integer.class).guiName("Maximum Tag Length")
             .description("Maximum Tag Length").build();
     private PluginParameter<Double> minimumQualityScore = new PluginParameter.Builder<>("minQS", 0.0, Double.class).guiName("Minimun quality score for snp position to be included")
@@ -199,7 +199,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         GenotypeTableBuilder gtb=setUpGenotypeTableBuilder(outputHDF5GenotypesFile(),positionList, genoMergeRule);
         tagCntMap.asMap().entrySet().stream()
                 .forEach(e -> {
-                	callGenotypes(e.getKey(), e.getValue(), tagsToIndex, positionList, genoMergeRule,gtb);
+                	callGenotypes(e.getKey(), e.getValue(), tagsToIndex, positionList, genoMergeRule,gtb,depthToOutput());
                 	//System.out.println(e.x.getName()+ Arrays.toString(Arrays.copyOfRange(e.y,0,10)))); 
                 });
 
@@ -213,12 +213,16 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     }
 
     private static void callGenotypes(Taxon taxon, Collection<Tag> tags, Multimap<Tag,AlleleWithPosIndex> tagsToIndex,
-                                 PositionList positionList, GenotypeMergeRule genoMergeRule, GenotypeTableBuilder gtb) {
+                   PositionList positionList, GenotypeMergeRule genoMergeRule, GenotypeTableBuilder gtb, boolean outputDepths) {
         int[][] alleleDepths = new int[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][positionList.numberOfSites()];
         tags.stream().map(t -> tagsToIndex.get(t)).flatMap(c -> c.stream())
                 .forEach(a -> alleleDepths[a.allele()][a.positionIndex()]++);
-        byte[][] byteDepths = AlleleDepthUtil.depthIntToByte(alleleDepths);
-        gtb.addTaxon(taxon, resolveGenosForTaxon(alleleDepths, genoMergeRule),byteDepths);
+        if (outputDepths) {
+            byte[][] byteDepths = AlleleDepthUtil.depthIntToByte(alleleDepths);
+            gtb.addTaxon(taxon, resolveGenosForTaxon(alleleDepths, genoMergeRule),byteDepths);
+        } else {
+        	gtb.addTaxon(taxon, resolveGenosForTaxon(alleleDepths, genoMergeRule));
+        }
     }
 
     private class AlleleWithPosIndex extends SimpleAllele {
@@ -694,15 +698,28 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     }
 
     /**
-     * No depth output: do not write depths to the output
+     * Output depth: write depths to the output
      * hdf5 genotypes file
      *
-     * @return No Depth to Output
+     * @return Depth to Output - true or false
      */
-    public Boolean noDepthToOutput() {
-        return myNoDepthOutput.value();
+    public Boolean depthToOutput() {
+        return myDepthOutput.value();
     }
 
+    /**
+     * User sets true or false, indicating if they do
+     * or do not want depth information written to the
+     * HDF5 file.
+     *
+     * @param value Write depth to output file
+     *
+     * @return this plugin
+     */
+    public ProductionSNPCallerPluginV2 depthToOutput(Boolean value) {
+        myDepthOutput = new PluginParameter<>(myDepthOutput, value);
+        return this;
+    }
     /**
      * Maximum Tag Length
      *
