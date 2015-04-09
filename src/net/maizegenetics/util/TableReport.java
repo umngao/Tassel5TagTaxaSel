@@ -6,6 +6,10 @@
 // terms of the Lesser GNU General Public License (LGPL)
 package net.maizegenetics.util;
 
+import java.util.StringJoiner;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 /**
  * Interface for classes with data that can be presented in tables
  *
@@ -67,5 +71,18 @@ public interface TableReport {
      * @return data
      */
     public Object getValueAt(long row, int col);
+
+    default String toStringTabDelim() {
+        StringBuilder sb=new StringBuilder();
+        sb.append(Stream.of(getTableColumnNames()).map(Object::toString).collect(Collectors.joining("\t")));
+        sb.append("\n");
+        for (int i = 0; i < getRowCount(); i++) {
+            sb.append(Stream.of(getRow(i))
+                    .map(o -> (o==null)?"NULL":o.toString())
+                    .collect(Collectors.joining("\t")));
+            sb.append("\n");
+        }
+        return sb.toString();
+    }
 
 }
