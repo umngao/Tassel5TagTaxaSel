@@ -958,10 +958,6 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 	            batchCount++;
 				if(batchCount>100000) {
 					System.out.println("updateSNPPosition next "+batchCount);
-					int[] numGood = qsUpdatePS.executeBatch(); // use if want to see results
-					for (int idx=0;idx < numGood.length; idx++) {
-						System.out.printf("LCJ - numGood[%d]=%d\n", idx, numGood[idx]);
-					}
 					qsUpdatePS.executeBatch();
 					batchCount=0;
 				}
