@@ -20,7 +20,6 @@ import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.BitUtil;
 import net.maizegenetics.util.ProgressListener;
 
-import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.IntStream;
 
 import static net.maizegenetics.dna.WHICH_ALLELE.Major;
@@ -114,12 +113,12 @@ public class IBSDistanceMatrix extends DistanceMatrix {
      */
     private void computeHetBitDistances(boolean useThirdState) {
         avgTotalSites = 0;
-        LongAdder count = new LongAdder();
+        //LongAdder count = new LongAdder();
         //note this distance object is modified by a parallel stream, but each element is only touched once
         double[][] distance = new double[numSeqs][numSeqs];
-        long numberOfTests=numSeqs*(numSeqs-1)/2;
-        long time=System.currentTimeMillis();
-        IntStream.range(0,numSeqs).parallel().forEach( i -> {
+        long numberOfTests = numSeqs * (numSeqs - 1) / 2;
+        long time = System.currentTimeMillis();
+        IntStream.range(0, numSeqs).parallel().forEach(i -> {
             long[] iMj = theTBA.allelePresenceForAllSites(i, Major).getBits();
             long[] iMn = theTBA.allelePresenceForAllSites(i, Minor).getBits();
             long[] iMn2 = null;
@@ -141,14 +140,14 @@ public class IBSDistanceMatrix extends DistanceMatrix {
                     }
                     distance[i][j] = distance[j][i] = result[0];
                     avgTotalSites += result[1];  //this assumes not hets
-                    count.increment();
+                    //count.increment();
                 }
             }
-            fireProgress((int)((count.doubleValue() / (double)numberOfTests) * 50.0));
+            fireProgress((int) ((double) (i + 1) / (double) numSeqs * 100.0));
         });
         setDistances(distance);
-        avgTotalSites /= (double) count.longValue();
-        System.out.println("computeHetBitDistances time = " + (System.currentTimeMillis()-time)/1000 +" seconds");
+        //avgTotalSites /= (double) count.longValue();
+        System.out.println("computeHetBitDistances time = " + (System.currentTimeMillis() - time) / 1000 + " seconds");
     }
 
     /**
