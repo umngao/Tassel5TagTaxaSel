@@ -76,7 +76,7 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
 
         subTaxa.stream().filter(t -> taxaList.indexOf(t)<0).forEach(t-> System.err.println("Missing taxon from master:" + t));
         int[] subsetIndices=subTaxa.stream().mapToInt(taxaList::indexOf).filter(i -> i > -1).sorted().toArray();
-       // int[] subsetIndices= IntStream.range(0,taxaList.numberOfTaxa()).toArray();  //for testing using all taxa
+        // int[] subsetIndices= IntStream.range(0,taxaList.numberOfTaxa()).toArray();  //for testing using all taxa
         System.out.println("sublist");
         System.out.println(Arrays.toString(subsetIndices));
         
@@ -85,26 +85,36 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
         long startTimeNew = System.currentTimeMillis();
         
         Comparator<int[]> arrayCompare=Comparator.comparing(depths -> -Arrays.stream(depths).sum());
-        Stream<ImmutableMultimap<Allele,TaxaDistribution>> streamOfAlleles = tagDataWriter.getAllAllelesTaxaDistForSNP();
+        
+        // Stream<ImmutableMultimap<Allele,TaxaDistribution>> streamOfAlleles = tagDataWriter.getAllAllelesTaxaDistForSNP();
+        Stream<Map.Entry<Allele, TaxaDistribution>> streamOfAlleles = tagDataWriter.getAllAllelesTaxaDistForSNPEntries();
+        
         LongAdder adder=new LongAdder();
         
         //These multimaps only have one single entry in them.
-        Iterator<ImmutableMultimap<Allele,TaxaDistribution>> streamIterator = streamOfAlleles.iterator();
+        //Iterator<ImmutableMultimap<Allele,TaxaDistribution>> streamIterator = streamOfAlleles.iterator();
+        Iterator<Map.Entry<Allele,TaxaDistribution>> streamIterator = streamOfAlleles.iterator();
+        
         //Set up aggregate objects
         ImmutableMultimap.Builder<Allele, TaxaDistribution> aggMapBuilder = ImmutableMultimap.builder();
         
         //Grab initial values
         //TODO: Need to error check here for null stream
-        ImmutableMultimap<Allele,TaxaDistribution> currentMap = streamIterator.next();
-        Position currentPosition = currentMap.keySet().asList().get(0).position();
-        aggMapBuilder.putAll(currentMap);
         
+        //ImmutableMultimap<Allele,TaxaDistribution> currentMap = streamIterator.next();
+        Map.Entry<Allele, TaxaDistribution> currentMap = streamIterator.next();
+       
+        //Position currentPosition = currentMap.keySet().asList().get(0).position();
+        Position currentPosition = currentMap.getKey().position();
+        //aggMapBuilder.putAll(currentMap);
+        aggMapBuilder.put(currentMap);
         //Set up Statistic OutputFile
         BufferedWriter fileWriter = null;
         if(statFileName.value()!=null) {
             try {
                 fileWriter = new BufferedWriter(new FileWriter(statFileName.value()));
-                fileWriter.write("Chromosome,PositionID,avgDepth,minorDepthProp,minor2DepthProp,gapDepthProp,propCovered,propCovered2,taxaCntWithMinorAlleleGE2,genotypeCnt,minorAlleleFreqGE2,hetFreq_DGE2,inbredF_DGE2");
+                //fileWriter.write("Chromosome,PositionID,avgDepth,minorDepthProp,minor2DepthProp,gapDepthProp,propCovered,propCovered2,taxaCntWithMinorAlleleGE2,genotypeCnt,minorAlleleFreqGE2,hetFreq_DGE2,inbredF_DGE2");
+                fileWriter.write("Chromosome\tPositionID\tavgDepth\tminorDepthProp\tminor2DepthProp\tgapDepthProp\tpropCovered\tpropCovered2\ttaxaCntWithMinorAlleleGE2\tgenotypeCnt\tminorAlleleFreqGE2\thetFreq_DGE2\tinbredF_DGE2");
                 fileWriter.write("\n");               
             }catch(IOException e) {
                 System.out.println(e);
@@ -119,9 +129,14 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
             currentMap = streamIterator.next();
             
             //If current position is equal to iterator.position then put it in the aggregator
+            if(currentPosition.equals(currentMap.getKey().position())) {
+                aggMapBuilder.put(currentMap);
+            }
+            /*
             if(currentPosition.equals(currentMap.keySet().asList().get(0).position())) {
                 aggMapBuilder.putAll(currentMap);
             }
+            */
             //Else
             else {
                 //Build Aggregator object
@@ -154,7 +169,6 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                     qualMap.put("taxaCntWithMinorAlleleGE2", alleleDepths.length > 1 ? (double) Arrays.stream(depthsInOrder.get(1)).filter(d -> d > 1).count() : 0);
                     
                     //genotypic stats
-                    
                     GenotypeStats genotypeCnt = callGenotypes(depthsInOrder.get(0), depthsInOrder.get(1));
                     qualMap.put("genotypeCnt", (double) genotypeCnt.totalCnt);
                     qualMap.put("minorAlleleFreqGE2",Double.isNaN(genotypeCnt.minorFreq)?0.0:genotypeCnt.minorFreq);
@@ -182,32 +196,31 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                         System.out.println("DONE. Time: "+(((double)System.currentTimeMillis()-startTimeNew)/1000));
                         System.out.print("Processing Positions between "+(adder.intValue())+" and "+(adder.intValue()+10000)+".");
                     }
-                    strBuild.append(currentMap.keySet().asList().get(0).position().getChromosome().toString());
-                    strBuild.append(",");
-                    //strBuild.append(currentMap.keySet().asList().get(0).position().getSNPID());
-                    strBuild.append(currentMap.keySet().asList().get(0).position().getPosition());
-                    strBuild.append(",");
+                    strBuild.append(currentMap.getKey().position().getChromosome().toString());
+                    strBuild.append("\t");
+                    strBuild.append(currentMap.getKey().position().getPosition());
+                    strBuild.append("\t");
                     strBuild.append(qualMap.get("avgDepth"));
-                    strBuild.append(",");
+                    strBuild.append("\t");
                     strBuild.append(qualMap.get("minorDepthProp"));
-                    strBuild.append(",");
+                    strBuild.append("\t");
                     strBuild.append(qualMap.get("minor2DepthProp"));
-                    strBuild.append(",");
+                    strBuild.append("\t");
                     strBuild.append(qualMap.get("gapDepthProp"));
-                    strBuild.append(",");
+                    strBuild.append("\t");
                     strBuild.append(qualMap.get("propCovered"));
-                    strBuild.append(",");
+                    strBuild.append("\t");
                     strBuild.append(qualMap.get("propCovered2"));
-                    strBuild.append(",");
+                    strBuild.append("\t");
                     strBuild.append(qualMap.get("taxaCntWithMinorAlleleGE2"));
                     
-                    strBuild.append(",");
+                    strBuild.append("\t");
                     strBuild.append(qualMap.get("genotypeCnt"));
-                    strBuild.append(",");
+                    strBuild.append("\t");
                     strBuild.append(qualMap.get("minorAlleleFreqGE2"));
-                    strBuild.append(",");
+                    strBuild.append("\t");
                     strBuild.append(qualMap.get("hetFreq_DGE2"));
-                    strBuild.append(",");
+                    strBuild.append("\t");
                     strBuild.append(qualMap.get("inbredF_DGE2"));
                     
                     strBuild.append("\n");
@@ -222,9 +235,11 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                     }
                 }
                 //Reset currentPosition and aggregatorBuilder
-                currentPosition = currentMap.keySet().asList().get(0).position();
+                //currentPosition = currentMap.keySet().asList().get(0).position();
+                currentPosition = currentMap.getKey().position();
                 aggMapBuilder = ImmutableMultimap.builder();
-                aggMapBuilder.putAll(currentMap);
+                //aggMapBuilder.putAll(currentMap);
+                aggMapBuilder.put(currentMap);
             }
         }
         System.out.println("DONE");
@@ -261,7 +276,6 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
             qualMap.put("taxaCntWithMinorAlleleGE2", alleleDepths.length > 1 ? (double) Arrays.stream(depthsInOrder.get(1)).filter(d -> d > 1).count() : 0);
             
             //genotypic stats
-            
             GenotypeStats genotypeCnt = callGenotypes(depthsInOrder.get(0), depthsInOrder.get(1));
             qualMap.put("genotypeCnt", (double) genotypeCnt.totalCnt);
             qualMap.put("minorAlleleFreqGE2",Double.isNaN(genotypeCnt.minorFreq)?0.0:genotypeCnt.minorFreq);
@@ -281,32 +295,31 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
             
             tagDataWriter.putSNPQualityProfile(resultMap,myTaxaListName.value());
             
-            strBuild.append(currentMap.keySet().asList().get(0).position().getChromosome().toString());
-            strBuild.append(",");
-            //strBuild.append(currentMap.keySet().asList().get(0).position().getSNPID());
-            strBuild.append(currentMap.keySet().asList().get(0).position().getPosition());
-            strBuild.append(",");
+            strBuild.append(currentMap.getKey().position().getChromosome().toString());
+            strBuild.append("\t");
+            strBuild.append(currentMap.getKey().position().getPosition());
+            strBuild.append("\t");
             strBuild.append(qualMap.get("avgDepth"));
-            strBuild.append(",");
+            strBuild.append("\t");
             strBuild.append(qualMap.get("minorDepthProp"));
-            strBuild.append(",");
+            strBuild.append("\t");
             strBuild.append(qualMap.get("minor2DepthProp"));
-            strBuild.append(",");
+            strBuild.append("\t");
             strBuild.append(qualMap.get("gapDepthProp"));
-            strBuild.append(",");
+            strBuild.append("\t");
             strBuild.append(qualMap.get("propCovered"));
-            strBuild.append(",");
+            strBuild.append("\t");
             strBuild.append(qualMap.get("propCovered2"));
-            strBuild.append(",");
+            strBuild.append("\t");
             strBuild.append(qualMap.get("taxaCntWithMinorAlleleGE2"));
             
-            strBuild.append(",");
+            strBuild.append("\t");
             strBuild.append(qualMap.get("genotypeCnt"));
-            strBuild.append(",");
+            strBuild.append("\t");
             strBuild.append(qualMap.get("minorAlleleFreqGE2"));
-            strBuild.append(",");
+            strBuild.append("\t");
             strBuild.append(qualMap.get("hetFreq_DGE2"));
-            strBuild.append(",");
+            strBuild.append("\t");
             strBuild.append(qualMap.get("inbredF_DGE2"));
             
             strBuild.append("\n");

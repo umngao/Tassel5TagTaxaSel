@@ -645,6 +645,20 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 });
         return stream;
     }
+    public Stream<Map.Entry<Allele,TaxaDistribution>> getAllAllelesTaxaDistForSNPEntries() {
+        if(snpPosToIDMap==null) {
+            loadSNPPositionHash(false);
+        }
+        Stream<Map.Entry<Allele,TaxaDistribution>> stream = SQL.stream(connection, "select a.snpid, a.allelecall, td.depthsRLE from allele a, tagallele ta, tagtaxadistribution td\n" +
+                "where td.tagid = ta.tagid AND a.alleleid = ta.alleleid order by a.snpid")
+                .map(entry -> {
+                    Position pos = snpPosToIDMap.inverse().get(entry.asInt("snpid"));
+                    Allele allele=new SimpleAllele((byte)entry.asInt("allelecall"),pos);
+                    byte[] byteArray = (byte[])entry.val("depthsRLE").get();
+                    return new AbstractMap.SimpleEntry(allele,TaxaDistBuilder.create(byteArray));
+                });
+        return stream;
+    }
 
     @Override
     public Set<Tag> getTags() {

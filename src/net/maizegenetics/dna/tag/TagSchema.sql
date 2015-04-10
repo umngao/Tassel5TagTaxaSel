@@ -46,6 +46,7 @@ CREATE TABLE tagallele (
     qualityscore INTEGER (1),
     PRIMARY KEY (tagid, alleleid)
 );
+CREATE INDEX newalleleidta_idx on tagallele(alleleid);
 
 -- Table: tagsnp used for holding Alleles
 -- Junction (link) table between tag and snpposition
@@ -56,7 +57,7 @@ CREATE TABLE allele (
   qualityscore INTEGER (1)
 );
 CREATE UNIQUE INDEX snpidallcall_idx on allele (snpid, allelecall);
-
+CREATE INDEX newsnpidallcall_idx on allele (snpid);
 
 -- Table: SNP Position
 CREATE TABLE snpposition (
