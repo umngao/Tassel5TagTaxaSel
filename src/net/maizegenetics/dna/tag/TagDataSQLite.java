@@ -680,6 +680,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     public PositionList getSNPPositions(double minQualityScore) {
 		// Add all positions whose quality score equals or exceeds 
 		// caller's minQualityScore
+		if (minQualityScore == 0) return getSNPPositions();
 		if(snpPosToIDMap==null) loadSNPPositionHash(false);
 		PositionListBuilder plb = new PositionListBuilder();
 		snpPosToIDMap.keySet().stream()

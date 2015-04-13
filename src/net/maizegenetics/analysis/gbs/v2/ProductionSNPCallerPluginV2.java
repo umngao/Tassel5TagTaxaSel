@@ -189,6 +189,13 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         }
  
         final PositionList positionList=tagDataReader.getSNPPositions(positionQualityScore());
+        if (positionList == null || positionList.size() == 0) {
+        	String errMsg = "\nERROR: no snp positons found with quality score of " + positionQualityScore() + ".\n"
+        			+ "Please run UpdateSNPPositionQualityPlugin to add quality scores for your positions,\n"
+        			+ " then select snp positions within a quality range you have specified.\n";
+        	myLogger.error(errMsg);
+        	return null;
+        }
         final Multimap<Tag,AlleleWithPosIndex> tagsToIndex=ArrayListMultimap.create();
         tagDataReader.getAlleleMap().entries().stream()
                 .forEach(e -> {
