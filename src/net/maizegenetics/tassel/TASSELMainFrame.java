@@ -20,7 +20,6 @@
 package net.maizegenetics.tassel;
 
 import net.maizegenetics.analysis.popgen.SequenceDiversityPlugin;
-import net.maizegenetics.analysis.data.ProjectionLoadPlugin;
 import net.maizegenetics.analysis.distance.KinshipPlugin;
 import net.maizegenetics.analysis.chart.TableDisplayPlugin;
 import net.maizegenetics.analysis.chart.Grid2dDisplayPlugin;
@@ -79,6 +78,7 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -86,7 +86,6 @@ import java.util.zip.ZipOutputStream;
 import net.maizegenetics.analysis.data.GetPositionListPlugin;
 import net.maizegenetics.analysis.data.GetTaxaListPlugin;
 import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
-import net.maizegenetics.analysis.data.ProjectPcsAndRunModelSelectionPlugin;
 import net.maizegenetics.analysis.data.SortGenotypeFilePlugin;
 import net.maizegenetics.analysis.distance.DistanceMatrixPlugin;
 import net.maizegenetics.analysis.gbs.BinaryToTextPlugin;
@@ -105,6 +104,7 @@ import net.maizegenetics.analysis.imputation.FILLINImputationPlugin;
 import net.maizegenetics.analysis.imputation.FSFHapImputationPlugin;
 import net.maizegenetics.analysis.imputation.RemoveIndelsForBeaglePlugin;
 import net.maizegenetics.analysis.numericaltransform.ImputationPlugin;
+import net.maizegenetics.analysis.workflow.WorkflowPlugin;
 
 /**
  * TASSELMainFrame
@@ -784,6 +784,19 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         attributes.put(TextAttribute.STRIKETHROUGH, TextAttribute.STRIKETHROUGH_ON);
         item.setFont(new Font(attributes));
         result.add(item);
+
+        return result;
+    }
+
+    private JMenu getWorkflowMenu() {
+
+        JMenu result = new JMenu("Workflow");
+
+        List<WorkflowPlugin> workflows = WorkflowPlugin.getInstances(this);
+
+        for (Plugin current : workflows) {
+            result.add(createMenuItem(current));
+        }
 
         return result;
     }
