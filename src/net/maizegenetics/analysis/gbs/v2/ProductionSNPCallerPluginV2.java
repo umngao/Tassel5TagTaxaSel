@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.LongAdder;
 import javax.swing.ImageIcon;
 
 import net.maizegenetics.analysis.gbs.Barcode;
+import net.maizegenetics.dna.BaseEncoder;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
@@ -108,10 +109,12 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             .description("Depth output: True means write depths to the output hdf5 genotypes file, false means do NOT write depths to the hdf5 file").build();
     private PluginParameter<Integer> myMaxTagLength = new PluginParameter.Builder<>("mxTagL", 64, Integer.class).guiName("Maximum Tag Length")
             .description("Maximum Tag Length").build();
-    private PluginParameter<Double> minimumQualityScore = new PluginParameter.Builder<>("minQS", 0.0, Double.class).guiName("Minimun quality score for snp position to be included")
-            .description("Minimum quality score for position").build();
+    private PluginParameter<Double> posQualityScore = new PluginParameter.Builder<>("minPosQS", 0.0, Double.class).guiName("Minimun snp quality score")
+            .description("Minimum quality score for snp position to be included").build();
     private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 8, Integer.class).guiName("Batch size of fastq files").required(false)
             .description("Number of flow cells being processed simultaneously").build();
+    private PluginParameter<Integer> myMinQualScore = new PluginParameter.Builder<>("mnQS", 0, Integer.class).guiName("Minimum quality score").required(false)
+            .description("Minimum quality score within the barcode and read length to be accepted").build();
     //private PluginParameter<Boolean> myStacksLikelihood = new PluginParameter.Builder<>("sL", false, Boolean.class).guiName("Use Stacks Likelihood")
     //        .description("Use STACKS likelihood method to call heterozygotes (default: use tasselGBS likelihood ratio method)").build();
 
@@ -180,12 +183,12 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             System.out.println("\nStart processing batch " + String.valueOf(idx/batchSize+1));
             sub.parallelStream()
             .forEach(inputSeqFile -> {
-                processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),canonicalTag,maximumTagLength());
+                processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),canonicalTag,maximumTagLength(), minimumQualityScore());
             });
             System.out.println("\nFinished processing batch " + String.valueOf(idx/batchSize+1));
         }
  
-        final PositionList positionList=tagDataReader.getSNPPositions(minimumQualityScore());
+        final PositionList positionList=tagDataReader.getSNPPositions(positionQualityScore());
         final Multimap<Tag,AlleleWithPosIndex> tagsToIndex=ArrayListMultimap.create();
         tagDataReader.getAlleleMap().entries().stream()
                 .forEach(e -> {
@@ -248,15 +251,16 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     }
 
 	private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
-                                  Map<Tag,Tag> canonicalTags, int preferredTagLength) {
+                                  Map<Tag,Tag> canonicalTags, int preferredTagLength, int minQual) {
     	ArrayList<Taxon> tl=GBSSeqToTagDBPlugin.getLaneAnnotatedTaxaList(keyPath, fastQPath);
     	BarcodeTrie barcodeTrie=GBSSeqToTagDBPlugin.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
-        processFastQ(fastQPath,barcodeTrie,canonicalTags,preferredTagLength);
+        processFastQ(fastQPath,barcodeTrie,canonicalTags,preferredTagLength, minQual);
     }
 
-    private void processFastQ(Path fastqFile, BarcodeTrie barcodeTrie, Map<Tag,Tag> canonicalTags, int preferredTagLength) {
-        int allReads=0, goodBarcodedReads = 0;
+    private void processFastQ(Path fastqFile, BarcodeTrie barcodeTrie, Map<Tag,Tag> canonicalTags, int preferredTagLength, int minQual) {
+        int allReads=0, goodBarcodedReads = 0, lowQualityReads = 0;
         try {
+        	int qualityScoreBase=GBSSeqToTagDBPlugin.determineQualityScoreBase(fastqFile);
             BufferedReader br = Utils.getBufferedReader(fastqFile.toString(), 1 << 22);
             long time=System.nanoTime();
             String[] seqAndQual;
@@ -265,6 +269,13 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
                 // Decode barcode using the current sequence & quality  score
                 Barcode barcode=barcodeTrie.longestPrefix(seqAndQual[0]);               
                 if(barcode==null) continue;
+                if(minQual>0) {
+                    //todo move getFirstLowQualityPos into this class?
+                    if(BaseEncoder.getFirstLowQualityPos(seqAndQual[1],minQual, qualityScoreBase)<(barcode.getBarLength()+preferredTagLength)){
+                    	lowQualityReads++;
+                    	continue;
+                    }
+                }
                 rawReadCountsForFullSampleName.put(barcode.getTaxaName(), rawReadCountsForFullSampleName.get(barcode.getTaxaName()) + 1);
                 Tag tag= TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength() + preferredTagLength)).build();
                 if(tag==null) continue;   //null occurs when any base was not A, C, G, T
@@ -281,6 +292,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             }
             myLogger.info("Total number of reads in lane=" + allReads);
             myLogger.info("Total number of good barcoded reads=" + goodBarcodedReads);
+            myLogger.info("Total number of low quality reads=" + lowQualityReads);
             myLogger.info("Timing process (sorting, collapsing, and writing TagCount to file).");
             myLogger.info("Process took " + (System.nanoTime() - time)/1e6 + " milliseconds for file " + fastqFile.toString());
             br.close();
@@ -745,26 +757,26 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         return this;
     }
     /**
-     *  Minimum Quality Score
+     *  Minimum Position Quality Score
      *
-     * @return Minimum quality score
+     * @return Minimum position quality score
      */
-    public Double minimumQualityScore() {
-        return minimumQualityScore.value();
+    public Double positionQualityScore() {
+        return posQualityScore.value();
     }
 
     /**
-     * Set Minimum quality score:  This value is used to pull
-     * SNPs out of the snpposition table.  ONly snps with quality
+     * Set Minimum quality score for position:  This value is used to pull
+     * SNPs out of the snpposition table.  Only snps with quality
      * scores meeting or exceeding the specified value will be 
      * processed.
      *
-     * @param value Maximum Tag Lengt
+     * @param value Minimum position quality score
      *
      * @return this plugin
      */
-    public ProductionSNPCallerPluginV2 minimumQualityScore(Double value) {
-        minimumQualityScore = new PluginParameter<>(minimumQualityScore, value);
+    public ProductionSNPCallerPluginV2 positionQualityScore(Double value) {
+        posQualityScore = new PluginParameter<>(posQualityScore, value);
         return this;
     }
     
@@ -783,6 +795,28 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
      */
     public ProductionSNPCallerPluginV2 batchSize(Integer value) {
         myBatchSize = new PluginParameter<>(myBatchSize, value);
+        return this;
+    }
+    /**
+     * Minimum quality score within the barcode and read length
+     * to be accepted
+     *
+     * @return Minimum quality score
+     */
+    public Integer minimumQualityScore() {
+        return myMinQualScore.value();
+    }
+
+    /**
+     * Set Minimum quality score. Minimum quality score within
+     * the barcode and read length to be accepted
+     *
+     * @param value Minimum quality score
+     *
+     * @return this plugin
+     */
+    public ProductionSNPCallerPluginV2 minimumQualityScore(Integer value) {
+        myMinQualScore = new PluginParameter<>(myMinQualScore, value);
         return this;
     }
     /**
