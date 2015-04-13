@@ -169,12 +169,21 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                     qualMap.put("taxaCntWithMinorAlleleGE2", alleleDepths.length > 1 ? (double) Arrays.stream(depthsInOrder.get(1)).filter(d -> d > 1).count() : 0);
                     
                     //genotypic stats
+                    //Only add if there are more than 2 alleles
+                    if(depthsInOrder.size()>=2) {
+                        GenotypeStats genotypeCnt = callGenotypes(depthsInOrder.get(0), depthsInOrder.get(1));
+                        qualMap.put("genotypeCnt", (double) genotypeCnt.totalCnt);
+                        qualMap.put("minorAlleleFreqGE2",Double.isNaN(genotypeCnt.minorFreq)?0.0:genotypeCnt.minorFreq);
+                        qualMap.put("hetFreq_DGE2", (double) genotypeCnt.hetCnt);
+                        qualMap.put("inbredF_DGE2", genotypeCnt.f);
+                    }
+                    /*
                     GenotypeStats genotypeCnt = callGenotypes(depthsInOrder.get(0), depthsInOrder.get(1));
                     qualMap.put("genotypeCnt", (double) genotypeCnt.totalCnt);
                     qualMap.put("minorAlleleFreqGE2",Double.isNaN(genotypeCnt.minorFreq)?0.0:genotypeCnt.minorFreq);
                     qualMap.put("hetFreq_DGE2", (double) genotypeCnt.hetCnt);
                     qualMap.put("inbredF_DGE2", genotypeCnt.f);
-                    
+                    */
                     
                     //System.out.println("jsonObject:" + jsonObject.toJSONString());
 //                    if ((Double) qualMap.getOrDefault("inbredF_DGE2", 0.0) > 0.9 && qualMap.getOrDefault("genotypeCnt", 0.0) > 10) {
@@ -185,7 +194,7 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                     resultMap.put(currentPosition,qualMap);
                     
                     
-                    tagDataWriter.putSNPQualityProfile(resultMap,myTaxaListName.value());
+                    tagDataWriter.putSNPQualityProfile(resultMap,myTaxaListName.value(),adder.intValue());
                     
                     
                     adder.increment();
@@ -214,15 +223,16 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                     strBuild.append("\t");
                     strBuild.append(qualMap.get("taxaCntWithMinorAlleleGE2"));
                     
-                    strBuild.append("\t");
-                    strBuild.append(qualMap.get("genotypeCnt"));
-                    strBuild.append("\t");
-                    strBuild.append(qualMap.get("minorAlleleFreqGE2"));
-                    strBuild.append("\t");
-                    strBuild.append(qualMap.get("hetFreq_DGE2"));
-                    strBuild.append("\t");
-                    strBuild.append(qualMap.get("inbredF_DGE2"));
-                    
+                    if(depthsInOrder.size()>=2) {
+                        strBuild.append("\t");
+                        strBuild.append(qualMap.get("genotypeCnt"));
+                        strBuild.append("\t");
+                        strBuild.append(qualMap.get("minorAlleleFreqGE2"));
+                        strBuild.append("\t");
+                        strBuild.append(qualMap.get("hetFreq_DGE2"));
+                        strBuild.append("\t");
+                        strBuild.append(qualMap.get("inbredF_DGE2"));   
+                    }
                     strBuild.append("\n");
                     
                 }
@@ -276,11 +286,13 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
             qualMap.put("taxaCntWithMinorAlleleGE2", alleleDepths.length > 1 ? (double) Arrays.stream(depthsInOrder.get(1)).filter(d -> d > 1).count() : 0);
             
             //genotypic stats
-            GenotypeStats genotypeCnt = callGenotypes(depthsInOrder.get(0), depthsInOrder.get(1));
-            qualMap.put("genotypeCnt", (double) genotypeCnt.totalCnt);
-            qualMap.put("minorAlleleFreqGE2",Double.isNaN(genotypeCnt.minorFreq)?0.0:genotypeCnt.minorFreq);
-            qualMap.put("hetFreq_DGE2", (double) genotypeCnt.hetCnt);
-            qualMap.put("inbredF_DGE2", genotypeCnt.f);
+            if(depthsInOrder.size()>=2) {
+                GenotypeStats genotypeCnt = callGenotypes(depthsInOrder.get(0), depthsInOrder.get(1));
+                qualMap.put("genotypeCnt", (double) genotypeCnt.totalCnt);
+                qualMap.put("minorAlleleFreqGE2",Double.isNaN(genotypeCnt.minorFreq)?0.0:genotypeCnt.minorFreq);
+                qualMap.put("hetFreq_DGE2", (double) genotypeCnt.hetCnt);
+                qualMap.put("inbredF_DGE2", genotypeCnt.f);
+            }
             
             
             //System.out.println("jsonObject:" + jsonObject.toJSONString());
@@ -293,7 +305,7 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
             resultMap.put(currentPosition,qualMap);
             
             
-            tagDataWriter.putSNPQualityProfile(resultMap,myTaxaListName.value());
+            tagDataWriter.putSNPQualityProfile(resultMap,myTaxaListName.value(), -1);
             
             strBuild.append(currentMap.getKey().position().getChromosome().toString());
             strBuild.append("\t");
@@ -312,7 +324,7 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
             strBuild.append(qualMap.get("propCovered2"));
             strBuild.append("\t");
             strBuild.append(qualMap.get("taxaCntWithMinorAlleleGE2"));
-            
+            /*
             strBuild.append("\t");
             strBuild.append(qualMap.get("genotypeCnt"));
             strBuild.append("\t");
@@ -321,7 +333,17 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
             strBuild.append(qualMap.get("hetFreq_DGE2"));
             strBuild.append("\t");
             strBuild.append(qualMap.get("inbredF_DGE2"));
-            
+            */
+            if(depthsInOrder.size()>=2) {
+                strBuild.append("\t");
+                strBuild.append(qualMap.get("genotypeCnt"));
+                strBuild.append("\t");
+                strBuild.append(qualMap.get("minorAlleleFreqGE2"));
+                strBuild.append("\t");
+                strBuild.append(qualMap.get("hetFreq_DGE2"));
+                strBuild.append("\t");
+                strBuild.append(qualMap.get("inbredF_DGE2"));   
+            }
             strBuild.append("\n");
             if(statFileName.value()!=null) { 
                 try {               

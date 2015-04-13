@@ -438,6 +438,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     }
 
+    
     //@Override
     public void putSNPQualityProfile(Map<Position, Map<String,Double>> tagAnnotatedPositionMap, String taxaSubset) {
         int batchCount=0;
@@ -465,8 +466,15 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("propCovered2",0.0));
                 snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("taxaCntWithMinorAlleleGE2",0.0));
 //                System.out.println("MAF:"+vals.getOrDefault("minorAlleleFreqGE2",-1.0));
-                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("minorAlleleFreqGE2",0.0));
-                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("inbredF_DGE2",null));
+                if(vals.containsKey("minorAlleleFreqGE2")) {
+                    snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("minorAlleleFreqGE2",0.0));
+                    snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("inbredF_DGE2",null));
+                }
+                else {
+                    snpQualityInsertPS.setDouble(ind++,0.0);
+                    snpQualityInsertPS.setDouble(ind++,Double.NaN);
+                }
+                
                 //snpQualityInsertPS.get();
                 //System.out.println(posTagInsertPS.toString());
                 snpQualityInsertPS.addBatch();
@@ -485,6 +493,58 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     }
 
+    public void putSNPQualityProfile(Map<Position, Map<String,Double>> tagAnnotatedPositionMap, String taxaSubset,int counter) {
+        try {
+            putSNPPositionsIfAbsent(tagAnnotatedPositionMap.keySet());
+            connection.setAutoCommit(false);
+            for (Map.Entry<Position, Map<String,Double>> entry : tagAnnotatedPositionMap.entrySet()) {
+                Position p=entry.getKey();
+                Map<String,Double> vals=entry.getValue();
+                int ind=1;
+
+//                snpQualityInsertPS=connection.prepareStatement(
+//                        "INSERT OR IGNORE into snpQuality (snpid, taxasubset ,avgDepth, minorDepthProp, minor2DepthProp, gapDepthProp, " +
+//                                "propCovered, propCovered2, taxaCntWithMinorAlleleGE2,minorAlleleFreq, inbredF_DGE2)" +
+//                                " values(?,?,?,?,?,?,?,?,?,?,?)");
+//                System.out.println("vals = " + vals.size());
+//                System.out.println(vals.get("inbredF_DGE2").toString());
+                snpQualityInsertPS.setInt(ind++, snpPosToIDMap.get(p));
+                snpQualityInsertPS.setString(ind++, taxaSubset);
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("avgDepth",0.0));
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("minorDepthProp",0.0));
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("minor2DepthProp",0.0));
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("gapDepthProp",0.0));
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("propCovered",0.0));
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("propCovered2",0.0));
+                snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("taxaCntWithMinorAlleleGE2",0.0));
+//                System.out.println("MAF:"+vals.getOrDefault("minorAlleleFreqGE2",-1.0));
+                if(vals.containsKey("minorAlleleFreqGE2")) {
+                    snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("minorAlleleFreqGE2",0.0));
+                    snpQualityInsertPS.setDouble(ind++,vals.getOrDefault("inbredF_DGE2",null));
+                }
+                else {
+                    snpQualityInsertPS.setDouble(ind++,0.0);
+                    snpQualityInsertPS.setDouble(ind++,Double.NaN);
+                }
+                if(counter==-1) {
+                    snpQualityInsertPS.executeBatch();
+                    connection.setAutoCommit(true);    
+                }
+                else {
+                    //snpQualityInsertPS.get();
+                    //System.out.println(posTagInsertPS.toString());
+                    snpQualityInsertPS.addBatch();
+                    if(counter%10000==0) {
+                        //System.out.println("putSNPQualityProfile next"+batchCount);
+                        snpQualityInsertPS.executeBatch();
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+    }
     private int getMappingApproachID(Position p) throws SQLException{
         String mapApp=p.getAnnotation().getTextAnnotation("mappingapproach")[0];
         if(mapApp==null) return mappingApproachToIDMap.get("unknown");
