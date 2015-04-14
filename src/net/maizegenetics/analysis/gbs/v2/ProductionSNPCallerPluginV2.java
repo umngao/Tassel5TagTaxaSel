@@ -175,22 +175,11 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
        
         if (inputSeqFiles.size() % batchSize !=0) batchNum++;
         System.out.println("ProductionSNPCallerPluginV2: Total batches to process: " + batchNum);
-        for (int idx = 0; idx < inputSeqFiles.size(); idx+=batchSize) {
-            int end = idx+batchSize;
-            if (end > inputSeqFiles.size()) end = inputSeqFiles.size();
-            ArrayList<Path> sub = new ArrayList<Path>();
-            for (int jdx = idx; jdx < end; jdx++) sub.add(inputSeqFiles.get(jdx));
-            System.out.println("\nStart processing batch " + String.valueOf(idx/batchSize+1));
-            sub.parallelStream()
-            .forEach(inputSeqFile -> {
-                processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),canonicalTag,maximumTagLength(), minimumQualityScore());
-            });
-            System.out.println("\nFinished processing batch " + String.valueOf(idx/batchSize+1));
-        }
- 
+
         final PositionList positionList=tagDataReader.getSNPPositions(positionQualityScore());
+        GenotypeTableBuilder gtb=setUpGenotypeTableBuilder(outputHDF5GenotypesFile(),positionList, genoMergeRule);
         if (positionList == null || positionList.size() == 0) {
-        	String errMsg = "\nERROR: no snp positons found with quality score of " + positionQualityScore() + ".\n"
+        	String errMsg = "\nNo snp positons found with quality score of " + positionQualityScore() + ".\n"
         			+ "Please run UpdateSNPPositionQualityPlugin to add quality scores for your positions,\n"
         			+ " then select snp positions within a quality range you have specified.\n";
         	myLogger.error(errMsg);
@@ -206,13 +195,26 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
                     	tagsToIndex.put(e.getKey(),new AlleleWithPosIndex(e.getValue(),posIndex));
                     }                   
                 });
-        GenotypeTableBuilder gtb=setUpGenotypeTableBuilder(outputHDF5GenotypesFile(),positionList, genoMergeRule);
-        tagCntMap.asMap().entrySet().stream()
-                .forEach(e -> {
-                	callGenotypes(e.getKey(), e.getValue(), tagsToIndex, positionList, genoMergeRule,gtb,depthToOutput());
-                	//System.out.println(e.x.getName()+ Arrays.toString(Arrays.copyOfRange(e.y,0,10)))); 
-                });
-
+        for (int idx = 0; idx < inputSeqFiles.size(); idx+=batchSize) {
+        	tagCntMap.clear(); // start fresh with each new batch
+            int end = idx+batchSize;
+            if (end > inputSeqFiles.size()) end = inputSeqFiles.size();
+            ArrayList<Path> sub = new ArrayList<Path>();
+            for (int jdx = idx; jdx < end; jdx++) sub.add(inputSeqFiles.get(jdx));
+            System.out.println("\nStart processing batch " + String.valueOf(idx/batchSize+1));
+            sub.parallelStream()
+            .forEach(inputSeqFile -> {
+                processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),canonicalTag,maximumTagLength(), minimumQualityScore());
+            });
+         
+            tagCntMap.asMap().entrySet().stream()
+            .forEach(e -> {
+            	callGenotypes(e.getKey(), e.getValue(), tagsToIndex, positionList, genoMergeRule,gtb,depthToOutput());
+            	//System.out.println(e.x.getName()+ Arrays.toString(Arrays.copyOfRange(e.y,0,10)))); 
+            });
+            System.out.println("\nFinished processing batch " + String.valueOf(idx/batchSize+1));
+        }
+ 
         if (keepGenotypesOpen()) {
             gtb.closeUnfinished();
         } else {
