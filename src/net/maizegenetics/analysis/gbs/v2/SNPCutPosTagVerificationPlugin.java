@@ -17,6 +17,7 @@ import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.GeneralPosition;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.Allele;
+import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.dna.tag.Tag;
 import net.maizegenetics.dna.tag.TagDataSQLite;
 import net.maizegenetics.dna.tag.TagDataWriter;
@@ -113,15 +114,18 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
             // taxanumber from TaxaDistribution is in the depths - they are ordered
             // by the taxalist numbers.  Is the TaxaList order alphabetically ???
         	// first write the headers, which is a list of the taxa
-        	strB.append("Tag Sequences at pos:"); // first column, ie row header
-        	strB.append(cutOrSnpPosition());
+        	strB.append("Chr\tPos\tTag");
         	taxaList.stream().forEach(item -> { // column names are the taxon names
         		strB.append("\t");
         		strB.append(item.getName());
         	});
         	strB.append("\n");
  
-            cutPositionMap.entrySet().stream().forEach(entry -> {            	
+            cutPositionMap.entrySet().stream().forEach(entry -> {  
+            	strB.append(chrom());
+            	strB.append("\t");
+            	strB.append(cutOrSnpPosition());
+            	strB.append("\t");
             	Tag curTag = entry.getKey();
             	strB.append(curTag.sequence()); // add tag sequence in first column
             	
@@ -155,7 +159,7 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
         if(outputFile()!=null) {
             // taxanumber from TaxaDistribution is in the depths - they are ordered
             // by the taxalist numbers.  Is the TaxaList order alphabetically ???
-        	strB.append("Allele:Tag Sequence"); // first column, ie row header
+        	strB.append("Chr\tPos\tAllele\tTag"); // first column, ie row header
         	taxaList.stream().forEach(item -> { // column names are the taxon names
         		strB.append("\t");
         		strB.append(item.getName());
@@ -164,11 +168,12 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
  
             snpPositionMap.entries().stream().forEach(entry -> {
             	Allele curAllele = entry.getKey();
-            	strB.append("Allele: ");
-            	strB.append(curAllele.alleleAsString());
-            	strB.append(" at Position: ");
-            	strB.append(curAllele.position().getPosition());
-            	strB.append("\n"); // Allele gets it own line, tags with taxa dist are below it
+            	strB.append(chrom());
+            	strB.append("\t");
+            	strB.append(cutOrSnpPosition());
+            	strB.append("\t");
+            	strB.append(NucleotideAlignmentConstants.getNucleotideAlleleValue(curAllele.allele()));
+            	strB.append("\t");
             	Map<Tag, TaxaDistribution> curTagTaxa = entry.getValue();
             	// Loop through the tag/taxa for this tag. 
             	for ( Map.Entry<Tag, TaxaDistribution> tagTaxaMap : curTagTaxa.entrySet()) {
@@ -199,6 +204,7 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
         	myLogger.warn("Outputfile is null - nothing happening here");
         }
     }
+    
 
     @Override
     public String getToolTipText() {
