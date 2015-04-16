@@ -163,7 +163,15 @@ public interface TagData {
     /**
      * For a given map of chromosome/posiiton,
      * Returns a map of chromsome (string) and Tuple (position,qualityScore)
-     * @return TaxaList or null if not available.
+     * @return Map or null if not available.
      */
     ListMultimap<String, Tuple<Integer, Float>> getSNPPositionQS(HashMultimap<String, Integer> myMap);
+
+    /**
+     * For a given snp position,
+     * Returns a Map of Allele with its associated Tag/TaxaDistribution 
+     * @return Map or null if not available.
+     */
+	Multimap<Allele, Map<Tag, TaxaDistribution>> getAllelesTagTaxaDistForSNP(
+			Position position);
 }

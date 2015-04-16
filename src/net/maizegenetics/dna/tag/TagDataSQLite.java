@@ -687,6 +687,30 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         }
         return atdBuilder.build();
     }
+    
+    @Override
+    public Multimap<Allele, Map<Tag, TaxaDistribution>> getAllelesTagTaxaDistForSNP(Position position) {
+    	ImmutableMultimap.Builder<Allele,Map<Tag,TaxaDistribution>> aTTdBuilder = ImmutableMultimap.builder();
+        
+        try{
+            if(snpPosToIDMap==null) {
+                loadSNPPositionHash(false);
+            }      	
+            alleleTaxaDistForSnpidPS.setInt(1, snpPosToIDMap.get(position));
+            ResultSet rs= alleleTaxaDistForSnpidPS.executeQuery();
+            while(rs.next()) {
+                Allele allele=new SimpleAllele((byte)rs.getInt("allelecall"),position);
+                Tag snpTag = tagTagIDMap.inverse().get(rs.getInt("tagid"));
+                TaxaDistribution snpTD = TaxaDistBuilder.create(rs.getBytes("depthsRLE"));
+                ImmutableMap.Builder<Tag,TaxaDistribution> tagTDBuilder = ImmutableMap.builder();
+                tagTDBuilder.put(snpTag, snpTD);
+                aTTdBuilder.put(allele, tagTDBuilder.build());
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return aTTdBuilder.build();
+    }
 
     public Stream<ImmutableMultimap<Allele,TaxaDistribution>> getAllAllelesTaxaDistForSNP() {
         if(snpPosToIDMap==null) {
@@ -794,7 +818,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     @Override
     public PositionList getTagCutPositions(boolean onlyBest) {
-        if(cutPosToIDMap.size()==0) loadCutPositionHash();
+        if(cutPosToIDMap == null) loadCutPositionHash();
         PositionListBuilder plb=new PositionListBuilder();
         cutPosToIDMap.keySet().stream()
                 //.filter(p -> p.isAnnotatedWithValue("isbest","true"))
@@ -877,6 +901,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     @Override
     public Map<Tag, TaxaDistribution> getTagsTaxaMap(Position cutPosition) {
         ImmutableMap.Builder<Tag, TaxaDistribution> tagTaxaDistributionBuilder=new ImmutableMap.Builder<>();
+        if(cutPosToIDMap==null) loadCutPositionHash();
         try{
             taxaDistWhereCutPositionIDPS.setInt(1,cutPosToIDMap.get(cutPosition));
             ResultSet rs=taxaDistWhereCutPositionIDPS.executeQuery();
