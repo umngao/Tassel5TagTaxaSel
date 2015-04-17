@@ -785,7 +785,7 @@ public class GenotypeTableBuilder {
         if (annotation2 == null) {
             newFlowCellLanes = new String[0];
         } else {
-            newFlowCellLanes = annotation.getTextAnnotation("Flowcell_Lane");
+            newFlowCellLanes = annotation2.getTextAnnotation("Flowcell_Lane");
         }
         if (newFlowCellLanes.length > 0) {
             for (String existingFL : existingFlowCellLanes) {
