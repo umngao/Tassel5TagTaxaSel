@@ -48,4 +48,33 @@ public interface GenomeSequence {
      */
     public byte[] chromosomeSequence(Chromosome chrom, int startSite, int endSite);
 
+    /**
+     * Returns the partial genomic sequence from the specified start
+     * position to the specified end position.  THe start/end positions are inclusive and
+     * the request is 0-based (though the alleles are stored in a 0-based byte array).  Note the difference with
+     * chromosomes, which start with 1.  Can only return 2.1 billion sites per call.
+     *
+     * @param startSite:  the 0-based position in the sequence to start the pull.
+     * @param lastSite:  the 0-based position in the sequence that will be the last allele in the pull
+     * @return A byte array of alleles in NucleotideAlignmentConstant
+     */
+    public byte[] genomeSequence(long startSite, long lastSite);
+
+    /**
+     * Returns the length of the current chromsome
+     * @param chromosome
+     * @return
+     */
+    public int chromosomeSize(Chromosome chromosome);
+
+    /**
+     * Returns the length of the entire genome
+     */
+    public long genomeSize();
+
+    /**
+     * Returns the number of chromosomes
+     */
+    public int numberOfChromosomes();
+
 }
