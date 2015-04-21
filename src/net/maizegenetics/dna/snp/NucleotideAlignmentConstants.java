@@ -6,6 +6,7 @@ package net.maizegenetics.dna.snp;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -272,9 +273,14 @@ public final class NucleotideAlignmentConstants {
         NUCLEOTIDE_ALLELE_HASH.put("C", C_ALLELE); // C
         NUCLEOTIDE_ALLELE_HASH.put("G", G_ALLELE); // G
         NUCLEOTIDE_ALLELE_HASH.put("T", T_ALLELE); // T
+        NUCLEOTIDE_ALLELE_HASH.put("a", A_ALLELE); // A
+        NUCLEOTIDE_ALLELE_HASH.put("c", C_ALLELE); // C
+        NUCLEOTIDE_ALLELE_HASH.put("g", G_ALLELE); // G
+        NUCLEOTIDE_ALLELE_HASH.put("t", T_ALLELE); // T
         NUCLEOTIDE_ALLELE_HASH.put("+", INSERT_ALLELE); // +
         NUCLEOTIDE_ALLELE_HASH.put("-", GAP_ALLELE); // -
         NUCLEOTIDE_ALLELE_HASH.put("N", GenotypeTable.UNKNOWN_ALLELE); // N
+        NUCLEOTIDE_ALLELE_HASH.put("n", GenotypeTable.UNKNOWN_ALLELE); // N
         Arrays.fill(NUCLEOTIDE_ALLELE_ARRAY, UNDEFINED_ALLELE);
         for (Map.Entry<String, Byte> en : NUCLEOTIDE_ALLELE_HASH.entrySet()) {
             NUCLEOTIDE_ALLELE_ARRAY[en.getKey().charAt(0)] = en.getValue();
@@ -486,6 +492,33 @@ public final class NucleotideAlignmentConstants {
 
         return isNucleotide;
 
+    }
+
+    /**
+     * Convert a haploid (allele) string (e.g. ACGTA) to arrays of allele bytes (e.g. {0,1,2,3,0})
+     * @param haploString haploid allele string
+     * @return encoded array of bytes
+     */
+    public static byte[] convertHaplotypeStringToAlleleByteArray(String haploString) {
+        byte[] haplosBytes=new byte[haploString.length()];
+        for (int i = 0; i < haplosBytes.length; i++) {
+            haplosBytes[i]=getNucleotideAlleleByte(haploString.charAt(i));
+        }
+        return haplosBytes;
+    }
+
+    /**
+     * Convert a haploid (allele) string (e.g. {0,1,2,3,0}) to its reverse complement (e.g. {3,0,1,2,3})
+     * @param alleles haploid allele byte
+     * @return encoded array of bytes
+     */
+    public static byte[] reverseComplementAlleleByteArray(byte[] alleles) {
+        byte[] reverseCompBytes=new byte[alleles.length];
+        int allelesIndex=alleles.length-1;
+        for (int i = 0; i < reverseCompBytes.length; i++) {
+            reverseCompBytes[i]=getNucleotideComplement(alleles[allelesIndex--]);
+        }
+        return reverseCompBytes;
     }
     
 }
