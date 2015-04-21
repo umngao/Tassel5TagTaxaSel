@@ -834,6 +834,37 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         return plb.build();
     }
 
+ 
+    /**
+     * Get the cut position associated with each tag in a set.  Return a map of Tag/Position
+     * from which the cut position/strand will be pulled.
+     * This is used in debugging with the SNPCutPosTagVerificationPlugin
+     * @return map of Tag/Position 
+     */
+    @Override
+    public Map<Tag, Position> getTagCutPosition(Set<Tag> tagSet){
+    	ImmutableMap.Builder<Tag,Position> tagPosBuilder=new ImmutableMap.Builder<>();
+    	for (Tag tag : tagSet) {
+    		int tagID=tagTagIDMap.get(tag);       
+    		try {
+    			ResultSet rs=connection.createStatement()
+    					.executeQuery("select cp.* from cutposition cp, tag t, tagCutPosition tcp " +
+    							"where tcp.tagid=t.tagid and tcp.positionid=cp.positionid and t.tagid= " + tagID);
+    			while(rs.next()) { // create the position, add to map   				
+    				Position cutPos=new GeneralPosition
+    						.Builder(new Chromosome(rs.getString("chromosome")),rs.getInt("position"))
+    				.strand(rs.getByte("strand"))
+    				.build();
+    				tagPosBuilder.put(tag,cutPos);
+    			}               
+    		} catch (SQLException e) {
+    			e.printStackTrace();
+    			return null;
+    		}
+    	}
+    	return tagPosBuilder.build();
+    }
+    
     private Map<Position,Integer> getPositionSubMap(Chromosome chromosome, int firstPosition, int lastPosition) {
         if(cutPosToIDMap==null) loadCutPositionHash();
         Position startPos=new GeneralPosition.Builder(chromosome,firstPosition).build();

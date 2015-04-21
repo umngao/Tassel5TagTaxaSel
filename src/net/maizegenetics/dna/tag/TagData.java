@@ -131,6 +131,15 @@ public interface TagData {
      */
     PositionList getTagCutPositions(Chromosome chromosome, int firstPosition, int lastPosition, boolean onlyBest);
 
+    /**
+     * Get the cut position associated with a list of tags.  Return a map of Tag/CutPosition
+     * The Position object is returned to facilitate grabbing both physical position 
+     * and strand information.
+     * @param list of tags for which a cut position is requested.  
+     * @return map of tag, Tuple<Strand,Cutposition>
+     */
+     Map<Tag, Position> getTagCutPosition(Set<Tag> tag);
+     
     /*
     Map of alignment approaches names (key) and their protocols (value)
      */
@@ -173,5 +182,5 @@ public interface TagData {
      * @return Map or null if not available.
      */
 	Multimap<Allele, Map<Tag, TaxaDistribution>> getAllelesTagTaxaDistForSNP(
-			Position position);
+			Position position);	
 }
