@@ -167,7 +167,7 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
         if(outputFile()!=null) {
             // taxanumber from TaxaDistribution is in the depths - they are ordered
             // by the taxalist numbers.  Is the TaxaList order alphabetically ???
-        	strB.append("Chr\tSNPPos\tAllele\tTag\tStrand\tCutPos"); // first column, ie row header
+        	strB.append("Chr\tSNPPos\tAllele\tTag\tForwardStrand\tCutPos"); // first column, ie row header
         	taxaList.stream().forEach(item -> { // column names are the taxon names
         		strB.append("\t");
         		strB.append(item.getName());
@@ -191,7 +191,8 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
                 	TaxaDistribution tagTD = tagTaxaMap.getValue();
                 	strB.append(curTag.sequence()); // add tag sequence
                 	strB.append("\t");
-                	strB.append(cutPos.getStrand());
+                	//strB.append(cutPos.getStrand()); 
+                	strB.append(cutPos.getAnnotation().getTextAnnotation("forward")[0]);
                 	strB.append("\t");
                 	strB.append(cutPos.getPosition());
                 	

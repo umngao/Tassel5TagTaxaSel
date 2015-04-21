@@ -848,12 +848,13 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     		int tagID=tagTagIDMap.get(tag);       
     		try {
     			ResultSet rs=connection.createStatement()
-    					.executeQuery("select cp.* from cutposition cp, tag t, tagCutPosition tcp " +
+    					.executeQuery("select cp.*, tcp.* from cutposition cp, tag t, tagCutPosition tcp " +
     							"where tcp.tagid=t.tagid and tcp.positionid=cp.positionid and t.tagid= " + tagID);
     			while(rs.next()) { // create the position, add to map   				
     				Position cutPos=new GeneralPosition
     						.Builder(new Chromosome(rs.getString("chromosome")),rs.getInt("position"))
     				.strand(rs.getByte("strand"))
+    				.addAnno("forward", rs.getBoolean("forward")?"true":"false")
     				.build();
     				tagPosBuilder.put(tag,cutPos);
     			}               
