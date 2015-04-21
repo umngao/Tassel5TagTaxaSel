@@ -224,7 +224,7 @@ public class BaseEncoder {
 
     /**
      * Returns the 2-bit encoded long represented by 32 bytes representing {@link net.maizegenetics.dna.snp.NucleotideAlignmentConstants}
-     * representation
+     * representation.  It is padded by As if shorter than 32 bytes, -1 returned if longer than 32.
      * <p>
      * @param b array of bytes encoding NucleotideAlignmentConstants
      * @return 2-bit encoded long
@@ -232,12 +232,13 @@ public class BaseEncoder {
     public static long getLongSeqFromByteArray(byte[] b) {
         //the byte array must be in 0-3 coding for A, C, G, T
         long v = 0;
-        if (b.length != chunkSize) {
+        if (b.length > chunkSize) {
             return -1;
         }
         for (int i = 0; i < b.length; i++) {
             v = (v << 2) + b[i];
         }
+        v = (v << (2*(chunkSize-b.length)));
         return v;
     }
     
