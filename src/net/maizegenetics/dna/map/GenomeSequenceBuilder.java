@@ -9,7 +9,13 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeMap;
+import com.google.common.collect.TreeRangeMap;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.util.GeneralAnnotation;
@@ -28,15 +34,35 @@ import org.apache.log4j.Logger;
  */
 public class GenomeSequenceBuilder {
 	private static final Logger myLogger = Logger.getLogger(GenomeSequenceBuilder.class);
-	
-	public static GenomeSequence instance(String fastaFileName) {
-		Map<Chromosome, byte[]> chromPositionMap = readReferenceGenomeChr(fastaFileName);   	
-		return new HalfByteGenomeSequence(chromPositionMap);
+
+    /**
+     * Builds GenomeSequence from a fasta file.
+     * @param fastaFileName full path to fasta file
+     * @return GenomeSequence object
+     */
+    public static GenomeSequence instance(String fastaFileName) {
+        Function<Character, Character> charConversion= (c) -> c;
+        return instance(fastaFileName,charConversion);
 	}
 
-	protected static  Map<Chromosome, byte[]> readReferenceGenomeChr(String fastaFileName) {
-		// Read specified file, return entire sequence for requested chromosome 
-		Map<Chromosome, byte[]> chromPositionMap = new HashMap<Chromosome, byte[]>();
+    /**
+     * Builds GenomeSequence from a fasta file.  The char conversion provide a mechanism to convert upper and lower case
+     * or convert one case to N.  This is useful if a case if used to define a certain class of bases
+     * @param fastaFileName full path to fasta file
+     * @param charConversion lambda Function to convert characters
+     * @return GenomeSequence object
+     */
+    public static GenomeSequence instance(String fastaFileName, Function<Character, Character> charConversion) {
+        Map<Chromosome, byte[]> chromPositionMap = readReferenceGenomeChr(fastaFileName, charConversion);
+        return new HalfByteGenomeSequence(chromPositionMap);
+    }
+
+	protected static  Map<Chromosome, byte[]> readReferenceGenomeChr(String fastaFileName, Function<Character, Character> charConversion) {
+		// Read specified file, return entire sequence for requested chromosome
+        String base="ACGTN=acgtn";
+        String conv=base.chars().mapToObj(ci -> charConversion.apply((char)ci).toString()).collect(Collectors.joining());
+        System.out.println("Genome FASTA character conversion:"+conv);
+        Map<Chromosome, byte[]> chromPositionMap = new HashMap<Chromosome, byte[]>();
 		Chromosome currChr = null;	
 		ByteArrayOutputStream currSeq = new ByteArrayOutputStream();
 		String line = null;
@@ -51,7 +77,7 @@ public class GenomeSequenceBuilder {
 					if (currChr != null) {
 						// end processing current chromosome sequence
                         currChr=new Chromosome(currChr.getName(),currSeq.size(),currChr.getAnnotation());
-						chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
+						chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray(),charConversion));
 					}
 					currChr = parseChromosome(line); 
 					currSeq = new ByteArrayOutputStream();
@@ -62,7 +88,7 @@ public class GenomeSequenceBuilder {
 			// reached end of file - write last bytes
 			if (currSeq.size() > 0) {
                 currChr=new Chromosome(currChr.getName(),currSeq.size(),currChr.getAnnotation());
-				chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray()));
+				chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray(),charConversion));
 			}
 			br.close();
 		} catch (IOException ioe) {
@@ -71,13 +97,13 @@ public class GenomeSequenceBuilder {
 		return chromPositionMap;
 	}
 
-    private static byte[] halfByteCompression(byte[] unpkSequence){
+    private static byte[] halfByteCompression(byte[] unpkSequence, Function<Character, Character> charConversion){
         // Take byte array, turn bytes into NucleotideAlignmentConstant
         // allele values, store as half bytes
         int nBytes = (unpkSequence.length+1)/2;
         byte[] packedSequence = new byte[nBytes];
         for (int i = 0; i < unpkSequence.length; i++) {
-            byte halfByte = NucleotideAlignmentConstants.getNucleotideAlleleByte((char)unpkSequence[i]);
+            byte halfByte = NucleotideAlignmentConstants.getNucleotideAlleleByte(charConversion.apply((char)unpkSequence[i]));
             if(i%2==0) halfByte<<=4;
             packedSequence[i/2]|=halfByte;
         }
@@ -117,13 +143,23 @@ public class GenomeSequenceBuilder {
 class HalfByteGenomeSequence implements GenomeSequence{
     private Map<Chromosome, byte[]> chromPositionMap;
     private Map<Chromosome, Integer> chromLengthLookup=new HashMap<>();
+    private RangeMap<Long,Chromosome> wholeGenomeIndexMap= TreeRangeMap.create();
+    private long genomeSize;
 
 
     protected HalfByteGenomeSequence(Map<Chromosome, byte[]>chromPositionMap) {
         this.chromPositionMap = chromPositionMap;
         chromPositionMap.entrySet().stream()
                 .forEach(e -> chromLengthLookup.put(e.getKey(),e.getKey().getLength()));
-
+        LongAdder genomeIndex=new LongAdder();
+        chromosomes().stream().sorted()
+                .forEach(chrom -> {
+                            int length=chromLengthLookup.get(chrom);
+                            wholeGenomeIndexMap.put(Range.closed(genomeIndex.longValue(),
+                                genomeIndex.longValue()+length-1),chrom);
+                            genomeIndex.add(length);}
+                );
+        genomeSize=genomeIndex.longValue();
     }
     @Override
     public Set<Chromosome> chromosomes() {
@@ -148,5 +184,36 @@ class HalfByteGenomeSequence implements GenomeSequence{
             fullBytes[i - startSite] = (byte) ((i % 2 == 0) ? ((packedBytes[i / 2] & 0xF0) >> 4) : (packedBytes[i / 2] & 0x0F));
         }
         return fullBytes;
+    }
+
+    @Override
+    public byte[] genomeSequence(long startSite, long lastSite) {
+        if(lastSite-startSite>Integer.MAX_VALUE) throw new IllegalArgumentException("Fewer than "+Integer.MAX_VALUE+" can be requested at a time");
+        byte[] fullBytes=new byte[(int)(lastSite-startSite+1)];
+        long currentSiteToGet=startSite;
+        while(currentSiteToGet<lastSite) {
+            Map.Entry<Range<Long>,Chromosome> rangeChromEntry=wholeGenomeIndexMap.getEntry(currentSiteToGet);
+            int chrStart=(int)(currentSiteToGet-rangeChromEntry.getKey().lowerEndpoint());
+            int chrLast=(int)Math.min(rangeChromEntry.getKey().upperEndpoint()-rangeChromEntry.getKey().lowerEndpoint(),lastSite-rangeChromEntry.getKey().lowerEndpoint());
+            byte[] chromoSeq=chromosomeSequence(rangeChromEntry.getValue(), chrStart+1,chrLast+1);  //+1 for 0 based genome, 1 based chromosomes
+            System.arraycopy(chromoSeq,0,fullBytes,(int)(currentSiteToGet-startSite),chromoSeq.length);
+            currentSiteToGet+=chromoSeq.length;
+        }
+        return fullBytes;
+    }
+
+    @Override
+    public int chromosomeSize(Chromosome chromosome) {
+        return chromLengthLookup.get(chromosome);
+    }
+
+    @Override
+    public long genomeSize() {
+        return genomeSize;
+    }
+
+    @Override
+    public int numberOfChromosomes() {
+        return chromPositionMap.size();
     }
 }
