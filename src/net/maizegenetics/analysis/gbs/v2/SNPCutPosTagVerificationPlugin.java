@@ -37,7 +37,9 @@ import com.google.common.collect.Multimap;
  * position are printed along with the number of times it appears in each taxa.
  * 
  * For a SNP Position, each allele and the tags associated with that allele are
- * printed along with the number of times the tag appears in each taxa
+ * printed along with the number of times the tag appears in each taxa.  The tag
+ * is shown both as it is stored in the db, and as a forward strand.  The SNP alignments
+ * are based on forward strand.
  * 
  * @author lcj34
  *
@@ -140,9 +142,8 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
             	TaxaDistribution tagTD = entry.getValue();
             	int[] depths = tagTD.depths(); // gives us the depths for each taxon
             	for (int idx = 0; idx < depths.length; idx++) {
-            		// write the tag depth
-            		strB.append("\t");
-            		strB.append(depths[idx]);           		
+            		strB.append("\t"); 
+            		strB.append(depths[idx]);  // add tag depth         		
             	}
             	strB.append("\n"); // end of line - start next tag           	
             });
@@ -167,7 +168,7 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
         if(outputFile()!=null) {
             // taxanumber from TaxaDistribution is in the depths - they are ordered
             // by the taxalist numbers.  Is the TaxaList order alphabetically ???
-        	strB.append("Chr\tSNPPos\tAllele\tTag\tForwardStrand\tCutPos"); // first column, ie row header
+        	strB.append("Chr\tSNPPos\tAllele\tTag\tForwardStrand\tTagAsForwardStrand\tCutPos-SNPOffset"); // first column, ie row header
         	taxaList.stream().forEach(item -> { // column names are the taxon names
         		strB.append("\t");
         		strB.append(item.getName());
@@ -180,7 +181,6 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
             	strB.append("\t");
             	strB.append(cutOrSnpPosition());
             	strB.append("\t");
-            	//strB.append(NucleotideAlignmentConstants.getNucleotideAlleleValue(curAllele.allele()));
             	strB.append(NucleotideAlignmentConstants.getHaplotypeNucleotide(curAllele.allele()));
             	strB.append("\t");
             	Map<Tag, TaxaDistribution> curTagTaxa = entry.getValue();
@@ -189,12 +189,21 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
                 	Tag curTag = tagTaxaMap.getKey();
                 	Position cutPos = tagPosMap.get(curTag);
                 	TaxaDistribution tagTD = tagTaxaMap.getValue();
-                	strB.append(curTag.sequence()); // add tag sequence
+                	strB.append(curTag.sequence()); 
                 	strB.append("\t");
-                	//strB.append(cutPos.getStrand()); 
+                	boolean isForward = cutPos.getAnnotation().getTextAnnotation("forward")[0].equals("true") ? true: false;
                 	strB.append(cutPos.getAnnotation().getTextAnnotation("forward")[0]);
                 	strB.append("\t");
+                	if (isForward) {
+                		strB.append(curTag.sequence());
+                	} else { // alignments are based on forward strand, create and add for easier SNP verification
+                		strB.append(curTag.toReverseComplement());
+                	}
+                	strB.append("\t");
                 	strB.append(cutPos.getPosition());
+                	strB.append("-");
+                	int offSetVal = cutPos.getPosition() - cutOrSnpPosition();
+                	strB.append(offSetVal);
                 	
                 	int[] depths = tagTD.depths(); // gives us the depths for each taxon
                 	for (int idx = 0; idx < depths.length; idx++) {
