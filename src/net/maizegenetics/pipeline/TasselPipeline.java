@@ -65,6 +65,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.regex.Pattern;
+import net.maizegenetics.analysis.chart.ManhattanDisplayPlugin;
 import net.maizegenetics.analysis.data.PrincipalComponentsPlugin;
 
 /**
@@ -503,6 +504,9 @@ public class TasselPipeline implements PluginListener {
                     integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-pca")) {
                     PrincipalComponentsPlugin plugin = new PrincipalComponentsPlugin(myMainFrame, myIsInteractive);
+                    integratePlugin(plugin, true);
+                } else if (current.equalsIgnoreCase("-mhd")) {
+                    ManhattanDisplayPlugin plugin = new ManhattanDisplayPlugin(myMainFrame, myIsInteractive);
                     integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-mlm")) {
                     MLMPlugin plugin = new MLMPlugin(myMainFrame, myIsInteractive);
