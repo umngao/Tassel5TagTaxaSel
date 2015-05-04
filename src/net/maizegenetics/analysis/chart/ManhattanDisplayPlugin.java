@@ -39,6 +39,13 @@ public class ManhattanDisplayPlugin extends AbstractDisplayPlugin {
     public DataSet performFunction(DataSet input) {
         try {
             List<Datum> tableInList = input.getDataOfType(TableReport.class);
+            if (tableInList.size() == 2) {
+                tableInList.remove(1);
+            } else if (tableInList.size() == 4) {
+                tableInList.remove(3);
+                tableInList.remove(2);
+                tableInList.remove(0);
+            }
             if (tableInList.size() != 1) {
                 String message = "Invalid selection.  Please select one table result.";
                 if (isInteractive()) {
