@@ -235,6 +235,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         jMenuBar.add(getAnalysisMenu());
         jMenuBar.add(getResultsMenu());
         jMenuBar.add(getGBSMenu());
+        jMenuBar.add(getWorkflowMenu());
         jMenuBar.add(Box.createHorizontalGlue());
         jMenuBar.add(getHelpMenu());
 
