@@ -25,11 +25,6 @@
             </workflow>
         </pca>
         <input1/>
-        <excludeLastTrait>
-            <workflow>
-                Covariate selection. (example: There are three populations represented as PC1, PC2, and PC3. They sum to 100%. This creates linear dependency if we use all of them as covariates. While GLM can handle that properly, it will cause MLM to complain and refuse to complete your analysis. We can eliminate the dependency by removing one of the PC variables. Uncheck the last population (PC3))
-            </workflow>
-        </excludeLastTrait>
     </fork2>
     <fork3>
         <importGuess>
