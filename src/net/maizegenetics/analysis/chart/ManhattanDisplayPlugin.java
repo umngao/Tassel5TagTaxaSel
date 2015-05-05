@@ -20,6 +20,7 @@ import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import net.maizegenetics.analysis.association.AssociationConstants;
 import net.maizegenetics.util.TableReport;
 import net.maizegenetics.plugindef.Datum;
 
@@ -39,15 +40,10 @@ public class ManhattanDisplayPlugin extends AbstractDisplayPlugin {
     public DataSet performFunction(DataSet input) {
         try {
             List<Datum> tableInList = input.getDataOfType(TableReport.class);
-            if (tableInList.size() == 2) {
-                tableInList.remove(1);
-            } else if (tableInList.size() == 4) {
-                tableInList.remove(3);
-                tableInList.remove(2);
-                tableInList.remove(0);
-            }
-            if (tableInList.size() != 1) {
-                String message = "Invalid selection.  Please select one table result.";
+            TableReport tableReport = findTableReportWithPValues(tableInList);
+
+            if (tableReport == null) {
+                String message = "Invalid selection.  Please select table with p values.";
                 if (isInteractive()) {
                     JOptionPane.showMessageDialog(getParentFrame(), message);
                 } else {
@@ -55,23 +51,23 @@ public class ManhattanDisplayPlugin extends AbstractDisplayPlugin {
                 }
                 return null;
             }
-            TableReport myTableReport = (TableReport) tableInList.get(0).getData();
+
             if (isInteractive()) {
                 try {
-                    ArrayList<Integer> indexes = splitTable(myTableReport);
-                    String[] traits = getTraits(myTableReport);
+                    ArrayList<Integer> indexes = splitTable(tableReport);
+                    String[] traits = getTraits(tableReport);
                     if (traits.length > 1) {
-                        PlotOptionsDialog myOptions = new PlotOptionsDialog(this.getParentFrame(), getTraits(myTableReport));
+                        PlotOptionsDialog myOptions = new PlotOptionsDialog(this.getParentFrame(), getTraits(tableReport));
                         myOptions.setLocationRelativeTo(getParentFrame());
                         myOptions.setVisible(true);
                         if (myOptions.isCanceled() == false) {
                             int index = myOptions.getTraitIndex();
-                            ManhattanDisplayPluginDialog myDialog = new ManhattanDisplayPluginDialog(this.getParentFrame(), this, myTableReport, indexes.get((index - 1) * 2), indexes.get((index - 1) * 2 + 1));
+                            ManhattanDisplayPluginDialog myDialog = new ManhattanDisplayPluginDialog(this.getParentFrame(), this, tableReport, indexes.get((index - 1) * 2), indexes.get((index - 1) * 2 + 1));
                             myDialog.setLocationRelativeTo(getParentFrame());
                             myDialog.setVisible(true);
                         }
                     } else if (traits.length == 1) {
-                        ManhattanDisplayPluginDialog myDialog = new ManhattanDisplayPluginDialog(this.getParentFrame(), this, myTableReport, indexes.get(0), indexes.get(1));
+                        ManhattanDisplayPluginDialog myDialog = new ManhattanDisplayPluginDialog(this.getParentFrame(), this, tableReport, indexes.get(0), indexes.get(1));
                         myDialog.setLocationRelativeTo(getParentFrame());
                         myDialog.setVisible(true);
                     }
@@ -87,6 +83,18 @@ public class ManhattanDisplayPlugin extends AbstractDisplayPlugin {
         } finally {
             fireProgress(100);
         }
+    }
+
+    private TableReport findTableReportWithPValues(List<Datum> tableInList) {
+        for (Datum current : tableInList) {
+            Object[] headings = ((TableReport) current.getData()).getTableColumnNames();
+            for (Object currentHeading : headings) {
+                if (currentHeading.toString().equals(AssociationConstants.STATS_HEADER_P_VALUE)) {
+                    return (TableReport) current.getData();
+                }
+            }
+        }
+        return null;
     }
 
     private ArrayList<Integer> splitTable(TableReport table) {
