@@ -4,13 +4,15 @@
  */
 package net.maizegenetics.util;
 
+import com.google.common.collect.Ordering;
+
 import java.util.Objects;
 
 /**
  * Based on response in http://stackoverflow.com/questions/2670982/using-pairs-or-2-tuples-in-java
  * @author Eli Rodgers-Melnick
  */
-public class Tuple<X, Y> extends Object {
+public class Tuple<X, Y> implements Comparable<Tuple<X, Y>> {
     public final X x;
     public final Y y;
     /**
@@ -30,6 +32,7 @@ public class Tuple<X, Y> extends Object {
     public String toString() {
         return "("+x.toString()+","+y.toString()+")";
     }
+
     @Override
     public boolean equals(Object obj) {
         if (obj == null) {
@@ -46,5 +49,15 @@ public class Tuple<X, Y> extends Object {
             return false;
         }
         return true;
+    }
+
+    @Override
+    public int compareTo(Tuple<X, Y> o) {
+        if(x instanceof Double) return Double.compare((Double)x, (Double)o.x);
+
+        if(x instanceof Comparable) {
+            return ((Comparable) x).compareTo(o.x);
+        }
+        return 0;
     }
 }
