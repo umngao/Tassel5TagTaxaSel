@@ -137,4 +137,9 @@ public class WorkflowPlugin extends AbstractPlugin {
         return myButtonName;
     }
 
+    @Override
+    public String getCitation() {
+        return "Casstevens T, Wang Y. (2015) First Annual Tassel Hackathon.";
+    }
+
 }
