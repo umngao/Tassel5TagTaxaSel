@@ -1086,6 +1086,9 @@ public class TasselPipeline implements PluginListener {
 
                     plugin.setIncludeAnnotations(value);
 
+                } else if (current.equalsIgnoreCase("-filterTaxaNames")) {
+                    FilterTaxaAlignmentPlugin plugin = new FilterTaxaAlignmentPlugin(myMainFrame, myIsInteractive);
+                    integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-filterAlign")) {
                     FilterAlignmentPlugin plugin = new FilterAlignmentPlugin(myMainFrame, myIsInteractive);
                     integratePlugin(plugin, true);
