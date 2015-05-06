@@ -35,7 +35,9 @@ import net.maizegenetics.analysis.filter.FilterSiteNamePlugin;
 import net.maizegenetics.analysis.filter.FilterAlignmentPlugin;
 import net.maizegenetics.analysis.filter.FilterTraitsPlugin;
 import net.maizegenetics.analysis.filter.FilterSubsetPlugin;
+import net.maizegenetics.analysis.filter.FilterTaxaPropertiesPlugin;
 import net.maizegenetics.analysis.tree.CreateTreePlugin;
+import net.maizegenetics.analysis.tree.ArchaeopteryxPlugin;
 import net.maizegenetics.analysis.association.RidgeRegressionEmmaPlugin;
 import net.maizegenetics.dna.map.TagsOnPhysMapHDF5;
 import net.maizegenetics.dna.map.TagsOnPhysicalMap;
@@ -912,6 +914,9 @@ public class TasselPipeline implements PluginListener {
                     throw new IllegalArgumentException("TasselPipeline: parseArgs: -ckModelHets not needed in Tassel 5.0. It is designed to handle heterzygotes.");
                 } else if (current.equalsIgnoreCase("-ckRescale")) {
                     throw new IllegalArgumentException("TasselPipeline: parseArgs: -ckRescale not needed in Tassel 5.0. It is designed to handle heterzygotes.");
+                } else if (current.equalsIgnoreCase("-archaeopteryx")) {
+                    ArchaeopteryxPlugin plugin = new ArchaeopteryxPlugin(myMainFrame, myIsInteractive);
+                    integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-tree")) {
 
                     CreateTreePlugin plugin = new CreateTreePlugin(myMainFrame, myIsInteractive);
@@ -1086,6 +1091,9 @@ public class TasselPipeline implements PluginListener {
 
                     plugin.setIncludeAnnotations(value);
 
+                } else if (current.equalsIgnoreCase("-filterTaxaProperties")) {
+                    FilterTaxaPropertiesPlugin plugin = new FilterTaxaPropertiesPlugin(myMainFrame, myIsInteractive);
+                    integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-filterTaxaNames")) {
                     FilterTaxaAlignmentPlugin plugin = new FilterTaxaAlignmentPlugin(myMainFrame, myIsInteractive);
                     integratePlugin(plugin, true);
