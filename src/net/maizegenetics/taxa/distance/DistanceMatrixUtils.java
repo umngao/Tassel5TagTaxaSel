@@ -14,6 +14,7 @@ import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.BitUtil;
 
 import java.io.Serializable;
+import java.util.Arrays;
 
 
 /**
@@ -150,4 +151,30 @@ public class DistanceMatrixUtils implements Serializable {
         return getIBSDistance(iMajor.getBits(), iMinor.getBits(), jMajor.getBits(), jMinor.getBits());
     }
 
+    public static DistanceMatrix keepTaxa(DistanceMatrix parent, int[] taxaToKeep, TaxaList taxaListToKeep) {
+    	int ntaxa = taxaToKeep.length;
+    	double[][] newDistances = new double[ntaxa][ntaxa];
+    	for (int r = 0; r < ntaxa; r++) {
+    		for (int c = 0; c < ntaxa; c++) {
+    			newDistances[r][c] = parent.getDistance(taxaToKeep[r], taxaToKeep[c]);
+    		}
+    	}
+    	
+    	if (taxaListToKeep == null) {
+    		TaxaListBuilder taxaBuilder = new TaxaListBuilder();
+    		for (int ndx : taxaToKeep) taxaBuilder.add(parent.getTaxon(ndx));
+    		taxaListToKeep = taxaBuilder.build();
+    	}
+    	
+    	return new DistanceMatrix(newDistances, taxaListToKeep);
+    }
+    
+    public static DistanceMatrix keepTaxa(DistanceMatrix parent, TaxaList taxaToKeep) {
+    	int[] keepIndex = null;
+    	taxaToKeep.stream()
+    		.mapToInt(t -> parent.whichIdNumber(t))
+    		.filter(i -> i > -1)
+    		.toArray();
+    	return keepTaxa(parent, keepIndex, taxaToKeep);
+    }
 }
