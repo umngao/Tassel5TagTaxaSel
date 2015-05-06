@@ -35,6 +35,7 @@ import net.maizegenetics.analysis.filter.FilterSiteNamePlugin;
 import net.maizegenetics.analysis.filter.FilterAlignmentPlugin;
 import net.maizegenetics.analysis.filter.FilterTraitsPlugin;
 import net.maizegenetics.analysis.filter.FilterSubsetPlugin;
+import net.maizegenetics.analysis.filter.FilterTaxaPropertiesPlugin;
 import net.maizegenetics.analysis.tree.CreateTreePlugin;
 import net.maizegenetics.analysis.tree.ArchaeopteryxPlugin;
 import net.maizegenetics.analysis.association.RidgeRegressionEmmaPlugin;
@@ -1090,6 +1091,9 @@ public class TasselPipeline implements PluginListener {
 
                     plugin.setIncludeAnnotations(value);
 
+                } else if (current.equalsIgnoreCase("-filterTaxaProperties")) {
+                    FilterTaxaPropertiesPlugin plugin = new FilterTaxaPropertiesPlugin(myMainFrame, myIsInteractive);
+                    integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-filterTaxaNames")) {
                     FilterTaxaAlignmentPlugin plugin = new FilterTaxaAlignmentPlugin(myMainFrame, myIsInteractive);
                     integratePlugin(plugin, true);
