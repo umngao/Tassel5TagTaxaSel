@@ -179,8 +179,7 @@ public class DistanceMatrixUtils implements Serializable {
      * 	The taxa will be in the same order as taxaToKeep.
      */
     public static DistanceMatrix keepTaxa(DistanceMatrix parent, TaxaList taxaToKeep) {
-    	int[] keepIndex = null;
-    	taxaToKeep.stream()
+    	int[] keepIndex = taxaToKeep.stream()
     		.mapToInt(t -> parent.whichIdNumber(t))
     		.filter(i -> i > -1)
     		.toArray();
