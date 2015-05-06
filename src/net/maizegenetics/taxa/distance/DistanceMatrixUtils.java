@@ -154,7 +154,6 @@ public class DistanceMatrixUtils implements Serializable {
     /**
      * @param parent	the DistanceMatrix from which to extract a subset
      * @param taxaToKeep	an index of the taxa to keep
-     * @param taxaListToKeep	the taxaList for taxa that will be kept
      * @return A DistanceMatrix with all the taxa that are in both parent and taxaToKeep in the same order as taxaToKeep
      */
     public static DistanceMatrix keepTaxa(DistanceMatrix parent, int[] taxaToKeep) {
@@ -173,6 +172,12 @@ public class DistanceMatrixUtils implements Serializable {
     	return new DistanceMatrix(newDistances, taxaListToKeep);
     }
     
+    /**
+     * @param parent	the DistanceMatrix from which to extract a subset
+     * @param taxaToKeep	a TaxaList of taxa to be kept 
+     * @return	a DistanceMatrix that contains only the taxa that are in both taxaToKeep and parent.
+     * 	The taxa will be in the same order as taxaToKeep.
+     */
     public static DistanceMatrix keepTaxa(DistanceMatrix parent, TaxaList taxaToKeep) {
     	int[] keepIndex = null;
     	taxaToKeep.stream()
