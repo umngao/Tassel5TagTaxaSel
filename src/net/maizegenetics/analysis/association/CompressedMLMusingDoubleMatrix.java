@@ -129,6 +129,65 @@ public class CompressedMLMusingDoubleMatrix {
 //        solve();
     }
 
+    public CompressedMLMusingDoubleMatrix(MLMPlugin parentPlugin, Datum dataset, DistanceMatrix kinshipMatrix, Datum weights, boolean useCompression, boolean useP3D, double compression) {
+        this.parentPlugin = parentPlugin;
+        this.kinshipMatrix = kinshipMatrix;
+        this.useCompression = useCompression;
+        this.useP3D = useP3D;
+        this.compression = compression;
+        datasetName = dataset.getName();
+        
+        if (dataset.getData().getClass().equals(GenotypePhenotype.class)) {
+            myGenoPheno = (GenotypePhenotype) dataset.getData();
+            myPhenotype = myGenoPheno.phenotype();
+            myGenotype = myGenoPheno.genotypeTable();
+            hasGenotype = true;
+        } else if (dataset.getData() instanceof Phenotype) {
+            myGenoPheno = null;
+            myPhenotype = (Phenotype) dataset.getData();
+            myGenotype = null;
+            hasGenotype = false;
+        } else {
+            myGenoPheno = null;
+            myPhenotype = null;
+            myGenotype = null;
+            hasGenotype = false;
+        }
+        
+        // String[] headerMain = new String[]{"Trait", "Marker", "Locus", "Site", "df", "F", "p", "errordf", "markerR2", "Genetic Var", "Residual Var", "-2LnLikelihood"};
+        String[] headerMain = new String[]{AssociationConstants.STATS_HEADER_TRAIT, AssociationConstants.STATS_HEADER_MARKER,
+            AssociationConstants.STATS_HEADER_CHR, AssociationConstants.STATS_HEADER_POSITION,
+            "df", "F", AssociationConstants.STATS_HEADER_P_VALUE,
+            "add_effect", "add_F", "add_p", "dom_effect", "dom_F", "dom_p", "errordf",
+            "MarkerR2", "Genetic Var", "Residual Var", "-2LnLikelihood"};
+        String[] headerAlleles = new String[]{"Trait", "Marker", "Locus", "Site", "Allele", "Effect", "Obs"};
+        String[] headerCompression = new String[]{"Trait", "# groups", "Compression", "-2LnLk", "Var_genetic", "Var_error"};
+        
+        if (parentPlugin.isWriteOutputToFile()) {
+                String outputbase = parentPlugin.getOutputName();
+                String datasetNameNoSpace = datasetName.trim().replaceAll("\\ ", "_");
+                
+                StringBuilder sb = new StringBuilder();
+                sb.append(outputbase).append("_").append(datasetNameNoSpace).append("_stats.txt");
+            siteReportBuilder = TableReportBuilder.getInstance("Marker Statistics - " + datasetName, headerMain, sb.toString());
+            
+                sb = new StringBuilder();
+                sb.append(outputbase).append("_").append(datasetNameNoSpace).append("_effects.txt");
+            alleleReportBuilder = TableReportBuilder.getInstance("Allele Estimates - " + datasetName, headerAlleles, sb.toString());
+            
+                sb = new StringBuilder();
+                sb.append(outputbase).append("_").append(datasetNameNoSpace).append("_compression.txt");
+            if (useCompression) compressionReportBuilder = TableReportBuilder.getInstance("Compression - " + datasetName, headerCompression, sb.toString());
+            else compressionReportBuilder = null;
+        } else {
+            siteReportBuilder = TableReportBuilder.getInstance("Marker Statistics - " + datasetName, headerMain);
+            alleleReportBuilder = TableReportBuilder.getInstance("Allele Estimates - " + datasetName, headerAlleles);
+            if (useCompression) compressionReportBuilder = TableReportBuilder.getInstance("Compression - " + datasetName, headerCompression);
+            else compressionReportBuilder = null;
+        }
+
+//        solve();
+    }
     public void useGenotypeCalls(boolean use) {
     	useGenotypeCalls = use;
     }
