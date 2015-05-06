@@ -9,6 +9,7 @@ import org.apache.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.stream.IntStream;
 
 /**
  * Class for implementation of the EMMA algorithm often used in GWAS.  Initially developer by
@@ -27,8 +28,10 @@ public class EMMAforDoubleMatrix {
     protected int Nran;
     protected int dfMarker = 0;
     
-    protected DoubleMatrix X;
+    protected DoubleMatrix Xoriginal = null;
 //    protected DoubleMatrix A;
+    protected DoubleMatrix X;
+    protected DoubleMatrix Zoriginal = null;
     protected DoubleMatrix Z = null;
 //    protected DoubleMatrix transZ;
     protected DoubleMatrix K;
@@ -135,6 +138,46 @@ public class EMMAforDoubleMatrix {
 
 		Nran = Z.numberOfRows();
 		dfMarker = nAlleles - 1;
+		init();
+	}
+        
+        /**
+	 * This constructor is designed for G-BLUP.
+         * Uses kinship matrix with phenotypes in same order. 
+         * Phenotypes = NaN for prediction set.
+         * Assumes that Z is the identity matrix for calculating blups, predicted values and residuals. If that is not true use
+	 * the constructor that explicity takes Z. This constructor treats A as ZKZ' so it can be used if blups and residuals are not needed.
+	 * @param data A column double matrix of phenotypic values (number of individuals x 1 taxa ID column + number of traits)
+	 * @param fixed
+	 * @param kin
+	 */
+	public EMMAforDoubleMatrix(DoubleMatrix data, DoubleMatrix fixed, DoubleMatrix kin) {
+		//throw an error if X is less than full column rank
+		dfModel = fixed.numberOfColumns();
+		
+		int rank = fixed.columnRank();
+		if (rank < dfModel) throw new IllegalArgumentException("The fixed effect design matrix has less than full column rank. The analysis will not be run.");
+		
+		if (data.numberOfColumns() > 1 && data.numberOfRows() == 1) 
+                    throw new IllegalArgumentException("The phenotype data must be a column matrix.");
+                               
+                //remove rows in data with missing phenotypic values from Y and Z
+                K = kin;
+                Nran = K.numberOfRows();
+                //int nonmissingY = (int) Arrays.stream(data.to1DArray()).filter(d -> ! Double.isNaN(d)).count();
+                //int[] nonmissingIndex = new int[nonmissingY];
+                int[] nonmissingIndex = IntStream.range(0, Nran).filter(i -> ! Double.isNaN(data.get(i,0))).toArray();
+		y = data.getSelection(nonmissingIndex, null);
+                Zoriginal = DoubleMatrixFactory.DEFAULT.identity(Nran);
+                Z = Zoriginal.getSelection(nonmissingIndex, null);
+                
+                N = y.numberOfRows();
+                
+                Xoriginal = fixed;
+		X = fixed.getSelection(nonmissingIndex, null);
+                
+		q = X.numberOfColumns();
+	
 		init();
 	}
 	
@@ -249,6 +292,11 @@ public class EMMAforDoubleMatrix {
         res = calculateRes();
 	}
 	
+	public void calculateBlupsPredicted() {
+        blup = calculateBLUP();
+        pred = calculatePred();
+	}
+        
 	private double findDeltaInInterval(double[] interval) {
         double[][] d = scanlnlk(interval[0], interval[1]);
 
@@ -416,7 +464,7 @@ public class EMMAforDoubleMatrix {
     	return invXHX.mult(XtH.mult(y));
     }
     
-    private DoubleMatrix calculateBLUP(){
+    public DoubleMatrix calculateBLUP(){
         Xbeta = X.mult(beta);
         DoubleMatrix YminusXbeta = y.minus(Xbeta);
         DoubleMatrix KtransZ = K.mult(Z.transpose());
@@ -425,9 +473,17 @@ public class EMMAforDoubleMatrix {
     }
     
     private DoubleMatrix calculatePred(){
-        Xbeta = X.mult(beta);
-        DoubleMatrix Zu = Z.mult(blup);
-        return Xbeta.plus(Zu);
+        if (Xoriginal == null){
+            Xbeta = X.mult(beta);
+            DoubleMatrix Zu = Z.mult(blup);
+            return Xbeta.plus(Zu);
+        }else{
+            Xbeta = Xoriginal.mult(beta);
+            //System.out.printf("Dimensions of Xbeta are %d,%d\n",Xbeta.numberOfRows(),Xbeta.numberOfColumns());
+            DoubleMatrix Zu = Zoriginal.mult(blup);
+            //System.out.printf("Dimensions of Zu are %d,%d\n",Zu.numberOfRows(),Zu.numberOfColumns());
+            return Xbeta.plus(Zu);
+        }
     }
  
     private DoubleMatrix calculateRes(){
