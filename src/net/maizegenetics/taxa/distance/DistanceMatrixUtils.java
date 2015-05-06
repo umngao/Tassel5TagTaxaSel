@@ -151,7 +151,13 @@ public class DistanceMatrixUtils implements Serializable {
         return getIBSDistance(iMajor.getBits(), iMinor.getBits(), jMajor.getBits(), jMinor.getBits());
     }
 
-    public static DistanceMatrix keepTaxa(DistanceMatrix parent, int[] taxaToKeep, TaxaList taxaListToKeep) {
+    /**
+     * @param parent	the DistanceMatrix from which to extract a subset
+     * @param taxaToKeep	an index of the taxa to keep
+     * @param taxaListToKeep	the taxaList for taxa that will be kept
+     * @return A DistanceMatrix with all the taxa that are in both parent and taxaToKeep in the same order as taxaToKeep
+     */
+    public static DistanceMatrix keepTaxa(DistanceMatrix parent, int[] taxaToKeep) {
     	int ntaxa = taxaToKeep.length;
     	double[][] newDistances = new double[ntaxa][ntaxa];
     	for (int r = 0; r < ntaxa; r++) {
@@ -159,13 +165,11 @@ public class DistanceMatrixUtils implements Serializable {
     			newDistances[r][c] = parent.getDistance(taxaToKeep[r], taxaToKeep[c]);
     		}
     	}
-    	
-    	if (taxaListToKeep == null) {
-    		TaxaListBuilder taxaBuilder = new TaxaListBuilder();
-    		for (int ndx : taxaToKeep) taxaBuilder.add(parent.getTaxon(ndx));
-    		taxaListToKeep = taxaBuilder.build();
-    	}
-    	
+
+    	TaxaListBuilder taxaBuilder = new TaxaListBuilder();
+    	for (int ndx : taxaToKeep) taxaBuilder.add(parent.getTaxon(ndx));
+    	TaxaList taxaListToKeep = taxaBuilder.build();
+
     	return new DistanceMatrix(newDistances, taxaListToKeep);
     }
     
@@ -175,6 +179,6 @@ public class DistanceMatrixUtils implements Serializable {
     		.mapToInt(t -> parent.whichIdNumber(t))
     		.filter(i -> i > -1)
     		.toArray();
-    	return keepTaxa(parent, keepIndex, taxaToKeep);
+    	return keepTaxa(parent, keepIndex);
     }
 }
