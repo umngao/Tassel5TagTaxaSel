@@ -12,11 +12,10 @@ import java.util.List;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
 
-import net.maizegenetics.plugindef.AbstractPlugin;
-import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.*;
 
 import java.util.stream.IntStream;
-import javax.swing.ImageIcon;
+import javax.swing.*;
 
 import net.maizegenetics.analysis.distance.IBSDistanceMatrix;
 import net.maizegenetics.analysis.popgen.LDResult;
@@ -29,10 +28,9 @@ import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.ImportUtils;
-import net.maizegenetics.plugindef.GeneratePluginCode;
-import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.Tuple;
+import org.apache.log4j.Logger;
 
 /**
  * Need to fill in this
@@ -42,12 +40,12 @@ import net.maizegenetics.util.Tuple;
  */
 public class LDKNNiImputationPlugin extends AbstractPlugin {
 
-    private PluginParameter<String> hmpFile = new PluginParameter.Builder<>("i", null, String.class)
-            .guiName("Target file")
-            .inFile()
-            .required(true)
-            .description("Input HapMap file of target genotypes to impute. Accepts all file types supported by TASSEL5.")
-            .build();
+//    private PluginParameter<String> hmpFile = new PluginParameter.Builder<>("i", null, String.class)
+//            .guiName("Target file")
+//            .inFile()
+//            .required(true)
+//            .description("Input HapMap file of target genotypes to impute. Accepts all file types supported by TASSEL5.")
+//            .build();
 
     private PluginParameter<String> outFileBase = new PluginParameter.Builder<>("o", null, String.class)
             .guiName("Output filename")
@@ -67,6 +65,7 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
             .guiName("Max kNN taxa")
             .description("Maximum number of neighbours to use in imputation")
             .build();
+    private static final Logger myLogger = Logger.getLogger(LDKNNiImputationPlugin.class);
 
     public LDKNNiImputationPlugin() {
         super(null, false);
@@ -76,35 +75,46 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
         super(parentFrame, isInteractive);
     }
 
+
+    @Override
+    protected void preProcessParameters(DataSet input) {
+        List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
+        if (alignInList.size() != 1) {
+            throw new IllegalArgumentException("LDKNNiImputationPlugin: preProcessParameters: Please select one Genotype Table.");
+        }
+    }
+
     @Override
     public DataSet processData(DataSet input) {
+
         // Load in the genotype table
-        GenotypeTable hetGenotypeTable = ImportUtils.readGuessFormat(hmpFile());
+        GenotypeTable hetGenotypeTable = (GenotypeTable)input.getDataOfType(GenotypeTable.class).get(0).getData();
+        //GenotypeTable hetGenotypeTable = ImportUtils.readGuessFormat(hmpFile());
         // Create a copy of the table with hets removed for use in LD calcuations
         final GenotypeTable genotypeTable = GenotypeTableBuilder.getHomozygousInstance(hetGenotypeTable);
 
-        // Create a multimap of the snps in higest LD with each SNP
+        // Create a multimap of the SNPs in higest LD with each SNP
         Multimap<Position, Position> highLDMap = getHighLDMap(genotypeTable, maxHighLDSites());
 
         LongAdder genotypesMissing = new LongAdder();
         LongAdder genotypesImputed = new LongAdder();
         GenotypeTableBuilder incSiteBuilder = GenotypeTableBuilder.getSiteIncremental(hetGenotypeTable.taxa());
+        //Start imputing site by site
         IntStream.range(0, hetGenotypeTable.numberOfSites()).parallel().forEach(posIndex ->
         {
             Position position = hetGenotypeTable.positions().get(posIndex);
             PositionList positionList = PositionListBuilder.getInstance(new ArrayList<>(highLDMap.get(position)));
             byte[] currGenos = hetGenotypeTable.genotypeAllTaxa(posIndex);
             byte[] newGenos = new byte[currGenos.length];
+            //create a site specific in memory filtered alignment to use
             final GenotypeTable ldGenoTable = GenotypeTableBuilder.getGenotypeCopyInstance(FilterGenotypeTable.getInstance(genotypeTable, positionList));
             for (int taxon = 0; taxon < currGenos.length; taxon++) {
                 if (currGenos[taxon] == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
                     genotypesMissing.increment();
-
                     if (isInvariant(currGenos)) {
                         newGenos[taxon] = getInvariantGeno(currGenos);
                         genotypesImputed.increment();
                     } else {
-
                         Multimap<Double, Byte> closeGenotypes = getClosestNonMissingTaxa(hetGenotypeTable.taxa().get(taxon), hetGenotypeTable,
                                 ldGenoTable, position, maxKNNTaxa());
                         if (closeGenotypes.isEmpty())
@@ -124,7 +134,7 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
             }
 
             incSiteBuilder.addSite(position, newGenos);
-            if (posIndex % 10 == 0) {
+            if (posIndex % 100 == 0) {
                 System.out.printf("Position:%d Missing:%d Imputed:%d %n", posIndex, genotypesMissing.intValue(), genotypesImputed.intValue());
             }
             //System.out.println(position.toString()+":"+ibsDistanceMatrix.meanDistance());
@@ -235,7 +245,7 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
 
     @Override
     public String getCitation() {
-        return "";
+        return "Daniel Money";
     }
 
     @Override
@@ -245,12 +255,12 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
 
     @Override
     public String getButtonName() {
-        return null;
+        return "LD KNNi Imputation";
     }
 
     @Override
     public String getToolTipText() {
-        return null;
+        return "LD KNNi Imputation";
     }
 
     public static void main(String[] args) {
@@ -270,28 +280,6 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
     // TODO: Replace <Type> with specific type.
     public GenotypeTable runPlugin(DataSet input) {
         return (GenotypeTable) performFunction(input).getData(0).getData();
-    }
-
-    /**
-     * Input HapMap file of target genotypes to impute. Accepts all file types
-     * supported by TASSEL5.
-     *
-     * @return Target file
-     */
-    public String hmpFile() {
-        return hmpFile.value();
-    }
-
-    /**
-     * Set Target file. Input HapMap file of target genotypes to impute. Accepts
-     * all file types supported by TASSEL5.
-     *
-     * @param value Target file
-     * @return this plugin
-     */
-    public LDKNNiImputationPlugin hmpFile(String value) {
-        hmpFile = new PluginParameter<>(hmpFile, value);
-        return this;
     }
 
     /**
