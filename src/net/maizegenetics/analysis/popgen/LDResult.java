@@ -21,13 +21,20 @@ public final class LDResult {
 
     public static Ordering<LDResult> byR2Ordering = new Ordering<LDResult>() {
         public int compare(LDResult left, LDResult right) {
-//            if(left.r2()==Float.NaN) {
-//                if(right.r2()==Float.NaN) return 0;
-//                return 1;
-//            }
             return ComparisonChain.start()
                     .compareTrueFirst(Float.isNaN(left.r2()),Float.isNaN(right.r2()))
                     .compare(left.r2(),right.r2())
+                    .compare(left.n(),right.n())
+                    .result();
+        }
+    };
+
+    public static Ordering<LDResult> byPValueOrdering = new Ordering<LDResult>() {
+        public int compare(LDResult left, LDResult right) {
+            return ComparisonChain.start()
+                    .compareTrueFirst(Float.isNaN(left.p()),Float.isNaN(right.p()))
+                    .compare(right.p(),left.p())
+                    .compare(left.r2(), right.r2())
                     .compare(left.n(),right.n())
                     .result();
         }

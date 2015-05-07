@@ -18,7 +18,9 @@ import net.maizegenetics.plugindef.*;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.SimpleTableReport;
 import net.maizegenetics.util.TableReport;
+import net.maizegenetics.util.TableReportBuilder;
 import net.maizegenetics.util.Tuple;
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.log4j.Logger;
 
 import javax.swing.*;
@@ -64,7 +66,6 @@ public class ImputationAccuracyPlugin extends AbstractPlugin {
         GenotypeTable maskGenoTable = (GenotypeTable)input.getDataOfType(GenotypeTable.class).get(1).getData();
         GenotypeTable impGenoTable = (GenotypeTable)input.getDataOfType(GenotypeTable.class).get(2).getData();
 
-
         int[][] cnts=new int[5][5];
         for (int site = 0; site < origGenoTable.numberOfSites(); site++) {
             byte majorAllele=origGenoTable.majorAllele(site);
@@ -86,25 +87,25 @@ public class ImputationAccuracyPlugin extends AbstractPlugin {
             }
         }
 
-        //System.out.println(Arrays.deepToString(cnts));
-        String[] headers={"AA","Aa","aa","N","Other"};
+        DataSet dataSet=new DataSet(new Datum("AccuracyReport",makeTableReport(cnts),""),this);
+        return dataSet;
+    }
+
+    private TableReport makeTableReport(int[][] cnts) {
+        String[] headers={"Original/Imputed","AA","Aa","aa","N","Other"};
+        TableReportBuilder reportBuilder=TableReportBuilder.getInstance("ImputationAccuracy",headers);
         int errors=0, correct=0;
-        System.out.println(Joiner.on('\t').join(headers));
         for (int i = 0; i < cnts.length; i++) {
-            System.out.print(headers[i]+"\t");
-            System.out.println(Ints.join("\t", cnts[i]));
+            reportBuilder.addElements(headers[i+1],ArrayUtils.toObject(cnts[i]));
             correct+=cnts[i][i];
             errors+=cnts[i][0]+cnts[i][1]+cnts[i][2]-cnts[i][i];
         }
         double errorRate=(double)errors/(double)(correct+errors);
-        System.out.printf("Correct:%d Errors:%d ErrorRate:%g %n",correct,errors,errorRate);
-
-        return null;
+        reportBuilder.addElements("Correct",correct);
+        reportBuilder.addElements("Errors",errors);
+        reportBuilder.addElements("ErrorRate",errorRate);
+        return reportBuilder.build();
     }
-
-//    private TableReport makeTableReport(int[][] cnts) {
-//        TableReport
-//    }
 
 
     @Override
