@@ -61,6 +61,9 @@ public class CompressedMLMusingDoubleMatrix {
 	private List<PhenotypeAttribute> factorAttributeList;
 	private List<PhenotypeAttribute> covariateAttributeList;
 
+    private final Phenotype myWeightMatrix;
+    
+    
     private final TableReportBuilder siteReportBuilder;
     private final TableReportBuilder alleleReportBuilder;
     private final TableReportBuilder compressionReportBuilder;
@@ -75,6 +78,7 @@ public class CompressedMLMusingDoubleMatrix {
         this.useCompression = useCompression;
         this.useP3D = useP3D;
         this.compression = compression;
+        this.myWeightMatrix = null;
         datasetName = dataset.getName();
         
         if (dataset.getData().getClass().equals(GenotypePhenotype.class)) {
@@ -129,12 +133,14 @@ public class CompressedMLMusingDoubleMatrix {
 //        solve();
     }
 
-    public CompressedMLMusingDoubleMatrix(MLMPlugin parentPlugin, Datum dataset, DistanceMatrix kinshipMatrix, Datum weights, boolean useCompression, boolean useP3D, double compression) {
+    public CompressedMLMusingDoubleMatrix(WeightedMLMPlugin parentPlugin, Datum dataset, DistanceMatrix kinshipMatrix, Datum weights, boolean useCompression, boolean useP3D, double compression) {
         this.parentPlugin = parentPlugin;
+        //this.parentPlugin = null;
         this.kinshipMatrix = kinshipMatrix;
         this.useCompression = useCompression;
         this.useP3D = useP3D;
         this.compression = compression;
+        this.myWeightMatrix = (Phenotype)weights.getData();
         datasetName = dataset.getName();
         
         if (dataset.getData().getClass().equals(GenotypePhenotype.class)) {
@@ -252,7 +258,44 @@ public class CompressedMLMusingDoubleMatrix {
 
             //fixed effects matrix
             DoubleMatrix fixed = AssociationUtils.createFixedEffectsArray(factorAttributeList, covariateAttributeList, missing, nonMissingObs);
-
+            //Check to see if weightedMLM is used
+            if(myWeightMatrix!=null) {
+                //Grab Attribute from myWeightMatrix which matches attr.name()
+                int weightAttrIndex = myWeightMatrix.attributeIndexForName(attr.name());
+                //Check to see if Attribute index = -1(missing)
+                if(weightAttrIndex!=-1) {
+                    //Grab PhenotypeAttribute Object
+                    PhenotypeAttribute weightAttribute = myWeightMatrix.attribute(weightAttrIndex);
+                    //Remove Missing values from Weight List
+                    double[] weightValues = doubleDataFromAttribute(weightAttribute);
+                    double[] nonMissingWeights = AssociationUtils.getNonMissingDoubles(weightValues, missing);
+                    
+                    //Check to make sure numRows(y) == numRows(weight)
+                    if(nonMissingObs == nonMissingWeights.length) { 
+                        //Calculate W = W^{-1/2}
+                        for(int i = 0;i<nonMissingWeights.length;i++) {
+                            nonMissingWeights[i] = Math.pow(nonMissingWeights[i],-.5);
+                        }
+                              
+                        //Build Weight Matrix W
+                        DoubleMatrix W = DoubleMatrixFactory.DEFAULT.diagonal(nonMissingWeights);
+                        
+                        //Multiply W to Y(y) set to y
+                        //y = y.mult(W);
+                        y = W.mult(y);
+                        //Multiply W to X(fixed) set to fixed
+                        //fixed = fixed.mult(W);
+                        fixed = W.mult(fixed);
+                        //Multiply W to Z(Z) set to Z
+                        //Z = Z.mult(W);
+                        Z = W.mult(Z);
+                    }
+                    else {
+                        //Throw message to user saying need same rows
+                    }
+                }
+                //else Do nothing
+            }
             //fit data without markers
             DoubleMatrix[] zk = computeZKZ(y, fixed, Z, kin, attr.name());
             EMMAforDoubleMatrix emlm = new EMMAforDoubleMatrix(y, fixed, zk[1], zk[0], 0, Double.NaN);

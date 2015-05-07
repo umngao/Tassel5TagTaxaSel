@@ -62,7 +62,7 @@ public class WeightedMLMPlugin extends MLMPlugin{
         this.useRefProb = useRefProb;
     }
 
-    private static final Logger myLogger = Logger.getLogger(MLMPlugin.class);
+    private static final Logger myLogger = Logger.getLogger(WeightedMLMPlugin.class);
     protected DistanceMatrix kinshipMatrix;
     protected boolean analyzeByColumn;
     protected boolean useP3D = true;
@@ -86,8 +86,8 @@ public class WeightedMLMPlugin extends MLMPlugin{
     }
 
     @Override
-    //public DataSet performFunction(DataSet input) {
-    public DataSet processData(DataSet input) {
+    public DataSet performFunction(DataSet input) {
+    //public DataSet processData(DataSet input) {
         try {
 
             java.util.List<Datum> alignInList = input.getDataOfType(GenotypePhenotype.class);
@@ -184,11 +184,11 @@ public class WeightedMLMPlugin extends MLMPlugin{
 
                 if (useP3D) {
                         if (compressionType.equals(CompressionType.Optimum)) {
-                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, true, Double.NaN);
+                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, weightList.get(0),true, true, Double.NaN);
                         } else if (compressionType.equals(CompressionType.Custom)) {
-                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, true, compression);
+                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix,  weightList.get(0),true, true, compression);
                         } else {
-                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, false, true, Double.NaN);
+                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix,  weightList.get(0),false, true, Double.NaN);
                         }
                         theAnalysis.useGenotypeCalls(useGenotype);
                         theAnalysis.useReferenceProbability(useRefProb);
@@ -196,11 +196,11 @@ public class WeightedMLMPlugin extends MLMPlugin{
 
                 } else {
                         if (compressionType.equals(CompressionType.Optimum)) {
-                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, false, Double.NaN);
+                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix,  weightList.get(0),true, false, Double.NaN);
                         } else if (compressionType.equals(CompressionType.Custom)) {
-                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, false, compression);
+                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix,  weightList.get(0),true, false, compression);
                         } else {
-                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, false, false, Double.NaN);
+                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix,  weightList.get(0),false, false, Double.NaN);
                         }
 
                         theAnalysis.useGenotypeCalls(useGenotype);
@@ -581,7 +581,7 @@ class WeightedMLMOptionDialog extends JDialog implements ActionListener {
     }
     
     public static void main(String[] args) {
-        MLMOptionDialog mod = new MLMOptionDialog(null, new boolean[]{true, true, true});
+        WeightedMLMOptionDialog mod = new WeightedMLMOptionDialog(null, new boolean[]{true, true, true});
         mod.dispose();
     }
 
