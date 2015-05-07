@@ -8,9 +8,12 @@ package net.maizegenetics.util;
 
 import java.io.BufferedWriter;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
+import com.google.common.primitives.Ints;
 import org.apache.log4j.Logger;
 
 /**
@@ -81,6 +84,25 @@ public class TableReportBuilder {
             writeRow(row);
         }
 
+    }
+
+    public void addElements(Object... rowElements) {
+        //this uses reflection to append the arrays together.
+        List<Object> list = new ArrayList<>();
+        for (Object rowElement : rowElements) {
+            if(rowElement.getClass().isArray()) {
+                for(int i=0; i< Array.getLength(rowElement);i++){
+                    list.add(Array.get(rowElement,i));
+                }
+            } else {
+                list.add(rowElement);
+            }
+        }
+        //padded to full length
+        for (int i = list.size(); i < myNumColumns; i++) {
+            list.add(null);  //TODO: Terry what should be for empty
+        }
+        add(list.toArray());
     }
 
     private void writeRow(Object[] row) {
