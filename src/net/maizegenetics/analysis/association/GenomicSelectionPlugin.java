@@ -1,15 +1,18 @@
 package net.maizegenetics.analysis.association;
 
 import net.maizegenetics.stats.linearmodels.FactorModelEffect;
+import net.maizegenetics.dna.snp.ExportUtils;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
 import net.maizegenetics.util.OpenBitSet;
+import net.maizegenetics.util.TableReportBuilder;
 import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.NumericAttribute;
 import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.phenotype.PhenotypeAttribute;
 import net.maizegenetics.phenotype.PhenotypeBuilder;
+import net.maizegenetics.phenotype.PhenotypeUtils;
 import net.maizegenetics.phenotype.TaxaAttribute;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
@@ -29,6 +32,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.stats.EMMA.EMMAforDoubleMatrix;
 import net.maizegenetics.stats.linearmodels.BasicShuffler;
@@ -36,6 +40,8 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListUtils;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.taxa.distance.DistanceMatrixUtils;
+import net.maizegenetics.taxa.distance.WriteDistanceMatrix;
+
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 
@@ -105,35 +111,39 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
 //    }
 
     public DataSet processData(DataSet input) {
-        DoubleMatrix phenotype;
-        DistanceMatrix kinshipOriginal;
-        DoubleMatrix fixedEffects;
-        LinkedList<Datum> theResults = new LinkedList<Datum>();
-        List<Datum> myDataList = input.getDataOfType(Phenotype.class);
-        if (myDataList.size() == 0)
-            throw new IllegalArgumentException("No phenotype selected.");
-        if (myDataList.size() > 1)
-            throw new IllegalArgumentException("Too many phenotypes selected.");
-        Phenotype myPhenotype = (Phenotype) myDataList.get(0).getData();
-        
-        myDataList = input.getDataOfType(DistanceMatrix.class);
-        if (myDataList.size() == 0)
-            throw new IllegalArgumentException("No kinship matrix selected.");
-        if (myDataList.size() > 1)
-            throw new IllegalArgumentException("Too many kinship matrices selected.");
-        kinshipOriginal = (DistanceMatrix) myDataList.get(0).getData();
-        
-          //Remove phenos for which no kinship is present
-          TaxaList phenoTaxa = myPhenotype.taxa();
-          TaxaList kinTaxa = kinshipOriginal.getTaxaList();
-          TaxaList jointTaxa = TaxaListUtils.getCommonTaxa(phenoTaxa,kinTaxa);
-          Phenotype reducedPheno = new PhenotypeBuilder()
-                  .fromPhenotype(myPhenotype)
-                  .keepTaxa(jointTaxa)
-                  .build().get(0);
-          
-          //Remove kinship for which no pheno is present
-          DistanceMatrix myKinship = DistanceMatrixUtils.keepTaxa(kinshipOriginal,jointTaxa);
+    	DoubleMatrix phenotype;
+    	DistanceMatrix kinshipOriginal;
+    	DoubleMatrix fixedEffects;
+//    	LinkedList<Datum> theResults = new LinkedList<Datum>();
+    	List<Datum> myDataList = input.getDataOfType(Phenotype.class);
+    	if (myDataList.size() == 0)
+    		throw new IllegalArgumentException("No phenotype selected.");
+    	if (myDataList.size() > 1)
+    		throw new IllegalArgumentException("Too many phenotypes selected.");
+    	Phenotype myPhenotype = (Phenotype) myDataList.get(0).getData();
+    	String inputPhenotypeName = myDataList.get(0).getName();
+
+    	myDataList = input.getDataOfType(DistanceMatrix.class);
+    	if (myDataList.size() == 0)
+    		throw new IllegalArgumentException("No kinship matrix selected.");
+    	if (myDataList.size() > 1)
+    		throw new IllegalArgumentException("Too many kinship matrices selected.");
+    	kinshipOriginal = (DistanceMatrix) myDataList.get(0).getData();
+
+    	//create a report builder for results
+    	String[] columnHeaders = new String[]{"Trait","Iteration","Fold","Accuracy"};
+    	String tableName = "Genomic Prediction Accuracy";
+    	TableReportBuilder myReportBuilder = TableReportBuilder.getInstance(tableName, columnHeaders);
+    	ArrayList<String> commentList = new ArrayList<String>();
+    	
+    	//Remove phenos for which no kinship is present
+    	TaxaList phenoTaxa = myPhenotype.taxa();
+    	TaxaList kinTaxa = kinshipOriginal.getTaxaList();
+    	TaxaList jointTaxa = TaxaListUtils.getCommonTaxa(phenoTaxa,kinTaxa);
+    	Phenotype reducedPheno = new PhenotypeBuilder()
+    	.fromPhenotype(myPhenotype)
+    	.keepTaxa(jointTaxa)
+    	.build().get(0);
           
         //numbers of different things
 //        List<PhenotypeAttribute> dataAttributeList = reducedPheno.attributeListOfType(ATTRIBUTE_TYPE.data);
@@ -154,22 +164,40 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
         for (int addIndex : factorAttrIndex) singlePhenotypeIndex[counter++] = addIndex;
         for (int addIndex : covariateAttrIndex) singlePhenotypeIndex[counter++] = addIndex;
         
+        int numberOfIterations = nIterations.value();
+        int numberOfFolds = kFolds.value();
+        int numberOfTraits = dataAttrIndex.length;
+        int numberOfComputes = numberOfIterations * numberOfFolds * numberOfTraits;
+        int updateProgressValue = Math.max(1, numberOfComputes / 100);
+        int computeCount = 0;
+        
         for (int singleDataIndex : dataAttrIndex) {
         	singlePhenotypeIndex[nAttributes - 1] = singleDataIndex;
         	Phenotype singlePhenotype = new PhenotypeBuilder().fromPhenotype(reducedPheno)
         			.keepAttributes(singlePhenotypeIndex).removeMissingObservations().build().get(0);
             List<PhenotypeAttribute> factorAttributeList = singlePhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor);
             List<PhenotypeAttribute> covariateAttributeList = singlePhenotype.attributeListOfType(ATTRIBUTE_TYPE.covariate);
-//            TaxaAttribute myTaxaAttribute = singlePhenotype.taxaAttribute();
-
             
         	NumericAttribute dataAttribute = (NumericAttribute) singlePhenotype.attributeListOfType(ATTRIBUTE_TYPE.data).get(0);
+        	String traitname = dataAttribute.name();
         	
+            //Remove phenos for which no kinship is present
+            phenoTaxa = singlePhenotype.taxa();
+            kinTaxa = kinshipOriginal.getTaxaList();
+            jointTaxa = TaxaListUtils.getCommonTaxa(phenoTaxa,kinTaxa);
+            
+            //Remove kinship for which no pheno is present
+            DistanceMatrix myKinship = DistanceMatrixUtils.keepTaxa(kinshipOriginal,jointTaxa);
+
             //get phenotype data
             double[] phenotypeData = AssociationUtils.convertFloatArrayToDouble(dataAttribute.floatValues());
             int nObs = phenotypeData.length;
             phenotype = DoubleMatrixFactory.DEFAULT.make(nObs, 1, phenotypeData);
 
+            //debug export -- COMMENT OUT after debugging
+            PhenotypeUtils.write(singlePhenotype, String.format("/Users/pbradbury/temp/phenotype_%s_.txt", traitname));
+            WriteDistanceMatrix.saveDelimitedDistanceMatrix(myKinship, String.format("/Users/pbradbury/temp/kinship_%s_.txt", traitname));
+            
             //make the fixed effect matrix
             int numberOfFactors = factorAttributeList.size();
             int numberOfCovariates = covariateAttributeList.size();
@@ -200,8 +228,6 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
             int foldSize = nObs/kFolds.value();
             int[] seq = IntStream.range(0,nObs).toArray();
             BasicShuffler.reset();//seed is 111 by default within BasicShuffler. This line returns to beginning of that sequence.
-            int numberOfIterations = nIterations.value();
-            int numberOfFolds = kFolds.value();
             double[] rValues = new double[numberOfIterations*numberOfFolds];
             int rValueIndex = 0;
             //Iterate through number of iterations specified.
@@ -218,6 +244,9 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
                         phenoTraining.set(seq[ndx],0,Double.NaN);
                     }
                     
+                    //debug -- export masked phenotypes for validation -- COMMENT OUT after testing
+                    PhenotypeUtils.write(singlePhenotype, String.format("/Users/pbradbury/temp/masked_phenotype_%d:%d_%s_.txt", iter, fold, dataAttribute.name()));
+                    
                     //Run EMMA using G-BLUP constructor (data, fixed, kinship)
                     EMMAforDoubleMatrix runEMMA = new EMMAforDoubleMatrix(phenoTraining,fixedEffects,kinship);
                     runEMMA.solve();
@@ -232,8 +261,12 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
                         testObserved[ndx] = phenotype.get(seqIndex,0);
                     }
                     PearsonsCorrelation Pearsons = new PearsonsCorrelation();
-                    rValues[rValueIndex++] = Pearsons.correlation(testPredictions,testObserved);
+                    double rval = Pearsons.correlation(testPredictions,testObserved);
+                    rValues[rValueIndex++] = rval;
+                    myReportBuilder.add(new Object[]{traitname, new Integer(iter), new Integer(fold), new Double(rval)});
                     startFold = endFold;
+                    computeCount++;
+                    if (computeCount % updateProgressValue == 0) fireProgress(computeCount/updateProgressValue);
                 }
             }
             
@@ -245,7 +278,15 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
             System.out.printf("For phenotype %s\n",dataAttribute.name());
             System.out.printf("Mean from genomic prediction = %1.4f\n",meanR);
             System.out.printf("Standard deviation of mean from genomic prediction = %1.8f\n",sdR);
-            Arrays.stream(rValues).forEach(v -> System.out.printf("%1.4f\n",v));
+            
+            commentList.add(" ");
+            commentList.add(String.format("For phenotype %s",dataAttribute.name()));
+            commentList.add(String.format("Mean from genomic prediction = %1.4f",meanR));
+            commentList.add(String.format("Standard deviation of mean from genomic prediction = %1.8f",sdR));
+//            Arrays.stream(rValues).forEach(v -> System.out.printf("%1.4f\n",v));
+            
+            
+            
             
             //StringBuilder comment = new StringBuilder("Genomic prediction with Ridge Regression");
             //comment.append("based on k-fold cross-validation with specified number of iterations.");
@@ -291,10 +332,13 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
 //            comment2.append(nObs).append(" lines");
 //            theResults.add(new Datum(datumName, gebvPheno, comment2.toString()));
         }
-//
-//        fireDataSetReturned(new DataSet(theResults, this));
-//            	return new DataSet(theResults, this);
-        return null;
+        
+        String comment = "Genomic Prediction Accuracy Summary:\n";
+        for (String commentLine : commentList) {
+        	comment += commentLine + "\n";
+        }
+        DataSet returnData = new DataSet(new Datum("Accuracy_" + inputPhenotypeName,myReportBuilder.build(),comment), this);
+        return returnData;
     }
 
     @Override

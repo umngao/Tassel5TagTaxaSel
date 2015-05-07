@@ -161,19 +161,19 @@ public class EMMAforDoubleMatrix {
 		if (data.numberOfColumns() > 1 && data.numberOfRows() == 1) 
                     throw new IllegalArgumentException("The phenotype data must be a column matrix.");
                                
-                //remove rows in data with missing phenotypic values from Y and Z
-                K = kin;
-                Nran = K.numberOfRows();
-                //int nonmissingY = (int) Arrays.stream(data.to1DArray()).filter(d -> ! Double.isNaN(d)).count();
-                //int[] nonmissingIndex = new int[nonmissingY];
-                int[] nonmissingIndex = IntStream.range(0, Nran).filter(i -> ! Double.isNaN(data.get(i,0))).toArray();
+		//remove rows in data with missing phenotypic values from Y and Z
+		K = kin;
+		Nran = K.numberOfRows();
+		//int nonmissingY = (int) Arrays.stream(data.to1DArray()).filter(d -> ! Double.isNaN(d)).count();
+		//int[] nonmissingIndex = new int[nonmissingY];
+		int[] nonmissingIndex = IntStream.range(0, Nran).filter(i -> ! Double.isNaN(data.get(i,0))).toArray();
 		y = data.getSelection(nonmissingIndex, null);
-                Zoriginal = DoubleMatrixFactory.DEFAULT.identity(Nran);
-                Z = Zoriginal.getSelection(nonmissingIndex, null);
-                
-                N = y.numberOfRows();
-                
-                Xoriginal = fixed;
+		Zoriginal = DoubleMatrixFactory.DEFAULT.identity(Nran);
+		Z = Zoriginal.getSelection(nonmissingIndex, null);
+
+		N = y.numberOfRows();
+
+		Xoriginal = fixed;
 		X = fixed.getSelection(nonmissingIndex, null);
                 
 		q = X.numberOfColumns();
