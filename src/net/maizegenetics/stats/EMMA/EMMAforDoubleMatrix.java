@@ -55,8 +55,10 @@ public class EMMAforDoubleMatrix {
     protected DoubleMatrix blup;
     protected DoubleMatrix pred;
     protected DoubleMatrix res;
+    protected DoubleMatrix pev;
     protected double lnLikelihood;
     protected boolean findDelta = true;
+    protected boolean calculatePEV = false;
     
     protected double lowerlimit = 1e-5;
     protected double upperlimit = 1e5;
@@ -287,13 +289,13 @@ public class EMMAforDoubleMatrix {
 	}
 
 	public void calculateBlupsPredictedResiduals() {
-        blup = calculateBLUP();
+        calculateBLUP();
         pred = calculatePred();
         res = calculateRes();
 	}
 	
 	public void calculateBlupsPredicted() {
-        blup = calculateBLUP();
+        calculateBLUP();
         pred = calculatePred();
 	}
         
@@ -464,12 +466,23 @@ public class EMMAforDoubleMatrix {
     	return invXHX.mult(XtH.mult(y));
     }
     
-    public DoubleMatrix calculateBLUP(){
+    public void calculateBLUP(){
         Xbeta = X.mult(beta);
         DoubleMatrix YminusXbeta = y.minus(Xbeta);
         DoubleMatrix KtransZ = K.mult(Z.transpose());
         DoubleMatrix KtransZinvH = KtransZ.mult(invH);
-        return KtransZinvH.mult(YminusXbeta);
+        blup = KtransZinvH.mult(YminusXbeta);
+        
+        if (calculatePEV) {
+        	DoubleMatrix KZHX = KtransZinvH.mult(X);
+        	DoubleMatrix pevMatrix = K.copy();
+        	pevMatrix = pevMatrix.minus(KtransZinvH.tcrossproduct(KtransZ));
+        	pevMatrix = pevMatrix.minus(KZHX.mult(invXHX).tcrossproduct(KZHX));
+        	int size = pevMatrix.numberOfRows();
+        	pev = DoubleMatrixFactory.DEFAULT.make(size, 1);
+        	for (int i = 0; i < size; i++) pev.set(i, 0, pevMatrix.get(i, i));
+        	pev.scalarMultEquals(varRandomEffect);
+        }
     }
     
     private DoubleMatrix calculatePred(){
@@ -489,9 +502,6 @@ public class EMMAforDoubleMatrix {
     private DoubleMatrix calculateRes(){
         return y.minus(pred);
     }
-    
-    
-    
     
     private double getGenvar(DoubleMatrix beta) {
     	DoubleMatrix res = y.copy();
@@ -535,6 +545,10 @@ public class EMMAforDoubleMatrix {
 		return blup;
 	}
 
+	public DoubleMatrix getPev() {
+		return pev;
+	}
+	
 	public DoubleMatrix getPred() {
 		return pred;
 	}
@@ -616,5 +630,9 @@ public class EMMAforDoubleMatrix {
 	public void solveWithNewData(DoubleMatrix y) {
 		this.y = y;
 		solve();
+	}
+
+	public void setCalculatePEV(boolean calculatePEV) {
+		this.calculatePEV = calculatePEV;
 	}
 }

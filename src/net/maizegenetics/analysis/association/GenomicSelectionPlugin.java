@@ -37,13 +37,17 @@ import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.stats.EMMA.EMMAforDoubleMatrix;
 import net.maizegenetics.stats.linearmodels.BasicShuffler;
 import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.TaxaListUtils;
+import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.taxa.distance.DistanceMatrixUtils;
 import net.maizegenetics.taxa.distance.WriteDistanceMatrix;
 
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+
+import com.sun.scenario.effect.Merge;
 
 public class GenomicSelectionPlugin extends AbstractPlugin {
 
@@ -71,50 +75,8 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
         super(parentFrame, isInteractive);
     }
 
-//    @Override
-//    public DataSet performFunction(DataSet input) {
-//        try {
-//            List<Datum> datasets = input.getDataOfType(GenotypePhenotype.class);
-//            if (datasets.size() < 1) {
-//                String msg = "No datasets of an appropriate type were selected for the GS analysis.";
-//                myLogger.error(msg);
-//                if (isInteractive()) {
-//                    JOptionPane.showMessageDialog(getParentFrame(), msg, "GS Error", JOptionPane.ERROR_MESSAGE);
-//                }
-//                return null;
-//            }
-//
-//            LinkedList<Datum> results = new LinkedList<Datum>();
-//            for (Datum dataset : datasets) {
-//                try {
-//                    LinkedList<Datum> aResult = null;
-//                    aResult = processData(dataset);
-//                    if (aResult != null) {
-//                        results.addAll(aResult);
-//                        fireDataSetReturned(new DataSet(aResult, this));
-//                    }
-//                } catch (Exception e) {
-//                    StringBuilder msg = new StringBuilder("Error in GS processing " + dataset.getName());
-//                    msg.append(". ").append(e.getMessage());
-//                    myLogger.error(msg.toString());
-//                    e.printStackTrace();
-//                    if (isInteractive()) {
-//                        JOptionPane.showMessageDialog(getParentFrame(), msg.toString(), "GS Error", JOptionPane.ERROR_MESSAGE);
-//                    }
-//                }
-//            }
-//
-//            return new DataSet(results, this);
-//        } finally {
-//            fireProgress(100);
-//        }
-//    }
-
     public DataSet processData(DataSet input) {
-    	DoubleMatrix phenotype;
-    	DistanceMatrix kinshipOriginal;
-    	DoubleMatrix fixedEffects;
-//    	LinkedList<Datum> theResults = new LinkedList<Datum>();
+    	//extract phenotypes
     	List<Datum> myDataList = input.getDataOfType(Phenotype.class);
     	if (myDataList.size() == 0)
     		throw new IllegalArgumentException("No phenotype selected.");
@@ -123,12 +85,73 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
     	Phenotype myPhenotype = (Phenotype) myDataList.get(0).getData();
     	String inputPhenotypeName = myDataList.get(0).getName();
 
+    	//extract kinship matrix
     	myDataList = input.getDataOfType(DistanceMatrix.class);
     	if (myDataList.size() == 0)
     		throw new IllegalArgumentException("No kinship matrix selected.");
     	if (myDataList.size() > 1)
     		throw new IllegalArgumentException("Too many kinship matrices selected.");
-    	kinshipOriginal = (DistanceMatrix) myDataList.get(0).getData();
+    	DistanceMatrix kinship = (DistanceMatrix) myDataList.get(0).getData();
+
+    	//Remove phenos for which no kinship is present
+    	TaxaList phenoTaxa = myPhenotype.taxa();
+    	TaxaList kinTaxa = kinship.getTaxaList();
+    	TaxaList jointTaxa = TaxaListUtils.getCommonTaxa(phenoTaxa,kinTaxa);
+    	Phenotype reducedPheno = new PhenotypeBuilder()
+    	.fromPhenotype(myPhenotype)
+    	.keepTaxa(jointTaxa)
+    	.build().get(0);
+
+    	
+    	if (performCrossValidation.value()) {
+    		return processDataforCrossValidation(reducedPheno, kinship, inputPhenotypeName);
+    	} else {
+    		return processDataforPrediction(reducedPheno, kinship, inputPhenotypeName);
+    	}
+    }
+    
+    public DataSet processDataforPrediction(Phenotype myPhenotype, DistanceMatrix kinshipMatrix, String inputPhenotypeName) {
+    	//create a report builder for the results
+    	String[] columnHeaders = new String[]{"Trait","Taxon","Observed","Predicted","PEV"};
+    	String tableName = "Genomic Prediction Results";
+    	TableReportBuilder myReportBuilder = TableReportBuilder.getInstance(tableName, columnHeaders);
+
+    	//run the analysis
+//        int numberOfTraits = myPhenotype.numberOfAttributesOfType(ATTRIBUTE_TYPE.data);
+    	
+        //Remove kinship for which no pheno is present
+        List<Taxon> phenoTaxa = myPhenotype.taxaAttribute().allTaxaAsList();
+        TaxaList phenoTaxaList = new TaxaListBuilder().addAll(phenoTaxa).build();
+        
+        DistanceMatrix myKinship = DistanceMatrixUtils.keepTaxa(kinshipMatrix,phenoTaxaList);
+
+        for (PhenotypeAttribute attr : myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data)) {
+            
+        	NumericAttribute dataAttribute = (NumericAttribute) attr;
+        	String traitname = dataAttribute.name();
+            double[] phenotypeData = AssociationUtils.convertFloatArrayToDouble(dataAttribute.floatValues());
+            int nObs = phenotypeData.length;
+            DoubleMatrix phenotype = DoubleMatrixFactory.DEFAULT.make(nObs, 1, phenotypeData);
+            DoubleMatrix fixedEffects = fixedEffectMatrix(myPhenotype);
+            
+            //Run EMMA using G-BLUP constructor (data, fixed, kinship)
+            DoubleMatrix kinship = DoubleMatrixFactory.DEFAULT.make(myKinship.getClonedDistances());
+            EMMAforDoubleMatrix runEMMA = new EMMAforDoubleMatrix(phenotype,fixedEffects,kinship);
+            runEMMA.solve();
+            runEMMA.calculateBlupsPredicted();
+            
+            //report results
+            
+            
+            
+        }
+
+        return null;
+    }
+    
+    public DataSet processDataforCrossValidation(Phenotype reducedPheno, DistanceMatrix kinshipOriginal, String inputPhenotypeName) {
+    	DoubleMatrix phenotype;
+    	DoubleMatrix fixedEffects;
 
     	//create a report builder for results
     	String[] columnHeaders = new String[]{"Trait","Iteration","Fold","Accuracy"};
@@ -136,21 +159,6 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
     	TableReportBuilder myReportBuilder = TableReportBuilder.getInstance(tableName, columnHeaders);
     	ArrayList<String> commentList = new ArrayList<String>();
     	
-    	//Remove phenos for which no kinship is present
-    	TaxaList phenoTaxa = myPhenotype.taxa();
-    	TaxaList kinTaxa = kinshipOriginal.getTaxaList();
-    	TaxaList jointTaxa = TaxaListUtils.getCommonTaxa(phenoTaxa,kinTaxa);
-    	Phenotype reducedPheno = new PhenotypeBuilder()
-    	.fromPhenotype(myPhenotype)
-    	.keepTaxa(jointTaxa)
-    	.build().get(0);
-          
-        //numbers of different things
-//        List<PhenotypeAttribute> dataAttributeList = reducedPheno.attributeListOfType(ATTRIBUTE_TYPE.data);
-//        List<PhenotypeAttribute> factorAttributeList = reducedPheno.attributeListOfType(ATTRIBUTE_TYPE.factor);
-//        List<PhenotypeAttribute> covariateAttributeList = reducedPheno.attributeListOfType(ATTRIBUTE_TYPE.covariate);
-//        TaxaAttribute myTaxaAttribute = reducedPheno.taxaAttribute();
-
         //create an index that contains all attributes except the data attributes
         //the last index value will be unassigned and will take the value of each data attribute one at a time
         int[] taxaAttrIndex = reducedPheno.attributeIndicesOfType(ATTRIBUTE_TYPE.taxa);
@@ -175,18 +183,15 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
         	singlePhenotypeIndex[nAttributes - 1] = singleDataIndex;
         	Phenotype singlePhenotype = new PhenotypeBuilder().fromPhenotype(reducedPheno)
         			.keepAttributes(singlePhenotypeIndex).removeMissingObservations().build().get(0);
-            List<PhenotypeAttribute> factorAttributeList = singlePhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor);
-            List<PhenotypeAttribute> covariateAttributeList = singlePhenotype.attributeListOfType(ATTRIBUTE_TYPE.covariate);
             
         	NumericAttribute dataAttribute = (NumericAttribute) singlePhenotype.attributeListOfType(ATTRIBUTE_TYPE.data).get(0);
         	String traitname = dataAttribute.name();
         	
-            //Remove phenos for which no kinship is present
-            phenoTaxa = singlePhenotype.taxa();
-            kinTaxa = kinshipOriginal.getTaxaList();
-            jointTaxa = TaxaListUtils.getCommonTaxa(phenoTaxa,kinTaxa);
-            
             //Remove kinship for which no pheno is present
+            TaxaList phenoTaxa = singlePhenotype.taxa();
+            TaxaList kinTaxa = kinshipOriginal.getTaxaList();
+            TaxaList jointTaxa = TaxaListUtils.getCommonTaxa(phenoTaxa,kinTaxa);
+            
             DistanceMatrix myKinship = DistanceMatrixUtils.keepTaxa(kinshipOriginal,jointTaxa);
 
             //get phenotype data
@@ -198,29 +203,7 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
             PhenotypeUtils.write(singlePhenotype, String.format("/Users/pbradbury/temp/phenotype_%s_.txt", traitname));
             WriteDistanceMatrix.saveDelimitedDistanceMatrix(myKinship, String.format("/Users/pbradbury/temp/kinship_%s_.txt", traitname));
             
-            //make the fixed effect matrix
-            int numberOfFactors = factorAttributeList.size();
-            int numberOfCovariates = covariateAttributeList.size();
-            int numberOfEffects = numberOfFactors + numberOfCovariates + 1;
-            
-            if (numberOfEffects > 1) {
-                DoubleMatrix[][] effects = new DoubleMatrix[1][numberOfEffects];
-                effects[0][0] = DoubleMatrixFactory.DEFAULT.make(nObs, 1, 1);
-                for (int i = 0; i < numberOfFactors; i++) {
-                	CategoricalAttribute fa = (CategoricalAttribute) factorAttributeList.get(i);
-                    FactorModelEffect fme = new FactorModelEffect(fa.allIntValues(), true);
-                    effects[0][i + 1] = fme.getX();
-                }
-                for (int i = 0; i < numberOfCovariates; i++) {
-                	NumericAttribute na = (NumericAttribute) covariateAttributeList.get(i);
-                	double[] values = AssociationUtils.convertFloatArrayToDouble(na.floatValues());
-                    effects[0][i + numberOfFactors + 1] = DoubleMatrixFactory.DEFAULT.make(nObs, 1, values);
-                }
-                fixedEffects = DoubleMatrixFactory.DEFAULT.compose(effects);
-            } else {
-                fixedEffects = DoubleMatrixFactory.DEFAULT.make(nObs, 1, 1);
-            }
-            
+            fixedEffects = fixedEffectMatrix(singlePhenotype);
             DoubleMatrix kinship = DoubleMatrixFactory.DEFAULT.make(myKinship.getClonedDistances());
             
             //Create folds for cross-validation
@@ -283,64 +266,49 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
             commentList.add(String.format("For phenotype %s",dataAttribute.name()));
             commentList.add(String.format("Mean from genomic prediction = %1.4f",meanR));
             commentList.add(String.format("Standard deviation of mean from genomic prediction = %1.8f",sdR));
-//            Arrays.stream(rValues).forEach(v -> System.out.printf("%1.4f\n",v));
-            
-            
-            
-            
-            //StringBuilder comment = new StringBuilder("Genomic prediction with Ridge Regression");
-            //comment.append("based on k-fold cross-validation with specified number of iterations.");
-            //theResults.add(new Datum("Predictive Ability", predictiveAbility, comment.toString()));
-            
-//            float[] gebv;
-//            gebv = AssociationUtils.convertDoubleArrayToFloat(predictions);
-//            List<Integer> gebvIndex = IntStream.range(0,gebv.length).boxed().collect(Collectors.toList());
-//            Collections.sort(gebvIndex, new Comparator<Integer>(){
-//
-//                    @Override
-//                    public int compare(Integer t, Integer t1) {
-//                        if (gebv[t] > gebv[t1]) return -1;
-//                        if (gebv[t] < gebv[t1]) return 1;
-//                        return 0;
-//                    }      
-//            });
-//            
-//            int[] sortedIndex = gebvIndex.stream().mapToInt(val -> val.intValue()).toArray();
-//            
-//            String phenoName = attr.name();
-//            ArrayList<PhenotypeAttribute> attributeList = new ArrayList<>();
-//            ArrayList<ATTRIBUTE_TYPE> typeList = new ArrayList<>();
-//            
-//            PhenotypeAttribute myNewTaxa = myTaxaAttribute.subset(sortedIndex,myTaxaAttribute.name());
-//            attributeList.add(myNewTaxa);
-//            typeList.add(ATTRIBUTE_TYPE.taxa);
-//            
-//            PhenotypeAttribute myPheno = new NumericAttribute(phenoName + "_GEBV", gebv, new OpenBitSet(nObs));
-//            myPheno = myPheno.subset(sortedIndex,myPheno.name());
-//            attributeList.add(myPheno);
-//            typeList.add(ATTRIBUTE_TYPE.data);
-//            
-//            Phenotype gebvPheno = new PhenotypeBuilder().assignName("GEBV_" + phenoName)
-//            		.fromAttributeList(attributeList, typeList)
-//            		.build().get(0);
-//            
-//            String datumName = "GEBVs_" + phenoName + "_"; //+ dataset.getName()
-//            StringBuilder comment2 = new StringBuilder("Ridge Regression from ");
-//            //comment2.append(dataset.getName()).append(":\n");
-//            comment2.append("Genomic Estimated Breeding Values (GEBVs)\n");
-//            comment2.append("trait = ").append(phenoName).append("\n");
-//            comment2.append(nObs).append(" lines");
-//            theResults.add(new Datum(datumName, gebvPheno, comment2.toString()));
+
         }
         
+       
         String comment = "Genomic Prediction Accuracy Summary:\n";
         for (String commentLine : commentList) {
         	comment += commentLine + "\n";
         }
         DataSet returnData = new DataSet(new Datum("Accuracy_" + inputPhenotypeName,myReportBuilder.build(),comment), this);
+        
+        fireProgress(100);
         return returnData;
     }
 
+    private DoubleMatrix fixedEffectMatrix(Phenotype aPhenotype) {
+        List<PhenotypeAttribute> factorAttributeList = aPhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor);
+        List<PhenotypeAttribute> covariateAttributeList = aPhenotype.attributeListOfType(ATTRIBUTE_TYPE.covariate);
+
+        int numberOfFactors = factorAttributeList.size();
+        int numberOfCovariates = covariateAttributeList.size();
+        int numberOfEffects = numberOfFactors + numberOfCovariates + 1;
+        int nObs = aPhenotype.numberOfObservations();
+        DoubleMatrix fixedEffects;
+        if (numberOfEffects > 1) {
+            DoubleMatrix[][] effects = new DoubleMatrix[1][numberOfEffects];
+            effects[0][0] = DoubleMatrixFactory.DEFAULT.make(nObs, 1, 1);
+            for (int i = 0; i < numberOfFactors; i++) {
+            	CategoricalAttribute fa = (CategoricalAttribute) factorAttributeList.get(i);
+                FactorModelEffect fme = new FactorModelEffect(fa.allIntValues(), true);
+                effects[0][i + 1] = fme.getX();
+            }
+            for (int i = 0; i < numberOfCovariates; i++) {
+            	NumericAttribute na = (NumericAttribute) covariateAttributeList.get(i);
+            	double[] values = AssociationUtils.convertFloatArrayToDouble(na.floatValues());
+                effects[0][i + numberOfFactors + 1] = DoubleMatrixFactory.DEFAULT.make(nObs, 1, values);
+            }
+            fixedEffects = DoubleMatrixFactory.DEFAULT.compose(effects);
+        } else {
+            fixedEffects = DoubleMatrixFactory.DEFAULT.make(nObs, 1, 1);
+        }
+        return fixedEffects;
+    }
+    
     @Override
     public ImageIcon getIcon() {
         URL imageURL = GenomicSelectionPlugin.class.getResource("/net/maizegenetics/analysis/images/LinearAssociation.gif");
