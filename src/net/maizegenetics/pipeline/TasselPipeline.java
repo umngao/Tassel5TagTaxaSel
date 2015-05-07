@@ -113,13 +113,13 @@ public class TasselPipeline implements PluginListener {
      * Creates a new instance of TasselPipeline
      */
     public TasselPipeline(String args[], TASSELMainFrame frame) {
-        this(args, frame, false);
+        this(args, frame, false, null);
     }
 
     /**
      * Creates a new instance of TasselPipeline
      */
-    public TasselPipeline(String args[], TASSELMainFrame frame, boolean interactive) {
+    public TasselPipeline(String args[], TASSELMainFrame frame, boolean interactive, String name) {
 
         myMainFrame = frame;
         myIsInteractive = interactive;
@@ -146,7 +146,7 @@ public class TasselPipeline implements PluginListener {
             TasselLogging.basicLoggingInfo();
 
             if (myIsInteractive) {
-                myStepsDialog = new TasselPipelineStepsDialog();
+                myStepsDialog = new TasselPipelineStepsDialog(name);
             }
 
             parseArgs(args);

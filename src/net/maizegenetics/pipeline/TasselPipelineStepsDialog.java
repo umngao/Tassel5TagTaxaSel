@@ -147,8 +147,8 @@ public class TasselPipelineStepsDialog extends JDialog implements PluginListener
     private final JPanel myMainPane = new JPanel();
     private String myDescription = null;
 
-    public TasselPipelineStepsDialog() {
-        super((Window) null, "Tassel Workflow", Dialog.ModalityType.MODELESS);
+    public TasselPipelineStepsDialog(String name) {
+        super((Window) null, "Tassel Workflow: " + name, Dialog.ModalityType.MODELESS);
         setLayout(new BorderLayout());
         myMainPane.setLayout(new BoxLayout(myMainPane, BoxLayout.Y_AXIS));
         JScrollPane scroll = new JScrollPane(myMainPane);

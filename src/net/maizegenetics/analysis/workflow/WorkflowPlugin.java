@@ -107,7 +107,7 @@ public class WorkflowPlugin extends AbstractPlugin {
     @Override
     public DataSet processData(DataSet input) {
         try {
-            new TasselPipeline(myArgs, myFrame, true);
+            new TasselPipeline(myArgs, myFrame, true, myButtonName);
             return null;
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
