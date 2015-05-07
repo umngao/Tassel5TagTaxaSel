@@ -768,6 +768,22 @@ public class GenotypeTableUtils {
     }
 
     /**
+     * Ensures diploid value in alphabetical order
+     *
+     * @param genotype diploid genotype
+     *
+     * @return diploid value sorted by order A < C < G < T
+     */
+    public static byte getUnphasedSortedDiploidValue(byte genotype) {
+        byte a= (byte) ((genotype >>> 4) & 0xf);
+        byte b = (byte) (genotype & 0xf);
+        if (a < b) {
+            return (byte) ((a << 4) | b);
+        }
+        return (byte) ((b << 4) | a);
+    }
+
+    /**
      * Combines two genotype values into one diploid value. Returns unknown if
      * either parent is heterozygous or unknown, or alleles are swapped.
      *
