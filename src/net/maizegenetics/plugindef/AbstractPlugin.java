@@ -48,6 +48,8 @@ abstract public class AbstractPlugin implements Plugin {
 
     private static final Logger myLogger = Logger.getLogger(AbstractPlugin.class);
 
+    public static final String DEFAULT_CITATION = "Bradbury PJ, Zhang Z, Kroon DE, Casstevens TM, Ramdoss Y, Buckler ES. (2007) TASSEL: Software for association mapping of complex traits in diverse samples. Bioinformatics 23:2633-2635.";
+
     private final List<PluginListener> myListeners = new ArrayList<>();
     private final List<Plugin> myInputs = new ArrayList<>();
     private DataSet myCurrentInputData = null;
@@ -624,6 +626,20 @@ abstract public class AbstractPlugin implements Plugin {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
+        boolean show_citation = !DEFAULT_CITATION.equals(getCitation());
+        JTextPane citationText = null;
+        if (show_citation) {
+            citationText = new JTextPane();
+            citationText.setContentType("text/html");
+            citationText.setMargin(new Insets(5, 5, 5, 5));
+            citationText.setEditable(false);
+            JScrollPane scroll = new JScrollPane(citationText);
+            scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+            scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+            scroll.setPreferredSize(new Dimension(scroll.getWidth(), 45));
+            panel.add(scroll);
+        }
+
         for (final PluginParameter<?> current : getParameterInstances()) {
             if (current.parameterType() == PluginParameter.PARAMETER_TYPE.GENOTYPE_TABLE) {
                 Datum datum = getGenotypeTable();
@@ -826,6 +842,11 @@ abstract public class AbstractPlugin implements Plugin {
         helpText.setEditable(false);
         tabbedPane.add(new JScrollPane(helpText), "Help");
         dialog.pack();
+        if (show_citation) {
+            citationText.setText(getCitationHTML(dialog.getWidth() / 9));
+            dialog.setMinimumSize(null);
+            dialog.pack();
+        }
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         if (screenSize.getHeight() - 125 < dialog.getHeight()) {
             dialog.setSize(dialog.getWidth(), (int) screenSize.getHeight() - 125);
@@ -878,6 +899,27 @@ abstract public class AbstractPlugin implements Plugin {
             setParameter(current.cmdLineName(), current.defaultValue());
         }
 
+    }
+
+    private String getCitationHTML(int lineWidth) {
+        String citation = getCitation();
+        int count = 10;
+        StringBuilder builder = new StringBuilder();
+        builder.append("<html><center>Citation: ");
+        for (int i = 0, n = citation.length(); i < n; i++) {
+            count++;
+            if (citation.charAt(i) == '\n') {
+                builder.append("<br>");
+                count = 0;
+            } else if ((count > lineWidth) && (citation.charAt(i) == ' ')) {
+                builder.append("<br>");
+                count = 0;
+            } else {
+                builder.append(citation.charAt(i));
+            }
+        }
+        builder.append("</center></html>");
+        return builder.toString();
     }
 
     private void createEnableDisableAction(PluginParameter<?> current, Map<String, JComponent> parameterFields, final JComponent component) {
@@ -1415,7 +1457,7 @@ abstract public class AbstractPlugin implements Plugin {
 
     @Override
     public String getCitation() {
-        return "Bradbury PJ, Zhang Z, Kroon DE, Casstevens TM, Ramdoss Y, Buckler ES. (2007) TASSEL: Software for association mapping of complex traits in diverse samples. Bioinformatics 23:2633-2635.";
+        return DEFAULT_CITATION;
     }
 
     @Override
