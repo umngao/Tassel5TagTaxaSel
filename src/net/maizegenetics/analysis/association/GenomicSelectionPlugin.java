@@ -136,14 +136,34 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
           DistanceMatrix myKinship = DistanceMatrixUtils.keepTaxa(kinshipOriginal,jointTaxa);
           
         //numbers of different things
-        List<PhenotypeAttribute> dataAttributeList = reducedPheno.attributeListOfType(ATTRIBUTE_TYPE.data);
-        List<PhenotypeAttribute> factorAttributeList = reducedPheno.attributeListOfType(ATTRIBUTE_TYPE.factor);
-        List<PhenotypeAttribute> covariateAttributeList = reducedPheno.attributeListOfType(ATTRIBUTE_TYPE.covariate);
-        TaxaAttribute myTaxaAttribute = reducedPheno.taxaAttribute();
+//        List<PhenotypeAttribute> dataAttributeList = reducedPheno.attributeListOfType(ATTRIBUTE_TYPE.data);
+//        List<PhenotypeAttribute> factorAttributeList = reducedPheno.attributeListOfType(ATTRIBUTE_TYPE.factor);
+//        List<PhenotypeAttribute> covariateAttributeList = reducedPheno.attributeListOfType(ATTRIBUTE_TYPE.covariate);
+//        TaxaAttribute myTaxaAttribute = reducedPheno.taxaAttribute();
+
+        //create an index that contains all attributes except the data attributes
+        //the last index value will be unassigned and will take the value of each data attribute one at a time
+        int[] taxaAttrIndex = reducedPheno.attributeIndicesOfType(ATTRIBUTE_TYPE.taxa);
+        int[] dataAttrIndex = reducedPheno.attributeIndicesOfType(ATTRIBUTE_TYPE.data);
+        int[] factorAttrIndex = reducedPheno.attributeIndicesOfType(ATTRIBUTE_TYPE.factor);
+        int[] covariateAttrIndex = reducedPheno.attributeIndicesOfType(ATTRIBUTE_TYPE.covariate);
+        int nAttributes = taxaAttrIndex.length + factorAttrIndex.length + covariateAttrIndex.length + 1;
+        int[] singlePhenotypeIndex = new int[nAttributes];
+        int counter = 0;
+        for (int addIndex : taxaAttrIndex) singlePhenotypeIndex[counter++] = addIndex;
+        for (int addIndex : factorAttrIndex) singlePhenotypeIndex[counter++] = addIndex;
+        for (int addIndex : covariateAttrIndex) singlePhenotypeIndex[counter++] = addIndex;
         
-        //iterate through the phenotypes
-        for (PhenotypeAttribute attr : dataAttributeList) {
-        	NumericAttribute dataAttribute = (NumericAttribute) attr;
+        for (int singleDataIndex : dataAttrIndex) {
+        	singlePhenotypeIndex[nAttributes - 1] = singleDataIndex;
+        	Phenotype singlePhenotype = new PhenotypeBuilder().fromPhenotype(reducedPheno)
+        			.keepAttributes(singlePhenotypeIndex).removeMissingObservations().build().get(0);
+            List<PhenotypeAttribute> factorAttributeList = singlePhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor);
+            List<PhenotypeAttribute> covariateAttributeList = singlePhenotype.attributeListOfType(ATTRIBUTE_TYPE.covariate);
+//            TaxaAttribute myTaxaAttribute = singlePhenotype.taxaAttribute();
+
+            
+        	NumericAttribute dataAttribute = (NumericAttribute) singlePhenotype.attributeListOfType(ATTRIBUTE_TYPE.data).get(0);
         	
             //get phenotype data
             double[] phenotypeData = AssociationUtils.convertFloatArrayToDouble(dataAttribute.floatValues());
@@ -199,7 +219,7 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
                     }
                     
                     //Run EMMA using G-BLUP constructor (data, fixed, kinship)
-                    EMMAforDoubleMatrix runEMMA = new EMMAforDoubleMatrix(phenotype,fixedEffects,kinship);
+                    EMMAforDoubleMatrix runEMMA = new EMMAforDoubleMatrix(phenoTraining,fixedEffects,kinship);
                     runEMMA.solve();
                     runEMMA.calculateBlupsPredicted();
                     double[] predictions = runEMMA.getPred().to1DArray();
@@ -222,7 +242,7 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
             double varR = stats.getVariance();
             double sdR = Math.sqrt(varR/rValues.length);
             
-            System.out.printf("For phenotype %s\n",attr.name());
+            System.out.printf("For phenotype %s\n",dataAttribute.name());
             System.out.printf("Mean from genomic prediction = %1.4f\n",meanR);
             System.out.printf("Standard deviation of mean from genomic prediction = %1.8f\n",sdR);
             Arrays.stream(rValues).forEach(v -> System.out.printf("%1.4f\n",v));
