@@ -283,7 +283,12 @@ public class TasselPipeline implements PluginListener {
             args = tempArgsDesc[0];
             myDescriptions = tempArgsDesc[1];
             if ((myStepsDialog != null) && (tempArgsDesc[2] != null)) {
-                myStepsDialog.setOverallDescription(tempArgsDesc[2][0]);
+                if (tempArgsDesc[2][0] != null) {
+                    myStepsDialog.setOverallDescription(tempArgsDesc[2][0]);
+                }
+                if (tempArgsDesc[2][1] != null) {
+                    myStepsDialog.setCitation(tempArgsDesc[2][1]);
+                }
             }
         } else {
             args = addForkFlagsIfNeeded(args);

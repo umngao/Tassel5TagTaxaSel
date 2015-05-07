@@ -146,6 +146,7 @@ public class TasselPipelineStepsDialog extends JDialog implements PluginListener
     private final Map<Plugin, JTextPane> myTextAreas = new LinkedHashMap<>();
     private final JPanel myMainPane = new JPanel();
     private String myDescription = null;
+    private String myCitation = null;
 
     public TasselPipelineStepsDialog(String name) {
         super((Window) null, "Tassel Workflow: " + name, Dialog.ModalityType.MODELESS);
@@ -165,12 +166,16 @@ public class TasselPipelineStepsDialog extends JDialog implements PluginListener
         buttonPanel.setLayout(new FlowLayout());
         buttonPanel.add(ok);
         getContentPane().add(buttonPanel, BorderLayout.SOUTH);
-        setPreferredSize(new Dimension(400, 600));
+        setPreferredSize(new Dimension(400, 650));
         setResizable(false);
     }
 
     public void setOverallDescription(String description) {
         myDescription = description;
+    }
+    
+    public void setCitation(String citation) {
+        myCitation = citation;
     }
 
     public void addPlugin(Plugin plugin, String description) {
@@ -186,7 +191,17 @@ public class TasselPipelineStepsDialog extends JDialog implements PluginListener
             text.setContentType("text/html");
             text.setText("<h3>" + myDescription + "</h3>");
 
-            text.setMargin(new Insets(10, 10, 10, 10));
+            text.setMargin(new Insets(5, 10, 3, 10));
+            text.setEditable(false);
+            myMainPane.add(text);
+        }
+        
+        if (myCitation != null) {
+            JTextPane text = new JTextPane();
+            text.setContentType("text/html");
+            text.setText("<h3>" + myCitation + "</h3>");
+
+            text.setMargin(new Insets(3, 10, 5, 10));
             text.setEditable(false);
             myMainPane.add(text);
         }

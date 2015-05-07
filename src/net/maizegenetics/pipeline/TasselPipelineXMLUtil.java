@@ -266,6 +266,7 @@ public class TasselPipelineXMLUtil {
             List<String> workflow = new ArrayList<>();
             NodeList children = rootElement.getChildNodes();
             String overallDescription = null;
+            String citation = null;
             for (int i = 0; i < children.getLength(); i++) {
                 Node current = children.item(i);
                 if ((current.getNodeType() == Node.ELEMENT_NODE) && (current.getNodeName().trim().equals("workflow"))) {
@@ -275,6 +276,16 @@ public class TasselPipelineXMLUtil {
                         if (currentDesc.getNodeType() == Node.TEXT_NODE) {
                             String value = currentDesc.getNodeValue().trim();
                             overallDescription = formatDescription(value);
+                            break;
+                        }
+                    }
+                } else if ((current.getNodeType() == Node.ELEMENT_NODE) && (current.getNodeName().trim().equals("citation"))) {
+                    NodeList descNodes = current.getChildNodes();
+                    for (int j = 0; j < descNodes.getLength(); j++) {
+                        Node currentDesc = descNodes.item(j);
+                        if (currentDesc.getNodeType() == Node.TEXT_NODE) {
+                            String value = "Citation: " + currentDesc.getNodeValue().trim();
+                            citation = formatDescription(value);
                             break;
                         }
                     }
@@ -296,7 +307,7 @@ public class TasselPipelineXMLUtil {
             String[][] result = new String[3][];
             result[0] = args;
             result[1] = descriptions;
-            result[2] = new String[]{overallDescription};
+            result[2] = new String[]{overallDescription, citation};
             return result;
 
         } catch (Exception e) {
