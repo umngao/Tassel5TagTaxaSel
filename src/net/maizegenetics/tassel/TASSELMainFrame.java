@@ -22,7 +22,6 @@ package net.maizegenetics.tassel;
 import net.maizegenetics.analysis.popgen.SequenceDiversityPlugin;
 import net.maizegenetics.analysis.distance.KinshipPlugin;
 import net.maizegenetics.analysis.chart.TableDisplayPlugin;
-import net.maizegenetics.analysis.chart.Grid2dDisplayPlugin;
 import net.maizegenetics.analysis.chart.ManhattanDisplayPlugin;
 import net.maizegenetics.analysis.chart.QQDisplayPlugin;
 import net.maizegenetics.analysis.association.EqtlAssociationPlugin;
@@ -677,7 +676,6 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
         result.add(createMenuItem(new TableDisplayPlugin(this, true)));
         result.add(createMenuItem(new ArchaeopteryxPlugin(this, true)));
-        result.add(createMenuItem(new Grid2dDisplayPlugin(this, true)));
         result.add(createMenuItem(new LinkageDiseqDisplayPlugin(this, true)));
         result.add(createMenuItem(new ChartDisplayPlugin(this, true)));
         result.add(createMenuItem(new QQDisplayPlugin(this, true)));
