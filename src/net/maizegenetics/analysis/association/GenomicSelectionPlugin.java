@@ -63,12 +63,14 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
         PluginParameter.Builder<>("kFolds", 5, Integer.class)
             .description("Number of folds to use for k-fold cross-validation (default = 5)")
             .guiName("Number of folds")
+            .dependentOnParameter(performCrossValidation)
             .build();
     
     private PluginParameter<Integer> nIterations = new
         PluginParameter.Builder<>("nIter", 20, Integer.class)
             .description("Number of iterations when running k-fold cross-validation (default = 20)")
             .guiName("Number of iterations")
+            .dependentOnParameter(performCrossValidation)
             .build();
     
     public GenomicSelectionPlugin(Frame parentFrame, boolean isInteractive) {
@@ -117,8 +119,6 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
     	TableReportBuilder myReportBuilder = TableReportBuilder.getInstance(tableName, columnHeaders);
 
     	//run the analysis
-//        int numberOfTraits = myPhenotype.numberOfAttributesOfType(ATTRIBUTE_TYPE.data);
-    	
         //Remove kinship for which no pheno is present
         List<Taxon> phenoTaxa = myPhenotype.taxaAttribute().allTaxaAsList();
         TaxaList phenoTaxaList = new TaxaListBuilder().addAll(phenoTaxa).build();
@@ -137,16 +137,31 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
             //Run EMMA using G-BLUP constructor (data, fixed, kinship)
             DoubleMatrix kinship = DoubleMatrixFactory.DEFAULT.make(myKinship.getClonedDistances());
             EMMAforDoubleMatrix runEMMA = new EMMAforDoubleMatrix(phenotype,fixedEffects,kinship);
+            runEMMA.setCalculatePEV(true);
             runEMMA.solve();
             runEMMA.calculateBlupsPredicted();
             
             //report results
-            
-            
+            //{"Trait","Taxon","Observed","Predicted","PEV"}
+            TaxaAttribute myTaxa = myPhenotype.taxaAttribute();
+            DoubleMatrix predictedValues = runEMMA.getPred();
+            DoubleMatrix pevs = runEMMA.getPev();
+            for (int obs = 0; obs < nObs; obs++) {
+            	Object[] reportRow = new Object[]{
+            			traitname, 
+            			myTaxa.taxon(obs).getName(), 
+            			phenotype.get(obs,  0),
+            			predictedValues.get(obs, 0),
+            			pevs.get(obs, 0)};
+            	myReportBuilder.add(reportRow);
+            }
             
         }
-
-        return null;
+        
+        String datumName = "Prediction_" + inputPhenotypeName;
+        String comment = "Genomic Prediction for " + inputPhenotypeName;
+        DataSet myReportSet = new DataSet(new Datum(datumName, myReportBuilder.build(), comment), this);
+        return myReportSet;
     }
     
     public DataSet processDataforCrossValidation(Phenotype reducedPheno, DistanceMatrix kinshipOriginal, String inputPhenotypeName) {
@@ -228,23 +243,27 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
                     }
                     
                     //debug -- export masked phenotypes for validation -- COMMENT OUT after testing
-                    PhenotypeUtils.write(singlePhenotype, String.format("/Users/pbradbury/temp/masked_phenotype_%d:%d_%s_.txt", iter, fold, dataAttribute.name()));
+//                    PhenotypeUtils.write(singlePhenotype, String.format("/Users/pbradbury/temp/masked_phenotype_%d:%d_%s_.txt", iter, fold, dataAttribute.name()));
                     
                     //Run EMMA using G-BLUP constructor (data, fixed, kinship)
                     EMMAforDoubleMatrix runEMMA = new EMMAforDoubleMatrix(phenoTraining,fixedEffects,kinship);
                     runEMMA.solve();
                     runEMMA.calculateBlupsPredicted();
                     double[] predictions = runEMMA.getPred().to1DArray();
+//                    double[] blups = runEMMA.getBlup().to1DArray(); //debug
                     int testSize = endFold - startFold;
                     double[] testPredictions = new double[testSize];
                     double[] testObserved = new double[testSize];
+//                    double[] testBlups = new double[testSize]; //debug
                     for (int ndx = 0 ; ndx < testSize ; ndx++){
                         int seqIndex = seq[ndx + startFold];
                         testPredictions[ndx] = predictions[seqIndex];
                         testObserved[ndx] = phenotype.get(seqIndex,0);
+//                        testBlups[ndx] = blups[seqIndex]; //debug
                     }
                     PearsonsCorrelation Pearsons = new PearsonsCorrelation();
                     double rval = Pearsons.correlation(testPredictions,testObserved);
+//                    double blupRval = Pearsons.correlation(testBlups,testObserved);  //debug
                     rValues[rValueIndex++] = rval;
                     myReportBuilder.add(new Object[]{traitname, new Integer(iter), new Integer(fold), new Double(rval)});
                     startFold = endFold;
