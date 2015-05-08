@@ -19,6 +19,7 @@
 //Company:    NCSU
 package net.maizegenetics.tassel;
 
+import net.maizegenetics.analysis.imputation.*;
 import net.maizegenetics.analysis.popgen.SequenceDiversityPlugin;
 import net.maizegenetics.analysis.distance.KinshipPlugin;
 import net.maizegenetics.analysis.chart.TableDisplayPlugin;
@@ -100,10 +101,6 @@ import net.maizegenetics.analysis.gbs.SeqToTBTHDF5Plugin;
 import net.maizegenetics.analysis.gbs.TagCountToFastqPlugin;
 import net.maizegenetics.analysis.gbs.UTagCountToTagPairPlugin;
 import net.maizegenetics.analysis.gbs.UTagPairToTOPMPlugin;
-import net.maizegenetics.analysis.imputation.FILLINFindHaplotypesPlugin;
-import net.maizegenetics.analysis.imputation.FILLINImputationPlugin;
-import net.maizegenetics.analysis.imputation.FSFHapImputationPlugin;
-import net.maizegenetics.analysis.imputation.RemoveIndelsForBeaglePlugin;
 import net.maizegenetics.analysis.numericaltransform.ImputationPlugin;
 import net.maizegenetics.analysis.workflow.WorkflowPlugin;
 
@@ -646,6 +643,8 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new FSFHapImputationPlugin(this, true), false));
         result.add(createMenuItem(new ImputationPlugin(this, true), false));
         result.add(createMenuItem(new RemoveIndelsForBeaglePlugin(this, true), false));
+        result.add(createMenuItem(new LDKNNiImputationPlugin(this, true), false));
+        result.add(createMenuItem(new ImputationAccuracyPlugin(this, true), false));
         return result;
     }
 

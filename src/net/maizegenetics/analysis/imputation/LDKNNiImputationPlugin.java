@@ -37,24 +37,24 @@ import static net.maizegenetics.dna.snp.GenotypeTableUtils.getUnphasedSortedDipl
  */
 public class LDKNNiImputationPlugin extends AbstractPlugin {
 
-    private PluginParameter<String> outFileBase = new PluginParameter.Builder<>("o", null, String.class)
-            .guiName("Output filename")
-            .outFile()
-            .required(true)
-            .description("Output file; hmp.txt.gz and .hmp.h5 accepted.")
-            .build();
-
-    private PluginParameter<Integer> maxHighLDSites = new PluginParameter.Builder<>("maxHighLDSSites", 20, Integer.class)
+    private PluginParameter<Integer> maxHighLDSites = new PluginParameter.Builder<>("maxHighLDSSites", 30, Integer.class)
             .range(Range.closed(2, 2000))
             .guiName("Max High LD Sites")
             .description("Maximum number of sites in high LD to use in imputation")
             .build();
 
-    private PluginParameter<Integer> maxKNNTaxa = new PluginParameter.Builder<>("maxKNNTaxa", 20, Integer.class)
+    private PluginParameter<Integer> maxKNNTaxa = new PluginParameter.Builder<>("maxKNNTaxa", 10, Integer.class)
             .range(Range.closed(2, 200))
             .guiName("Max kNN taxa")
             .description("Maximum number of neighbours to use in imputation")
             .build();
+
+    private PluginParameter<Integer> maxDistance = new PluginParameter.Builder<>("maxLDDistance", -1, Integer.class)
+            .guiName("Max distance between site to find LD")
+            .description("Maximum physical distance between sites to look for LD (-1 for no distance cutoff - unlinked chromosomes will be tested)")
+            .build();
+
+
     private static final Logger myLogger = Logger.getLogger(LDKNNiImputationPlugin.class);
 
     public LDKNNiImputationPlugin() {
@@ -78,16 +78,17 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
     public DataSet processData(DataSet input) {
 
         // Load in the genotype table
-        GenotypeTable genotypeTable = (GenotypeTable) input.getDataOfType(GenotypeTable.class).get(0).getData();
+        Datum genoDatum=input.getDataOfType(GenotypeTable.class).get(0);
+        GenotypeTable genotypeTable = (GenotypeTable)genoDatum.getData();
 
         // Create a multimap of the SNPs in highest LD with each SNP
 /*Debatable on what to calc*/ //        Multimap<Position, Position> highLDMap = getHighLDMap(GenotypeTableBuilder.getHomozygousInstance(genotypeTable), maxHighLDSites());
         Multimap<Position, Position> highLDMap = getHighLDMap(genotypeTable, maxHighLDSites());
+        System.out.println("LD calculated");
 
-        LongAdder genotypesMissing = new LongAdder();
-        LongAdder genotypesImputed = new LongAdder();
         GenotypeTableBuilder incSiteBuilder = GenotypeTableBuilder.getSiteIncremental(genotypeTable.taxa());
         //Start imputing site by site
+        LongAdder sites1Kdone=new LongAdder();
         IntStream.range(0, genotypeTable.numberOfSites()).parallel().forEach(posIndex ->
         {
             Position position = genotypeTable.positions().get(posIndex);
@@ -104,14 +105,12 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
                 final GenotypeTable ldGenoTable = GenotypeTableBuilder.getGenotypeCopyInstance(FilterGenotypeTable.getInstance(genotypeTable, positionList));
                 for (int taxon = 0; taxon < currGenos.length; taxon++) {
                     if (currGenos[taxon] == UNKNOWN_DIPLOID_ALLELE) {
-                        genotypesMissing.increment();
                         Multimap<Double, Byte> closeGenotypes = getClosestNonMissingTaxa(genotypeTable.taxa().get(taxon), genotypeTable,
                                 ldGenoTable, position, maxKNNTaxa());
                         if (closeGenotypes.isEmpty()) {
                             newGenos[taxon] = currGenos[taxon];
                         } else {
                             newGenos[taxon] = impute(closeGenotypes, 20);
-                            genotypesImputed.increment();
                         }
                     } else {
                         newGenos[taxon] = currGenos[taxon];
@@ -120,13 +119,14 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
                 }
             }
             incSiteBuilder.addSite(position, newGenos);
+            if((posIndex+1)%100==0) {
+                sites1Kdone.add(100);
+                fireProgress(33+((int)(66*sites1Kdone.longValue())/genotypeTable.numberOfSites()));
+            }
         });
         GenotypeTable impGenotypeTable = incSiteBuilder.build();
-        ExportUtils.writeToHapmap(impGenotypeTable, outFileBase());
 
-        System.out.println("All Distance matrix calculated");
-
-        return null;
+        return new DataSet(new Datum(genoDatum.getName()+"_KNNimp",impGenotypeTable,"Imputed genotypes by KNN imputation"),this);
     }
 
     private Multimap<Double, Byte> getClosestNonMissingTaxa(Taxon inputTaxon, GenotypeTable genotypeTable, GenotypeTable ldGenoTable,
@@ -150,6 +150,7 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
     private Multimap<Position, Position> getHighLDMap(GenotypeTable genotypeTable, int numberOfSNPs) {
         Multimap<Position, Position> highLDMap = ArrayListMultimap.create();
         final int numberOfSites = genotypeTable.numberOfSites();
+        LongAdder sites1Kdone=new LongAdder();
         IntStream.range(0, genotypeTable.numberOfSites()).parallel()
                 .forEach(posIndex ->
                 {
@@ -157,6 +158,9 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
                             .maximumSize(numberOfSNPs).create();
                     for (int site2 = 0; site2 < numberOfSites; site2++) {
                         if (posIndex == site2) {
+                            continue;
+                        }
+                        if(maxDistance()>-1 && Math.abs(genotypeTable.chromosomalPosition(posIndex)-genotypeTable.chromosomalPosition(site2))>maxDistance()) {
                             continue;
                         }
                         LDResult ld = LinkageDisequilibrium.calculateBitLDForHaplotype(false, 20, genotypeTable, posIndex, site2);
@@ -170,6 +174,10 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
                         positionList.add(genotypeTable.positions().get(result.site2()));
                     }
                     highLDMap.putAll(genotypeTable.positions().get(posIndex), positionList);
+                    if((posIndex+1)%1000==0) {
+                        sites1Kdone.add(1000);
+                        fireProgress((int)(33*sites1Kdone.longValue())/numberOfSites);
+                    }
                 });
 
         return highLDMap;
@@ -256,43 +264,19 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
         return "LD KNNi Imputation";
     }
 
-    public static void main(String[] args) {
-        GeneratePluginCode.generate(LDKNNiImputationPlugin.class);
-    }
 
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
     //
-    // public static void main(String[] args) {
-    //     GeneratePluginCode.generate(LDKNNiImputationPlugin.class);
-    // }
+//    public static void main(String[] args) {
+//         GeneratePluginCode.generate(LDKNNiImputationPlugin.class);
+//    }
 
     /**
      * Convenience method to run plugin with one return object.
      */
-    // TODO: Replace <Type> with specific type.
     public GenotypeTable runPlugin(DataSet input) {
         return (GenotypeTable) performFunction(input).getData(0).getData();
-    }
-
-    /**
-     * Output file; hmp.txt.gz and .hmp.h5 accepted.
-     *
-     * @return Output filename
-     */
-    public String outFileBase() {
-        return outFileBase.value();
-    }
-
-    /**
-     * Set Output filename. Output file; hmp.txt.gz and .hmp.h5 accepted.
-     *
-     * @param value Output filename
-     * @return this plugin
-     */
-    public LDKNNiImputationPlugin outFileBase(String value) {
-        outFileBase = new PluginParameter<>(outFileBase, value);
-        return this;
     }
 
     /**
@@ -305,10 +289,11 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
     }
 
     /**
-     * Set Max High LD Sites. Maximum number of sites in high LD to use in
-     * imputation
+     * Set Max High LD Sites. Maximum number of sites in high
+     * LD to use in imputation
      *
      * @param value Max High LD Sites
+     *
      * @return this plugin
      */
     public LDKNNiImputationPlugin maxHighLDSites(Integer value) {
@@ -326,13 +311,40 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
     }
 
     /**
-     * Set Max kNN taxa. Maximum number of neighbours to use in imputation
+     * Set Max kNN taxa. Maximum number of neighbours to use
+     * in imputation
      *
      * @param value Max kNN taxa
+     *
      * @return this plugin
      */
     public LDKNNiImputationPlugin maxKNNTaxa(Integer value) {
         maxKNNTaxa = new PluginParameter<>(maxKNNTaxa, value);
+        return this;
+    }
+
+    /**
+     * Maximum physical distance between sites to look for
+     * LD (-1 for no distance cutoff - unlinked chromosomes
+     * will be tested)
+     *
+     * @return Max distance between site to find LD
+     */
+    public Integer maxDistance() {
+        return maxDistance.value();
+    }
+
+    /**
+     * Set Max distance between site to find LD. Maximum physical
+     * distance between sites to look for LD (-1 for no distance
+     * cutoff - unlinked chromosomes will be tested)
+     *
+     * @param value Max distance between site to find LD
+     *
+     * @return this plugin
+     */
+    public LDKNNiImputationPlugin maxDistance(Integer value) {
+        maxDistance = new PluginParameter<>(maxDistance, value);
         return this;
     }
 
