@@ -282,9 +282,9 @@ public class GenosToABHPlugin extends AbstractPlugin {
         return "Homozygous Genotype";
     }
 
-    public static void main(String[] args) {
-        GeneratePluginCode.generate(GenosToABHPlugin.class);
-        }
+//    public static void main(String[] args) {
+//        GeneratePluginCode.generate(GenosToABHPlugin.class);
+//        }
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
     //
@@ -384,6 +384,11 @@ public class GenosToABHPlugin extends AbstractPlugin {
     public GenosToABHPlugin parentB(String value) {
         parentB = new PluginParameter<>(parentB, value);
         return this;
+    }
+    
+    @Override
+    public String getCitation() {
+    return "Stefan Reuscher, Jeff Glaubitz, Lynn Johnson (2015) First Annual TASSEL Hackathon";
     }
 }
 
