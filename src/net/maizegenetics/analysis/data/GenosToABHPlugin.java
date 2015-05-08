@@ -41,9 +41,9 @@ public class GenosToABHPlugin extends AbstractPlugin {
     private ArrayList<Integer> parentAIndices = null;
     private ArrayList<Integer> parentBIndices = null;
 
-    private PluginParameter<String> infile = new PluginParameter.Builder<>("inputFile", null, String.class)
+    private PluginParameter<String> infile = new PluginParameter.Builder<>("i", null, String.class)
             .required(true).inFile().guiName("Input file").description("Input genotype fileto be converted").build();
-    private PluginParameter<String> outfile= new PluginParameter.Builder<>("outputFile", null, String.class)
+    private PluginParameter<String> outfile= new PluginParameter.Builder<>("o", null, String.class)
             .required(true).outFile().guiName("Output file").description("Output genotype file with ABH encoding").build();
     private PluginParameter<String> parentA = new PluginParameter.Builder<>("parentA", null, String.class)
             .required(true).guiName("Parent A").inFile()
