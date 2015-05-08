@@ -330,6 +330,10 @@ public class GenotypeTableBuilder {
         return new GenotypeTableBuilder(newHDF5File, taxaList, numberOfPositions);
     }
 
+    public static GenotypeTable getInstance(GenotypeTable original, GenotypeCallTable newGenotypes) {
+        return getInstance(newGenotypes, original.positions(), original.taxa(), original.depth(), original.alleleProbability(), original.referenceProbability(), original.dosage(), original.annotations());
+    }
+
     /**
      * Standard approach for creating a new Alignment
      *
