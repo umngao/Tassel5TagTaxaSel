@@ -37,21 +37,21 @@ import static net.maizegenetics.dna.snp.GenotypeTableUtils.getUnphasedSortedDipl
  */
 public class LDKNNiImputationPlugin extends AbstractPlugin {
 
-    private PluginParameter<Integer> maxHighLDSites = new PluginParameter.Builder<>("maxHighLDSSites", 30, Integer.class)
+    private PluginParameter<Integer> highLDSSites = new PluginParameter.Builder<>("highLDSSites", 30, Integer.class)
             .range(Range.closed(2, 2000))
-            .guiName("Max High LD Sites")
-            .description("Maximum number of sites in high LD to use in imputation")
+            .guiName("High LD Sites")
+            .description("Number of sites in high LD to use in imputation")
             .build();
 
-    private PluginParameter<Integer> maxKNNTaxa = new PluginParameter.Builder<>("maxKNNTaxa", 10, Integer.class)
+    private PluginParameter<Integer> knnTaxa = new PluginParameter.Builder<>("knnTaxa", 10, Integer.class)
             .range(Range.closed(2, 200))
-            .guiName("Max kNN taxa")
-            .description("Maximum number of neighbours to use in imputation")
+            .guiName("Number of nearest neighbors")
+            .description("Number of neighbors to use in imputation")
             .build();
 
     private PluginParameter<Integer> maxDistance = new PluginParameter.Builder<>("maxLDDistance", -1, Integer.class)
             .guiName("Max distance between site to find LD")
-            .description("Maximum physical distance between sites to look for LD (-1 for no distance cutoff - unlinked chromosomes will be tested)")
+            .description("Maximum physical distance between sites to search for LD (-1 for no distance cutoff - unlinked chromosomes will be tested)")
             .build();
 
 
@@ -82,8 +82,8 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
         GenotypeTable genotypeTable = (GenotypeTable)genoDatum.getData();
 
         // Create a multimap of the SNPs in highest LD with each SNP
-/*Debatable on what to calc*/ //        Multimap<Position, Position> highLDMap = getHighLDMap(GenotypeTableBuilder.getHomozygousInstance(genotypeTable), maxHighLDSites());
-        Multimap<Position, Position> highLDMap = getHighLDMap(genotypeTable, maxHighLDSites());
+/*Debatable on what to calc*/ //        Multimap<Position, Position> highLDMap = getHighLDMap(GenotypeTableBuilder.getHomozygousInstance(genotypeTable), highLDSSites());
+        Multimap<Position, Position> highLDMap = getHighLDMap(genotypeTable, highLDSSites());
         System.out.println("LD calculated");
 
         GenotypeTableBuilder incSiteBuilder = GenotypeTableBuilder.getSiteIncremental(genotypeTable.taxa());
@@ -95,6 +95,7 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
             PositionList positionList = PositionListBuilder.getInstance(new ArrayList<>(highLDMap.get(position)));
             byte[] currGenos = genotypeTable.genotypeAllTaxa(posIndex);
             byte[] newGenos = new byte[currGenos.length];
+            //set monomorphic sites to the major allele
             if (!genotypeTable.isPolymorphic(posIndex)) {
                 byte monomorphicGenotype = getDiploidValue(genotypeTable.majorAllele(posIndex), genotypeTable.majorAllele(posIndex));
                 for (int i = 0; i < newGenos.length; i++) {
@@ -104,16 +105,16 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
                 //create a site specific in memory filtered alignment to use
                 final GenotypeTable ldGenoTable = GenotypeTableBuilder.getGenotypeCopyInstance(FilterGenotypeTable.getInstance(genotypeTable, positionList));
                 for (int taxon = 0; taxon < currGenos.length; taxon++) {
-                    if (currGenos[taxon] == UNKNOWN_DIPLOID_ALLELE) {
+                    if (currGenos[taxon] == UNKNOWN_DIPLOID_ALLELE) {  //starting imputing
                         Multimap<Double, Byte> closeGenotypes = getClosestNonMissingTaxa(genotypeTable.taxa().get(taxon), genotypeTable,
-                                ldGenoTable, position, maxKNNTaxa());
-                        if (closeGenotypes.isEmpty()) {
-                            newGenos[taxon] = currGenos[taxon];
+                                ldGenoTable, position, knnTaxa());
+                        if (closeGenotypes.isEmpty()) {  //this is empty when two few high LD sites are shared between the target taxon and all others
+                            newGenos[taxon] = UNKNOWN_DIPLOID_ALLELE;
                         } else {
-                            newGenos[taxon] = impute(closeGenotypes, 20);
+                            newGenos[taxon] = impute(closeGenotypes, highLDSSites());  //set to weight mode genotype
                         }
                     } else {
-                        newGenos[taxon] = currGenos[taxon];
+                        newGenos[taxon] = currGenos[taxon];  //keep current genotype.  There is no re-estimating current calls.
                     }
 
                 }
@@ -129,18 +130,28 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
         return new DataSet(new Datum(genoDatum.getName()+"_KNNimp",impGenotypeTable,"Imputed genotypes by KNN imputation"),this);
     }
 
+    /**
+     * Create a multimap of distances between the target taxon with the closest observed genotypes.  Distance is calculated
+     * between the target taxon and all other taxa for the ldGenoTable (subset of high LD sites).
+     * @param inputTaxon Taxon being imputed
+     * @param genotypeTable Master genotype table
+     * @param ldGenoTable Subset genotype table with only the high LD sites
+     * @param targetPosition The position in the master genotype table being imputed.
+     * @param numberOfTaxa number of genotypes to retain
+     * @return Map of distance to genotype call for the target position
+     */
     private Multimap<Double, Byte> getClosestNonMissingTaxa(Taxon inputTaxon, GenotypeTable genotypeTable, GenotypeTable ldGenoTable,
                                                             Position targetPosition, int numberOfTaxa) {
         final int targetPosIdx = genotypeTable.positions().indexOf(targetPosition);
         final int inputTaxonIdx = genotypeTable.taxa().indexOf(inputTaxon);
         byte[] inputTaxonGenotypes = ldGenoTable.genotypeAllSites(inputTaxonIdx);
         MinMaxPriorityQueue<Tuple<Double, Byte>> topTaxa = IntStream.range(0, genotypeTable.numberOfTaxa())
-                .filter(closeTaxonIdx -> closeTaxonIdx != inputTaxonIdx)
-                .filter(closeTaxonIdx -> genotypeTable.genotype(closeTaxonIdx, targetPosIdx) != GenotypeTable.UNKNOWN_DIPLOID_ALLELE)
+                .filter(closeTaxonIdx -> closeTaxonIdx != inputTaxonIdx)  //do test itself
+                .filter(closeTaxonIdx -> genotypeTable.genotype(closeTaxonIdx, targetPosIdx) != GenotypeTable.UNKNOWN_DIPLOID_ALLELE)  //ignore taxa with the genotype not scored
  /*Bad*/ //               .mapToObj(closeTaxonIdx -> new Tuple<>(IBSDistanceMatrix.computeHetDistances(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10)[0], genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))
- /*Best*/.mapToObj(closeTaxonIdx -> new Tuple<>(dist(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10), genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))
+ /*Best*/.mapToObj(closeTaxonIdx -> new Tuple<>(dist(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10), genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))  //calculate the distance
 /*Best*/ //                .mapToObj(closeTaxonIdx -> new Tuple<>(LDKNNiImputationPluginEd.distance(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10)[0], genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))
-                .filter(distanceTaxon -> !Double.isNaN(distanceTaxon.x))
+                .filter(distanceTaxon -> !Double.isNaN(distanceTaxon.x))  //skip is too few sites (<10 results in NaN)
                 .collect(Collectors.toCollection(() -> MinMaxPriorityQueue.maximumSize(numberOfTaxa).create()));
         final Multimap<Double, Byte> distGenoMap = ArrayListMultimap.create();
         topTaxa.stream().forEach(distGeno -> distGenoMap.put(distGeno.x, distGeno.y));
@@ -183,19 +194,26 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
         return highLDMap;
     }
 
-    /*
-    Imputes to the most common genotype weighted by distance
+    /**
+     * Imputes to the most common genotype weighted by distance
+     * @param distGeno Multimap of the closest genotypes and their distance
+     * @param useLDSites Number of high LD sites used.
+     * @return The imputed genotype
      */
     static byte impute(Multimap<Double, Byte> distGeno, int useLDSites) {
-        // Create an array to store the weighted counts
+        // useLDSites  is used to scale distance so is similar to DMs original implementation.
+        // Seems to have at most a small effect on accuracy.  Could be removed?
+
+        // Create an array to store the weighted counts of each genotype
         double[] weightedCount = new double[256];
 
         // For each distance to genotype / genotype pair update the weighted counts
         distGeno.entries().forEach(entry -> {
+            // +128 is because bytes have values from -128..127 but we want 0..255 for array indexes
             weightedCount[entry.getValue() + 128] += 1.0 / (1.0 + useLDSites * entry.getKey());
         });
 
-        // Find the best genotype
+        // Find the best genotype - the one with the maximum rate
         int bestGeno = 0;
         double bestWeightedCount = weightedCount[0];
         for (int i = 1; i < 256; i++) {
@@ -204,6 +222,8 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
                 bestGeno = i;
             }
         }
+
+        //Return the best genotype.  -128 is for the same reason we added it above.
         return (byte) (bestGeno - 128);
     }
 
@@ -268,9 +288,9 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
     //
-//    public static void main(String[] args) {
-//         GeneratePluginCode.generate(LDKNNiImputationPlugin.class);
-//    }
+    public static void main(String[] args) {
+         GeneratePluginCode.generate(LDKNNiImputationPlugin.class);
+    }
 
     /**
      * Convenience method to run plugin with one return object.
@@ -282,44 +302,44 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
     /**
      * Maximum number of sites in high LD to use in imputation
      *
-     * @return Max High LD Sites
+     * @return High LD Sites
      */
-    public Integer maxHighLDSites() {
-        return maxHighLDSites.value();
+    public Integer highLDSSites() {
+        return highLDSSites.value();
     }
 
     /**
-     * Set Max High LD Sites. Maximum number of sites in high
+     * Set High LD Sites. Maximum number of sites in high
      * LD to use in imputation
      *
-     * @param value Max High LD Sites
+     * @param value High LD Sites
      *
      * @return this plugin
      */
-    public LDKNNiImputationPlugin maxHighLDSites(Integer value) {
-        maxHighLDSites = new PluginParameter<>(maxHighLDSites, value);
+    public LDKNNiImputationPlugin highLDSSites(Integer value) {
+        highLDSSites = new PluginParameter<>(highLDSSites, value);
         return this;
     }
 
     /**
      * Maximum number of neighbours to use in imputation
      *
-     * @return Max kNN taxa
+     * @return Number of nearest neighbors
      */
-    public Integer maxKNNTaxa() {
-        return maxKNNTaxa.value();
+    public Integer knnTaxa() {
+        return knnTaxa.value();
     }
 
     /**
-     * Set Max kNN taxa. Maximum number of neighbours to use
-     * in imputation
+     * Set Number of nearest neighbors. Maximum number of
+     * neighbours to use in imputation
      *
-     * @param value Max kNN taxa
+     * @param value Number of nearest neighbors
      *
      * @return this plugin
      */
-    public LDKNNiImputationPlugin maxKNNTaxa(Integer value) {
-        maxKNNTaxa = new PluginParameter<>(maxKNNTaxa, value);
+    public LDKNNiImputationPlugin knnTaxa(Integer value) {
+        knnTaxa = new PluginParameter<>(knnTaxa, value);
         return this;
     }
 
@@ -358,40 +378,39 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
     //TODO Terry revisit where this should
     //TAS-787
     private static double dist(byte[] b1, byte[] b2, int min) {
-        int d = 0;
-        int c = 0;
-        // Get the most similar snps to the current snp
-        // Use the l most similar ones to calculate the distance
+        int distance = 0;
+        int count = 0;
+
         for (int i = 0; i < b1.length; i++) {
+            //Make sure hets are represented the same way
             byte p1 = getUnphasedSortedDiploidValue(b1[i]);
             byte p2 = getUnphasedSortedDiploidValue(b2[i]);
+            //Ignore the case where either genotype is unknown
             if ((p1 != GenotypeTable.UNKNOWN_DIPLOID_ALLELE) && (p2 != GenotypeTable.UNKNOWN_DIPLOID_ALLELE)) {
-                // c counts how many snps we've actually used to scale the
+                // count counts how many snps we've actually used to scale the
                 // distance with since some snps will be unknown
-                c++;
+                count++;
+                //If the genotypes are unknown then we need to increase the distance
                 if (p1 != p2) {
+                    //If either genotype is a het we must be either AA <> Aa or aa <> Aa so add one
                     if (GenotypeTableUtils.isHeterozygous(p1) ||
                             GenotypeTableUtils.isHeterozygous(p2)) {
-                        d += 1;
+                        distance += 1;
+                    //else we must be aa <> AA so add two
                     } else {
-                        d += 2;
+                        distance += 2;
                     }
                 }
             }
         }
-        // If across the l most similar snps there wasn't a single case
-        // where both samples had a known genotype then set the distance to
-        // NaN
 
-        double ret;
-        if (c < min) {
-            ret = Double.NaN;
+        // If we haven't found enough snps to include in the calculation return NaN
+        if (count < min) {
+            return Double.NaN;
         }
         //Else return the scaled distance
         else {
-            ret = ((double) d / (double) (2 * c));
+            return ((double) distance / (double) (2 * count));
         }
-
-        return ret;
     }
 }
