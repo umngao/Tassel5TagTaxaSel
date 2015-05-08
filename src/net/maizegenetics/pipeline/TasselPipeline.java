@@ -15,6 +15,7 @@ import net.maizegenetics.analysis.chart.TableDisplayPlugin;
 import net.maizegenetics.analysis.data.ConvertAlignmentCoordinatesPlugin;
 import net.maizegenetics.analysis.association.FixedEffectLMPlugin;
 import net.maizegenetics.analysis.association.MLMPlugin;
+import net.maizegenetics.analysis.association.WeightedMLMPlugin;
 import net.maizegenetics.analysis.data.PlinkLoadPlugin;
 import net.maizegenetics.analysis.popgen.LinkageDiseqDisplayPlugin;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibriumPlugin;
@@ -62,11 +63,11 @@ import org.apache.log4j.Logger;
 
 import java.io.BufferedReader;
 import java.util.*;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.regex.Pattern;
+
 import net.maizegenetics.analysis.chart.ManhattanDisplayPlugin;
 import net.maizegenetics.analysis.data.PrincipalComponentsPlugin;
 
@@ -516,32 +517,33 @@ public class TasselPipeline implements PluginListener {
                     ManhattanDisplayPlugin plugin = new ManhattanDisplayPlugin(myMainFrame, myIsInteractive);
                     integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-mlm")) {
-                    MLMPlugin plugin = new MLMPlugin(myMainFrame, myIsInteractive);
+                    WeightedMLMPlugin plugin = new WeightedMLMPlugin(myMainFrame, myIsInteractive);
                     integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-mlmVarCompEst")) {
-                    MLMPlugin plugin = (MLMPlugin) findLastPluginFromCurrentPipe(new Class[]{MLMPlugin.class});
+                    WeightedMLMPlugin plugin = (WeightedMLMPlugin) findLastPluginFromCurrentPipe(new Class[]{WeightedMLMPlugin.class});
+                    
                     if (plugin == null) {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: No MLM step defined: " + current);
                     }
                     String method = args[index++].trim();
                     plugin.setVarCompEst(method);
                 } else if (current.equalsIgnoreCase("-mlmCompressionLevel")) {
-                    MLMPlugin plugin = (MLMPlugin) findLastPluginFromCurrentPipe(new Class[]{MLMPlugin.class});
+                    WeightedMLMPlugin plugin = (WeightedMLMPlugin) findLastPluginFromCurrentPipe(new Class[]{WeightedMLMPlugin.class});
                     if (plugin == null) {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: No MLM step defined: " + current);
                     }
                     String type = args[index++].trim();
                     if (type.equalsIgnoreCase("Optimum")) {
-                        plugin.setCompressionType(MLMPlugin.CompressionType.Optimum);
+                        plugin.setCompressionType(WeightedMLMPlugin.CompressionType.Optimum);
                     } else if (type.equalsIgnoreCase("Custom")) {
-                        plugin.setCompressionType(MLMPlugin.CompressionType.Custom);
+                        plugin.setCompressionType(WeightedMLMPlugin.CompressionType.Custom);
                     } else if (type.equalsIgnoreCase("None")) {
-                        plugin.setCompressionType(MLMPlugin.CompressionType.None);
+                        plugin.setCompressionType(WeightedMLMPlugin.CompressionType.None);
                     } else {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: Unknown compression type: " + type);
                     }
                 } else if (current.equalsIgnoreCase("-mlmCustomCompression")) {
-                    MLMPlugin plugin = (MLMPlugin) findLastPluginFromCurrentPipe(new Class[]{MLMPlugin.class});
+                    WeightedMLMPlugin plugin = (WeightedMLMPlugin) findLastPluginFromCurrentPipe(new Class[]{WeightedMLMPlugin.class});
                     if (plugin == null) {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: No MLM step defined: " + current);
                     }
@@ -554,14 +556,14 @@ public class TasselPipeline implements PluginListener {
                     }
                     plugin.setCustomCompression(value);
                 } else if (current.equalsIgnoreCase("-mlmOutputFile")) {
-                    MLMPlugin plugin = (MLMPlugin) findLastPluginFromCurrentPipe(new Class[]{MLMPlugin.class});
+                    WeightedMLMPlugin plugin = (WeightedMLMPlugin) findLastPluginFromCurrentPipe(new Class[]{WeightedMLMPlugin.class});
                     if (plugin == null) {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: No MLM step defined: " + current);
                     }
                     String filename = args[index++].trim();
                     plugin.setOutputName(filename);
                 } else if (current.equalsIgnoreCase("-mlmMaxP")) {
-                    MLMPlugin plugin = (MLMPlugin) findLastPluginFromCurrentPipe(new Class[]{MLMPlugin.class});
+                    WeightedMLMPlugin plugin = (WeightedMLMPlugin) findLastPluginFromCurrentPipe(new Class[]{WeightedMLMPlugin.class});
                     if (plugin == null) {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: No MLM step defined: " + current);
                     }

@@ -68,6 +68,7 @@ public class WeightedMLMPlugin extends MLMPlugin{
     protected boolean useP3D = true;
     protected CompressionType compressionType = CompressionType.Optimum;
     protected double compression = 1;
+    protected List<Datum> weightList;
     private boolean writeOutputToFile = false;
     private String outputName = null;
     private boolean filterOutput = false;
@@ -101,7 +102,8 @@ public class WeightedMLMPlugin extends MLMPlugin{
                 return null;
                 //alignInList = input.getDataOfType(Phenotype.class);
             }
-            java.util.List<Datum> weightList =  input.getDataOfType(Phenotype.class);
+            this.weightList =  input.getDataOfType(Phenotype.class);
+            
             java.util.List<Datum> kinshipList = input.getDataOfType(DistanceMatrix.class);
 
             if (alignInList.size() != 1) {
@@ -133,6 +135,15 @@ public class WeightedMLMPlugin extends MLMPlugin{
                 }
                 return null;
             }
+            if(weightList.size()!=0&&isUseP3D()==false) {
+                String message = "If You are using a Weight Matrix, you must use P3D.";
+                if (isInteractive()) {
+                    JOptionPane.showMessageDialog(getParentFrame(), message);
+                } else {
+                    myLogger.error("performFunction: " + message);
+                }
+                return null;
+            }
             
 
             kinshipMatrix = (DistanceMatrix) kinshipList.get(0).getData();
@@ -140,7 +151,7 @@ public class WeightedMLMPlugin extends MLMPlugin{
 
             if (isInteractive()) {
                 GenotypePhenotype gp = (GenotypePhenotype) alignInList.get(0).getData();
-                WeightedMLMOptionDialog theOptions = new WeightedMLMOptionDialog(getParentFrame(), hasDataTypes(gp));
+                WeightedMLMOptionDialog theOptions = new WeightedMLMOptionDialog(getParentFrame(), hasDataTypes(gp),weightList.size());
 
                 if (theOptions.runClicked) {
                     useP3D = theOptions.useP3D();
@@ -387,6 +398,11 @@ public class WeightedMLMPlugin extends MLMPlugin{
         useAlleleProb = true;
     }
 
+    @Override
+    public String getCitation() {
+        return "Shang Xue, Zachary Miller, Janu Verma, " +
+                " First Annual Tassel Hackathon";
+    }
 }
 
 class WeightedMLMOptionDialog extends JDialog implements ActionListener {
@@ -401,9 +417,11 @@ class WeightedMLMOptionDialog extends JDialog implements ActionListener {
     boolean useDiscrete = true;
     boolean useRefprob = false;
     boolean useAlleleprob = false;
+    int weightedSize;
     
-    WeightedMLMOptionDialog(Frame parentFrame, boolean[] hasTypes) {
+    WeightedMLMOptionDialog(Frame parentFrame, boolean[] hasTypes,int weightedSize) {
         super(parentFrame, true);
+        this.weightedSize = weightedSize;
         final Frame pframe = parentFrame;
         setTitle("MLM Options");
         setSize(new Dimension(350, 300));
@@ -423,9 +441,11 @@ class WeightedMLMOptionDialog extends JDialog implements ActionListener {
         btnNoCompression = new JRadioButton("No Compression", false);
         btnNoCompression.setActionCommand("None");
         btnNoCompression.addActionListener(this);
+        if(weightedSize==0) {
         btnEachMarker = new JRadioButton("Re-estimate after each marker", false);
         btnEachMarker.setActionCommand("Eachmarker");
         btnEachMarker.addActionListener(this);
+        }
         btnP3D = new JRadioButton("P3D (estimate once)", true);
         btnP3D.setActionCommand("P3D");
         btnP3D.addActionListener(this);
@@ -435,7 +455,9 @@ class WeightedMLMOptionDialog extends JDialog implements ActionListener {
         bgCompress.add(btnCustom);
         bgCompress.add(btnNoCompression);
         bgVariance = new ButtonGroup();
+        if(weightedSize==0) {
         bgVariance.add(btnEachMarker);
+        }
         bgVariance.add(btnP3D);
 
         txtCustom = new JTextField(5);
@@ -471,7 +493,9 @@ class WeightedMLMOptionDialog extends JDialog implements ActionListener {
         gbc.gridy = 0;
         variancePanel.add(btnP3D, gbc);
         gbc.gridy++;
+        if(weightedSize==0) {
         variancePanel.add(btnEachMarker, gbc);
+        }
         theContentPane.add(variancePanel, BorderLayout.CENTER);
 
         //panel for choosing a data type, if there is more than one
@@ -611,7 +635,7 @@ class WeightedMLMOptionDialog extends JDialog implements ActionListener {
     }
     
     public static void main(String[] args) {
-        WeightedMLMOptionDialog mod = new WeightedMLMOptionDialog(null, new boolean[]{true, true, true});
+        WeightedMLMOptionDialog mod = new WeightedMLMOptionDialog(null, new boolean[]{true, true, true},0);
         mod.dispose();
     }
 

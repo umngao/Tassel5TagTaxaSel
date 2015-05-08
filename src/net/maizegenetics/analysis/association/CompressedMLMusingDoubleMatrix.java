@@ -138,7 +138,7 @@ public class CompressedMLMusingDoubleMatrix {
     }
 
     public CompressedMLMusingDoubleMatrix(WeightedMLMPlugin parentPlugin, Datum dataset, DistanceMatrix kinshipMatrix, Datum weights, boolean useCompression, boolean useP3D, double compression) {
-       System.out.println("Entered");
+       
         this.parentPlugin = parentPlugin;
         //this.parentPlugin = null;
         this.kinshipMatrix = kinshipMatrix;
