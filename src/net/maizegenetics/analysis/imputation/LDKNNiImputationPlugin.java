@@ -4,48 +4,38 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.MinMaxPriorityQueue;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Range;
-
-import java.awt.Frame;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.atomic.LongAdder;
-import java.util.stream.Collectors;
-
-import net.maizegenetics.plugindef.*;
-
-import java.util.stream.IntStream;
-import javax.swing.*;
-
-import net.maizegenetics.analysis.distance.IBSDistanceMatrix;
 import net.maizegenetics.analysis.popgen.LDResult;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibrium;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.PositionListBuilder;
-import net.maizegenetics.dna.snp.ExportUtils;
-import net.maizegenetics.dna.snp.FilterGenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTableBuilder;
-import net.maizegenetics.dna.snp.ImportUtils;
+import net.maizegenetics.dna.snp.*;
+import net.maizegenetics.plugindef.*;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.Tuple;
 import org.apache.log4j.Logger;
 
+import javax.swing.*;
+import java.awt.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.LongAdder;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static net.maizegenetics.dna.snp.GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+import static net.maizegenetics.dna.snp.GenotypeTableUtils.getDiploidValue;
+import static net.maizegenetics.dna.snp.GenotypeTableUtils.getUnphasedSortedDiploidValue;
+
 /**
- * Need to fill in this
+ * This imputation algorithm uses LD to identify good predictors for each SNP,
+ * and then uses the high LD SNPs to identify K- Nearest Neighbors.
+ * The genotype is called with a weighted mode of the KNNs.
  *
- * @author Daniel Money
- * @author Ed Buckler
+ * @author Daniel Money (Developer and developed the algorithm)
+ * @author Ed Buckler (assisted in conversion to TASSEL)
  */
 public class LDKNNiImputationPlugin extends AbstractPlugin {
-
-//    private PluginParameter<String> hmpFile = new PluginParameter.Builder<>("i", null, String.class)
-//            .guiName("Target file")
-//            .inFile()
-//            .required(true)
-//            .description("Input HapMap file of target genotypes to impute. Accepts all file types supported by TASSEL5.")
-//            .build();
 
     private PluginParameter<String> outFileBase = new PluginParameter.Builder<>("o", null, String.class)
             .guiName("Output filename")
@@ -88,56 +78,48 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
     public DataSet processData(DataSet input) {
 
         // Load in the genotype table
-        GenotypeTable hetGenotypeTable = (GenotypeTable)input.getDataOfType(GenotypeTable.class).get(0).getData();
-        //GenotypeTable hetGenotypeTable = ImportUtils.readGuessFormat(hmpFile());
-        // Create a copy of the table with hets removed for use in LD calcuations
-        final GenotypeTable genotypeTable = GenotypeTableBuilder.getHomozygousInstance(hetGenotypeTable);
+        GenotypeTable genotypeTable = (GenotypeTable) input.getDataOfType(GenotypeTable.class).get(0).getData();
 
-        // Create a multimap of the SNPs in higest LD with each SNP
+        // Create a multimap of the SNPs in highest LD with each SNP
+/*Debatable on what to calc*/ //        Multimap<Position, Position> highLDMap = getHighLDMap(GenotypeTableBuilder.getHomozygousInstance(genotypeTable), maxHighLDSites());
         Multimap<Position, Position> highLDMap = getHighLDMap(genotypeTable, maxHighLDSites());
 
         LongAdder genotypesMissing = new LongAdder();
         LongAdder genotypesImputed = new LongAdder();
-        GenotypeTableBuilder incSiteBuilder = GenotypeTableBuilder.getSiteIncremental(hetGenotypeTable.taxa());
+        GenotypeTableBuilder incSiteBuilder = GenotypeTableBuilder.getSiteIncremental(genotypeTable.taxa());
         //Start imputing site by site
-        IntStream.range(0, hetGenotypeTable.numberOfSites()).parallel().forEach(posIndex ->
+        IntStream.range(0, genotypeTable.numberOfSites()).parallel().forEach(posIndex ->
         {
-            Position position = hetGenotypeTable.positions().get(posIndex);
+            Position position = genotypeTable.positions().get(posIndex);
             PositionList positionList = PositionListBuilder.getInstance(new ArrayList<>(highLDMap.get(position)));
-            byte[] currGenos = hetGenotypeTable.genotypeAllTaxa(posIndex);
+            byte[] currGenos = genotypeTable.genotypeAllTaxa(posIndex);
             byte[] newGenos = new byte[currGenos.length];
-            //create a site specific in memory filtered alignment to use
-            final GenotypeTable ldGenoTable = GenotypeTableBuilder.getGenotypeCopyInstance(FilterGenotypeTable.getInstance(genotypeTable, positionList));
-            for (int taxon = 0; taxon < currGenos.length; taxon++) {
-                if (currGenos[taxon] == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
-                    genotypesMissing.increment();
-                    if (isInvariant(currGenos)) {
-                        newGenos[taxon] = getInvariantGeno(currGenos);
-                        genotypesImputed.increment();
-                    } else {
-                        Multimap<Double, Byte> closeGenotypes = getClosestNonMissingTaxa(hetGenotypeTable.taxa().get(taxon), hetGenotypeTable,
+            if (!genotypeTable.isPolymorphic(posIndex)) {
+                byte monomorphicGenotype = getDiploidValue(genotypeTable.majorAllele(posIndex), genotypeTable.majorAllele(posIndex));
+                for (int i = 0; i < newGenos.length; i++) {
+                    newGenos[i] = (currGenos[i] == UNKNOWN_DIPLOID_ALLELE) ? monomorphicGenotype : currGenos[i];
+                }
+            } else {
+                //create a site specific in memory filtered alignment to use
+                final GenotypeTable ldGenoTable = GenotypeTableBuilder.getGenotypeCopyInstance(FilterGenotypeTable.getInstance(genotypeTable, positionList));
+                for (int taxon = 0; taxon < currGenos.length; taxon++) {
+                    if (currGenos[taxon] == UNKNOWN_DIPLOID_ALLELE) {
+                        genotypesMissing.increment();
+                        Multimap<Double, Byte> closeGenotypes = getClosestNonMissingTaxa(genotypeTable.taxa().get(taxon), genotypeTable,
                                 ldGenoTable, position, maxKNNTaxa());
-                        if (closeGenotypes.isEmpty())
-                        //Collection<Byte> genotype=closeGenotypes.get(0.0);  //replace
-                        //if(genotype.size()==0)
-                        {
+                        if (closeGenotypes.isEmpty()) {
                             newGenos[taxon] = currGenos[taxon];
                         } else {
                             newGenos[taxon] = impute(closeGenotypes, 20);
                             genotypesImputed.increment();
                         }
+                    } else {
+                        newGenos[taxon] = currGenos[taxon];
                     }
-                } else {
-                    newGenos[taxon] = currGenos[taxon];
+
                 }
-
             }
-
             incSiteBuilder.addSite(position, newGenos);
-            if (posIndex % 100 == 0) {
-                System.out.printf("Position:%d Missing:%d Imputed:%d %n", posIndex, genotypesMissing.intValue(), genotypesImputed.intValue());
-            }
-            //System.out.println(position.toString()+":"+ibsDistanceMatrix.meanDistance());
         });
         GenotypeTable impGenotypeTable = incSiteBuilder.build();
         ExportUtils.writeToHapmap(impGenotypeTable, outFileBase());
@@ -145,33 +127,6 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
         System.out.println("All Distance matrix calculated");
 
         return null;
-    }
-
-    private boolean isInvariant(byte[] genos) {
-        byte foundGeno = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
-
-        for (byte geno : genos) {
-            if (geno != GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
-                if (foundGeno == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
-                    foundGeno = geno;
-                } else {
-                    if (foundGeno != geno) {
-                        return false;
-                    }
-                }
-            }
-        }
-        return true;
-    }
-
-    private byte getInvariantGeno(byte[] genos) {
-        for (byte geno : genos) {
-            if (geno != GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
-                return geno;
-            }
-        }
-
-        return GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
     }
 
     private Multimap<Double, Byte> getClosestNonMissingTaxa(Taxon inputTaxon, GenotypeTable genotypeTable, GenotypeTable ldGenoTable,
@@ -182,7 +137,9 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
         MinMaxPriorityQueue<Tuple<Double, Byte>> topTaxa = IntStream.range(0, genotypeTable.numberOfTaxa())
                 .filter(closeTaxonIdx -> closeTaxonIdx != inputTaxonIdx)
                 .filter(closeTaxonIdx -> genotypeTable.genotype(closeTaxonIdx, targetPosIdx) != GenotypeTable.UNKNOWN_DIPLOID_ALLELE)
-                .mapToObj(closeTaxonIdx -> new Tuple<>(IBSDistanceMatrix.computeHetDistances(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10)[0], genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))
+ /*Bad*/ //               .mapToObj(closeTaxonIdx -> new Tuple<>(IBSDistanceMatrix.computeHetDistances(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10)[0], genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))
+ /*Best*/.mapToObj(closeTaxonIdx -> new Tuple<>(dist(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10), genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))
+/*Best*/ //                .mapToObj(closeTaxonIdx -> new Tuple<>(LDKNNiImputationPluginEd.distance(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10)[0], genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))
                 .filter(distanceTaxon -> !Double.isNaN(distanceTaxon.x))
                 .collect(Collectors.toCollection(() -> MinMaxPriorityQueue.maximumSize(numberOfTaxa).create()));
         final Multimap<Double, Byte> distGenoMap = ArrayListMultimap.create();
@@ -192,9 +149,7 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
 
     private Multimap<Position, Position> getHighLDMap(GenotypeTable genotypeTable, int numberOfSNPs) {
         Multimap<Position, Position> highLDMap = ArrayListMultimap.create();
-
         final int numberOfSites = genotypeTable.numberOfSites();
-
         IntStream.range(0, genotypeTable.numberOfSites()).parallel()
                 .forEach(posIndex ->
                 {
@@ -204,7 +159,7 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
                         if (posIndex == site2) {
                             continue;
                         }
-                        LDResult ld = LinkageDisequilibrium.calculateBitLDForHaplotype(true, 20, genotypeTable, posIndex, site2);
+                        LDResult ld = LinkageDisequilibrium.calculateBitLDForHaplotype(false, 20, genotypeTable, posIndex, site2);
                         if (Double.isNaN(ld.r2())) {
                             continue;
                         }
@@ -220,32 +175,70 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
         return highLDMap;
     }
 
-    private byte impute(Multimap<Double, Byte> distGeno, int useLDSites) {
+    /*
+    Imputes to the most common genotype weighted by distance
+     */
+    static byte impute(Multimap<Double, Byte> distGeno, int useLDSites) {
         // Create an array to store the weighted counts
-        double[] weightedCount = new double[255];
+        double[] weightedCount = new double[256];
 
         // For each distance to genotype / genotype pair update the weighted counts
-        distGeno.entries().forEach(entry ->
-        {
+        distGeno.entries().forEach(entry -> {
             weightedCount[entry.getValue() + 128] += 1.0 / (1.0 + useLDSites * entry.getKey());
         });
 
         // Find the best genotype
         int bestGeno = 0;
         double bestWeightedCount = weightedCount[0];
-        for (int i = 1; i < 255; i++) {
+        for (int i = 1; i < 256; i++) {
             if (weightedCount[i] > bestWeightedCount) {
                 bestWeightedCount = weightedCount[i];
                 bestGeno = i;
             }
         }
-
         return (byte) (bestGeno - 128);
     }
 
+    /*
+    Alternative approach to determine the best genotype
+    This is an allele based approaches.  Provides a weighting of each allele, and Heterozygous is called currently
+    if the second allele has the count more than 1/2 the most common.
+
+     Provides roughly the same results as the genotype approach.  An ensemble is best but lower call rate.
+     Both approaches have value.
+     */
+//    public static byte impute(Multimap<Double, Byte> distGeno, int useLDSites) {
+//        // Create an array to store the weighted counts
+//        TByteDoubleMap alleleWeight=new TByteDoubleHashMap(16);
+//
+//        // For each distance to genotype / genotype pair update the weighted counts
+//        distGeno.entries().forEach(entry -> {
+//            byte[] alleles= GenotypeTableUtils.getDiploidValues(entry.getValue());
+//            double weight= 1.0 / (1.0 + useLDSites * entry.getKey());
+//            alleleWeight.adjustOrPutValue(alleles[0],weight,weight);
+//            alleleWeight.adjustOrPutValue(alleles[1],weight,weight);
+//        });
+//
+//        double[] weights= alleleWeight.values();
+//        Arrays.sort(weights);
+//
+//        if(weights.length==1) {
+//            return GenotypeTableUtils.getUnphasedDiploidValue(alleleWeight.keys()[0], alleleWeight.keys()[0]);
+//        } else if(weights[weights.length-1]>(2*weights[weights.length-2])) {
+//            alleleWeight.retainEntries((a,w) -> w>=weights[weights.length-1]);
+//            byte[] alleles=alleleWeight.keys();
+//            return GenotypeTableUtils.getUnphasedDiploidValue(alleles[0], alleles[0]);
+//        } else {
+//            alleleWeight.retainEntries((a,w) -> w>=weights[weights.length-2]);
+//            byte[] alleles=alleleWeight.keys();
+//            return GenotypeTableUtils.getUnphasedDiploidValue(alleles[0], alleles[1]);
+//        }
+//    }
+
     @Override
     public String getCitation() {
-        return "Daniel Money";
+        return "Daniel Money, Kyle Gardner, Heidi Schwaninger, Gan-Yuan Zhong, Sean Myles. (In Review) " +
+                " LinkImpute: fast and accurate genotype imputation for non-model organisms";
     }
 
     @Override
@@ -341,5 +334,52 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
     public LDKNNiImputationPlugin maxKNNTaxa(Integer value) {
         maxKNNTaxa = new PluginParameter<>(maxKNNTaxa, value);
         return this;
+    }
+
+
+    /*
+    Alternative to current IBS distance measure
+    AA <> AA = 0
+    Aa <> Aa = 0 distance (normal IBS distance this is 0.5)
+    AA <> aa = 1 distance
+     */
+    //TODO Terry revisit where this should
+    //TAS-787
+    private static double dist(byte[] b1, byte[] b2, int min) {
+        int d = 0;
+        int c = 0;
+        // Get the most similar snps to the current snp
+        // Use the l most similar ones to calculate the distance
+        for (int i = 0; i < b1.length; i++) {
+            byte p1 = getUnphasedSortedDiploidValue(b1[i]);
+            byte p2 = getUnphasedSortedDiploidValue(b2[i]);
+            if ((p1 != GenotypeTable.UNKNOWN_DIPLOID_ALLELE) && (p2 != GenotypeTable.UNKNOWN_DIPLOID_ALLELE)) {
+                // c counts how many snps we've actually used to scale the
+                // distance with since some snps will be unknown
+                c++;
+                if (p1 != p2) {
+                    if (GenotypeTableUtils.isHeterozygous(p1) ||
+                            GenotypeTableUtils.isHeterozygous(p2)) {
+                        d += 1;
+                    } else {
+                        d += 2;
+                    }
+                }
+            }
+        }
+        // If across the l most similar snps there wasn't a single case
+        // where both samples had a known genotype then set the distance to
+        // NaN
+
+        double ret;
+        if (c < min) {
+            ret = Double.NaN;
+        }
+        //Else return the scaled distance
+        else {
+            ret = ((double) d / (double) (2 * c));
+        }
+
+        return ret;
     }
 }
