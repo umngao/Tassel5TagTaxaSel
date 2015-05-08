@@ -33,6 +33,10 @@ import net.maizegenetics.stats.linearmodels.SweepFast;
 import net.maizegenetics.stats.linearmodels.SymmetricMatrixInverterDM;
 
 import org.apache.log4j.Logger;
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -134,6 +138,7 @@ public class CompressedMLMusingDoubleMatrix {
     }
 
     public CompressedMLMusingDoubleMatrix(WeightedMLMPlugin parentPlugin, Datum dataset, DistanceMatrix kinshipMatrix, Datum weights, boolean useCompression, boolean useP3D, double compression) {
+       System.out.println("Entered");
         this.parentPlugin = parentPlugin;
         //this.parentPlugin = null;
         this.kinshipMatrix = kinshipMatrix;
@@ -258,6 +263,11 @@ public class CompressedMLMusingDoubleMatrix {
 
             //fixed effects matrix
             DoubleMatrix fixed = AssociationUtils.createFixedEffectsArray(factorAttributeList, covariateAttributeList, missing, nonMissingObs);
+            DoubleMatrix W = null;
+            DoubleMatrix WOriginal = null;
+            EMMAforDoubleMatrix emlm = null;
+            DoubleMatrix[] zk = null;
+            
             //Check to see if weightedMLM is used
             if(myWeightMatrix!=null) {
                 //Grab Attribute from myWeightMatrix which matches attr.name()
@@ -272,34 +282,48 @@ public class CompressedMLMusingDoubleMatrix {
                     
                     //Check to make sure numRows(y) == numRows(weight)
                     if(nonMissingObs == nonMissingWeights.length) { 
+                        //Set Original Weight for use in Testing
+                        WOriginal = DoubleMatrixFactory.DEFAULT.diagonal(nonMissingWeights);
+                        
                         //Calculate W = W^{-1/2}
                         for(int i = 0;i<nonMissingWeights.length;i++) {
                             nonMissingWeights[i] = Math.pow(nonMissingWeights[i],-.5);
                         }
                               
                         //Build Weight Matrix W
-                        DoubleMatrix W = DoubleMatrixFactory.DEFAULT.diagonal(nonMissingWeights);
+                        W = DoubleMatrixFactory.DEFAULT.diagonal(nonMissingWeights);
                         
-                        //Multiply W to Y(y) set to y
-                        //y = y.mult(W);
-                        y = W.mult(y);
-                        //Multiply W to X(fixed) set to fixed
-                        //fixed = fixed.mult(W);
-                        fixed = W.mult(fixed);
-                        //Multiply W to Z(Z) set to Z
-                        //Z = Z.mult(W);
-                        Z = W.mult(Z);
+                        //run emlm with weighted values
+                        zk = computeZKZ(W.mult(y), W.mult(fixed), W.mult(Z), kin, attr.name());
+                        emlm = new EMMAforDoubleMatrix(W.mult(y), W.mult(fixed), zk[1], zk[0], 0, Double.NaN);
+                        emlm.solve();
+                        //recompute zk with original values for testing
+                        zk = computeZKZ(y, fixed, Z, kin, attr.name());
+                       
                     }
                     else {
-                        //Throw message to user saying need same rows
+                       //run Standard EMMA without Weights
+                        zk = computeZKZ(y, fixed, Z, kin, attr.name());
+                        emlm = new EMMAforDoubleMatrix(y, fixed, zk[1], zk[0], 0, Double.NaN);
+                        emlm.solve();
                     }
                 }
-                //else Do nothing
+                else {
+                    //Maybe send message to user saying We are using normal MLM for this attribute
+                    //run Standard EMMA without Weights
+                    zk = computeZKZ(y, fixed, Z, kin, attr.name());
+                    emlm = new EMMAforDoubleMatrix(y, fixed, zk[1], zk[0], 0, Double.NaN);
+                    emlm.solve();
+                }
             }
+            else {
+                //run Standard EMMA without Weights
+                zk = computeZKZ(y, fixed, Z, kin, attr.name());
+                emlm = new EMMAforDoubleMatrix(y, fixed, zk[1], zk[0], 0, Double.NaN);
+                emlm.solve();
+            }
+            
             //fit data without markers
-            DoubleMatrix[] zk = computeZKZ(y, fixed, Z, kin, attr.name());
-            EMMAforDoubleMatrix emlm = new EMMAforDoubleMatrix(y, fixed, zk[1], zk[0], 0, Double.NaN);
-            emlm.solve();
             genvar = emlm.getVarRan();
             resvar = emlm.getVarRes();
             lnlk = emlm.getLnLikelihood();
@@ -346,8 +370,14 @@ public class CompressedMLMusingDoubleMatrix {
             //not implemented
 
             if (useP3D) {
-            	DoubleMatrix ZKZ = zk[0].mult(zk[1]).tcrossproduct(zk[0]);
-                Vminus = new SymmetricMatrixInverterDM(calculateV(ZKZ, genvar, resvar));
+                DoubleMatrix ZKZ = zk[0].mult(zk[1]).tcrossproduct(zk[0]);
+                //Check to see if W exists. Alter V calculation accordingly
+            	if(W==null) {
+            	    Vminus = new SymmetricMatrixInverterDM(calculateV(ZKZ, genvar, resvar));
+            	}
+            	else {
+            	    Vminus = new SymmetricMatrixInverterDM(calculateV(ZKZ, WOriginal, genvar, resvar));
+            	}
             }
 
             //iterate markers
@@ -915,6 +945,15 @@ public class CompressedMLMusingDoubleMatrix {
         int n = V.numberOfRows();
         for (int i = 0; i < n; i++) {
             V.set(i, i, V.get(i, i) + resvar);
+        }
+        return V;
+    }
+    
+    public DoubleMatrix calculateV(DoubleMatrix ZKZ, DoubleMatrix W ,double genvar, double resvar) {
+        DoubleMatrix V = ZKZ.scalarMult(genvar);
+        int n = V.numberOfRows();
+        for(int i = 0; i < n; i++) {
+            V.set(i, i, V.get(i, i)+W.get(i,i) * resvar);
         }
         return V;
     }

@@ -86,7 +86,8 @@ public class MLMPlugin extends AbstractPlugin {
     }
 
     @Override
-    public DataSet performFunction(DataSet input) {
+    public DataSet processData(DataSet input) {
+    //public DataSet performFunction(DataSet input) {
 
         try {
 

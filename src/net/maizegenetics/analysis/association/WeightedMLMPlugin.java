@@ -86,8 +86,8 @@ public class WeightedMLMPlugin extends MLMPlugin{
     }
 
     @Override
-    public DataSet performFunction(DataSet input) {
-    //public DataSet processData(DataSet input) {
+    //public DataSet performFunction(DataSet input) {
+    public DataSet processData(DataSet input) {
         try {
 
             java.util.List<Datum> alignInList = input.getDataOfType(GenotypePhenotype.class);
@@ -124,7 +124,7 @@ public class WeightedMLMPlugin extends MLMPlugin{
                 return null;
             }
             
-            if(weightList.size()!= 1) {
+            if(weightList.size()!= 1 && weightList.size()!=0) {
                 String message = "Please select exactly one weight matrix.";
                 if (isInteractive()) {
                     JOptionPane.showMessageDialog(getParentFrame(), message);
@@ -178,17 +178,32 @@ public class WeightedMLMPlugin extends MLMPlugin{
                 Datum current = itr.next();
                 CompressedMLMusingDoubleMatrix theAnalysis;
                 
-                        GenotypeTable myGenotype = ((GenotypePhenotype) current.getData()).genotypeTable();
-                        useGenotype = myGenotype.hasGenotype();
-                        if (!useGenotype) useRefProb = myGenotype.hasReferenceProbablity();
+                GenotypeTable myGenotype = ((GenotypePhenotype) current.getData()).genotypeTable();
+                useGenotype = myGenotype.hasGenotype();
+                if (!useGenotype) useRefProb = myGenotype.hasReferenceProbablity();
 
                 if (useP3D) {
                         if (compressionType.equals(CompressionType.Optimum)) {
+                            if(weightList.size()==0) {
+                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix,true, true, Double.NaN);
+                            }
+                            else {
                                 theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, weightList.get(0),true, true, Double.NaN);
+                            }
                         } else if (compressionType.equals(CompressionType.Custom)) {
-                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix,  weightList.get(0),true, true, compression);
+                            if(weightList.size()==0) {
+                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, true, compression);
+                            }
+                            else {
+                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix,  weightList.get(0),true, true, compression);  
+                            }
                         } else {
+                            if(weightList.size()==0) {
+                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, false, true, Double.NaN);
+                            }
+                            else {
                                 theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix,  weightList.get(0),false, true, Double.NaN);
+                            }
                         }
                         theAnalysis.useGenotypeCalls(useGenotype);
                         theAnalysis.useReferenceProbability(useRefProb);
@@ -196,11 +211,26 @@ public class WeightedMLMPlugin extends MLMPlugin{
 
                 } else {
                         if (compressionType.equals(CompressionType.Optimum)) {
+                            if(weightList.size()==0) {
+                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, false, Double.NaN);   
+                            }
+                            else {
                                 theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix,  weightList.get(0),true, false, Double.NaN);
+                            }
                         } else if (compressionType.equals(CompressionType.Custom)) {
-                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix,  weightList.get(0),true, false, compression);
+                            if(weightList.size()==0) {
+                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, true, false, compression);                                
+                            }
+                            else {
+                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix,  weightList.get(0),true, false, compression); 
+                            }
                         } else {
+                            if(weightList.size()==0) {
+                                theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix, false, false, Double.NaN);
+                            }
+                            else {
                                 theAnalysis = new CompressedMLMusingDoubleMatrix(this, current, kinshipMatrix,  weightList.get(0),false, false, Double.NaN);
+                            }
                         }
 
                         theAnalysis.useGenotypeCalls(useGenotype);
@@ -233,7 +263,7 @@ public class WeightedMLMPlugin extends MLMPlugin{
     }
     
     public ImageIcon getIcon() {
-        URL imageURL = MLMPlugin.class.getResource("/net/maizegenetics/analysis/images/Mix.gif");
+        URL imageURL = WeightedMLMPlugin.class.getResource("/net/maizegenetics/analysis/images/Mix.gif");
         if (imageURL == null) {
             return null;
         } else {
