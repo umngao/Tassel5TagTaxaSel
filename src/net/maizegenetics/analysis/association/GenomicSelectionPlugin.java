@@ -215,8 +215,8 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
             phenotype = DoubleMatrixFactory.DEFAULT.make(nObs, 1, phenotypeData);
 
             //debug export -- COMMENT OUT after debugging
-            PhenotypeUtils.write(singlePhenotype, String.format("/Users/pbradbury/temp/phenotype_%s_.txt", traitname));
-            WriteDistanceMatrix.saveDelimitedDistanceMatrix(myKinship, String.format("/Users/pbradbury/temp/kinship_%s_.txt", traitname));
+//            PhenotypeUtils.write(singlePhenotype, String.format("/Users/pbradbury/temp/phenotype_%s_.txt", traitname));
+//            WriteDistanceMatrix.saveDelimitedDistanceMatrix(myKinship, String.format("/Users/pbradbury/temp/kinship_%s_.txt", traitname));
             
             fixedEffects = fixedEffectMatrix(singlePhenotype);
             DoubleMatrix kinship = DoubleMatrixFactory.DEFAULT.make(myKinship.getClonedDistances());
@@ -352,6 +352,12 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
     public String pluginDescription() {
         return "Predicts phenotypes using G-BLUP for genomic selection using a user-inputted kinship matrix and phenotype(s).";
     }  
+
+    @Override
+	public String getCitation() {
+		return "C Diepenbrock, P Bradbury (2015) First Annual Tassel Hackathon";
+	}
+
     
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
@@ -360,11 +366,10 @@ public class GenomicSelectionPlugin extends AbstractPlugin {
     //     GeneratePluginCode.generate(GenomicSelectionPlugin.class);
     // }
 
-    /**
+	/**
      * Convenience method to run plugin with one return object.
      * @param input
      */
-    // TODO: Replace <Type> with specific type.
     public DataSet runPlugin(DataSet input) {
         return (DataSet) performFunction(input).getData(0).getData();
     }
