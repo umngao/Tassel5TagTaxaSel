@@ -39,6 +39,9 @@ public class ImportUtils {
         // Utility Class - do not instantiate.
     }
 
+    /**
+     * @deprecated Use FileLoadPlugin.read()
+     */
     public static GenotypeTable readGuessFormat(String fileName) {
 
         if (fileName.endsWith(".h5")) {
