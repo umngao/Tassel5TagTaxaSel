@@ -544,18 +544,6 @@ public class IBSDistanceMatrix extends DistanceMatrix {
             }
         }
 
-        public void add(byte[] values) {
-            int taxaIndex = myNumTaxa - values.length;
-            int[] currentCounter = myCounters[taxaIndex];
-            int index = 0;
-            for (int i = 0; i < values.length; i++) {
-                currentCounter[index] += values[i] & 0x1;
-                currentCounter[index + 1] += (values[i] >>> 1) & 0x1;
-                currentCounter[index + 2] += (values[i] >>> 2) & 0x1;
-                index += 3;
-            }
-        }
-
         public void add(long[] values) {
             int index = 0;
             for (int i = 0; i < myNumTaxa; i++) {
@@ -733,8 +721,7 @@ public class IBSDistanceMatrix extends DistanceMatrix {
 
         @Override
         public long estimateSize() {
-            //return (long) (myFence - myCurrentSite) * (long) myNumTaxa;
-            return (long) (myFence - myCurrentSite) / (long) MAX_NUMBER_20_BITS + 1l;
+            return (long) (myFence - myCurrentSite);
         }
 
         @Override
