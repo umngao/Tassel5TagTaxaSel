@@ -14,7 +14,6 @@ import net.maizegenetics.analysis.chart.AbstractDisplayPlugin;
 import net.maizegenetics.analysis.chart.TableDisplayPlugin;
 import net.maizegenetics.analysis.data.ConvertAlignmentCoordinatesPlugin;
 import net.maizegenetics.analysis.association.FixedEffectLMPlugin;
-import net.maizegenetics.analysis.association.MLMPlugin;
 import net.maizegenetics.analysis.association.WeightedMLMPlugin;
 import net.maizegenetics.analysis.data.PlinkLoadPlugin;
 import net.maizegenetics.analysis.popgen.LinkageDiseqDisplayPlugin;
@@ -36,7 +35,6 @@ import net.maizegenetics.analysis.filter.FilterSiteNamePlugin;
 import net.maizegenetics.analysis.filter.FilterAlignmentPlugin;
 import net.maizegenetics.analysis.filter.FilterTraitsPlugin;
 import net.maizegenetics.analysis.filter.FilterSubsetPlugin;
-import net.maizegenetics.analysis.filter.FilterTaxaPropertiesPlugin;
 import net.maizegenetics.analysis.tree.CreateTreePlugin;
 import net.maizegenetics.analysis.tree.ArchaeopteryxPlugin;
 import net.maizegenetics.analysis.association.RidgeRegressionEmmaPlugin;
@@ -106,6 +104,7 @@ public class TasselPipeline implements PluginListener {
     private final Map<Plugin, Integer> myProgressValues = new HashMap<>();
     private final StringBuilder myDeprecatedWarning = new StringBuilder();
     private final boolean myIsInteractive;
+    private final boolean myIsThreaded;
     private TasselPipelineStepsDialog myStepsDialog = null;
     private String[] myDescriptions = null;
     private int myCurrentDescriptionIndex = 0;
@@ -124,6 +123,7 @@ public class TasselPipeline implements PluginListener {
 
         myMainFrame = frame;
         myIsInteractive = interactive;
+        myIsThreaded = !myIsInteractive;
 
         final ExecutorService pool;
         if (myIsInteractive) {
@@ -325,7 +325,7 @@ public class TasselPipeline implements PluginListener {
                     }
                 } else if (current.startsWith("-fork")) {
                     if ((myCurrentPipe != null) && (!myCurrentPipe.isEmpty())) {
-                        myCurrentPipe.get(myCurrentPipe.size() - 1).setThreaded(true);
+                        myCurrentPipe.get(myCurrentPipe.size() - 1).setThreaded(myIsThreaded);
                     }
                     myCurrentFork = current;
                     myCurrentPipe = new ArrayList<>();
@@ -363,7 +363,7 @@ public class TasselPipeline implements PluginListener {
                 } else if (current.startsWith("-combine")) {
                     current = current.replaceFirst("-combine", "-fork");
                     if ((myCurrentPipe != null) && (!myCurrentPipe.isEmpty())) {
-                        myCurrentPipe.get(myCurrentPipe.size() - 1).setThreaded(true);
+                        myCurrentPipe.get(myCurrentPipe.size() - 1).setThreaded(myIsThreaded);
                     }
                     myCurrentFork = current;
                     myCurrentPipe = new ArrayList<>();
@@ -1098,9 +1098,6 @@ public class TasselPipeline implements PluginListener {
 
                     plugin.setIncludeAnnotations(value);
 
-                } else if (current.equalsIgnoreCase("-filterTaxaProperties")) {
-                    FilterTaxaPropertiesPlugin plugin = new FilterTaxaPropertiesPlugin(myMainFrame, myIsInteractive);
-                    integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-filterTaxaNames")) {
                     FilterTaxaAlignmentPlugin plugin = new FilterTaxaAlignmentPlugin(myMainFrame, myIsInteractive);
                     integratePlugin(plugin, true);
@@ -1738,9 +1735,9 @@ public class TasselPipeline implements PluginListener {
             if (ds != null) {
                 List percentage = ds.getDataOfType(Integer.class);
                 Plugin plugin = ds.getCreator();
-                Integer lastValue = (Integer) myProgressValues.get(plugin);
+                Integer lastValue = myProgressValues.get(plugin);
                 if (lastValue == null) {
-                    lastValue = new Integer(0);
+                    lastValue = 0;
                 }
 
                 if (percentage.size() > 0) {
