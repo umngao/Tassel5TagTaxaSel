@@ -493,7 +493,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     }
 
-    public void putSNPQualityProfile(Map<Position, Map<String,Double>> tagAnnotatedPositionMap, String taxaSubset,int counter) {
+    public void putSNPQualityProfile(Map<Position, Map<String,Double>> tagAnnotatedPositionMap, String taxaSubset,int counter) throws SQLException {
         try {
             putSNPPositionsIfAbsent(tagAnnotatedPositionMap.keySet());
             connection.setAutoCommit(false);
@@ -540,8 +540,9 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                     }
                 }
             }
-        } catch (SQLException e) {
+        } catch (SQLException e) {           
             e.printStackTrace();
+            throw e;
         }
 
     }

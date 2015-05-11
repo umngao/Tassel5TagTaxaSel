@@ -193,9 +193,15 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                     Map<Position, Map<String,Double>> resultMap = new HashMap<>();
                     resultMap.put(currentPosition,qualMap);
                     
-                    
-                    tagDataWriter.putSNPQualityProfile(resultMap,myTaxaListName.value(),adder.intValue());
-                    
+                    try {
+                        tagDataWriter.putSNPQualityProfile(resultMap,myTaxaListName.value(),adder.intValue()); 
+                    } catch (Exception sqlE) {
+                        // Exit on SQL exception, (quite likely a UNIQUE constraint issue). 
+                        // Unique constraint issues happens if the data for this taxa list name already exists.
+                        System.out.println("Error processing request.  Quality data may already exist for taxa name "
+                                + taxaListName() + "\n " + sqlE.getMessage());
+                        return null;
+                    }
                     
                     adder.increment();
                     if(adder.intValue()%2000==0) {
@@ -303,9 +309,17 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                         
             Map<Position, Map<String,Double>> resultMap = new HashMap<>();
             resultMap.put(currentPosition,qualMap);
-            
-            
-            tagDataWriter.putSNPQualityProfile(resultMap,myTaxaListName.value(), -1);
+                        
+            try {
+                tagDataWriter.putSNPQualityProfile(resultMap,myTaxaListName.value(),-1); 
+            } catch (Exception sqlE) {
+                // Exit if we hit n SQL error, which is most often a UNIQUE constraint issue. 
+                // This happens if the data for this taxa list name already exists.
+                System.out.println("Error processing request.  Quality data may already exist for taxa name "
+                        + taxaListName() + "\n " + sqlE.getMessage());
+                sqlE.printStackTrace();
+                return null;
+            }
             
             strBuild.append(currentMap.getKey().position().getChromosome().toString());
             strBuild.append("\t");
