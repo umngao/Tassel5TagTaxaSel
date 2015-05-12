@@ -289,6 +289,9 @@ public class IBSDistanceMatrix extends DistanceMatrix {
             for (int i = 0; i < iMn.length; i++) {
                 iMn[i] = iMn[i] & maskBad[i];
             }
+            for (int i = 0; i < iMn2.length; i++) {
+                iMn2[i] = iMn2[i] & maskBad[i];
+            }
         }
         long[] jMj = theTBA.allelePresenceForAllSites(taxon2, Major).getBits();
         long[] jMn = theTBA.allelePresenceForAllSites(taxon2, Minor).getBits();
