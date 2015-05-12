@@ -84,22 +84,6 @@ public class FileLoadPlugin extends AbstractPlugin {
         }
     }
 
-    public static GenotypeTable read(String filename) {
-        FileLoadPlugin plugin = new FileLoadPlugin(null, false);
-        plugin.setTheFileType(TasselFileType.Unknown);
-        plugin.setOpenFiles(new String[]{filename});
-        DataSet dataSet = plugin.performFunction(null);
-        if ((dataSet == null) || (dataSet.getSize() != 1)) {
-            throw new IllegalStateException("FileLoadPlugin: read: nothing was loaded for: " + filename);
-        }
-        Object result = dataSet.getData(0).getData();
-        if (result instanceof GenotypeTable) {
-            return (GenotypeTable) result;
-        } else {
-            throw new IllegalStateException("FileLoadPlugin: read: this file is not a Genotype Table: " + filename);
-        }
-    }
-    
     public DataSet performFunction(DataSet input) {
 
         myWasCancelled = true;

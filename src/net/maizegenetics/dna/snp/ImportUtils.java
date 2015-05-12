@@ -15,11 +15,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
 import java.util.regex.Pattern;
+import net.maizegenetics.analysis.data.FileLoadPlugin;
 import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.dna.snp.io.BuilderFromHapMap;
 import net.maizegenetics.dna.snp.io.BuilderFromPLINK;
+import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 
@@ -40,7 +42,31 @@ public class ImportUtils {
     }
 
     /**
-     * @deprecated Use FileLoadPlugin.read()
+     * This utility attempts to identify the file format(i.e. Hapmap, VCF, HDF5,
+     * Fasta, PLINK, Phylip, Numerical Genotype) of the given file and loads it
+     * as a Genotype Table.
+     *
+     * @param filename
+     * @return
+     */
+    public static GenotypeTable read(String filename) {
+        FileLoadPlugin plugin = new FileLoadPlugin(null, false);
+        plugin.setTheFileType(FileLoadPlugin.TasselFileType.Unknown);
+        plugin.setOpenFiles(new String[]{filename});
+        DataSet dataSet = plugin.performFunction(null);
+        if ((dataSet == null) || (dataSet.getSize() != 1)) {
+            throw new IllegalStateException("ImportUtils: read: nothing was loaded for: " + filename);
+        }
+        Object result = dataSet.getData(0).getData();
+        if (result instanceof GenotypeTable) {
+            return (GenotypeTable) result;
+        } else {
+            throw new IllegalStateException("ImportUtils: read: this file is not a Genotype Table: " + filename);
+        }
+    }
+
+    /**
+     * @deprecated Use ImportUtils.read()
      */
     public static GenotypeTable readGuessFormat(String fileName) {
 
