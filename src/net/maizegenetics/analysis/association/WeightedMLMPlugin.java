@@ -29,7 +29,6 @@ import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.gui.ReportDestinationDialog;
 import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.phenotype.Phenotype;
-import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
@@ -87,7 +86,6 @@ public class WeightedMLMPlugin extends MLMPlugin{
     }
 
     @Override
-    //public DataSet performFunction(DataSet input) {
     public DataSet processData(DataSet input) {
         try {
 
@@ -254,7 +252,6 @@ public class WeightedMLMPlugin extends MLMPlugin{
            }
 
             if (myResults.size() > 0) {
-                fireDataSetReturned(new DataSet(myResults, this));
                 return new DataSet(myResults, this);
             }
             else return null;

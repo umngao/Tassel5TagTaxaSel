@@ -44,14 +44,12 @@
         </importGuess>
     </fork3>
     <runfork3/>
-    <fork4>
-        <combine4>
-            <input1/>
-            <input2/>
-            <input3/>
-            <intersect/> 
-        </combine4>
-    </fork4>
+    <combine4>
+        <input1/>
+        <input2/>
+        <input3/>
+        <intersect/> 
+    </combine4>
     <fork5>
         <importGuess>
             filename

@@ -35,6 +35,7 @@ import net.maizegenetics.analysis.association.EqtlAssociationPlugin;
 import net.maizegenetics.analysis.association.FixedEffectLMPlugin;
 import net.maizegenetics.analysis.association.MLMPlugin;
 import net.maizegenetics.analysis.association.RidgeRegressionEmmaPlugin;
+import net.maizegenetics.analysis.association.WeightedMLMPlugin;
 import net.maizegenetics.analysis.chart.ChartDisplayPlugin;
 import net.maizegenetics.analysis.chart.ManhattanDisplayPlugin;
 import net.maizegenetics.analysis.chart.QQDisplayPlugin;
@@ -122,6 +123,7 @@ public class TasselPipelineStepsDialog extends JDialog implements PluginListener
         MENU_LOCATIONS.put(PrincipalComponentsPlugin.class, "Analysis");
         MENU_LOCATIONS.put(FixedEffectLMPlugin.class, "Analysis");
         MENU_LOCATIONS.put(MLMPlugin.class, "Analysis");
+        MENU_LOCATIONS.put(WeightedMLMPlugin.class, "Analysis");
         MENU_LOCATIONS.put(RidgeRegressionEmmaPlugin.class, "Analysis");
         MENU_LOCATIONS.put(GenotypeSummaryPlugin.class, "Analysis");
         MENU_LOCATIONS.put(StepwiseOLSModelFitterPlugin.class, "Analysis");

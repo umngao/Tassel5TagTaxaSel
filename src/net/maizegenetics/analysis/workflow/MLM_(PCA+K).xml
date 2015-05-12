@@ -46,14 +46,12 @@
         </importGuess>
     </fork4>
     <runfork4/>
-    <fork5>
-        <combine5>
-            <input1/>
-            <input2/>
-            <input4/>
-            <intersect/> 
-        </combine5>
-    </fork5>
+    <combine5>
+        <input1/>
+        <input2/>
+        <input4/>
+        <intersect/> 
+    </combine5>
     <combine6>
         <input5/>
         <input3/>
