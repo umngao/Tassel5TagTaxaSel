@@ -152,7 +152,7 @@ public final class Utils {
                 String fqn = aPackage + "." + simpleName;
                 Class.forName(fqn);
                 fqns.add(fqn);
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 // Do Nothing
             }
         }

@@ -5,6 +5,7 @@
  */
 package net.maizegenetics.analysis.workflow;
 
+import java.io.File;
 import java.net.URL;
 import java.net.URLDecoder;
 
@@ -46,10 +47,19 @@ public class WorkflowPlugin extends AbstractPlugin {
     public static List<WorkflowPlugin> getInstances(TASSELMainFrame parentFrame) {
         List<WorkflowPlugin> result = new ArrayList<>();
         List<String> filenames = getConfigFiles();
-        for (String filename : filenames) {
-            String[] args = new String[]{"-configResourceFile", filename};
-            WorkflowPlugin test = new WorkflowPlugin(parentFrame, buttonName(filename), args);
-            result.add(test);
+        if (!filenames.isEmpty()) {
+            for (String filename : filenames) {
+                String[] args = new String[]{"-configResourceFile", filename};
+                WorkflowPlugin test = new WorkflowPlugin(parentFrame, buttonName(filename), args);
+                result.add(test);
+            }
+        } else {
+            filenames = getConfigFilesFromSrc();
+            for (String filename : filenames) {
+                String[] args = new String[]{"-configFile", filename};
+                WorkflowPlugin test = new WorkflowPlugin(parentFrame, buttonName(filename), args);
+                result.add(test);
+            }
         }
         return result;
     }
@@ -60,12 +70,37 @@ public class WorkflowPlugin extends AbstractPlugin {
 
         try {
             URL directory = WorkflowPlugin.class.getResource("/net/maizegenetics/analysis/workflow/");
-            String jarPath = directory.getPath().substring(5, directory.getPath().indexOf("!"));
-            JarFile jar = new JarFile(URLDecoder.decode(jarPath, "UTF-8"));
-            Enumeration<JarEntry> entries = jar.entries();
-            while (entries.hasMoreElements()) {
-                String name = entries.nextElement().getName();
-                if ((name.startsWith("net/maizegenetics/analysis/workflow/")) && (name.endsWith(".xml"))) {
+            String directoryPath = directory.getPath();
+            if (directoryPath.contains("!")) {
+                String jarPath = directory.getPath().substring(5, directoryPath.indexOf("!"));
+                JarFile jar = new JarFile(URLDecoder.decode(jarPath, "UTF-8"));
+                Enumeration<JarEntry> entries = jar.entries();
+                while (entries.hasMoreElements()) {
+                    String name = entries.nextElement().getName();
+                    if ((name.startsWith("net/maizegenetics/analysis/workflow/")) && (name.endsWith(".xml"))) {
+                        result.add("/" + name);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+        }
+
+        return result;
+
+    }
+
+    private static List<String> getConfigFilesFromSrc() {
+
+        List<String> result = new ArrayList<>();
+
+        try {
+            URL directory = WorkflowPlugin.class.getResource("/net/maizegenetics/analysis/workflow/");
+            String directoryPath = directory.getPath();
+            File temp = new File(directoryPath);
+            for (File current : temp.listFiles()) {
+                String name = current.getCanonicalPath();
+                if (name.endsWith(".xml")) {
                     result.add("/" + name);
                 }
             }
