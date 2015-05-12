@@ -22,6 +22,9 @@ import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginParameter;
 
 /**
+ * The purpose of this class is to mask (make UNKNOWN) a portion of the
+ * genotypes of the given GenotypeTable. The resulting GenotypeTable will be the
+ * same except some genotypes will have been changed to Unknown.
  *
  * @author Terry Casstevens
  */
