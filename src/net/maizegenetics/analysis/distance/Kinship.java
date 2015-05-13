@@ -15,8 +15,10 @@ import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 
 import java.awt.Frame;
-import java.util.ArrayList;
+import java.nio.DoubleBuffer;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.stream.IntStream;
 
 /**
  * Created by IntelliJ IDEA.
@@ -28,7 +30,7 @@ import java.util.List;
 public class Kinship extends DistanceMatrix {
 
     Frame parentFrame;
-    DistanceMatrix dm;
+    DistanceMatrix dm = null;
     GenotypeTable mar;
     Phenotype ped;
     int[][] parents;
@@ -269,8 +271,8 @@ public class Kinship extends DistanceMatrix {
     	// where marker is multi-allelic, leave one allele out to keep markers independent
     	int ntaxa = mar.numberOfTaxa();
     	int nsites = mar.numberOfSites();
-    	double[][] distance = new double[ntaxa][ntaxa];
-    	ArrayList<Double> piList = new ArrayList<Double>();
+    	distance = new double[ntaxa][ntaxa];
+    	double sumpi = 0;
     	
     	//calculate WW' by summing ww' for each allele, where w is a column vector of centered allele counts {2,1,0}
     	for (int s = 0; s < nsites; s++) {
@@ -281,8 +283,9 @@ public class Kinship extends DistanceMatrix {
     		for (int a = 0; a < nalleles - 1; a++) {
     			double pi = ((double) alleleFreq[1][a]) / ((double) totalAlleleCount);
     			double pix2 = 2 * pi;
-    			piList.add(pi);
-    			DoubleMatrix scores = DoubleMatrixFactory.DEFAULT.make(ntaxa, 1, 0);
+    			sumpi += pi * (1 - pi);
+    			double[] scores = new double[ntaxa];
+    			
     			for (int t = 0; t < ntaxa; t++) {
     				byte[] geno = GenotypeTableUtils.getDiploidValues(mar.genotype(t,s));
     				double thisScore = 0;
@@ -291,27 +294,23 @@ public class Kinship extends DistanceMatrix {
     					if (geno[1] == alleleFreq[0][a]) thisScore++;
     					thisScore -= pix2;
     				}
-    				scores.set(t, 0, thisScore);
+    				scores[t] = thisScore;
     			}
     			
     			for (int r = 0; r < ntaxa; r++) {
-    				double rowval = scores.get(r,0);
+    				double rowval = scores[r];
 					distance[r][r] += rowval * rowval;
     				for (int c = r + 1; c < ntaxa; c++) {
-    					distance[r][c] += rowval * scores.get(c, 0);
+    					distance[r][c] += rowval * scores[c];
     				}
     			}
     		}
     	}
     	
-    	double sumpk = 0;
-    	for (Double p : piList) sumpk += p * (1 - p);
-    	sumpk *= 2;
+    	double sumpk = 2 * sumpi;
     	
     	for (int r = 0; r < ntaxa; r++) {
     		distance[r][r] /= sumpk;
-    		//debug
-    		if (r < 5) System.out.printf("For taxon %d dist = %1.5f\n", r, distance[r][r]);
     		for (int c = r + 1; c < ntaxa; c++) {
     			distance[r][c] = distance[c][r] = distance[r][c] / sumpk;
     		}
@@ -320,6 +319,93 @@ public class Kinship extends DistanceMatrix {
     	dm = new DistanceMatrix(distance, mar.taxa());
     }
     
+    /**
+     * Calculates a kinship matrix from genotypes using the method described in 
+     * Endelman and Jannink (2012) G3 2:1407-1413. It is best to impute missing data before calculating. 
+     * However, if data is missing it is replaced by the allele average at that site.
+     * 
+     */
+    public void calculateKinshipFromMarkersV2() {
+    	//mar is the input genotype table
+    	byte missingAllele = GenotypeTable.UNKNOWN_ALLELE;
+    	
+		// from Endelman and Jannink. 2012. G3 2:1407ff
+    	// A = WW'/[2*sumk(pk*qk)]
+    	// where W = centered genotype matrix (centered on marker mean value, marker coded as 2,1,0)
+    	// where marker is multi-allelic, leave one allele out to keep markers independent
+    	int ntaxa = mar.numberOfTaxa();
+    	int nsites = mar.numberOfSites();
+    	distance = new double[ntaxa][ntaxa];
+    	double sumpq = IntStream.range(0, nsites).parallel().mapToDouble(s -> {
+    		int[][] alleleFreq = mar.allelesSortedByFrequency(s);
+    		int nalleles = alleleFreq[0].length;
+    		double totalAlleleCount = mar.totalGametesNonMissingForSite(s);
+    		double pq = 0;
+    		for (int a = 0; a < nalleles - 1; a++) {
+    			double p = alleleFreq[1][a] / totalAlleleCount;
+    			pq += p * (1 - p);
+    		}
+    		return pq;
+    	}).sum();
+    	
+    	//calculate WW' by summing ww' for each allele, where w is a column vector of centered allele counts {2,1,0}
+    	BiConsumer<double[][], Integer> siteDistance = (dist, site) -> {
+    		int s = site.intValue();
+    		int[][] alleleFreq = mar.allelesSortedByFrequency(s);
+    		int nalleles = alleleFreq[0].length;
+    		int totalAlleleCount = mar.totalGametesNonMissingForSite(s);
+    		
+    		for (int a = 0; a < nalleles - 1; a++) {
+    			double pi = ((double) alleleFreq[1][a]) / ((double) totalAlleleCount);
+    			double pix2 = 2 * pi;
+    			double[] scores = new double[ntaxa];
+    			
+    			for (int t = 0; t < ntaxa; t++) {
+    				byte[] geno = GenotypeTableUtils.getDiploidValues(mar.genotype(t,s));
+    				double thisScore = 0;
+    				if (geno[0] != missingAllele) {
+    					if (geno[0] == alleleFreq[0][a]) thisScore++;
+    					if (geno[1] == alleleFreq[0][a]) thisScore++;
+    					thisScore -= pix2;
+    				}
+    				scores[t] = thisScore;
+    			}
+    			
+    			for (int r = 0; r < ntaxa; r++) {
+    				double rowval = scores[r];
+					dist[r][r] += rowval * rowval;
+    				for (int c = r + 1; c < ntaxa; c++) {
+    					dist[r][c] += rowval * scores[c];
+    				}
+    			}
+    		}
+    	};
+    	
+    	BiConsumer<double[][], double[][]> mergeDistance = (d1, d2) -> {
+    		for (int r = 0; r < ntaxa; r++) {
+    			double[] row1 = d1[r];
+    			double[] row2 = d2[r];
+    			for (int c = 0; c < ntaxa; c++) {
+    				row1[c] += row2[c];
+    			}
+    		}
+    	};
+    	
+    	distance = IntStream.range(0, nsites).boxed().parallel().collect(() -> new double[ntaxa][ntaxa], siteDistance, mergeDistance);
+    	
+    	double sumpk = 2 * sumpq;
+    	
+    	for (int r = 0; r < ntaxa; r++) {
+    		distance[r][r] /= sumpk;
+    		for (int c = r + 1; c < ntaxa; c++) {
+    			distance[r][c] = distance[c][r] = distance[r][c] / sumpk;
+    		}
+    	}
+    	
+    	dm = new DistanceMatrix(distance, mar.taxa());
+    	System.out.print("");
+    }
+
     public void calculateRelationshipKinshipFromReferenceProbability() {
     	ReferenceProbability referenceP = mar.referenceProbability();
     	
