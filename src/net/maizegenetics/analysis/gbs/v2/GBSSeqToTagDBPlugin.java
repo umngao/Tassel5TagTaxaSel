@@ -80,12 +80,6 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
     private TagDistributionMap tagCntMap;
     private boolean taglenException;
 
-    static final String inputFileGlob="glob:*{.fq,fq.gz,fastq,fastq.txt,fastq.gz,fastq.txt.gz,_sequence.txt,_sequence.txt.gz}";
-    static final String sampleNameField="FullSampleName";
-    static final String flowcellField="Flowcell";
-    static final String laneField="Lane";
-    static final String barcodeField="Barcode";
-
     public GBSSeqToTagDBPlugin() {
         super(null, false);
     }
@@ -152,68 +146,68 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         try {
             //Get the list of fastq files
             Path keyPath= Paths.get(keyFile()).toAbsolutePath();
-            List<Path> directoryFiles= DirectoryCrawler.listPaths(inputFileGlob, Paths.get(myInputDir.value()).toAbsolutePath());
+            List<Path> directoryFiles= DirectoryCrawler.listPaths(GBSUtils.inputFileGlob, Paths.get(myInputDir.value()).toAbsolutePath());
             if(directoryFiles.isEmpty()) { 
-                myLogger.warn("No files matching:"+inputFileGlob);
+                myLogger.warn("No files matching:"+ GBSUtils.inputFileGlob);
                 return null;
             } 
             // Cull files that are not represented in the given key file 
-            List<Path> inputSeqFiles = culledFiles(directoryFiles,keyPath);
+            List<Path> inputSeqFiles = GBSUtils.culledFiles(directoryFiles,keyPath);
             if (inputSeqFiles.size() == 0) return null; // no files in this directory to process
             //Files in a batch have roughly the same size
             //inputSeqFiles = this.sortFastqBySize(inputSeqFiles);
             int batchNum = inputSeqFiles.size()/batchSize;
             if (inputSeqFiles.size()%batchSize != 0) batchNum++;
-            TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), sampleNameField, new HashMap<>(), true);
+            TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), GBSUtils.sampleNameField, new HashMap<>(), true);
             taglenException = false;
             for (int i = 0; i < inputSeqFiles.size(); i+=batchSize) {
                 int end = i+batchSize;
                 if (end > inputSeqFiles.size()) end = inputSeqFiles.size();
                 ArrayList<Path> sub = new ArrayList();
                 for (int j = i; j < end; j++) sub.add(inputSeqFiles.get(j));
-                    System.out.println("\nStart processing batch " + String.valueOf(i/batchSize+1));
-                    sub.parallelStream()
-                    .forEach(inputSeqFile -> {
+                System.out.println("\nStart processing batch " + String.valueOf(i/batchSize+1));
+                sub.parallelStream()
+                .forEach(inputSeqFile -> {
                     try {
-						processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),
-						        minimumQualityScore(), tagCntMap, maximumTagLength());
-					} catch (StringIndexOutOfBoundsException oobe) {
-						oobe.printStackTrace();
-						myLogger.error(oobe.getMessage());
-						setTagLenException();
-						return;
-					}
-                    });
-                    if (taglenException == true) return null; // Tag length failure from processFastQ - halt processing
-                    
-                    System.out.println("\nTags are added from batch "+String.valueOf(i/batchSize+1) + ". Total batch number: " + batchNum);
-                    int currentSize = tagCntMap.size();
-                    System.out.println("Current tag number: " + String.valueOf(currentSize) + ". Max tag number: " + String.valueOf(myMaxTagNumber.value()));
-                    System.out.println(String.valueOf((float)currentSize/(float)myMaxTagNumber.value()) + " of max tag number");
-                  
-                    if (currentSize > 0) { // calcTagMapStats() gets "divide by 0" error when size == 0
+                        processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),
+                                minimumQualityScore(), tagCntMap, maximumTagLength());
+                    } catch (StringIndexOutOfBoundsException oobe) {
+                        oobe.printStackTrace();
+                        myLogger.error(oobe.getMessage());
+                        setTagLenException();
+                        return;
+                    }
+                });
+                if (taglenException == true) return null; // Tag length failure from processFastQ - halt processing
+
+                System.out.println("\nTags are added from batch "+String.valueOf(i/batchSize+1) + ". Total batch number: " + batchNum);
+                int currentSize = tagCntMap.size();
+                System.out.println("Current tag number: " + String.valueOf(currentSize) + ". Max tag number: " + String.valueOf(myMaxTagNumber.value()));
+                System.out.println(String.valueOf((float)currentSize/(float)myMaxTagNumber.value()) + " of max tag number");
+
+                if (currentSize > 0) { // calcTagMapStats() gets "divide by 0" error when size == 0
+                    this.calcTagMapStats(tagCntMap);
+                    System.out.println();
+                    //make sure don't lose rare ones, need to set maxTagNumber large enough
+                    removeTagsWithoutReplication(tagCntMap);
+                    if (tagCntMap.size() == 0) {
+                        System.out.println("WARNING:  After removing tags without replication, there are NO  tags left in the database");
+                    } else {
                         this.calcTagMapStats(tagCntMap);
                         System.out.println();
-                        //make sure don't lose rare ones, need to set maxTagNumber large enough
-                        removeTagsWithoutReplication(tagCntMap);
-                        if (tagCntMap.size() == 0) {
-                        	System.out.println("WARNING:  After removing tags without replication, there are NO  tags left in the database");
-                        } else {
-                            this.calcTagMapStats(tagCntMap);
-                            System.out.println();
-                            System.out.println("Tag number is reduced to " + tagCntMap.size()+"\n");  
-                        }                   
-                        this.roughTagCnt.reset();
-                        this.roughTagCnt.add(tagCntMap.size());
-                    } else {
-                    	System.out.println("WARNING: Current tagcntmap size is 0 after processing batch " + String.valueOf(i/batchSize+1) );
-                    }
- 
-                    System.out.println("Total memory: "+ String.valueOf((double)(Runtime.getRuntime().totalMemory()/1024/1024/1024))+" Gb");
-                    System.out.println("Free memory: "+ String.valueOf((double)(Runtime.getRuntime().freeMemory()/1024/1024/1024))+" Gb");
-                    System.out.println("Max memory: "+ String.valueOf((double)(Runtime.getRuntime().maxMemory()/1024/1024/1024))+" Gb");
-                    System.out.println("\n");
-               }
+                        System.out.println("Tag number is reduced to " + tagCntMap.size()+"\n");  
+                    }                   
+                    this.roughTagCnt.reset();
+                    this.roughTagCnt.add(tagCntMap.size());
+                } else {
+                    System.out.println("WARNING: Current tagcntmap size is 0 after processing batch " + String.valueOf(i/batchSize+1) );
+                }
+
+                System.out.println("Total memory: "+ String.valueOf((double)(Runtime.getRuntime().totalMemory()/1024/1024/1024))+" Gb");
+                System.out.println("Free memory: "+ String.valueOf((double)(Runtime.getRuntime().freeMemory()/1024/1024/1024))+" Gb");
+                System.out.println("Max memory: "+ String.valueOf((double)(Runtime.getRuntime().maxMemory()/1024/1024/1024))+" Gb");
+                System.out.println("\n");
+            }
             System.out.println("\nAll the batch are processed");
             tagCntMap.removeTagByCount(myMinTagCount.value());
             System.out.println("By removing tags with minCount of " + myMinTagCount.value() + "Tag number is reduced to " + tagCntMap.size()+"\n");
@@ -233,149 +227,16 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         return new DataSet(new Datum("TagMap",tagCntMap,""),this);
     }
     
-    /**
-     * Parses a tab-delimited keyFile storing the flow cell and lane values into a multimap.
-     * The flow cell is the key, which may have multiple associated lanes.
-     *
-     * @param s
-     * @return
-     */
-    public static ListMultimap<String, String> parseKeyfileIntoMap(String fileName) {
-        if (fileName == null) {
-            return null;
-        }
-        ImmutableListMultimap.Builder<String, String> mMap = new ImmutableListMultimap.Builder<String, String>()
-                .orderKeysBy(Ordering.natural()).orderValuesBy(Ordering.natural());
-        try {
-            BufferedReader fileIn = Utils.getBufferedReader(fileName, 1000000);
-            fileIn.mark(1 << 16);
-            String line = fileIn.readLine();
-            int indexOfFlowcell = 0, indexOfLane = 0;
-            //parse headers
-            if (line.contains(flowcellField)) {
-                int idx = 0;
-                for (String header : line.split("\\t")) {
-                    if (header.equals(flowcellField)) {
-                        indexOfFlowcell = idx;
-                    }
-                    if (header.equals(laneField)) {
-                    	indexOfLane = idx;
-                    }
-                    idx++;
-                }
-            } else {
-                fileIn.reset();
-            }
-            // create list of flowcells and lanes
-            while ((line = fileIn.readLine()) != null) {
-                String[] myString = line.split("\\t");
-                String myFlowCell = myString[indexOfFlowcell];
-                String myLane = myString[indexOfLane];
-                mMap.put(myFlowCell,myLane);
-            }
-        } catch (Exception e) {
-            System.err.println("Error in Reading Parsing Key File:" + fileName);
-            e.printStackTrace();
-        }
-        return mMap.build();
-    }
-
-    /**
-     * Produces a list of fastq files that are represented by the plugin's keyfile
-     * @param directoryFiles:  List of all the files in the directory
-     * @return filesToProcess:  List of only those files that should be processed
-     */
-    static List<Path> culledFiles(List<Path>directoryFiles,Path keyFile ) {
-    	
-    	List<Path> filesToProcess = new ArrayList<Path>();
-    	// Get map  of flowcell/lanes from the key file
-    	String keyFileName = keyFile.toString();
-    	ListMultimap<String, String> keyFileValues = parseKeyfileIntoMap(keyFileName);   	
-    	if (keyFileValues.isEmpty()) return filesToProcess; // no entries
-
-    	// for each file in the directory, check if the flowcell and lane are represented 
-        // The directoryFile list is in alphabetical order.  It is quicker to run a non-parallel
-        // stream and skip sorting than run with parallel and have to sort at the end (entries
-        // in filesToProcess are not in alphabetical order when parallelStream is used). 
-        // Alphabetical order is necessary to ensure consistency of tags removed by 
-    	// "removeTagsWithoutReplication" when multiple runs are performed.
-      	directoryFiles.stream()
-    	.forEach(directoryFile -> {   		
-    		String[] filenameField = directoryFile.getFileName().toString().split("_");
-            if (filenameField.length == 3) {
-               if (keyFileValues.containsEntry(filenameField[0],filenameField[1])) {
-            	   filesToProcess.add(directoryFile);
-               }
-            } else if (filenameField.length == 4) {
-                if (keyFileValues.containsEntry(filenameField[0],filenameField[2])) {
-             	   filesToProcess.add(directoryFile);
-                }
-            }
-            else if (filenameField.length == 5) {
-                if (keyFileValues.containsEntry(filenameField[1],filenameField[3])) {
-             	   filesToProcess.add(directoryFile);
-                }
-            }
-    	});    	   	
-    	return filesToProcess; 
-    }
     private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
                      int minQuality, TagDistributionMap masterTagTaxaMap, int preferredTagLength) throws StringIndexOutOfBoundsException {
-    	ArrayList<Taxon> tl=getLaneAnnotatedTaxaList(keyPath, fastQPath);
+    	ArrayList<Taxon> tl=GBSUtils.getLaneAnnotatedTaxaList(keyPath, fastQPath);
     	if (tl.size() == 0) return; 
-        BarcodeTrie barcodeTrie=initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
+        BarcodeTrie barcodeTrie=GBSUtils.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
         try {
         	processFastQ(fastQPath,barcodeTrie,masterTaxaList,masterTagTaxaMap,preferredTagLength,minQuality);
         } catch (StringIndexOutOfBoundsException oobe) {
         	throw oobe; // Let processData() handle it - we want to stop processing on this error
         }        
-    }
-
-    /**
-     * Produces a trie for sorting the read
-     * @param taxaList the taxaList of the current flowcell lanes that is annotated with barcode information
-     * @param masterTaxaList  the mastertaxaList provides the taxaIndex
-     * @param myEnzyme
-     * @return Barcode trie for examining the prefixes
-     */
-    static BarcodeTrie initializeBarcodeTrie(ArrayList<Taxon> taxaList, TaxaList masterTaxaList, GBSEnzyme myEnzyme){
-        BarcodeTrie aTrie=new BarcodeTrie();
-        for (Taxon taxon : taxaList) {
-            int masterIndex=masterTaxaList.indexOf(taxon.getName());
-            GeneralAnnotation annotation = taxon.getAnnotation();
-            Barcode theBC = new Barcode(annotation.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
-                    masterIndex,annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
-            aTrie.addBarcode(theBC);
-        }
-        return aTrie;
-    }
-
-    /**
-     * Returns an annotated taxaList based on a Keyfile for GBS
-     * @param keyPath
-     * @param fastQpath
-     * @return
-     */
-    static ArrayList<Taxon> getLaneAnnotatedTaxaList(Path keyPath, Path fastQpath) {
-        String[] filenameField = fastQpath.getFileName().toString().split("_");
-        ArrayList<Taxon> annoTL;
-        if (filenameField.length == 3) {
-            annoTL = TaxaListIOUtils.readTaxaAnnotationFileAL(keyPath.toAbsolutePath().toString(), sampleNameField,
-                    ImmutableMap.of(flowcellField, filenameField[0], laneField, filenameField[1])); 
-        } else if (filenameField.length == 4) {
-            annoTL = TaxaListIOUtils.readTaxaAnnotationFileAL(keyPath.toAbsolutePath().toString(),sampleNameField,
-                    ImmutableMap.of(flowcellField, filenameField[0], laneField, filenameField[2]));
-        }
-        else if (filenameField.length == 5) {
-            annoTL = TaxaListIOUtils.readTaxaAnnotationFileAL(keyPath.toAbsolutePath().toString(),sampleNameField,
-                    ImmutableMap.of(flowcellField, filenameField[1], laneField, filenameField[3]));
-        } else {
-            myLogger.error("Error in parsing file name: " + fastQpath.toString());
-            myLogger.error("   The filename does not contain either 3, 4, or 5 underscore-delimited values.");
-            myLogger.error("   Expect: flowcell_lane_fastq.txt.gz OR flowcell_s_lane_fastq.txt.gz OR code_flowcell_s_lane_fastq.txt.gz");
-            return null;
-        }
-        return annoTL;
     }
 
     private void processFastQ(Path fastqFile, BarcodeTrie barcodeTrie, TaxaList masterTaxaList,
@@ -385,12 +246,12 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         int checkSize = 10000000;
         myLogger.info("processing file " + fastqFile.toString());
         try {
-            int qualityScoreBase=determineQualityScoreBase(fastqFile);
+            int qualityScoreBase=GBSUtils.determineQualityScoreBase(fastqFile);
             BufferedReader br = Utils.getBufferedReader(fastqFile.toString(), 1 << 22);
             long time=System.nanoTime();
             String[] seqAndQual;
  
-            while ((seqAndQual=readFastQBlock(br,allReads)) != null) {
+            while ((seqAndQual=GBSUtils.readFastQBlock(br,allReads)) != null) {
                 allReads++;
                 //After quality score is read, decode barcode using the current sequence & quality  score
                 Barcode barcode=barcodeTrie.longestPrefix(seqAndQual[0]);
@@ -442,46 +303,6 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             myLogger.error("Good Barcodes Read: " + goodBarcodedReads);
             
             e.printStackTrace();
-        }
-    }
-
-    /**
-     * Method for reading FastQ four line structure, and returning a string array with [sequence, qualityScore]
-     */
-    static String[] readFastQBlock(BufferedReader bw, int currentRead) throws IOException {
-        //consider converting this into a stream of String[]
-        String[] result=new String[2];
-        try{
-            bw.readLine();
-            result[0]=bw.readLine();
-            bw.readLine();
-            result[1]=bw.readLine();
-            if(result[0]==null) {
-                return null;
-            }
-            return result;
-        } catch (IOException e) {
-            e.printStackTrace();
-            myLogger.error("Unable to correctly parse the sequence and quality score near line: " + currentRead*4
-                    + " from fastq file.  Your fastq file may have been corrupted.");
-            return null;
-        }
-    }
-
-    /**
-     * Method for reading FastQ four line structure, and returning a string array with [sequence, qualityScore]
-     */
-    static int determineQualityScoreBase(Path fastqFile) throws IOException {
-        try{BufferedReader bw = Utils.getBufferedReader(fastqFile.toString());
-            int headerParts=bw.readLine().split(":").length;
-            int base=(headerParts<5)?64:33;
-            myLogger.info(fastqFile.toString()+": Quality score base:"+base);
-            return base;
-        } catch (IOException e) {
-            e.printStackTrace();
-            myLogger.error("Unable to correctly parse the quality score base from fastq file.  " +
-                    "Your fastq file may have been corrupted.");
-            return 0;
         }
     }
 

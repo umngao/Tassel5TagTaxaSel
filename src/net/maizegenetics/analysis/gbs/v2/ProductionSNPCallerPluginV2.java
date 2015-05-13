@@ -157,16 +157,16 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     public DataSet processData(DataSet input) {
         int batchSize = batchSize();
         Path keyPath= Paths.get(keyFile()).toAbsolutePath();
-        List<Path> directoryFiles= DirectoryCrawler.listPaths(GBSSeqToTagDBPlugin.inputFileGlob, Paths.get(myInputDir.value()).toAbsolutePath());
+        List<Path> directoryFiles= DirectoryCrawler.listPaths(GBSUtils.inputFileGlob, Paths.get(myInputDir.value()).toAbsolutePath());
         if(directoryFiles.isEmpty()) {
-            myLogger.warn("No files matching:"+GBSSeqToTagDBPlugin.inputFileGlob);
+            myLogger.warn("No files matching:"+GBSUtils.inputFileGlob);
             return null;
         }
-        List<Path> inputSeqFiles = GBSSeqToTagDBPlugin.culledFiles(directoryFiles,keyPath);
+        List<Path> inputSeqFiles = GBSUtils.culledFiles(directoryFiles,keyPath);
         if (inputSeqFiles.size() == 0) return null; // no files to process
 
         tagDataReader =new TagDataSQLite(myInputDB.value());
-        TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), GBSSeqToTagDBPlugin.sampleNameField, new HashMap<>(), true);
+        TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), GBSUtils.sampleNameField, new HashMap<>(), true);
         writeInitialTaxaReadCounts(masterTaxaList); // initialize synchronized maps
         //todo perhaps subset the masterTaxaList based on the files in there, but it seems like it will all be figure out.
         Map<Tag,Tag> canonicalTag=new HashMap<>();  //canonicalize them OR eventually we will use a Trie
@@ -261,19 +261,19 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
 
 	private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
                                   Map<Tag,Tag> canonicalTags, int preferredTagLength, int minQual) {
-    	ArrayList<Taxon> tl=GBSSeqToTagDBPlugin.getLaneAnnotatedTaxaList(keyPath, fastQPath);
-    	BarcodeTrie barcodeTrie=GBSSeqToTagDBPlugin.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
+    	ArrayList<Taxon> tl=GBSUtils.getLaneAnnotatedTaxaList(keyPath, fastQPath);
+    	BarcodeTrie barcodeTrie=GBSUtils.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
         processFastQ(fastQPath,barcodeTrie,canonicalTags,preferredTagLength, minQual);
     }
 
     private void processFastQ(Path fastqFile, BarcodeTrie barcodeTrie, Map<Tag,Tag> canonicalTags, int preferredTagLength, int minQual) {
         int allReads=0, goodBarcodedReads = 0, lowQualityReads = 0;
         try {
-        	int qualityScoreBase=GBSSeqToTagDBPlugin.determineQualityScoreBase(fastqFile);
+        	int qualityScoreBase=GBSUtils.determineQualityScoreBase(fastqFile);
             BufferedReader br = Utils.getBufferedReader(fastqFile.toString(), 1 << 22);
             long time=System.nanoTime();
             String[] seqAndQual;
-            while ((seqAndQual=GBSSeqToTagDBPlugin.readFastQBlock(br, allReads)) != null) {
+            while ((seqAndQual=GBSUtils.readFastQBlock(br, allReads)) != null) {
                 allReads++;
                 // Decode barcode using the current sequence & quality  score
                 Barcode barcode=barcodeTrie.longestPrefix(seqAndQual[0]);               
