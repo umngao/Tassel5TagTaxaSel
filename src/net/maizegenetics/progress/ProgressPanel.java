@@ -14,12 +14,11 @@ import javax.swing.BoxLayout;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 
-import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.Plugin;
 
 /**
  *
- * @author terry
+ * @author Terry Casstevens
  */
 public class ProgressPanel extends JPanel {
 
@@ -69,15 +68,7 @@ public class ProgressPanel extends JPanel {
 
     public void addPlugin(Plugin plugin, boolean cancelButton, Plugin cancelPlugin) {
 
-        Integer level = new Integer(0);
-        Iterator itr = ((AbstractPlugin) plugin).getInputs().iterator();
-        while (itr.hasNext()) {
-            Plugin current = (Plugin) itr.next();
-            Integer inputLevel = (Integer) myPlugins.get(current);
-            if ((inputLevel != null) && (inputLevel.compareTo(level) >= 0)) {
-                level = inputLevel + 1;
-            }
-        }
+        Integer level = 0;
 
         myPlugins.put(plugin, level);
 

@@ -78,6 +78,8 @@ import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Plugin;
 import net.maizegenetics.plugindef.PluginEvent;
 import net.maizegenetics.plugindef.PluginListener;
+import net.maizegenetics.progress.ProgressPanel;
+import net.maizegenetics.tassel.TASSELMainFrame;
 import net.maizegenetics.util.Utils;
 
 /**
@@ -147,8 +149,9 @@ public class TasselPipelineStepsDialog extends JDialog implements PluginListener
     private final JPanel myMainPane = new JPanel();
     private String myDescription = null;
     private String myCitation = null;
+    private final ProgressPanel myProgressPanel;
 
-    public TasselPipelineStepsDialog(String name) {
+    public TasselPipelineStepsDialog(TASSELMainFrame mainFrame, String name) {
         super((Window) null, "Tassel Workflow: " + name, Dialog.ModalityType.MODELESS);
         setLayout(new BorderLayout());
         myMainPane.setLayout(new BoxLayout(myMainPane, BoxLayout.Y_AXIS));
@@ -168,6 +171,8 @@ public class TasselPipelineStepsDialog extends JDialog implements PluginListener
         getContentPane().add(buttonPanel, BorderLayout.SOUTH);
         setPreferredSize(new Dimension(400, 650));
         setResizable(false);
+        
+        myProgressPanel = mainFrame.getProgressPanel();
     }
 
     public void setOverallDescription(String description) {
@@ -259,6 +264,7 @@ public class TasselPipelineStepsDialog extends JDialog implements PluginListener
         int index = myPluginOrder.indexOf(plugin);
         if (index < myPluginOrder.size() - 1) {
             setTextColor(myPluginOrder.get(index + 1), CURRENT_STEP_COLOR);
+            myProgressPanel.addPlugin(myPluginOrder.get(index + 1));
             if (index < myPluginOrder.size() - 2) {
                 Rectangle rec = myTextAreas.get(myPluginOrder.get(index + 2)).getBounds();
                 myMainPane.scrollRectToVisible(rec);

@@ -147,7 +147,7 @@ public class TasselPipeline implements PluginListener {
             TasselLogging.basicLoggingInfo();
 
             if (myIsInteractive) {
-                myStepsDialog = new TasselPipelineStepsDialog(name);
+                myStepsDialog = new TasselPipelineStepsDialog(myMainFrame, name);
             }
 
             parseArgs(args);
