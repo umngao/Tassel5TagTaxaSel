@@ -53,6 +53,7 @@ public class BuilderFromVCF {
 
     private static final Logger myLogger=Logger.getLogger(BuilderFromVCF.class);
     private static final Pattern WHITESPACE_PATTERN=Pattern.compile("[\\s]+");
+    private static final Pattern TAB_PATTERN = Pattern.compile("[\\t]+");
     private HeaderPositions hp=null;
     private final String infile;
     private boolean includeDepth=false;
@@ -314,7 +315,7 @@ public class BuilderFromVCF {
     }
 
     private TaxaList processTaxa(String readLn, Map<String,SetMultimap<String,String>> taxaAnnotation) {
-        String[] header=WHITESPACE_PATTERN.split(readLn);
+        String[] header = TAB_PATTERN.split(readLn);
         hp=new HeaderPositions(header);
         int numTaxa=header.length-hp.NUM_HAPMAP_NON_TAXA_HEADERS;
         TaxaListBuilder tlb=new TaxaListBuilder();
