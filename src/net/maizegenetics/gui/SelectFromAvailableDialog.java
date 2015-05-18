@@ -22,10 +22,10 @@ public class SelectFromAvailableDialog extends JDialog {
     private final static int LIST_ROW_COUNT = 20;
     private JList<String> myAvailable;
     private JList<String> mySelected;
-    private AbstractAvailableListModel myAvailableListModel;
-    private SelectedListModel mySelectedListModel;
-    private boolean myIsCanceled = false;
-    private boolean myIsCaptureSelected = true;
+    protected AbstractAvailableListModel myAvailableListModel;
+    protected SelectedListModel mySelectedListModel;
+    protected boolean myIsCanceled = false;
+    protected boolean myIsCaptureSelected = true;
 
     public SelectFromAvailableDialog(Frame frame, String title, AbstractAvailableListModel availableModel) {
         super(frame, true);
@@ -136,7 +136,7 @@ public class SelectFromAvailableDialog extends JDialog {
         return result;
     }
 
-    private JPanel getBottomPanel() {
+    protected JPanel getBottomPanel() {
         JPanel result = new JPanel(new FlowLayout());
 
         result.add(getSelectedButton());
@@ -150,7 +150,7 @@ public class SelectFromAvailableDialog extends JDialog {
         return result;
     }
 
-    private JButton getSelectedButton() {
+    protected JButton getSelectedButton() {
         JButton okButton = new JButton("Capture Selected");
         okButton.addActionListener(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
@@ -162,7 +162,7 @@ public class SelectFromAvailableDialog extends JDialog {
         return okButton;
     }
 
-    private JButton getUnselectedButton() {
+    protected JButton getUnselectedButton() {
         JButton okButton = new JButton("Capture Unselected");
         okButton.addActionListener(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
@@ -174,7 +174,7 @@ public class SelectFromAvailableDialog extends JDialog {
         return okButton;
     }
 
-    private JButton getCancelButton() {
+    protected JButton getCancelButton() {
         JButton okButton = new JButton("Cancel");
         okButton.addActionListener(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
@@ -185,7 +185,7 @@ public class SelectFromAvailableDialog extends JDialog {
         return okButton;
     }
 
-    private JButton getRemoveButton() {
+    protected JButton getRemoveButton() {
         JButton result = new JButton("Remove");
         result.addActionListener(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
