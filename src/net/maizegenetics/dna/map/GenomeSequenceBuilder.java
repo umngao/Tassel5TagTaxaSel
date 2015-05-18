@@ -59,9 +59,9 @@ public class GenomeSequenceBuilder {
 
 	protected static  Map<Chromosome, byte[]> readReferenceGenomeChr(String fastaFileName, Function<Character, Character> charConversion) {
 		// Read specified file, return entire sequence for requested chromosome
-        String base="ACGTN=acgtn";
+        String base="ACGTNacgtn";
         String conv=base.chars().mapToObj(ci -> charConversion.apply((char)ci).toString()).collect(Collectors.joining());
-        System.out.println("Genome FASTA character conversion:"+conv);
+        System.out.println("Genome FASTA character conversion: "+base+" to "+conv);
         Map<Chromosome, byte[]> chromPositionMap = new HashMap<Chromosome, byte[]>();
 		Chromosome currChr = null;	
 		ByteArrayOutputStream currSeq = new ByteArrayOutputStream();
@@ -144,7 +144,7 @@ class HalfByteGenomeSequence implements GenomeSequence{
     private Map<Chromosome, byte[]> chromPositionMap;
     private Map<Chromosome, Integer> chromLengthLookup=new HashMap<>();
     private RangeMap<Long,Chromosome> wholeGenomeIndexMap= TreeRangeMap.create();
-    private long genomeSize;
+    private final long genomeSize;
 
 
     protected HalfByteGenomeSequence(Map<Chromosome, byte[]>chromPositionMap) {
@@ -188,7 +188,8 @@ class HalfByteGenomeSequence implements GenomeSequence{
 
     @Override
     public byte[] genomeSequence(long startSite, long lastSite) {
-        if(lastSite-startSite>Integer.MAX_VALUE) throw new IllegalArgumentException("Fewer than "+Integer.MAX_VALUE+" can be requested at a time");
+        if(lastSite-startSite>Integer.MAX_VALUE) throw
+                new IllegalArgumentException("Less than "+Integer.MAX_VALUE+" sites must be requested at a time");
         byte[] fullBytes=new byte[(int)(lastSite-startSite+1)];
         long currentSiteToGet=startSite;
         while(currentSiteToGet<lastSite) {
