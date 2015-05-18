@@ -116,7 +116,7 @@ public class GBSUtils {
      * @param myEnzyme
      * @return Barcode trie for examining the prefixes
      */
-    public BarcodeTrie initializeBarcodeTrie(ArrayList<Taxon> taxaList, TaxaList masterTaxaList, GBSEnzyme myEnzyme){
+    public static BarcodeTrie initializeBarcodeTrie(ArrayList<Taxon> taxaList, TaxaList masterTaxaList, GBSEnzyme myEnzyme){
         BarcodeTrie aTrie=new BarcodeTrie();
         for (Taxon taxon : taxaList) {
             int masterIndex=masterTaxaList.indexOf(taxon.getName());
