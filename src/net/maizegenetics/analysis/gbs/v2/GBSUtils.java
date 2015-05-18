@@ -214,4 +214,18 @@ public class GBSUtils {
         }
         return mMap.build();
     }
+    
+    /**
+     * Takes a string, makes all upper case, removes CHROMOSOME/CHR, 
+     * returns the resulting string
+     * @param chromosome
+     * @return the input string minus a leading "chr" or "chromsome" 
+     */
+    public static String parseChromosome(String chromosome) {
+        String parsedChrom = "";
+        parsedChrom = chromosome.toUpperCase();
+        parsedChrom = parsedChrom.replace("CHROMOSOME","");
+        parsedChrom = parsedChrom.replace("CHR","");
+        return parsedChrom;
+    }
 }

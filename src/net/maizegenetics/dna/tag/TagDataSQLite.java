@@ -1137,4 +1137,21 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 		}
 		return qsMap.build();
 	}
+
+    @Override
+    public List<Chromosome> getChromosomesFromCutPositions() {
+        // Get a list of chromosomes from the cutPosition table
+        List<Chromosome> chromList = new ArrayList<>();
+        try {
+            ResultSet rs = connection.createStatement().executeQuery("select DISTINCT chromosome from cutPosition");
+            while(rs.next()) {
+                Chromosome chrom=new Chromosome(rs.getString("chromosome"));
+                chromList.add(chrom);
+            }
+        } catch (SQLException exc) {
+            exc.printStackTrace();
+            return null;
+        }
+        return chromList;
+    }
 }

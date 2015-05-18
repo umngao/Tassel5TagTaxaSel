@@ -14,6 +14,7 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.Tuple;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -183,4 +184,11 @@ public interface TagData {
      */
 	Multimap<Allele, Map<Tag, TaxaDistribution>> getAllelesTagTaxaDistForSNP(
 			Position position);	
+	
+    /**
+     * Return all chromosomes stored in database.
+     * Returns a list of distinct chromsome objects from the cutPosition table
+     * @return List<Chromosome> or null if none found
+     */
+     List<Chromosome> getChromosomesFromCutPositions();
 }
