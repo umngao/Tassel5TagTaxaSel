@@ -44,7 +44,7 @@ public class GBSUtils {
     /**
      * Method for reading FastQ four line structure, and returning a string array with [sequence, qualityScore]
      */
-    static String[] readFastQBlock(BufferedReader bw, int currentRead) throws IOException {
+    public static String[] readFastQBlock(BufferedReader bw, int currentRead) throws IOException {
         //consider converting this into a stream of String[]
         String[] result=new String[2];
         try{
@@ -67,7 +67,7 @@ public class GBSUtils {
     /**
      * Method for reading FastQ four line structure, and returning a string array with [sequence, qualityScore]
      */
-    static int determineQualityScoreBase(Path fastqFile) throws IOException {
+    public static int determineQualityScoreBase(Path fastqFile) throws IOException {
         try{BufferedReader bw = Utils.getBufferedReader(fastqFile.toString());
             int headerParts=bw.readLine().split(":").length;
             int base=(headerParts<5)?64:33;
@@ -87,7 +87,7 @@ public class GBSUtils {
      * @param fastQpath
      * @return
      */
-    static ArrayList<Taxon> getLaneAnnotatedTaxaList(Path keyPath, Path fastQpath) {
+    public static ArrayList<Taxon> getLaneAnnotatedTaxaList(Path keyPath, Path fastQpath) {
         String[] filenameField = fastQpath.getFileName().toString().split("_");
         ArrayList<Taxon> annoTL;
         if (filenameField.length == 3) {
@@ -116,7 +116,7 @@ public class GBSUtils {
      * @param myEnzyme
      * @return Barcode trie for examining the prefixes
      */
-    static BarcodeTrie initializeBarcodeTrie(ArrayList<Taxon> taxaList, TaxaList masterTaxaList, GBSEnzyme myEnzyme){
+    public BarcodeTrie initializeBarcodeTrie(ArrayList<Taxon> taxaList, TaxaList masterTaxaList, GBSEnzyme myEnzyme){
         BarcodeTrie aTrie=new BarcodeTrie();
         for (Taxon taxon : taxaList) {
             int masterIndex=masterTaxaList.indexOf(taxon.getName());
@@ -133,7 +133,7 @@ public class GBSUtils {
      * @param directoryFiles:  List of all the files in the directory
      * @return filesToProcess:  List of only those files that should be processed
      */
-    static List<Path> culledFiles(List<Path>directoryFiles,Path keyFile ) {
+    public static List<Path> culledFiles(List<Path>directoryFiles,Path keyFile ) {
         
         List<Path> filesToProcess = new ArrayList<Path>();
         // Get map  of flowcell/lanes from the key file
