@@ -149,7 +149,7 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
                 .filter(closeTaxonIdx -> closeTaxonIdx != inputTaxonIdx)  //do test itself
                 .filter(closeTaxonIdx -> genotypeTable.genotype(closeTaxonIdx, targetPosIdx) != GenotypeTable.UNKNOWN_DIPLOID_ALLELE)  //ignore taxa with the genotype not scored
  /*Bad*/ //               .mapToObj(closeTaxonIdx -> new Tuple<>(IBSDistanceMatrix.computeHetDistances(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10)[0], genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))
- /*Best*/.mapToObj(closeTaxonIdx -> new Tuple<>(dist(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10), genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))  //calculate the distance
+ /*Best*/.mapToObj(closeTaxonIdx -> new Tuple<>(dist(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10)[0], genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))  //calculate the distance
 /*Best*/ //                .mapToObj(closeTaxonIdx -> new Tuple<>(LDKNNiImputationPluginEd.distance(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10)[0], genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))
                 .filter(distanceTaxon -> !Double.isNaN(distanceTaxon.x))  //skip is too few sites (<10 results in NaN)
                 .collect(Collectors.toCollection(() -> MinMaxPriorityQueue.maximumSize(numberOfTaxa).create()));
@@ -369,15 +369,15 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
     }
 
 
-    /*
+    /**
     Alternative to current IBS distance measure
     AA <> AA = 0
     Aa <> Aa = 0 distance (normal IBS distance this is 0.5)
     AA <> aa = 1 distance
      */
-    //TODO Terry revisit where this should
+    //TODO Terry revisit where this should go
     //TAS-787
-    private static double dist(byte[] b1, byte[] b2, int min) {
+    public static double[] dist(byte[] b1, byte[] b2, int min) {
         int distance = 0;
         int count = 0;
 
@@ -406,11 +406,11 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
 
         // If we haven't found enough snps to include in the calculation return NaN
         if (count < min) {
-            return Double.NaN;
+            return new double[]{Double.NaN,count};
         }
         //Else return the scaled distance
         else {
-            return ((double) distance / (double) (2 * count));
+            return new double[]{((double) distance / (double) (2 * count)),count};
         }
     }
 }
