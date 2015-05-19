@@ -4,10 +4,13 @@
 package net.maizegenetics.analysis.data;
 
 import java.awt.Frame;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.List;
 
 import javax.swing.ImageIcon;
 
+import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.ExportUtils;
@@ -16,6 +19,7 @@ import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.ImportUtils;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginParameter;
 
 import org.apache.log4j.Logger;
@@ -32,11 +36,7 @@ import org.apache.log4j.Logger;
  */
 public class ThinSitesByPositionPlugin extends AbstractPlugin {
     private static final Logger myLogger = Logger.getLogger(GenosToABHPlugin.class);
-    private PluginParameter<String> infile = new PluginParameter.Builder<>("i", null, String.class)
-            .required(true)
-            .inFile()
-            .guiName("Input file")
-            .description("Input genotype file to be thinned").build();
+
     private PluginParameter<String> outfile= new PluginParameter.Builder<>("o", null, String.class)
             .required(true)
             .outFile()
@@ -48,6 +48,8 @@ public class ThinSitesByPositionPlugin extends AbstractPlugin {
             .description("Minimum distance in bp between adjacent sites")
             .build();
     
+    private GenotypeTable myInput = null;
+    
     public ThinSitesByPositionPlugin() {
         super(null, false);
     }
@@ -55,28 +57,32 @@ public class ThinSitesByPositionPlugin extends AbstractPlugin {
     public ThinSitesByPositionPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
+    
+    @Override
+    protected void preProcessParameters(DataSet input) {
+        if (input == null) {
+            throw new IllegalArgumentException("GenosToABHPlugin: preProcessParameters: Please select one Genotype Table.");
+        }
+        List<Datum> genotypeTables = input.getDataOfType(GenotypeTable.class);
+        if (genotypeTables.size() == 1) {
+            myInput = (GenotypeTable) genotypeTables.get(0).getData();
+        } else {
+            throw new IllegalArgumentException("GenosToABHPlugin: preProcessParameters: Please select one Genotype Table.");
+        }
+    }
 
     public DataSet processData(DataSet input) {
-        try {
-            //Read the genotypes file - create genotype table
-            GenotypeTable genos= ImportUtils.readGuessFormat(infile());
-            String[] sitesToKeep = findSiteNamesToKeep(genos);         
-
-            GenotypeTable filteredGenos = null;
-            if ((sitesToKeep != null) && (sitesToKeep.length != 0)) {
-                filteredGenos = FilterGenotypeTable.getInstance(genos, sitesToKeep);
-                writeOutputGenos(filteredGenos);
-            } else {
-                myLogger.warn("WARNING - no sites kept, no output file written !!");
-            }
-                                         
-        } finally {
-            fireProgress(100);
-        }       
+        String[] sitesToKeep = findSiteNamesToKeep(myInput); 
+        GenotypeTable filteredGenos = null;
+        if ((sitesToKeep != null) && (sitesToKeep.length != 0)) {
+            filteredGenos = FilterGenotypeTable.getInstance(myInput, sitesToKeep);
+            writeOutputGenos(filteredGenos);
+        } else {
+            myLogger.warn("WARNING - no sites kept, no output file written !!");
+        }
         return null;
     }
     
-
     private String[] findSiteNamesToKeep(GenotypeTable genos){
         // This method traverses the Positions in each chromosome,
         // adding to a list those positions within the chromosome
@@ -84,12 +90,15 @@ public class ThinSitesByPositionPlugin extends AbstractPlugin {
         ArrayList<String> sitesToKeep = new ArrayList<String>();
         PositionList positions = genos.positions();
         int chrom = -1;
+        //Chromosome chrom = new Chromosome("-1");
         int prevPos = -1;
         for (Position currPos : positions){
-            if (currPos.getChromosome().getChromosomeNumber() != chrom) {
+            if (!currPos.getChromosome().equals(chrom)) {
+            //if (currPos.getChromosome().getChromosomeNumber() != chrom) {
                 // Always keep the first position in a chromosome
                 sitesToKeep.add(currPos.getSNPID());
                 chrom = currPos.getChromosome().getChromosomeNumber();
+                //chrom = currPos.getChromosome();
                 prevPos = currPos.getPosition();
             } else {
                 if (currPos.getPosition() - prevPos >= minDist()) {;
@@ -123,49 +132,22 @@ public class ThinSitesByPositionPlugin extends AbstractPlugin {
     
     @Override
     public ImageIcon getIcon() {
-        // TODO Auto-generated method stub
-        return null;
+        URL imageURL = HetsToUnknownPlugin.class.getResource("/net/maizegenetics/analysis/images/homozygous.gif");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
     }
 
     @Override
     public String getButtonName() {
-        // TODO Auto-generated method stub
-        return null;
+        return "Thin Sites by Position";
     }
 
     @Override
     public String getToolTipText() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-    
-    // The following getters and setters were auto-generated.
-    // Please use this method to re-generate.
-    //
-    // public static void main(String[] args) {
-    //     GeneratePluginCode.generate(ThinSitesByPositionPlugin.class);
-    // }
-
-
-    /**
-     * Input genotype file to be thinned
-     *
-     * @return Input file
-     */
-    public String infile() {
-        return infile.value();
-    }
-
-    /**
-     * Set Input file. Input genotype file to be thinned
-     *
-     * @param value Input file
-     *
-     * @return this plugin
-     */
-    public ThinSitesByPositionPlugin infile(String value) {
-        infile = new PluginParameter<>(infile, value);
-        return this;
+        return "This sites based on their physical position on the chromosome";
     }
 
     /**
@@ -226,8 +208,7 @@ public class ThinSitesByPositionPlugin extends AbstractPlugin {
     /**
      * Convenience method to run plugin with one return object.
      */
-    // TODO: Replace <Type> with specific type.
-//    public void runPlugin(DataSet input) {
-//        return (void) performFunction(input).getData(0).getData();
-//    }
+    public GenotypeTable runPlugin(DataSet input) {
+        return (GenotypeTable) performFunction(input).getData(0).getData();
+    }
 }
