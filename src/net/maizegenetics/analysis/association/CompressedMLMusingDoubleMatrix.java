@@ -39,8 +39,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class CompressedMLMusingDoubleMatrix {
 
@@ -243,8 +246,6 @@ public class CompressedMLMusingDoubleMatrix {
             //update missing for taxa not in the kinship matrix or the distance matrix.
             //Create kinship and distance matrices with taxa in phenotype
             TaxaList nonmissingIds = updateMissingWithKinship(missing, theTaxa);
-            TaxaList kinshipTaxa = kinshipMatrix.getTaxaList();
-            
             DistanceMatrix kin = new DistanceMatrix(kinshipMatrix, nonmissingIds);
 
             //calculate the number of nonmissing observations
@@ -253,12 +254,13 @@ public class CompressedMLMusingDoubleMatrix {
 
             //create phenotype matrix
             double[] nonMissingData = AssociationUtils.getNonMissingDoubles(phenotypeData, missing);
+            Taxon[] nonMissingTaxa = AssociationUtils.getNonMissingValues(theTaxa, missing);
             DoubleMatrix y = DoubleMatrixFactory.DEFAULT.make(nonMissingObs,1, nonMissingData);
 
             //create the Z matrix
             DoubleMatrix Z = DoubleMatrixFactory.DEFAULT.make(nonMissingObs, kin.numberOfTaxa());
             for (int i = 0; i < nonMissingObs; i++) {
-                   Z.set(i, kin.whichIdNumber(nonmissingIds.get(i)), 1);
+                   Z.set(i, kin.whichIdNumber(nonMissingTaxa[i]), 1);
             }
 
             //fixed effects matrix
@@ -999,7 +1001,9 @@ public class CompressedMLMusingDoubleMatrix {
     		if (ndx < 0) missing.fastSet(i);
     	}
     	Taxon[] nonMissingTaxa = AssociationUtils.getNonMissingValues(phenotypeTaxa, missing);
-        return new TaxaListBuilder().addAll(nonMissingTaxa).build();
+    	Set<Taxon> taxaSet = Arrays.stream(nonMissingTaxa).collect(Collectors.toCollection(HashSet::new));
+    	
+        return new TaxaListBuilder().addAll(taxaSet).build();
     }
 
     public Datum createResPhenotype(EMMAforDoubleMatrix emma, List<Taxon> taxa, String traitName) {

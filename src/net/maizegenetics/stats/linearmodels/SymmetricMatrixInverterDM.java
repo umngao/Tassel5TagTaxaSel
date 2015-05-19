@@ -28,7 +28,7 @@ public class SymmetricMatrixInverterDM {
 	 */
 	public DoubleMatrix getInverse(boolean[] exclude) {
 		int n = exclude.length;
-		myLogger.debug("exclude.length = " + n + ", dim(A) = " + originalSweep.getDimensionOfA());
+//		myLogger.debug("exclude.length = " + n + ", dim(A) = " + originalSweep.getDimensionOfA());
 		DoubleMatrix inverse;
 		if (n == 0 || exclude == null) {
 			inverse = originalSweep.getA();
