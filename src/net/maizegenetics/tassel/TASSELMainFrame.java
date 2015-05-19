@@ -41,6 +41,7 @@ import net.maizegenetics.analysis.data.GenotypeSummaryPlugin;
 import net.maizegenetics.analysis.data.ExportPlugin;
 import net.maizegenetics.analysis.data.SeparatePlugin;
 import net.maizegenetics.analysis.data.SynonymizerPlugin;
+import net.maizegenetics.analysis.data.ThinSitesByPositionPlugin;
 import net.maizegenetics.analysis.filter.FilterTaxaAlignmentPlugin;
 import net.maizegenetics.analysis.filter.FilterTaxaPropertiesPlugin;
 import net.maizegenetics.analysis.filter.FilterSiteNamePlugin;
@@ -607,6 +608,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new TransformDataPlugin(this, true)));
         result.add(createMenuItem(new NumericalGenotypePlugin(this, true)));
         result.add(createMenuItem(new GenosToABHPlugin(this, true)));
+        result.add(createMenuItem(new ThinSitesByPositionPlugin(this, true)));
         result.addSeparator();
 
         JMenuItem delete = new JMenuItem("Delete Dataset");
