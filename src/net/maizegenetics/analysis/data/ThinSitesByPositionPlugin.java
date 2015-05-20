@@ -90,11 +90,11 @@ public class ThinSitesByPositionPlugin extends AbstractPlugin {
         ArrayList<String> sitesToKeep = new ArrayList<String>();
         PositionList positions = genos.positions();
         int chrom = -1;
-        //Chromosome chrom = new Chromosome("-1");
+       // Chromosome chrom = new Chromosome("-1");
         int prevPos = -1;
         for (Position currPos : positions){
-            if (!currPos.getChromosome().equals(chrom)) {
-            //if (currPos.getChromosome().getChromosomeNumber() != chrom) {
+           // if (!currPos.getChromosome().equals(chrom)) {
+            if (currPos.getChromosome().getChromosomeNumber() != chrom) {
                 // Always keep the first position in a chromosome
                 sitesToKeep.add(currPos.getSNPID());
                 chrom = currPos.getChromosome().getChromosomeNumber();
