@@ -22,6 +22,7 @@ package net.maizegenetics.tassel;
 import net.maizegenetics.analysis.imputation.*;
 import net.maizegenetics.analysis.popgen.SequenceDiversityPlugin;
 import net.maizegenetics.analysis.distance.KinshipPlugin;
+import net.maizegenetics.analysis.distance.MultiDimensionalScalingPlugin;
 import net.maizegenetics.analysis.chart.TableDisplayPlugin;
 import net.maizegenetics.analysis.chart.ManhattanDisplayPlugin;
 import net.maizegenetics.analysis.chart.QQDisplayPlugin;
@@ -663,6 +664,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new CreateTreePlugin(this, true)));
         result.add(createMenuItem(new KinshipPlugin(this, true)));
         result.add(createMenuItem(new PrincipalComponentsPlugin(this, true)));
+        result.add(createMenuItem(new MultiDimensionalScalingPlugin(this, true)));
         result.add(createMenuItem(new FixedEffectLMPlugin(this, true)));
         result.add(createMenuItem(new MLMPlugin(this, true)));
         result.add(createMenuItem(new WeightedMLMPlugin(this,true)));
