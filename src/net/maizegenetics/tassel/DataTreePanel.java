@@ -839,6 +839,7 @@ public class DataTreePanel extends JPanel implements PluginListener {
         DataSet tds = (DataSet) event.getSource();
         if (tds != null) {
             addDataSet(tds, DataTreePanel.NODE_TYPE_DEFAULT);
+            setSelectionPath(tds.getData(0));
         }
     }
 
