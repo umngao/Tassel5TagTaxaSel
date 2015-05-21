@@ -133,11 +133,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         // Check for minimum alignment length and proportion
         if (!hasMinAlignLength(s)) return new Tuple<> (tag,Optional.<Position>empty());
         if (!hasMinAlignProportion(s)) return new Tuple<> (tag,Optional.<Position>empty());
-        String rowChrom = s[chr].toUpperCase();
-        rowChrom.replace("CHROMOSOME", "");
-        rowChrom.replace("CHR","");
-        Chromosome chromosome = new Chromosome(rowChrom);
-       // Chromosome chromosome = new Chromosome(s[chr]); // Chromosome class parses the chromosome
+        Chromosome chromosome = new Chromosome(s[chr]); // Chromosome class parses the chromosome
         String alignmentScore=getAlignmentScore(s); 
         String mappingApproach = isBowtie? "Bowtie2" : "BWA"; // these are only 2 aligners we currently support
         Position position=new GeneralPosition

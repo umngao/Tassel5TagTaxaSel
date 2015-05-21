@@ -81,9 +81,9 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                     + "when the tags at a locus are aligned against each other to call SNPs. The reference allele for each site "
                     + "is then provided in the output HapMap files, under the taxon name \"REFERENCE_GENOME\" (first taxon). "
                     + "DEFAULT: Don't use reference genome.").build();
-    private PluginParameter<Integer> myStartChr = new PluginParameter.Builder<>("sC", null, Integer.class).guiName("Start Chromosome").required(true)
+    private PluginParameter<Chromosome> myStartChr = new PluginParameter.Builder<>("sC", null, Chromosome.class).guiName("Start Chromosome").required(true)
             .description("Start Chromosome").build();
-    private PluginParameter<Integer> myEndChr = new PluginParameter.Builder<>("eC", null, Integer.class).guiName("End Chromosome").required(true)
+    private PluginParameter<Chromosome> myEndChr = new PluginParameter.Builder<>("eC", null, Chromosome.class).guiName("End Chromosome").required(true)
             .description("End Chromosome").build();
     private PluginParameter<Boolean> myIncludeRareAlleles = new PluginParameter.Builder<>("inclRare", false, Boolean.class).guiName("Include Rare Alleles")
             .description("Include the rare alleles at site (3 or 4th states)").build();
@@ -115,13 +115,32 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
     @Override
     public DataSet processData(DataSet input) {
         myLogger.info("Finding SNPs in " + inputDB() + ".");
-        myLogger.info(String.format("StartChr:%d EndChr:%d %n", startChromosome(), endChromosome()));
+        myLogger.info(String.format("StartChr:%s EndChr:%s %n", startChromosome(), endChromosome()));
         tagDataWriter =new TagDataSQLite(inputDB());
-        IntStream.rangeClosed(startChromosome(), endChromosome()).unordered()
+ 
+        // Get list of stored chromosomes, we'll process a subset of this list
+        List<Chromosome> myChroms = tagDataWriter.getChromosomesFromCutPositions();
+        if (myChroms == null || myChroms.size() == 0) {
+            myLogger.error("No Chromosomes found in cutPosition tables");
+            return null;
+        }
+        List<Chromosome> chromsToProcess=myChroms.stream()
+                .filter(chrom -> { 
+                    // Only keep chromosomes within our range.  The chromosome 
+                    // constructor stored the string as a name, but also attempted
+                    // to create an integer from the name.  
+                    //
+                    // The "compareTo" method of Chromosome compares the chrom number if
+                    // available, otherwise does a string compare on the name. 
+                    return (chrom.compareTo(startChromosome()) >=0 && chrom.compareTo(endChromosome()) <=0);
+                })
+                .collect(Collectors.toList());
+
+        chromsToProcess.stream()
             .forEach(chr -> {
             	        myLogger.info("Start processing chromosome " + chr + "\n");
                         Multimap<Tag, Allele> chromosomeAllelemap = HashMultimap.create();
-                        tagDataWriter.getCutPositionTagTaxaMap(new Chromosome("" + chr), -1, -1).entrySet().stream()
+                        tagDataWriter.getCutPositionTagTaxaMap(chr, -1, -1).entrySet().stream()
                                 .forEach(emp -> {
                                     Multimap<Tag, Allele> tm = findAlleleByAlignment(emp.getKey(), emp.getValue(), chr);
                                     if (tm != null) chromosomeAllelemap.putAll(tm);
@@ -150,9 +169,9 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         if (callBiallelicSNPsWithGap() && includeGaps()) {
             throw new IllegalArgumentException("The callBiSNPsWGap option is mutually exclusive with the inclGaps option.");
         }
-        if (endChromosome() - startChromosome() < 0) {
+        if (startChromosome().compareTo(endChromosome()) > 0) {
             throw new IllegalArgumentException("The start chromosome is larger than the end chromosome.");
-        }
+        } 
 
         myLogger.info(String.format("MinMAF:%g %n", minMinorAlleleFreq()));
         myLogger.info(String.format("includeRare:%s includeGaps:%s %n", includeRareAlleles(), includeGaps()));
@@ -192,7 +211,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      * @param tagTaxaMap  map of Tag -> Tuple (Boolean if reference, TaxaDistribution)
      * @return multimap of tag -> allele
      */
-    Multimap<Tag,Allele> findAlleleByAlignment(Position cutPosition, Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap, int chromosome) {
+    Multimap<Tag,Allele> findAlleleByAlignment(Position cutPosition, Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap, Chromosome chromosome) {
         if(tagTaxaMap.isEmpty()) return null;  //todo why would this be empty?
         final int numberOfTaxa=tagTaxaMap.values().stream().findFirst().get().y.maxTaxa();
         if((minMinorAlleleFreq()>0) && (tagTaxaMap.size()<2)) {//homozygous
@@ -263,32 +282,31 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
     }
 
     private static Map<Tag,Tuple<Boolean,TaxaDistribution>> createReferenceTag(int cutPosition, 
-    		Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap, int chromosome, int numberOfTaxa) {
+            Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap, Chromosome myChrom, int numberOfTaxa) {
 
-    	Tag refTag = null;
+        Tag refTag = null;
         // Find the longest sequence length of all tags
         short longestTag = tagTaxaMap.keySet().stream()
-        		.max(Comparator.comparingInt(key -> key.seqLength()))
-        		.map(key -> key.seqLength())
-        		.get();
-        	
+                .max(Comparator.comparingInt(key -> key.seqLength()))
+                .map(key -> key.seqLength())
+                .get();
+
         // Create reference tag from reference genome, where start position=cutPosition,
-        // and end position = cutPosition+longestTag-1
-		Chromosome myChrom = new Chromosome(String.valueOf(chromosome)); 
-		byte[] seqInBytes = myRefSequence.chromosomeSequence(myChrom, cutPosition, cutPosition + longestTag-1 );
-		if (seqInBytes == null) {
-			String msg = "Error creating reference tag at position " + cutPosition + " with length " + longestTag
-					+ ". Position not found in reference file.  " 
-					+ ". Please verify the reference file used for the plugin matches the reference file used for the aligner.";
-			myLogger.error(msg);
-			return null;
-		}
-		refTag = TagBuilder.instance(seqInBytes,longestTag).reference().build();  // setting reference in the tag     
-		ImmutableMap.Builder<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMapBuilder=new ImmutableMap.Builder<>();
+        // and end position = cutPosition+longestTag-1 
+        byte[] seqInBytes = myRefSequence.chromosomeSequence(myChrom, cutPosition, cutPosition + longestTag-1 );
+        if (seqInBytes == null) {
+            String msg = "Error creating reference tag at position " + cutPosition + " with length " + longestTag
+                    + ". Position not found in reference file.  " 
+                    + ". Please verify the reference file used for the plugin matches the reference file used for the aligner.";
+            myLogger.error(msg);
+            return null;
+        }
+        refTag = TagBuilder.instance(seqInBytes,longestTag).reference().build();  // setting reference in the tag     
+        ImmutableMap.Builder<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMapBuilder=new ImmutableMap.Builder<>();
         TaxaDistribution refTD=TaxaDistBuilder.create(numberOfTaxa); // is numberOfTaxa an appropriate value to use?  		
-		tagTaxaMapBuilder.put(refTag,new Tuple<>(true,refTD));
+        tagTaxaMapBuilder.put(refTag,new Tuple<>(true,refTD));
         for (Map.Entry<Tag, Tuple<Boolean, TaxaDistribution>> entry : tagTaxaMap.entrySet()) {
-        	tagTaxaMapBuilder.put(entry);
+            tagTaxaMapBuilder.put(entry);
         }
         return tagTaxaMapBuilder.build();
     }
@@ -422,7 +440,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 Optional<Position> p=referencePositions.get(i);
                 if(!p.isPresent()) continue;  //skip alignment sites not in reference
                 List tdList=alignT.get(p.get(),allele);
-                if(tdList!=null) {tdList.add(td);}
+                if(tdList!=null) {tdList.add(td);} // Adding more taxaDist for this allele at this position.
                 else {
                     List<TagTaxaDistribution> ttdL=new ArrayList<>();
                     ttdL.add(td);
@@ -601,7 +619,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      *
      * @return Start Chromosome
      */
-    public Integer startChromosome() {
+    public Chromosome startChromosome() {
         return myStartChr.value();
     }
 
@@ -612,7 +630,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public DiscoverySNPCallerPluginV2 startChromosome(Integer value) {
+    public DiscoverySNPCallerPluginV2 startChromosome(Chromosome value) {
         myStartChr = new PluginParameter<>(myStartChr, value);
         return this;
     }
@@ -622,7 +640,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      *
      * @return End Chromosome
      */
-    public Integer endChromosome() {
+    public Chromosome endChromosome() {
         return myEndChr.value();
     }
 
@@ -633,7 +651,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public DiscoverySNPCallerPluginV2 endChromosome(Integer value) {
+    public DiscoverySNPCallerPluginV2 endChromosome(Chromosome value) {
         myEndChr = new PluginParameter<>(myEndChr, value);
         return this;
     }

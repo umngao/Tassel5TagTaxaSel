@@ -495,7 +495,7 @@ public class StepwiseOLSModelFitter {
     	SNP modelsnp = (SNP) currentModel.get(whichModelTerm).getID();
     	int markerIndex = modelsnp.index;
     	Chromosome chr = modelsnp.locus;
-    	int chrAsInt = chr.getChromosomeNumber();
+    	//int chrAsInt = chr.getChromosomeNumber();
     	boolean boundfound = false;
     	int testIndex = markerIndex;
     	int lastterm = currentModel.size();
@@ -511,8 +511,9 @@ public class StepwiseOLSModelFitter {
     		ModelEffect markerEffect = null;
     		SNP snp = new SNP(myGenotype.siteName(testIndex), myGenotype.chromosome(testIndex), myGenotype.chromosomalPosition(testIndex), testIndex);
     		Chromosome chrOfTestedSnp = snp.locus;
-    		int chrOfTestedSnpAsInt = chrOfTestedSnp.getChromosomeNumber();
-    		if (snp == null || chrOfTestedSnpAsInt != chrAsInt) {
+    		//int chrOfTestedSnpAsInt = chrOfTestedSnp.getChromosomeNumber();
+    		if (snp == null || !chrOfTestedSnp.equals(chr)) {
+    		//if (snp == null || chrOfTestedSnpAsInt != chrAsInt) {
     			testIndex -= incr;
     			boundfound = true;
     		} else {
