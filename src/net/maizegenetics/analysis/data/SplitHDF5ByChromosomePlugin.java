@@ -125,12 +125,12 @@ public class SplitHDF5ByChromosomePlugin extends AbstractPlugin {
             GenotypeTable genosForChr = FilterGenotypeTable.getInstance(inGenos, chr);
             String outFileName;
             if (ignoreDepth()) { 
-                outFileName = inputHDF5GenotypeFile().replaceFirst("\\.h5$", "_noDepth_chr"+chr.getChromosomeNumber()+".h5");
+                outFileName = inputHDF5GenotypeFile().replaceFirst("\\.h5$", "_noDepth_chr"+chr.getName()+".h5");
             } else {
-                outFileName = inputHDF5GenotypeFile().replaceFirst("\\.h5$", "_chr"+chr.getChromosomeNumber()+".h5");
+                outFileName = inputHDF5GenotypeFile().replaceFirst("\\.h5$", "_chr"+chr.getName()+".h5");
             }
             ExportUtils.writeGenotypeHDF5(genosForChr, outFileName, !ignoreDepth());
-            System.out.println("    Genotypes from chromosome "+chr.getChromosomeNumber()+" written to file");
+            System.out.println("    Genotypes from chromosome "+chr.getName()+" written to file");
             System.out.println("        "+outFileName);
         }
         System.out.println("\n\nSplitHDF5ByChromosomePlugin: Finished splitting chromosomes.\n\n");

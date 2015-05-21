@@ -1,6 +1,7 @@
 package net.maizegenetics.dna.map;
 
 import net.maizegenetics.util.GeneralAnnotation;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -40,11 +41,11 @@ public class Chromosome implements Comparable<Chromosome> {
      * @param features Map of features about the chromosome
      */
     public Chromosome(String name, int length, GeneralAnnotation features) {
-        myName = name;
+        myName = parseName(name);
         myLength = length;
         int convChr = Integer.MAX_VALUE;
         try {
-            convChr = Integer.parseInt(name);
+            convChr = Integer.parseInt(myName);
         } catch (NumberFormatException ne) {
         }
         myChromosomeNumber = convChr;
@@ -53,7 +54,7 @@ public class Chromosome implements Comparable<Chromosome> {
     }
 
     public Chromosome(String name) {
-        this(name, -1, null);
+        this(name, -1, parseAnnotationFromName(name));
     }
 
     public String getName() {
@@ -110,5 +111,44 @@ public class Chromosome implements Comparable<Chromosome> {
             return result;
         }
         return myName.compareTo(o.getName());
+    }
+    /**
+     * Takes a string, makes all upper case, removes CHROMOSOME/CHR, 
+     * returns the resulting string
+     * @param chromosome
+     * @return the input string minus a leading "chr" or "chromsome" 
+     */
+    private static String parseName(String name) {
+        if (name == null || name == "") return name;
+        String parsedName = name.trim();
+        parsedName = parsedName.toUpperCase();
+        parsedName = parsedName.replace("CHROMOSOME ","");
+        parsedName = parsedName.replace("CHR","");
+        int spaceIndex = parsedName.indexOf(" ");
+        if (spaceIndex > 0){
+            parsedName = parsedName.substring(0,parsedName.indexOf(" "));
+        }
+        return parsedName;
+    }
+    
+    /**
+     * Takes a chromosome name, looks for the first space, returns
+     * the data beyond as an annotation.  This takes care of lines in
+     * a fasta file that look like this:
+     * >3 This is a description
+     * @param name - the string chromosome passed in
+     * @return Annotations built from the string beyond the name
+     */
+    private static GeneralAnnotation parseAnnotationFromName(String name) {
+        if (name == null || name == "") return null;
+        GeneralAnnotation myAnnotations = null;
+        String currChrDesc = null;
+        int spaceIndex = name.indexOf(" ");
+        if (spaceIndex > 0) {                   
+            currChrDesc = name.substring(name.indexOf(" ") + 1);
+            myAnnotations = GeneralAnnotationStorage.getBuilder().addAnnotation("Description", currChrDesc).build();
+        } 
+
+        return myAnnotations;
     }
 }

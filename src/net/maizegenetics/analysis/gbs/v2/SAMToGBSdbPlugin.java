@@ -46,6 +46,12 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
             .range(Range.closed(0.0, 1.0) ).description("Minimum proportion of sequence that must align to store the SAM entry").build();
     private PluginParameter<Integer> minAlignLength = new PluginParameter.Builder<Integer>("aLen", 0, Integer.class).guiName("SAM Min Align Length").required(false)
             .range(Range.closed(0, 1000) ).description("Minimum length of bps aligning to store the SAM entry").build();
+    
+    private enum tagPresence {
+        present,
+        originalPresent,
+        notPresent;       
+    }
 
     public SAMToGBSdbPlugin() {
         super(null, false);
@@ -72,9 +78,21 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
                 }
                 Tuple<Tag,Optional<Position>> tagPositionTuple=parseRow(inputLine);
                 if (tagPositionTuple == null) continue;            
-                if(!knownTags.contains(tagPositionTuple.x)) tagsNotFoundInDB++;
+                //if(!knownTags.contains(tagPositionTuple.x)) tagsNotFoundInDB++;
+                tagPresence tagP = isKnownTag(inputLine, tagPositionTuple.x, knownTags);
+                if (tagP == tagPresence.notPresent) {
+                    tagsNotFoundInDB++;
+                }
+                
                 if(tagPositionTuple.y.isPresent()) {
-                    tagPositions.put(tagPositionTuple.x,tagPositionTuple.y.get());
+                    if (tagP == tagPresence.originalPresent) {                       
+                        String[] stringTokens=inputLine.split("\\s");
+                        String origSeq = stringTokens[0].split("=")[1]; //stringTokens[0] is tagSeg=<original sequence here>
+                        Tag oTag = TagBuilder.instance(origSeq).build();
+                        tagPositions.put(oTag, tagPositionTuple.y.get());
+                    } else {
+                        tagPositions.put(tagPositionTuple.x,tagPositionTuple.y.get());
+                    }                    
                 } else {
                     tagsNotMapped++;
                 }
@@ -115,7 +133,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         // Check for minimum alignment length and proportion
         if (!hasMinAlignLength(s)) return new Tuple<> (tag,Optional.<Position>empty());
         if (!hasMinAlignProportion(s)) return new Tuple<> (tag,Optional.<Position>empty());
-        Chromosome chromosome=new Chromosome(s[chr].replace("chr", "")); 
+        Chromosome chromosome = new Chromosome(s[chr]); // Chromosome class parses the chromosome
         String alignmentScore=getAlignmentScore(s); 
         String mappingApproach = isBowtie? "Bowtie2" : "BWA"; // these are only 2 aligners we currently support
         Position position=new GeneralPosition
@@ -225,6 +243,30 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
     	} 
     	return asField;
     }
+    
+    private tagPresence isKnownTag(String inputLine, Tag tag, Set knownTags){
+        // 1.  Check if tag made from the aligner's sequence occurs in the db, if yes, return "present" 
+        // 2.  Check if tag made from the original sequence occurs in the db, if yes, return "originalPresent"
+        // 3.  If neither sequence can be found, return "notPresent"
+        if (knownTags.contains(tag)) {
+            return tagPresence.present; // good - no processing needed
+        }
+
+        String[] stringTokens=inputLine.split("\\s");
+        String origSeq = stringTokens[0].split("=")[1];
+
+        Tag oTag = TagBuilder.instance(origSeq).build();
+        if (knownTags.contains(oTag)) {
+            // The tag created from the aligner's sequence does not appear in the database,
+            // However the original tag sequence DOES appear in the db, so store the position
+            // against this tag rather than the tag created from the aligner sequence.  When the aligner
+            // performs "hard-clipping" the "clipped" portions of the tag are removed. BWA-MEM does this.
+            //System.out.println("LCJ - SAMToGBSDb:isKnownTag - CHANGE THE TAG !!");
+            return tagPresence.originalPresent;
+        }
+        return tagPresence.notPresent;
+    }
+
     /**
      * Reads SAM files output from BWA or bowtie2
      */

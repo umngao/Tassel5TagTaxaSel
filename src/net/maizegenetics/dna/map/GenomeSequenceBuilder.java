@@ -33,7 +33,7 @@ import org.apache.log4j.Logger;
  *
  */
 public class GenomeSequenceBuilder {
-	private static final Logger myLogger = Logger.getLogger(GenomeSequenceBuilder.class);
+    private static final Logger myLogger = Logger.getLogger(GenomeSequenceBuilder.class);
 
     /**
      * Builds GenomeSequence from a fasta file.
@@ -43,7 +43,7 @@ public class GenomeSequenceBuilder {
     public static GenomeSequence instance(String fastaFileName) {
         Function<Character, Character> charConversion= (c) -> c;
         return instance(fastaFileName,charConversion);
-	}
+    }
 
     /**
      * Builds GenomeSequence from a fasta file.  The char conversion provide a mechanism to convert upper and lower case
@@ -57,45 +57,45 @@ public class GenomeSequenceBuilder {
         return new HalfByteGenomeSequence(chromPositionMap);
     }
 
-	protected static  Map<Chromosome, byte[]> readReferenceGenomeChr(String fastaFileName, Function<Character, Character> charConversion) {
-		// Read specified file, return entire sequence for requested chromosome
+    protected static  Map<Chromosome, byte[]> readReferenceGenomeChr(String fastaFileName, Function<Character, Character> charConversion) {
+        // Read specified file, return entire sequence for requested chromosome
         String base="ACGTNacgtn";
         String conv=base.chars().mapToObj(ci -> charConversion.apply((char)ci).toString()).collect(Collectors.joining());
         System.out.println("Genome FASTA character conversion: "+base+" to "+conv);
         Map<Chromosome, byte[]> chromPositionMap = new HashMap<Chromosome, byte[]>();
-		Chromosome currChr = null;	
-		ByteArrayOutputStream currSeq = new ByteArrayOutputStream();
-		String line = null;
-		try {
-			boolean found = false;
-			BufferedReader br = Utils.getBufferedReader(fastaFileName); // this takes care of .gz
+        Chromosome currChr = null;	
+        ByteArrayOutputStream currSeq = new ByteArrayOutputStream();
+        String line = null;
+        try {
+            boolean found = false;
+            BufferedReader br = Utils.getBufferedReader(fastaFileName); // this takes care of .gz
 
-			while ((line = br.readLine()) != null && !found) {
-				line = line.trim();
+            while ((line = br.readLine()) != null && !found) {
+                line = line.trim();
 
-				if (line.startsWith(">")) {
-					if (currChr != null) {
-						// end processing current chromosome sequence
+                if (line.startsWith(">")) {
+                    if (currChr != null) {
+                        // end processing current chromosome sequence
                         currChr=new Chromosome(currChr.getName(),currSeq.size(),currChr.getAnnotation());
-						chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray(),charConversion));
-					}
-					currChr = parseChromosome(line); 
-					currSeq = new ByteArrayOutputStream();
-				} else {
-					currSeq.write(line.getBytes());
-				}
-			}
-			// reached end of file - write last bytes
-			if (currSeq.size() > 0) {
+                        chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray(),charConversion));
+                    }
+                    currChr = parseChromosome(line); 
+                    currSeq = new ByteArrayOutputStream();
+                } else {
+                    currSeq.write(line.getBytes());
+                }
+            }
+            // reached end of file - write last bytes
+            if (currSeq.size() > 0) {
                 currChr=new Chromosome(currChr.getName(),currSeq.size(),currChr.getAnnotation());
-				chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray(),charConversion));
-			}
-			br.close();
-		} catch (IOException ioe) {
-			System.out.println("ReferenceGenomeSequence: caught buffered read exception");
-		}
-		return chromPositionMap;
-	}
+                chromPositionMap.put(currChr, halfByteCompression(currSeq.toByteArray(),charConversion));
+            }
+            br.close();
+        } catch (IOException ioe) {
+            System.out.println("ReferenceGenomeSequence: caught buffered read exception");
+        }
+        return chromPositionMap;
+    }
 
     private static byte[] halfByteCompression(byte[] unpkSequence, Function<Character, Character> charConversion){
         // Take byte array, turn bytes into NucleotideAlignmentConstant
@@ -110,22 +110,23 @@ public class GenomeSequenceBuilder {
         return packedSequence;
     }
 
-	private static  Chromosome parseChromosome (String chromString) {
-		String chrS = chromString.replace(">","");
-		chrS = chrS.replace("chromosome ", ""); // either chromosome, or chr or just number in file
-		chrS = chrS.replace("chr", "");
-		GeneralAnnotation myAnnotations = null;
-		
-		String currChrDesc = null;
-		int spaceIndex = chrS.indexOf(" ");
-		if (spaceIndex > 0) {			
-			currChrDesc = chrS.substring(chrS.indexOf(" ") + 1);
-			myAnnotations = GeneralAnnotationStorage.getBuilder().addAnnotation("Description", currChrDesc).build();
-			chrS = chrS.substring(0,chrS.indexOf(" "));
-		} 
-		return new Chromosome(chrS, -1, myAnnotations);
-	}
-   
+    private static  Chromosome parseChromosome (String chromString) {
+        String chrS = chromString.replace(">","");
+        chrS = chrS.toUpperCase();
+        chrS = chrS.replace("CHROMOSOME", ""); 
+        chrS = chrS.replace("CHR", ""); // keep chromosome string, minus any leading "chr" or "chromosome"
+        GeneralAnnotation myAnnotations = null;
+
+        String currChrDesc = null;
+        int spaceIndex = chrS.indexOf(" ");
+        if (spaceIndex > 0) {			
+            currChrDesc = chrS.substring(chrS.indexOf(" ") + 1);
+            myAnnotations = GeneralAnnotationStorage.getBuilder().addAnnotation("Description", currChrDesc).build();
+            chrS = chrS.substring(0,chrS.indexOf(" "));
+        } 
+        return new Chromosome(chrS, -1, myAnnotations);
+    }
+
 }
 
 /**
@@ -150,14 +151,14 @@ class HalfByteGenomeSequence implements GenomeSequence{
     protected HalfByteGenomeSequence(Map<Chromosome, byte[]>chromPositionMap) {
         this.chromPositionMap = chromPositionMap;
         chromPositionMap.entrySet().stream()
-                .forEach(e -> chromLengthLookup.put(e.getKey(),e.getKey().getLength()));
+        .forEach(e -> chromLengthLookup.put(e.getKey(),e.getKey().getLength()));
         LongAdder genomeIndex=new LongAdder();
         chromosomes().stream().sorted()
-                .forEach(chrom -> {
-                            int length=chromLengthLookup.get(chrom);
-                            wholeGenomeIndexMap.put(Range.closed(genomeIndex.longValue(),
-                                genomeIndex.longValue()+length-1),chrom);
-                            genomeIndex.add(length);}
+        .forEach(chrom -> {
+            int length=chromLengthLookup.get(chrom);
+            wholeGenomeIndexMap.put(Range.closed(genomeIndex.longValue(),
+                    genomeIndex.longValue()+length-1),chrom);
+            genomeIndex.add(length);}
                 );
         genomeSize=genomeIndex.longValue();
     }
@@ -177,7 +178,7 @@ class HalfByteGenomeSequence implements GenomeSequence{
         lastSite--;   //shift over to zero base
         byte[] packedBytes = chromPositionMap.get(chrom);
         if (startSite > packedBytes.length*2 || lastSite > packedBytes.length*2 ) {
-        	return null; // requested sequence is out of range
+            return null; // requested sequence is out of range
         }
         byte[] fullBytes = new byte[lastSite - startSite + 1];
         for (int i = startSite; i <= lastSite; i++) {
@@ -189,7 +190,7 @@ class HalfByteGenomeSequence implements GenomeSequence{
     @Override
     public byte[] genomeSequence(long startSite, long lastSite) {
         if(lastSite-startSite>Integer.MAX_VALUE) throw
-                new IllegalArgumentException("Less than "+Integer.MAX_VALUE+" sites must be requested at a time");
+            new IllegalArgumentException("Less than "+Integer.MAX_VALUE+" sites must be requested at a time");
         byte[] fullBytes=new byte[(int)(lastSite-startSite+1)];
         long currentSiteToGet=startSite;
         while(currentSiteToGet<lastSite) {

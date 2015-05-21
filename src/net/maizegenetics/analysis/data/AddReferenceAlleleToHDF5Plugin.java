@@ -9,13 +9,17 @@ import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
+
 import org.apache.log4j.Logger;
 
 import javax.swing.*;
+
 import java.awt.*;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+
+import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.GeneralPosition;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
@@ -24,7 +28,9 @@ import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.HDF5Utils;
+
 import java.util.List;
+
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.Utils;
 
@@ -62,7 +68,7 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
     
     private BufferedReader refReader = null;
     private PositionListBuilder newPosListBuilder = null;
-    private int currChr = Integer.MIN_VALUE;
+    private Chromosome currChr = null;
     private int currPos = Integer.MIN_VALUE;
     private String contextSeq;
     private final boolean writePositions = false;
@@ -135,7 +141,7 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
             myLogger.info("SNPID\tchr\tpos\tstr\tmaj\tmin\tref\tmaf\tcov\tcontext");
         }
         for (Position oldPos : oldPosList) {
-            int chr = oldPos.getChromosome().getChromosomeNumber();
+            Chromosome chr = oldPos.getChromosome();
             int pos = oldPos.getPosition();
             byte strand = oldPos.getStrand();
             byte refAllele = retrieveRefAllele(chr, pos, strand);
@@ -153,7 +159,7 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
         return null;
     }
     
-    private byte retrieveRefAllele(int chr, int pos, int strand) {
+    private byte retrieveRefAllele(Chromosome chr, int pos, int strand) {
         findChrInRefGenomeFile(chr);
         char currChar = findPositionInRefGenomeFile(pos);
         if (currPos == pos) {
@@ -166,23 +172,15 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
         }
     }
     
-    private void findChrInRefGenomeFile(int chr) {
+    private void findChrInRefGenomeFile(Chromosome chr) {
         String temp = "Nothing has been read from the reference genome fasta file yet";
         try {
-            while (refReader.ready() && currChr < chr) {
+            while (refReader.ready() && (currChr == null || currChr.compareTo(chr) < 0)){
                 temp = refReader.readLine().trim();
                 if (temp.startsWith(">")) {
                     String chrS = temp.replace(">", "");
-                    chrS = chrS.replace("chr", "");
-                    try {
-                        currChr = Integer.parseInt(chrS);
-                    } catch (NumberFormatException e) {
-                        myLogger.error("\n\nAddReferenceAlleleToHDF5Plugin detected a non-numeric chromosome name in the reference genome sequence fasta file: " + chrS
-                                + "\n\nPlease change the FASTA headers in your reference genome sequence to integers "
-                                + "(>1, >2, >3, etc.) OR to 'chr' followed by an integer (>chr1, >chr2, >chr3, etc.)\n\n");
-                        throw new NumberFormatException("Problem reading reference genome file: non-numeric chromosome names");
-                    }
-                    if (!writePositions) myLogger.info("\nCurrently reading chromosome "+currChr+" from reference genome fasta file\n\n");
+                    currChr = new Chromosome(chrS); // Chromosome class removes leading "chr" or "chromosome"
+                    if (!writePositions) myLogger.info("\nCurrently reading chromosome "+currChr.getName()+" from reference genome fasta file\n\n");
                 }
                 currPos = 0;
             }
@@ -192,7 +190,7 @@ public class AddReferenceAlleleToHDF5Plugin extends AbstractPlugin {
             e.printStackTrace();
             throw new IllegalStateException("Problem reading reference genome file");
         }
-        if (currChr != chr) {
+        if (!currChr.equals(chr)) {
             myLogger.error("\nCould not find chromosome "+chr+" in the reference genome fasta file.\nMake sure that the chromosomes are in numerical order in that file\n\n\n");
             try {Thread.sleep(500);} catch(InterruptedException iE) {}
             throw new IllegalStateException("Problem reading reference genome file: Make sure that the chromosomes are in numerical order");

@@ -59,8 +59,8 @@ public class TagExportToFastqPlugin extends AbstractPlugin {
             TagData tagData=new TagDataSQLite(inputDB());
             LongAdder count=new LongAdder();
             tagData.getTagsWithDepth(minCount())
-                    .forEach((tag, depth)->{
-                        writeFASTQ(bw, tag, depth);
+                    .forEach((tag,depth)->{
+                        writeFASTQ(bw, tag); // the tag sequence becomes the header
                         count.increment();
                     });
             bw.close();
@@ -76,9 +76,11 @@ public class TagExportToFastqPlugin extends AbstractPlugin {
         return null;
     }
 
-    private void writeFASTQ(BufferedWriter outStream, Tag tag, int tagCount) {
+    private void writeFASTQ(BufferedWriter outStream, Tag tag) {
         try {  //build a string first so that if needed this could be parallized in writing
-            StringBuilder sb=new StringBuilder("@length=" + tag.seqLength() + "count=" + tagCount + "\n");
+            // With the change for TAS-722 we decided the sequence becomes the header. After aligning,
+            // this allows the preservation of the original tag.
+            StringBuilder sb=new StringBuilder("@tagSeq=" + tag.sequence() + "\n");
             sb.append(tag.sequence() + "\n+\n");    //Sequence and "+" symbol
             for (int i = 0; i < tag.seqLength(); i++) {
                 sb.append("f");
@@ -91,9 +93,10 @@ public class TagExportToFastqPlugin extends AbstractPlugin {
         }
     }
 
+
     @Override
     public String getToolTipText() {
-        return "Tag Count to Fastq";
+        return "Export unique tags to fastQ file in a format readable by aligners";
     }
 
     @Override
@@ -103,7 +106,7 @@ public class TagExportToFastqPlugin extends AbstractPlugin {
 
     @Override
     public String getButtonName() {
-        return "Tag Count to Fastq";
+        return "Tag Export to Fastq";
     }
 
     // The following getters and setters were auto-generated.
