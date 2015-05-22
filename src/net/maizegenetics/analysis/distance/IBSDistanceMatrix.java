@@ -38,6 +38,8 @@ import java.util.stream.StreamSupport;
 import static net.maizegenetics.dna.WHICH_ALLELE.Major;
 import static net.maizegenetics.dna.WHICH_ALLELE.Minor;
 import static net.maizegenetics.dna.WHICH_ALLELE.Minor2;
+import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.util.Tuple;
 
 /**
  * This class calculates an identity by state matrix. It is scaled so only
@@ -59,23 +61,25 @@ import static net.maizegenetics.dna.WHICH_ALLELE.Minor2;
  */
 public class IBSDistanceMatrix extends DistanceMatrix {
 
-    private ProgressListener myListener = null;
-    private final int numSeqs;
-    private final GenotypeTable theTBA;
     /**
      * Holds the average numbers of sites in the comparisons
      */
-    private double avgTotalSites;
-    private int minSitesComp = 0;
-    private boolean isTrueIBS = false;
+    private final double myAvgTotalSites;
+    private final boolean myIsTrueIBS;
+
+    public IBSDistanceMatrix(double[][] distances, TaxaList taxa, boolean isTrueIBS, double avgTotalSites) {
+        super(distances, taxa);
+        myIsTrueIBS = isTrueIBS;
+        myAvgTotalSites = avgTotalSites;
+    }
 
     /**
      * Compute observed distances for all taxa. Missing sites are ignored.
      *
      * @param theAlignment Alignment used to computed distances
      */
-    public IBSDistanceMatrix(GenotypeTable theAlignment) {
-        this(theAlignment, null);
+    public static IBSDistanceMatrix getInstance(GenotypeTable theAlignment) {
+        return getInstance(theAlignment, null);
     }
 
     /**
@@ -84,8 +88,8 @@ public class IBSDistanceMatrix extends DistanceMatrix {
      * @param theAlignment Alignment used to computed distances
      * @param listener Listener to track progress in calculations
      */
-    public IBSDistanceMatrix(GenotypeTable theAlignment, ProgressListener listener) {
-        this(theAlignment, 0, listener);
+    public static IBSDistanceMatrix getInstance(GenotypeTable theAlignment, ProgressListener listener) {
+        return getInstance(theAlignment, 0, listener);
     }
 
     /**
@@ -95,8 +99,8 @@ public class IBSDistanceMatrix extends DistanceMatrix {
      * @param minSiteComp Minimum number of sites needed to estimate distance
      * @param listener Listener to track progress in calculations
      */
-    public IBSDistanceMatrix(GenotypeTable theAlignment, int minSiteComp, ProgressListener listener) {
-        this(theAlignment, minSiteComp, false, listener, true);
+    public static IBSDistanceMatrix getInstance(GenotypeTable theAlignment, int minSiteComp, ProgressListener listener) {
+        return getInstance(theAlignment, minSiteComp, false, listener, true);
     }
 
     /**
@@ -109,25 +113,19 @@ public class IBSDistanceMatrix extends DistanceMatrix {
      * @param listener Listener to track progress in calculations
      * @param useThirdState
      */
-    public IBSDistanceMatrix(GenotypeTable theAlignment, int minSiteComp, boolean trueIBS, ProgressListener listener, boolean useThirdState) {
-        super();
-        this.minSitesComp = minSiteComp;
-        isTrueIBS = trueIBS;
-        myListener = listener;
-        numSeqs = theAlignment.numberOfTaxa();
-        theTBA = theAlignment;
-        //  this should have an option to only use the 2 or 3 most common alleles
-        setIdGroup(theAlignment.taxa());
-        computeHetBitDistances(useThirdState);
+    public static IBSDistanceMatrix getInstance(GenotypeTable theAlignment, int minSiteComp, boolean trueIBS, ProgressListener listener, boolean useThirdState) {
+        Tuple<double[][], Double> distances = computeHetBitDistances(useThirdState, listener, theAlignment, trueIBS, minSiteComp);
         //setupHetBitDistancesIncrementors();
-        //computeHetBitDistances();
+        //Tuple<double[][], Double> distances = computeHetBitDistances(theAlignment, listener, trueIBS, minSiteComp);
+        return new IBSDistanceMatrix(distances.x, theAlignment.taxa(), trueIBS, distances.y);
     }
 
-    private void computeHetBitDistances() {
-        avgTotalSites = 0;
+    private static Tuple<double[][], Double> computeHetBitDistances(GenotypeTable theTBA, ProgressListener listener, boolean isTrueIBS, int minSitesComp) {
+        int numSeqs = theTBA.numberOfTaxa();
+        double avgTotalSites = 0.0;
         long time = System.currentTimeMillis();
 
-        int[][] counters = stream(theTBA).collect(toCounters(numSeqs)).myCounters;
+        int[][] counters = stream(theTBA, listener).collect(toCounters(numSeqs)).myCounters;
 
         double[][] distance = new double[numSeqs][numSeqs];
         long count = 0;
@@ -154,10 +152,10 @@ public class IBSDistanceMatrix extends DistanceMatrix {
                 }
             }
         }
-        setDistances(distance);
 
         avgTotalSites /= (double) count;
         System.out.println("computeHetBitDistances time = " + (System.currentTimeMillis() - time) / 1000 + " seconds");
+        return new Tuple<>(distance, avgTotalSites);
     }
 
     public static double[] computeHetDistances(byte[] first, byte[] second, int minSitesComp) {
@@ -186,8 +184,9 @@ public class IBSDistanceMatrix extends DistanceMatrix {
     /**
      * This is a cleanest, fastest and most accurate way to calculate distance.
      */
-    private void computeHetBitDistances(boolean useThirdState) {
-        avgTotalSites = 0;
+    private static Tuple<double[][], Double> computeHetBitDistances(boolean useThirdState, ProgressListener listener, GenotypeTable theTBA, boolean isTrueIBS, int minSitesComp) {
+        int numSeqs = theTBA.numberOfTaxa();
+        double avgTotalSites = 0;
         //LongAdder count = new LongAdder();
         //note this distance object is modified by a parallel stream, but each element is only touched once
         double[][] distance = new double[numSeqs][numSeqs];
@@ -214,15 +213,15 @@ public class IBSDistanceMatrix extends DistanceMatrix {
                         result = computeHetBitDistances(iMj, iMn, jMj, jMn, minSitesComp);
                     }
                     distance[i][j] = distance[j][i] = result[0];
-                    avgTotalSites += result[1];  //this assumes not hets
+                    //avgTotalSites += result[1];  //this assumes not hets
                     //count.increment();
                 }
             }
-            fireProgress((int) ((double) (i + 1) / (double) numSeqs * 100.0));
+            fireProgress((int) ((double) (i + 1) / (double) numSeqs * 100.0), listener);
         });
-        setDistances(distance);
         //avgTotalSites /= (double) count.longValue();
         System.out.println("computeHetBitDistances time = " + (System.currentTimeMillis() - time) / 1000 + " seconds");
+        return new Tuple<>(distance, avgTotalSites);
     }
 
     /**
@@ -409,7 +408,7 @@ public class IBSDistanceMatrix extends DistanceMatrix {
     private static final long FALSE_FALSE_LONG = 0x0l;
     private static long[][] INCREMENT_FUNCTIONS = null;
 
-    public static void setupHetBitDistancesIncrementors() {
+    private static void setupHetBitDistancesIncrementors() {
 
         if (INCREMENT_FUNCTIONS != null) {
             return;
@@ -488,7 +487,7 @@ public class IBSDistanceMatrix extends DistanceMatrix {
      * Average number of sites used in calculating the distance matrix
      */
     public double getAverageTotalSites() {
-        return avgTotalSites;
+        return myAvgTotalSites;
     }
 
     public String toString(int d) {
@@ -520,9 +519,9 @@ public class IBSDistanceMatrix extends DistanceMatrix {
         return this.toString(6);
     }
 
-    protected void fireProgress(int percent) {
-        if (myListener != null) {
-            myListener.progress(percent, null);
+    protected static void fireProgress(int percent, ProgressListener listener) {
+        if (listener != null) {
+            listener.progress(percent, null);
         }
 
     }
@@ -531,7 +530,7 @@ public class IBSDistanceMatrix extends DistanceMatrix {
      * Returns whether true IBS is calculated for the diagonal 
      */
     public boolean isTrueIBS() {
-        return isTrueIBS;
+        return myIsTrueIBS;
     }
 
     private static class Counters {
@@ -613,15 +612,15 @@ public class IBSDistanceMatrix extends DistanceMatrix {
 
     }
 
-    private int myNumSitesProcessed = 0;
+    private static int myNumSitesProcessed = 0;
     private static final int MAX_NUMBER_20_BITS = 0xFFFFF;
 
-    public Stream<long[]> stream(GenotypeTable genotypes) {
+    public static Stream<long[]> stream(GenotypeTable genotypes, ProgressListener listener) {
         myNumSitesProcessed = 0;
-        return StreamSupport.stream(new ByteCounterSpliterator(genotypes, 0, genotypes.numberOfSites()), true);
+        return StreamSupport.stream(new ByteCounterSpliterator(genotypes, 0, genotypes.numberOfSites(), listener), true);
     }
 
-    class ByteCounterSpliterator implements Spliterator<long[]> {
+    static class ByteCounterSpliterator implements Spliterator<long[]> {
 
         private int myCurrentSite;
         private final int myFence;
@@ -631,8 +630,9 @@ public class IBSDistanceMatrix extends DistanceMatrix {
         private final int myNumTaxa;
         private final int myNumSites;
         private int myFirstTaxa;
+        private final ProgressListener myProgressListener;
 
-        ByteCounterSpliterator(GenotypeTable genotypes, int currentIndex, int fence) {
+        ByteCounterSpliterator(GenotypeTable genotypes, int currentIndex, int fence, ProgressListener listener) {
             myGenotypes = genotypes;
             myNumTaxa = myGenotypes.numberOfTaxa();
             myNumSites = myGenotypes.numberOfSites();
@@ -641,6 +641,7 @@ public class IBSDistanceMatrix extends DistanceMatrix {
             myFence = fence;
             myCachedSiteGenotype = myGenotypes.genotypeAllTaxa(myCurrentSite);
             myCachedSite = myCurrentSite;
+            myProgressListener = listener;
         }
 
         @Override
@@ -675,7 +676,7 @@ public class IBSDistanceMatrix extends DistanceMatrix {
                 action.accept(result);
             }
             myNumSitesProcessed += numSitesProcessed;
-            fireProgress((int) ((double) myNumSitesProcessed / (double) myNumSites * 100.0));
+            fireProgress((int) ((double) myNumSitesProcessed / (double) myNumSites * 100.0), myProgressListener);
         }
 
         @Override
@@ -716,7 +717,7 @@ public class IBSDistanceMatrix extends DistanceMatrix {
             int mid = (lo + myFence) >>> 1;
             if (lo < mid) {
                 myCurrentSite = mid;
-                return new ByteCounterSpliterator(myGenotypes, lo, mid);
+                return new ByteCounterSpliterator(myGenotypes, lo, mid, myProgressListener);
             } else {
                 return null;
             }

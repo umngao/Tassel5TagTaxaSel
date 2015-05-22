@@ -5,249 +5,47 @@ import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.score.ReferenceProbability;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
-import net.maizegenetics.phenotype.NumericAttribute;
-import net.maizegenetics.phenotype.Phenotype;
-import net.maizegenetics.phenotype.PhenotypeAttribute;
-import net.maizegenetics.phenotype.TaxaAttribute;
-import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.dna.snp.GenotypeTable.GENOTYPE_TABLE_COMPONENT;
-import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 
-import java.awt.Frame;
-import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.stream.IntStream;
 
 /**
- * Created by IntelliJ IDEA. User: Zhiwu Date: Apr 29, 2007 Time: 4:21:44 PM To
- * change this template use File | Settings | File Templates.
+ * @author Terry Casstevens
+ * @author Zhiwu Zhang
+ * @author Peter Bradbury
  */
-public class Kinship extends DistanceMatrix {
+public class Kinship {
 
-    Frame parentFrame;
-    DistanceMatrix dm = null;
-    GenotypeTable mar;
-    Phenotype ped;
-    int[][] parents;
-    private double kMin = 99999;
-    private double kMax = -99999;
-    private double kAvg = 0;
-    private double kSD = 0;
-    private double cutOff = 2;
-    private int numSeqs;
-    private KINSHIP_TYPE kinshipType = KINSHIP_TYPE.IBS;
-    private GENOTYPE_TABLE_COMPONENT myDataType;
-    private double[][] distance;
-    public static double matrixMultiplier = 2; //scale the numeric matrix produced by the transform function or from probabilities which code phenotypes as {1,0.5,0}
+    //scale the numeric matrix produced by the transform function or from probabilities which code phenotypes as {1,0.5,0}
+    public static double MATRIX_MULTIPLIER = 2;
 
-    public enum KINSHIP_TYPE {
+    public static enum KINSHIP_TYPE {
 
-        Endelman, IBS
+        Endelman
     };
 
-    public Kinship(GenotypeTable mar) {
-        this(mar, false, true);
+    private Kinship() {
+        // utility to create kinship matrix
     }
 
-    public Kinship(GenotypeTable mar, boolean areHetsRelated, boolean rescaleKinship) {
-        this.mar = mar;
-        numSeqs = this.mar.numberOfTaxa();
-        buildFromMarker();
-    }
-
-    public Kinship(GenotypeTable mar, KINSHIP_TYPE kinshipType, GENOTYPE_TABLE_COMPONENT dataType) {
-        this.mar = mar;
-        this.kinshipType = kinshipType;
-        myDataType = dataType;
-        numSeqs = this.mar.numberOfTaxa();
-        System.out.println("Starting Kinship.buildFromMarker.");
+    public static DistanceMatrix createKinship(GenotypeTable mar, KINSHIP_TYPE kinshipType, GENOTYPE_TABLE_COMPONENT dataType) {
+        System.out.println("Starting Kinship.buildFromMarker().");
         long start = System.currentTimeMillis();
-        buildFromMarker();
+        DistanceMatrix result = buildFromMarker(mar, kinshipType, dataType);
         System.out.printf("Built Kinship in %d millisec.\n", System.currentTimeMillis() - start);
+        return result;
     }
 
-    public Kinship(Phenotype ped) {
-        this.ped = ped;
-        buildFromPed();
-    }
-
-    public Kinship(DistanceMatrix dm) {
-        this.dm = dm;
-    }
-
-    public void buildFromMarker() {
-        if (myDataType == GENOTYPE_TABLE_COMPONENT.Genotype) {
-            if (kinshipType == KINSHIP_TYPE.Endelman) {
-                calculateKinshipFromMarkers();
-            } else {
-                IBSDistanceMatrix adm = new IBSDistanceMatrix(mar, 0, true, null, true);
-                dm = new DistanceMatrix(adm.getDistances(), mar.taxa());
-                toSimilarity();
-                getKStatistics();
-            	//pullBackExtrem();
-                //cutOff();
-                rescale();
-                System.out.println("Kinship was built from markers");
-            }
-        } else if (myDataType == GENOTYPE_TABLE_COMPONENT.ReferenceProbability) {
-            calculateRelationshipKinshipFromReferenceProbability();
+    public static DistanceMatrix buildFromMarker(GenotypeTable mar, KINSHIP_TYPE kinshipType, GENOTYPE_TABLE_COMPONENT dataType) {
+        if (dataType == GENOTYPE_TABLE_COMPONENT.Genotype) {
+            return calculateKinshipFromMarkers(mar);
+        } else if (dataType == GENOTYPE_TABLE_COMPONENT.ReferenceProbability) {
+            return calculateRelationshipKinshipFromReferenceProbability(mar);
         } else {
-            throw new IllegalArgumentException("The supplied data type is not currently supported by the Kinship method.");
+            throw new IllegalArgumentException("The supplied data type is not currently supported by the Kinship method: " + dataType);
         }
-
-    }
-
-    public void buildFromPed() {
-        // get data from ped (Phenotype) to parents (int[][]);
-
-        System.out.println("Building Kinship From pedigree");
-        TaxaAttribute myTaxaAttribute = ped.taxaAttribute();
-        int ntaxa = myTaxaAttribute.size();
-        List<PhenotypeAttribute> dataAttributeList = ped.attributeListOfType(ATTRIBUTE_TYPE.data);
-        int ntraits = dataAttributeList.size();
-
-        parents = new int[ntaxa][ntraits];
-        try {
-            for (int row = 0; row < ntaxa; row++) {
-                int attrNumber = 0;
-                for (PhenotypeAttribute attr : dataAttributeList) {
-                    NumericAttribute na = (NumericAttribute) attr;
-                    parents[row][attrNumber++] = (int) na.floatValue(row);
-                }
-            }
-        } catch (NumberFormatException e) {
-            e.printStackTrace();
-        }
-
-        dm = new DistanceMatrix(kinshipRelation(parents), new TaxaListBuilder().addAll(myTaxaAttribute.allTaxaAsList()).build());
-
-        System.out.println("Kinship was built from pedigree");
-    }
-
-    public static double[][] kinshipRelation(int[][] ped) {
-        int n = ped.length;
-        int maleParent;
-        int femaleParent;
-        double[][] aMatrix = new double[n][n];
-        //System.out.println("size of ped: "+n);
-
-        //initial: diagonal 1, 0 otherwise;
-        for (int i = 0; i < n; i++) {
-            aMatrix[i][i] = 1;
-            for (int j = i + 1; j < n; j++) {
-                aMatrix[i][j] = 0;
-                aMatrix[j][i] = 0;
-            }
-        }
-
-        System.out.println("initial: diagonal 1, 0 otherwise");
-        for (int i = 0; i < n; i++) {
-            //diagonals
-            femaleParent = ped[i][1];
-            maleParent = ped[i][2];
-            if ((femaleParent > 0) && (maleParent > 0)) {
-                aMatrix[i][i] = aMatrix[i][i] + .5 * aMatrix[maleParent - 1][femaleParent - 1];
-            }
-            //Off diagonals
-            for (int j = i + 1; j < n; j++) {
-                femaleParent = ped[j][1];
-                maleParent = ped[j][2];
-
-                if ((femaleParent > 0) && (maleParent > 0)) {
-                    aMatrix[i][j] = .5 * (aMatrix[i][femaleParent - 1] + aMatrix[i][maleParent - 1]);
-                } else if (maleParent > 0) {
-                    aMatrix[i][j] = .5 * aMatrix[i][maleParent - 1];
-                } else if (femaleParent > 0) {
-                    aMatrix[i][j] = .5 * aMatrix[i][femaleParent - 1];
-                } else {
-                    //do nothing
-                }
-                aMatrix[j][i] = aMatrix[i][j];
-            }
-        }
-        System.out.println("A matrix finished");
-
-        return aMatrix;
-    }
-
-    //Convert distance to similarity
-    //By Zhiwu Zhang
-    public void toSimilarity() {
-        double s;
-        System.out.println("toSimilarity " + numSeqs);
-
-        for (int i = 0; i < numSeqs; i++) {
-            for (int j = i; j < numSeqs; j++) {
-                s = cutOff - dm.getDistance(i, j);
-                dm.setDistance(i, j, s);
-                dm.setDistance(j, i, s);
-            }
-        }
-        System.out.println("toSimilarity finish" + numSeqs);
-    }
-
-    public void getKStatistics() {
-        //get average
-        double total = 0;
-        double totalsq = 0;
-        double nk = numSeqs * (numSeqs - 1) / 2;
-        for (int i = 0; i < numSeqs - 1; i++) {
-            for (int j = i + 1; j < numSeqs; j++) {
-                total += dm.getDistance(i, j);
-                totalsq += (dm.getDistance(i, j) * dm.getDistance(i, j));
-                if (dm.getDistance(i, j) < kMin) {
-                    kMin = dm.getDistance(i, j);
-                }
-                if (dm.getDistance(i, j) > kMax) {
-                    kMax = dm.getDistance(i, j);
-                }
-            }
-        }
-        kAvg = total / nk;
-        kSD = Math.sqrt((totalsq - nk * kAvg * kAvg) / (nk - 1));
-        System.out.println(kAvg);
-    }
-
-    public void pullBackExtrem() {
-        //take values beyond 3 sd from mean back
-        //By Zhiwu Zhang
-        for (int i = 0; i < numSeqs - 1; i++) {
-            for (int j = i + 1; j < numSeqs; j++) {
-                if (dm.getDistance(i, j) < kAvg - cutOff * kSD) {
-                    dm.setDistance(i, j, kAvg - cutOff * kSD);
-                    kMin = dm.getDistance(i, j);
-                }
-            }
-        }
-        System.out.println("values beyond 3 sd from mean were pulled back");
-    }
-
-    public void cutOff() {
-        //Set vale to 0 if below than avg
-        //By Zhiwu Zhang
-        for (int i = 0; i < numSeqs; i++) {
-            for (int j = i + 0; j < numSeqs; j++) {
-                if (dm.getDistance(i, j) < kAvg) {
-                    dm.setDistance(i, j, kAvg);
-                }
-            }
-        }
-        kMin = kAvg;
-    }
-
-    public void rescale() {
-        //rescale from theMin~2 to 0~2
-        //By Zhiwu Zhang
-        double s;
-        for (int i = 0; i < numSeqs; i++) {
-            for (int j = i; j < numSeqs; j++) {
-                s = (dm.getDistance(i, j) - kMin) * cutOff / (cutOff - kMin);
-                dm.setDistance(i, j, s);
-                dm.setDistance(j, i, s);
-            }
-        }
-        System.out.println("K rescaled");
 
     }
 
@@ -258,17 +56,17 @@ public class Kinship extends DistanceMatrix {
      * the allele average at that site.
      *
      */
-    public void calculateKinshipFromMarkers() {
+    public static DistanceMatrix calculateKinshipFromMarkers(GenotypeTable mar) {
         //mar is the input genotype table
         byte missingAllele = GenotypeTable.UNKNOWN_ALLELE;
 
-		// from Endelman and Jannink. 2012. G3 2:1407ff
+        // from Endelman and Jannink. 2012. G3 2:1407ff
         // A = WW'/[2*sumk(pk*qk)]
         // where W = centered genotype matrix (centered on marker mean value, marker coded as 2,1,0)
         // where marker is multi-allelic, leave one allele out to keep markers independent
         int ntaxa = mar.numberOfTaxa();
         int nsites = mar.numberOfSites();
-        distance = new double[ntaxa][ntaxa];
+        double[][] distance = new double[ntaxa][ntaxa];
         double sumpi = 0;
 
         //calculate WW' by summing ww' for each allele, where w is a column vector of centered allele counts {2,1,0}
@@ -317,7 +115,7 @@ public class Kinship extends DistanceMatrix {
             }
         }
 
-        dm = new DistanceMatrix(distance, mar.taxa());
+        return new DistanceMatrix(distance, mar.taxa());
     }
 
     /**
@@ -327,17 +125,17 @@ public class Kinship extends DistanceMatrix {
      * the allele average at that site.
      *
      */
-    public void calculateKinshipFromMarkersV2() {
+    public static DistanceMatrix calculateKinshipFromMarkersV2(GenotypeTable mar) {
         //mar is the input genotype table
         byte missingAllele = GenotypeTable.UNKNOWN_ALLELE;
 
-		// from Endelman and Jannink. 2012. G3 2:1407ff
+        // from Endelman and Jannink. 2012. G3 2:1407ff
         // A = WW'/[2*sumk(pk*qk)]
         // where W = centered genotype matrix (centered on marker mean value, marker coded as 2,1,0)
         // where marker is multi-allelic, leave one allele out to keep markers independent
         int ntaxa = mar.numberOfTaxa();
         int nsites = mar.numberOfSites();
-        distance = new double[ntaxa][ntaxa];
+        double[][] distance = new double[ntaxa][ntaxa];
         double sumpq = IntStream.range(0, nsites).parallel().mapToDouble(s -> {
             int[][] alleleFreq = mar.allelesSortedByFrequency(s);
             int nalleles = alleleFreq[0].length;
@@ -408,11 +206,10 @@ public class Kinship extends DistanceMatrix {
             }
         }
 
-        dm = new DistanceMatrix(distance, mar.taxa());
-        System.out.print("");
+        return new DistanceMatrix(distance, mar.taxa());
     }
 
-    public void calculateRelationshipKinshipFromReferenceProbability() {
+    public static DistanceMatrix calculateRelationshipKinshipFromReferenceProbability(GenotypeTable mar) {
         ReferenceProbability referenceP = mar.referenceProbability();
 
         //calculate the column averages and sumpq, center W
@@ -422,7 +219,7 @@ public class Kinship extends DistanceMatrix {
 
         for (int r = 0; r < nrow; r++) {
             for (int c = 0; c < ncol; c++) {
-                W[r][c] = referenceP.value(r, c) * matrixMultiplier;
+                W[r][c] = referenceP.value(r, c) * MATRIX_MULTIPLIER;
             }
         }
 
@@ -457,15 +254,12 @@ public class Kinship extends DistanceMatrix {
                 scaledIBS[r][c] = WWt.get(r, c) / sumpq / 2;
             }
         }
-        dm = new DistanceMatrix(scaledIBS, mar.taxa());
+        return new DistanceMatrix(scaledIBS, mar.taxa());
     }
 
-    public void calculateRelationshipKinshipFromAlleleProbabilities() {
+    public static DistanceMatrix calculateRelationshipKinshipFromAlleleProbabilities() {
         //TODO implement
-    }
-
-    public DistanceMatrix getDm() {
-        return dm;
+        return null;
     }
 
 }

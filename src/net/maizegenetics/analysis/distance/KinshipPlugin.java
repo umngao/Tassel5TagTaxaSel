@@ -4,7 +4,6 @@ import com.google.common.collect.Range;
 import net.maizegenetics.analysis.distance.Kinship.KINSHIP_TYPE;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable.GENOTYPE_TABLE_COMPONENT;
-import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -21,7 +20,9 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Author: Zhiwu Zhang Date: Apr 29, 2007
+ * @author Terry Casstevens
+ * @author Zhiwu Zhang
+ * @author Peter Bradbury
  *
  * modified by Peter Bradbury, 9/26/2014 converted to self-describing Plugin and
  * to use Phenotype package
@@ -30,7 +31,7 @@ public class KinshipPlugin extends AbstractPlugin {
 
     public static enum KINSHIP_METHOD {
 
-        Scaled_IBS, Pairwise_IBS, Pedigree
+        Scaled_IBS
     };
     private GenotypeTable.GENOTYPE_TABLE_COMPONENT[] GENOTYPE_COMP = new GenotypeTable.GENOTYPE_TABLE_COMPONENT[]{
         GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype, GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability, GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability};
@@ -55,74 +56,53 @@ public class KinshipPlugin extends AbstractPlugin {
 
     @Override
     protected void preProcessParameters(DataSet input) {
-        if (input.getSize() == 0) {
-            throw new IllegalArgumentException("KinshipPlugin: Nothing selected. Please select a genotype or pedigree data.");
+        List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
+        if ((alignInList == null) || (alignInList.isEmpty())) {
+            throw new IllegalArgumentException("KinshipPlugin: Nothing selected. Please select a genotype.");
         }
     }
 
     @Override
     public DataSet processData(DataSet input) {
 
-        try {
+        List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
 
-            List<Datum> alignInList = input.getDataSet();
+        List<Datum> result = new ArrayList<>();
+        Iterator itr = alignInList.iterator();
+        while (itr.hasNext()) {
 
-            List<Datum> result = new ArrayList<>();
-            Iterator itr = alignInList.iterator();
-            while (itr.hasNext()) {
+            Datum current = (Datum) itr.next();
+            String datasetName = current.getName();
+            DistanceMatrix kin = null;
 
-                Datum current = (Datum) itr.next();
-                String datasetName = current.getName();
-                Kinship kin = null;
+            try {
 
-                try {
-
-                    if (current.getData() instanceof GenotypeTable) {
-                        //this section implements additional options for calculating kinship
-                        GenotypeTable myGenotype = (GenotypeTable) current.getData();
-                        if (method.value() == KINSHIP_METHOD.Pairwise_IBS) {
-                            kin = new Kinship(myGenotype, KINSHIP_TYPE.IBS, myDatatype.value());
-                        } else if (method.value() == KINSHIP_METHOD.Scaled_IBS) {
-                            kin = new Kinship(myGenotype, KINSHIP_TYPE.Endelman, myDatatype.value());
-                        } else {
-                            throw new IllegalArgumentException("The pedigree method cannot be used to calculate kinship from genotype data.");
-                        }
-                    } else if (current.getData() instanceof Phenotype) { //pedigree data
-                        Phenotype ped = (Phenotype) current.getData();
-                        kin = new Kinship(ped);
+                if (current.getData() instanceof GenotypeTable) {
+                    //this section implements additional options for calculating kinship
+                    GenotypeTable myGenotype = (GenotypeTable) current.getData();
+                    if (kinshipMethod() == KINSHIP_METHOD.Scaled_IBS) {
+                        kin = Kinship.createKinship(myGenotype, KINSHIP_TYPE.Endelman, myDatatype.value());
                     } else {
-                        String message = "Invalid selection. Can't create kinship matrix from: " + datasetName;
-                        if (isInteractive()) {
-                            JOptionPane.showMessageDialog(getParentFrame(), message);
-                        } else {
-                            System.out.println(message);
-                        }
+                        throw new IllegalArgumentException("Unknown method to calculate kinship: " + kinshipMethod());
                     }
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    String message = "Problem creating kinship matrix from: " + datasetName + "\n" + e.getClass().getName() + ": " + e.getMessage();
-                    if (isInteractive()) {
-                        JOptionPane.showMessageDialog(getParentFrame(), message);
-                    } else {
-                        System.out.println(message);
-                        e.printStackTrace();
-                    }
+                } else {
+                    throw new IllegalArgumentException("Invalid selection. Can't create kinship matrix from: " + datasetName);
                 }
 
-                if (kin != null) {
-                    //add kin to datatree;
-                    Datum ds = new Datum("kin_" + datasetName, kin.getDm(), "kinship matrix created from " + datasetName);
-                    result.add(ds);
-                }
-
+            } catch (Exception e) {
+                throw new IllegalStateException("Problem creating kinship matrix from: " + datasetName + "\n" + e.getClass().getName() + ": " + e.getMessage());
             }
 
-            return new DataSet(result, this);
+            if (kin != null) {
+                //add kin to datatree;
+                Datum ds = new Datum("kin_" + datasetName, kin, "Kinship matrix created from " + datasetName);
+                result.add(ds);
+            }
 
-        } finally {
-            fireProgress(100);
         }
+
+        return new DataSet(result, this);
+
     }
 
     @Override

@@ -101,12 +101,12 @@ public class DiversityAnalyses extends AbstractTableReport implements TableRepor
         try {
             chromosome = Integer.parseInt(locus.getName());
         } catch (Exception e) {
-            //do nothing
+            e.printStackTrace();
         }
         double startChrPosition = theAAlignment.chromosomalPosition(start);
         double endChrPosition = theAAlignment.chromosomalPosition(end);
         GenotypeTable theFilteredAlignment = FilterGenotypeTable.getInstance(theAAlignment, start, end);
-        IBSDistanceMatrix adm = new IBSDistanceMatrix(theFilteredAlignment);
+        IBSDistanceMatrix adm = IBSDistanceMatrix.getInstance(theFilteredAlignment);
         diversityResultsVector.add(evaluate(theFilteredAlignment, adm, start, end, chromosome, startChrPosition, endChrPosition));
         if (thePolymorphismDistribution != null) {
             thePolymorphismDistribution.addDistribution("ALL" + "s" + start + "-e" + end, theFilteredAlignment, true);

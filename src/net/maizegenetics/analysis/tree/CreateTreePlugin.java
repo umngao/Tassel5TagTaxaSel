@@ -89,7 +89,7 @@ public class CreateTreePlugin extends AbstractPlugin {
     public DataSet processDatum(Datum input, boolean isNJ, boolean isSaveMatrix) {
         GenotypeTable aa = (GenotypeTable) input.getData();
         // SitePattern sp = new SitePattern(aa);
-        IBSDistanceMatrix adm = new IBSDistanceMatrix(aa, this);
+        IBSDistanceMatrix adm = IBSDistanceMatrix.getInstance(aa, this);
         // adm.recompute(sp);
         net.maizegenetics.taxa.tree.Tree theTree;
         List<Datum> results = new ArrayList<Datum>();
