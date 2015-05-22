@@ -12,7 +12,7 @@ public class SweepFast {
     private double[] V;
     private double[] Dmin;
     
-    public static final double TOL = 1e-12;
+    public static final double TOL = 1e-14;
 
     public SweepFast(DoubleMatrix X, DoubleMatrix y) {
     	this(X.crossproduct(), X.crossproduct(y), y.crossproduct().get(0, 0));
