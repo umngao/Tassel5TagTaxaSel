@@ -88,6 +88,7 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
 
         GenotypeTableBuilder incSiteBuilder = GenotypeTableBuilder.getSiteIncremental(genotypeTable.taxa());
         //Start imputing site by site
+        long time=System.nanoTime();
         LongAdder sites1Kdone=new LongAdder();
         IntStream.range(0, genotypeTable.numberOfSites()).parallel().forEach(posIndex ->
         {
@@ -104,25 +105,29 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
             } else {
                 //create a site specific in memory filtered alignment to use
                 final GenotypeTable ldGenoTable = GenotypeTableBuilder.getGenotypeCopyInstance(FilterGenotypeTable.getInstance(genotypeTable, positionList));
+                final int numberSites = ldGenoTable.numberOfSites();
+                double[] taxaCoverage = IntStream.range(0, ldGenoTable.numberOfTaxa()).sequential()  //used determine when insufficient overlap is likely
+                        .mapToDouble(t -> (double) ldGenoTable.totalNonMissingForTaxon(t) / (double) numberSites)
+                        .toArray();
                 for (int taxon = 0; taxon < currGenos.length; taxon++) {
+                    newGenos[taxon] = currGenos[taxon];
                     if (currGenos[taxon] == UNKNOWN_DIPLOID_ALLELE) {  //starting imputing
                         Multimap<Double, Byte> closeGenotypes = getClosestNonMissingTaxa(genotypeTable.taxa().get(taxon), genotypeTable,
-                                ldGenoTable, position, knnTaxa());
+                                ldGenoTable, position, taxaCoverage, knnTaxa());
                         if (closeGenotypes.isEmpty()) {  //this is empty when two few high LD sites are shared between the target taxon and all others
                             newGenos[taxon] = UNKNOWN_DIPLOID_ALLELE;
                         } else {
                             newGenos[taxon] = impute(closeGenotypes, highLDSSites());  //set to weight mode genotype
                         }
-                    } else {
-                        newGenos[taxon] = currGenos[taxon];  //keep current genotype.  There is no re-estimating current calls.
                     }
 
-                }
+                }//);
             }
             incSiteBuilder.addSite(position, newGenos);
-            if((posIndex+1)%100==0) {
+            if ((posIndex + 1) % 100 == 0) {
                 sites1Kdone.add(100);
-                fireProgress(33+((int)(66*sites1Kdone.longValue())/genotypeTable.numberOfSites()));
+                fireProgress(33 + ((int) (66 * sites1Kdone.longValue()) / genotypeTable.numberOfSites()));
+                System.out.println(sites1Kdone.longValue() + ":" + ((System.nanoTime() - time) / 1_000_000) / sites1Kdone.longValue());
             }
         });
         GenotypeTable impGenotypeTable = incSiteBuilder.build();
@@ -141,12 +146,15 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
      * @return Map of distance to genotype call for the target position
      */
     private Multimap<Double, Byte> getClosestNonMissingTaxa(Taxon inputTaxon, GenotypeTable genotypeTable, GenotypeTable ldGenoTable,
-                                                            Position targetPosition, int numberOfTaxa) {
+                                                            Position targetPosition, double[] inputCoverage, int numberOfTaxa) {
         final int targetPosIdx = genotypeTable.positions().indexOf(targetPosition);
         final int inputTaxonIdx = genotypeTable.taxa().indexOf(inputTaxon);
         byte[] inputTaxonGenotypes = ldGenoTable.genotypeAllSites(inputTaxonIdx);
+       // double inputTaxonCoverage=(double)ldGenoTable.totalNonMissingForTaxon(inputTaxonIdx)/(double)ldGenoTable.numberOfSites();
+
         MinMaxPriorityQueue<Tuple<Double, Byte>> topTaxa = IntStream.range(0, genotypeTable.numberOfTaxa())
-                .filter(closeTaxonIdx -> closeTaxonIdx != inputTaxonIdx)  //do test itself
+                .filter(closeTaxonIdx -> closeTaxonIdx != inputTaxonIdx)  //do not test itself
+                .filter(closeTaxonIdx -> inputCoverage[closeTaxonIdx] * inputCoverage[inputTaxonIdx]*(double)ldGenoTable.numberOfSites()>10)  //skip tests with
                 .filter(closeTaxonIdx -> genotypeTable.genotype(closeTaxonIdx, targetPosIdx) != GenotypeTable.UNKNOWN_DIPLOID_ALLELE)  //ignore taxa with the genotype not scored
  /*Bad*/ //               .mapToObj(closeTaxonIdx -> new Tuple<>(IBSDistanceMatrix.computeHetDistances(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10)[0], genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))
  /*Best*/.mapToObj(closeTaxonIdx -> new Tuple<>(dist(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10)[0], genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))  //calculate the distance
@@ -188,6 +196,7 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
                     if((posIndex+1)%1000==0) {
                         sites1Kdone.add(1000);
                         fireProgress((int)(33*sites1Kdone.longValue())/numberOfSites);
+                        System.out.println(sites1Kdone.longValue());
                     }
                 });
 

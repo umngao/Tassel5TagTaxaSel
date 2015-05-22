@@ -133,7 +133,6 @@ public class ImputationAccuracyPlugin extends AbstractPlugin {
     /**
      * Convenience method to run plugin with one return object.
      */
-    // TODO: Replace <Type> with specific type.
     public TableReport runPlugin(DataSet input) {
         return (TableReport) performFunction(input).getData(0).getData();
     }
