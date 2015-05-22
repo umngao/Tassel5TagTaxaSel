@@ -60,6 +60,7 @@ public class KinshipPlugin extends AbstractPlugin {
         }
     }
 
+    @Override
     public DataSet processData(DataSet input) {
 
         try {
@@ -124,6 +125,7 @@ public class KinshipPlugin extends AbstractPlugin {
         }
     }
 
+    @Override
     public ImageIcon getIcon() {
         URL imageURL = KinshipPlugin.class.getResource("/net/maizegenetics/analysis/images/Kin.gif");
         if (imageURL == null) {
@@ -133,10 +135,12 @@ public class KinshipPlugin extends AbstractPlugin {
         }
     }
 
+    @Override
     public String getButtonName() {
         return "Kinship";
     }
 
+    @Override
     public String getToolTipText() {
         return "Calculate kinship from marker data";
     }
