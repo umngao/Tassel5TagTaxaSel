@@ -66,6 +66,30 @@ public class ImportUtils {
     }
 
     /**
+     * This utility attempts to identify the file format(i.e. Hapmap, VCF, HDF5,
+     * Fasta, PLINK, Phylip, Numerical Genotype) of the given file and loads it
+     * as a DataSet.
+     *
+     * @param filename
+     * @return
+     */
+    public static DataSet readDataSet(String filename) {
+        FileLoadPlugin plugin = new FileLoadPlugin(null, false);
+        plugin.setTheFileType(FileLoadPlugin.TasselFileType.Unknown);
+        plugin.setOpenFiles(new String[]{filename});
+        DataSet dataSet = plugin.performFunction(null);
+        if ((dataSet == null) || (dataSet.getSize() != 1)) {
+            throw new IllegalStateException("ImportUtils: readDataSet: nothing was loaded for: " + filename);
+        }
+        Object result = dataSet.getData(0).getData();
+        if (result instanceof GenotypeTable) {
+            return dataSet;
+        } else {
+            throw new IllegalStateException("ImportUtils: readDataSet: this file is not a Genotype Table: " + filename);
+        }
+    }
+
+    /**
      * @deprecated Use ImportUtils.read()
      */
     public static GenotypeTable readGuessFormat(String fileName) {
