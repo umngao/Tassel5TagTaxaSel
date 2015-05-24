@@ -131,14 +131,8 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
             myLogger.error(errorMessage);
             return null;
         }
-        // ToDo: this regex-based check is not working right
         if (goodQuery.toUpperCase().matches(getBadWordsRegex())) {
             errorMessage = getBadWordsErrorMessage();
-            myLogger.error(errorMessage);
-            return null;
-        }
-        if (goodQuery.toUpperCase().contains(" DROP ")) {
-            errorMessage = "\nThe supplied query must not contain the bare word \" DROP \" (case insensitive)\n";
             myLogger.error(errorMessage);
             return null;
         }
@@ -159,15 +153,15 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
     }
 
     private static String getBadWordsRegex() {
-        StringBuilder badWordsRegex = new StringBuilder(".*(\\s");
-        badWordsRegex.append(getBadWordsArrayList().stream().collect(Collectors.joining("\\s|\\s")));
-        badWordsRegex.append("\\s).*");
+        StringBuilder badWordsRegex = new StringBuilder(".*\\s(");
+        badWordsRegex.append(getBadWordsArrayList().stream().collect(Collectors.joining("|")));
+        badWordsRegex.append(")\\s.*");
         return badWordsRegex.toString();
     }
 
     private static String getBadWordsErrorMessage() {
-        StringBuilder badWordsErrMsg = new StringBuilder("Your query should not contain any of the following bare words (case insensitive):\n\t");
-        badWordsErrMsg.append(getBadWordsArrayList().stream().collect(Collectors.joining("\n\t")));
+        StringBuilder badWordsErrMsg = new StringBuilder("Your query should not contain any of the following bare words (case insensitive):\n   ");
+        badWordsErrMsg.append(getBadWordsArrayList().stream().collect(Collectors.joining("\n   ")));
         badWordsErrMsg.append("\n");
         return badWordsErrMsg.toString();
     }
@@ -346,4 +340,5 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
     public GenomeAnnosDBQueryToPositionListPlugin queryFile(String value) {
         queryFile = new PluginParameter<>(queryFile, value);
         return this;
-    }}
+    }
+}
