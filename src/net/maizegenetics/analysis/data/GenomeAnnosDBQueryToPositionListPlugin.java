@@ -29,8 +29,32 @@ import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 
 /**
+ * Reads a PostgreSQL query file and a genomeAnnosDB connection config file,
+ * checks that the query is a SELECT query for chr, position, etc..,
+ * executes the query, and turns the results into a PositionList
+ * with any result fields other that chr & position added as annotations.
+ * <p>
+ * PluginParameter -cf = DB connection configuration file
+ * PluginParameter -qf = File containing PostgeSQL SELECT query for chr, position, etc.
+ * <p>
+ * Assumes DB server is on the (default) host "localhost" and that the
+ * port is the (default) PostgreSQL standard port number (5432)
+ * <p>
+ * Example config file:
+ * <p>
+ * user=postgres
+ * password=myTopSecretPassword
+ * DB=maizeGenomeAnnos
+ * <p>
+ * Checks that the query is safe: must start with SELECT and must not contain
+ * any of the bare words ALTER, COPY, CREATE, DELETE, DROP, INSERT, TRUNCATE,
+ * or UPDATE.
+ * <p>
+ * ProcessData(null) returns an annotated position list (any fields in the query 
+ * result other than chr & position added as annotations)
  *
  * @author Jeff Glaubitz
+ * 
  */
 public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
 
@@ -59,13 +83,37 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
         super(parentFrame, isInteractive);
     }
 
+    /**
+    * Reads a PostgreSQL query file and a genomeAnnosDB connection config file,
+    * checks that the query is a SELECT query for chr, position, etc..,
+    * executes the query and turns the results into a PositionList
+    * with any result fields other that chr & position added as annotations.
+    * <p>
+    * Assumes DB server is on the (default) host "localhost" and that the
+    * port is the (default) PostgreSQL standard port number (5432)
+    * <p>
+    * Example config file:
+    * user=postgres
+    * password=myTopSecretPassword
+    * DB=maizeGenomeAnnos
+    * <p>
+    * Checks that the query is safe: must start with SELECT and must not contain
+    * any of the bare words ALTER, COPY, CREATE, DELETE, DROP, INSERT, TRUNCATE,
+    * or UPDATE.
+    * 
+    * @param input A null DataSet (the DB connection config file & query file are PluginParameters -cf and -qf)
+    * 
+    * @return An annotated position list (any fields in the query result other
+    * than chr & position added as annotations)
+    *
+    * @author Jeff Glaubitz
+    * 
+    */
     @Override
     public DataSet processData(DataSet input) {
 
         try {
             
-            myLogger.info("\nbadQueryWordsREGEX:\n"+getBadWordsRegex()+"\n\n");
-
             String query = readQueryFromFile();
             if (query == null) {
                 complain("\nA problem occurred while reading the query file\n");
@@ -74,7 +122,7 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
 
             Connection conn = connectToDB();
             if (conn == null) {
-                complain("Could not connect to DB");
+                complain("\nCould not connect to DB\n");
                 return null;
             }
 
@@ -114,6 +162,22 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
         return checkQuery(query);
     }
     
+    /**
+     * Checks that the query is safe and that the results will contain fields 
+     * labeled "chr" & "position".
+     * <p>
+     * The query will be deemed safe if it begins with SELECT and does not 
+     * contain any of the bare words:
+     * <p>
+     * ALTER, COPY, CREATE, DELETE, DROP, INSERT, TRUNCATE, or UPDATE.
+     * 
+     * @param query The query to be evaluated
+     * @return null if the query is bad. If it passes, query is returned with 
+     * leading and trailing spaces removed (but line breaks retained) 
+     *
+     * @author Jeff Glaubitz
+     * 
+     */
     public static String checkQuery(String query) {
         String goodQuery = query.trim();
         if (!goodQuery.toUpperCase().startsWith("SELECT ")) {
@@ -295,7 +359,6 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
     /**
      * Convenience method to run plugin with one return object.
      */
-    // TODO: Replace <Type> with specific type.
     public PositionList runPlugin(DataSet input) {
         return (PositionList) performFunction(input).getData(0).getData();
     }
