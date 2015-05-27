@@ -51,6 +51,8 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
             .description("Name of taxa set for database").build();
     private PluginParameter<String> statFileName = new PluginParameter.Builder<String>("statFile",null,String.class).guiName("Name for Stat File Output")
             .description("Name of Stat File for Output").build();
+    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",false,Boolean.class).guiName("Delete Old Data")
+            .description("Delete existing SNP quality data from db tables").build();
     private TagDataSQLite tagDataWriter;
 
     public SNPQualityProfilerPlugin() {
@@ -74,6 +76,11 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
             if (myTaxaListName.isEmpty()) taxaListName(taxaFile());
         }
 
+        if (deleteOldData()) {
+            myLogger.info("deleteOldData is TRUE: Clearing existing snpQuality data");
+            tagDataWriter.clearSNPQualityData();
+        }
+        
         subTaxa.stream().filter(t -> taxaList.indexOf(t)<0).forEach(t-> System.err.println("Missing taxon from master:" + t));
         int[] subsetIndices=subTaxa.stream().mapToInt(taxaList::indexOf).filter(i -> i > -1).sorted().toArray();
         // int[] subsetIndices= IntStream.range(0,taxaList.numberOfTaxa()).toArray();  //for testing using all taxa
@@ -200,6 +207,9 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                         // Unique constraint issues happens if the data for this taxa list name already exists.
                         System.out.println("Error processing request.  Quality data may already exist for taxa name "
                                 + taxaListName() + "\n " + sqlE.getMessage());
+                        try{ // CLose the DB
+                            ((TagDataSQLite)tagDataWriter).close();
+                        } catch (Exception ex) {ex.printStackTrace();}
                         return null;
                     }
                     
@@ -318,6 +328,9 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                 System.out.println("Error processing request.  Quality data may already exist for taxa name "
                         + taxaListName() + "\n " + sqlE.getMessage());
                 sqlE.printStackTrace();
+                try{ // Close/unlock database
+                    ((TagDataSQLite)tagDataWriter).close();
+                } catch (Exception ex) {ex.printStackTrace();}
                 return null;
             }
             
@@ -380,7 +393,9 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                 System.out.println(e);
             }
         }
-       
+        try{
+            ((TagDataSQLite)tagDataWriter).close();
+        } catch (Exception ex) {ex.printStackTrace();}
         //TaxaListIOUtils.exportAnnotatedTaxaListTable();
         return null;
     }
@@ -550,6 +565,28 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
      */
     public SNPQualityProfilerPlugin taxaListName(String value) {
         myTaxaListName = new PluginParameter<>(myTaxaListName, value);
+        return this;
+    }
+    
+    /**
+     * Delete exisiting SNP Quality data from DB
+     *
+     * @return deleteOldData
+     */
+    public Boolean deleteOldData() {
+        return myDeleteOldData.value();
+    }
+
+    /**
+     * Set Delete old data flag.  True indicates we want the
+     * db tables cleared
+     *
+     * @param value true/false - whether to delete data
+     *
+     * @return this plugin
+     */
+    public SNPQualityProfilerPlugin deleteOldData(Boolean value) {
+        myDeleteOldData = new PluginParameter<>(myDeleteOldData, value);
         return this;
     }
 }

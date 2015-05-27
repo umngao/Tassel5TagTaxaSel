@@ -96,6 +96,8 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             		+ " Any loci with a tag alignment value above this threshold will be excluded from the pool.").build();
     private PluginParameter<Integer> maxTagsPerCutSite = new PluginParameter.Builder<Integer>("maxTagsCutSite", 64, Integer.class).guiName("Max Number of Cut Sites").required(false)
             .description("Maximum number of tags per cut site").build();
+    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<>("deleteOldData", false, Boolean.class).guiName("Delete Previous Discovery Data")
+            .description("Delete existing SNP data from tables").build();
     
     private TagDataWriter tagDataWriter = null;
     private boolean includeReference = false;
@@ -118,6 +120,11 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         myLogger.info(String.format("StartChr:%s EndChr:%s %n", startChromosome(), endChromosome()));
         tagDataWriter =new TagDataSQLite(inputDB());
  
+        if (deleteOldData()) {
+            myLogger.info("deleteOldData is TRUE: Clearing previous Discovery and SNPQuality data");
+            tagDataWriter.clearSNPQualityData();
+            tagDataWriter.clearDiscoveryData();
+        }
         // Get list of stored chromosomes, we'll process a subset of this list
         List<Chromosome> myChroms = tagDataWriter.getChromosomesFromCutPositions();
         if (myChroms == null || myChroms.size() == 0) {
@@ -788,6 +795,27 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         keyFileStringToInt = inputKeyFile;
     }
 
+    /**
+     * Delete exisiting Discovery data from DB
+     *
+     * @return deleteOldData
+     */
+    public Boolean deleteOldData() {
+        return myDeleteOldData.value();
+    }
+
+    /**
+     * Set Delete old data flag.  True indicates we want the
+     * db tables cleared
+     *
+     * @param value true/false - whether to delete data
+     *
+     * @return this plugin
+     */
+    public DiscoverySNPCallerPluginV2 deleteOldData(Boolean value) {
+        myDeleteOldData = new PluginParameter<>(myDeleteOldData, value);
+        return this;
+    }
     /**
      * GIven a chromosome string value, search for it's corresponding
      * number from the keyFileStringToInt map

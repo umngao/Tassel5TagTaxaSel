@@ -64,6 +64,22 @@ public interface TagDataWriter extends TagData {
      * Stores a quality position in the snpposition table for each chromosome/position
      * @param qsMap
      */
-	void putSNPPositionQS(PositionList qsPosL);
-
+    void putSNPPositionQS(PositionList qsPosL);
+    
+    /**
+     * Removes all data from the DB that was added from SAMToGBSDBPlugin call.
+     * The tables cleared are  CutPosition and TagCutPosition 
+     */
+    void clearAlignmentData();
+    
+    /**
+     * Removes all data from the DB that was added from the DiscoverySNPCallerPluginV2
+     * The tables cleared are  Allele, TagAllele and SNPPosition 
+     */
+    void clearDiscoveryData();
+    
+    /**
+     * Removes all data from the snpQuality table
+     */
+    void clearSNPQualityData();
 }

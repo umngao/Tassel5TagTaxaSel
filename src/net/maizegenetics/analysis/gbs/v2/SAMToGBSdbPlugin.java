@@ -46,6 +46,8 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
             .range(Range.closed(0.0, 1.0) ).description("Minimum proportion of sequence that must align to store the SAM entry").build();
     private PluginParameter<Integer> minAlignLength = new PluginParameter.Builder<Integer>("aLen", 0, Integer.class).guiName("SAM Min Align Length").required(false)
             .range(Range.closed(0, 1000) ).description("Minimum length of bps aligning to store the SAM entry").build();
+    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",false,Boolean.class).guiName("Delete Old Data")
+            .description("Delete existing SNP quality data from db tables").build();
     
     private enum tagPresence {
         present,
@@ -63,10 +65,17 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
 
     @Override
     public DataSet processData(DataSet input) {
-        int tagsNotFoundInDB=0, tagsNotMapped=0;
+        int tagsNotFoundInDB=0, tagsNotMapped=0;       
         try {
             BufferedReader bw=Utils.getBufferedReader(sAMInputFile());
             TagDataWriter tagData=new TagDataSQLite(gBSDBFile());
+            
+            if (deleteOldData()) {
+                myLogger.info("deleteOldData is TRUE: Clearing existing Alignment, Discovery and SNPQuality data");
+                tagData.clearSNPQualityData();
+                tagData.clearDiscoveryData();
+                tagData.clearAlignmentData();
+            }
             Set<Tag> knownTags=tagData.getTags();
             Multimap<Tag,Position> tagPositions= HashMultimap.create(knownTags.size(),2);
             String inputLine;
@@ -541,6 +550,27 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         return this;
     }
 
+    /**
+     * Delete exisiting Alignment data from DB
+     *
+     * @return deleteOldData
+     */
+    public Boolean deleteOldData() {
+        return myDeleteOldData.value();
+    }
+
+    /**
+     * Set Delete old data flag.  True indicates we want the
+     * db tables cleared
+     *
+     * @param value true/false - whether to delete data
+     *
+     * @return this plugin
+     */
+    public SAMToGBSdbPlugin deleteOldData(Boolean value) {
+        myDeleteOldData = new PluginParameter<>(myDeleteOldData, value);
+        return this;
+    }
     @Override
     public ImageIcon getIcon() {
         return null;

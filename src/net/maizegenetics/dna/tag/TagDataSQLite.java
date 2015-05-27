@@ -58,9 +58,6 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     PreparedStatement allAlleleTaxaDistForSnpidPS;
     PreparedStatement snpQualityInsertPS;
 
-
-
-
     public TagDataSQLite(String filename) {
         try{
             Class.forName("org.sqlite.JDBC");
@@ -337,7 +334,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 }
             }
             tagInsertPS.executeBatch();
-            connection.setAutoCommit(true);
+            connection.setAutoCommit(true);    
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -1153,5 +1150,51 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             return null;
         }
         return chromList;
+    }
+
+    @Override
+    public void clearAlignmentData() {
+        // Clear tables populated from SAMToGBSdbPluging
+        try {           
+            boolean rs = connection.createStatement().execute("delete FROM tagCutPosition");
+            rs = connection.createStatement().execute("delete FROM cutPosition");
+            rs = connection.createStatement().execute("delete FROM mappingApproach");
+            cutPosToIDMap = null;
+            mappingApproachToIDMap = null;
+            loadMappingApproachHash(); // this adds "unknown" to mappingApproachToIDMap
+        } catch (SQLException exc) {
+            System.out.println("ERROR - problem deleting alignment data");
+            exc.printStackTrace();
+        }              
+    }
+    
+    @Override
+    public void clearDiscoveryData() {
+        // Clear all entries from tables populated from the DiscoverySNPCallerPluginV2 
+        // The "delete" removes data, but keeps the table size.  The "vacuum" command
+        // is NOT called as it rebuilds the entire data base which can be quite time intensive.
+        // The rows needed for this table will be needed again in the subsequent run.  Vacuum also creates
+        // a new file, so disk space requirements could double while vacuuming.
+        try {         
+            boolean rs = connection.createStatement().execute("delete FROM tagallele");            
+            rs = connection.createStatement().execute("delete FROM snpposition"); 
+            rs = connection.createStatement().execute("delete FROM allele");
+            alleleToIDMap = null;
+            snpPosToIDMap = null;
+        } catch (SQLException exc) {
+            System.out.println("ERROR - problem deleting discovery data");
+            exc.printStackTrace();
+        }       
+    }
+
+    @Override
+    public void clearSNPQualityData() {
+        // Clear table populated via SNPQualityProfilerPlugin
+        try {
+            boolean rs = connection.createStatement().execute("delete FROM snpQuality");         
+        } catch (SQLException exc) {
+            System.out.println("ERROR - problem deleting snpQuality data");
+            exc.printStackTrace();
+        }       
     }
 }
