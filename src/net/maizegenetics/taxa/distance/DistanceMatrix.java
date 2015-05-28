@@ -15,60 +15,36 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-
 /**
  * storage for pairwise distance matrices.<p>
  *
- * features:
- * - printing in in PHYLIP format,
- * - computation of (weighted) squared distance to other distance matrix
- * - Fills in all of array...
+ * features: - printing in in PHYLIP format, - computation of (weighted) squared
+ * distance to other distance matrix - Fills in all of array...
  *
  * @author Korbinian Strimmer
  * @author Alexei Drummond
  */
 public class DistanceMatrix implements TaxaListMatrix, TableReport {
 
-    //
-    // Private stuff
-    //
-    /** sequence identifiers */
-    private TaxaList taxaList;
-    /** distances [seq1][seq2] */
+    private final TaxaList myTaxaList;
+    /**
+     * distances [seq1][seq2]
+     */
     private double[][] distance = null;
     static final long serialVersionUID = 4725925229860707633L;
 
-    /** I like doing things my self! */
-    private void writeObject(java.io.ObjectOutputStream out) throws java.io.IOException {
-        out.writeByte(1); //Version number
-        out.writeObject(taxaList);
-        out.writeObject(distance);
-    }
-
-    private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
-        byte version = in.readByte();
-        switch (version) {
-            default: {
-                taxaList= (TaxaList) in.readObject();
-                distance = (double[][]) in.readObject();
-            }
-        }
-    }
-
-    /** constructor */
-    public DistanceMatrix() {
-    }
-
-    /** constructor taking distances array and IdGroup */
+    /**
+     * constructor taking distances array and IdGroup
+     */
     public DistanceMatrix(double[][] distance, TaxaList taxaList) {
         super();
         this.distance = distance;
-        this.taxaList=taxaList;
+        myTaxaList = taxaList;
     }
 
     /**
-     * constructor that takes a distance matrix and clones the distances
-     * and IdGroup
+     * constructor that takes a distance matrix and clones the distances and
+     * IdGroup
      */
     public DistanceMatrix(DistanceMatrix dm) {
         double[][] copy = new double[dm.distance.length][];
@@ -77,12 +53,12 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
             System.arraycopy(dm.distance[i], 0, copy[i], 0, dm.distance[i].length);
         }
         distance = copy;
-        taxaList= dm.taxaList;
+        myTaxaList = dm.myTaxaList;
     }
 
     /**
-     * constructor that takes a distance matrix and clones the distances,
-     * of a the identifiers in taxaList.
+     * constructor that takes a distance matrix and clones the distances, of a
+     * the identifiers in taxaList.
      */
     public DistanceMatrix(DistanceMatrix dm, TaxaList subset) {
 
@@ -98,10 +74,12 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
                 distance[j][i] = distance[i][j];
             }
         }
-        taxaList= subset;
+        myTaxaList = subset;
     }
 
-    /** print alignment (PHYLIP format) */
+    /**
+     * print alignment (PHYLIP format)
+     */
     public void printPHYLIP(PrintWriter out) throws IOException {
         // PHYLIP header line
         out.println("  " + distance.length);
@@ -109,7 +87,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
 
         for (int i = 0; i < distance.length; i++) {
             format.displayLabel(out,
-                    taxaList.taxaName(i), 10);
+                    myTaxaList.taxaName(i), 10);
             out.print("      ");
 
             for (int j = 0; j < distance.length; j++) {
@@ -126,7 +104,10 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         }
     }
 
-    /** returns representation of this alignment as a string */
+    /**
+     * returns representation of this alignment as a string
+     */
+    @Override
     public String toString() {
 
         StringWriter sw = new StringWriter();
@@ -139,7 +120,9 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         return sw.toString();
     }
 
-    /** compute squared distance to second distance matrix */
+    /**
+     * compute squared distance to second distance matrix
+     */
     public double squaredDistance(DistanceMatrix mat, boolean weighted) {
         double sum = 0;
         for (int i = 0; i < distance.length - 1; i++) {
@@ -162,13 +145,15 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         return 2.0 * sum; // we counted only half the matrix
     }
 
-    /** compute absolute distance to second distance matrix */
+    /**
+     * compute absolute distance to second distance matrix
+     */
     public double absoluteDistance(DistanceMatrix mat) {
         double sum = 0;
         for (int i = 0; i < distance.length - 1; i++) {
             for (int j = i + 1; j < distance.length; j++) {
-                double diff =
-                        Math.abs(distance[i][j] - mat.distance[i][j]);
+                double diff
+                        = Math.abs(distance[i][j] - mat.distance[i][j]);
 
                 sum += diff;
             }
@@ -185,7 +170,8 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     }
 
     /**
-     * Returns the distances as a 2-dimensional array of doubles. Matrix is cloned first so it can be altered freely.
+     * Returns the distances as a 2-dimensional array of doubles. Matrix is
+     * cloned first so it can be altered freely.
      */
     public final double[][] getClonedDistances() {
         double[][] copy = new double[distance.length][];
@@ -197,7 +183,8 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     }
 
     /**
-     * Returns the distances as a 2-dimensional array of doubles (in the actual array used to store the distances)
+     * Returns the distances as a 2-dimensional array of doubles (in the actual
+     * array used to store the distances)
      */
     public final double[][] getDistances() {
         return getClonedDistances();
@@ -209,6 +196,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
 
     /**
      * Sets both upper and lower triangles.
+     *
      * @deprecated Needs to have a Builder
      */
     public void setDistance(int i, int j, double dist) {
@@ -216,23 +204,15 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     }
 
     /**
-     * Adds a delta to both upper and lower triangle distances.
-     * @deprecated Needs to have a Builder
-     */
-    public void addDistance(int i, int j, double delta) {
-        distance[i][j] += delta;
-        distance[j][i] += delta;
-    }
-
-    /**
      * Returns the mean pairwise distance of this matrix
      */
+    @Override
     public double meanDistance() {
         double dist = 0.0;
         int count = 0;
         for (int i = 0; i < distance.length; i++) {
             for (int j = 0; j < distance[i].length; j++) {
-                if ((i != j)&&(!Double.isNaN(distance[i][j]))) {
+                if ((i != j) && (!Double.isNaN(distance[i][j]))) {
                     dist += distance[i][j];
                     count += 1;
                 }
@@ -243,32 +223,33 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
 
     //IdGroup interface
     public Taxon getTaxon(int i) {
-        return taxaList.get(i);
+        return myTaxaList.get(i);
     }
 
     public int numberOfTaxa() {
-        return taxaList.numberOfTaxa();
+        return myTaxaList.numberOfTaxa();
     }
 
     public int whichIdNumber(String name) {
-        return taxaList.indexOf(name);
+        return myTaxaList.indexOf(name);
     }
 
     public int whichIdNumber(Taxon id) {
-        return taxaList.indexOf(id);
+        return myTaxaList.indexOf(id);
     }
 
     /**
      * Return TaxaList of this alignment.
      */
     public TaxaList getTaxaList() {
-        return taxaList;
+        return myTaxaList;
     }
 
     /**
      * test whether this matrix is a symmetric distance matrix
      *
      */
+    @Override
     public boolean isSymmetric() {
         for (int i = 0; i < distance.length; i++) {
             if (distance[i][i] != 0) {
@@ -285,7 +266,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         return true;
     }
 
-    private final boolean isIn(int value, int[] set) {
+    private boolean isIn(int value, int[] set) {
         if (set == null) {
             return false;
         }
@@ -298,8 +279,10 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     }
 
     /**
-     * @param fromIndex the index of the thing (taxa,sequence) from which we want to find the closest (excluding self)
-     * @param exclusion indexes of things that should not be considered, may be null
+     * @param fromIndex the index of the thing (taxa,sequence) from which we
+     * want to find the closest (excluding self)
+     * @param exclusion indexes of things that should not be considered, may be
+     * null
      * @return the index of the member closes to the specified
      */
     public int getClosestIndex(int fromIndex, int[] exclusion) {
@@ -315,22 +298,6 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
             }
         }
         return index;
-    }
-
-    /**
-     * @deprecated Needs to have a Builder
-     */
-    @Deprecated
-    protected final void setIdGroup(TaxaList base) {
-        this.taxaList= base;
-    }
-
-    /**
-     * @deprecated Needs to have a Builder
-     */
-    @Deprecated
-    protected final void setDistances(double[][] matrix) {
-        this.distance = matrix;
     }
 
     @Override
@@ -364,10 +331,12 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
 
     }
 
+    @Override
     public String getTableTitle() {
         return "Alignment Distance Matrix";
     }
 
+    @Override
     public long getRowCount() {
         if (distance != null) {
             return distance.length;
@@ -376,10 +345,12 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         }
     }
 
+    @Override
     public long getElementCount() {
         return getRowCount() * getColumnCount();
     }
 
+    @Override
     public int getColumnCount() {
         if ((distance != null) && distance[0] != null) {
             return distance[0].length + 1;
@@ -388,19 +359,19 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         }
     }
 
-	@Override
-	public Object getValueAt(long rowIndex, int columnIndex) {
-		if (columnIndex == 0) return getTaxon((int) rowIndex);
-		return new Double(distance[(int) rowIndex][columnIndex - 1]);
-	}
+    @Override
+    public Object getValueAt(long rowIndex, int columnIndex) {
+        if (columnIndex == 0) {
+            return getTaxon((int) rowIndex);
+        }
+        return distance[(int) rowIndex][columnIndex - 1];
+    }
 
     public String getColumnName(int col) {
         if (col == 0) {
             return "Taxa";
         }
-        return getTaxon(col-1).toString();
+        return getTaxon(col - 1).toString();
     }
-
-
 
 }
