@@ -239,11 +239,6 @@ public class ImputationPlugin extends AbstractPlugin {
     }
 
     @Override
-    public String getCitation() {
-        return null;
-    }
-
-    @Override
     public ImageIcon getIcon() {
         return null;
     }
