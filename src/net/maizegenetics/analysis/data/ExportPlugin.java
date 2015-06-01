@@ -83,7 +83,6 @@ public class ExportPlugin extends AbstractPlugin {
             String filename = mySaveFile;
             try {
                 Object data = input.getData(0).getData();
-
                 if (data instanceof GenotypeTable) {
                     filename = performFunctionForAlignment((GenotypeTable) data);
                 } else if (data instanceof Phenotype) {
@@ -139,8 +138,18 @@ public class ExportPlugin extends AbstractPlugin {
     }
 
     public String performFunctionForDistanceMatrix(DistanceMatrix input) {
-
+        //int selection = 0;
+        
         if (isInteractive()) {
+            ExportSquareMatrixDialog theDialog = new ExportSquareMatrixDialog();
+            theDialog.setLocationRelativeTo(getParentFrame());
+            theDialog.setVisible(true);
+            if (theDialog.isCancel()) {
+                return null;
+            }
+            myFileType = theDialog.getTasselFileType();
+            //selection = theDialog.getSelection();
+            theDialog.dispose();
             setSaveFile(getFileByChooser());
         }
 
@@ -149,9 +158,29 @@ public class ExportPlugin extends AbstractPlugin {
         }
 
         try {
-            File theFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".txt"));
-            WriteDistanceMatrix.saveDelimitedDistanceMatrix(input, theFile);
-            return theFile.getCanonicalPath();
+            if(myFileType != FileLoadPlugin.TasselFileType.SqrMatrixRaw && myFileType != FileLoadPlugin.TasselFileType.SqrMatrixBin) {
+            //if(selection == 0 ) {
+                File theFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".txt"));
+                WriteDistanceMatrix.saveDelimitedDistanceMatrix(input, theFile);
+                return theFile.getCanonicalPath();
+            }
+            else if(myFileType == FileLoadPlugin.TasselFileType.SqrMatrixRaw) {
+            //else if(selection == 1) {
+                File taxaListFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.id"));
+                File matrixFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.raw"));
+                WriteDistanceMatrix.saveRawMultiBlupMatrix(input,taxaListFile,matrixFile);
+                return matrixFile.getCanonicalPath();
+            }
+            else if(myFileType == FileLoadPlugin.TasselFileType.SqrMatrixBin) {
+            //else if(selection ==2) {
+                File taxaListFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.id"));
+                File countsFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.N.bin"));
+                File kinshipFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.bin"));
+                WriteDistanceMatrix.saveBinMultiBlupMatrix(input,taxaListFile,kinshipFile, countsFile);
+                return kinshipFile.getCanonicalPath();
+            }
+            return "";
+            
         } catch (Exception e) {
             e.printStackTrace();
             throw new IllegalStateException("ExportPlugin: performFunctionForDistanceMatrix: Problem writing file: " + mySaveFile);
@@ -160,7 +189,6 @@ public class ExportPlugin extends AbstractPlugin {
     }
 
     public String performFunctionForTableReport(TableReport input) {
-
         if (isInteractive()) {
             setSaveFile(getFileByChooser());
         }
@@ -919,6 +947,199 @@ class ReportOptionDialog extends JDialog {
         return null;
     }
 
+    private void okButton_actionPerformed(ActionEvent e) {
+        myIsCancel = false;
+        setVisible(false);
+    }
+
+    private void cancelButton_actionPerformed(ActionEvent e) {
+        myIsCancel = true;
+        setVisible(false);
+    }
+
+    public boolean isCancel() {
+        return myIsCancel;
+    }
+}
+class ExportSquareMatrixDialog extends JDialog {
+
+    private boolean myIsCancel = true;
+    private ButtonGroup myButtonGroup = new ButtonGroup();
+    private JRadioButton mySquareMatrixButton = new JRadioButton("Write Square Matrix");
+    private JRadioButton myRawMultiBlupButton = new JRadioButton("Write Raw MultiBLUP Matrix");
+    private JRadioButton myBinMultiBlupButton = new JRadioButton("Write Binary MultiBLUP Matrix");
+   
+    public ExportSquareMatrixDialog() {
+        super((Frame) null, "Export...", true);
+        try {
+            jbInit();
+            pack();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    private void jbInit() throws Exception {
+
+        setTitle("Export...");
+        setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE);
+        setUndecorated(false);
+        getRootPane().setWindowDecorationStyle(JRootPane.NONE);
+        Container contentPane = getContentPane();
+        BoxLayout layout = new BoxLayout(contentPane, BoxLayout.Y_AXIS);
+        contentPane.setLayout(layout);
+        JPanel main = getMain();
+        contentPane.add(main);
+        pack();
+        setResizable(false);
+
+        myButtonGroup.add(mySquareMatrixButton);
+        myButtonGroup.add(myRawMultiBlupButton);
+        myButtonGroup.add(myBinMultiBlupButton);
+        
+        mySquareMatrixButton.setSelected(true);
+
+    }
+
+    private JPanel getMain() {
+        JPanel inputs = new JPanel();
+        inputs.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        BoxLayout layout = new BoxLayout(inputs, BoxLayout.Y_AXIS);
+        inputs.setLayout(layout);
+        inputs.setAlignmentX(JPanel.CENTER_ALIGNMENT);
+        inputs.add(Box.createRigidArea(new Dimension(1, 10)));
+        inputs.add(getLabel());
+        inputs.add(Box.createRigidArea(new Dimension(1, 10)));
+        inputs.add(getFileTypePanel());
+        inputs.add(Box.createRigidArea(new Dimension(1, 10)));
+        inputs.add(getButtons());
+        inputs.add(Box.createRigidArea(new Dimension(1, 10)));
+        return inputs;
+    }
+
+    private JPanel getLabel() {
+        JPanel result = new JPanel();
+        BoxLayout layout = new BoxLayout(result, BoxLayout.Y_AXIS);
+        result.setLayout(layout);
+        result.setAlignmentX(JPanel.CENTER_ALIGNMENT);
+        JLabel jLabel1 = new JLabel("Choose File Type to Export.");
+        jLabel1.setFont(new Font("Dialog", Font.BOLD, 18));
+        result.add(jLabel1);
+        return result;
+    }
+
+    private JPanel getFileTypePanel() {
+        JPanel result = new JPanel();
+        BoxLayout layout = new BoxLayout(result, BoxLayout.Y_AXIS);
+        result.setLayout(layout);
+        result.setAlignmentX(JPanel.CENTER_ALIGNMENT);
+        result.setBorder(BorderFactory.createEtchedBorder());
+
+        boolean defaultButtonNeedSelected = true;
+
+        result.add(Box.createRigidArea(new Dimension(1, 10)));
+        result.add(mySquareMatrixButton);
+        result.add(myRawMultiBlupButton);
+        result.add(myBinMultiBlupButton);
+
+        return result;
+
+    }
+
+    private JPanel getOptionPanel() {
+        JPanel result = new JPanel();
+        BoxLayout layout = new BoxLayout(result, BoxLayout.Y_AXIS);
+        result.setLayout(layout);
+        result.setAlignmentX(JPanel.CENTER_ALIGNMENT);
+        result.setBorder(BorderFactory.createEtchedBorder());
+        result.add(Box.createRigidArea(new Dimension(1, 10)));
+
+        return result;
+
+    }
+
+    private JPanel getButtons() {
+
+        JButton okButton = new JButton();
+        JButton cancelButton = new JButton();
+
+        cancelButton.setText("Cancel");
+        cancelButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                cancelButton_actionPerformed(e);
+            }
+        });
+
+        okButton.setText("OK");
+        okButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                okButton_actionPerformed(e);
+            }
+        });
+
+        JPanel result = new JPanel(new FlowLayout(FlowLayout.CENTER));
+
+        result.add(okButton);
+
+        result.add(cancelButton);
+
+        return result;
+
+    }
+
+    public FileLoadPlugin.TasselFileType getTasselFileType() {
+        if(mySquareMatrixButton.isSelected()) {
+            return FileLoadPlugin.TasselFileType.SqrMatrix;
+        }
+        else if(myRawMultiBlupButton.isSelected()) {
+            return FileLoadPlugin.TasselFileType.SqrMatrixRaw;
+        }
+        else if(myBinMultiBlupButton.isSelected()) {
+            return FileLoadPlugin.TasselFileType.SqrMatrixBin;
+        }
+        return FileLoadPlugin.TasselFileType.SqrMatrix;
+        /*
+        result.add(mySquareMatrixButton);
+        result.add(myRawMultiBlupButton);
+        result.add(myBinMultiBlupButton);
+        if (myHapMapRadioButton.isSelected()) {
+            return FileLoadPlugin.TasselFileType.Hapmap;
+        }
+        if (myByteHDF5RadioButton.isSelected()) {
+            return FileLoadPlugin.TasselFileType.HDF5;
+        }
+        if (myVCFRadioButton.isSelected()) {
+            return FileLoadPlugin.TasselFileType.VCF;
+        }
+        if (myPlinkRadioButton.isSelected()) {
+            return FileLoadPlugin.TasselFileType.Plink;
+        }
+        if (myPhylipRadioButton.isSelected()) {
+            return FileLoadPlugin.TasselFileType.Phylip_Seq;
+        }
+        if (myPhylipInterRadioButton.isSelected()) {
+            return FileLoadPlugin.TasselFileType.Phylip_Inter;
+        }
+        if (myTabTableRadioButton.isSelected()) {
+            return FileLoadPlugin.TasselFileType.Table;
+        }
+        return null;
+        */
+    }
+    public int getSelection() {
+        if(mySquareMatrixButton.isSelected()) {
+            return 0;
+        }
+        if(myRawMultiBlupButton.isSelected()) {
+            return 1;
+        }
+        if(myBinMultiBlupButton.isSelected()) {
+            return 2;
+        }
+        return -1;
+    }
+
+    
     private void okButton_actionPerformed(ActionEvent e) {
         myIsCancel = false;
         setVisible(false);
