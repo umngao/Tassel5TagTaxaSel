@@ -5,6 +5,8 @@ import net.maizegenetics.util.GeneralAnnotationStorage;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Defines the chromosome structure and length. The name and length recorded for
@@ -110,10 +112,11 @@ public class Chromosome implements Comparable<Chromosome> {
         if ((result != 0) || (myChromosomeNumber != Integer.MAX_VALUE)) {
             return result;
         }
-        return myName.compareTo(o.getName());
+       // return myName.compareTo(o.getName());
+        return compareNonNumericChrom(myName, o.getName()); 
     }
     /**
-     * Takes a string, makes all upper case, removes CHROMOSOME/CHR, 
+     * Takes a string, makes all upper case, removes leading CHROMOSOME/CHR, 
      * returns the resulting string
      * @param chromosome
      * @return the input string minus a leading "chr" or "chromsome" 
@@ -122,8 +125,12 @@ public class Chromosome implements Comparable<Chromosome> {
         if (name == null || name == "") return name;
         String parsedName = name.trim();
         parsedName = parsedName.toUpperCase();
-        parsedName = parsedName.replace("CHROMOSOME ","");
-        parsedName = parsedName.replace("CHR","");
+        if (parsedName.startsWith("CHROMOSOME")) {
+            parsedName = parsedName.replaceFirst("CHROMOSOME","");
+        }
+        if (parsedName.startsWith("CHR")) {
+            parsedName = parsedName.replaceFirst("CHR","");
+        }
         int spaceIndex = parsedName.indexOf(" ");
         if (spaceIndex > 0){
             parsedName = parsedName.substring(0,parsedName.indexOf(" "));
@@ -150,5 +157,71 @@ public class Chromosome implements Comparable<Chromosome> {
         } 
 
         return myAnnotations;
+    }
+    /**
+     * Compares non-numeric chromsomes.  "chr"/"chromsome" was already parsed off name.
+     * Strictly numeric chromosomes were already handles.
+     * This code compares chromsomes where one or both contain non-numeric 
+     * characters.  A strict name comparison does not work as "10" is 
+     * considered less than "9" by java string compare, but not by scientists.
+     * Same problem with 9A and 10D - 10D is considered smaller by java.
+     * I'm doing this for the wheat folks.
+     * @param chromA
+     * @param chromB
+     * @return
+     */
+    private static int compareNonNumericChrom(String chromA, String chromB) {
+        int chromAInt = Integer.MAX_VALUE;
+        int chromBInt = Integer.MAX_VALUE;
+        String chromAIntStr = null;
+        String chromBIntStr = null;
+        
+        Matcher matcher1 = Pattern.compile("\\D+").matcher(chromA);
+        Matcher matcher2 = Pattern.compile("\\D+").matcher(chromB);
+        int startAlphaChromA = -1;
+        if (matcher1.find()) { // find first non-numeric in chromA
+            startAlphaChromA = matcher1.start();
+        }
+        int startAlphaChromB = -1;
+        if (matcher2.find()){ // first non-numeric in chromB
+            startAlphaChromB = matcher2.start();
+        }
+ 
+        if (startAlphaChromA != 0) { // -1 means NO non-numeric chars, > 0 is start of non-numeric
+            int endString = startAlphaChromA > 0 ? startAlphaChromA:chromA.length();
+            chromAIntStr = chromA.substring(0,endString);           
+        }
+        if (startAlphaChromB != 0) {
+            int endString = startAlphaChromB > 0 ? startAlphaChromB:chromB.length();
+            chromBIntStr = chromB.substring(0,endString);           
+        } 
+ 
+        //Compare the integer portions
+        if (chromBIntStr != null && chromAIntStr != null) {
+            int convChr = Integer.MAX_VALUE;
+            try {
+                convChr = Integer.parseInt(chromAIntStr);
+            } catch (NumberFormatException ne) {
+            }
+            chromAInt = convChr;
+            try {
+                convChr = Integer.parseInt(chromBIntStr);
+            } catch (NumberFormatException ne) {
+            }
+            chromBInt = convChr;
+            int result = chromAInt - chromBInt;
+            if ((result != 0) || ( result == 0 && chromAInt == Integer.MAX_VALUE )) {
+                return result;
+            }
+        }
+        // Either one or both chrom strings do not start with a number, or they do
+        // but it is the same number.  Comparison must be based on the alpha part
+        String chromAAlpha = null;
+        String chromBAlpha = null;
+ 
+        if (startAlphaChromA < 0 || startAlphaChromB < 0 ) return chromA.compareTo(chromB);
+        chromAAlpha = chromA.substring(startAlphaChromA);
+        chromBAlpha = chromB.substring(startAlphaChromB);
+        return chromAAlpha.compareTo(chromBAlpha);
     }
 }
