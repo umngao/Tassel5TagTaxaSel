@@ -901,10 +901,15 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     @Override
     public Map<Position, Map<Tag, Tuple<Boolean,TaxaDistribution>>> getCutPositionTagTaxaMap(Chromosome chromosome, int firstPosition, int lastPosition) {
+        // With the change to process Chromosomes as strings instead of int,
+        // this query throws an "SQL error or missing database (unrecognized token: "7D")"
+        // error when the chrom name contains non-digit characters.  The chromosome field in the 
+        // cutposition table is declared as "TEXT" but without the single quotes, SQL takes the
+        // input value as an integer.  Adding single quotes around the string fixes the problem.
         String sqlQuery="select p.positionid, forward, chromosome, position, strand, t.tagid, depthsRLE  " +
                 "from tag t, cutposition p, tagCutPosition tc, tagtaxadistribution ttd " +
                 "where p.positionid=tc.positionid and tc.tagid=t.tagid and t.tagid=ttd.tagid " +
-                "and chromosome="+chromosome.toString()+//" and position>"+firstPosition+" " + //todo position would need to be index to make fast
+                "and chromosome='"+chromosome.toString()+"'" +//" and position>"+firstPosition+" " + //todo position would need to be index to make fast
                 " order by position";
         Map<Position, Map<Tag, Tuple<Boolean,TaxaDistribution>>> positionTagTaxaMap=new HashMap<>();
         Map<Integer,Position> tempPositionMap=new HashMap<>();  //reverse the map
