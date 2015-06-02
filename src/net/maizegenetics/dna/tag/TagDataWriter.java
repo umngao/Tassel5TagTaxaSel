@@ -67,6 +67,15 @@ public interface TagDataWriter extends TagData {
     void putSNPPositionQS(PositionList qsPosL);
     
     /**
+     * Removes all data from the tagtaxadistribution table. 
+     * This should be called from GBSSeqToTagDBPlugin when a user requests an "append"
+     * option (ie, db exists, and user opted NOT to clear it).  AFter we grab the
+     * existing data it is cleared.  It will be re-entered when GBSSeqToTagDBPlugin completes.
+     * 
+     */
+    void clearTagTaxaDistributionData();
+    
+    /**
      * Removes all data from the DB that was added from SAMToGBSDBPlugin call.
      * The tables cleared are  CutPosition and TagCutPosition 
      */

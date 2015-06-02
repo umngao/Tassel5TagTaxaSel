@@ -1,13 +1,29 @@
 package net.maizegenetics.analysis.gbs.v2;
 
-import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Ordering;
+import java.awt.Frame;
+import java.io.BufferedReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.LongAdder;
+import java.util.stream.IntStream;
+
+import javax.swing.ImageIcon;
 
 import net.maizegenetics.analysis.gbs.Barcode;
 import net.maizegenetics.dna.BaseEncoder;
-import net.maizegenetics.dna.tag.*;
+import net.maizegenetics.dna.tag.Tag;
+import net.maizegenetics.dna.tag.TagBuilder;
+import net.maizegenetics.dna.tag.TagDataSQLite;
+import net.maizegenetics.dna.tag.TagDataWriter;
+import net.maizegenetics.dna.tag.TaxaDistBuilder;
+import net.maizegenetics.dna.tag.TaxaDistribution;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -19,26 +35,6 @@ import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.util.Utils;
 
 import org.apache.log4j.Logger;
-
-import javax.swing.*;
-
-import java.awt.*;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.LongAdder;
-import java.util.stream.IntStream;
-
-import net.maizegenetics.util.GeneralAnnotation;
 
 /**
  * Develops a discovery TBT file from a set of GBS sequence files.
@@ -75,8 +71,10 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             .description("Maximum number of tags").build();
     private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 8, Integer.class).guiName("Batch size of fastq files").required(false)
             .description("Number of flow cells being processed simultaneously").build();
+    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",false,Boolean.class).guiName("Delete Old Data")
+            .description("Delete existing SNP quality data from db tables").build();
     LongAdder roughTagCnt = new LongAdder();
-    
+
     private TagDistributionMap tagCntMap;
     private boolean taglenException;
 
@@ -141,7 +139,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
     public DataSet processData(DataSet input) {
         int batchSize = myBatchSize.value();
         float loadFactor = 0.95f;
-        tagCntMap = new TagDistributionMap (myMaxTagNumber.value(),loadFactor, 128, this.minTagCount());
+        tagCntMap = new TagDistributionMap (myMaxTagNumber.value(),loadFactor, 128, this.minTagCount());        
         double reducePoint = 0.5;
         try {
             //Get the list of fastq files
@@ -159,6 +157,44 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             int batchNum = inputSeqFiles.size()/batchSize;
             if (inputSeqFiles.size()%batchSize != 0) batchNum++;
             TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), GBSUtils.sampleNameField, new HashMap<>(), true);
+            
+            // Check if user wants to clear existing db. 
+            TagDataWriter tdw = null;
+            if (Files.exists(Paths.get(myOutputDB.value()))) {
+                if (deleteOldData()) {
+                    try {
+                        Files.delete(Paths.get(myOutputDB.value()));
+                    } catch (Exception exc){
+                        System.out.println("Error when trying to delete database file: " + myOutputDB.value());
+                        System.out.println("File delete error: " + exc.getMessage());
+                        return null;
+                    }
+                } else {
+                 // We'll append data to new DB if all new taxa are contained in db
+                    tdw=new TagDataSQLite(myOutputDB.value());
+                    TaxaList oldTaxaList = tdw.getTaxaList();
+                    boolean sameMasterTaxaList = true;
+                    Taxon badTaxon = null;
+                    for (Taxon taxa : masterTaxaList) {
+                        if (!oldTaxaList.contains(taxa)) {
+                            sameMasterTaxaList = false;
+                            badTaxon = taxa;
+                            break;
+                        }
+                    }
+                    if (!sameMasterTaxaList) {
+                        myLogger.error("Taxa list in keyfile contains taxa not in db:  " + badTaxon +
+                            ".\nEither delete existing DB, use a new DB output file, or use keyfile with entries matching existing taxa list.\n");
+                        ((TagDataSQLite)tdw).close();
+                        return null;
+                    }
+                    // Grab existing data from db, append to empty tagCntMap
+                    Map<Tag, TaxaDistribution> existingTDM = tdw.getAllTagsTaxaMap(); 
+                    tagCntMap.putAll(existingTDM);
+                    tdw.clearTagTaxaDistributionData(); // clear old data - it will be re-added at the end.
+                }
+            } 
+            if (tdw == null) tdw=new TagDataSQLite(myOutputDB.value());
             taglenException = false;
             for (int i = 0; i < inputSeqFiles.size(); i+=batchSize) {
                 int end = i+batchSize;
@@ -213,17 +249,14 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             System.out.println("By removing tags with minCount of " + myMinTagCount.value() + "Tag number is reduced to " + tagCntMap.size()+"\n");
             
             removeSecondCutSitesFromMap(new GBSEnzyme(enzyme()));
-            
-            TagDataWriter tdw=new TagDataSQLite(myOutputDB.value());
+
             tdw.putTaxaList(masterTaxaList);
             tdw.putAllTag(tagCntMap.keySet());
             tdw.putTaxaDistribution(tagCntMap);
             ((TagDataSQLite)tdw).close();  //todo autocloseable should do this but it is not working.
-
         } catch(Exception e) {
             e.printStackTrace();
         }
-
         return new DataSet(new Datum("TagMap",tagCntMap,""),this);
     }
     
@@ -592,7 +625,27 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         myBatchSize = new PluginParameter<>(myBatchSize, value);
         return this;
     }
-     
+    /**
+     * Delete exisiting  DB
+     *
+     * @return deleteOldData
+     */
+    public Boolean deleteOldData() {
+        return myDeleteOldData.value();
+    }
+
+    /**
+     * Set Delete old data flag.  True indicates we want the
+     * db tables cleared
+     *
+     * @param value true/false - whether to delete data
+     *
+     * @return this plugin
+     */
+    public GBSSeqToTagDBPlugin deleteOldData(Boolean value) {
+        myDeleteOldData = new PluginParameter<>(myDeleteOldData, value);
+        return this;
+    }
     @Override
     public ImageIcon getIcon() {
         return null;

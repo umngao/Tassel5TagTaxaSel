@@ -14,6 +14,7 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.Tuple;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -191,4 +192,11 @@ public interface TagData {
      * @return List<Chromosome> or null if none found
      */
      List<Chromosome> getChromosomesFromCutPositions();
+
+     /**
+      * Return all tag/taxadistribution stored in database.
+      * Returns a Hashmap of tag.taxadistributions
+      * @return Map<Tag, TaxaDistribution>  - map is empty if db table is empty
+      */
+     Map<Tag, TaxaDistribution> getAllTagsTaxaMap();
 }
