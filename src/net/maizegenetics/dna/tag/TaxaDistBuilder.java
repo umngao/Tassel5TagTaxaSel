@@ -130,7 +130,7 @@ public class TaxaDistBuilder {
         return dstTD;
     }
     
-    private static int[][] getDepthMatrixForEncodedDepths(byte[] input) {
+    public static int[][] getDepthMatrixForEncodedDepths(byte[] input) {
         try{
             final int maxValueInInt=UnsignedBytes.toInt(UnsignedBytes.MAX_VALUE);
             ByteBuffer bb=ByteBuffer.wrap(Snappy.uncompress(input));
