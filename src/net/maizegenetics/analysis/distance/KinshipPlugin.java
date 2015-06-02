@@ -1,7 +1,6 @@
 package net.maizegenetics.analysis.distance;
 
 import com.google.common.collect.Range;
-import net.maizegenetics.analysis.distance.Kinship.KINSHIP_TYPE;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable.GENOTYPE_TABLE_COMPONENT;
 import net.maizegenetics.plugindef.AbstractPlugin;
@@ -31,7 +30,8 @@ public class KinshipPlugin extends AbstractPlugin {
 
     public static enum KINSHIP_METHOD {
 
-        Scaled_IBS
+        Scaled_IBS,
+        GCTA
     };
     private GenotypeTable.GENOTYPE_TABLE_COMPONENT[] GENOTYPE_COMP = new GenotypeTable.GENOTYPE_TABLE_COMPONENT[]{
         GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype, GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability, GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability};
@@ -39,9 +39,8 @@ public class KinshipPlugin extends AbstractPlugin {
     private PluginParameter<KINSHIP_METHOD> method = new PluginParameter.Builder<>("method", KINSHIP_METHOD.Scaled_IBS, KINSHIP_METHOD.class)
             .guiName("Kinship method")
             .range(Range.encloseAll(Arrays.asList(KINSHIP_METHOD.values())))
-            .description("The scaled_IBS method produces a kinship matrix that is scaled to give a reasonable estimate of additive genetic variance. The pairwise_IBS method, which "
-                    + "is the method used by TASSEL ver.4, may result in an inflated estimate of genetic variance. Either will do a good job of controlling population structure in MLM. "
-                    + "The pedigree method is used to calculate a kinship matrix from a pedigree information.")
+            .description("The Scaled_IBS (Endelman) method produces a kinship matrix that is scaled to give a reasonable estimate of additive genetic variance. "
+                    + "The GCTA uses the algorithm published here: http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3014363/pdf/main.pdf.")
             .build();
     private PluginParameter<GenotypeTable.GENOTYPE_TABLE_COMPONENT> myDatatype = new PluginParameter.Builder<>("genotypeComponent", GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype, GenotypeTable.GENOTYPE_TABLE_COMPONENT.class)
             .genotypeTable()
@@ -75,22 +74,18 @@ public class KinshipPlugin extends AbstractPlugin {
             String datasetName = current.getName();
             DistanceMatrix kin = null;
 
-            try {
-
-                if (current.getData() instanceof GenotypeTable) {
-                    //this section implements additional options for calculating kinship
-                    GenotypeTable myGenotype = (GenotypeTable) current.getData();
-                    if (kinshipMethod() == KINSHIP_METHOD.Scaled_IBS) {
-                        kin = Kinship.createKinship(myGenotype, KINSHIP_TYPE.Endelman, myDatatype.value());
-                    } else {
-                        throw new IllegalArgumentException("Unknown method to calculate kinship: " + kinshipMethod());
-                    }
+            if (current.getData() instanceof GenotypeTable) {
+                //this section implements additional options for calculating kinship
+                GenotypeTable myGenotype = (GenotypeTable) current.getData();
+                if (kinshipMethod() == KINSHIP_METHOD.Scaled_IBS) {
+                    kin = Kinship.createKinship(myGenotype, Kinship.KINSHIP_TYPE.Endelman, myDatatype.value());
+                } else if (kinshipMethod() == KINSHIP_METHOD.GCTA) {
+                    kin = GCTADistanceMatrix.getInstance(myGenotype, this);
                 } else {
-                    throw new IllegalArgumentException("Invalid selection. Can't create kinship matrix from: " + datasetName);
+                    throw new IllegalArgumentException("Unknown method to calculate kinship: " + kinshipMethod());
                 }
-
-            } catch (Exception e) {
-                throw new IllegalStateException("Problem creating kinship matrix from: " + datasetName + "\n" + e.getClass().getName() + ": " + e.getMessage());
+            } else {
+                throw new IllegalArgumentException("Invalid selection. Can't create kinship matrix from: " + datasetName);
             }
 
             if (kin != null) {

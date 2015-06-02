@@ -33,7 +33,12 @@ public class Kinship {
     public static DistanceMatrix createKinship(GenotypeTable mar, KINSHIP_TYPE kinshipType, GENOTYPE_TABLE_COMPONENT dataType) {
         System.out.println("Starting Kinship.buildFromMarker().");
         long start = System.currentTimeMillis();
-        DistanceMatrix result = buildFromMarker(mar, kinshipType, dataType);
+        DistanceMatrix result;
+        if (kinshipType == KINSHIP_TYPE.Endelman) {
+            result = buildFromMarker(mar, kinshipType, dataType);
+        } else {
+            throw new IllegalArgumentException("Kinship: createKinship: unknown kinship algorithm: " + kinshipType);
+        }
         System.out.printf("Built Kinship in %d millisec.\n", System.currentTimeMillis() - start);
         return result;
     }
