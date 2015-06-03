@@ -6,14 +6,18 @@ package net.maizegenetics.dna.snp.depth;
 import java.util.Arrays;
 
 /**
- * Depth compression utility.  Depths are scored in byte (256 states).  0 to 127 are used for exact depth vaules.
- * -128 to -1 are used for log approximations (1.0746^(-x)).  This permits depths upto 10,482 to be stored
- * with exact precision for low values, and <3% error for high depths.
+ * Depth compression utility. Depths are scored in byte (256 states). 0 to 127
+ * are used for exact depth values. -128 to -1 are used for log approximations
+ * (1.0746^(-x)). This permits depths upto 10,482 to be stored with exact
+ * precision for low values, and <3% error for high depths.
+ *
  * @author Terry Casstevens
  * @author Robert Bukowski
  */
 public class AlleleDepthUtil {
 
+    public static final byte DEPTH_BYTE_MISSING = (byte) 0x80;
+    public static final int DEPTH_MISSING = -1;
     private static final double LOG_BASE = 1.0746;  // LOG_BASE^128 = 10,482
     private static final double R_LOG_CONV = 1.0 / Math.log(LOG_BASE);
     private static final double LOG_CONV = 1.0 / R_LOG_CONV;
@@ -35,92 +39,99 @@ public class AlleleDepthUtil {
     }
 
     /**
-     * Returns the depth combined depths in byte format.  Converts both to integers, adds, and reconverts back.
+     * Returns the depth combined depths in byte format. Converts both to
+     * integers, adds, and reconverts back.
+     *
      * @param depth1 first depth in byte format
      * @param depth2 second depth in byte format
      * @return byte version of combined depth
      */
     public static byte addByteDepths(byte depth1, byte depth2) {
-        return  depthIntToByte(depthByteToInt(depth1)+depthByteToInt(depth2));
+        return depthIntToByte(depthByteToInt(depth1) + depthByteToInt(depth2));
     }
 
     /**
-     * Converts integer depth to byte version.  Positive return values are exact,
+     * Converts integer depth to byte version. Positive return values are exact,
      * negative return values are log approximations
      */
     public static byte depthIntToByte(int depth) {
-        byte bdepth;
-        int itd;
 
-        if (depth <= 127) {
-            itd = depth;
+        if (depth == DEPTH_MISSING) {
+            return DEPTH_BYTE_MISSING;
+        } else if (depth < 0) {
+            throw new IllegalArgumentException("AlleleDepthUtil: depthIntToByte: Can not have negative depth values: " + depth);
+        } else if (depth <= 127) {
+            return (byte) depth;
         } else if (depth <= MAX_ACC_DEPTH) {
-            itd = 127 - depth;
+            return (byte) (127 - depth);
         } else {
-            itd = (int) (-R_LOG_CONV * Math.log(depth - OFFSET));
-            if (itd < -128) {
-                itd = -128;
+            int itd = (int) (-R_LOG_CONV * Math.log(depth - OFFSET));
+            if (itd < -127) {
+                return (byte) 0x81;
+            } else {
+                return (byte) itd;
             }
         }
-        bdepth = (byte) itd;
 
-        return bdepth;
     }
 
     /**
-     * Converts integer array of depth to byte array version.  Positive return values are exact,
-     * negative return values are log approximations
+     * Converts integer array of depth to byte array version. Positive return
+     * values are exact, negative return values are log approximations
      */
     public static byte[] depthIntToByte(int[] depth) {
-        byte[] result=new byte[depth.length];
-        for (int i=0; i<result.length; i++) {
-            result[i]=depthIntToByte(depth[i]);
+        byte[] result = new byte[depth.length];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = depthIntToByte(depth[i]);
         }
         return result;
     }
-    
+
     /**
-     * Converts a two dimensional integer array of depths to a 2D byte array version.
-     * Positive return values are exact, negative return values are log approximations
+     * Converts a two dimensional integer array of depths to a 2D byte array
+     * version. Positive return values are exact, negative return values are log
+     * approximations
      */
     public static byte[][] depthIntToByte(int[][] depth) {
         byte[][] result = new byte[depth.length][depth[0].length];
-        for (int i=0; i<result.length; i++) {
-            result[i]=depthIntToByte(depth[i]);
+        for (int i = 0; i < result.length; i++) {
+            result[i] = depthIntToByte(depth[i]);
         }
         return result;
     }
 
     /**
-     * Converts byte depth to integer version.  Positive depths value are exact, negative depths are log approximations
+     * Converts byte depth to integer version. Positive depths value are exact,
+     * negative depths are log approximations
      */
     public static int depthByteToInt(byte depth) {
         return BYTE_TO_INT[depth & 0xFF];
     }
 
     /**
-     * Converts byte arrays of depth to integer array version.
-     * Positive depths value are exact, negative depths are log approximations
+     * Converts byte arrays of depth to integer array version. Positive depths
+     * value are exact, negative depths are log approximations
      */
     public static int[] depthByteToInt(byte[] depth) {
-        int[] result=new int[depth.length];
-        for (int i=0; i<result.length; i++) {
-            result[i]=depthByteToInt(depth[i]);
+        int[] result = new int[depth.length];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = depthByteToInt(depth[i]);
         }
         return result;
     }
 
     private static int decode(byte bdepth) {
-        int depth;
-        if (bdepth >= 0) {
-            depth = bdepth;
+
+        if (bdepth == (byte) 0x80) {
+            return DEPTH_MISSING;
+        } else if (bdepth >= 0) {
+            return bdepth;
         } else if (bdepth >= MIN_ACC_BYTE) {
-            depth = 127 - bdepth;
+            return 127 - bdepth;
         } else {
-            depth = OFFSET + (int) (Math.exp(-LOG_CONV * (bdepth - ADJ)));
+            return OFFSET + (int) (Math.exp(-LOG_CONV * (bdepth - ADJ)));
         }
 
-        return depth;
     }
 
 }
