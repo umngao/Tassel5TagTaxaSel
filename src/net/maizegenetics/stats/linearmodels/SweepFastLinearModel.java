@@ -2,6 +2,7 @@ package net.maizegenetics.stats.linearmodels;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
@@ -20,6 +21,13 @@ public class SweepFastLinearModel {
 		modelEffects = effects;
 		y = data;
 		init();
+	}
+	
+	public SweepFastLinearModel(List<ModelEffect> effects, double[] data) {
+	    if (effects instanceof ArrayList) modelEffects = (ArrayList<ModelEffect>) effects;
+	    else modelEffects = new ArrayList<>(effects);
+	    y = data;
+	    init();
 	}
 	
 	public SweepFastLinearModel(ArrayList<ModelEffect> effects, DoubleMatrix[][] xtx, DoubleMatrix[] xty, double[] data) {
