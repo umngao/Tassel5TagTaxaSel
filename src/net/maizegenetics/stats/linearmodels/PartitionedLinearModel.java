@@ -24,6 +24,7 @@ public class PartitionedLinearModel {
     public PartitionedLinearModel(ArrayList<ModelEffect> baseModel, SweepFastLinearModel lm) {
         this.lm = lm;
         this.baseModel = baseModel;
+        init();
     }
 
     public PartitionedLinearModel(List<ModelEffect> baseModel, SweepFastLinearModel lm) {
@@ -32,6 +33,7 @@ public class PartitionedLinearModel {
             this.baseModel = (ArrayList<ModelEffect>) baseModel;
         else
             baseModel = new ArrayList<>(baseModel);
+        init();
     }
 
     private void init() {
