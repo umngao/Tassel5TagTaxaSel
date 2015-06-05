@@ -56,6 +56,7 @@ import net.maizegenetics.analysis.data.SynonymizerPlugin;
 import net.maizegenetics.analysis.data.UnionAlignmentPlugin;
 import net.maizegenetics.analysis.distance.DistanceMatrixPlugin;
 import net.maizegenetics.analysis.distance.KinshipPlugin;
+import net.maizegenetics.analysis.distance.MultiDimensionalScalingPlugin;
 import net.maizegenetics.analysis.filter.FilterAlignmentPlugin;
 import net.maizegenetics.analysis.filter.FilterSiteNamePlugin;
 import net.maizegenetics.analysis.filter.FilterTaxaAlignmentPlugin;
@@ -123,6 +124,7 @@ public class TasselPipelineStepsDialog extends JDialog implements PluginListener
         MENU_LOCATIONS.put(CreateTreePlugin.class, "Analysis");
         MENU_LOCATIONS.put(KinshipPlugin.class, "Analysis");
         MENU_LOCATIONS.put(PrincipalComponentsPlugin.class, "Analysis");
+        MENU_LOCATIONS.put(MultiDimensionalScalingPlugin.class, "Analysis");
         MENU_LOCATIONS.put(FixedEffectLMPlugin.class, "Analysis");
         MENU_LOCATIONS.put(MLMPlugin.class, "Analysis");
         MENU_LOCATIONS.put(WeightedMLMPlugin.class, "Analysis");
@@ -171,14 +173,14 @@ public class TasselPipelineStepsDialog extends JDialog implements PluginListener
         getContentPane().add(buttonPanel, BorderLayout.SOUTH);
         setPreferredSize(new Dimension(400, 650));
         setResizable(false);
-        
+
         myProgressPanel = mainFrame.getProgressPanel();
     }
 
     public void setOverallDescription(String description) {
         myDescription = description;
     }
-    
+
     public void setCitation(String citation) {
         myCitation = citation;
     }
@@ -200,7 +202,7 @@ public class TasselPipelineStepsDialog extends JDialog implements PluginListener
             text.setEditable(false);
             myMainPane.add(text);
         }
-        
+
         if (myCitation != null) {
             JTextPane text = new JTextPane();
             text.setContentType("text/html");

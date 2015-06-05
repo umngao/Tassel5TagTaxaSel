@@ -25,7 +25,7 @@
             </workflow>
         </filterAlign>
         <FilterTaxaPropertiesPlugin>
-            <minNotMissing>0.9</minNotMissing>
+            <minNotMissing>0.1</minNotMissing>
             <minHeterozygous>0.0</minHeterozygous>
             <maxHeterozygous>0.05</maxHeterozygous>
             <workflow>
@@ -51,10 +51,17 @@
             </workflow>
         </tree>
         <input1/>
+    </fork4>
+    <fork5>
+        <MultiDimensionalScalingPlugin/>
+        <input4/>
+    </fork5>
+    <fork6>
         <archaeopteryx>
             <workflow>
                 View phylogenetic tree.
             </workflow>
         </archaeopteryx>
-    </fork4>
+        <input4/>
+    </fork6>
 </TasselPipeline>
