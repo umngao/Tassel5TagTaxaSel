@@ -93,12 +93,17 @@ public class GCTADistanceMatrix {
         }
 
         public void addAll(CountersDistances counters) {
-            int[][] otherCounters = counters.myCounters;
             double[][] otherDistances = counters.myDistances;
             for (int t = 0; t < myNumTaxa; t++) {
-                for (int i = 0, n = myCounters[t].length; i < n; i++) {
-                    myCounters[t][i] += otherCounters[t][i];
+                for (int i = 0, n = myNumTaxa - t; i < n; i++) {
                     myDistances[t][i] += otherDistances[t][i];
+                }
+            }
+            otherDistances = null;
+            int[][] otherCounters = counters.myCounters;
+            for (int t = 0; t < myNumTaxa; t++) {
+                for (int i = 0, n = myNumTaxa - t; i < n; i++) {
+                    myCounters[t][i] += otherCounters[t][i];
                 }
             }
         }
@@ -146,20 +151,27 @@ public class GCTADistanceMatrix {
                 double denominatorTerm = majorFreqTimes2 * (1.0 - majorFreq);
                 if ((major != GenotypeTable.UNKNOWN_ALLELE) && (denominatorTerm != 0.0)) {
 
+                    byte majorTimes2 = (byte) ((major << 4) | major);
+                    double zeroTerm = 0.0 - majorFreqTimes2;
+                    double oneTerm = 1.0 - majorFreqTimes2;
+                    double twoTerm = 2.0 - majorFreqTimes2;
+
                     for (int i = 0; i < myNumTaxa; i++) {
                         byte genotype = myGenotypes.genotype(i, myCurrentSite);
                         if (genotype == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
                             term[i] = 0.0;
                             countTerm[i] = 0;
+                        } else if (genotype == majorTimes2) {
+                            term[i] = twoTerm;
+                            countTerm[i] = 1;
+                        } else if ((genotype & 0xF) == major) {
+                            term[i] = oneTerm;
+                            countTerm[i] = 1;
+                        } else if (((genotype >>> 4) & 0xF) == major) {
+                            term[i] = oneTerm;
+                            countTerm[i] = 1;
                         } else {
-                            byte count = 0;
-                            if ((genotype & 0xF) == major) {
-                                count++;
-                            }
-                            if (((genotype >>> 4) & 0xF) == major) {
-                                count++;
-                            }
-                            term[i] = (double) count - majorFreqTimes2;
+                            term[i] = zeroTerm;
                             countTerm[i] = 1;
                         }
                     }
@@ -168,15 +180,22 @@ public class GCTADistanceMatrix {
                         if (countTerm[firstTaxa] != 0) {
                             double firstTerm = term[firstTaxa] / denominatorTerm;
                             int index = 0;
+                            double[] distanceRow = distances[firstTaxa];
                             for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
-                                counts[firstTaxa][index] += countTerm[secondTaxa];
-                                distances[firstTaxa][index] += (firstTerm * term[secondTaxa]);
+                                distanceRow[index] += (firstTerm * term[secondTaxa]);
+                                index++;
+                            }
+                            index = 0;
+                            int[] countRow = counts[firstTaxa];
+                            for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
+                                countRow[index] += countTerm[secondTaxa];
                                 index++;
                             }
                         }
                     }
                 }
             }
+
             action.accept(result);
             myNumSitesProcessed += numSitesProcessed;
             fireProgress((int) ((double) myNumSitesProcessed / (double) myNumSites * 100.0), myProgressListener);
@@ -198,20 +217,27 @@ public class GCTADistanceMatrix {
                 double denominatorTerm = majorFreqTimes2 * (1.0 - majorFreq);
                 if ((major != GenotypeTable.UNKNOWN_ALLELE) && (denominatorTerm != 0.0)) {
 
+                    byte majorTimes2 = (byte) ((major << 4) | major);
+                    double zeroTerm = 0.0 - majorFreqTimes2;
+                    double oneTerm = 1.0 - majorFreqTimes2;
+                    double twoTerm = 2.0 - majorFreqTimes2;
+
                     for (int i = 0; i < myNumTaxa; i++) {
                         byte genotype = myGenotypes.genotype(i, myCurrentSite);
                         if (genotype == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
                             term[i] = 0.0;
                             countTerm[i] = 0;
+                        } else if (genotype == majorTimes2) {
+                            term[i] = twoTerm;
+                            countTerm[i] = 1;
+                        } else if ((genotype & 0xF) == major) {
+                            term[i] = oneTerm;
+                            countTerm[i] = 1;
+                        } else if (((genotype >>> 4) & 0xF) == major) {
+                            term[i] = oneTerm;
+                            countTerm[i] = 1;
                         } else {
-                            byte count = 0;
-                            if ((genotype & 0xF) == major) {
-                                count++;
-                            }
-                            if (((genotype >>> 4) & 0xF) == major) {
-                                count++;
-                            }
-                            term[i] = (double) count - majorFreqTimes2;
+                            term[i] = zeroTerm;
                             countTerm[i] = 1;
                         }
                     }
@@ -221,8 +247,12 @@ public class GCTADistanceMatrix {
                             double firstTerm = term[firstTaxa] / denominatorTerm;
                             int index = 0;
                             for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
-                                counts[firstTaxa][index] += countTerm[secondTaxa];
                                 distances[firstTaxa][index] += (firstTerm * term[secondTaxa]);
+                                index++;
+                            }
+                            index = 0;
+                            for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
+                                counts[firstTaxa][index] += countTerm[secondTaxa];
                                 index++;
                             }
                         }
