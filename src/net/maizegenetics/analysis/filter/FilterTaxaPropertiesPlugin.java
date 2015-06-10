@@ -139,6 +139,14 @@ public class FilterTaxaPropertiesPlugin extends AbstractPlugin {
     // public static void main(String[] args) {
     //     GeneratePluginCode.generate(FilterTaxaPropertiesPlugin.class);
     // }
+
+    /**
+     * Convenience method to run plugin with one return object.
+     */
+    public GenotypeTable runPlugin(DataSet input) {
+        return (GenotypeTable) performFunction(input).getData(0).getData();
+    }
+
     /**
      * Min Proportion of Sites Present
      *
