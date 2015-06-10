@@ -308,6 +308,7 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
     public static LDResult getLDForSitePair(BitSet rMj, BitSet rMn, BitSet cMj, BitSet cMn,
             int minMinorCnt, int minCnt, float minR2, FisherExact myFisherExact, int site1Index, int site2Index) {
         // float[] results = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
+        if(myFisherExact==null) myFisherExact=FisherExact.getInstance((2 * (int)rMj.size()) + 10);
         LDResult.Builder results = new LDResult.Builder(site1Index,site2Index);
         int n = 0;
         int[][] contig = new int[2][2];
