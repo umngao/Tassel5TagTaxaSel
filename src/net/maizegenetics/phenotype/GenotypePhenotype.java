@@ -17,6 +17,7 @@ public class GenotypePhenotype implements TableReport {
 	private final GenotypeTable myGenotype;
 	private final Phenotype myPhenotype;
 	private final String name;
+	private final int[] observationToGenotypeIndex;
 	
 	/**
 	 * @param theGenotype	a GenotypeTable
@@ -27,6 +28,15 @@ public class GenotypePhenotype implements TableReport {
 		myGenotype = theGenotype;
 		myPhenotype = thePhenotype;
 		this.name = name;
+		
+		//build the observationToGenotypeIndex
+	        TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
+	        TaxaList myTaxaList = myGenotype.taxa();
+	        int numberOfObs = myPhenotype.numberOfObservations();
+                observationToGenotypeIndex = new int[numberOfObs];
+	        for (int obs = 0; obs < numberOfObs; obs++) {
+	            observationToGenotypeIndex[obs] = myTaxaList.indexOf(myTaxaAttr.taxon(obs));
+	        }
 	}
 	
 	/**
@@ -65,12 +75,10 @@ public class GenotypePhenotype implements TableReport {
 	 */
 	public String[] getStringGenotype(int site) {
 		String missing = GenotypeTable.UNKNOWN_ALLELE_STR;
-		TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
-		TaxaList myTaxaList = myGenotype.taxa();
 		int numberOfObs = myPhenotype.numberOfObservations();
 		String[] geno = new String[numberOfObs];
 		for (int obs = 0; obs < numberOfObs; obs++) {
-			int ndx = myTaxaList.indexOf(myTaxaAttr.taxon(obs));
+			int ndx = observationToGenotypeIndex[obs];
 			if (ndx < 0) geno[obs] = missing;
 			else geno[obs] = myGenotype.genotypeAsString(ndx, site);
 		}
@@ -83,15 +91,13 @@ public class GenotypePhenotype implements TableReport {
 	 * @return			the byte value of the genotype for this observation at this site
 	 */
 	public byte genotype(int obs, int site) {
-		TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
-		int ndx = myGenotype.taxa().indexOf(myTaxaAttr.taxon(obs));
+		int ndx = observationToGenotypeIndex[obs];
 		if (ndx < 0) return GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
 		return myGenotype.genotype(ndx, site);
 	}
 	
 	public boolean isHeterozygous(int obs, int site) {
-		TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
-		int ndx = myGenotype.taxa().indexOf(myTaxaAttr.taxon(obs));
+                int ndx = observationToGenotypeIndex[obs];
 		return myGenotype.isHeterozygous(ndx, site);
 	}
 	
@@ -100,37 +106,31 @@ public class GenotypePhenotype implements TableReport {
 	 * @return	the genotypes corresponding to every row of the phenotype table as byte values
 	 */
 	public byte[] genotypeAllTaxa(int site) {
-		TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
-		TaxaList myTaxaList = myGenotype.taxa();
 		int numberOfObs = myPhenotype.numberOfObservations();
 		byte[] geno = new byte[numberOfObs];
 		for (int obs = 0; obs < numberOfObs; obs++) {
-			int ndx = myTaxaList.indexOf(myTaxaAttr.taxon(obs));
-			if (ndx < 0) geno[obs] = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
-			else geno[obs] = myGenotype.genotype(ndx, site);
+		    int ndx = observationToGenotypeIndex[obs]; 
+		    if (ndx < 0) geno[obs] = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+		    else geno[obs] = myGenotype.genotype(ndx, site);
 		}
 		return geno;
 	}
 	
 	public float[] alleleProbsOfType(SiteScore.SITE_SCORE_TYPE type, int site) {
-		TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
-		TaxaList myTaxaList = myGenotype.taxa();
 		int numberOfObs = myPhenotype.numberOfObservations();
 		float[] values = new float[numberOfObs];
 		for (int obs = 0; obs < numberOfObs; obs++) {
-			int ndx = myTaxaList.indexOf(myTaxaAttr.taxon(obs));
+	                int ndx = observationToGenotypeIndex[obs];
 			values[obs] = myGenotype.alleleProbability(ndx, site, type);
 		}
 		return values;
 	}
 
 	public float[] referenceProb(int site) {
-		TaxaAttribute myTaxaAttr = myPhenotype.taxaAttribute();
-		TaxaList myTaxaList = myGenotype.taxa();
 		int numberOfObs = myPhenotype.numberOfObservations();
 		float[] values = new float[numberOfObs];
 		for (int obs = 0; obs < numberOfObs; obs++) {
-			int ndx = myTaxaList.indexOf(myTaxaAttr.taxon(obs));
+	                int ndx = observationToGenotypeIndex[obs];
 			if (ndx < 0) values[obs] = Float.NaN;
 			else values[obs] = myGenotype.referenceProbability(ndx, site);
 		}
