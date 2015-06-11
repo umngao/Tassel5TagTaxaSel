@@ -5,6 +5,7 @@
  */
 package net.maizegenetics.analysis.distance;
 
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.Spliterator;
 import static java.util.Spliterator.IMMUTABLE;
@@ -52,15 +53,18 @@ public class GCTADistanceMatrix {
         if (!optional.isPresent()) {
             return null;
         }
+
         CountersDistances counters = optional.get();
-        int[][] counts = counters.myCounters;
-        double[][] distances = counters.myDistances;
+        int[] counts = counters.myCounters;
+        float[] distances = counters.myDistances;
 
         double[][] result = new double[numSeqs][numSeqs];
 
+        int index = 0;
         for (int t = 0; t < numSeqs; t++) {
-            for (int i = 0, n = counts[t].length; i < n; i++) {
-                result[t][t + i] = result[t + i][t] = distances[t][i] / (double) counts[t][i];
+            for (int i = 0, n = numSeqs - t; i < n; i++) {
+                result[t][t + i] = result[t + i][t] = distances[index] / (double) counts[index];
+                index++;
             }
         }
 
@@ -78,36 +82,57 @@ public class GCTADistanceMatrix {
 
     private static class CountersDistances {
 
-        private final int[][] myCounters;
-        private final double[][] myDistances;
+        private final int[] myCounters;
+        private final float[] myDistances;
         private final int myNumTaxa;
 
         public CountersDistances(int numTaxa) {
             myNumTaxa = numTaxa;
-            myCounters = new int[myNumTaxa][];
-            myDistances = new double[myNumTaxa][];
-            for (int i = 0; i < myNumTaxa; i++) {
-                myCounters[i] = new int[(myNumTaxa - i)];
-                myDistances[i] = new double[(myNumTaxa - i)];
-            }
+            myCounters = new int[myNumTaxa * (myNumTaxa + 1) / 2];
+            myDistances = new float[myNumTaxa * (myNumTaxa + 1) / 2];
         }
 
         public void addAll(CountersDistances counters) {
-            double[][] otherDistances = counters.myDistances;
-            for (int t = 0; t < myNumTaxa; t++) {
-                for (int i = 0, n = myNumTaxa - t; i < n; i++) {
-                    myDistances[t][i] += otherDistances[t][i];
-                }
+            float[] otherDistances = counters.myDistances;
+            for (int t = 0, n = myCounters.length; t < n; t++) {
+                myDistances[t] += otherDistances[t];
             }
             otherDistances = null;
-            int[][] otherCounters = counters.myCounters;
-            for (int t = 0; t < myNumTaxa; t++) {
-                for (int i = 0, n = myNumTaxa - t; i < n; i++) {
-                    myCounters[t][i] += otherCounters[t][i];
-                }
+            int[] otherCounters = counters.myCounters;
+            for (int t = 0, n = myCounters.length; t < n; t++) {
+                myCounters[t] += otherCounters[t];
             }
         }
 
+    }
+
+    private static final byte[] INCREMENT = new byte[4096];
+
+    static {
+        for (int a = 0; a < 4; a++) {
+            for (int b = 0; b < 4; b++) {
+                int temp = a << 10 | b << 8;
+                for (int c = 0; c < 4; c++) {
+                    for (int d = 0; d < 4; d++) {
+                        int temp2 = c << 6 | d << 4;
+                        for (int e = 0; e < 4; e++) {
+                            for (int f = 0; f < 4; f++) {
+                                int incrementIndex = temp | temp2 | e << 2 | f;
+                                if ((a != 3) && (b != 3)) {
+                                    INCREMENT[incrementIndex]++;
+                                }
+                                if ((c != 3) && (d != 3)) {
+                                    INCREMENT[incrementIndex]++;
+                                }
+                                if ((e != 3) && (f != 3)) {
+                                    INCREMENT[incrementIndex]++;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private static int myNumSitesProcessed = 0;
@@ -137,61 +162,205 @@ public class GCTADistanceMatrix {
 
         @Override
         public void forEachRemaining(Consumer<? super CountersDistances> action) {
+
             int numSitesProcessed = myFence - myCurrentSite;
             CountersDistances result = new CountersDistances(myNumTaxa);
-            int[][] counts = result.myCounters;
-            double[][] distances = result.myDistances;
-            double[] term = new double[myNumTaxa];
-            byte[] countTerm = new byte[myNumTaxa];
-            for (; myCurrentSite < myFence; myCurrentSite++) {
+            int[] counts = result.myCounters;
+            float[] distances = result.myDistances;;
+
+            for (; myCurrentSite < myFence; myCurrentSite += 3) {
+
+                int numSitesPerBlock = Math.min(3, myFence - myCurrentSite);
+
+                byte[][] majorCount = new byte[3][myNumTaxa];
+                float[] answer = new float[4096];
 
                 byte major = myGenotypes.majorAllele(myCurrentSite);
-                double majorFreq = myGenotypes.majorAlleleFrequency(myCurrentSite);
-                double majorFreqTimes2 = majorFreq * 2.0;
-                double denominatorTerm = majorFreqTimes2 * (1.0 - majorFreq);
+                float majorFreq = (float) myGenotypes.majorAlleleFrequency(myCurrentSite);
+                float majorFreqTimes2 = majorFreq * 2.0f;
+                float denominatorTerm = majorFreqTimes2 * (1.0f - majorFreq);
+
                 if ((major != GenotypeTable.UNKNOWN_ALLELE) && (denominatorTerm != 0.0)) {
 
-                    byte majorTimes2 = (byte) ((major << 4) | major);
-                    double zeroTerm = 0.0 - majorFreqTimes2;
-                    double oneTerm = 1.0 - majorFreqTimes2;
-                    double twoTerm = 2.0 - majorFreqTimes2;
+                    float zeroTerm = 0.0f - majorFreqTimes2;
+                    float oneTerm = 1.0f - majorFreqTimes2;
+                    float twoTerm = 2.0f - majorFreqTimes2;
+
+                    float zeroZero = zeroTerm * zeroTerm / denominatorTerm;
+                    float zeroOne = zeroTerm * oneTerm / denominatorTerm;
+                    float zeroTwo = zeroTerm * twoTerm / denominatorTerm;
+                    float oneOne = oneTerm * oneTerm / denominatorTerm;
+                    float oneTwo = oneTerm * twoTerm / denominatorTerm;
+                    float twoTwo = twoTerm * twoTerm / denominatorTerm;
+
+                    for (int a = 0; a < 4; a++) {
+                        for (int b = 0; b < 4; b++) {
+                            for (int c = 0; c < 4; c++) {
+                                for (int d = 0; d < 4; d++) {
+                                    int temp = a << 6 | b << 4 | c << 2 | d;
+                                    answer[temp] = zeroZero;
+                                    answer[0x100 | temp] = zeroOne;
+                                    answer[0x400 | temp] = zeroOne;
+                                    answer[0x200 | temp] = zeroTwo;
+                                    answer[0x800 | temp] = zeroTwo;
+                                    answer[0x500 | temp] = oneOne;
+                                    answer[0x600 | temp] = oneTwo;
+                                    answer[0x900 | temp] = oneTwo;
+                                    answer[0xA00 | temp] = twoTwo;
+                                }
+                            }
+                        }
+                    }
 
                     for (int i = 0; i < myNumTaxa; i++) {
                         byte genotype = myGenotypes.genotype(i, myCurrentSite);
                         if (genotype == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
-                            term[i] = 0.0;
-                            countTerm[i] = 0;
-                        } else if (genotype == majorTimes2) {
-                            term[i] = twoTerm;
-                            countTerm[i] = 1;
-                        } else if ((genotype & 0xF) == major) {
-                            term[i] = oneTerm;
-                            countTerm[i] = 1;
-                        } else if (((genotype >>> 4) & 0xF) == major) {
-                            term[i] = oneTerm;
-                            countTerm[i] = 1;
+                            majorCount[0][i] = 3;
                         } else {
-                            term[i] = zeroTerm;
-                            countTerm[i] = 1;
+                            if ((genotype & 0xF) == major) {
+                                majorCount[0][i]++;
+                            }
+                            if (((genotype >>> 4) & 0xF) == major) {
+                                majorCount[0][i]++;
+                            }
                         }
                     }
+                } else {
+                    Arrays.fill(majorCount[0], (byte) 3);
+                }
 
-                    for (int firstTaxa = 0; firstTaxa < myNumTaxa; firstTaxa++) {
-                        if (countTerm[firstTaxa] != 0) {
-                            double firstTerm = term[firstTaxa] / denominatorTerm;
-                            int index = 0;
-                            double[] distanceRow = distances[firstTaxa];
-                            for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
-                                distanceRow[index] += (firstTerm * term[secondTaxa]);
-                                index++;
-                            }
-                            index = 0;
-                            int[] countRow = counts[firstTaxa];
-                            for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
-                                countRow[index] += countTerm[secondTaxa];
-                                index++;
+                if (numSitesPerBlock > 1) {
+
+                    int currentSite = myCurrentSite + 1;
+                    major = myGenotypes.majorAllele(currentSite);
+                    majorFreq = (float) myGenotypes.majorAlleleFrequency(currentSite);
+                    majorFreqTimes2 = majorFreq * 2.0f;
+                    denominatorTerm = majorFreqTimes2 * (1.0f - majorFreq);
+
+                    if ((major != GenotypeTable.UNKNOWN_ALLELE) && (denominatorTerm != 0.0)) {
+
+                        float zeroTerm = 0.0f - majorFreqTimes2;
+                        float oneTerm = 1.0f - majorFreqTimes2;
+                        float twoTerm = 2.0f - majorFreqTimes2;
+
+                        float zeroZero = zeroTerm * zeroTerm / denominatorTerm;
+                        float zeroOne = zeroTerm * oneTerm / denominatorTerm;
+                        float zeroTwo = zeroTerm * twoTerm / denominatorTerm;
+                        float oneOne = oneTerm * oneTerm / denominatorTerm;
+                        float oneTwo = oneTerm * twoTerm / denominatorTerm;
+                        float twoTwo = twoTerm * twoTerm / denominatorTerm;
+
+                        for (int a = 0; a < 4; a++) {
+                            for (int b = 0; b < 4; b++) {
+                                for (int c = 0; c < 4; c++) {
+                                    for (int d = 0; d < 4; d++) {
+                                        int temp = a << 10 | b << 8 | c << 2 | d;
+                                        answer[temp] += zeroZero;
+                                        answer[temp | 0x10] += zeroOne;
+                                        answer[temp | 0x40] += zeroOne;
+                                        answer[temp | 0x20] += zeroTwo;
+                                        answer[temp | 0x80] += zeroTwo;
+                                        answer[temp | 0x50] += oneOne;
+                                        answer[temp | 0x60] += oneTwo;
+                                        answer[temp | 0x90] += oneTwo;
+                                        answer[temp | 0xA0] += twoTwo;
+                                    }
+                                }
                             }
                         }
+
+                        for (int i = 0; i < myNumTaxa; i++) {
+                            byte genotype = myGenotypes.genotype(i, currentSite);
+                            if (genotype == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+                                majorCount[1][i] = 3;
+                            } else {
+                                if ((genotype & 0xF) == major) {
+                                    majorCount[1][i]++;
+                                }
+                                if (((genotype >>> 4) & 0xF) == major) {
+                                    majorCount[1][i]++;
+                                }
+                            }
+                        }
+                    } else {
+                        Arrays.fill(majorCount[1], (byte) 3);
+                    }
+                } else {
+                    Arrays.fill(majorCount[1], (byte) 3);
+                }
+
+                if (numSitesPerBlock > 2) {
+
+                    int currentSite = myCurrentSite + 2;
+                    major = myGenotypes.majorAllele(currentSite);
+                    majorFreq = (float) myGenotypes.majorAlleleFrequency(currentSite);
+                    majorFreqTimes2 = majorFreq * 2.0f;
+                    denominatorTerm = majorFreqTimes2 * (1.0f - majorFreq);
+
+                    if ((major != GenotypeTable.UNKNOWN_ALLELE) && (denominatorTerm != 0.0)) {
+
+                        float zeroTerm = 0.0f - majorFreqTimes2;
+                        float oneTerm = 1.0f - majorFreqTimes2;
+                        float twoTerm = 2.0f - majorFreqTimes2;
+
+                        float zeroZero = zeroTerm * zeroTerm / denominatorTerm;
+                        float zeroOne = zeroTerm * oneTerm / denominatorTerm;
+                        float zeroTwo = zeroTerm * twoTerm / denominatorTerm;
+                        float oneOne = oneTerm * oneTerm / denominatorTerm;
+                        float oneTwo = oneTerm * twoTerm / denominatorTerm;
+                        float twoTwo = twoTerm * twoTerm / denominatorTerm;
+
+                        for (int a = 0; a < 4; a++) {
+                            for (int b = 0; b < 4; b++) {
+                                for (int c = 0; c < 4; c++) {
+                                    for (int d = 0; d < 4; d++) {
+                                        int temp = a << 10 | b << 8 | c << 6 | d << 4;
+                                        answer[temp] += zeroZero;
+                                        answer[temp | 0x1] += zeroOne;
+                                        answer[temp | 0x4] += zeroOne;
+                                        answer[temp | 0x2] += zeroTwo;
+                                        answer[temp | 0x8] += zeroTwo;
+                                        answer[temp | 0x5] += oneOne;
+                                        answer[temp | 0x6] += oneTwo;
+                                        answer[temp | 0x9] += oneTwo;
+                                        answer[temp | 0xA] += twoTwo;
+                                    }
+                                }
+                            }
+                        }
+
+                        for (int i = 0; i < myNumTaxa; i++) {
+                            byte genotype = myGenotypes.genotype(i, currentSite);
+                            if (genotype == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+                                majorCount[2][i] = 3;
+                            } else {
+                                if ((genotype & 0xF) == major) {
+                                    majorCount[2][i]++;
+                                }
+                                if (((genotype >>> 4) & 0xF) == major) {
+                                    majorCount[2][i]++;
+                                }
+                            }
+                        }
+                    } else {
+                        Arrays.fill(majorCount[2], (byte) 3);
+                    }
+                } else {
+                    Arrays.fill(majorCount[2], (byte) 3);
+                }
+
+                int index = 0;
+                for (int firstTaxa = 0; firstTaxa < myNumTaxa; firstTaxa++) {
+                    if ((majorCount[0][firstTaxa] != 3) || (majorCount[1][firstTaxa] != 3) || (majorCount[2][firstTaxa] != 3)) {
+                        int temp = majorCount[0][firstTaxa] << 10 | majorCount[1][firstTaxa] << 6 | majorCount[2][firstTaxa] << 2;
+                        for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
+                            int aIndex = temp | majorCount[0][secondTaxa] << 8 | majorCount[1][secondTaxa] << 4 | majorCount[2][secondTaxa];
+                            distances[index] += answer[aIndex];
+                            counts[index] += INCREMENT[aIndex];
+                            index++;
+                        }
+                    } else {
+                        index += myNumTaxa - firstTaxa;
                     }
                 }
             }
@@ -206,55 +375,59 @@ public class GCTADistanceMatrix {
             if (myCurrentSite < myFence) {
 
                 CountersDistances result = new CountersDistances(myNumTaxa);
-                int[][] counts = result.myCounters;
-                double[][] distances = result.myDistances;
-                double[] term = new double[myNumTaxa];
-                byte[] countTerm = new byte[myNumTaxa];
+                int[] counts = result.myCounters;
+                float[] distances = result.myDistances;
+                byte[] majorCount = new byte[myNumTaxa];
+                float[] answer = new float[12];
+                byte[] increment = new byte[12];
+                increment[0] = increment[1] = increment[2]
+                        = increment[4] = increment[5] = increment[6]
+                        = increment[8] = increment[9] = increment[10] = 1;
 
                 byte major = myGenotypes.majorAllele(myCurrentSite);
-                double majorFreq = myGenotypes.majorAlleleFrequency(myCurrentSite);
-                double majorFreqTimes2 = majorFreq * 2.0;
-                double denominatorTerm = majorFreqTimes2 * (1.0 - majorFreq);
+                float majorFreq = (float) myGenotypes.majorAlleleFrequency(myCurrentSite);
+                float majorFreqTimes2 = majorFreq * 2.0f;
+                float denominatorTerm = majorFreqTimes2 * (1.0f - majorFreq);
                 if ((major != GenotypeTable.UNKNOWN_ALLELE) && (denominatorTerm != 0.0)) {
 
-                    byte majorTimes2 = (byte) ((major << 4) | major);
-                    double zeroTerm = 0.0 - majorFreqTimes2;
-                    double oneTerm = 1.0 - majorFreqTimes2;
-                    double twoTerm = 2.0 - majorFreqTimes2;
+                    float zeroTerm = 0.0f - majorFreqTimes2;
+                    float oneTerm = 1.0f - majorFreqTimes2;
+                    float twoTerm = 2.0f - majorFreqTimes2;
+
+                    answer[0] = zeroTerm * zeroTerm / denominatorTerm;
+                    answer[1] = answer[4] = zeroTerm * oneTerm / denominatorTerm;
+                    answer[2] = answer[8] = zeroTerm * twoTerm / denominatorTerm;
+                    answer[5] = oneTerm * oneTerm / denominatorTerm;
+                    answer[6] = answer[9] = oneTerm * twoTerm / denominatorTerm;
+                    answer[10] = twoTerm * twoTerm / denominatorTerm;
 
                     for (int i = 0; i < myNumTaxa; i++) {
                         byte genotype = myGenotypes.genotype(i, myCurrentSite);
                         if (genotype == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
-                            term[i] = 0.0;
-                            countTerm[i] = 0;
-                        } else if (genotype == majorTimes2) {
-                            term[i] = twoTerm;
-                            countTerm[i] = 1;
-                        } else if ((genotype & 0xF) == major) {
-                            term[i] = oneTerm;
-                            countTerm[i] = 1;
-                        } else if (((genotype >>> 4) & 0xF) == major) {
-                            term[i] = oneTerm;
-                            countTerm[i] = 1;
+                            majorCount[i] = 3;
                         } else {
-                            term[i] = zeroTerm;
-                            countTerm[i] = 1;
+                            majorCount[i] = 0;
+                            if ((genotype & 0xF) == major) {
+                                majorCount[i]++;
+                            }
+                            if (((genotype >>> 4) & 0xF) == major) {
+                                majorCount[i]++;
+                            }
                         }
                     }
 
+                    int index = 0;
                     for (int firstTaxa = 0; firstTaxa < myNumTaxa; firstTaxa++) {
-                        if (countTerm[firstTaxa] != 0) {
-                            double firstTerm = term[firstTaxa] / denominatorTerm;
-                            int index = 0;
+                        if (majorCount[firstTaxa] != 3) {
+                            int temp = majorCount[firstTaxa] << 2;
                             for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
-                                distances[firstTaxa][index] += (firstTerm * term[secondTaxa]);
+                                int aIndex = temp | majorCount[secondTaxa];
+                                distances[index] += answer[aIndex];
+                                counts[index] += increment[aIndex];
                                 index++;
                             }
-                            index = 0;
-                            for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
-                                counts[firstTaxa][index] += countTerm[secondTaxa];
-                                index++;
-                            }
+                        } else {
+                            index += myNumTaxa - firstTaxa;
                         }
                     }
                 }
