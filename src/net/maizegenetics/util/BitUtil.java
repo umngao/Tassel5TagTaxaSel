@@ -1071,4 +1071,13 @@ public class BitUtil {
         }
 
     }
+
+    public static String toReadableString(BitSet bitSet) {
+        StringBuilder sb=new StringBuilder();
+        for (int i=0; i<bitSet.size(); i++) {
+            sb.append(bitSet.get(i)?"1":"0");
+        }
+        sb.append("\t size\t"+bitSet.size()+"cardinality\t"+bitSet.cardinality()+"");
+        return sb.toString();
+    }
 }
