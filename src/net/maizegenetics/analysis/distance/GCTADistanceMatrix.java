@@ -5,7 +5,6 @@
  */
 package net.maizegenetics.analysis.distance;
 
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.Spliterator;
 import static java.util.Spliterator.IMMUTABLE;
@@ -106,6 +105,28 @@ public class GCTADistanceMatrix {
 
     }
 
+    private static final byte[] PRECALCULATED_COUNTS = new byte[512];
+
+    static {
+        for (int major = 0; major < 8; major++) {
+            for (int a = 0; a < 8; a++) {
+                for (int b = 0; b < 8; b++) {
+                    int temp = (major << 6) | (a << 3) | b;
+                    if ((major == 7) | ((a == 7) && (b == 7))) {
+                        PRECALCULATED_COUNTS[temp] = 3;
+                    } else {
+                        if (a == major) {
+                            PRECALCULATED_COUNTS[temp]++;
+                        }
+                        if (b == major) {
+                            PRECALCULATED_COUNTS[temp]++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private static final byte[] INCREMENT = new byte[4096];
 
     static {
@@ -172,7 +193,7 @@ public class GCTADistanceMatrix {
 
                 int numSitesPerBlock = Math.min(3, myFence - myCurrentSite);
 
-                byte[][] majorCount = new byte[3][myNumTaxa];
+                short[] majorCount = new short[myNumTaxa];
                 float[] answer = new float[4096];
 
                 byte major = myGenotypes.majorAllele(myCurrentSite);
@@ -214,19 +235,12 @@ public class GCTADistanceMatrix {
 
                     for (int i = 0; i < myNumTaxa; i++) {
                         byte genotype = myGenotypes.genotype(i, myCurrentSite);
-                        if (genotype == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
-                            majorCount[0][i] = 3;
-                        } else {
-                            if ((genotype & 0xF) == major) {
-                                majorCount[0][i]++;
-                            }
-                            if (((genotype >>> 4) & 0xF) == major) {
-                                majorCount[0][i]++;
-                            }
-                        }
+                        majorCount[i] = (short) (PRECALCULATED_COUNTS[((major & 0x7) << 6) | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << 8);
                     }
                 } else {
-                    Arrays.fill(majorCount[0], (byte) 3);
+                    for (int t = 0; t < myNumTaxa; t++) {
+                        majorCount[t] = 0x300;
+                    }
                 }
 
                 if (numSitesPerBlock > 1) {
@@ -271,22 +285,17 @@ public class GCTADistanceMatrix {
 
                         for (int i = 0; i < myNumTaxa; i++) {
                             byte genotype = myGenotypes.genotype(i, currentSite);
-                            if (genotype == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
-                                majorCount[1][i] = 3;
-                            } else {
-                                if ((genotype & 0xF) == major) {
-                                    majorCount[1][i]++;
-                                }
-                                if (((genotype >>> 4) & 0xF) == major) {
-                                    majorCount[1][i]++;
-                                }
-                            }
+                            majorCount[i] = (short) (majorCount[i] | PRECALCULATED_COUNTS[((major & 0x7) << 6) | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << 4);
                         }
                     } else {
-                        Arrays.fill(majorCount[1], (byte) 3);
+                        for (int t = 0; t < myNumTaxa; t++) {
+                            majorCount[t] |= 0x30;
+                        }
                     }
                 } else {
-                    Arrays.fill(majorCount[1], (byte) 3);
+                    for (int t = 0; t < myNumTaxa; t++) {
+                        majorCount[t] |= 0x30;
+                    }
                 }
 
                 if (numSitesPerBlock > 2) {
@@ -331,30 +340,25 @@ public class GCTADistanceMatrix {
 
                         for (int i = 0; i < myNumTaxa; i++) {
                             byte genotype = myGenotypes.genotype(i, currentSite);
-                            if (genotype == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
-                                majorCount[2][i] = 3;
-                            } else {
-                                if ((genotype & 0xF) == major) {
-                                    majorCount[2][i]++;
-                                }
-                                if (((genotype >>> 4) & 0xF) == major) {
-                                    majorCount[2][i]++;
-                                }
-                            }
+                            majorCount[i] = (short) (majorCount[i] | PRECALCULATED_COUNTS[((major & 0x7) << 6) | ((genotype & 0x70) >>> 1) | (genotype & 0x7)]);
                         }
                     } else {
-                        Arrays.fill(majorCount[2], (byte) 3);
+                        for (int t = 0; t < myNumTaxa; t++) {
+                            majorCount[t] |= 0x3;
+                        }
                     }
                 } else {
-                    Arrays.fill(majorCount[2], (byte) 3);
+                    for (int t = 0; t < myNumTaxa; t++) {
+                        majorCount[t] |= 0x3;
+                    }
                 }
 
                 int index = 0;
                 for (int firstTaxa = 0; firstTaxa < myNumTaxa; firstTaxa++) {
-                    if ((majorCount[0][firstTaxa] != 3) || (majorCount[1][firstTaxa] != 3) || (majorCount[2][firstTaxa] != 3)) {
-                        int temp = majorCount[0][firstTaxa] << 10 | majorCount[1][firstTaxa] << 6 | majorCount[2][firstTaxa] << 2;
+                    if (majorCount[firstTaxa] != 0x333) {
+                        int temp = majorCount[firstTaxa] << 2;
                         for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
-                            int aIndex = temp | majorCount[0][secondTaxa] << 8 | majorCount[1][secondTaxa] << 4 | majorCount[2][secondTaxa];
+                            int aIndex = temp | majorCount[secondTaxa];
                             distances[index] += answer[aIndex];
                             counts[index] += INCREMENT[aIndex];
                             index++;
