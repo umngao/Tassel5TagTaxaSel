@@ -202,6 +202,15 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
         return getLDForSitePair(rMj, rMn, cMj, cMn, 2, minTaxaForEstimate, -1.0f, fisherExact, site1, site2);
     }
 
+    public static LDResult calculateBitLDForHaplotype(int minTaxaForEstimate, int minorCnt, GenotypeTable alignment, int site1, int site2) {
+        FisherExact fisherExact = FisherExact.getInstance((2 * alignment.numberOfTaxa()) + 10);
+        BitSet rMj = alignment.allelePresenceForAllTaxa(site1, WHICH_ALLELE.Major);
+        BitSet rMn = alignment.allelePresenceForAllTaxa(site1, WHICH_ALLELE.Minor);
+        BitSet cMj = alignment.allelePresenceForAllTaxa(site2, WHICH_ALLELE.Major);
+        BitSet cMn = alignment.allelePresenceForAllTaxa(site2, WHICH_ALLELE.Minor);
+        return getLDForSitePair(rMj, rMn, cMj, cMn, minorCnt, minTaxaForEstimate, -1.0f, fisherExact, site1, site2);
+    }
+
     private void calculateBitLDForHaplotype(boolean ignoreHets) {
         //It will ignore hets, make a new Alignment and set all het calls to missing. Otherwise set the pointer to the old alignment
         GenotypeTable workingAlignment;
