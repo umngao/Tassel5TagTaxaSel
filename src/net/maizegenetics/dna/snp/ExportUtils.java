@@ -16,6 +16,7 @@ import org.apache.log4j.Logger;
 import java.io.*;
 import java.util.Arrays;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
 
 /**
@@ -305,27 +306,18 @@ public class ExportUtils {
                 bw.write(delimChar);
                 
                 //INFO
-                String annotationHolder = "";
                 GeneralAnnotation ga = p.getAnnotation();
-                for(String key : ga.getAnnotationKeys()) {
-                    String[] annos = ga.getTextAnnotation(key);
-                    if(annos[0].equals("TRUE")) {
-                        annotationHolder += ""+key+";";
-                    }
-                    else {
-                        annotationHolder += "" + key + "=" + annos[0];
-                        for(int i = 1; i < annos.length; i++) {
-                            annotationHolder += ","+annos[i];
-                        }
-                        annotationHolder+=";";
-                    }
-                }
+                String annotationHolder=ga.getAnnotationKeys().stream().sorted()
+                        .filter(k->!k.equals("VARIANT"))
+                        .map(key->{
+                            String[] annos=ga.getTextAnnotation(key);
+                            if(annos[0].equals("TRUE")) return key;
+                            return key+Arrays.stream(annos).collect(Collectors.joining(",","=",""));
+                        })
+                        .collect(Collectors.joining(";"));
                 if (hasDepth) {
                     //bw.write("DP=" + gt.depth().depthForSite(site)); // DP
-                    annotationHolder += "DP=" + gt.depth().depthForSite(site);
-                } 
-                else {
-                    annotationHolder = annotationHolder.substring(0, annotationHolder.length()-1);
+                    annotationHolder += ";DP=" + gt.depth().depthForSite(site);
                 }
                 if(!annotationHolder.equals("")) {
                     bw.write(annotationHolder);
