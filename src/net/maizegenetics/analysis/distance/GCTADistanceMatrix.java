@@ -5,6 +5,7 @@
  */
 package net.maizegenetics.analysis.distance;
 
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.Spliterator;
 import static java.util.Spliterator.IMMUTABLE;
@@ -14,6 +15,7 @@ import java.util.stream.StreamSupport;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.util.ProgressListener;
+import net.maizegenetics.util.Tuple;
 
 /**
  *
@@ -189,16 +191,61 @@ public class GCTADistanceMatrix {
             int[] counts = result.myCounters;
             float[] distances = result.myDistances;;
 
-            float[] term = new float[3];
-            short[] majorCount = new short[myNumTaxa];
+            float[] answer1 = new float[4096];
+            float[] answer2 = new float[4096];
+
+            for (; myCurrentSite < myFence; myCurrentSite += 6) {
+
+                Tuple<short[], float[]> firstThree = getThreeSites(myCurrentSite);
+                float[] possibleTerms = firstThree.y;
+                short[] majorCount1 = firstThree.x;
+
+                Tuple<short[], float[]> secondThree = getThreeSites(myCurrentSite + 3);
+                float[] possibleTerms2 = secondThree.y;
+                short[] majorCount2 = secondThree.x;
+
+                for (int i = 0; i < 4096; i++) {
+                    answer1[i] = possibleTerms[(i & 0xF00) >>> 8] + possibleTerms[((i & 0xF0) >>> 4) | 0x10] + possibleTerms[(i & 0xF) | 0x20];
+                    answer2[i] = possibleTerms2[(i & 0xF00) >>> 8] + possibleTerms2[((i & 0xF0) >>> 4) | 0x10] + possibleTerms2[(i & 0xF) | 0x20];
+                }
+
+                int index = 0;
+                for (int firstTaxa = 0; firstTaxa < myNumTaxa; firstTaxa++) {
+                    if ((majorCount1[firstTaxa] != 0x333) || (majorCount2[firstTaxa] != 0x333)) {
+                        int temp1 = majorCount1[firstTaxa] << 2;
+                        int temp2 = majorCount2[firstTaxa] << 2;
+                        for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
+                            int aIndex = temp1 | majorCount1[secondTaxa];
+                            int bIndex = temp2 | majorCount2[secondTaxa];
+                            distances[index] += answer1[aIndex] + answer2[bIndex];
+                            counts[index] += INCREMENT[aIndex] + INCREMENT[bIndex];
+                            index++;
+                        }
+                    } else {
+                        index += myNumTaxa - firstTaxa;
+                    }
+                }
+            }
+
+            action.accept(result);
+            myNumSitesProcessed += numSitesProcessed;
+            fireProgress((int) ((double) myNumSitesProcessed / (double) myNumSites * 100.0), myProgressListener);
+        }
+
+        private Tuple<short[], float[]> getThreeSites(int currentSite) {
+
             float[] possibleTerms = new float[48];
+            short[] majorCount = new short[myNumTaxa];
+            Arrays.fill(majorCount, (short) 0x333);
 
-            for (; myCurrentSite < myFence; myCurrentSite += 3) {
+            if (currentSite < myFence) {
 
-                byte major = myGenotypes.majorAllele(myCurrentSite);
-                float majorFreq = (float) myGenotypes.majorAlleleFrequency(myCurrentSite);
+                byte major = myGenotypes.majorAllele(currentSite);
+                float majorFreq = (float) myGenotypes.majorAlleleFrequency(currentSite);
                 float majorFreqTimes2 = majorFreq * 2.0f;
                 float denominatorTerm = majorFreqTimes2 * (1.0f - majorFreq);
+
+                float[] term = new float[3];
 
                 if ((major != GenotypeTable.UNKNOWN_ALLELE) && (denominatorTerm != 0.0)) {
 
@@ -215,16 +262,12 @@ public class GCTADistanceMatrix {
 
                     int temp = (major & 0x7) << 6;
                     for (int i = 0; i < myNumTaxa; i++) {
-                        byte genotype = myGenotypes.genotype(i, myCurrentSite);
+                        byte genotype = myGenotypes.genotype(i, currentSite);
                         majorCount[i] = (short) (0x33 | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << 8);
-                    }
-                } else {
-                    for (int t = 0; t < myNumTaxa; t++) {
-                        majorCount[t] = 0x333;
                     }
                 }
 
-                int currentSite = myCurrentSite + 1;
+                currentSite++;
                 if (currentSite < myFence) {
 
                     major = myGenotypes.majorAllele(currentSite);
@@ -280,32 +323,13 @@ public class GCTADistanceMatrix {
                             }
                         }
                     }
+
                 }
 
-                float[] answer = new float[4096];
-                for (int i = 0; i < 4096; i++) {
-                    answer[i] = possibleTerms[(i & 0xF00) >>> 8] + possibleTerms[((i & 0xF0) >>> 4) | 0x10] + possibleTerms[(i & 0xF) | 0x20];
-                }
-
-                int index = 0;
-                for (int firstTaxa = 0; firstTaxa < myNumTaxa; firstTaxa++) {
-                    if (majorCount[firstTaxa] != 0x333) {
-                        int temp = majorCount[firstTaxa] << 2;
-                        for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
-                            int aIndex = temp | majorCount[secondTaxa];
-                            distances[index] += answer[aIndex];
-                            counts[index] += INCREMENT[aIndex];
-                            index++;
-                        }
-                    } else {
-                        index += myNumTaxa - firstTaxa;
-                    }
-                }
             }
 
-            action.accept(result);
-            myNumSitesProcessed += numSitesProcessed;
-            fireProgress((int) ((double) myNumSitesProcessed / (double) myNumSites * 100.0), myProgressListener);
+            return new Tuple<>(majorCount, possibleTerms);
+
         }
 
         @Override
