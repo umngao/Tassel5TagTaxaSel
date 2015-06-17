@@ -303,10 +303,34 @@ public class ExportUtils {
 
                 bw.write("PASS"); // filter
                 bw.write(delimChar);
-
+                
+                //INFO
+                String annotationHolder = "";
+                GeneralAnnotation ga = p.getAnnotation();
+                for(String key : ga.getAnnotationKeys()) {
+                    String[] annos = ga.getTextAnnotation(key);
+                    if(annos[0].equals("TRUE")) {
+                        annotationHolder += ""+key+";";
+                    }
+                    else {
+                        annotationHolder += "" + key + "=" + annos[0];
+                        for(int i = 1; i < annos.length; i++) {
+                            annotationHolder += ","+annos[i];
+                        }
+                        annotationHolder+=";";
+                    }
+                }
                 if (hasDepth) {
-                    bw.write("DP=" + gt.depth().depthForSite(site)); // DP
-                } else {
+                    //bw.write("DP=" + gt.depth().depthForSite(site)); // DP
+                    annotationHolder += "DP=" + gt.depth().depthForSite(site);
+                } 
+                else {
+                    annotationHolder = annotationHolder.substring(0, annotationHolder.length()-1);
+                }
+                if(!annotationHolder.equals("")) {
+                    bw.write(annotationHolder);
+                }
+                else {
                     bw.write("."); // DP
                 }
                 bw.write(delimChar);
