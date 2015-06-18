@@ -42,10 +42,6 @@ import static net.maizegenetics.dna.snp.GenotypeTableUtils.isHeterozygous;
  */
 public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
     private static int minAlleleDivisorForLDMin=3;  //Sets a threshold for minimum of minor alleles in the LD test
-    private static double siteMAFForAutomaticMajor=0.01;
-    private static double minRatioForBestToSecondBestSupport=10.0;
-    private static double minimumCoverageForDonorGenotype=0.5;
-    private static double minimumCoverageForLD=0.5;
 
     private PluginParameter<Integer> highLDSSites = new PluginParameter.Builder<>("highLDSSites", 30, Integer.class)
             .range(Range.closed(2, 2000))
@@ -73,6 +69,23 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
             .guiName("HeterozygousThreshold")
             .description("Threshold for defining heterozygous sites")
             .build();
+
+    private PluginParameter<Double> automaticMajorMAF = new PluginParameter.Builder<>("autoMajorMAF", 0.01, Double.class)
+            .guiName("Automatic MajorGenotype if MAF")
+            .description("Set to Major genotype if no imputation result and MAF is below threshold")
+            .build();
+
+    private PluginParameter<Double> minCoverageForDonors = new PluginParameter.Builder<>("minCoverageForDonors", 0.5, Double.class)
+            .guiName("Minimum coverage for donors and LD")
+            .description("Minimum coverage for donor genotype and LD calculation")
+            .build();
+
+    private PluginParameter<Double> minCallBestGenoRatio = new PluginParameter.Builder<>("minCallBestGenoRatio", 10.0, Double.class)
+            .guiName("Minimum support ratio for best genotype")
+            .description("Minimum ratio between best and second best genotype to make a call")
+            .build();
+
+
 
 
     private static final Logger myLogger = Logger.getLogger(LDKNNiImputationHetV2Plugin.class);
@@ -113,7 +126,7 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
                 .mapToDouble(siteIndex -> (double) genotypeTable.totalNonMissingForSite(siteIndex) / (double) numberTaxa)
                 .toArray();
         //site heterozygosity weighted depth of coverage.  Low coverage will always appear homozygous.
-        double[] weightHets=IntStream.range(0, numberSites).parallel().mapToDouble(siteIndex -> {
+        final double[] weightHets=IntStream.range(0, numberSites).parallel().mapToDouble(siteIndex -> {
             double weightedHets=0, weightHomozygous=0;
             for (int taxaIndex = 0; taxaIndex < genotypeTable.numberOfTaxa(); taxaIndex++) {
                 byte g=genotypeTable.genotype(taxaIndex,siteIndex);
@@ -126,13 +139,12 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
 
         GenotypeTableBuilder incSiteBuilder = GenotypeTableBuilder.getSiteIncremental(genotypeTable.taxa());
         //Start imputing site by site
-        System.out.println("Site\tPosition\tMAF\tHetFreq\thomoAcc\tHetAcc\tMinorAcc\tMatrix");
         long time=System.nanoTime();
-        LongAdder sites1Kdone=new LongAdder();
+        LongAdder sitesDone=new LongAdder();
 
         IntStream.range(0, genotypeTable.numberOfSites()).parallel().forEach(posIndex ->
         {
-            sites1Kdone.increment();
+            sitesDone.increment();
             Position position = genotypeTable.positions().get(posIndex);
             PositionList positionList = getHighLDPositionList(genotypeTable, posIndex, highLDSSites(), weightHets, siteCoverage);
 
@@ -143,13 +155,10 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
                 System.out.println(Arrays.toString(genotypeTable.genotypeAllTaxa(posIndex)));
             }
             StatsOnOneSite statsOnOneSite = new StatsOnOneSite(genotypeTable.minorAlleleFrequency(posIndex),
-                    (double) genotypeTable.heterozygousCount(posIndex) / (double) genotypeTable.totalNonMissingForSite(posIndex),
-                    genotypeTable.isPolymorphic(posIndex),
-                    positionList.size(), majorAllele, minorAllele);
+                    weightHets[posIndex],genotypeTable.isPolymorphic(posIndex),positionList.size(), majorAllele, minorAllele);
 
             byte[] currGenos = genotypeTable.genotypeAllTaxa(posIndex);
             byte[] impGenos = new byte[currGenos.length];
-
 
             final GenotypeTable ldGenoTable = GenotypeTableBuilder.getGenotypeCopyInstance(FilterGenotypeTable.getInstance(genotypeTable, positionList));
             final int numberLDSites = ldGenoTable.numberOfSites();
@@ -160,7 +169,7 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
                 Multimap<Double, Byte> closeGenotypes = getClosestNonMissingTaxa(genotypeTable.taxa().get(taxon), genotypeTable,
                         ldGenoTable, position, taxaLDCoverage, knnTaxa());
                 impGenos[taxon] = (closeGenotypes.isEmpty()) ? UNKNOWN_DIPLOID_ALLELE : impute(closeGenotypes, highLDSSites());
-                if (impGenos[taxon] == UNKNOWN_DIPLOID_ALLELE && maf < siteMAFForAutomaticMajor) {
+                if (impGenos[taxon] == UNKNOWN_DIPLOID_ALLELE && maf < automaticMajorMAF()) {
                     impGenos[taxon] = getDiploidValue(majorAllele, majorAllele);  //set to major genotype for rare allele
                 }
                 statsOnOneSite.updateStats(currGenos[taxon], impGenos[taxon]);
@@ -176,9 +185,9 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
 
             statsOnSites.addStats(statsOnOneSite.hetFreq(), statsOnOneSite.getCnts());
 
-            if ((posIndex + 1) % 1000 == 0) {
-                fireProgress(33 + ((int) (66 * sites1Kdone.longValue()) / genotypeTable.numberOfSites()));
-                System.out.println(sites1Kdone.longValue() + ": ms/site" + ((System.nanoTime() - time) / 1_000_000) / sites1Kdone.longValue());
+            if ((posIndex + 1) % 100 == 0) {
+                fireProgress(33 + ((int) (66 * sitesDone.longValue()) / genotypeTable.numberOfSites()));
+                System.out.println(sitesDone.longValue() + ": ms/site" + ((System.nanoTime() - time) / 1_000_000) / sitesDone.longValue());
                 statsOnSites.printToStdOut();
                 System.out.println(reportingParameters() + statsOnSites.homozygousAcc(2) + "\t" + statsOnSites.recallPowerOfHomozgyous(2));
             }
@@ -209,11 +218,11 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
 
     private String reportingParameters() {
         StringBuilder sb=new StringBuilder();
-        sb.append(this.highLDSSites.value()+"\t");
-        sb.append(this.knnTaxa.value()+"\t");
-        sb.append(this.maxDistance.value()+"\t");
-        sb.append(this.maxDistanceFromNN.value()+"\t");
-        sb.append(this.duplicateHetsThreshold.value()+"\t");
+        sb.append(highLDSSites()+"\t");
+        sb.append(knnTaxa()+"\t");
+        sb.append(maxDistance()+"\t");
+        sb.append(maxDistanceFromNN()+"\t");
+        sb.append(duplicateHetsThreshold()+"\t");
         return sb.toString();
     }
 
@@ -237,28 +246,33 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
 
         MinMaxPriorityQueue<Tuple<Double, Byte>> topTaxa = IntStream.range(0, genotypeTable.numberOfTaxa())
                 .filter(closeTaxonIdx -> closeTaxonIdx != inputTaxonIdx)  //do not test itself
-                .filter(closeTaxonIdx -> inputCoverage[closeTaxonIdx] > minimumCoverageForDonorGenotype)
+                .filter(closeTaxonIdx -> inputCoverage[closeTaxonIdx] > minCoverageForDonors())
                 .filter(closeTaxonIdx -> inputCoverage[closeTaxonIdx] * inputCoverage[inputTaxonIdx] * (double) ldGenoTable.numberOfSites() > 10)  //skip tests with
                 .filter(closeTaxonIdx -> genotypeTable.genotype(closeTaxonIdx, targetPosIdx) != GenotypeTable.UNKNOWN_DIPLOID_ALLELE)
                 .mapToObj(closeTaxonIdx -> new Tuple<>(dist(inputTaxonGenotypes, ldGenoTable.genotypeAllSites(closeTaxonIdx), 10)[0], genotypeTable.genotype(closeTaxonIdx, targetPosIdx)))  //calculate the distance
                 .filter(distanceTaxon -> !Double.isNaN(distanceTaxon.x))  //skip is too few sites (<10 results in NaN)
-                .filter(distanceTaxon -> distanceTaxon.x <= maxDistanceFromNN.value())  //skip greater than max distance
+                .filter(distanceTaxon -> distanceTaxon.x <= maxDistanceFromNN())  //skip greater than max distance
                 .collect(Collectors.toCollection(() -> MinMaxPriorityQueue.maximumSize(numberOfTaxa).create()));
         final Multimap<Double, Byte> distGenoMap = ArrayListMultimap.create();
         topTaxa.stream().forEach(distGeno -> distGenoMap.put(distGeno.x, distGeno.y));
         return distGenoMap;
     }
 
-    private PositionList getHighLDPositionList(GenotypeTable genotypeTable, int posIndex,
-                                                               int numberOfSNPs, double[] hetFreq, double[] coverage) {
-        MinMaxPriorityQueue<LDResult> highestLD = (MinMaxPriorityQueue<LDResult>)MinMaxPriorityQueue.orderedBy(LDResult.byR2Ordering.reverse()).maximumSize(numberOfSNPs).create();
+    /**
+     * Calculates high LD sites with the target site.  Key issues is that we use high coverage taxa , and
+     * we ensure
+     *
+     */
+    private PositionList getHighLDPositionList(GenotypeTable genotypeTable, int posIndex, int numberOfSNPs,
+                                               double[] hetFreq, double[] coverage) {
+        MinMaxPriorityQueue<LDResult> highestLD = MinMaxPriorityQueue.orderedBy(LDResult.byR2Ordering.reverse()).maximumSize(numberOfSNPs).create();
         int minorAlleleCnt = (int) genotypeTable.allelePresenceForAllTaxa(posIndex, WHICH_ALLELE.Minor).cardinality();
         minorAlleleCnt = minorAlleleCnt / minAlleleDivisorForLDMin;  //TODO consider whether this is needed
         if(minorAlleleCnt<2) minorAlleleCnt=2;
 
         for (int site2 = 0; site2 < genotypeTable.numberOfSites(); site2++) {
             if (posIndex == site2) continue;
-            if(coverage[site2]<minimumCoverageForLD) continue;
+            if(coverage[site2]<minCoverageForDonors()) continue;
             if (maxDistance() > -1 && Math.abs(genotypeTable.chromosomalPosition(posIndex) - genotypeTable.chromosomalPosition(site2)) > maxDistance()) {
                 continue;
             }
@@ -282,7 +296,7 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
      * @param useLDSites Number of high LD sites used.
      * @return The imputed genotype
      */
-    static byte impute(Multimap<Double, Byte> distGeno, int useLDSites) {
+    private byte impute(Multimap<Double, Byte> distGeno, int useLDSites) {
         // useLDSites  is used to scale distance so is similar to DMs original implementation.
         // Seems to have at most a small effect on accuracy.  Could be removed?
 
@@ -306,9 +320,7 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
                 bestGeno = i;
             }
         }
-        byte resultGeno=(byte) (bestGeno - 128);
-
-        if(bestWeightedCount<(minRatioForBestToSecondBestSupport*secondBest)) return UNKNOWN_DIPLOID_ALLELE;
+        if(bestWeightedCount<(minCallBestGenoRatio() *secondBest)) return UNKNOWN_DIPLOID_ALLELE;
 
         //Return the best genotype.  -128 is for the same reason we added it above.
         return (byte) (bestGeno - 128);
@@ -351,7 +363,7 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
     }
 
     /**
-     * Maximum number of sites in high LD to use in imputation
+     * Number of sites in high LD to use in imputation
      *
      * @return High LD Sites
      */
@@ -360,8 +372,8 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
     }
 
     /**
-     * Set High LD Sites. Maximum number of sites in high
-     * LD to use in imputation
+     * Set High LD Sites. Number of sites in high LD to use
+     * in imputation
      *
      * @param value High LD Sites
      *
@@ -373,7 +385,7 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
     }
 
     /**
-     * Maximum number of neighbours to use in imputation
+     * Number of neighbors to use in imputation
      *
      * @return Number of nearest neighbors
      */
@@ -382,8 +394,8 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
     }
 
     /**
-     * Set Number of nearest neighbors. Maximum number of
-     * neighbours to use in imputation
+     * Set Number of nearest neighbors. Number of neighbors
+     * to use in imputation
      *
      * @param value Number of nearest neighbors
      *
@@ -395,7 +407,7 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
     }
 
     /**
-     * Maximum physical distance between sites to look for
+     * Maximum physical distance between sites to search for
      * LD (-1 for no distance cutoff - unlinked chromosomes
      * will be tested)
      *
@@ -407,8 +419,8 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
 
     /**
      * Set Max distance between site to find LD. Maximum physical
-     * distance between sites to look for LD (-1 for no distance
-     * cutoff - unlinked chromosomes will be tested)
+     * distance between sites to search for LD (-1 for no
+     * distance cutoff - unlinked chromosomes will be tested)
      *
      * @param value Max distance between site to find LD
      *
@@ -460,6 +472,75 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
      */
     public LDKNNiImputationHetV2Plugin duplicateHetsThreshold(Double value) {
         duplicateHetsThreshold = new PluginParameter<>(duplicateHetsThreshold, value);
+        return this;
+    }
+
+    /**
+     * Set to Major genotype if no imputation result and MAF
+     * is below threshold
+     *
+     * @return Automatic MajorGenotype if MAF
+     */
+    public Double automaticMajorMAF() {
+        return automaticMajorMAF.value();
+    }
+
+    /**
+     * Set Automatic MajorGenotype if MAF. Set to Major genotype
+     * if no imputation result and MAF is below threshold
+     *
+     * @param value Automatic MajorGenotype if MAF
+     *
+     * @return this plugin
+     */
+    public LDKNNiImputationHetV2Plugin automaticMajorMAF(Double value) {
+        automaticMajorMAF = new PluginParameter<>(automaticMajorMAF, value);
+        return this;
+    }
+
+    /**
+     * Minimum coverage for donor genotype and LD calculation
+     *
+     * @return Minimum coverage for donors and LD
+     */
+    public Double minCoverageForDonors() {
+        return minCoverageForDonors.value();
+    }
+
+    /**
+     * Set Minimum coverage for donors and LD. Minimum coverage
+     * for donor genotype and LD calculation
+     *
+     * @param value Minimum coverage for donors and LD
+     *
+     * @return this plugin
+     */
+    public LDKNNiImputationHetV2Plugin minCoverageForDonors(Double value) {
+        minCoverageForDonors = new PluginParameter<>(minCoverageForDonors, value);
+        return this;
+    }
+
+    /**
+     * Minimum ratio between best and second best genotype
+     * to make a call
+     *
+     * @return Minimum support ratio for best genotype
+     */
+    public Double minCallBestGenoRatio() {
+        return minCallBestGenoRatio.value();
+    }
+
+    /**
+     * Set Minimum support ratio for best genotype. Minimum
+     * ratio between best and second best genotype to make
+     * a call
+     *
+     * @param value Minimum support ratio for best genotype
+     *
+     * @return this plugin
+     */
+    public LDKNNiImputationHetV2Plugin minCallBestGenoRatio(Double value) {
+        minCallBestGenoRatio = new PluginParameter<>(minCallBestGenoRatio, value);
         return this;
     }
 
