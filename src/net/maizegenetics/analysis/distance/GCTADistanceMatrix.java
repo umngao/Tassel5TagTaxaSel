@@ -129,26 +129,34 @@ public class GCTADistanceMatrix {
         }
     }
 
-    private static final byte[] INCREMENT = new byte[4096];
+    private static final byte[] INCREMENT = new byte[65536];
 
     static {
         for (int a = 0; a < 4; a++) {
             for (int b = 0; b < 4; b++) {
-                int temp = a << 10 | b << 8;
+                int temp = a << 14 | b << 12;
                 for (int c = 0; c < 4; c++) {
                     for (int d = 0; d < 4; d++) {
-                        int temp2 = c << 6 | d << 4;
+                        int temp2 = c << 10 | d << 8;
                         for (int e = 0; e < 4; e++) {
                             for (int f = 0; f < 4; f++) {
-                                int incrementIndex = temp | temp2 | e << 2 | f;
-                                if ((a != 3) && (b != 3)) {
-                                    INCREMENT[incrementIndex]++;
-                                }
-                                if ((c != 3) && (d != 3)) {
-                                    INCREMENT[incrementIndex]++;
-                                }
-                                if ((e != 3) && (f != 3)) {
-                                    INCREMENT[incrementIndex]++;
+                                int temp3 = e << 6 | f << 4;
+                                for (int g = 0; g < 4; g++) {
+                                    for (int h = 0; h < 4; h++) {
+                                        int incrementIndex = temp | temp2 | temp3 | g << 2 | h;
+                                        if ((a != 3) && (b != 3)) {
+                                            INCREMENT[incrementIndex]++;
+                                        }
+                                        if ((c != 3) && (d != 3)) {
+                                            INCREMENT[incrementIndex]++;
+                                        }
+                                        if ((e != 3) && (f != 3)) {
+                                            INCREMENT[incrementIndex]++;
+                                        }
+                                        if ((g != 3) && (h != 3)) {
+                                            INCREMENT[incrementIndex]++;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -191,34 +199,42 @@ public class GCTADistanceMatrix {
             int[] counts = result.myCounters;
             float[] distances = result.myDistances;;
 
-            float[] answer1 = new float[4096];
-            float[] answer2 = new float[4096];
+            float[] answer1 = new float[65536];
+            float[] answer2 = new float[65536];
+            float[] answer3 = new float[65536];
 
-            for (; myCurrentSite < myFence; myCurrentSite += 6) {
+            for (; myCurrentSite < myFence; myCurrentSite += 12) {
 
                 Tuple<short[], float[]> firstThree = getThreeSites(myCurrentSite);
                 float[] possibleTerms = firstThree.y;
                 short[] majorCount1 = firstThree.x;
 
-                Tuple<short[], float[]> secondThree = getThreeSites(myCurrentSite + 3);
+                Tuple<short[], float[]> secondThree = getThreeSites(myCurrentSite + 4);
                 float[] possibleTerms2 = secondThree.y;
                 short[] majorCount2 = secondThree.x;
 
-                for (int i = 0; i < 4096; i++) {
-                    answer1[i] = possibleTerms[(i & 0xF00) >>> 8] + possibleTerms[((i & 0xF0) >>> 4) | 0x10] + possibleTerms[(i & 0xF) | 0x20];
-                    answer2[i] = possibleTerms2[(i & 0xF00) >>> 8] + possibleTerms2[((i & 0xF0) >>> 4) | 0x10] + possibleTerms2[(i & 0xF) | 0x20];
+                Tuple<short[], float[]> thirdThree = getThreeSites(myCurrentSite + 8);
+                float[] possibleTerms3 = thirdThree.y;
+                short[] majorCount3 = thirdThree.x;
+
+                for (int i = 0; i < 65536; i++) {
+                    answer1[i] = possibleTerms[(i & 0xF000) >>> 12] + possibleTerms[((i & 0xF00) >>> 8) | 0x10] + possibleTerms[((i & 0xF0) >>> 4) | 0x20] + possibleTerms[(i & 0xF) | 0x30];
+                    answer2[i] = possibleTerms2[(i & 0xF000) >>> 12] + possibleTerms2[((i & 0xF00) >>> 8) | 0x10] + possibleTerms2[((i & 0xF0) >>> 4) | 0x20] + possibleTerms2[(i & 0xF) | 0x30];
+                    answer3[i] = possibleTerms3[(i & 0xF000) >>> 12] + possibleTerms3[((i & 0xF00) >>> 8) | 0x10] + possibleTerms3[((i & 0xF0) >>> 4) | 0x20] + possibleTerms3[(i & 0xF) | 0x30];
                 }
 
                 int index = 0;
                 for (int firstTaxa = 0; firstTaxa < myNumTaxa; firstTaxa++) {
-                    if ((majorCount1[firstTaxa] != 0x333) || (majorCount2[firstTaxa] != 0x333)) {
+                    if ((majorCount1[firstTaxa] != 0x3333) || (majorCount2[firstTaxa] != 0x3333) || (majorCount3[firstTaxa] != 0x3333)) {
                         int temp1 = majorCount1[firstTaxa] << 2;
                         int temp2 = majorCount2[firstTaxa] << 2;
+                        int temp3 = majorCount3[firstTaxa] << 2;
                         for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
                             int aIndex = temp1 | majorCount1[secondTaxa];
                             int bIndex = temp2 | majorCount2[secondTaxa];
-                            distances[index] += answer1[aIndex] + answer2[bIndex];
-                            counts[index] += INCREMENT[aIndex] + INCREMENT[bIndex];
+                            int cIndex = temp3 | majorCount3[secondTaxa];
+                            distances[index] += answer1[aIndex] + answer2[bIndex] + answer3[cIndex];
+                            counts[index] += INCREMENT[aIndex] + INCREMENT[bIndex] + INCREMENT[cIndex];
                             index++;
                         }
                     } else {
@@ -234,9 +250,9 @@ public class GCTADistanceMatrix {
 
         private Tuple<short[], float[]> getThreeSites(int currentSite) {
 
-            float[] possibleTerms = new float[48];
+            float[] possibleTerms = new float[64];
             short[] majorCount = new short[myNumTaxa];
-            Arrays.fill(majorCount, (short) 0x333);
+            Arrays.fill(majorCount, (short) 0x3333);
 
             if (currentSite < myFence) {
 
@@ -263,7 +279,7 @@ public class GCTADistanceMatrix {
                     int temp = (major & 0x7) << 6;
                     for (int i = 0; i < myNumTaxa; i++) {
                         byte genotype = myGenotypes.genotype(i, currentSite);
-                        majorCount[i] = (short) (0x33 | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << 8);
+                        majorCount[i] = (short) (0x333 | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << 12);
                     }
                 }
 
@@ -291,7 +307,7 @@ public class GCTADistanceMatrix {
                         int temp = (major & 0x7) << 6;
                         for (int i = 0; i < myNumTaxa; i++) {
                             byte genotype = myGenotypes.genotype(i, currentSite);
-                            majorCount[i] = (short) (majorCount[i] & (0x303 | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << 4));
+                            majorCount[i] = (short) (majorCount[i] & (0x3033 | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << 8));
                         }
                     }
 
@@ -319,7 +335,36 @@ public class GCTADistanceMatrix {
                             int temp = (major & 0x7) << 6;
                             for (int i = 0; i < myNumTaxa; i++) {
                                 byte genotype = myGenotypes.genotype(i, currentSite);
-                                majorCount[i] = (short) (majorCount[i] & (0x330 | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)]));
+                                majorCount[i] = (short) (majorCount[i] & (0x3303 | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << 4));
+                            }
+                        }
+
+                        currentSite++;
+                        if (currentSite < myFence) {
+
+                            major = myGenotypes.majorAllele(currentSite);
+                            majorFreq = (float) myGenotypes.majorAlleleFrequency(currentSite);
+                            majorFreqTimes2 = majorFreq * 2.0f;
+                            denominatorTerm = majorFreqTimes2 * (1.0f - majorFreq);
+
+                            if ((major != GenotypeTable.UNKNOWN_ALLELE) && (denominatorTerm != 0.0)) {
+
+                                term[0] = 0.0f - majorFreqTimes2;
+                                term[1] = 1.0f - majorFreqTimes2;
+                                term[2] = 2.0f - majorFreqTimes2;
+
+                                possibleTerms[48] = term[0] * term[0] / denominatorTerm;
+                                possibleTerms[49] = possibleTerms[52] = term[0] * term[1] / denominatorTerm;
+                                possibleTerms[50] = possibleTerms[56] = term[0] * term[2] / denominatorTerm;
+                                possibleTerms[53] = term[1] * term[1] / denominatorTerm;
+                                possibleTerms[54] = possibleTerms[57] = term[1] * term[2] / denominatorTerm;
+                                possibleTerms[58] = term[2] * term[2] / denominatorTerm;
+
+                                int temp = (major & 0x7) << 6;
+                                for (int i = 0; i < myNumTaxa; i++) {
+                                    byte genotype = myGenotypes.genotype(i, currentSite);
+                                    majorCount[i] = (short) (majorCount[i] & (0x3330 | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)]));
+                                }
                             }
                         }
                     }
