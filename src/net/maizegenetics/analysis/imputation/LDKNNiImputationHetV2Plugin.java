@@ -85,6 +85,11 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
             .description("Minimum ratio between best and second best genotype to make a call")
             .build();
 
+    private PluginParameter<Integer> maxCores = new PluginParameter.Builder<>("maxCores", 8, Integer.class)
+            .guiName("Maximum number of cores for processing")
+            .description("Maximum number of cores to be used for processing")
+            .build();
+
 
 
 
@@ -142,55 +147,59 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
         long time=System.nanoTime();
         LongAdder sitesDone=new LongAdder();
 
-        IntStream.range(0, genotypeTable.numberOfSites()).parallel().forEach(posIndex ->
-        {
-            sitesDone.increment();
-            Position position = genotypeTable.positions().get(posIndex);
-            PositionList positionList = getHighLDPositionList(genotypeTable, posIndex, highLDSSites(), weightHets, siteCoverage);
+        IntStream.range(0,maxCores()).parallel().forEach(core -> {
+            IntStream.range(0, genotypeTable.numberOfSites()).
+                filter(posIndex -> posIndex % maxCores() == core)
+                .forEach(posIndex ->
+                {
+                    sitesDone.increment();
+                    Position position = genotypeTable.positions().get(posIndex);
+                    PositionList positionList = getHighLDPositionList(genotypeTable, posIndex, highLDSSites(), weightHets, siteCoverage);
 
-            double maf = genotypeTable.minorAlleleFrequency(posIndex);
-            byte majorAllele = genotypeTable.majorAllele(posIndex);
-            byte minorAllele = genotypeTable.minorAllele(posIndex);
-            if (genotypeTable.isPolymorphic(posIndex) == false) {
-                System.out.println(Arrays.toString(genotypeTable.genotypeAllTaxa(posIndex)));
-            }
-            StatsOnOneSite statsOnOneSite = new StatsOnOneSite(genotypeTable.minorAlleleFrequency(posIndex),
-                    weightHets[posIndex],genotypeTable.isPolymorphic(posIndex),positionList.size(), majorAllele, minorAllele);
+                    double maf = genotypeTable.minorAlleleFrequency(posIndex);
+                    byte majorAllele = genotypeTable.majorAllele(posIndex);
+                    byte minorAllele = genotypeTable.minorAllele(posIndex);
+                    if (genotypeTable.isPolymorphic(posIndex) == false) {
+                        System.out.println(Arrays.toString(genotypeTable.genotypeAllTaxa(posIndex)));
+                    }
+                    StatsOnOneSite statsOnOneSite = new StatsOnOneSite(genotypeTable.minorAlleleFrequency(posIndex),
+                            weightHets[posIndex], genotypeTable.isPolymorphic(posIndex), positionList.size(), majorAllele, minorAllele);
 
-            byte[] currGenos = genotypeTable.genotypeAllTaxa(posIndex);
-            byte[] impGenos = new byte[currGenos.length];
+                    byte[] currGenos = genotypeTable.genotypeAllTaxa(posIndex);
+                    byte[] impGenos = new byte[currGenos.length];
 
-            final GenotypeTable ldGenoTable = GenotypeTableBuilder.getGenotypeCopyInstance(FilterGenotypeTable.getInstance(genotypeTable, positionList));
-            final int numberLDSites = ldGenoTable.numberOfSites();
-            double[] taxaLDCoverage = IntStream.range(0, ldGenoTable.numberOfTaxa()).sequential()  //used determine when insufficient overlap is likely
-                    .mapToDouble(t -> (double) ldGenoTable.totalNonMissingForTaxon(t) / (double) numberLDSites)
-                    .toArray();
-            for (int taxon = 0; taxon < currGenos.length; taxon++) {
-                Multimap<Double, Byte> closeGenotypes = getClosestNonMissingTaxa(genotypeTable.taxa().get(taxon), genotypeTable,
-                        ldGenoTable, position, taxaLDCoverage, knnTaxa());
-                impGenos[taxon] = (closeGenotypes.isEmpty()) ? UNKNOWN_DIPLOID_ALLELE : impute(closeGenotypes, highLDSSites());
-                if (impGenos[taxon] == UNKNOWN_DIPLOID_ALLELE && maf < automaticMajorMAF()) {
-                    impGenos[taxon] = getDiploidValue(majorAllele, majorAllele);  //set to major genotype for rare allele
-                }
-                statsOnOneSite.updateStats(currGenos[taxon], impGenos[taxon]);
+                    final GenotypeTable ldGenoTable = GenotypeTableBuilder.getGenotypeCopyInstance(FilterGenotypeTable.getInstance(genotypeTable, positionList));
+                    final int numberLDSites = ldGenoTable.numberOfSites();
+                    double[] taxaLDCoverage = IntStream.range(0, ldGenoTable.numberOfTaxa()).sequential()  //used determine when insufficient overlap is likely
+                            .mapToDouble(t -> (double) ldGenoTable.totalNonMissingForTaxon(t) / (double) numberLDSites)
+                            .toArray();
+                    for (int taxon = 0; taxon < currGenos.length; taxon++) {
+                        Multimap<Double, Byte> closeGenotypes = getClosestNonMissingTaxa(genotypeTable.taxa().get(taxon), genotypeTable,
+                                ldGenoTable, position, taxaLDCoverage, knnTaxa());
+                        impGenos[taxon] = (closeGenotypes.isEmpty()) ? UNKNOWN_DIPLOID_ALLELE : impute(closeGenotypes, highLDSSites());
+                        if (impGenos[taxon] == UNKNOWN_DIPLOID_ALLELE && maf < automaticMajorMAF()) {
+                            impGenos[taxon] = getDiploidValue(majorAllele, majorAllele);  //set to major genotype for rare allele
+                        }
+                        statsOnOneSite.updateStats(currGenos[taxon], impGenos[taxon]);
 
-            }
-            byte[] resolvedGeno = resolveGenotypes(currGenos,impGenos,statsOnOneSite.hetFreq()>duplicateHetsThreshold());
+                    }
+                    byte[] resolvedGeno = resolveGenotypes(currGenos, impGenos, statsOnOneSite.hetFreq() > duplicateHetsThreshold());
 
-            GeneralPosition.Builder gpb=new GeneralPosition.Builder(position)
-                    .addAnno("ImpHomoAccuracy",statsOnOneSite.homozygousAcc())
-                    .addAnno("ImpMinorAccuracy",statsOnOneSite.minorAcc());
-            if(weightHets[posIndex]>duplicateHetsThreshold()) gpb.addAnno("DUP");
-            incSiteBuilder.addSite(gpb.build(), resolvedGeno);
+                    GeneralPosition.Builder gpb = new GeneralPosition.Builder(position)
+                            .addAnno("ImpHomoAccuracy", statsOnOneSite.homozygousAcc())
+                            .addAnno("ImpMinorAccuracy", statsOnOneSite.minorAcc());
+                    if (weightHets[posIndex] > duplicateHetsThreshold()) gpb.addAnno("DUP");
+                    incSiteBuilder.addSite(gpb.build(), resolvedGeno);
 
-            statsOnSites.addStats(statsOnOneSite.hetFreq(), statsOnOneSite.getCnts());
+                    statsOnSites.addStats(statsOnOneSite.hetFreq(), statsOnOneSite.getCnts());
 
-            if ((posIndex + 1) % 100 == 0) {
-                fireProgress(33 + ((int) (66 * sitesDone.longValue()) / genotypeTable.numberOfSites()));
-                System.out.println(sitesDone.longValue() + ": ms/site" + ((System.nanoTime() - time) / 1_000_000) / sitesDone.longValue());
-                statsOnSites.printToStdOut();
-                System.out.println(reportingParameters() + statsOnSites.homozygousAcc(2) + "\t" + statsOnSites.recallPowerOfHomozgyous(2));
-            }
+                    if ((posIndex + 1) % 100 == 0) {
+                        fireProgress(33 + ((int) (66 * sitesDone.longValue()) / genotypeTable.numberOfSites()));
+                        System.out.println(sitesDone.longValue() + ": ms/site" + ((System.nanoTime() - time) / 1_000_000) / sitesDone.longValue());
+                        statsOnSites.printToStdOut();
+                        System.out.println(reportingParameters() + statsOnSites.homozygousAcc(2) + "\t" + statsOnSites.recallPowerOfHomozgyous(2));
+                    }
+                });
         });
         statsOnSites.printToStdOut();
         System.out.println("Final\t" + reportingParameters() + statsOnSites.homozygousAcc(2) + "\t" + statsOnSites.recallPowerOfHomozgyous(2));
@@ -541,6 +550,28 @@ public class LDKNNiImputationHetV2Plugin extends AbstractPlugin {
      */
     public LDKNNiImputationHetV2Plugin minCallBestGenoRatio(Double value) {
         minCallBestGenoRatio = new PluginParameter<>(minCallBestGenoRatio, value);
+        return this;
+    }
+
+    /**
+     * Maximum number of cores to be used for processing
+     *
+     * @return Maximum number of cores for processing
+     */
+    public Integer maxCores() {
+        return maxCores.value();
+    }
+
+    /**
+     * Set Maximum number of cores for processing. Maximum
+     * number of cores to be used for processing
+     *
+     * @param value Maximum number of cores for processing
+     *
+     * @return this plugin
+     */
+    public LDKNNiImputationHetV2Plugin maxCores(Integer value) {
+        maxCores = new PluginParameter<>(maxCores, value);
         return this;
     }
 
