@@ -70,4 +70,10 @@ public interface ModelEffect {
 	 * @return	a copy of this model effect
 	 */
 	ModelEffect getCopy();
+	
+	/**
+	 * @param sample       the index of samples to be returned
+	 * @return             a new ModelEffect containing the samples in the index. Individual observations may be repeated in the subsample.
+	 */
+	ModelEffect getSubSample(int[] sample);
 }

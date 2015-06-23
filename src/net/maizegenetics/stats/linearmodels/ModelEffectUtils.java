@@ -176,6 +176,20 @@ public class ModelEffectUtils {
     	return getIntegerLevels(originalLevels, null);
     }
     
+    public static int[] getIntegerLevels(int[] originalLevels) {
+        TreeSet<Integer> originalSet = Arrays.stream(originalLevels).collect(TreeSet<Integer>::new, TreeSet::add, TreeSet::addAll);
+        int norig = originalLevels.length;
+        if (originalSet.size() == norig) return originalLevels;
+        
+        int[] index = new int[norig];
+        Arrays.fill(index, -1);
+        int count = 0;
+        for (Integer level : originalSet) index[level] = count++;
+        int[] newLevels = new int[norig];
+        for (int i = 0; i < norig; i++) newLevels[i] = index[originalLevels[i]];
+        return newLevels;
+    }
+    
     public static double[] getNumericCodingForAdditiveModel(Object[] marker, String allele) {
     	int nmarkers = marker.length;
     	if (allele.equals(GenotypeTable.UNKNOWN_ALLELE_STR)) return new double[nmarkers];
