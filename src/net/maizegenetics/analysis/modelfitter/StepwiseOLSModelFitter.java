@@ -19,8 +19,10 @@ import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.phenotype.NumericAttribute;
 import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.TaxaAttribute;
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.phenotype.PhenotypeAttribute;
+import net.maizegenetics.phenotype.PhenotypeBuilder;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 
@@ -28,10 +30,13 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
 import net.maizegenetics.stats.linearmodels.BasicShuffler;
+import net.maizegenetics.taxa.Taxon;
 
 public class StepwiseOLSModelFitter {
 	private GenotypePhenotype myData;
@@ -1458,6 +1463,47 @@ public class StepwiseOLSModelFitter {
 		}
 	}
 
+        public Phenotype generateChromosomeResidualsFromCurrentModel() {
+            List<PhenotypeAttribute> attributes = new ArrayList<>();
+            List<ATTRIBUTE_TYPE> types = new ArrayList<>();
+
+            Taxon[] allTaxa = myPhenotype.taxaAttribute().allTaxa();
+            Taxon[] nonmissingTaxa = AssociationUtils.getNonMissingValues(allTaxa, missing);
+            attributes.add(new TaxaAttribute(Arrays.asList(nonmissingTaxa)));
+            types.add(ATTRIBUTE_TYPE.taxa);
+            
+            //this next step will include family in the return Phenotype
+            //any covariates will not be included
+            for (PhenotypeAttribute factor : factorAttributeList) {
+                String[] values = ((CategoricalAttribute) factor).allLabels();
+                attributes.add(new CategoricalAttribute(factor.name(), AssociationUtils.getNonMissingValues(values, missing)));
+                types.add(ATTRIBUTE_TYPE.factor);
+            }
+            
+            for (int c = 0; c <10; c++) {
+                String chrname = String.format("c%d",c + 1);
+                
+                //create a model without this chromosome
+                List<ModelEffect> chrModel = currentModel.stream()
+                        .filter(notInChr(c + 1))
+                        .collect(Collectors.toList());
+                
+                SweepFastLinearModel sflm = new SweepFastLinearModel(chrModel, y);
+                
+                //add the residuals to the Phenotype
+                DoubleMatrix resid = sflm.getResiduals();
+                float[] data = AssociationUtils.convertDoubleArrayToFloat(resid.to1DArray());
+                attributes.add(new NumericAttribute(chrname, data, new OpenBitSet(data.length)));
+                types.add(ATTRIBUTE_TYPE.data);
+            }
+            
+            return new PhenotypeBuilder().fromAttributeList(attributes, types).build().get(0);
+        }
+        
+        private Predicate<ModelEffect> notInChr(int chr) {
+            return me -> (!(me.getID() instanceof SNP)) || ((me.getID() instanceof SNP) && ( ((SNP) me.getID()).locus.getChromosomeNumber() != chr ));
+        }
+        
 	public void setEnterlimits(double[] enterlimits) {
 		this.enterlimits = enterlimits;
 	}
