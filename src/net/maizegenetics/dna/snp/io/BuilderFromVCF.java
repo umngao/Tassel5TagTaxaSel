@@ -148,9 +148,8 @@ public class BuilderFromVCF {
                     }
                     //pbs.add(pb);
                         //     pb.run(); //used for testing
-                    //futures.add(pool.submit(pb));
                     try {
-                        pbs.add(pool.submit(pb).get()); 
+                        futures.add(pool.submit(pb));
                     }
                     catch(Exception e) {
                         myLogger.debug(e.getMessage(), e);
@@ -160,6 +159,7 @@ public class BuilderFromVCF {
                 }
             }
             r.close();
+            //Handle whatever is left over in the file
             if (txtLines.size()>0) {
                 ProcessVCFBlock pb;//=ProcessVCFBlock.getInstance(taxaList.numberOfTaxa(), hp, txtLines);
                 if(inMemory) {
@@ -169,13 +169,22 @@ public class BuilderFromVCF {
                 }
                 //pbs.add(pb);
                     //  pb.run(); //used for testing
-                //futures.add(pool.submit(pb));
+                
                 try {
-                    pbs.add(pool.submit(pb).get());
+                    futures.add(pool.submit(pb));
                 }
                 catch(Exception e) {
                     myLogger.debug(e.getMessage(), e);
                 throw new IllegalStateException(e.getMessage());
+                }
+            }
+            for(Future<ProcessVCFBlock> future : futures) {
+                try {
+                    pbs.add(future.get());
+                }
+                catch(Exception e) {
+                    myLogger.debug(e.getMessage(),e);
+                    throw new IllegalStateException(e.getMessage());
                 }
             }
             pool.shutdown();
