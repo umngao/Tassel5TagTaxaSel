@@ -29,7 +29,7 @@
             <minHeterozygous>0.0</minHeterozygous>
             <maxHeterozygous>0.05</maxHeterozygous>
             <workflow>
-                Filter to remove Taxa with low coverage. (example: Min Proportion of Sites Present: 0.9, Min Heterozygous Proportion: 0.0, Max Heterozygous Proportion: 0.05)
+                Filter to remove Taxa with low coverage. (example: Min Proportion of Sites Present: 0.1, Min Heterozygous Proportion: 0.0, Max Heterozygous Proportion: 0.05)
             </workflow>
         </FilterTaxaPropertiesPlugin>
     </fork1>
