@@ -1,18 +1,24 @@
 package net.maizegenetics.analysis.modelfitter;
 
 import com.google.common.collect.Range;
+
+import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.plugindef.*;
 import net.maizegenetics.util.TableReport;
+
 import org.apache.log4j.Logger;
 
 import javax.swing.*;
+
 import java.awt.*;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Stepwise Ordinary Least Squares model fitter
@@ -22,45 +28,70 @@ import java.util.List;
  */
 public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
 
-    private PluginParameter<StepwiseOLSModelFitter.MODEL_TYPE> modelType = new PluginParameter.Builder<>("t", StepwiseOLSModelFitter.MODEL_TYPE.bic, StepwiseOLSModelFitter.MODEL_TYPE.class)
+    private List<CategoricalAttribute> myFactorList;
+    private GenotypePhenotype myGenoPheno;
+    private String datasetName;
+    
+    private PluginParameter<StepwiseOLSModelFitter.MODEL_TYPE> modelType = new PluginParameter.Builder<>("modelType", StepwiseOLSModelFitter.MODEL_TYPE.pvalue, StepwiseOLSModelFitter.MODEL_TYPE.class)
             .range(StepwiseOLSModelFitter.MODEL_TYPE.values())
             .guiName("Model type")
             .description("The model selection criteria used to determine which terms enter the model and how many. Value must be one of pvalue, bic, mbic, or aic")
             .build();
-    private PluginParameter<Double> enterlimit = new PluginParameter.Builder<>("e", 1e-5, Double.class)
+    private PluginParameter<Double> enterlimit = new PluginParameter.Builder<>("enter", 1e-5, Double.class)
             .range(Range.closed(0.0, 1.0))
             .guiName("Entry limit")
             .description("The enter limit or maximum p-value for which a term can enter the model")
             .build();
-    private PluginParameter<Double> exitlimit = new PluginParameter.Builder<>("x", 1e-6, Double.class)
+    private PluginParameter<Double> exitlimit = new PluginParameter.Builder<>("exit", 1e-6, Double.class)
             .range(Range.closed(0.0, 1.0))
             .guiName("Exit limit")
             .description("A term exits the model on a backward step if its p-value is greater than this value")
             .build();
-    private PluginParameter<Integer> maxNumberOfMarkers = new PluginParameter.Builder<>("m", 100, Integer.class)
+    private PluginParameter<Integer> maxNumberOfMarkers = new PluginParameter.Builder<>("maxMarkers", 100, Integer.class)
             .range(Range.closed(0, 10000))
             .guiName("Maximum markers")
             .description("The maximum number of markers that will be fit, if the enter limit is not reached first")
             .build();
-    private PluginParameter<Boolean> nestMarkers = new PluginParameter.Builder<>("n", false, Boolean.class)
+    private PluginParameter<Boolean> nestMarkers = new PluginParameter.Builder<>("nestMarkers", false, Boolean.class)
             .guiName("Nest markers")
             .description("Should markers be nested within a model factor")
             .build();
-    private PluginParameter<Integer> nestingFactorIndex = new PluginParameter.Builder<>("m", 0, Integer.class)
+    private PluginParameter<Integer> nestingFactorIndex = new PluginParameter.Builder<>("nestIndex", 0, Integer.class)
             .guiName("Nesting factor index")
             .description("If there is more then one factor in the model and nest = true, the index of the nesting factor")
             .build();
-    private PluginParameter<Integer> numberOfPermutations = new PluginParameter.Builder<>("m", 0, Integer.class)
+
+    private PluginParameter<List> nestingFactor = new PluginParameter.Builder<>("nestFactor", null, List.class)
+            .guiName("Nesting factor")
+            .description("Nest markers within this factor.")
+            .dependentOnParameter(nestMarkers)
+            .objectListSingleSelect()
+            .build();
+    
+    private PluginParameter<Integer> numberOfPermutations = new PluginParameter.Builder<>("nperm", 0, Integer.class)
             .range(Range.closed(0, 100000))
             .guiName("Number of permutations")
             .description("Number of permutations for the model to determine an empirical alpha")
             .build();
-
+    private PluginParameter<Boolean> chromosomeResiduals = new PluginParameter.Builder<>("chrResidual", false, Boolean.class)
+            .guiName("Output chromosome residuals")
+            .description("Should a dataset of chromosome residuals be created for each phenotype? The output datasets will include all factors but no covariates from the original phenotype data.")
+            .build();
+    private PluginParameter<Boolean> residualsAsFile = new PluginParameter.Builder<>("resAsFile", false, Boolean.class)
+            .guiName("Save residuals as file?")
+            .description("Should the chromosome residuals to be saved to separate files rather than stored in memory?")
+            .dependentOnParameter(chromosomeResiduals)
+            .build();
+    private PluginParameter<String> residualFilebase = new PluginParameter.Builder<>("resFilename", null, String.class)
+            .guiName("Residual file name")
+            .description("The base name for the residual files. _chrname.txt will be appended to each file.")
+            .dependentOnParameter(residualsAsFile)
+            .outFile()
+            .build();
 
     private static final Logger myLogger = Logger.getLogger(StepwiseOLSModelFitterPlugin2.class);
     private double alpha = 0.05;
     //TODO need to change this to a list
-   // private StepwiseOLSModelFitter.MODEL_TYPE modelType = StepwiseOLSModelFitter.MODEL_TYPE.mbic;
 
 
     public StepwiseOLSModelFitterPlugin2(Frame parentFrame, boolean isInteractive) {
@@ -72,28 +103,36 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
     }
 
     @Override
-    public DataSet performFunction(DataSet input) {
+    protected void preProcessParameters(DataSet input) {
         List<Datum> datasets = input.getDataOfType(new Class[]{GenotypePhenotype.class});
         if (datasets.size() < 1) {
             String msg = "Error in performFunction: No appropriate dataset selected.";
-            myLogger.error(msg);
-            if (isInteractive()) {
-                JOptionPane.showMessageDialog(getParentFrame(), msg, "Error in Model Fitter", JOptionPane.ERROR_MESSAGE);
-            }
-            return null;
+            throw new IllegalArgumentException(msg);
         }
 
-        //only analyze the first dataset
+        //only analyze one dataset
         if (datasets.size() > 1) {
-            String msg = "Multiple datasets selected. Only the first will be analyzed.";
-            myLogger.info(msg);
-            if (isInteractive()) {
-                JOptionPane.showMessageDialog(getParentFrame(), msg, "Error in Model Fitter", JOptionPane.INFORMATION_MESSAGE);
-            }
-            return null;
+            String msg = "Multiple datasets selected. Only one dataset is allowed.";
+            throw new IllegalArgumentException(msg);
         }
+        
+        
+        myGenoPheno = (GenotypePhenotype) datasets.get(0).getData();
+        datasetName = datasets.get(0).getName();
+        myFactorList = myGenoPheno.phenotype().attributeListOfType(ATTRIBUTE_TYPE.factor).stream()
+                .map(pa -> (CategoricalAttribute) pa)
+                .collect(Collectors.toList());
+        
+        if (myFactorList.isEmpty()) {
+            List<String> noneList = Arrays.asList("None");
+            nestingFactor = PluginParameter.getInstance(nestingFactor, noneList);
+        } else {
+            nestingFactor = PluginParameter.getInstance(nestingFactor, myFactorList);
+        }
+    }
 
-        GenotypePhenotype myGenoPheno = (GenotypePhenotype) datasets.get(0).getData();
+    @Override
+    public DataSet processData(DataSet input) {
         if (nestMarkers.value()) {
             boolean factorCorrect = myGenoPheno.phenotype().attribute(nestingFactorIndex.value()).isTypeCompatible(ATTRIBUTE_TYPE.factor);
             if (!factorCorrect) {
@@ -106,7 +145,7 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
             }
         }
 
-        StepwiseOLSModelFitter modelFitter = new StepwiseOLSModelFitter(myGenoPheno, datasets.get(0).getName());
+        StepwiseOLSModelFitter modelFitter = new StepwiseOLSModelFitter(myGenoPheno, datasetName);
         modelFitter.setEnterlimit(enterlimit.value());
         modelFitter.setExitlimit(exitlimit.value());
         modelFitter.setMaxNumberOfMarkers(maxNumberOfMarkers.value());
@@ -126,15 +165,15 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
 
         LinkedList<Datum> datumList = new LinkedList<Datum>();
         if (trResults != null)
-            datumList.add(new Datum("ANOVA_stepwise_" + datasets.get(0).getName(), trResults, "comments"));
+            datumList.add(new Datum("ANOVA_stepwise_" + datasetName, trResults, "comments"));
         if (trEffects != null)
-            datumList.add(new Datum("Marker_estimates_" + datasets.get(0).getName(), trEffects, "comments"));
+            datumList.add(new Datum("Marker_estimates_" + datasetName, trEffects, "comments"));
         if (trResultsAfterCIScan != null)
-            datumList.add(new Datum("ANOVA_stepwise_After_CI_Scan" + datasets.get(0).getName(), trResultsAfterCIScan, "comments"));
+            datumList.add(new Datum("ANOVA_stepwise_After_CI_Scan" + datasetName, trResultsAfterCIScan, "comments"));
         if (trEffectsAfterCIScan != null)
-            datumList.add(new Datum("Marker_estimates_After_CI_Scan" + datasets.get(0).getName(), trEffectsAfterCIScan, "comments"));
+            datumList.add(new Datum("Marker_estimates_After_CI_Scan" + datasetName, trEffectsAfterCIScan, "comments"));
         if (trPermPvalues != null)
-            datumList.add(new Datum("Permuted_Pvalues" + datasets.get(0).getName(), trPermPvalues, "comments"));
+            datumList.add(new Datum("Permuted_Pvalues" + datasetName, trPermPvalues, "comments"));
 
         DataSet myResult = new DataSet(datumList, this);
         fireDataSetReturned(myResult);
@@ -170,14 +209,13 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
     //
-    public static void main(String[] args) {
-         GeneratePluginCode.generate(StepwiseOLSModelFitterPlugin2.class);
-    }
+//    public static void main(String[] args) {
+//         GeneratePluginCode.generate(StepwiseOLSModelFitterPlugin2.class);
+//    }
 
     /**
      * Convenience method to run plugin with one return object.
      */
-    // TODO: Replace <Type> with specific type.
     public TableReport runPlugin(DataSet input) {
         return (TableReport) performFunction(input).getData(0).getData();
     }
