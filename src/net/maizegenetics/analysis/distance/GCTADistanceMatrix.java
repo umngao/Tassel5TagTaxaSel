@@ -138,7 +138,12 @@ public class GCTADistanceMatrix {
     // for all possible diploid allele values.  Numbers 0 through 7
     // represent A, C, G, T, -, +, N respectively.  First three bits
     // codes the major allele.  Remaining six bits codes the diploid
-    // allele values.
+    // allele values. The stored counts are encodings.  Value 7 (bits 111) means
+    // it's not a comparable combination because either major allele
+    // is unknown or the diploid allele value is unknown.
+    // Code 1 (bits 001) is zero count.
+    // Code 2 (bits 010) is one count.
+    // Code 4 (bits 100) is two count.
     //
     private static final byte[] PRECALCULATED_COUNTS = new byte[512];
 
@@ -148,13 +153,18 @@ public class GCTADistanceMatrix {
                 for (int b = 0; b < 8; b++) {
                     int temp = (major << 6) | (a << 3) | b;
                     if ((major == 7) | ((a == 7) && (b == 7))) {
-                        PRECALCULATED_COUNTS[temp] = 3;
+                        PRECALCULATED_COUNTS[temp] = 7;
                     } else {
                         if (a == major) {
-                            PRECALCULATED_COUNTS[temp]++;
-                        }
-                        if (b == major) {
-                            PRECALCULATED_COUNTS[temp]++;
+                            if (b == major) {
+                                PRECALCULATED_COUNTS[temp] = 4;
+                            } else {
+                                PRECALCULATED_COUNTS[temp] = 2;
+                            }
+                        } else if (b == major) {
+                            PRECALCULATED_COUNTS[temp] = 2;
+                        } else {
+                            PRECALCULATED_COUNTS[temp] = 1;
                         }
                     }
                 }
@@ -164,45 +174,49 @@ public class GCTADistanceMatrix {
 
     //
     // This pre-calculates the number of sites involved in a GCTA pair-wise
-    // comparison.  Counts are 0, 1, or 2 depending on the number of
-    // times the major allele matchs the diploid allele value.
-    // Count value of 3 is coded when diploid allele value is
+    // comparison.  Counts are the number of sites involved in the
+    // calculation (up to 5 sites).
+    // Count value of 7 is coded when diploid allele value is
     // GenotypeTable.UNKNOWN_DIPLOID_ALLELE.  Any pair-wise comparison when
     // either taxa has GenotypeTable.UNKNOWN_DIPLOID_ALLELE at a given site,
     // is not involved in the calulation. The index of this array represents
-    // every combination of major allele count (0, 1, 2) and UNKNOWN (3)
-    // for four consecutive sites.  Each four bits has two counts.
-    // Those four bits times four sites equals 65536 combinations.
+    // every bitwise OR combination of major allele count (1, 2, 4) and UNKNOWN (7)
+    // for five consecutive sites.  Each three bits encodes two counts.
+    // Those three bits times five sites equals 32768 combinations.
+    // Code 001 - both counts zero
+    // Code 011 - one count zero, one count one
+    // Code 010 - both counts one
+    // Code 110 - one count one, one count two
+    // Code 100 - both counts two
+    // Code 101 - one count zero, one count two
     //
-    private static final byte[] INCREMENT = new byte[65536];
+    private static final byte[] INCREMENT = new byte[32768];
 
     static {
-        for (int a = 0; a < 4; a++) {
-            for (int b = 0; b < 4; b++) {
-                int temp = a << 14 | b << 12;
-                for (int c = 0; c < 4; c++) {
-                    for (int d = 0; d < 4; d++) {
-                        int temp2 = c << 10 | d << 8;
-                        for (int e = 0; e < 4; e++) {
-                            for (int f = 0; f < 4; f++) {
-                                int temp3 = e << 6 | f << 4;
-                                for (int g = 0; g < 4; g++) {
-                                    for (int h = 0; h < 4; h++) {
-                                        int incrementIndex = temp | temp2 | temp3 | g << 2 | h;
-                                        if ((a != 3) && (b != 3)) {
-                                            INCREMENT[incrementIndex]++;
-                                        }
-                                        if ((c != 3) && (d != 3)) {
-                                            INCREMENT[incrementIndex]++;
-                                        }
-                                        if ((e != 3) && (f != 3)) {
-                                            INCREMENT[incrementIndex]++;
-                                        }
-                                        if ((g != 3) && (h != 3)) {
-                                            INCREMENT[incrementIndex]++;
-                                        }
-                                    }
-                                }
+        for (int a = 1; a < 8; a++) {
+            int temp = a << 12;
+            for (int b = 1; b < 8; b++) {
+                int temp2 = b << 9;
+                for (int c = 1; c < 8; c++) {
+                    int temp3 = c << 6;
+                    for (int d = 1; d < 8; d++) {
+                        int temp4 = d << 3;
+                        for (int e = 1; e < 8; e++) {
+                            int incrementIndex = temp | temp2 | temp3 | temp4 | e;
+                            if (a != 7) {
+                                INCREMENT[incrementIndex]++;
+                            }
+                            if (b != 7) {
+                                INCREMENT[incrementIndex]++;
+                            }
+                            if (c != 7) {
+                                INCREMENT[incrementIndex]++;
+                            }
+                            if (d != 7) {
+                                INCREMENT[incrementIndex]++;
+                            }
+                            if (e != 7) {
+                                INCREMENT[incrementIndex]++;
                             }
                         }
                     }
@@ -255,36 +269,36 @@ public class GCTADistanceMatrix {
             int[] counts = result.myCounters;
             float[] distances = result.myDistances;;
 
-            float[] answer1 = new float[65536];
-            float[] answer2 = new float[65536];
-            float[] answer3 = new float[65536];
+            float[] answer1 = new float[32768];
+            float[] answer2 = new float[32768];
+            float[] answer3 = new float[32768];
 
-            for (; myCurrentSite < myFence; myCurrentSite += 12) {
+            for (; myCurrentSite < myFence; myCurrentSite += 15) {
 
                 //
                 // Pre-calculates possible terms and gets counts for
-                // three blocks for four sites.
+                // three blocks for five sites.
                 //
-                Tuple<short[], float[]> firstThree = getFourSites(myCurrentSite);
+                Tuple<short[], float[]> firstThree = getBlockOfSites(myCurrentSite);
                 float[] possibleTerms = firstThree.y;
                 short[] majorCount1 = firstThree.x;
 
-                Tuple<short[], float[]> secondThree = getFourSites(myCurrentSite + 4);
+                Tuple<short[], float[]> secondThree = getBlockOfSites(myCurrentSite + 5);
                 float[] possibleTerms2 = secondThree.y;
                 short[] majorCount2 = secondThree.x;
 
-                Tuple<short[], float[]> thirdThree = getFourSites(myCurrentSite + 8);
+                Tuple<short[], float[]> thirdThree = getBlockOfSites(myCurrentSite + 10);
                 float[] possibleTerms3 = thirdThree.y;
                 short[] majorCount3 = thirdThree.x;
 
                 //
                 // Using possible terms, calculates all possible answers
-                // for each four site blocks.
+                // for each site block.
                 //
-                for (int i = 0; i < 65536; i++) {
-                    answer1[i] = possibleTerms[(i & 0xF000) >>> 12] + possibleTerms[((i & 0xF00) >>> 8) | 0x10] + possibleTerms[((i & 0xF0) >>> 4) | 0x20] + possibleTerms[(i & 0xF) | 0x30];
-                    answer2[i] = possibleTerms2[(i & 0xF000) >>> 12] + possibleTerms2[((i & 0xF00) >>> 8) | 0x10] + possibleTerms2[((i & 0xF0) >>> 4) | 0x20] + possibleTerms2[(i & 0xF) | 0x30];
-                    answer3[i] = possibleTerms3[(i & 0xF000) >>> 12] + possibleTerms3[((i & 0xF00) >>> 8) | 0x10] + possibleTerms3[((i & 0xF0) >>> 4) | 0x20] + possibleTerms3[(i & 0xF) | 0x30];
+                for (int i = 0; i < 32768; i++) {
+                    answer1[i] = possibleTerms[(i & 0x7000) >>> 12] + possibleTerms[((i & 0xE00) >>> 9) | 0x8] + possibleTerms[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms[((i & 0x38) >>> 3) | 0x18] + possibleTerms[(i & 0x7) | 0x20];
+                    answer2[i] = possibleTerms2[(i & 0x7000) >>> 12] + possibleTerms2[((i & 0xE00) >>> 9) | 0x8] + possibleTerms2[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms2[((i & 0x38) >>> 3) | 0x18] + possibleTerms2[(i & 0x7) | 0x20];
+                    answer3[i] = possibleTerms3[(i & 0x7000) >>> 12] + possibleTerms3[((i & 0xE00) >>> 9) | 0x8] + possibleTerms3[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms3[((i & 0x38) >>> 3) | 0x18] + possibleTerms3[(i & 0x7) | 0x20];
                 }
 
                 //
@@ -294,17 +308,10 @@ public class GCTADistanceMatrix {
                 int index = 0;
                 for (int firstTaxa = 0; firstTaxa < myNumTaxa; firstTaxa++) {
                     //
-                    // Can skip inter-loop if all twelve sites for first
+                    // Can skip inter-loop if all fifteen sites for first
                     // taxon is Unknown diploid allele values
                     //
-                    if ((majorCount1[firstTaxa] != 0x3333) || (majorCount2[firstTaxa] != 0x3333) || (majorCount3[firstTaxa] != 0x3333)) {
-                        //
-                        // Shift first taxon's major allele counts into
-                        // higher bits.
-                        //
-                        int temp1 = majorCount1[firstTaxa] << 2;
-                        int temp2 = majorCount2[firstTaxa] << 2;
-                        int temp3 = majorCount3[firstTaxa] << 2;
+                    if ((majorCount1[firstTaxa] != 0x7FFF) || (majorCount2[firstTaxa] != 0x7FFF) || (majorCount3[firstTaxa] != 0x7FFF)) {
                         for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
                             //
                             // Combine first taxon's major allele counts with
@@ -312,11 +319,8 @@ public class GCTADistanceMatrix {
                             // create index into pre-calculated answers
                             // and site counts.
                             //
-                            int aIndex = temp1 | majorCount1[secondTaxa];
-                            int bIndex = temp2 | majorCount2[secondTaxa];
-                            int cIndex = temp3 | majorCount3[secondTaxa];
-                            distances[index] += answer1[aIndex] + answer2[bIndex] + answer3[cIndex];
-                            counts[index] += INCREMENT[aIndex] + INCREMENT[bIndex] + INCREMENT[cIndex];
+                            distances[index] += answer1[majorCount1[firstTaxa] | majorCount1[secondTaxa]] + answer2[majorCount2[firstTaxa] | majorCount2[secondTaxa]] + answer3[majorCount3[firstTaxa] | majorCount3[secondTaxa]];
+                            counts[index] += INCREMENT[majorCount1[firstTaxa] | majorCount1[secondTaxa]] + INCREMENT[majorCount2[firstTaxa] | majorCount2[secondTaxa]] + INCREMENT[majorCount3[firstTaxa] | majorCount3[secondTaxa]];
                             index++;
                         }
                     } else {
@@ -330,15 +334,19 @@ public class GCTADistanceMatrix {
             fireProgress((int) ((double) myNumSitesProcessed / (double) myNumSites * 100.0), myProgressListener);
         }
 
-        private Tuple<short[], float[]> getFourSites(int currentSite) {
+        private static final int NUM_SITES_PER_BLOCK = 5;
+
+        private Tuple<short[], float[]> getBlockOfSites(int currentSite) {
+
+            int currentSiteNum = 0;
 
             //
             // This hold possible terms for the GCTA summation given
             // site's major allele frequency.  First two bits
-            // identifies relative site (0, 1, 2, 3).  Remaining four bits
-            // the major allele counts (each two bits - 0, 1, 2).
+            // identifies relative site (0, 1, 2, 3, 4).  Remaining three bits
+            // the major allele counts encoding.
             //
-            float[] possibleTerms = new float[64];
+            float[] possibleTerms = new float[40];
 
             //
             // This holds count of major allele for each taxa.
@@ -352,12 +360,9 @@ public class GCTADistanceMatrix {
             // This initializes the counts to 0x3333.  That means
             // diploid allele values for the four sites are Unknown.
             //
-            Arrays.fill(majorCount, (short) 0x3333);
+            Arrays.fill(majorCount, (short) 0x7FFF);
 
-            //
-            // First of four sites to process
-            //
-            if (currentSite < myFence) {
+            while ((currentSiteNum < NUM_SITES_PER_BLOCK) && (currentSite < myFence)) {
 
                 byte major = myGenotypes.majorAllele(currentSite);
                 float majorFreq = (float) myGenotypes.majorAlleleFrequency(currentSite);
@@ -383,151 +388,31 @@ public class GCTADistanceMatrix {
 
                     //
                     // Pre-calculates all possible terms of the summation
-                    // for this site (0).  Counts (0,0; 0,1; 0,2; 1,1; 1,2; 2,2)
-                    // Two assignment statements is because order doesn't matter.
+                    // for this current site.  Counts (0,0; 0,1; 0,2; 1,1; 1,2; 2,2)
                     //
-                    possibleTerms[0] = term[0] * term[0] / denominatorTerm;
-                    possibleTerms[1] = possibleTerms[4] = term[0] * term[1] / denominatorTerm;
-                    possibleTerms[2] = possibleTerms[8] = term[0] * term[2] / denominatorTerm;
-                    possibleTerms[5] = term[1] * term[1] / denominatorTerm;
-                    possibleTerms[6] = possibleTerms[9] = term[1] * term[2] / denominatorTerm;
-                    possibleTerms[10] = term[2] * term[2] / denominatorTerm;
+                    int siteNumIncrement = currentSiteNum * 8;
+                    possibleTerms[siteNumIncrement + 1] = term[0] * term[0] / denominatorTerm;
+                    possibleTerms[siteNumIncrement + 3] = term[0] * term[1] / denominatorTerm;
+                    possibleTerms[siteNumIncrement + 5] = term[0] * term[2] / denominatorTerm;
+                    possibleTerms[siteNumIncrement + 2] = term[1] * term[1] / denominatorTerm;
+                    possibleTerms[siteNumIncrement + 6] = term[1] * term[2] / denominatorTerm;
+                    possibleTerms[siteNumIncrement + 4] = term[2] * term[2] / denominatorTerm;
 
                     //
-                    // Records major allele counts (C) for first site in
-                    // four bits (0xC333).
+                    // Records major allele counts (C) for current site in
+                    // three bits.
                     //
                     int temp = (major & 0x7) << 6;
+                    int shift = (NUM_SITES_PER_BLOCK - currentSiteNum - 1) * 3;
+                    int mask = ~(0x7 << shift) & 0x7FFF;
                     for (int i = 0; i < myNumTaxa; i++) {
                         byte genotype = myGenotypes.genotype(i, currentSite);
-                        majorCount[i] = (short) (0x333 | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << 12);
+                        majorCount[i] = (short) (majorCount[i] & (mask | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << shift));
                     }
                 }
 
-                //
-                // Second of four sites to process
-                //
+                currentSiteNum++;
                 currentSite++;
-                if (currentSite < myFence) {
-
-                    major = myGenotypes.majorAllele(currentSite);
-                    majorFreq = (float) myGenotypes.majorAlleleFrequency(currentSite);
-                    majorFreqTimes2 = majorFreq * 2.0f;
-                    denominatorTerm = majorFreqTimes2 * (1.0f - majorFreq);
-
-                    if ((major != GenotypeTable.UNKNOWN_ALLELE) && (denominatorTerm != 0.0)) {
-
-                        term[0] = 0.0f - majorFreqTimes2;
-                        term[1] = 1.0f - majorFreqTimes2;
-                        term[2] = 2.0f - majorFreqTimes2;
-
-                        //
-                        // Pre-calculates all possible terms of the summation
-                        // for this site (1).  Counts (0,0; 0,1; 0,2; 1,1; 1,2; 2,2)
-                        // Two assignment statements is because order doesn't matter.
-                        //
-                        possibleTerms[16] = term[0] * term[0] / denominatorTerm;
-                        possibleTerms[17] = possibleTerms[20] = term[0] * term[1] / denominatorTerm;
-                        possibleTerms[18] = possibleTerms[24] = term[0] * term[2] / denominatorTerm;
-                        possibleTerms[21] = term[1] * term[1] / denominatorTerm;
-                        possibleTerms[22] = possibleTerms[25] = term[1] * term[2] / denominatorTerm;
-                        possibleTerms[26] = term[2] * term[2] / denominatorTerm;
-
-                        //
-                        // Records major allele counts (C) for second site in
-                        // four bits (0x3C33).
-                        //
-                        int temp = (major & 0x7) << 6;
-                        for (int i = 0; i < myNumTaxa; i++) {
-                            byte genotype = myGenotypes.genotype(i, currentSite);
-                            majorCount[i] = (short) (majorCount[i] & (0x3033 | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << 8));
-                        }
-                    }
-
-                    //
-                    // Third of four sites to process
-                    //
-                    currentSite++;
-                    if (currentSite < myFence) {
-
-                        major = myGenotypes.majorAllele(currentSite);
-                        majorFreq = (float) myGenotypes.majorAlleleFrequency(currentSite);
-                        majorFreqTimes2 = majorFreq * 2.0f;
-                        denominatorTerm = majorFreqTimes2 * (1.0f - majorFreq);
-
-                        if ((major != GenotypeTable.UNKNOWN_ALLELE) && (denominatorTerm != 0.0)) {
-
-                            term[0] = 0.0f - majorFreqTimes2;
-                            term[1] = 1.0f - majorFreqTimes2;
-                            term[2] = 2.0f - majorFreqTimes2;
-
-                            //
-                            // Pre-calculates all possible terms of the summation
-                            // for this site (2).  Counts (0,0; 0,1; 0,2; 1,1; 1,2; 2,2)
-                            // Two assignment statements is because order doesn't matter.
-                            //
-                            possibleTerms[32] = term[0] * term[0] / denominatorTerm;
-                            possibleTerms[33] = possibleTerms[36] = term[0] * term[1] / denominatorTerm;
-                            possibleTerms[34] = possibleTerms[40] = term[0] * term[2] / denominatorTerm;
-                            possibleTerms[37] = term[1] * term[1] / denominatorTerm;
-                            possibleTerms[38] = possibleTerms[41] = term[1] * term[2] / denominatorTerm;
-                            possibleTerms[42] = term[2] * term[2] / denominatorTerm;
-
-                            //
-                            // Records major allele counts (C) for third site in
-                            // four bits (0x33C3).
-                            //
-                            int temp = (major & 0x7) << 6;
-                            for (int i = 0; i < myNumTaxa; i++) {
-                                byte genotype = myGenotypes.genotype(i, currentSite);
-                                majorCount[i] = (short) (majorCount[i] & (0x3303 | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << 4));
-                            }
-                        }
-
-                        //
-                        // Fourth of four sites to process
-                        //
-                        currentSite++;
-                        if (currentSite < myFence) {
-
-                            major = myGenotypes.majorAllele(currentSite);
-                            majorFreq = (float) myGenotypes.majorAlleleFrequency(currentSite);
-                            majorFreqTimes2 = majorFreq * 2.0f;
-                            denominatorTerm = majorFreqTimes2 * (1.0f - majorFreq);
-
-                            if ((major != GenotypeTable.UNKNOWN_ALLELE) && (denominatorTerm != 0.0)) {
-
-                                term[0] = 0.0f - majorFreqTimes2;
-                                term[1] = 1.0f - majorFreqTimes2;
-                                term[2] = 2.0f - majorFreqTimes2;
-
-                                //
-                                // Pre-calculates all possible terms of the summation
-                                // for this site (3).  Counts (0,0; 0,1; 0,2; 1,1; 1,2; 2,2)
-                                // Two assignment statements is because order doesn't matter.
-                                //
-                                possibleTerms[48] = term[0] * term[0] / denominatorTerm;
-                                possibleTerms[49] = possibleTerms[52] = term[0] * term[1] / denominatorTerm;
-                                possibleTerms[50] = possibleTerms[56] = term[0] * term[2] / denominatorTerm;
-                                possibleTerms[53] = term[1] * term[1] / denominatorTerm;
-                                possibleTerms[54] = possibleTerms[57] = term[1] * term[2] / denominatorTerm;
-                                possibleTerms[58] = term[2] * term[2] / denominatorTerm;
-
-                                //
-                                // Records major allele counts (C) for fourth site in
-                                // four bits (0x333C).
-                                //
-                                int temp = (major & 0x7) << 6;
-                                for (int i = 0; i < myNumTaxa; i++) {
-                                    byte genotype = myGenotypes.genotype(i, currentSite);
-                                    majorCount[i] = (short) (majorCount[i] & (0x3330 | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)]));
-                                }
-                            }
-                        }
-                    }
-
-                }
-
             }
 
             return new Tuple<>(majorCount, possibleTerms);
