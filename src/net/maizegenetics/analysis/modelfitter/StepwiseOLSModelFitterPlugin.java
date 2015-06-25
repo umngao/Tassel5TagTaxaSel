@@ -26,9 +26,9 @@ import java.util.stream.Collectors;
  * @author Alex Lipka
  * @author Peter Bradbury
  */
-public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
+public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
 
-    private List<CategoricalAttribute> myFactorList;
+    private List<String> myFactorList;
     private GenotypePhenotype myGenoPheno;
     private String datasetName;
     
@@ -56,11 +56,6 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
             .guiName("Nest markers")
             .description("Should markers be nested within a model factor")
             .build();
-    private PluginParameter<Integer> nestingFactorIndex = new PluginParameter.Builder<>("nestIndex", 0, Integer.class)
-            .guiName("Nesting factor index")
-            .description("If there is more then one factor in the model and nest = true, the index of the nesting factor")
-            .build();
-
     private PluginParameter<List> nestingFactor = new PluginParameter.Builder<>("nestFactor", null, List.class)
             .guiName("Nesting factor")
             .description("Nest markers within this factor.")
@@ -89,16 +84,16 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
             .outFile()
             .build();
 
-    private static final Logger myLogger = Logger.getLogger(StepwiseOLSModelFitterPlugin2.class);
+    private static final Logger myLogger = Logger.getLogger(StepwiseOLSModelFitterPlugin.class);
     private double alpha = 0.05;
     //TODO need to change this to a list
 
 
-    public StepwiseOLSModelFitterPlugin2(Frame parentFrame, boolean isInteractive) {
+    public StepwiseOLSModelFitterPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
 
-    public StepwiseOLSModelFitterPlugin2() {
+    public StepwiseOLSModelFitterPlugin() {
         super(null, false);
     }
 
@@ -120,7 +115,7 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
         myGenoPheno = (GenotypePhenotype) datasets.get(0).getData();
         datasetName = datasets.get(0).getName();
         myFactorList = myGenoPheno.phenotype().attributeListOfType(ATTRIBUTE_TYPE.factor).stream()
-                .map(pa -> (CategoricalAttribute) pa)
+                .map(pa -> pa.name())
                 .collect(Collectors.toList());
         
         if (myFactorList.isEmpty()) {
@@ -133,24 +128,20 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
 
     @Override
     public DataSet processData(DataSet input) {
-        if (nestMarkers.value()) {
-            boolean factorCorrect = myGenoPheno.phenotype().attribute(nestingFactorIndex.value()).isTypeCompatible(ATTRIBUTE_TYPE.factor);
-            if (!factorCorrect) {
-                myLogger.error("Error: Selected factor index for nesting is not a valid factor! Please choose from the list below");
-                int[] factorIndices = myGenoPheno.phenotype().attributeIndicesOfType(ATTRIBUTE_TYPE.factor);
-                Phenotype mypheno = myGenoPheno.phenotype();
-                for (int i : factorIndices) {
-                    myLogger.info("     Factor \"" + mypheno.attributeName(i) + "\" is at index " + i);
-                }
-            }
-        }
-
         StepwiseOLSModelFitter modelFitter = new StepwiseOLSModelFitter(myGenoPheno, datasetName);
         modelFitter.setEnterlimit(enterlimit.value());
         modelFitter.setExitlimit(exitlimit.value());
         modelFitter.setMaxNumberOfMarkers(maxNumberOfMarkers.value());
         modelFitter.setNested(nestMarkers.value());
-        modelFitter.setNestingEffectIndex(nestingFactorIndex.value());
+        if (nestMarkers.value()) {
+            if (nestingFactor.value().isEmpty()) {
+                modelFitter.setNested(false);
+            } else {
+                int ndx = myGenoPheno.phenotype().attributeIndexForName((String) nestingFactor.value().get(0));
+                if (ndx < 0) modelFitter.setNested(false);
+                else modelFitter.setNestingEffectIndex(ndx);
+            }
+        } 
         modelFitter.setModelType(modelType.value());
         modelFitter.setNumberOfPermutations(numberOfPermutations.value());
         modelFitter.setAlpha(alpha);
@@ -183,7 +174,7 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        URL imageURL = StepwiseOLSModelFitterPlugin2.class.getResource("stepwise.gif");
+        URL imageURL = StepwiseOLSModelFitterPlugin.class.getResource("stepwise.gif");
         if (imageURL == null) {
             return null;
         } else {
@@ -240,7 +231,7 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public StepwiseOLSModelFitterPlugin2 modelType(StepwiseOLSModelFitter.MODEL_TYPE value) {
+    public StepwiseOLSModelFitterPlugin modelType(StepwiseOLSModelFitter.MODEL_TYPE value) {
         modelType = new PluginParameter<>(modelType, value);
         return this;
     }
@@ -263,7 +254,7 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public StepwiseOLSModelFitterPlugin2 enterlimit(Double value) {
+    public StepwiseOLSModelFitterPlugin enterlimit(Double value) {
         enterlimit = new PluginParameter<>(enterlimit, value);
         return this;
     }
@@ -286,7 +277,7 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public StepwiseOLSModelFitterPlugin2 exitlimit(Double value) {
+    public StepwiseOLSModelFitterPlugin exitlimit(Double value) {
         exitlimit = new PluginParameter<>(exitlimit, value);
         return this;
     }
@@ -310,7 +301,7 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public StepwiseOLSModelFitterPlugin2 maxNumberOfMarkers(Integer value) {
+    public StepwiseOLSModelFitterPlugin maxNumberOfMarkers(Integer value) {
         maxNumberOfMarkers = new PluginParameter<>(maxNumberOfMarkers, value);
         return this;
     }
@@ -332,32 +323,8 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public StepwiseOLSModelFitterPlugin2 nestMarkers(Boolean value) {
+    public StepwiseOLSModelFitterPlugin nestMarkers(Boolean value) {
         nestMarkers = new PluginParameter<>(nestMarkers, value);
-        return this;
-    }
-
-    /**
-     * If there is more then one factor in the model and nest
-     * = true, the index of the nesting factor
-     *
-     * @return Nesting factor index
-     */
-    public Integer nestingFactorIndex() {
-        return nestingFactorIndex.value();
-    }
-
-    /**
-     * Set Nesting factor index. If there is more then one
-     * factor in the model and nest = true, the index of the
-     * nesting factor
-     *
-     * @param value Nesting factor index
-     *
-     * @return this plugin
-     */
-    public StepwiseOLSModelFitterPlugin2 nestingFactorIndex(Integer value) {
-        nestingFactorIndex = new PluginParameter<>(nestingFactorIndex, value);
         return this;
     }
 
@@ -379,7 +346,7 @@ public class StepwiseOLSModelFitterPlugin2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public StepwiseOLSModelFitterPlugin2 numberOfPermutations(Integer value) {
+    public StepwiseOLSModelFitterPlugin numberOfPermutations(Integer value) {
         numberOfPermutations = new PluginParameter<>(numberOfPermutations, value);
         return this;
     }
