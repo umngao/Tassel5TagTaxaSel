@@ -75,24 +75,24 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
                     .guiName("Number of permutations")
                     .description("Number of permutations for the model to determine an empirical alpha")
                     .build();
-    private PluginParameter<Boolean> chromosomeResiduals =
-            new PluginParameter.Builder<>("chrResidual", false, Boolean.class)
-                    .guiName("Output chromosome residuals")
-                    .description("Should a dataset of chromosome residuals be created for each phenotype? The output datasets will include all factors but no covariates from the original phenotype data.")
-                    .build();
-    private PluginParameter<Boolean> residualsAsFile =
-            new PluginParameter.Builder<>("resAsFile", false, Boolean.class)
-                    .guiName("Save residuals as file?")
-                    .description("Should the chromosome residuals to be saved to separate files rather than stored in memory?")
-                    .dependentOnParameter(chromosomeResiduals)
-                    .build();
-    private PluginParameter<String> residualFilebase =
-            new PluginParameter.Builder<>("resFilename", null, String.class)
-                    .guiName("Residual file name")
-                    .description("The base name for the residual files. _chrname.txt will be appended to each file.")
-                    .dependentOnParameter(residualsAsFile)
-                    .outFile()
-                    .build();
+//    private PluginParameter<Boolean> chromosomeResiduals =
+//            new PluginParameter.Builder<>("chrResidual", false, Boolean.class)
+//                    .guiName("Output chromosome residuals")
+//                    .description("Should a dataset of chromosome residuals be created for each phenotype? The output datasets will include all factors but no covariates from the original phenotype data.")
+//                    .build();
+//    private PluginParameter<Boolean> residualsAsFile =
+//            new PluginParameter.Builder<>("resAsFile", false, Boolean.class)
+//                    .guiName("Save residuals as file?")
+//                    .description("Should the chromosome residuals to be saved to separate files rather than stored in memory?")
+//                    .dependentOnParameter(chromosomeResiduals)
+//                    .build();
+//    private PluginParameter<String> residualFilebase =
+//            new PluginParameter.Builder<>("resFilename", null, String.class)
+//                    .guiName("Residual file name")
+//                    .description("The base name for the residual files. _chrname.txt will be appended to each file.")
+//                    .dependentOnParameter(residualsAsFile)
+//                    .outFile()
+//                    .build();
 
     private static final Logger myLogger = Logger.getLogger(StepwiseOLSModelFitterPlugin.class);
     private double alpha = 0.05;
@@ -216,10 +216,6 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
         return citation;
     }
 
-    public static void main(String[] args) {
-        GeneratePluginCode.generate(StepwiseOLSModelFitterPlugin.class);
-    }
-
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
     //
@@ -230,6 +226,7 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
     /**
      * Convenience method to run plugin with one return object.
      */
+    // TODO: Replace <Type> with specific type.
     public TableReport runPlugin(DataSet input) {
         return (TableReport) performFunction(input).getData(0).getData();
     }
@@ -392,80 +389,6 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
      */
     public StepwiseOLSModelFitterPlugin numberOfPermutations(Integer value) {
         numberOfPermutations = new PluginParameter<>(numberOfPermutations, value);
-        return this;
-    }
-
-    /**
-     * Should a dataset of chromosome residuals be created
-     * for each phenotype? The output datasets will include
-     * all factors but no covariates from the original phenotype
-     * data.
-     *
-     * @return Output chromosome residuals
-     */
-    public Boolean chromosomeResiduals() {
-        return chromosomeResiduals.value();
-    }
-
-    /**
-     * Set Output chromosome residuals. Should a dataset of
-     * chromosome residuals be created for each phenotype?
-     * The output datasets will include all factors but no
-     * covariates from the original phenotype data.
-     *
-     * @param value Output chromosome residuals
-     *
-     * @return this plugin
-     */
-    public StepwiseOLSModelFitterPlugin chromosomeResiduals(Boolean value) {
-        chromosomeResiduals = new PluginParameter<>(chromosomeResiduals, value);
-        return this;
-    }
-
-    /**
-     * Should the chromosome residuals to be saved to separate
-     * files rather than stored in memory?
-     *
-     * @return Save residuals as file?
-     */
-    public Boolean residualsAsFile() {
-        return residualsAsFile.value();
-    }
-
-    /**
-     * Set Save residuals as file?. Should the chromosome
-     * residuals to be saved to separate files rather than
-     * stored in memory?
-     *
-     * @param value Save residuals as file?
-     *
-     * @return this plugin
-     */
-    public StepwiseOLSModelFitterPlugin residualsAsFile(Boolean value) {
-        residualsAsFile = new PluginParameter<>(residualsAsFile, value);
-        return this;
-    }
-
-    /**
-     * The base name for the residual files. _chrname.txt
-     * will be appended to each file.
-     *
-     * @return Residual file name
-     */
-    public String residualFilebase() {
-        return residualFilebase.value();
-    }
-
-    /**
-     * Set Residual file name. The base name for the residual
-     * files. _chrname.txt will be appended to each file.
-     *
-     * @param value Residual file name
-     *
-     * @return this plugin
-     */
-    public StepwiseOLSModelFitterPlugin residualFilebase(String value) {
-        residualFilebase = new PluginParameter<>(residualFilebase, value);
         return this;
     }
 
