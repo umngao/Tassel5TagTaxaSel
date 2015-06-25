@@ -279,17 +279,17 @@ public class GCTADistanceMatrix {
                 // Pre-calculates possible terms and gets counts for
                 // three blocks for five sites.
                 //
-                Tuple<short[], float[]> firstThree = getBlockOfSites(myCurrentSite);
-                float[] possibleTerms = firstThree.y;
-                short[] majorCount1 = firstThree.x;
+                Tuple<short[], float[]> firstBlock = getBlockOfSites(myCurrentSite);
+                float[] possibleTerms = firstBlock.y;
+                short[] majorCount1 = firstBlock.x;
 
-                Tuple<short[], float[]> secondThree = getBlockOfSites(myCurrentSite + 5);
-                float[] possibleTerms2 = secondThree.y;
-                short[] majorCount2 = secondThree.x;
+                Tuple<short[], float[]> secondBlock = getBlockOfSites(myCurrentSite + 5);
+                float[] possibleTerms2 = secondBlock.y;
+                short[] majorCount2 = secondBlock.x;
 
-                Tuple<short[], float[]> thirdThree = getBlockOfSites(myCurrentSite + 10);
-                float[] possibleTerms3 = thirdThree.y;
-                short[] majorCount3 = thirdThree.x;
+                Tuple<short[], float[]> thirdBlock = getBlockOfSites(myCurrentSite + 10);
+                float[] possibleTerms3 = thirdBlock.y;
+                short[] majorCount3 = thirdBlock.x;
 
                 //
                 // Using possible terms, calculates all possible answers
