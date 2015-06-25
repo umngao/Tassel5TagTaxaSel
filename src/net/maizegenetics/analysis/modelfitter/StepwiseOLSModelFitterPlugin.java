@@ -31,63 +31,73 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
     private List<String> myFactorList;
     private GenotypePhenotype myGenoPheno;
     private String datasetName;
-    
-    private PluginParameter<StepwiseOLSModelFitter.MODEL_TYPE> modelType = new PluginParameter.Builder<>("modelType", StepwiseOLSModelFitter.MODEL_TYPE.pvalue, StepwiseOLSModelFitter.MODEL_TYPE.class)
-            .range(StepwiseOLSModelFitter.MODEL_TYPE.values())
-            .guiName("Model type")
-            .description("The model selection criteria used to determine which terms enter the model and how many. Value must be one of pvalue, bic, mbic, or aic")
-            .build();
-    private PluginParameter<Double> enterlimit = new PluginParameter.Builder<>("enter", 1e-5, Double.class)
-            .range(Range.closed(0.0, 1.0))
-            .guiName("Entry limit")
-            .description("The enter limit or maximum p-value for which a term can enter the model")
-            .build();
-    private PluginParameter<Double> exitlimit = new PluginParameter.Builder<>("exit", 1e-6, Double.class)
-            .range(Range.closed(0.0, 1.0))
-            .guiName("Exit limit")
-            .description("A term exits the model on a backward step if its p-value is greater than this value")
-            .build();
-    private PluginParameter<Integer> maxNumberOfMarkers = new PluginParameter.Builder<>("maxMarkers", 100, Integer.class)
-            .range(Range.closed(0, 10000))
-            .guiName("Maximum markers")
-            .description("The maximum number of markers that will be fit, if the enter limit is not reached first")
-            .build();
-    private PluginParameter<Boolean> nestMarkers = new PluginParameter.Builder<>("nestMarkers", false, Boolean.class)
-            .guiName("Nest markers")
-            .description("Should markers be nested within a model factor")
-            .build();
-    private PluginParameter<List> nestingFactor = new PluginParameter.Builder<>("nestFactor", null, List.class)
-            .guiName("Nesting factor")
-            .description("Nest markers within this factor.")
-            .dependentOnParameter(nestMarkers)
-            .objectListSingleSelect()
-            .build();
-    
-    private PluginParameter<Integer> numberOfPermutations = new PluginParameter.Builder<>("nperm", 0, Integer.class)
-            .range(Range.closed(0, 100000))
-            .guiName("Number of permutations")
-            .description("Number of permutations for the model to determine an empirical alpha")
-            .build();
-    private PluginParameter<Boolean> chromosomeResiduals = new PluginParameter.Builder<>("chrResidual", false, Boolean.class)
-            .guiName("Output chromosome residuals")
-            .description("Should a dataset of chromosome residuals be created for each phenotype? The output datasets will include all factors but no covariates from the original phenotype data.")
-            .build();
-    private PluginParameter<Boolean> residualsAsFile = new PluginParameter.Builder<>("resAsFile", false, Boolean.class)
-            .guiName("Save residuals as file?")
-            .description("Should the chromosome residuals to be saved to separate files rather than stored in memory?")
-            .dependentOnParameter(chromosomeResiduals)
-            .build();
-    private PluginParameter<String> residualFilebase = new PluginParameter.Builder<>("resFilename", null, String.class)
-            .guiName("Residual file name")
-            .description("The base name for the residual files. _chrname.txt will be appended to each file.")
-            .dependentOnParameter(residualsAsFile)
-            .outFile()
-            .build();
+    private final String NONE = "None";
+
+    private PluginParameter<StepwiseOLSModelFitter.MODEL_TYPE> modelType =
+            new PluginParameter.Builder<>("modelType", StepwiseOLSModelFitter.MODEL_TYPE.pvalue, StepwiseOLSModelFitter.MODEL_TYPE.class)
+                    .range(StepwiseOLSModelFitter.MODEL_TYPE.values())
+                    .guiName("Model type")
+                    .description("The model selection criteria used to determine which terms enter the model and how many. Value must be one of pvalue, bic, mbic, or aic")
+                    .build();
+    private PluginParameter<Double> enterlimit =
+            new PluginParameter.Builder<>("enter", 1e-5, Double.class)
+                    .range(Range.closed(0.0, 1.0))
+                    .guiName("Entry limit")
+                    .description("The enter limit or maximum p-value for which a term can enter the model")
+                    .build();
+    private PluginParameter<Double> exitlimit =
+            new PluginParameter.Builder<>("exit", 1e-6, Double.class)
+                    .range(Range.closed(0.0, 1.0))
+                    .guiName("Exit limit")
+                    .description("A term exits the model on a backward step if its p-value is greater than this value")
+                    .build();
+    private PluginParameter<Integer> maxNumberOfMarkers =
+            new PluginParameter.Builder<>("maxMarkers", 100, Integer.class)
+                    .range(Range.closed(0, 10000))
+                    .guiName("Maximum markers")
+                    .description("The maximum number of markers that will be fit, if the enter limit is not reached first")
+                    .build();
+    private PluginParameter<Boolean> nestMarkers =
+            new PluginParameter.Builder<>("nestMarkers", false, Boolean.class)
+                    .guiName("Nest markers")
+                    .description("Should markers be nested within a model factor")
+                    .build();
+    private PluginParameter<List> nestingFactor =
+            new PluginParameter.Builder<>("nestFactor", null, List.class)
+                    .guiName("Nesting factor")
+                    .description("Nest markers within this factor.")
+                    .dependentOnParameter(nestMarkers)
+                    .objectListSingleSelect()
+                    .build();
+    private PluginParameter<Integer> numberOfPermutations =
+            new PluginParameter.Builder<>("nperm", 0, Integer.class)
+                    .range(Range.closed(0, 100000))
+                    .guiName("Number of permutations")
+                    .description("Number of permutations for the model to determine an empirical alpha")
+                    .build();
+    private PluginParameter<Boolean> chromosomeResiduals =
+            new PluginParameter.Builder<>("chrResidual", false, Boolean.class)
+                    .guiName("Output chromosome residuals")
+                    .description("Should a dataset of chromosome residuals be created for each phenotype? The output datasets will include all factors but no covariates from the original phenotype data.")
+                    .build();
+    private PluginParameter<Boolean> residualsAsFile =
+            new PluginParameter.Builder<>("resAsFile", false, Boolean.class)
+                    .guiName("Save residuals as file?")
+                    .description("Should the chromosome residuals to be saved to separate files rather than stored in memory?")
+                    .dependentOnParameter(chromosomeResiduals)
+                    .build();
+    private PluginParameter<String> residualFilebase =
+            new PluginParameter.Builder<>("resFilename", null, String.class)
+                    .guiName("Residual file name")
+                    .description("The base name for the residual files. _chrname.txt will be appended to each file.")
+                    .dependentOnParameter(residualsAsFile)
+                    .outFile()
+                    .build();
 
     private static final Logger myLogger = Logger.getLogger(StepwiseOLSModelFitterPlugin.class);
     private double alpha = 0.05;
-    //TODO need to change this to a list
 
+    //TODO need to change this to a list
 
     public StepwiseOLSModelFitterPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
@@ -99,7 +109,7 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
 
     @Override
     protected void preProcessParameters(DataSet input) {
-        List<Datum> datasets = input.getDataOfType(new Class[]{GenotypePhenotype.class});
+        List<Datum> datasets = input.getDataOfType(new Class[] { GenotypePhenotype.class });
         if (datasets.size() < 1) {
             String msg = "Error in performFunction: No appropriate dataset selected.";
             throw new IllegalArgumentException(msg);
@@ -110,19 +120,29 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
             String msg = "Multiple datasets selected. Only one dataset is allowed.";
             throw new IllegalArgumentException(msg);
         }
-        
-        
+
         myGenoPheno = (GenotypePhenotype) datasets.get(0).getData();
         datasetName = datasets.get(0).getName();
         myFactorList = myGenoPheno.phenotype().attributeListOfType(ATTRIBUTE_TYPE.factor).stream()
                 .map(pa -> pa.name())
                 .collect(Collectors.toList());
-        
+
         if (myFactorList.isEmpty()) {
-            List<String> noneList = Arrays.asList("None");
+            List<String> noneList = Arrays.asList(NONE);
             nestingFactor = PluginParameter.getInstance(nestingFactor, noneList);
         } else {
             nestingFactor = PluginParameter.getInstance(nestingFactor, myFactorList);
+        }
+    }
+
+    @Override
+    protected void postProcessParameters() {
+        if (nestMarkers.value() && nestingFactor.value().isEmpty()) {
+            if (myFactorList.size() == 1) {
+                nestingFactor(myFactorList);
+            } else if (myFactorList.size() > 1) {
+                throw new IllegalArgumentException("Nest markers was checked (set to true), but a single factor was not selected to nest markers within. This must be corrected before the analysis will run.");
+            }
         }
     }
 
@@ -134,14 +154,13 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
         modelFitter.setMaxNumberOfMarkers(maxNumberOfMarkers.value());
         modelFitter.setNested(nestMarkers.value());
         if (nestMarkers.value()) {
-            if (nestingFactor.value().isEmpty()) {
+            int ndx = myGenoPheno.phenotype().attributeIndexForName((String) nestingFactor.value().get(0));
+            if (ndx < 0)
                 modelFitter.setNested(false);
-            } else {
-                int ndx = myGenoPheno.phenotype().attributeIndexForName((String) nestingFactor.value().get(0));
-                if (ndx < 0) modelFitter.setNested(false);
-                else modelFitter.setNestingEffectIndex(ndx);
-            }
-        } 
+            else
+                modelFitter.setNestingEffectIndex(ndx);
+        }
+
         modelFitter.setModelType(modelType.value());
         modelFitter.setNumberOfPermutations(numberOfPermutations.value());
         modelFitter.setAlpha(alpha);
@@ -197,12 +216,16 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
         return citation;
     }
 
+    public static void main(String[] args) {
+        GeneratePluginCode.generate(StepwiseOLSModelFitterPlugin.class);
+    }
+
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
     //
-//    public static void main(String[] args) {
-//         GeneratePluginCode.generate(StepwiseOLSModelFitterPlugin2.class);
-//    }
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(StepwiseOLSModelFitterPlugin.class);
+    // }
 
     /**
      * Convenience method to run plugin with one return object.
@@ -329,6 +352,27 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
     }
 
     /**
+     * Nest markers within this factor.
+     *
+     * @return Nesting factor
+     */
+    public List nestingFactor() {
+        return nestingFactor.value();
+    }
+
+    /**
+     * Set Nesting factor. Nest markers within this factor.
+     *
+     * @param value Nesting factor
+     *
+     * @return this plugin
+     */
+    public StepwiseOLSModelFitterPlugin nestingFactor(List value) {
+        nestingFactor = new PluginParameter<>(nestingFactor, value);
+        return this;
+    }
+
+    /**
      * Number of permutations for the model to determine an
      * empirical alpha
      *
@@ -348,6 +392,80 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
      */
     public StepwiseOLSModelFitterPlugin numberOfPermutations(Integer value) {
         numberOfPermutations = new PluginParameter<>(numberOfPermutations, value);
+        return this;
+    }
+
+    /**
+     * Should a dataset of chromosome residuals be created
+     * for each phenotype? The output datasets will include
+     * all factors but no covariates from the original phenotype
+     * data.
+     *
+     * @return Output chromosome residuals
+     */
+    public Boolean chromosomeResiduals() {
+        return chromosomeResiduals.value();
+    }
+
+    /**
+     * Set Output chromosome residuals. Should a dataset of
+     * chromosome residuals be created for each phenotype?
+     * The output datasets will include all factors but no
+     * covariates from the original phenotype data.
+     *
+     * @param value Output chromosome residuals
+     *
+     * @return this plugin
+     */
+    public StepwiseOLSModelFitterPlugin chromosomeResiduals(Boolean value) {
+        chromosomeResiduals = new PluginParameter<>(chromosomeResiduals, value);
+        return this;
+    }
+
+    /**
+     * Should the chromosome residuals to be saved to separate
+     * files rather than stored in memory?
+     *
+     * @return Save residuals as file?
+     */
+    public Boolean residualsAsFile() {
+        return residualsAsFile.value();
+    }
+
+    /**
+     * Set Save residuals as file?. Should the chromosome
+     * residuals to be saved to separate files rather than
+     * stored in memory?
+     *
+     * @param value Save residuals as file?
+     *
+     * @return this plugin
+     */
+    public StepwiseOLSModelFitterPlugin residualsAsFile(Boolean value) {
+        residualsAsFile = new PluginParameter<>(residualsAsFile, value);
+        return this;
+    }
+
+    /**
+     * The base name for the residual files. _chrname.txt
+     * will be appended to each file.
+     *
+     * @return Residual file name
+     */
+    public String residualFilebase() {
+        return residualFilebase.value();
+    }
+
+    /**
+     * Set Residual file name. The base name for the residual
+     * files. _chrname.txt will be appended to each file.
+     *
+     * @param value Residual file name
+     *
+     * @return this plugin
+     */
+    public StepwiseOLSModelFitterPlugin residualFilebase(String value) {
+        residualFilebase = new PluginParameter<>(residualFilebase, value);
         return this;
     }
 
