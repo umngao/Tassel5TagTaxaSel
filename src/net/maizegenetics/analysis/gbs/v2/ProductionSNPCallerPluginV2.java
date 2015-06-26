@@ -134,7 +134,8 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     private Map<String, Integer> matchedReadCountsForFullSampleName = Collections.synchronizedMap(matchedReadCountsMap);
 
     private GenotypeMergeRule genoMergeRule = null;
-
+    private boolean taglenException;
+    
     public ProductionSNPCallerPluginV2() {
         super(null, false);
     }
@@ -195,6 +196,8 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
                     	tagsToIndex.put(e.getKey(),new AlleleWithPosIndex(e.getValue(),posIndex));
                     }                   
                 });
+        
+        taglenException = false;
         for (int idx = 0; idx < inputSeqFiles.size(); idx+=batchSize) {
         	tagCntMap.clear(); // start fresh with each new batch
             int end = idx+batchSize;
@@ -204,8 +207,16 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             System.out.println("\nStart processing batch " + String.valueOf(idx/batchSize+1));
             sub.parallelStream()
             .forEach(inputSeqFile -> {
-                processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),canonicalTag,maximumTagLength(), minimumQualityScore());
+                try {
+                    processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),canonicalTag,maximumTagLength(), minimumQualityScore());
+                } catch (StringIndexOutOfBoundsException oobe) {
+                    oobe.printStackTrace();
+                    myLogger.error(oobe.getMessage());
+                    setTagLenException();
+                    return;
+                }              
             });
+            if (taglenException == true) return null; // Tag length failure from processFastQ - halt processing
          
             tagCntMap.asMap().entrySet().stream()
             .forEach(e -> {
@@ -259,17 +270,23 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         LongAdder singleImperfectMatches=new LongAdder();
     }
 
-	private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
-                                  Map<Tag,Tag> canonicalTags, int preferredTagLength, int minQual) {
-    	ArrayList<Taxon> tl=GBSUtils.getLaneAnnotatedTaxaList(keyPath, fastQPath);
-    	BarcodeTrie barcodeTrie=GBSUtils.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
-        processFastQ(fastQPath,barcodeTrie,canonicalTags,preferredTagLength, minQual);
+    private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
+            Map<Tag,Tag> canonicalTags, int preferredTagLength, int minQual) throws StringIndexOutOfBoundsException{
+        ArrayList<Taxon> tl=GBSUtils.getLaneAnnotatedTaxaList(keyPath, fastQPath);
+        BarcodeTrie barcodeTrie=GBSUtils.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
+        try {
+            processFastQ(fastQPath,barcodeTrie,canonicalTags,preferredTagLength, minQual);
+        } catch (StringIndexOutOfBoundsException oobe) {
+            throw oobe; // let processData() handle it
+        }
+
     }
 
-    private void processFastQ(Path fastqFile, BarcodeTrie barcodeTrie, Map<Tag,Tag> canonicalTags, int preferredTagLength, int minQual) {
+    private void processFastQ(Path fastqFile, BarcodeTrie barcodeTrie, Map<Tag,Tag> canonicalTags, 
+            int preferredTagLength, int minQual) throws StringIndexOutOfBoundsException {
         int allReads=0, goodBarcodedReads = 0, lowQualityReads = 0;
         try {
-        	int qualityScoreBase=GBSUtils.determineQualityScoreBase(fastqFile);
+            int qualityScoreBase=GBSUtils.determineQualityScoreBase(fastqFile);
             BufferedReader br = Utils.getBufferedReader(fastqFile.toString(), 1 << 22);
             long time=System.nanoTime();
             String[] seqAndQual;
@@ -281,18 +298,27 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
                 if(minQual>0) {
                     //todo move getFirstLowQualityPos into this class?
                     if(BaseEncoder.getFirstLowQualityPos(seqAndQual[1],minQual, qualityScoreBase)<(barcode.getBarLength()+preferredTagLength)){
-                    	lowQualityReads++;
-                    	continue;
+                        lowQualityReads++;
+                        continue;
                     }
                 }
                 rawReadCountsForFullSampleName.put(barcode.getTaxaName(), rawReadCountsForFullSampleName.get(barcode.getTaxaName()) + 1);
+                int barcodeLen = barcode.getBarLength();
+                if (seqAndQual[0].length() - barcodeLen < preferredTagLength) {
+                    String errMsg = "\n\nERROR processing " + fastqFile.toString() + "\n" +
+                            "Reading entry number " + allReads + " fails the length test.\n" +
+                            "Sequence length " + seqAndQual[0].length() + " minus barcode length "+ barcodeLen +
+                            " is less then maxTagLength " + preferredTagLength + ".\n" +
+                            "Re-run your files with either a shorter mxTagL value or a higher minimum quality score.\n";
+                    throw new StringIndexOutOfBoundsException(errMsg);
+                }
                 Tag tag= TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength() + preferredTagLength)).build();
                 if(tag==null) continue;   //null occurs when any base was not A, C, G, T
                 goodBarcodedReads++;
                 Tag canonicalTag=canonicalTags.get(tag);
                 if(canonicalTag!=null) {
-                	tagCntMap.put(barcode.getTaxon(),canonicalTag);
-                	matchedReadCountsForFullSampleName.put(barcode.getTaxaName(), matchedReadCountsForFullSampleName.get(barcode.getTaxaName()) + 1);
+                    tagCntMap.put(barcode.getTaxon(),canonicalTag);
+                    matchedReadCountsForFullSampleName.put(barcode.getTaxaName(), matchedReadCountsForFullSampleName.get(barcode.getTaxaName()) + 1);
                 }                       
                 if (allReads % 1000000 == 0) {
                     myLogger.info("Total Reads:" + allReads + " Reads with barcode and cut site overhang:" + goodBarcodedReads
@@ -483,6 +509,10 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     	});
     }
 
+    public void setTagLenException() {
+        taglenException = true;
+    }
+    
     private void printFileNameConventions(String actualFileName) {
         String message
                 = "\n\n"
