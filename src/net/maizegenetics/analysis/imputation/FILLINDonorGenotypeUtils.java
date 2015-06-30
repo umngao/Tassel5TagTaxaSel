@@ -11,9 +11,14 @@ import net.maizegenetics.util.OpenBitSet;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import static net.maizegenetics.dna.WHICH_ALLELE.Major;
 import static net.maizegenetics.dna.WHICH_ALLELE.Minor;
+import net.maizegenetics.dna.map.Chromosome;
+import net.maizegenetics.dna.snp.ExportUtils;
+import net.maizegenetics.dna.snp.GenotypeTableUtils;
+import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 
 /**
  * Methods for loading the donor haplotype files and for arranging the bit states (Major versus Minor) if they differ between
@@ -31,7 +36,7 @@ public class FILLINDonorGenotypeUtils {
             if (d.isDirectory()) for (File file:new File(donorFile).listFiles()) {if (file.getName().contains(".gc")) containsDonors= true;}
             if (containsDonors) {
                 return loadDonors(donorFile, unimpAlign, minTestSites, verboseOutput);}
-            else { return loadDonors(donorFile, appoxSitesPerDonorGenotypeTable, verboseOutput);}
+            else { return loadDonorAndChunk(donorFile, unimpAlign, appoxSitesPerDonorGenotypeTable, verboseOutput);}
         }
         catch (IllegalArgumentException e){
             throw new IllegalArgumentException("Incorrect donor file directory supplied. Must contain files with '.gc' within the file name,\n" +
@@ -80,7 +85,7 @@ public class FILLINDonorGenotypeUtils {
         return donorList.toArray(new GenotypeTable[0]);
     }
 
-    public static GenotypeTable[] loadDonors(String donorFile, int appoxSitesPerHaplotype, boolean verboseOutput){
+    public static GenotypeTable[] loadDonorAndChunk(String donorFile, GenotypeTable unimpAlign, int appoxSitesPerHaplotype, boolean verboseOutput){
         GenotypeTable donorMasterGT=ImportUtils.readGuessFormat(donorFile);
         donorMasterGT=GenotypeTableBuilder.getHomozygousInstance(donorMasterGT);
         int[][] donorFirstLastSites=FILLINFindHaplotypesPlugin.divideChromosome(donorMasterGT,appoxSitesPerHaplotype,verboseOutput);
@@ -91,7 +96,71 @@ public class FILLINDonorGenotypeUtils {
         }
         return donorAlign;
     }
-
+    
+    /**
+     * Remove sites in Donor and Unimp that don't match minMaj. Assumes same 
+     * coordinate system. Designed to match sites between GBS and hapmap. Removes
+     * sites where minMaj is indel. Keeps sites with same minMaj even if third allele differs.
+     * @param donor
+     * @param unimp
+     * @return 
+     */
+    public static GenotypeTable RemoveSitesThatDoNotMatchMinMaj(String donorFile, GenotypeTable unimp, boolean verboseOutput) {
+        File newDonor= new File(donorFile.replace(".h", "matchMinMaj.h"));
+        if (newDonor.exists()) {
+            System.out.println("Donor already filtered for minMaj");
+            return unimp;
+        }
+        if (verboseOutput) System.out.println("Starting filter of donor and unimputed file for sites that match for minMaj at same physical position");
+        GenotypeTable donor= ImportUtils.readGuessFormat(donorFile);
+        ArrayList<String> sitesToKeepDonor= new ArrayList<>(); ArrayList<String> sitesToKeepUnimp= new ArrayList<>();
+        int cntBadMinMaj= 0; int cntBadMinMajToAlleleNoIndel= 0; int matchPos= 0;
+        byte indel= GenotypeTableUtils.getDiploidValue(NucleotideAlignmentConstants.GAP_ALLELE,NucleotideAlignmentConstants.INSERT_ALLELE);
+        for (Chromosome chr:donor.chromosomes()) {
+            if (Arrays.binarySearch(unimp.chromosomes(),chr)<0) continue;
+            int[] pos= Arrays.copyOfRange(donor.physicalPositions(), 
+                    donor.firstLastSiteOfChromosome(chr)[0],
+                    donor.firstLastSiteOfChromosome(chr)[1]+1);
+            for (int unimpSite = unimp.firstLastSiteOfChromosome(chr)[0]; unimpSite < unimp.firstLastSiteOfChromosome(chr)[1]+1; unimpSite++) {
+//                if (genosKeep.alleles(keepSite).length>2) continue;
+                int donorSiteOnChr= Arrays.binarySearch(pos, unimp.physicalPositions()[unimpSite]);
+                if (donorSiteOnChr<0) continue;
+                matchPos++;
+                int donorSite= donor.firstLastSiteOfChromosome(chr)[0]+donorSiteOnChr;//get the actual site for Donor
+//                if (genosMod.alleles(modSite).length>2) continue;
+                byte minMajDonor= GenotypeTableUtils.getDiploidValue(donor.majorAllele(donorSite), donor.minorAllele(donorSite));
+                byte minMajUnimp= GenotypeTableUtils.getDiploidValue(unimp.majorAllele(unimpSite), unimp.minorAllele(unimpSite));
+                if (GenotypeTableUtils.isEqual(indel, minMajDonor) || GenotypeTableUtils.isEqual(indel, minMajUnimp)) continue;
+                if (!GenotypeTableUtils.isEqual(minMajDonor, minMajUnimp)) {
+                    cntBadMinMaj++;
+                    boolean biallelicNoIndel= true;
+                    if (donor.alleles(donorSite).length>2 || unimp.alleles(unimpSite).length>2 || 
+                            GenotypeTableUtils.isPartiallyEqual(minMajDonor, indel) || GenotypeTableUtils.isPartiallyEqual(minMajUnimp, indel)) 
+                    {biallelicNoIndel= false; cntBadMinMajToAlleleNoIndel++;}
+//                  continue;
+                }
+                else {
+                    sitesToKeepDonor.add(donor.siteName(donorSite));
+                    sitesToKeepUnimp.add(unimp.siteName(unimpSite));
+                }
+            }
+        }
+        if (sitesToKeepDonor.size()<100 || sitesToKeepUnimp.size()<100) {
+            if (verboseOutput) System.out.println("Not enough sites to impute on that match minMaj at identical positions");
+            return null;
+        }
+        GenotypeTable filterDonor= FilterGenotypeTable.getInstance(donor, sitesToKeepDonor);
+        GenotypeTable filterUnimp= FilterGenotypeTable.getInstance(unimp, sitesToKeepUnimp);
+        ExportUtils.writeGenotypeHDF5(filterDonor, newDonor.getAbsolutePath());
+        if (verboseOutput) System.out.println("Wrote donor file to "+newDonor.getAbsolutePath());
+        if (verboseOutput) System.out.println("Sites that match positionally: "+matchPos+
+                "\nSites removed because of inconsistent min/maj: "+cntBadMinMaj+
+                "\nSites removed because of inconsistent min/maj at sites without indels or third alleles: "+cntBadMinMajToAlleleNoIndel+
+                "\nSites retained: "+filterDonor.numberOfSites()+
+                "\nAccuracy: "+(double)filterDonor.numberOfSites()/((double)filterDonor.numberOfSites()+(double)cntBadMinMaj+(double)cntBadMinMajToAlleleNoIndel));
+        return filterUnimp;
+    }
+    
     /**
      * Create mask for all sites where major & minor are swapped between GenotypeTables
      * returns in this order [goodMask, swapMjMnMask, errorMask, invariantMask]

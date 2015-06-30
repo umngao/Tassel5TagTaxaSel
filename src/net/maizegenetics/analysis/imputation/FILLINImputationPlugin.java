@@ -16,8 +16,6 @@ import org.apache.log4j.Logger;
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,6 +26,7 @@ import static net.maizegenetics.dna.WHICH_ALLELE.Major;
 import static net.maizegenetics.dna.WHICH_ALLELE.Minor;
 import static net.maizegenetics.dna.snp.GenotypeTableUtils.isHeterozygous;
 import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.GAP_DIPLOID_ALLELE;
+import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginParameter;
 
 
@@ -89,7 +88,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     private PluginParameter<Double> maximumInbredError= new PluginParameter.Builder<>("mxInbErr",0.01,Double.class).guiName("Max error to impute one donor")
             .description("Maximum error rate for applying one haplotype to entire site window").build();
     private PluginParameter<Double> maxHybridErrorRate= new PluginParameter.Builder<>("mxHybErr",0.003,Double.class).guiName("Max combined error to impute two donors")
-            .description("Maximum error rate for applying Viterbi with to haplotypes to entire site window").build();
+            .description("Maximum error rate for applying Viterbi with two haplotypes to entire site window").build();
     private PluginParameter<Integer> minTestSites= new PluginParameter.Builder<>("mnTestSite",20,Integer.class).guiName("Min sites to test match")
             .description("Minimum number of sites to test for IBS between haplotype and target in focus block").build();
     private PluginParameter<Integer> minMinorCnt= new PluginParameter.Builder<>("minMnCnt",20,Integer.class).guiName("Min num of minor alleles to compare")
@@ -205,8 +204,13 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     @Override
     public DataSet processData(DataSet input) {
         long time=System.currentTimeMillis();
+        String donor= donorFile.value();
         unimpAlign=ImportUtils.readGuessFormat(hmpFile.value());
-        GenotypeTable[] donorAlign=FILLINDonorGenotypeUtils.loadDonors(donorFile.value(), unimpAlign, minTestSites.value(),
+        if (isOutputProjection.value()) {
+            unimpAlign= FILLINDonorGenotypeUtils.RemoveSitesThatDoNotMatchMinMaj(donorFile.value(), unimpAlign,verboseOutput);
+            donor= donorFile.value().replace(".h", "matchMinMaj.h");
+        }
+        GenotypeTable[] donorAlign=FILLINDonorGenotypeUtils.loadDonors(donor, unimpAlign, minTestSites.value(),
                 verboseOutput,appoxSitesPerDonorGenotypeTable.value());
         if (accuracy.value()) {
             time= System.currentTimeMillis()-time; //holds the time so far
@@ -257,24 +261,26 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
         System.out.println(s.toString());
         
         double runtime= (double)(System.currentTimeMillis()-time)/(double)1000;
+        System.out.printf("%d %g %d %n",minMinorCnt.value(), maximumInbredError.value(), maxDonorHypotheses.value());
+        System.out.println("Runtime: "+runtime+" seconds");
+        GenotypeTable out= null;
         if(isOutputProjection.value()) {
-            ProjectionGenotypeIO.writeToFile(outFileBase.value(), ((ProjectionBuilder) mna).build());
+            out= ((ProjectionBuilder) mna).build();
+            ProjectionGenotypeIO.writeToFile(outFileBase.value(), out);
         } else {
             GenotypeTableBuilder ab=(GenotypeTableBuilder)mna;
             ab.sortTaxa();
+            out= ab.build();
             if(ab.isHDF5()) {
-                ab.build();
             } else {
-                ExportUtils.writeToHapmap(ab.build(), false, outFileBase.value(), '\t', null);
+                ExportUtils.writeToHapmap(out, false, outFileBase.value(), '\t', null);
             }
             if (accuracy.value()) {
                 acc.calcAccuracy(ImportUtils.readGuessFormat(outFileBase.value()), runtime);
             }
 
         }
-        System.out.printf("%d %g %d %n",minMinorCnt.value(), maximumInbredError.value(), maxDonorHypotheses.value());
-        System.out.println("Runtime: "+runtime+" seconds");
-        return null;
+        return new DataSet(new Datum("outFile",out,null),null);
     }
 
     private class ImputeOneTaxon implements Runnable{

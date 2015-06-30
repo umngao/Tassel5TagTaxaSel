@@ -18,8 +18,6 @@ import java.util.Random;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
-import net.maizegenetics.dna.map.PositionListBuilder;
-import net.maizegenetics.dna.snp.ExportUtils;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import static net.maizegenetics.dna.snp.GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
@@ -30,6 +28,7 @@ import net.maizegenetics.dna.snp.ImportUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.GAP_DIPLOID_ALLELE;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.ArrayUtils;
 
 /**
@@ -262,7 +261,8 @@ public class FILLINImputationAccuracy {
             DecimalFormat df = new DecimalFormat("0.########");
             double r2= pearsonR2(this.all, this.verboseOutput);
             try {
-                File outputFile = new File(this.outFile.substring(0, this.outFile.indexOf(".hmp")) + "DepthAccuracy.txt");
+                String ext= FilenameUtils.getExtension(this.outFile);
+                File outputFile = new File(this.outFile.replace(ext,"Accuracy.txt"));
                 DataOutputStream outStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
                 outStream.writeBytes("##Taxon\tTotalSitesMasked\tTotalSitesCompared\tTotalPropUnimputed\tNumMinor\tCorrectMinor\tMinorToHet\tMinorToMajor\tUnimpMinor"
                         + "\tNumHets\tHetToMinor\tCorrectHet\tHetToMajor\tUnimpHet\tNumMajor\tMajorToMinor\tMajorToHet\tCorrectMajor\tUnimpMajor\tR2\n");
@@ -308,7 +308,8 @@ public class FILLINImputationAccuracy {
         private void accuracyMAFOut() {
             DecimalFormat df = new DecimalFormat("0.########");
             if (this.MAF!=null && this.MAFClass!=null) try {
-                File outputFile = new File(this.outFile.substring(0, this.outFile.indexOf(".hmp")) + "DepthAccuracyMAF.txt");
+                String ext= FilenameUtils.getExtension(this.outFile);
+                File outputFile = new File(this.outFile.replace(ext,"MAFAccuracy.txt"));
                 DataOutputStream outStream = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outputFile)));
                 outStream.writeBytes("##\tMAFClass\tTotalSitesMasked\tTotalSitesCompared\tTotalPropUnimputed\tNumHets\tHetToMinor\tHetToMajor\tCorrectHet\tUnimpHet\tNumMinor\tMinorToMajor\tMinorToHet\tCorrectMinor\t"
                         + "UnimpMinor\tNumMajor\tMajorToMinor\tMajorToHet\tCorrectMajor\tUnimputedMajor\tr2\n");

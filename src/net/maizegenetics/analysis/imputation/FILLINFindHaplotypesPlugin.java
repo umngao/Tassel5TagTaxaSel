@@ -162,13 +162,15 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
         if(endDiv==-1) endDiv=divisions.length-1;
         if (extendedOutput.value()) new File(outFileBase.value()+"/extOut/").mkdir();
         for (int i = startDiv; i <=endDiv; i++) {
+            String newExport= outFileBase.value()+"/"+new File(outFileBase.value()).getName()+".gc"+baseAlign.chromosomeName(divisions[i][0])+"s"+i+".hmp.txt";
+            if (new File(newExport).exists()) continue;
             GenotypeTable mna=createHaplotypeAlignment(divisions[i][0], divisions[i][1], baseAlign,
              minSitesPresentPerHap.value(),  maxDistFromFounder.value());
             if (mna.taxa().isEmpty()) continue;
 //            String newExport=outFileBase.value().replace("sX.hmp", "s"+i+".hmp");
 //            newExport=newExport.replace("gX", "gc"+mna.chromosomeName(0)+"s"+i);
             if (extendedOutput.value()) writeHaplotypeMembersToFile(outFileBase.value()+"/extOut/"+new File(outFileBase.value()).getName()+".gc"+mna.chromosomeName(0)+"s"+i+".haplotypes.txt");
-            String newExport= outFileBase.value()+"/"+new File(outFileBase.value()).getName()+".gc"+mna.chromosomeName(0)+"s"+i+".hmp.txt";
+//            String newExport= outFileBase.value()+"/"+new File(outFileBase.value()).getName()+".gc"+mna.chromosomeName(0)+"s"+i+".hmp.txt";
             ExportUtils.writeToHapmap(mna, false, newExport, '\t', null);
             if(outFileBase.value()!=null) exportBadSites(baseAlign, outFileBase.value(), 0.01);  
             mna=null;
