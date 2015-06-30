@@ -208,14 +208,13 @@ public class EndelmanDistanceMatrix {
             int numSitesProcessed = myFence - myCurrentSite;
             CountersDistances result = new CountersDistances(myNumTaxa);
             float[] distances = result.myDistances;
+            double[] sumpi = new double[1];
 
             float[] answer1 = new float[32768];
             float[] answer2 = new float[32768];
             float[] answer3 = new float[32768];
 
             for (; myCurrentSite < myFence; myCurrentSite += 15) {
-
-                double[] sumpi = new double[1];
 
                 //
                 // Pre-calculates possible terms and gets counts for
@@ -232,8 +231,6 @@ public class EndelmanDistanceMatrix {
                 Tuple<short[], float[]> thirdBlock = getBlockOfSites(myCurrentSite + 10, sumpi);
                 float[] possibleTerms3 = thirdBlock.y;
                 short[] majorCount3 = thirdBlock.x;
-
-                result.mySumPi = sumpi[0];
 
                 //
                 // Using possible terms, calculates all possible answers
@@ -272,6 +269,7 @@ public class EndelmanDistanceMatrix {
                 }
             }
 
+            result.mySumPi = sumpi[0];
             action.accept(result);
             myNumSitesProcessed += numSitesProcessed;
             fireProgress((int) ((double) myNumSitesProcessed / (double) myNumSites * 100.0), myProgressListener);
