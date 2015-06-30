@@ -148,7 +148,9 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 				
 				numberOfTestsCalculated++;
 				if (numberOfTestsCalculated % updateInterval == 0) {
-					if (myParentPlugin != null) myParentPlugin.updateProgress(100 * numberOfTestsCalculated / numberOfTestsTotal);
+				        double percentTested = 100.0 * ((double) numberOfTestsCalculated) / numberOfTestsTotal;
+				        percentTested = Math.min(percentTested, 100);
+					if (myParentPlugin != null) myParentPlugin.updateProgress((int) percentTested);
 				}
 			}
 //			System.out.printf("Sites analyzed in %d ms\n", System.currentTimeMillis() - start);

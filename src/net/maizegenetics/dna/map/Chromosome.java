@@ -112,8 +112,10 @@ public class Chromosome implements Comparable<Chromosome> {
         if ((result != 0) || (myChromosomeNumber != Integer.MAX_VALUE)) {
             return result;
         }
-       // return myName.compareTo(o.getName());
-        return compareNonNumericChrom(myName, o.getName()); 
+        return myName.compareTo(o.getName());
+        // compareNonNumericChrom() is too slow.  Use java lexicographic string
+        // compare instead. Will re-visit this later
+        // return compareNonNumericChrom(myName, o.getName()); 
     }
     /**
      * Takes a string, makes all upper case, removes leading CHROMOSOME/CHR, 
