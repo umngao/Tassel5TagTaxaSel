@@ -39,7 +39,15 @@ public class EndelmanDistanceMatrix {
      * @return Endelman Kinship Matrix
      */
     public static DistanceMatrix getInstance(GenotypeTable genotype) {
-        return getInstance(genotype, null);
+        return getInstance(genotype, 1, null);
+    }
+    
+    public static DistanceMatrix getInstance(GenotypeTable genotype, int maxAlleles) {
+        return getInstance(genotype, maxAlleles, null);
+    }
+    
+    public static DistanceMatrix getInstance(GenotypeTable genotype, ProgressListener listener) {
+        return computeEndelmanDistances(genotype, 1, listener);
     }
 
     /**
@@ -50,11 +58,11 @@ public class EndelmanDistanceMatrix {
      *
      * @return Endelman Kinship Matrix
      */
-    public static DistanceMatrix getInstance(GenotypeTable genotype, ProgressListener listener) {
-        return computeEndelmanDistances(genotype, listener);
+    public static DistanceMatrix getInstance(GenotypeTable genotype, int maxAlleles, ProgressListener listener) {
+        return computeEndelmanDistances(genotype, maxAlleles, listener);
     }
 
-    private static DistanceMatrix computeEndelmanDistances(GenotypeTable genotype, ProgressListener listener) {
+    private static DistanceMatrix computeEndelmanDistances(GenotypeTable genotype, int maxAlleles, ProgressListener listener) {
 
         int numSeqs = genotype.numberOfTaxa();
         long time = System.currentTimeMillis();
@@ -63,7 +71,7 @@ public class EndelmanDistanceMatrix {
         // Sets up parellel stream to divide up sites for processing.
         // Also reduces the distance sums and site counters into one instance.
         //
-        Optional<CountersDistances> optional = stream(genotype, listener).reduce((CountersDistances t, CountersDistances u) -> {
+        Optional<CountersDistances> optional = stream(genotype, maxAlleles, listener).reduce((CountersDistances t, CountersDistances u) -> {
             t.addAll(u);
             return t;
         });
@@ -175,9 +183,9 @@ public class EndelmanDistanceMatrix {
     //
     // Creates stream from EndelmanSiteSpliterator and Genotype Table
     //
-    private static Stream<CountersDistances> stream(GenotypeTable genotypes, ProgressListener listener) {
+    private static Stream<CountersDistances> stream(GenotypeTable genotypes, int maxAlleles, ProgressListener listener) {
         myNumSitesProcessed = 0;
-        return StreamSupport.stream(new EndelmanSiteSpliterator(genotypes, 0, genotypes.numberOfSites(), listener), true);
+        return StreamSupport.stream(new EndelmanSiteSpliterator(genotypes, 0, genotypes.numberOfSites(), maxAlleles, listener), true);
     }
 
     //
@@ -191,14 +199,16 @@ public class EndelmanDistanceMatrix {
         private final GenotypeTable myGenotypes;
         private final int myNumTaxa;
         private final int myNumSites;
+        private final int myMaxAlleles;
         private final ProgressListener myProgressListener;
 
-        EndelmanSiteSpliterator(GenotypeTable genotypes, int currentIndex, int fence, ProgressListener listener) {
+        EndelmanSiteSpliterator(GenotypeTable genotypes, int currentIndex, int fence, int maxAlleles, ProgressListener listener) {
             myGenotypes = genotypes;
             myNumTaxa = myGenotypes.numberOfTaxa();
             myNumSites = myGenotypes.numberOfSites();
             myCurrentSite = currentIndex;
             myFence = fence;
+            myMaxAlleles = maxAlleles;
             myProgressListener = listener;
         }
 
@@ -214,23 +224,27 @@ public class EndelmanDistanceMatrix {
             float[] answer2 = new float[32768];
             float[] answer3 = new float[32768];
 
-            for (; myCurrentSite < myFence; myCurrentSite += 15) {
+            for (; myCurrentSite < myFence;) {
+
+                int[] realSites = new int[1];
 
                 //
                 // Pre-calculates possible terms and gets counts for
                 // three blocks for five sites.
                 //
-                Tuple<short[], float[]> firstBlock = getBlockOfSites(myCurrentSite, sumpi);
+                Tuple<short[], float[]> firstBlock = getBlockOfSites(myCurrentSite, sumpi, realSites);
                 float[] possibleTerms = firstBlock.y;
                 short[] majorCount1 = firstBlock.x;
 
-                Tuple<short[], float[]> secondBlock = getBlockOfSites(myCurrentSite + 5, sumpi);
+                Tuple<short[], float[]> secondBlock = getBlockOfSites(myCurrentSite + realSites[0], sumpi, realSites);
                 float[] possibleTerms2 = secondBlock.y;
                 short[] majorCount2 = secondBlock.x;
 
-                Tuple<short[], float[]> thirdBlock = getBlockOfSites(myCurrentSite + 10, sumpi);
+                Tuple<short[], float[]> thirdBlock = getBlockOfSites(myCurrentSite + realSites[0], sumpi, realSites);
                 float[] possibleTerms3 = thirdBlock.y;
                 short[] majorCount3 = thirdBlock.x;
+
+                myCurrentSite += realSites[0];
 
                 //
                 // Using possible terms, calculates all possible answers
@@ -277,7 +291,7 @@ public class EndelmanDistanceMatrix {
 
         private static final int NUM_SITES_PER_BLOCK = 5;
 
-        private Tuple<short[], float[]> getBlockOfSites(int currentSite, double[] sumpi) {
+        private Tuple<short[], float[]> getBlockOfSites(int currentSite, double[] sumpi, int[] realSites) {
 
             int currentSiteNum = 0;
 
@@ -305,55 +319,69 @@ public class EndelmanDistanceMatrix {
 
             while ((currentSiteNum < NUM_SITES_PER_BLOCK) && (currentSite < myFence)) {
 
-                byte major = myGenotypes.majorAllele(currentSite);
-                float majorFreq = (float) myGenotypes.majorAlleleFrequency(currentSite);
-                float majorFreqTimes2 = majorFreq * 2.0f;
-                sumpi[0] += majorFreq * (1.0 - majorFreq);
+                int[][] alleles = myGenotypes.allelesSortedByFrequency(currentSite);
+                int numAlleles = Math.min(alleles[0].length - 1, myMaxAlleles);
 
-                //
-                // Temporarily stores component terms of equation for
-                // individual major allele counts (0, 1, 2)
-                //
-                float[] term = new float[3];
-
-                //
-                // If major allele is Unknown or major allele frequency
-                // equals 1.0 (resulting in denominator 0.0), the entire
-                // site is skipped.
-                //
-                if (major != GenotypeTable.UNKNOWN_ALLELE) {
-
-                    term[0] = 0.0f - majorFreqTimes2;
-                    term[1] = 1.0f - majorFreqTimes2;
-                    term[2] = 2.0f - majorFreqTimes2;
-
-                    //
-                    // Pre-calculates all possible terms of the summation
-                    // for this current site.  Counts (0,0; 0,1; 0,2; 1,1; 1,2; 2,2)
-                    //
-                    int siteNumIncrement = currentSiteNum * 8;
-                    possibleTerms[siteNumIncrement + 1] = term[0] * term[0];
-                    possibleTerms[siteNumIncrement + 3] = term[0] * term[1];
-                    possibleTerms[siteNumIncrement + 5] = term[0] * term[2];
-                    possibleTerms[siteNumIncrement + 2] = term[1] * term[1];
-                    possibleTerms[siteNumIncrement + 6] = term[1] * term[2];
-                    possibleTerms[siteNumIncrement + 4] = term[2] * term[2];
-
-                    //
-                    // Records major allele counts (C) for current site in
-                    // three bits.
-                    //
-                    int temp = (major & 0x7) << 6;
-                    int shift = (NUM_SITES_PER_BLOCK - currentSiteNum - 1) * 3;
-                    int mask = ~(0x7 << shift) & 0x7FFF;
-                    for (int i = 0; i < myNumTaxa; i++) {
-                        byte genotype = myGenotypes.genotype(i, currentSite);
-                        majorCount[i] = (short) (majorCount[i] & (mask | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << shift));
-                    }
+                int totalAlleleCount = 0;
+                for (int i = 0; i < alleles[1].length; i++) {
+                    totalAlleleCount += alleles[1][i];
                 }
 
-                currentSiteNum++;
+                for (int a = 0; a < numAlleles; a++) {
+
+                    byte major = (byte) alleles[0][a];
+                    //byte major = myGenotypes.majorAllele(currentSite);
+                    float majorFreq = (float) alleles[1][a] / (float) totalAlleleCount;
+                    //float majorFreq = (float) myGenotypes.majorAlleleFrequency(currentSite);
+                    float majorFreqTimes2 = majorFreq * 2.0f;
+                    sumpi[0] += majorFreq * (1.0 - majorFreq);
+
+                    //
+                    // Temporarily stores component terms of equation for
+                    // individual major allele counts (0, 1, 2)
+                    //
+                    float[] term = new float[3];
+
+                    //
+                    // If major allele is Unknown, the entire
+                    // site is skipped.
+                    //
+                    if (major != GenotypeTable.UNKNOWN_ALLELE) {
+
+                        term[0] = 0.0f - majorFreqTimes2;
+                        term[1] = 1.0f - majorFreqTimes2;
+                        term[2] = 2.0f - majorFreqTimes2;
+
+                        //
+                        // Pre-calculates all possible terms of the summation
+                        // for this current site.  Counts (0,0; 0,1; 0,2; 1,1; 1,2; 2,2)
+                        //
+                        int siteNumIncrement = currentSiteNum * 8;
+                        possibleTerms[siteNumIncrement + 1] = term[0] * term[0];
+                        possibleTerms[siteNumIncrement + 3] = term[0] * term[1];
+                        possibleTerms[siteNumIncrement + 5] = term[0] * term[2];
+                        possibleTerms[siteNumIncrement + 2] = term[1] * term[1];
+                        possibleTerms[siteNumIncrement + 6] = term[1] * term[2];
+                        possibleTerms[siteNumIncrement + 4] = term[2] * term[2];
+
+                        //
+                        // Records major allele counts (C) for current site in
+                        // three bits.
+                        //
+                        int temp = (major & 0x7) << 6;
+                        int shift = (NUM_SITES_PER_BLOCK - currentSiteNum - 1) * 3;
+                        int mask = ~(0x7 << shift) & 0x7FFF;
+                        for (int i = 0; i < myNumTaxa; i++) {
+                            byte genotype = myGenotypes.genotype(i, currentSite);
+                            majorCount[i] = (short) (majorCount[i] & (mask | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << shift));
+                        }
+                    }
+
+                    currentSiteNum++;
+                }
+
                 currentSite++;
+                realSites[0]++;
             }
 
             return new Tuple<>(majorCount, possibleTerms);
@@ -437,7 +465,7 @@ public class EndelmanDistanceMatrix {
             int mid = (lo + myFence) >>> 1;
             if (lo < mid) {
                 myCurrentSite = mid;
-                return new EndelmanSiteSpliterator(myGenotypes, lo, mid, myProgressListener);
+                return new EndelmanSiteSpliterator(myGenotypes, lo, mid, myMaxAlleles, myProgressListener);
             } else {
                 return null;
             }
