@@ -273,23 +273,27 @@ public class GCTADistanceMatrix {
             float[] answer2 = new float[32768];
             float[] answer3 = new float[32768];
 
-            for (; myCurrentSite < myFence; myCurrentSite += 15) {
+            for (; myCurrentSite < myFence;) {
+
+                int[] numSites = new int[1];
 
                 //
                 // Pre-calculates possible terms and gets counts for
                 // three blocks for five sites.
                 //
-                Tuple<short[], float[]> firstBlock = getBlockOfSites(myCurrentSite);
+                Tuple<short[], float[]> firstBlock = getBlockOfSites(myCurrentSite, numSites);
                 float[] possibleTerms = firstBlock.y;
                 short[] majorCount1 = firstBlock.x;
 
-                Tuple<short[], float[]> secondBlock = getBlockOfSites(myCurrentSite + 5);
+                Tuple<short[], float[]> secondBlock = getBlockOfSites(myCurrentSite + numSites[0], numSites);
                 float[] possibleTerms2 = secondBlock.y;
                 short[] majorCount2 = secondBlock.x;
 
-                Tuple<short[], float[]> thirdBlock = getBlockOfSites(myCurrentSite + 10);
+                Tuple<short[], float[]> thirdBlock = getBlockOfSites(myCurrentSite + numSites[0], numSites);
                 float[] possibleTerms3 = thirdBlock.y;
                 short[] majorCount3 = thirdBlock.x;
+
+                myCurrentSite += numSites[0];
 
                 //
                 // Using possible terms, calculates all possible answers
@@ -336,7 +340,7 @@ public class GCTADistanceMatrix {
 
         private static final int NUM_SITES_PER_BLOCK = 5;
 
-        private Tuple<short[], float[]> getBlockOfSites(int currentSite) {
+        private Tuple<short[], float[]> getBlockOfSites(int currentSite, int[] numSites) {
 
             int currentSiteNum = 0;
 
@@ -409,10 +413,12 @@ public class GCTADistanceMatrix {
                         byte genotype = myGenotypes.genotype(i, currentSite);
                         majorCount[i] = (short) (majorCount[i] & (mask | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << shift));
                     }
+
+                    currentSiteNum++;
                 }
 
-                currentSiteNum++;
                 currentSite++;
+                numSites[0]++;
             }
 
             return new Tuple<>(majorCount, possibleTerms);
