@@ -18,6 +18,8 @@ import java.awt.event.WindowEvent;
 
 import java.io.File;
 import java.lang.reflect.Field;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -77,6 +79,10 @@ abstract public class AbstractPlugin implements Plugin {
     @Override
     public DataSet performFunction(DataSet input) {
 
+        LocalDateTime time = LocalDateTime.now();
+        String timeStr = time.format(DateTimeFormatter.ofPattern("MMM d, uuuu H:mm:s"));
+        myLogger.info("Starting " + getClass().getName() + ": time: " + timeStr);
+
         myCurrentInputData = input;
 
         try {
@@ -95,6 +101,9 @@ abstract public class AbstractPlugin implements Plugin {
             checkParameters();
 
             DataSet output = processData(input);
+            time = LocalDateTime.now();
+            timeStr = time.format(DateTimeFormatter.ofPattern("MMM d, uuuu H:mm:s"));
+            myLogger.info("Finished " + getClass().getName() + ": time: " + timeStr);
             fireDataSetReturned(new PluginEvent(output, getClass()));
             return output;
 

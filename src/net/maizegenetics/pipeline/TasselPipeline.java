@@ -60,6 +60,8 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
 import java.io.BufferedReader;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -1744,7 +1746,9 @@ public class TasselPipeline implements PluginListener {
                     Datum datum = (Datum) percentage.get(0);
                     Integer percent = (Integer) datum.getData();
                     if (percent >= lastValue) {
-                        myLogger.info(ds.getCreator().getClass().getName() + ": progress: " + percent.intValue() + "%");
+                        LocalDateTime time = LocalDateTime.now();
+                        String timeStr = time.format(DateTimeFormatter.ofPattern("MMM d, uuuu H:mm:s"));
+                        myLogger.info(ds.getCreator().getClass().getName() + ": time: " + timeStr + ": progress: " + percent + "%");
                         lastValue = lastValue + 10;
                         myProgressValues.put(plugin, lastValue);
                     }
