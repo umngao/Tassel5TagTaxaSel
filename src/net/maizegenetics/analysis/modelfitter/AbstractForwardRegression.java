@@ -12,6 +12,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import net.maizegenetics.analysis.association.AssociationUtils;
+import net.maizegenetics.analysis.modelfitter.AdditiveSite.CRITERION;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
@@ -32,7 +33,7 @@ import net.maizegenetics.util.Tuple;
  * @author pbradbury
  *
  */
-abstract class AbstractForwardRegression implements ForwardRegression {
+public abstract class AbstractForwardRegression implements ForwardRegression {
     //performs forward regression
     //requires one phenotype as a double array and a genotype table
     //accepts additional fixed effects, either covariates or factors
@@ -68,6 +69,7 @@ abstract class AbstractForwardRegression implements ForwardRegression {
         numberOfSites = data.genotypeTable().numberOfSites();
         numberOfObservations = data.numberOfObservations();
         myBaseModel = getBaseModel();
+        myModel = new ArrayList<>(myBaseModel);
         y = AssociationUtils.convertFloatArrayToDouble((float[]) data.phenotype().attribute(phenotypeIndex).allValues());
         
         this.enterLimit = enterLimit;
@@ -76,7 +78,7 @@ abstract class AbstractForwardRegression implements ForwardRegression {
         //Initialize the siteList
         siteList = new ArrayList<>();
         for (int s = 0; s < numberOfSites; s++) 
-            siteList.add(new AdditiveSite(s, myGenotype.genotypeAllTaxa(s), myGenotype.majorAllele(s), myGenotype.majorAlleleFrequency(s))); 
+            siteList.add(new GenotypeAdditiveSite(s, CRITERION.ss, myGenotype.genotypeAllTaxa(s), myGenotype.majorAllele(s), myGenotype.majorAlleleFrequency(s))); 
     }
     
     protected List<ModelEffect> getBaseModel() {
@@ -158,7 +160,7 @@ abstract class AbstractForwardRegression implements ForwardRegression {
         
     }
     
-    class ForwardStepAdditiveSpliterator implements Spliterator<AdditiveSite> {
+    public class ForwardStepAdditiveSpliterator implements Spliterator<AdditiveSite> {
         private final PartitionedLinearModel plm;
         private List<AdditiveSite> mySites;
         private final List<ModelEffect> baseModel;
@@ -166,7 +168,7 @@ abstract class AbstractForwardRegression implements ForwardRegression {
         private int origin;
         private final int end;
         
-        ForwardStepAdditiveSpliterator(List<AdditiveSite> siteList, List<ModelEffect> baseModel, double[] y) {
+        public ForwardStepAdditiveSpliterator(List<AdditiveSite> siteList, List<ModelEffect> baseModel, double[] y) {
             SweepFastLinearModel sflm = new SweepFastLinearModel(baseModel, y);
             plm = new PartitionedLinearModel(baseModel, sflm);
             mySites = siteList;
@@ -180,7 +182,7 @@ abstract class AbstractForwardRegression implements ForwardRegression {
         public boolean tryAdvance(Consumer<? super AdditiveSite> action) {
             if (origin == end) return false;
             AdditiveSite as = mySites.get(origin);
-            as.SS(plm.testNewModelEffect(as.getCovariate()));
+            as.criterionValue(plm.testNewModelEffect(as.getCovariate()));
             action.accept(as);
             origin++;
             return true;
@@ -208,7 +210,7 @@ abstract class AbstractForwardRegression implements ForwardRegression {
         
     }
     
-    class ForwardStepAdditiveSubsettingSpliterator implements Spliterator<AdditiveSite> {
+    public class ForwardStepAdditiveSubsettingSpliterator implements Spliterator<AdditiveSite> {
         private final PartitionedLinearModel plm;
         private List<AdditiveSite> mySites;
         private final List<ModelEffect> baseModel;
@@ -217,7 +219,7 @@ abstract class AbstractForwardRegression implements ForwardRegression {
         private final int end;
         private final int[] subset;
         
-        ForwardStepAdditiveSubsettingSpliterator(List<AdditiveSite> siteList, List<ModelEffect> baseModel, double[] y, int[] subset) {
+        public ForwardStepAdditiveSubsettingSpliterator(List<AdditiveSite> siteList, List<ModelEffect> baseModel, double[] y, int[] subset) {
             SweepFastLinearModel sflm = new SweepFastLinearModel(baseModel, y);
             plm = new PartitionedLinearModel(baseModel, sflm);
             mySites = siteList;
@@ -232,7 +234,7 @@ abstract class AbstractForwardRegression implements ForwardRegression {
         public boolean tryAdvance(Consumer<? super AdditiveSite> action) {
             if (origin == end) return false;
             AdditiveSite as = mySites.get(origin);
-            as.SS(plm.testNewModelEffect(as.getCovariate(subset)));
+            as.criterionValue(plm.testNewModelEffect(as.getCovariate(subset)));
             action.accept(as);
             origin++;
             return true;

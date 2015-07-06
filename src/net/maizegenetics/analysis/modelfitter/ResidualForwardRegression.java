@@ -17,7 +17,6 @@ import net.maizegenetics.stats.linearmodels.CovariateModelEffect;
 import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.PartitionedLinearModel;
 import net.maizegenetics.stats.linearmodels.SweepFastLinearModel;
-import net.maizegenetics.util.Tuple;
 
 public class ResidualForwardRegression extends AbstractForwardRegression {
     List<ModelEffect> meanOnlyModel;
@@ -36,7 +35,7 @@ public class ResidualForwardRegression extends AbstractForwardRegression {
         
         SweepFastLinearModel sflm = new SweepFastLinearModel(myModel,y);
         int maxModelSize = myModel.size() + maxVariants;
-        while ((sflm = forwardStepParallel(sflm)) != null && myModel.size() < maxModelSize);
+        while ((sflm = forwardStepParallel(sflm, true)) != null && myModel.size() < maxModelSize);
     }
     
     
@@ -56,7 +55,7 @@ public class ResidualForwardRegression extends AbstractForwardRegression {
         
         SweepFastLinearModel sflm = new SweepFastLinearModel(myModel,y);
         int maxModelSize = myModel.size() + maxVariants;
-        while ((sflm = forwardStepParallel(sflm, subSample)) != null && myModel.size() < maxModelSize);
+        while ((sflm = forwardStepParallel(sflm, subSample, true)) != null && myModel.size() < maxModelSize);
         
         y = original;
     }
@@ -69,9 +68,8 @@ public class ResidualForwardRegression extends AbstractForwardRegression {
         SweepFastLinearModel residualSflm = new SweepFastLinearModel(meanOnlyModel, residuals);
         PartitionedLinearModel plm = new PartitionedLinearModel(meanOnlyModel, residualSflm);
         
-        AdditiveSite bas = siteList.stream().map(s -> { s.SS(plm.testNewModelEffect(s.getCovariate())); return s;})
-                .reduce(new AdditiveSite(), (a,b) -> b.SS() > a.SS() ? b : a);
-        SiteInformation bestSite = new SiteInformation(bas.siteNumber(), bas.getCovariate(), bas.SS());
+        AdditiveSite bas = siteList.stream().map(s -> {s.criterionValue(plm.testNewModelEffect(s.getCovariate())); return s;}).max((a,b) -> a.compareTo(b)).get();
+        SiteInformation bestSite = new SiteInformation(bas.siteNumber(), bas.getCovariate(), bas.criterionValue());
 
         ModelEffect siteEffect = new CovariateModelEffect(bestSite.covariate);
         myModel.add(siteEffect);
@@ -95,11 +93,11 @@ public class ResidualForwardRegression extends AbstractForwardRegression {
     }
     
     private Function<AdditiveSite, AdditiveSite> siteSubsetTester(int[] subset, PartitionedLinearModel plm) {
-        return site -> { site.SS(plm.testNewModelEffect(site.getCovariate(subset))); return site;}; 
+        return site -> { site.criterionValue(plm.testNewModelEffect(site.getCovariate(subset))); return site;}; 
     }
     
     private Function<AdditiveSite, AdditiveSite> siteTester(PartitionedLinearModel plm) {
-        return site -> { site.SS(plm.testNewModelEffect(site.getCovariate())); return site;}; 
+        return site -> { site.criterionValue(plm.testNewModelEffect(site.getCovariate())); return site;}; 
     }
     
     private SweepFastLinearModel forwardStep(SweepFastLinearModel sflm, int[] subset) {
@@ -110,9 +108,9 @@ public class ResidualForwardRegression extends AbstractForwardRegression {
         SweepFastLinearModel residualSflm = new SweepFastLinearModel(meanOnlyModel, residuals);
         PartitionedLinearModel plm = new PartitionedLinearModel(meanOnlyModel, residualSflm);
         
-        AdditiveSite bas = siteList.stream().map(siteSubsetTester(subset, plm))
-                .reduce(new AdditiveSite(), (a,b) -> b.SS() > a.SS() ? b : a);
-        SiteInformation bestSite = new SiteInformation(bas.siteNumber(), bas.getCovariate(), bas.SS());
+        AdditiveSite bas = siteList.stream().map(siteSubsetTester(subset, plm)).max((a,b) -> a.compareTo(b)).get();
+        
+        SiteInformation bestSite = new SiteInformation(bas.siteNumber(), bas.getCovariate(), bas.criterionValue());
 
         ModelEffect siteEffect = new CovariateModelEffect(bestSite.covariate);
         myModel.add(siteEffect);
@@ -136,11 +134,11 @@ public class ResidualForwardRegression extends AbstractForwardRegression {
         else return null;
     }
     
-    private SweepFastLinearModel forwardStepParallel(SweepFastLinearModel sflm) {
+    private SweepFastLinearModel forwardStepParallel(SweepFastLinearModel sflm, boolean doParallel) {
         double[] residuals = sflm.getResiduals().to1DArray();
         
-        AdditiveSite bestSite = StreamSupport.stream(new AbstractForwardRegression.ForwardStepAdditiveSpliterator(siteList, meanOnlyModel, residuals), true)
-                .reduce(new AdditiveSite(), (a,b) -> b.SS() > a.SS() ? b : a);
+        AdditiveSite bestSite = StreamSupport.stream(new AbstractForwardRegression.ForwardStepAdditiveSpliterator(siteList, meanOnlyModel, residuals), doParallel)
+                .max((a,b) -> a.compareTo(b)).get();
         
         ModelEffect siteEffect = new CovariateModelEffect(bestSite.getCovariate());
         myModel.add(siteEffect);
@@ -163,11 +161,11 @@ public class ResidualForwardRegression extends AbstractForwardRegression {
         else return null;
     }
     
-    private SweepFastLinearModel forwardStepParallel(SweepFastLinearModel sflm, int[] subset) {
+    private SweepFastLinearModel forwardStepParallel(SweepFastLinearModel sflm, int[] subset, boolean doParallel) {
         double[] residuals = sflm.getResiduals().to1DArray();
         
-        AdditiveSite bestSite = StreamSupport.stream(new AbstractForwardRegression.ForwardStepAdditiveSubsettingSpliterator(siteList, meanOnlyModel, residuals, subset), true)
-                .reduce(new AdditiveSite(), (a,b) -> b.SS() > a.SS() ? b : a);
+        AdditiveSite bestSite = StreamSupport.stream(new AbstractForwardRegression.ForwardStepAdditiveSubsettingSpliterator(siteList, meanOnlyModel, residuals, subset), doParallel)
+                .max((a,b) -> a.compareTo(b)).get();
         
         ModelEffect siteEffect = new CovariateModelEffect(bestSite.getCovariate());
         myModel.add(siteEffect);

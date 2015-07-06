@@ -1,6 +1,9 @@
 package net.maizegenetics.analysis.modelfitter;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import org.apache.commons.math3.distribution.FDistribution;
@@ -27,8 +30,17 @@ public class AdditiveModelForwardRegression extends AbstractForwardRegression {
     
     @Override
     public void fitModelForSubsample(int[] subSample) {
-        // TODO Auto-generated method stub
+        int numberOfSamples = subSample.length;
         
+        //create myModel from myBaseModel for this subsample
+        myModel = myBaseModel.stream().map(me -> me.getSubSample(subSample)).collect(Collectors.toList());
+        double[] original = y;
+        y = Arrays.stream(subSample).mapToDouble(i -> original[subSample[i]]).toArray();
+        
+        int maxModelSize = myModel.size() + maxVariants;
+        while (forwardStepParallel(subSample, true)  && myModel.size() < maxModelSize);
+        
+        y = original;
     }
 
     private boolean forwardStep() {
@@ -56,7 +68,7 @@ public class AdditiveModelForwardRegression extends AbstractForwardRegression {
         PartitionedLinearModel plm = new PartitionedLinearModel(myModel, sflm);
         
         AdditiveSite bestSite = StreamSupport.stream(new AbstractForwardRegression.ForwardStepAdditiveSpliterator(siteList, myModel, y), doParallel)
-                .reduce(new AdditiveSite(), (a,b) -> b.SS() > a.SS() ? b : a);
+                .max((a,b) -> a.compareTo(b)).get();
         
         ModelEffect siteEffect = new CovariateModelEffect(bestSite.getCovariate());
         myModel.add(siteEffect);
@@ -78,6 +90,34 @@ public class AdditiveModelForwardRegression extends AbstractForwardRegression {
             return true;
         }
         else return false;
+    }
+    
+    private boolean forwardStepParallel(int[] subset, boolean doParallel) {
+        
+        AdditiveSite bestSite = StreamSupport.stream(new AbstractForwardRegression.ForwardStepAdditiveSubsettingSpliterator(siteList, myModel, y, subset), doParallel)
+                .max((a,b) -> a.compareTo(b)).get();
+
+        ModelEffect siteEffect = new CovariateModelEffect(bestSite.getCovariate());
+        myModel.add(siteEffect);
+        SweepFastLinearModel sflm = new SweepFastLinearModel(myModel, y);
+        double[] errorSSdf = sflm.getResidualSSdf();
+        double[] siteSSdf = sflm.getIncrementalSSdf(myModel.size() - 1);
+        double F,p;
+        if (siteSSdf[1] < FDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY || errorSSdf[0] < FDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY) {
+            F = Double.NaN;
+            p = Double.NaN;
+        } else {
+            F = siteSSdf[0] / siteSSdf[1] / errorSSdf[0] * errorSSdf[1];
+            p = 1 - (new FDistribution(siteSSdf[1], errorSSdf[1]).cumulativeProbability(F));
+        }
+        
+        if (!Double.isNaN(p) && p <= enterLimit) {
+            myFittedVariants.add(new Object[]{traitname, myGenotype.positions().get(bestSite.siteNumber()), new Integer(bestSite.siteNumber()), new Double(p)});  //Position, index, p-value
+            addVariant(bestSite.siteNumber(), p);
+            return true;
+        }
+        else return false;
+        
     }
     
     private void testSiteAsCovariate(PartitionedLinearModel plm, int site) {
