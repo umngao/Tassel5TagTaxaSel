@@ -1,6 +1,8 @@
 package net.maizegenetics.stats.linearmodels;
 
+import java.util.Arrays;
 import java.util.Random;
+import java.util.function.UnaryOperator;
 
 public class BasicShuffler {
     static long seed = 111;
@@ -76,5 +78,19 @@ public class BasicShuffler {
 	
 	public synchronized static void reset() {
 		BasicShuffler.randomSource = new Random(seed);
+	}
+	
+	public static UnaryOperator<double[]> shuffleDouble() {
+	    return dbla -> {
+	        double[] d2 = Arrays.copyOf(dbla, dbla.length);
+	        shuffle(d2);
+	        return d2;
+	    }; 
+	}
+	
+	public static double[] newShuffledArray(double[] in) {
+	    double[] out = Arrays.copyOf(in, in.length);
+	    shuffle(out);
+	    return out;
 	}
 }

@@ -118,7 +118,7 @@ public class CovariateModelEffect implements ModelEffect {
 
     @Override
     public ModelEffect getCopy() {
-        return new CovariateModelEffect(covariate, size, sum, sumsq, id);
+        return new CovariateModelEffect(Arrays.copyOf(covariate, size), size, sum, sumsq, id);
     }
 
     @Override
