@@ -26,6 +26,8 @@ public class EndelmanDistanceMatrix {
 
     private static final Logger myLogger = Logger.getLogger(EndelmanDistanceMatrix.class);
 
+    private static final int DEFAULT_MAX_ALLELES = 2;
+
     /**
      * Compute Endelman kinship for all pairs of taxa. Missing sites are
      * ignored. http://www.g3journal.org/content/2/11/1405.full.pdf Equation-13
@@ -40,21 +42,22 @@ public class EndelmanDistanceMatrix {
 
     /**
      * Compute Endelman Kinship Matrix. Maximum alleles per site to evaluate
-     * defaults to 1.
+     * defaults to 2.
      *
      * @param genotype Genotype Table used to compute kinship
      *
      * @return Endelman Kinship Matrix
      */
     public static DistanceMatrix getInstance(GenotypeTable genotype) {
-        return getInstance(genotype, 1, null);
+        return getInstance(genotype, DEFAULT_MAX_ALLELES, null);
     }
 
     /**
      * Compute Endelman Kinship Matrix
      *
      * @param genotype Genotype Table used to compute kinship
-     * @param maxAlleles maximum alleles per site to evaluate
+     * @param maxAlleles maximum alleles per site to evaluate. i.e. Set to 3 to
+     * evaluate the three most frequent allele states.
      *
      * @return Endelman Kinship Matrix
      */
@@ -64,7 +67,7 @@ public class EndelmanDistanceMatrix {
 
     /**
      * Compute Endelman Kinship Matrix. Maximum alleles per site to evaluate
-     * defaults to 1.
+     * defaults to 2.
      *
      * @param genotype Genotype Table used to compute kinship
      * @param listener Progress listener
@@ -72,14 +75,15 @@ public class EndelmanDistanceMatrix {
      * @return Endelman Kinship Matrix
      */
     public static DistanceMatrix getInstance(GenotypeTable genotype, ProgressListener listener) {
-        return computeEndelmanDistances(genotype, 1, listener);
+        return computeEndelmanDistances(genotype, DEFAULT_MAX_ALLELES, listener);
     }
 
     /**
      * Compute Endelman Kinship Matrix
      *
      * @param genotype Genotype Table used to compute kinship
-     * @param maxAlleles maximum alleles per site to evaluate
+     * @param maxAlleles maximum alleles per site to evaluate. i.e. Set to 3 to
+     * evaluate the three most frequent allele states.
      * @param listener Progress listener
      *
      * @return Endelman Kinship Matrix
@@ -89,6 +93,10 @@ public class EndelmanDistanceMatrix {
     }
 
     private static DistanceMatrix computeEndelmanDistances(GenotypeTable genotype, int maxAlleles, ProgressListener listener) {
+
+        if ((maxAlleles < 2) || (maxAlleles > 6)) {
+            throw new IllegalArgumentException("EndelmanDistanceMatrix: computeEndelmanDistances: max alleles must be between 2 and 6 inclusive.");
+        }
 
         int numSeqs = genotype.numberOfTaxa();
         long time = System.currentTimeMillis();
@@ -349,7 +357,7 @@ public class EndelmanDistanceMatrix {
             while ((currentSiteNum < NUM_SITES_PER_BLOCK) && (currentSite < myFence)) {
 
                 int[][] alleles = myGenotypes.allelesSortedByFrequency(currentSite);
-                int numAlleles = Math.min(alleles[0].length - 1, myMaxAlleles);
+                int numAlleles = Math.min(alleles[0].length - 1, myMaxAlleles - 1);
 
                 if (numAlleles + currentSiteNum <= NUM_SITES_PER_BLOCK) {
 
