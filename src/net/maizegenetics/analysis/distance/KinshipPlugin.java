@@ -75,10 +75,10 @@ public class KinshipPlugin extends AbstractPlugin {
             DistanceMatrix kin = null;
 
             if (current.getData() instanceof GenotypeTable) {
-                //this section implements additional options for calculating kinship
                 GenotypeTable myGenotype = (GenotypeTable) current.getData();
                 if (kinshipMethod() == KINSHIP_METHOD.Scaled_IBS) {
-                    kin = Kinship.createKinship(myGenotype, Kinship.KINSHIP_TYPE.Endelman, myDatatype.value());
+                    //kin = Kinship.createKinship(myGenotype, Kinship.KINSHIP_TYPE.Endelman, myDatatype.value());
+                    kin = EndelmanDistanceMatrix.getInstance(myGenotype, 6, this);
                 } else if (kinshipMethod() == KINSHIP_METHOD.GCTA) {
                     kin = GCTADistanceMatrix.getInstance(myGenotype, this);
                 } else {

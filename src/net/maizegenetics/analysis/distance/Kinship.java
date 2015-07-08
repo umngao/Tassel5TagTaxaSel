@@ -30,6 +30,10 @@ public class Kinship {
         // utility to create kinship matrix
     }
 
+    /**
+     * @deprecated Replaced by {@link EndelmanDistanceMatrix#getInstance(net.maizegenetics.dna.snp.GenotypeTable, int, net.maizegenetics.util.ProgressListener)
+     * }
+     */
     public static DistanceMatrix createKinship(GenotypeTable mar, KINSHIP_TYPE kinshipType, GENOTYPE_TABLE_COMPONENT dataType) {
         System.out.println("Starting Kinship.buildFromMarker().");
         long start = System.currentTimeMillis();
