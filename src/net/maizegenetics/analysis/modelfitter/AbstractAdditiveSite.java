@@ -1,16 +1,20 @@
 package net.maizegenetics.analysis.modelfitter;
 
+import net.maizegenetics.analysis.modelfitter.AdditiveSite.CRITERION;
+
 public abstract class AbstractAdditiveSite implements AdditiveSite {
     protected final int siteIndex;
     protected double criterionValue;
     protected final CRITERION selectionCriterion;
     protected final int direction;
-    
+
     public AbstractAdditiveSite(int site, CRITERION selectionCriterion) {
         siteIndex = site;
         this.selectionCriterion = selectionCriterion;
-        if (selectionCriterion == CRITERION.ss) direction = 1;
-        else direction = -1;
+        if (selectionCriterion == CRITERION.pval)
+            direction = 1;
+        else
+            direction = -1;
     }
 
     @Override
@@ -29,8 +33,13 @@ public abstract class AbstractAdditiveSite implements AdditiveSite {
     }
 
     @Override
+    public CRITERION selectionCriterion() {
+        return selectionCriterion;
+    }
+
+    @Override
     public int compareTo(AdditiveSite other) {
         return direction * Double.compare(criterionValue, other.criterionValue());
     }
-    
+
 }
