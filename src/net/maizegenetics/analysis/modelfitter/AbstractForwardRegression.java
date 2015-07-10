@@ -1,13 +1,7 @@
 package net.maizegenetics.analysis.modelfitter;
 
-import jal.Object.BinaryOperator;
-
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Spliterator;
-import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -25,9 +19,6 @@ import net.maizegenetics.phenotype.PhenotypeAttribute;
 import net.maizegenetics.stats.linearmodels.CovariateModelEffect;
 import net.maizegenetics.stats.linearmodels.FactorModelEffect;
 import net.maizegenetics.stats.linearmodels.ModelEffect;
-import net.maizegenetics.stats.linearmodels.PartitionedLinearModel;
-import net.maizegenetics.stats.linearmodels.SweepFastLinearModel;
-import net.maizegenetics.util.Tuple;
 
 /**
  * @author pbradbury
@@ -78,7 +69,7 @@ public abstract class AbstractForwardRegression implements ForwardRegression {
         //Initialize the siteList
         siteList = new ArrayList<>();
         for (int s = 0; s < numberOfSites; s++) 
-            siteList.add(new GenotypeAdditiveSite(s, CRITERION.ss, myGenotype.genotypeAllTaxa(s), myGenotype.majorAllele(s), myGenotype.majorAlleleFrequency(s))); 
+            siteList.add(new GenotypeAdditiveSite(s, CRITERION.pval, myGenotype.genotypeAllTaxa(s), myGenotype.majorAllele(s), myGenotype.majorAlleleFrequency(s))); 
     }
     
     protected List<ModelEffect> getBaseModel() {
@@ -160,105 +151,5 @@ public abstract class AbstractForwardRegression implements ForwardRegression {
         
     }
     
-    public class ForwardStepAdditiveSpliterator implements Spliterator<AdditiveSite> {
-        private final PartitionedLinearModel plm;
-        private List<AdditiveSite> mySites;
-        private final List<ModelEffect> baseModel;
-        private final double[] y;
-        private int origin;
-        private final int end;
-        
-        public ForwardStepAdditiveSpliterator(List<AdditiveSite> siteList, List<ModelEffect> baseModel, double[] y) {
-            SweepFastLinearModel sflm = new SweepFastLinearModel(baseModel, y);
-            plm = new PartitionedLinearModel(baseModel, sflm);
-            mySites = siteList;
-            this.baseModel = baseModel;
-            this.y = y;
-            origin = 0;
-            end = siteList.size();
-        }
-        
-        @Override
-        public boolean tryAdvance(Consumer<? super AdditiveSite> action) {
-            if (origin == end) return false;
-            AdditiveSite as = mySites.get(origin);
-            as.criterionValue(plm.testNewModelEffect(as.getCovariate()));
-            action.accept(as);
-            origin++;
-            return true;
-        }
 
-        @Override
-        public Spliterator<AdditiveSite> trySplit() {
-            int numberRemaining = end - origin;
-            if (numberRemaining < 5000) return null;
-            int mid = origin + numberRemaining / 2;
-            List<AdditiveSite> splitSublist = mySites.subList(origin, mid);
-            origin = mid;
-            return new ForwardStepAdditiveSpliterator(splitSublist, baseModel, y);
-        }
-
-        @Override
-        public long estimateSize() {
-            return end - origin;
-        }
-
-        @Override
-        public int characteristics() {
-            return Spliterator.IMMUTABLE + Spliterator.NONNULL + Spliterator.SIZED + Spliterator.SUBSIZED;
-        }
-        
-    }
-    
-    public class ForwardStepAdditiveSubsettingSpliterator implements Spliterator<AdditiveSite> {
-        private final PartitionedLinearModel plm;
-        private List<AdditiveSite> mySites;
-        private final List<ModelEffect> baseModel;
-        private final double[] y;
-        private int origin;
-        private final int end;
-        private final int[] subset;
-        
-        public ForwardStepAdditiveSubsettingSpliterator(List<AdditiveSite> siteList, List<ModelEffect> baseModel, double[] y, int[] subset) {
-            SweepFastLinearModel sflm = new SweepFastLinearModel(baseModel, y);
-            plm = new PartitionedLinearModel(baseModel, sflm);
-            mySites = siteList;
-            this.baseModel = baseModel;
-            this.y = y;
-            origin = 0;
-            end = siteList.size();
-            this.subset = subset;
-        }
-        
-        @Override
-        public boolean tryAdvance(Consumer<? super AdditiveSite> action) {
-            if (origin == end) return false;
-            AdditiveSite as = mySites.get(origin);
-            as.criterionValue(plm.testNewModelEffect(as.getCovariate(subset)));
-            action.accept(as);
-            origin++;
-            return true;
-        }
-
-        @Override
-        public Spliterator<AdditiveSite> trySplit() {
-            int numberRemaining = end - origin;
-            if (numberRemaining < 5000) return null;
-            int mid = origin + numberRemaining / 2;
-            List<AdditiveSite> splitSublist = mySites.subList(origin, mid);
-            origin = mid;
-            return new ForwardStepAdditiveSubsettingSpliterator(splitSublist, baseModel, y, subset);
-        }
-
-        @Override
-        public long estimateSize() {
-            return end - origin;
-        }
-
-        @Override
-        public int characteristics() {
-            return Spliterator.IMMUTABLE + Spliterator.NONNULL + Spliterator.SIZED + Spliterator.SUBSIZED;
-        }
-        
-    }
 }

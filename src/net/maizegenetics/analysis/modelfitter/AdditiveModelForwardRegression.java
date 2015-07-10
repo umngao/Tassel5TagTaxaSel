@@ -67,7 +67,7 @@ public class AdditiveModelForwardRegression extends AbstractForwardRegression {
         SweepFastLinearModel sflm = new SweepFastLinearModel(myModel, y);
         PartitionedLinearModel plm = new PartitionedLinearModel(myModel, sflm);
         
-        AdditiveSite bestSite = StreamSupport.stream(new AbstractForwardRegression.ForwardStepAdditiveSpliterator(siteList, myModel, y), doParallel)
+        AdditiveSite bestSite = StreamSupport.stream(new ForwardStepAdditiveSpliterator(siteList, myModel, y), doParallel)
                 .max((a,b) -> a.compareTo(b)).get();
         
         ModelEffect siteEffect = new CovariateModelEffect(bestSite.getCovariate());
@@ -94,7 +94,7 @@ public class AdditiveModelForwardRegression extends AbstractForwardRegression {
     
     private boolean forwardStepParallel(int[] subset, boolean doParallel) {
         
-        AdditiveSite bestSite = StreamSupport.stream(new AbstractForwardRegression.ForwardStepAdditiveSubsettingSpliterator(siteList, myModel, y, subset), doParallel)
+        AdditiveSite bestSite = StreamSupport.stream(new ForwardStepSubsettingAdditiveSpliterator(siteList, myModel, y, subset), doParallel)
                 .max((a,b) -> a.compareTo(b)).get();
 
         ModelEffect siteEffect = new CovariateModelEffect(bestSite.getCovariate());

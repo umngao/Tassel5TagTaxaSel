@@ -137,7 +137,7 @@ public class ResidualForwardRegression extends AbstractForwardRegression {
     private SweepFastLinearModel forwardStepParallel(SweepFastLinearModel sflm, boolean doParallel) {
         double[] residuals = sflm.getResiduals().to1DArray();
         
-        AdditiveSite bestSite = StreamSupport.stream(new AbstractForwardRegression.ForwardStepAdditiveSpliterator(siteList, meanOnlyModel, residuals), doParallel)
+        AdditiveSite bestSite = StreamSupport.stream(new ForwardStepAdditiveSpliterator(siteList, meanOnlyModel, residuals), doParallel)
                 .max((a,b) -> a.compareTo(b)).get();
         
         ModelEffect siteEffect = new CovariateModelEffect(bestSite.getCovariate());
@@ -164,7 +164,7 @@ public class ResidualForwardRegression extends AbstractForwardRegression {
     private SweepFastLinearModel forwardStepParallel(SweepFastLinearModel sflm, int[] subset, boolean doParallel) {
         double[] residuals = sflm.getResiduals().to1DArray();
         
-        AdditiveSite bestSite = StreamSupport.stream(new AbstractForwardRegression.ForwardStepAdditiveSubsettingSpliterator(siteList, meanOnlyModel, residuals, subset), doParallel)
+        AdditiveSite bestSite = StreamSupport.stream(new ForwardStepSubsettingAdditiveSpliterator(siteList, meanOnlyModel, residuals, subset), doParallel)
                 .max((a,b) -> a.compareTo(b)).get();
         
         ModelEffect siteEffect = new CovariateModelEffect(bestSite.getCovariate());
