@@ -477,10 +477,33 @@ class ProcessVCFBlock implements Callable<ProcessVCFBlock> {
                 final int iGT=0; //genotype index
                 int iAD=-1,iDP=-1,iGQ=-1, iPL=-1;  //alleleDepth, overall depth, genotypeQuality, phredGenotypeLikelihoods
                 if(hp.FORMAT_INDEX>=0) {
+                    //Check to see if FORMAT tag is missing. Only applicable for single taxa files
+                    if(tabPos[hp.FORMAT_INDEX]==0) {
+                        throw new IllegalStateException("Error Processing VCF: Missing FORMAT tag.");
+                    }
+                    String unsplitInput = input.substring(tabPos[hp.FORMAT_INDEX-1]+1, tabPos[hp.FORMAT_INDEX]);
+                    if(unsplitInput.length()==0|| !unsplitInput.startsWith("GT")) {
+                        //Check to see it has the GT field
+                        if(unsplitInput.contains("GT")) {
+                            throw new IllegalStateException("Error Processing VCF Block: GT field is not in first position of FORMAT.");
+                        }
+                        //If GT isnt in, we assume that it is missing FORMAT
+                        else {
+                            throw new IllegalStateException("Error Processing VCF Block: Missing FORMAT tag.");
+                        }
+                    }
+                    String[] formatS = unsplitInput.split(":");
+                    
+                    /*
                     String[] formatS=input.substring(tabPos[hp.FORMAT_INDEX-1]+1, tabPos[hp.FORMAT_INDEX]).split(":");
+                    
+                    if(firstEqualIndex(formatS,"GT")!=0) {
+                        throw new IllegalStateException("Error Processing VCF: GT field is not in first position of FORMAT.");
+                    }
+                    */
                     iAD=firstEqualIndex(formatS,"AD");
                 }
-               
+               System.out.println("iAD" + iAD);
                 int t=0;
                 for(String taxaAllG: Splitter.on("\t").split(input.substring(tabPos[hp.NUM_HAPMAP_NON_TAXA_HEADERS-1]+1))) {
                     int f=0;
@@ -513,6 +536,7 @@ class ProcessVCFBlock implements Callable<ProcessVCFBlock> {
                                     continue;
                                     }
                                 int adInt=Integer.parseInt(ad);
+                                System.out.println(adInt);
                                 dTS[t][alleles[i++]][s]=AlleleDepthUtil.depthIntToByte(adInt);
                             }
                         }
