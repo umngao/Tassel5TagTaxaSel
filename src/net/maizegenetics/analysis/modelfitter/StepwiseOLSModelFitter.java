@@ -430,7 +430,7 @@ public class StepwiseOLSModelFitter {
                 	for (int i = 0; i < numberNotMissing; i++) {
                 		byte[] diploidAlleles = GenotypeTableUtils.getDiploidValues(siteGeno[i]);
                 		if (diploidAlleles[0] == minor) cov[i] += 0.5;
-                		if (diploidAlleles[0] == minor) cov[i] += 0.5;
+                		if (diploidAlleles[1] == minor) cov[i] += 0.5;
                 	}
                 	
                 	if (isNested) {
@@ -549,7 +549,7 @@ public class StepwiseOLSModelFitter {
                 	for (int i = 0; i < numberNotMissing; i++) {
                 		byte[] diploidAlleles = GenotypeTableUtils.getDiploidValues(siteGeno[i]);
                 		if (diploidAlleles[0] == minor) cov[i] += 0.5;
-                		if (diploidAlleles[0] == minor) cov[i] += 0.5;
+                		if (diploidAlleles[1] == minor) cov[i] += 0.5;
                 	}
                 	
                 	if (isNested) {
@@ -631,7 +631,7 @@ public class StepwiseOLSModelFitter {
             	for (int i = 0; i < numberNotMissing; i++) {
             		byte[] diploidAlleles = GenotypeTableUtils.getDiploidValues(siteGeno[i]);
             		if (diploidAlleles[0] == minor) cov[i] += 0.5;
-            		if (diploidAlleles[0] == minor) cov[i] += 0.5;
+            		if (diploidAlleles[1] == minor) cov[i] += 0.5;
             	}
             	
             	if (isNested) {
@@ -1007,7 +1007,7 @@ public class StepwiseOLSModelFitter {
             	for (int i = 0; i < numberNotMissing; i++) {
             		byte[] diploidAlleles = GenotypeTableUtils.getDiploidValues(siteGeno[i]);
             		if (diploidAlleles[0] == minor) cov[i] += 0.5;
-            		if (diploidAlleles[0] == minor) cov[i] += 0.5;
+            		if (diploidAlleles[1] == minor) cov[i] += 0.5;
             	}
             	
             	if (isNested) {
