@@ -103,6 +103,7 @@ public class Chromosome implements Comparable<Chromosome> {
         if (!(obj instanceof Chromosome)) {
             return false;
         }
+        if (hashCode!= ((Chromosome)obj).hashCode()) return false;
         return (compareTo((Chromosome) obj) == 0);
     }
 
