@@ -247,7 +247,9 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
     		}
     	}
     	if (asField == null) {
-    		myLogger.info("SAMToGBSDbPluginV2: warning: alignmentScore not present in Sam File, defaulting to 0");
+    	    // Too many warning messages.  If the AS field is absent it is most probably absent
+    	    // for all the entries in the file.
+    		//myLogger.info("SAMToGBSDbPluginV2: warning: alignmentScore not present in Sam File, defaulting to 0");
     		asField = "0";
     	} 
     	return asField;
