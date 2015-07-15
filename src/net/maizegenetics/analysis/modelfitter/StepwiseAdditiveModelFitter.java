@@ -73,6 +73,7 @@ public class StepwiseAdditiveModelFitter {
     private FactorModelEffect nestingFactor;
     private List<String> nestingFactorLevelNames;
     private final double rescanAlpha = 0.05;
+    private List<Phenotype> allOfTheResidualPhenotypes;
 
     //user defined parameters
     private int numberOfPermutations = 1000;
@@ -84,6 +85,12 @@ public class StepwiseAdditiveModelFitter {
     private String nestingEffectName = "family";
     private AdditiveSite.CRITERION modelSelectionCriterion = AdditiveSite.CRITERION.pval;
     private int maxSitesInModel = 1000;
+    private boolean useResiduals;
+    private boolean createAnovaReport;
+    private boolean createPostScanEffectsReport;
+    private boolean createPreScanEffectsReport;
+    private boolean createStepReport;
+    private boolean createResidualsByChr;
 
     //TableReport builders
     private final TableReportBuilder anovaReportBuilder =
@@ -141,7 +148,8 @@ public class StepwiseAdditiveModelFitter {
         for (PhenotypeAttribute phenoAttr : dataAttributeList) {
             currentTraitName = phenoAttr.name();
             //build the base model
-            myModel = baseModel(phenoAttr);
+            List<ModelEffect> myBaseModel = baseModel(phenoAttr);
+            myModel = new ArrayList<>(myBaseModel);
             numberOfBaseEffects = myModel.size();
             if (isNested)
                 nestingFactor =
@@ -151,17 +159,39 @@ public class StepwiseAdditiveModelFitter {
             fitModel();
 
             //add to reports
-            addToAnovaReport(Optional.empty());
-            addToMarkerEffectReport(false);
+            if (createAnovaReport)
+                addToAnovaReport(Optional.empty());
+            if (createPreScanEffectsReport)
+                addToMarkerEffectReport(false);
 
             //call scanFindCI()
             List<int[]> intervalList = scanToFindCI();
 
             //created a new scanned model
+            myModel = new ArrayList<>(myBaseModel);
+            for (int[] interval : intervalList) {
+                if (isNested) {
+                    AdditiveSite as = mySites.get(interval[0]);
+                    ModelEffect ncme =
+                            new NestedCovariateModelEffect(as.getCovariate(), nestingFactor);
+                    ncme.setID(as);
+                    myModel.add(ncme);
+                } else {
+                    AdditiveSite as = mySites.get(interval[0]);
+                    myModel.add(new CovariateModelEffect(as.getCovariate(), as));
+                }
+            }
+            mySweepFast = new SweepFastLinearModel(myModel, y);
 
             //add to reports
-            addToAnovaReport(Optional.of(intervalList));
-            addToMarkerEffectReport(true);
+            if (createAnovaReport)
+                addToAnovaReport(Optional.of(intervalList));
+            if (createPostScanEffectsReport)
+                addToMarkerEffectReport(true);
+
+            //scoop up the residuals by chromosome
+            if (createResidualsByChr)
+                allOfTheResidualPhenotypes.addAll(generateChromosomeResidualsFromCurrentModel());
         }
 
     }
@@ -838,6 +868,30 @@ public class StepwiseAdditiveModelFitter {
         maxSitesInModel = maxSites;
     }
 
+    public void useResiduals(boolean useResid) {
+        useResiduals = useResid;
+    }
+
+    public void createAnovaReport(boolean createIt) {
+        createAnovaReport = createIt;
+    }
+
+    public void createPostScanEffectsReport(boolean createIt) {
+        createPostScanEffectsReport = createIt;
+    }
+
+    public void createPreScanEffectsReport(boolean createIt) {
+        createPreScanEffectsReport = createIt;
+    }
+
+    public void createResidualsByChr(boolean createIt) {
+        createResidualsByChr = createIt;
+    }
+
+    public void createStepReport(boolean createIt) {
+        createStepReport = createIt;
+    }
+
     public TableReport getAnovaReport() {
         return anovaReportBuilder.build();
     }
@@ -855,7 +909,7 @@ public class StepwiseAdditiveModelFitter {
     }
 
     public List<Phenotype> getResidualPhenotypesByChromosome() {
-        return generateChromosomeResidualsFromCurrentModel();
+        return allOfTheResidualPhenotypes;
     }
 
     public TableReport getPermutationReport() {
