@@ -2,6 +2,7 @@ package net.maizegenetics.dna.snp.io;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 import net.maizegenetics.dna.map.Chromosome;
@@ -125,7 +126,13 @@ public class ReadNumericMarkerUtils {
         // Build PositionList for GenotypeTable
         PositionListBuilder posBuilder = new PositionListBuilder();
         for (int mNum = 0; mNum < numberOfColumns; mNum++) {
-            posBuilder.add(new GeneralPosition.Builder(Chromosome.UNKNOWN, mNum).snpName(markerName[mNum]).build());
+            String snpname = markerName[mNum];
+            Optional<Object[]> info = decodeSnpName(snpname);
+            if (info.isPresent()) {
+                posBuilder.add(new GeneralPosition.Builder((Chromosome) info.get()[0], (Integer) info.get()[1]).snpName(snpname).build());
+            } else {
+                posBuilder.add(new GeneralPosition.Builder(Chromosome.UNKNOWN, mNum).snpName(snpname).build());
+            }
         }
 
         PositionList pl = posBuilder.build();
@@ -179,6 +186,17 @@ public class ReadNumericMarkerUtils {
                 contents[i] = parsedline[i + 1];
             }
             return contents;
+        }
+    }
+    
+    public static Optional<Object[]> decodeSnpName(String name) {
+        if (!name.startsWith("S")) return Optional.empty();
+        try {
+            name = name.substring(1);
+            int ndx = name.indexOf('_');
+            return Optional.of(new Object[]{new Chromosome(name.substring(0, ndx)) ,Integer.parseInt(name.substring(ndx + 1))});
+        } catch (Exception e) {
+            return Optional.empty();
         }
     }
 }
