@@ -178,7 +178,6 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         System.out.println("ProductionSNPCallerPluginV2: Total batches to process: " + batchNum);
 
         final PositionList positionList=tagDataReader.getSNPPositions(positionQualityScore());
-        GenotypeTableBuilder gtb=setUpGenotypeTableBuilder(outputHDF5GenotypesFile(),positionList, genoMergeRule);
         if (positionList == null || positionList.size() == 0) {
         	String errMsg = "\nNo snp positons found with quality score of " + positionQualityScore() + ".\n"
         			+ "Please run UpdateSNPPositionQualityPlugin to add quality scores for your positions,\n"
@@ -186,6 +185,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         	myLogger.error(errMsg);
         	return null;
         }
+        GenotypeTableBuilder gtb=setUpGenotypeTableBuilder(outputHDF5GenotypesFile(),positionList, genoMergeRule);
         final Multimap<Tag,AlleleWithPosIndex> tagsToIndex=ArrayListMultimap.create();
         tagDataReader.getAlleleMap().entries().stream()
                 .forEach(e -> {
