@@ -6,6 +6,7 @@ package net.maizegenetics.dna.map;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -217,5 +218,18 @@ class HalfByteGenomeSequence implements GenomeSequence{
     @Override
     public int numberOfChromosomes() {
         return chromPositionMap.size();
+    }
+    
+    @Override
+    public Map<Chromosome, Integer> fullRefCoordinateToChromCoordinate(ArrayList<Long> coordinates) {
+        // Returns 0-based value from Chromosome array (values are stored as 0-based) 
+        Map<Chromosome, Integer> mappedCoordinates = new HashMap<Chromosome, Integer>();
+        coordinates.stream().forEach(coordinate -> {
+            Map.Entry<Range<Long>,Chromosome> rangeChromEntry=wholeGenomeIndexMap.getEntry(coordinate);
+            Chromosome curChrom = rangeChromEntry.getValue();
+            long chromCoordinate = coordinate - rangeChromEntry.getKey().lowerEndpoint();
+            mappedCoordinates.put(curChrom, (int)chromCoordinate);
+        });
+        return mappedCoordinates;
     }
 }
