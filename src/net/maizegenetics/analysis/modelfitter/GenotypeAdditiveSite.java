@@ -78,18 +78,9 @@ public class GenotypeAdditiveSite extends AbstractAdditiveSite {
     @Override
     public double[] getCovariate(int[] subset) {
         int nobs = subset.length;
+        double[] allCov = getCovariate();
         double[] cov = new double[nobs];
-        int intCount = 0;
-        int genoCount = 0;
-        while (genoCount < nobs) {
-            int intStore = bitStore[subset[intCount++]];
-            for (int i = 0; i < 32; i += 2) {
-                int genoIndex = (intStore >> i) & 3;
-                cov[genoCount++] = byteConversion[genoIndex];
-                if (genoCount == nobs)
-                    break;
-            }
-        }
+        for (int i = 0; i < nobs; i++) cov[i] = allCov[subset[i]];
         return cov;
     }
 

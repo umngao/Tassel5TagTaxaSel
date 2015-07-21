@@ -1,4 +1,4 @@
-package net.maizegenetics.analysis.association;
+package net.maizegenetics.analysis.modelfitter;
 
 import java.awt.Frame;
 import java.net.URL;
@@ -13,9 +13,9 @@ import java.util.stream.Stream;
 
 import javax.swing.ImageIcon;
 
-import net.maizegenetics.analysis.modelfitter.ResidualForwardRegression;
-import net.maizegenetics.analysis.modelfitter.AdditiveModelForwardRegression;
-import net.maizegenetics.analysis.modelfitter.ForwardRegression;
+import org.apache.log4j.Logger;
+
+import net.maizegenetics.analysis.association.FixedEffectLMPlugin;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.GenotypePhenotype;
@@ -47,17 +47,21 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
     //at most one factor is allowed (expected to be family or pop)
 
     private Random randomGen = new Random();
+    private GenotypePhenotype myGenoPheno;
+    int numberOfFactors;
+    
+    private static Logger myLogger = Logger.getLogger(ResamplingGWASPlugin.class);
     
     private PluginParameter<Double> enterLimit = new PluginParameter.Builder<>("enterLimit", 1e-8, Double.class)
             .description("A new term entering the model must have a p-value equal to or less than the enter limit. (Default = 1e-8)")
             .guiName("Enter Limit")
             .build();
-    private PluginParameter<Integer> maxModelTerms = new PluginParameter.Builder<>("maxTerms", 100, Integer.class)
+    private PluginParameter<Integer> maxModelTerms = new PluginParameter.Builder<>("maxterms", 100, Integer.class)
             .description("The maximum number of variants that will be fit. If the chromosome residuals are being fit, the maximum number of variants fit per chromosome. (Default = 100)")
             .guiName("Max terms")
             .build();
     
-    private PluginParameter<Boolean> useResiduals = new PluginParameter.Builder<>("residuals", true, Boolean.class)
+    private PluginParameter<Boolean> useResiduals = new PluginParameter.Builder<>("residuals", false, Boolean.class)
             .description("Should new terms be tested using residuals from the prior model? The analysis runs faster using this option. (Default = true)")
             .guiName("Use residuals")
             .build();
@@ -83,17 +87,17 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
     
     
     @Override
-    public DataSet processData(DataSet input) {
+    protected void preProcessParameters(DataSet input) {
         //check that there is only one GenotypePhenotype
         List<Datum> datumList = input.getDataOfType(GenotypePhenotype.class);
         if (datumList.size() != 1) {
             throw new IllegalArgumentException("Exactly one joined Genotype-Phenotype dataset must be supplied as input to Resample GWAS.");
         }
         
-        GenotypePhenotype myGenoPheno = (GenotypePhenotype) datumList.get(0).getData();
+        myGenoPheno = (GenotypePhenotype) datumList.get(0).getData();
         
         //if the Phenotype has more than one factor level, throw an error
-        int numberOfFactors = myGenoPheno.phenotype().numberOfAttributesOfType(ATTRIBUTE_TYPE.factor);
+        numberOfFactors = myGenoPheno.phenotype().numberOfAttributesOfType(ATTRIBUTE_TYPE.factor);
         if (numberOfFactors > 1) 
             throw new IllegalArgumentException("Phenotype supplied to Resample GWAS can have at most one factor");
         
@@ -101,11 +105,18 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
         boolean anyMissing = myGenoPheno.phenotype().attributeStream().anyMatch(pa -> pa.missing().cardinality() > 0 );
         if (anyMissing) 
             throw new IllegalArgumentException("No missing phenotype data allow as input to Resample GWAS");
+    }
+
+
+    @Override
+    public DataSet processData(DataSet input) {
         
         int numberOfTraits = myGenoPheno.phenotype().numberOfAttributesOfType(ATTRIBUTE_TYPE.data);
         List<int[]> factorLevelList = new ArrayList<>();
-        
+        List<Datum> datumList = input.getDataOfType(GenotypePhenotype.class);
+
         //create a factor level list for creating subsamples
+        //if there are nf factors, the list will contain nf int arrays, each containing the observation numbers for one factor level
         if (numberOfFactors == 1) {
             CategoricalAttribute myFactor = (CategoricalAttribute) myGenoPheno.phenotype().attributeListOfType(ATTRIBUTE_TYPE.factor).get(0);
             int[] levels = myFactor.allIntValues();
@@ -115,34 +126,46 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
                 List<Integer> factorMembers = factorGroups.get(i);
                 factorLevelList.add( factorMembers.stream().mapToInt(I -> I.intValue()).toArray() );
             }
-        } else {
+        } else {  //number of factors = 0
             factorLevelList.add(IntStream.range(0,  myGenoPheno.phenotype().numberOfObservations()).toArray());
         }
         
         String dataname = datumList.get(0).getName();
-        TableReportBuilder reportBuilder = TableReportBuilder.getInstance("Resample terms_" + dataname, ForwardRegression.columnLabels());
+        //report builder column labels
+        String[] columns = new String[]{"trait","interation", "step", "SnpID","Chr","Pos", "p-value", "-log10p"};
+        TableReportBuilder reportBuilder = TableReportBuilder.getInstance("Resample terms_" + dataname, columns);
         
-        //for each chromosome
+        //create the model fitter
+        ForwardRegression modelfitter;
+        if (useResiduals.value()) {
+            //not implemented
+            modelfitter = null;
+        } else {
+            modelfitter = new AdditiveModelForwardRegression(myGenoPheno);
+        }
+        
+        //for each trait
+        List<PhenotypeAttribute> dataAttributes = myGenoPheno.phenotype().attributeListOfType(ATTRIBUTE_TYPE.data);
         for (int ph = 0; ph < numberOfTraits; ph++) {
-            ForwardRegression modelfitter;
-            if (useResiduals.value()) {
-                modelfitter = new ResidualForwardRegression(myGenoPheno, ph, enterLimit.value(), maxModelTerms.value());
-            } else {
-                modelfitter = new AdditiveModelForwardRegression(myGenoPheno, ph, enterLimit.value(), maxModelTerms.value());
-            }
+            modelfitter.resetModel(ph, enterLimit.value(), maxModelTerms.value());
+            //TODO move site list creation out of phenotype loop
+            myLogger.debug(String.format("Analyzing phenotype %d, %s.", ph, dataAttributes.get(ph).name()));
 
             //for each iteration
             for (int iter = 0; iter < numberOfIterations.value(); iter++) {
+                myLogger.debug(String.format("phenotype %d, iteration %d", ph, iter));
+                
                 //create a random subsample
                 int[] subsample = randomSample(factorLevelList);
                 
                 //generate a model
-                modelfitter.fitModelForSubsample(subsample);
+                modelfitter.fitModelForSubsample(subsample, iter);
                 
-                //add the model terms and p-values to the result TableReportBuilder
-                for (Object[] row : modelfitter.fittedModel()) reportBuilder.add(row);
             }
             
+            //add the model terms and p-values to the result TableReportBuilder
+            for (Object[] row : modelfitter.fittedModel()) reportBuilder.add(row);
+   
         }
         
         //return a DataSet that contains the TableReportBuilder
@@ -151,7 +174,7 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
     }
 
     private int[] randomSample(List<int[]> factorLevelList) {
-        //if there is a single factor, will draw samples within factor levels
+        //draw samples within factor levels
         double rp = resampleProportion.value().doubleValue();
         if (withReplacement.value()) {
             return factorLevelList.stream()

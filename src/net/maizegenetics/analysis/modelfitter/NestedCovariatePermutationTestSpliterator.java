@@ -23,7 +23,6 @@ public class NestedCovariatePermutationTestSpliterator implements Spliterator<do
     private List<AdditiveSite> mySites;
     private List<ModelEffect> myBaseModel;
     private FactorModelEffect myOuter;
-    private DoubleMatrix baseX;
     private int origin;
     private final int end;
 
@@ -42,7 +41,7 @@ public class NestedCovariatePermutationTestSpliterator implements Spliterator<do
         for (int i = 0; i < numberOfEffects; i++) {
             components[0][i] = myBaseModel.get(i).getX();
         }
-        baseX = DoubleMatrixFactory.DEFAULT.compose(components);
+//        baseX = DoubleMatrixFactory.DEFAULT.compose(components);
 
     }
 
@@ -62,17 +61,22 @@ public class NestedCovariatePermutationTestSpliterator implements Spliterator<do
         double dfError = sflm.getResidualSSdf()[1];
         double dfCovar = sflm.getIncrementalSSdf(myBaseModel.size())[1];
         DoubleMatrix G = sflm.getInverseOfXtX();
-        DoubleMatrix X = baseX.concatenate(ncme.getX(), false);
         int numberOfOuterLevels = myOuter.getNumberOfLevels();
-        int xcol = X.numberOfColumns();
-        int[] betaSelection = IntStream.range(xcol - numberOfOuterLevels, xcol).toArray();
+        int ncolBase = myBaseModel.stream().mapToInt(me -> me.getEffectSize()).sum();
+        
+        int[] betaSelection = IntStream.range(ncolBase, ncolBase + numberOfOuterLevels).toArray();
         DoubleMatrix invKGK = G.getSelection(betaSelection, betaSelection).inverse();
         FDistribution fdist = new FDistribution(dfCovar, dfError);
 
         double[] pvals =
                 myPermutedData.stream().map(d -> DoubleMatrixFactory.DEFAULT.make(d.length, 1, d))
                         .mapToDouble(y -> {
-                            DoubleMatrix Xty = X.crossproduct(y);
+                            double[] yarray = y.to1DArray();
+                            int nbase = myBaseModel.size();
+                            DoubleMatrix[][] xtyMatrices = new DoubleMatrix[nbase + 1][1];
+                            for (int i = 0; i < nbase; i++) xtyMatrices[i][0] = myBaseModel.get(i).getXty(yarray);
+                            xtyMatrices[nbase][0] = ncme.getXty(yarray);
+                            DoubleMatrix Xty = DoubleMatrixFactory.DEFAULT.compose(xtyMatrices);
                             DoubleMatrix beta = G.mult(Xty);
                             DoubleMatrix Kbeta = beta.getSelection(betaSelection, null);
                             double Q = Kbeta.crossproduct(invKGK.mult(Kbeta)).get(0, 0);
@@ -100,8 +104,9 @@ public class NestedCovariatePermutationTestSpliterator implements Spliterator<do
         origin = mid;
         List<double[]> permutedDataCopy =
                 myPermutedData.stream().map(d -> Arrays.copyOf(d, d.length)).collect(Collectors.toList());
-
-        return new CovariatePermutationTestSpliterator(permutedDataCopy, splitSublist, myBaseModel);
+        myBaseModel.get(0).getCopy();
+        List<ModelEffect> baseModelCopy = myBaseModel.stream().map(me -> me.getCopy()).collect(Collectors.toList());
+        return new NestedCovariatePermutationTestSpliterator(permutedDataCopy, splitSublist, baseModelCopy, myOuter.getCopy());
     }
 
     @Override

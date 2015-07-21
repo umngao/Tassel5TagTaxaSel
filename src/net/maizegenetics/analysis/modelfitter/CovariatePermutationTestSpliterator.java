@@ -19,7 +19,6 @@ public class CovariatePermutationTestSpliterator implements Spliterator<double[]
     private List<double[]> myPermutedData;
     private List<AdditiveSite> mySites;
     private List<ModelEffect> myBaseModel;
-    private DoubleMatrix baseX;
     private int origin;
     private final int end;
 
@@ -35,7 +34,6 @@ public class CovariatePermutationTestSpliterator implements Spliterator<double[]
         for (int i = 0; i < numberOfEffects; i++) {
             components[0][i] = myBaseModel.get(i).getX();
         }
-        baseX = DoubleMatrixFactory.DEFAULT.compose(components);
 
     }
 
@@ -52,12 +50,16 @@ public class CovariatePermutationTestSpliterator implements Spliterator<double[]
         SweepFastLinearModel sflm = new SweepFastLinearModel(myModel, myPermutedData.get(0));
         double dfError = sflm.getResidualSSdf()[1];
         DoubleMatrix G = sflm.getInverseOfXtX();
-        DoubleMatrix X = baseX.concatenate(cme.getX(), false);
         FDistribution fdist = new FDistribution(1, dfError);
         double[] pvals =
                 myPermutedData.stream().map(d -> DoubleMatrixFactory.DEFAULT.make(d.length, 1, d))
                         .mapToDouble(y -> {
-                            DoubleMatrix Xty = X.crossproduct(y);
+                            double[] yarray = y.to1DArray();
+                            int nbase = myBaseModel.size();
+                            DoubleMatrix[][] xtyMatrices = new DoubleMatrix[nbase + 1][1];
+                            for (int i = 0; i < nbase; i++) xtyMatrices[i][0] = myBaseModel.get(i).getXty(yarray);
+                            xtyMatrices[nbase][0] = cme.getXty(yarray);
+                            DoubleMatrix Xty = DoubleMatrixFactory.DEFAULT.compose(xtyMatrices);
                             DoubleMatrix beta = G.mult(Xty);
                             double ssTotal = y.crossproduct().get(0, 0);
                             double ssModel = Xty.crossproduct(beta).get(0, 0);

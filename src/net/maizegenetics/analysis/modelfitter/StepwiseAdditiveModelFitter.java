@@ -28,6 +28,7 @@ import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
+import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory.FactoryType;
 import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.phenotype.NumericAttribute;
@@ -76,7 +77,7 @@ public class StepwiseAdditiveModelFitter {
     private List<Phenotype> allOfTheResidualPhenotypes;
 
     //user defined parameters
-    private int numberOfPermutations = 1000;
+    private int numberOfPermutations = 0;
     private double permutationAlpha = 0.05;
     private double enterLimit = 1e-5;
     private double exitLimit = 2e-5;
@@ -84,13 +85,13 @@ public class StepwiseAdditiveModelFitter {
     private boolean isNested = true;
     private String nestingEffectName = "family";
     private AdditiveSite.CRITERION modelSelectionCriterion = AdditiveSite.CRITERION.pval;
-    private int maxSitesInModel = 1000;
-    private boolean useResiduals;
-    private boolean createAnovaReport;
-    private boolean createPostScanEffectsReport;
-    private boolean createPreScanEffectsReport;
-    private boolean createStepReport;
-    private boolean createResidualsByChr;
+    private int maxSitesInModel = 10;
+    private boolean useResiduals = false;
+    private boolean createAnovaReport = true;
+    private boolean createPostScanEffectsReport = true;
+    private boolean createPreScanEffectsReport = true;
+    private boolean createStepReport = true;
+    private boolean createResidualsByChr = false;
 
     //TableReport builders
     private final TableReportBuilder anovaReportBuilder =
@@ -145,6 +146,7 @@ public class StepwiseAdditiveModelFitter {
         }
 
         //for each phenotype:
+        if (createResidualsByChr) allOfTheResidualPhenotypes = new ArrayList<>();
         for (PhenotypeAttribute phenoAttr : dataAttributeList) {
             currentTraitName = phenoAttr.name();
             //build the base model
@@ -165,8 +167,10 @@ public class StepwiseAdditiveModelFitter {
                 addToMarkerEffectReport(false);
 
             //call scanFindCI()
+            long start = System.nanoTime();
             List<int[]> intervalList = scanToFindCI();
-
+            myLogger.info(String.format("Rescan in %d ms", (System.nanoTime() - start)/1000000));
+            
             //created a new scanned model
             myModel = new ArrayList<>(myBaseModel);
             for (int[] interval : intervalList) {
@@ -201,6 +205,8 @@ public class StepwiseAdditiveModelFitter {
         //run the permutation test, if requested
         System.out.println("Running permutation test, if requested.");
         long start = System.nanoTime();
+        
+        DoubleMatrixFactory.setDefault(FactoryType.ejml);  //because ejml is faster
         if (numberOfPermutations > 0)
             runPermutationTest();
         myLogger.info(String.format("Permutation test run in %d ms.\n", (System.nanoTime() - start) / 1000000));
@@ -208,6 +214,7 @@ public class StepwiseAdditiveModelFitter {
         //loop through forward-backward steps until the stop criterion is met
         Optional<ModelEffect> lastTermRemoved = Optional.empty();
         SweepFastLinearModel sflm = new SweepFastLinearModel(myModel, y);
+        
         start = System.nanoTime();
         double selectionCriterionValue = 0;
         switch (modelSelectionCriterion) {
@@ -487,6 +494,7 @@ public class StepwiseAdditiveModelFitter {
             //4. if yes, replace the original with that point and rescan then return support interval
 
                 AdditiveSite scanSite = (AdditiveSite) me.getID();
+                myLogger.info(String.format("Scanning site %d, %s, pos = %d", scanSite.siteNumber(), myGenotype.chromosome(scanSite.siteNumber()), myGenotype.chromosomalPosition(scanSite.siteNumber())));
                 int[] support = findCI(me, myModel);
                 List<ModelEffect> baseModel = new ArrayList<>(myModel);
                 baseModel.remove(me);
@@ -507,7 +515,7 @@ public class StepwiseAdditiveModelFitter {
                 return support;
             };
 
-        return myModel.stream().skip(numberOfBaseEffects).map(intervalFinder).collect(Collectors.toList());
+        return myModel.stream().skip(numberOfBaseEffects).parallel().map(intervalFinder).collect(Collectors.toList());
     }
 
     private int[] findCI(ModelEffect me, List<ModelEffect> theModel) {
@@ -669,6 +677,7 @@ public class StepwiseAdditiveModelFitter {
         //How many chromosomes in the data?
         Chromosome[] myChromosomes = myGenotype.chromosomes();
         for (Chromosome chr : myChromosomes) {
+            myLogger.info(String.format("Calculating residuals for %s, %s", chr.getName(), currentTraitName));
             List<PhenotypeAttribute> chrAttributes = new ArrayList<>(attributes);
             List<ATTRIBUTE_TYPE> chrTypes = new ArrayList<>(types);
 
@@ -929,7 +938,7 @@ public class StepwiseAdditiveModelFitter {
     }
 
     public static double mbic(double RSS, int N, double modelDf, int numberOfSites) {
-        return N * Math.log(RSS / N) + Math.log(N) * modelDf + 2 * modelDf
+        return N * Math.log(RSS) + Math.log(N) * modelDf + 2 * modelDf
                 * Math.log(numberOfSites / 2.2 - 1);
     }
 }

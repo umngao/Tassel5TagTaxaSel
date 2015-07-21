@@ -24,6 +24,7 @@ import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.util.LoggingUtils;
 import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.TableReportUtils;
 
@@ -90,7 +91,7 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
                     .build();
 
     private PluginParameter<Integer> maxTerms =
-            new PluginParameter.Builder<>("maxSNPs", 1000, Integer.class)
+            new PluginParameter.Builder<>("maxterms", 1000, Integer.class)
                     .description("The maximum number of SNPs/markers that will be fit. If the model selection criterion is met first, then the fitting process will stop at that point.")
                     .guiName("Max SNPs/markers")
                     .build();
@@ -104,7 +105,7 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
     private PluginParameter<List> nestingFactor =
             new PluginParameter.Builder<>("nestFactor", null, List.class)
                     .guiName("Nesting factor")
-                    .description("Nest markers within this factor.")
+                    .description("Nest markers within this factor. This parameter cannot be set from the command line. Instead, the first factor in the data set will be used.")
                     .dependentOnParameter(isNested)
                     .objectListSingleSelect()
                     .build();
@@ -141,7 +142,7 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
                     .build();
 
     private PluginParameter<Boolean> createResiduals =
-            new PluginParameter.Builder<>("anova", false, Boolean.class)
+            new PluginParameter.Builder<>("residuals", false, Boolean.class)
                     .description("Create a phenotype dataset of model residuals for each chromosome. For each chromosome, the residuals will be calculated from a model with all terms EXCEPT the markers on that chromosome.")
                     .guiName("Create residuals")
                     .build();
@@ -182,8 +183,15 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
                         .map(pa -> pa.name())
                         .collect(Collectors.toList());
 
-        myFactorNameList.add(0, "None");
+        if (myFactorNameList.isEmpty()) myFactorNameList.add("None");
         nestingFactor = PluginParameter.getInstance(nestingFactor, myFactorNameList);
+    }
+
+    @Override
+    protected void postProcessParameters() {
+        if (isNested.value()) {
+            if (myFactorNameList.size() > 1 && nestingFactor.value().isEmpty()) throw new IllegalArgumentException("Is Nested was checked but no nesting factor was selected."); 
+        }
     }
 
     @Override
@@ -202,20 +210,37 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
 
         if (myGenotypeTable.value() == GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability)
             stamFitter.useReferenceProbability(true);
+        else if (myGenoPheno.genotypeTable().hasGenotype() == false
+                && myGenoPheno.genotypeTable().hasReferenceProbablity() == true)
+            stamFitter.useReferenceProbability(true);
         else
             stamFitter.useReferenceProbability(false);
 
         if (isNested.value()) {
-            List nestingList = nestingFactor.value();
-            if (nestingFactor.isEmpty()) {
-                stamFitter.isNested(false);
+            if (isInteractive()) {
+                List nestingList = nestingFactor.value();
+                if (nestingList.isEmpty()) {
+                    if (myFactorNameList.get(0).equals("None")) {
+                        stamFitter.isNested(false);
+                    } else {
+                        stamFitter.isNested(true);
+                        stamFitter.nestingEffectName((String) nestingList.get(0));
+                    }
+                } else {
+                    String factorName = (String) nestingList.get(0);
+                    if (factorName.equals("None"))
+                        stamFitter.isNested(false);
+                    else {
+                        stamFitter.isNested(true);
+                        stamFitter.nestingEffectName(factorName);
+                    }
+                }
             } else {
-                String factorName = (String) nestingList.get(0);
-                if (factorName.equals("None"))
-                    stamFitter.isNested(false);
+                List<PhenotypeAttribute> factorList = myGenoPheno.phenotype().attributeListOfType(ATTRIBUTE_TYPE.factor);
+                if (factorList.isEmpty()) stamFitter.isNested(false);
                 else {
                     stamFitter.isNested(true);
-                    stamFitter.nestingEffectName(factorName);
+                    stamFitter.nestingEffectName(factorList.get(0).name());
                 }
             }
 
@@ -231,10 +256,12 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
         stamFitter.createResidualsByChr(createResiduals.value());
         stamFitter.createStepReport(createStep.value());
 
+        stamFitter.runAnalysis();
+        
         List<Datum> resultData = new ArrayList<>();
         if (createStep.value()) {
-            String name = "";
-            String comment = "";
+            String name = "Steps_" + datasetName;
+            String comment = "Stepwise regression results:\nModel fitting steps\n";
             TableReport output = stamFitter.getSteps();
             resultData.add(new Datum(name, output, comment));
 
@@ -245,13 +272,13 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
         }
         if (createAnova.value()) {
             TableReport output1 = stamFitter.getAnovaReport();
-            String name = "";
-            String comment = "";
+            String name = "Prescan_anova_" + datasetName;
+            String comment = "Stepwise regression results:\nAnova for the initial model prior to rescanning\n";
             resultData.add(new Datum(name, output1, comment));
 
             TableReport output2 = stamFitter.getAnovaReportWithCI();
-            name = "";
-            comment = "";
+            name = "Anova_" + datasetName;
+            comment = "Stepwise regression results:\nAnova for the final model with support intervals\n";
             resultData.add(new Datum(name, output2, comment));
 
             if (writeFiles.value()) {
@@ -262,8 +289,8 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
             }
         }
         if (createEffectsPrescan.value()) {
-            String name = "";
-            String comment = "";
+            String name = "Prescan_effects_" + datasetName;
+            String comment = "Stepwise regression results:\nMarker effects estimated from the initial model before rescanning\n";
             TableReport output = stamFitter.getMarkerEffectReport();
             resultData.add(new Datum(name, output, comment));
 
@@ -273,8 +300,8 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
             }
         }
         if (createEffects.value()) {
-            String name = "";
-            String comment = "";
+            String name = "Effects_regression_" + datasetName;
+            String comment = "Stepwise regression results:\nMarker effects estimated from the final model\n";
             TableReport output = stamFitter.getMarkerEffectReportWithCI();
             resultData.add(new Datum(name, output, comment));
 
@@ -286,8 +313,9 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
         if (createResiduals.value()) {
             List<Phenotype> phenoList = stamFitter.getResidualPhenotypesByChromosome();
             phenoList.stream().forEach(pheno -> {
-                String name = "";
-                String comment = "";
+                String traitname = pheno.attributeName(pheno.numberOfAttributes() - 1);
+                String name = "Residuals_" + traitname + "_" + datasetName;
+                String comment = "Stepwise regression results:\nResiduals for " + traitname + "\n";
                 resultData.add(new Datum(name, pheno, comment));
             });
 
