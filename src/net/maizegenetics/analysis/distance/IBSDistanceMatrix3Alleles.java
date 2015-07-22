@@ -1,5 +1,5 @@
 /*
- *  IBSDistanceMatrix2
+ *  IBSDistanceMatrix3Alleles
  * 
  *  Created on Jul 10, 2015
  */
@@ -27,11 +27,11 @@ import org.apache.log4j.Logger;
  *
  * @author Terry Casstevens
  */
-public class IBSDistanceMatrix2 {
+public class IBSDistanceMatrix3Alleles {
 
-    private static final Logger myLogger = Logger.getLogger(IBSDistanceMatrix2.class);
+    private static final Logger myLogger = Logger.getLogger(IBSDistanceMatrix3Alleles.class);
 
-    private IBSDistanceMatrix2() {
+    private IBSDistanceMatrix3Alleles() {
         // utility
     }
 
@@ -83,11 +83,11 @@ public class IBSDistanceMatrix2 {
         }
 
         avgTotalSites /= (double) count;
-        myLogger.info("IBSDistanceMatrix: computeHetBitDistances time = " + (System.currentTimeMillis() - time) / 1000 + " seconds");
+        myLogger.info("IBSDistanceMatrix3Alleles: computeHetBitDistances time = " + (System.currentTimeMillis() - time) / 1000 + " seconds");
         return new Tuple<>(distance, avgTotalSites);
 
     }
-    
+
     public static double[] computeHetDistances(byte[] first, byte[] second, int minSitesComp) {
         return null;
     }
@@ -209,14 +209,14 @@ public class IBSDistanceMatrix2 {
         PRECALCULATED_ENCODINGS[0] = 0x0; // Unknown
     }
 
-    private static Collector<long[], ?, IBSDistanceMatrix2.Counters> toCounters(int numTaxa) {
+    private static Collector<long[], ?, IBSDistanceMatrix3Alleles.Counters> toCounters(int numTaxa) {
         return new CountersCollector(numTaxa);
     }
 
     /**
      * This collector uses the Counters class to accumulate the counts.
      */
-    private static class CountersCollector implements Collector<long[], IBSDistanceMatrix2.Counters, IBSDistanceMatrix2.Counters> {
+    private static class CountersCollector implements Collector<long[], IBSDistanceMatrix3Alleles.Counters, IBSDistanceMatrix3Alleles.Counters> {
 
         private final int myNumTaxa;
 
@@ -225,17 +225,17 @@ public class IBSDistanceMatrix2 {
         }
 
         @Override
-        public Supplier<IBSDistanceMatrix2.Counters> supplier() {
-            return () -> new IBSDistanceMatrix2.Counters(myNumTaxa);
+        public Supplier<IBSDistanceMatrix3Alleles.Counters> supplier() {
+            return () -> new IBSDistanceMatrix3Alleles.Counters(myNumTaxa);
         }
 
         @Override
-        public BiConsumer<IBSDistanceMatrix2.Counters, long[]> accumulator() {
-            return IBSDistanceMatrix2.Counters::add;
+        public BiConsumer<IBSDistanceMatrix3Alleles.Counters, long[]> accumulator() {
+            return IBSDistanceMatrix3Alleles.Counters::add;
         }
 
         @Override
-        public BinaryOperator<IBSDistanceMatrix2.Counters> combiner() {
+        public BinaryOperator<IBSDistanceMatrix3Alleles.Counters> combiner() {
             return (left, right) -> {
                 left.addAll(right);
                 return left;
@@ -243,8 +243,8 @@ public class IBSDistanceMatrix2 {
         }
 
         @Override
-        public Function<IBSDistanceMatrix2.Counters, IBSDistanceMatrix2.Counters> finisher() {
-            return (IBSDistanceMatrix2.Counters t) -> t;
+        public Function<IBSDistanceMatrix3Alleles.Counters, IBSDistanceMatrix3Alleles.Counters> finisher() {
+            return (IBSDistanceMatrix3Alleles.Counters t) -> t;
         }
 
         @Override
@@ -263,7 +263,7 @@ public class IBSDistanceMatrix2 {
     private static final int MAX_NUMBER_20_BITS = 0xFFFFF;
 
     //
-    // Creates stream from GCTASiteSpliterator and Genotype Table
+    // Creates stream from IBSSiteSpliterator and Genotype Table
     //
     private static Stream<long[]> stream(GenotypeTable genotypes, ProgressListener listener) {
         myNumSitesProcessed = 0;
@@ -387,8 +387,8 @@ public class IBSDistanceMatrix2 {
                 if (numAlleles != 0) {
 
                     //
-                    // Records major allele counts (C) for current site in
-                    // three bits.
+                    // Records presence of major, minor, and second minor alleles
+                    // for current site in 5 bits.
                     //
                     for (int i = 0; i < myNumTaxa; i++) {
                         byte genotype = myGenotypes.genotype(i, currentSite);
