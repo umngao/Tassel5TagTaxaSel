@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 
+import net.maizegenetics.util.Tuple;
+
 
 /**
  * Defines the genome sequence of a chromosome
@@ -69,10 +71,11 @@ public interface GenomeSequence {
      * alleles are stored, and the results. 
      * 
      * @param coordinates:  list of coordinates from the full genome sequence to be like mapped
-     * @return A map of <Chromosome/coordinate> for each global coordinate
-     *          passed.
+     * @return A map of <Long, Tuple<Chromosome/coordinate>> for each global coordinate
+     *          passed where "Long" is the global ref, and Tuple<> is the chrom/chrom-position
+     *          to which this relates.
      */    
-    public Map<Chromosome, Integer> fullRefCoordinateToChromCoordinate(ArrayList<Long> coordinates);
+    public Map<Long, Tuple<Chromosome, Integer>> fullRefCoordinateToChromCoordinate(ArrayList<Long> coordinates);
 
     /**
      * Returns the length of the current chromsome

@@ -17,10 +17,12 @@ import java.util.stream.Collectors;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
+
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.util.GeneralAnnotation;
 import net.maizegenetics.util.GeneralAnnotationStorage;
+import net.maizegenetics.util.Tuple;
 import net.maizegenetics.util.Utils;
 
 import org.apache.log4j.Logger;
@@ -221,14 +223,15 @@ class HalfByteGenomeSequence implements GenomeSequence{
     }
     
     @Override
-    public Map<Chromosome, Integer> fullRefCoordinateToChromCoordinate(ArrayList<Long> coordinates) {
+    public Map<Long, Tuple<Chromosome, Integer>> fullRefCoordinateToChromCoordinate(ArrayList<Long> coordinates) {
         // Returns 0-based value from Chromosome array (values are stored as 0-based) 
-        Map<Chromosome, Integer> mappedCoordinates = new HashMap<Chromosome, Integer>();
+        Map<Long, Tuple<Chromosome, Integer>> mappedCoordinates = new HashMap<Long, Tuple<Chromosome, Integer>>();
         coordinates.stream().forEach(coordinate -> {
             Map.Entry<Range<Long>,Chromosome> rangeChromEntry=wholeGenomeIndexMap.getEntry(coordinate);
             Chromosome curChrom = rangeChromEntry.getValue();
             long chromCoordinate = coordinate - rangeChromEntry.getKey().lowerEndpoint();
-            mappedCoordinates.put(curChrom, (int)chromCoordinate);
+            Tuple<Chromosome, Integer> chromWithCoordinate = new Tuple<>(curChrom, (int)chromCoordinate);
+            mappedCoordinates.put(coordinate, chromWithCoordinate);
         });
         return mappedCoordinates;
     }
