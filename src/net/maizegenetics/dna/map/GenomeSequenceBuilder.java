@@ -180,6 +180,7 @@ class HalfByteGenomeSequence implements GenomeSequence{
         startSite--;  //shift over to zero base
         lastSite--;   //shift over to zero base
         byte[] packedBytes = chromPositionMap.get(chrom);
+        if (packedBytes == null) return null; // chromosome not found
         if (startSite > packedBytes.length*2 || lastSite > packedBytes.length*2 ) {
             return null; // requested sequence is out of range
         }
@@ -226,7 +227,7 @@ class HalfByteGenomeSequence implements GenomeSequence{
     public Map<Long, Tuple<Chromosome, Integer>> fullRefCoordinateToChromCoordinate(ArrayList<Long> coordinates) {
         // Returns 0-based value from Chromosome array (values are stored as 0-based) 
         Map<Long, Tuple<Chromosome, Integer>> mappedCoordinates = new HashMap<Long, Tuple<Chromosome, Integer>>();
-        coordinates.stream().forEach(coordinate -> {
+        coordinates.stream().parallel().forEach(coordinate -> {
             Map.Entry<Range<Long>,Chromosome> rangeChromEntry=wholeGenomeIndexMap.getEntry(coordinate);
             Chromosome curChrom = rangeChromEntry.getValue();
             long chromCoordinate = coordinate - rangeChromEntry.getKey().lowerEndpoint();
