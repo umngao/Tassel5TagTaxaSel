@@ -42,6 +42,9 @@ import org.apache.log4j.Logger;
  * Keeps only good reads having a barcode and a cut site and no N's in the
  * useful part of the sequence. Trims off the barcodes and truncates sequences
  * that (1) have a second cut site, or (2) read into the common adapter.
+ * 
+ * Originally the reference throughout was to "tag". This is being changed
+ * to "kmer" as the pipeline is a kmer alignment process.  
  *
  * @author Ed Buckler
  */
@@ -57,18 +60,18 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             .description("Key file listing barcodes distinguishing the samples").build();
     private PluginParameter<String> myEnzyme = new PluginParameter.Builder<>("e", null, String.class).guiName("Enzyme").required(true)
             .description("Enzyme used to create the GBS library, if it differs from the one listed in the key file").build();
-    private PluginParameter<Integer> myMaxTagLength = new PluginParameter.Builder<>("mxTagL", 64, Integer.class).guiName("Maximum Tag Length")
-            .description("Maximum Tag Length").build();
-    private PluginParameter<Integer> myMinTagLength = new PluginParameter.Builder<>("mnTagL", 20, Integer.class).guiName("Minimum Tag Length")
-            .description("Minimum Tag Length").build();
-    private PluginParameter<Integer> myMinTagCount = new PluginParameter.Builder<>("c", 10, Integer.class).guiName("Min Tag Count")
-            .description("Minimum tag count").build();
+    private PluginParameter<Integer> myKmerLength = new PluginParameter.Builder<>("kmerLength", 64, Integer.class).guiName("Maximum Tag Length")
+            .description("Specified length for each kmer to process").build();
+    private PluginParameter<Integer> myMinKmerLength = new PluginParameter.Builder<>("minKmerL", 20, Integer.class).guiName("Minimum Tag Length")
+            .description("Minimum kmer Length after second cut site is removed").build();
+    private PluginParameter<Integer> myMinKmerCount = new PluginParameter.Builder<>("c", 10, Integer.class).guiName("Min Tag Count")
+            .description("Minimum kmer count").build();
     private PluginParameter<String> myOutputDB = new PluginParameter.Builder<>("db", null, String.class).guiName("Output Database File").required(true).outFile()
             .description("Output Database File").build();
     private PluginParameter<Integer> myMinQualScore = new PluginParameter.Builder<>("mnQS", 0, Integer.class).guiName("Minimum quality score").required(false)
             .description("Minimum quality score within the barcode and read length to be accepted").build();
-    private PluginParameter<Integer> myMaxTagNumber = new PluginParameter.Builder<>("mxTagNum", 50000000, Integer.class).guiName("Maximum Tag Number").required(false)
-            .description("Maximum number of tags").build();
+    private PluginParameter<Integer> myMaxKmerNumber = new PluginParameter.Builder<>("mxKmerNum", 50000000, Integer.class).guiName("Maximum Tag Number").required(false)
+            .description("Maximum number of kmers").build();
     private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 8, Integer.class).guiName("Batch size of fastq files").required(false)
             .description("Number of flow cells being processed simultaneously").build();
     private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",false,Boolean.class).guiName("Delete Old Data")
@@ -139,7 +142,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
     public DataSet processData(DataSet input) {
         int batchSize = myBatchSize.value();
         float loadFactor = 0.95f;
-        tagCntMap = new TagDistributionMap (myMaxTagNumber.value(),loadFactor, 128, this.minTagCount());        
+        tagCntMap = new TagDistributionMap (myMaxKmerNumber.value(),loadFactor, 128, this.minKmerCount());        
         double reducePoint = 0.5;
         try {
             //Get the list of fastq files
@@ -206,7 +209,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 .forEach(inputSeqFile -> {
                     try {
                         processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),
-                                minimumQualityScore(), tagCntMap, maximumTagLength());
+                                minimumQualityScore(), tagCntMap, kmerLength());
                     } catch (StringIndexOutOfBoundsException oobe) {
                         oobe.printStackTrace();
                         myLogger.error(oobe.getMessage());
@@ -216,10 +219,10 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 });
                 if (taglenException == true) return null; // Tag length failure from processFastQ - halt processing
 
-                System.out.println("\nTags are added from batch "+String.valueOf(i/batchSize+1) + ". Total batch number: " + batchNum);
+                System.out.println("\nKmers are added from batch "+String.valueOf(i/batchSize+1) + ". Total batch number: " + batchNum);
                 int currentSize = tagCntMap.size();
-                System.out.println("Current tag number: " + String.valueOf(currentSize) + ". Max tag number: " + String.valueOf(myMaxTagNumber.value()));
-                System.out.println(String.valueOf((float)currentSize/(float)myMaxTagNumber.value()) + " of max tag number");
+                System.out.println("Current number: " + String.valueOf(currentSize) + ". Max kmer number: " + String.valueOf(myMaxKmerNumber.value()));
+                System.out.println(String.valueOf((float)currentSize/(float)myMaxKmerNumber.value()) + " of max tag number");
 
                 if (currentSize > 0) { // calcTagMapStats() gets "divide by 0" error when size == 0
                     this.calcTagMapStats(tagCntMap);
@@ -231,7 +234,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                     } else {
                         this.calcTagMapStats(tagCntMap);
                         System.out.println();
-                        System.out.println("Tag number is reduced to " + tagCntMap.size()+"\n");  
+                        System.out.println("Kmer number is reduced to " + tagCntMap.size()+"\n");  
                     }                   
                     this.roughTagCnt.reset();
                     this.roughTagCnt.add(tagCntMap.size());
@@ -245,8 +248,8 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 System.out.println("\n");
             }
             System.out.println("\nAll the batch are processed");
-            tagCntMap.removeTagByCount(myMinTagCount.value());
-            System.out.println("By removing tags with minCount of " + myMinTagCount.value() + "Tag number is reduced to " + tagCntMap.size()+"\n");
+            tagCntMap.removeTagByCount(myMinKmerCount.value());
+            System.out.println("By removing kmers with minCount of " + myMinKmerCount.value() + "Kmer number is reduced to " + tagCntMap.size()+"\n");
             
             removeSecondCutSitesFromMap(new GBSEnzyme(enzyme()));
 
@@ -302,8 +305,8 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 	String errMsg = "\n\nERROR processing " + fastqFile.toString() + "\n" +
                 			"Reading entry number " + allReads + " fails the length test.\n" +
                 			"Sequence length " + seqAndQual[0].length() + " minus barcode length "+ barcodeLen +
-                			" is less then maxTagLength " + preferredTagLength + ".\n" +
-                			"Re-run your files with either a shorter mxTagL value or a higher minimum quality score.\n";
+                			" is less then maxKmerLength " + preferredTagLength + ".\n" +
+                			"Re-run your files with either a shorter mxKmerL value or a higher minimum quality score.\n";
                 	throw new StringIndexOutOfBoundsException(errMsg);
                 }
                 
@@ -354,7 +357,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 if(p>0) minCutSite=Math.min(minCutSite,p);
             }
             if (minCutSite!=Integer.MAX_VALUE && minCutSite > 1) {
-                if(minCutSite<minimumTagLength()) {
+                if(minCutSite<minimumKmerLength()) {
                     tagCntMap.remove(origTag);
                     belowMinSize++;
                     continue;
@@ -504,8 +507,8 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return Maximum Tag Length
      */
-    public Integer maximumTagLength() {
-        return myMaxTagLength.value();
+    public Integer kmerLength() {
+        return myKmerLength.value();
     }
 
     /**
@@ -515,8 +518,8 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public GBSSeqToTagDBPlugin maximumTagLength(Integer value) {
-        myMaxTagLength = new PluginParameter<>(myMaxTagLength, value);
+    public GBSSeqToTagDBPlugin kmerLength(Integer value) {
+        myKmerLength = new PluginParameter<>(myKmerLength, value);
         return this;
     }
 
@@ -525,8 +528,8 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return Minimum Tag Length
      */
-    public Integer minimumTagLength() {
-        return myMinTagLength.value();
+    public Integer minimumKmerLength() {
+        return myMinKmerLength.value();
     }
 
     /**
@@ -536,8 +539,8 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public GBSSeqToTagDBPlugin minimumTagLength(Integer value) {
-        myMinTagLength = new PluginParameter<>(myMinTagLength, value);
+    public GBSSeqToTagDBPlugin minimumKmerLength(Integer value) {
+        myMinKmerLength = new PluginParameter<>(myMinKmerLength, value);
         return this;
     }
 
@@ -546,8 +549,8 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return Min Tag Count
      */
-    public Integer minTagCount() {
-        return myMinTagCount.value();
+    public Integer minKmerCount() {
+        return myMinKmerCount.value();
     }
 
     /**
@@ -557,8 +560,8 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public GBSSeqToTagDBPlugin minTagCount(Integer value) {
-        myMinTagCount = new PluginParameter<>(myMinTagCount, value);
+    public GBSSeqToTagDBPlugin minKmerCount(Integer value) {
+        myMinKmerCount = new PluginParameter<>(myMinKmerCount, value);
         return this;
     }
 
@@ -607,12 +610,12 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
     }
     
     /**
-     * Set maximum number of tag number
+     * Set maximum number of kmers
      * @param value
      * @return 
      */
-    public GBSSeqToTagDBPlugin maximumTagNumber(Integer value) {
-        myMaxTagNumber = new PluginParameter<>(myMaxTagNumber, value);
+    public GBSSeqToTagDBPlugin maximumKmerNumber(Integer value) {
+        myMaxKmerNumber = new PluginParameter<>(myMaxKmerNumber, value);
         return this;
     }
     

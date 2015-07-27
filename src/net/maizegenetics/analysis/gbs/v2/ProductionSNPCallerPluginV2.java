@@ -79,6 +79,9 @@ import com.google.common.collect.Multimaps;
  * annotated with "Flowcell_Lanes" (=source seq data for current genotype).
  *
  * Requires a database with variants added from a previous "Discovery Pipeline" run.
+ * 
+ * References to "tag" are being replaced by references to "kmer" as the pipeline
+ * is really a kmer alignment process.
  *
  * TODO add the Stacks likelihood method to BasicGenotypeMergeRule
  *
@@ -107,8 +110,8 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             .description("Keep hdf5 genotypes open for future runs that add more taxa or more depth").build();
     private PluginParameter<Boolean> myDepthOutput = new PluginParameter.Builder<>("do", true, Boolean.class).guiName("Write Depths to Output")
             .description("Depth output: True means write depths to the output hdf5 genotypes file, false means do NOT write depths to the hdf5 file").build();
-    private PluginParameter<Integer> myMaxTagLength = new PluginParameter.Builder<>("mxTagL", 64, Integer.class).guiName("Maximum Tag Length")
-            .description("Maximum Tag Length").build();
+    private PluginParameter<Integer> myKmerLength = new PluginParameter.Builder<>("kmerLength", 64, Integer.class).guiName("Maximum Tag Length")
+            .description("Length of kmers to process").build();
     private PluginParameter<Double> posQualityScore = new PluginParameter.Builder<>("minPosQS", 0.0, Double.class).guiName("Minimun snp quality score")
             .description("Minimum quality score for snp position to be included").build();
     private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 8, Integer.class).guiName("Batch size of fastq files").required(false)
@@ -208,7 +211,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             sub.parallelStream()
             .forEach(inputSeqFile -> {
                 try {
-                    processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),canonicalTag,maximumTagLength(), minimumQualityScore());
+                    processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),canonicalTag,kmerLength(), minimumQualityScore());
                 } catch (StringIndexOutOfBoundsException oobe) {
                     oobe.printStackTrace();
                     myLogger.error(oobe.getMessage());
@@ -308,8 +311,8 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
                     String errMsg = "\n\nERROR processing " + fastqFile.toString() + "\n" +
                             "Reading entry number " + allReads + " fails the length test.\n" +
                             "Sequence length " + seqAndQual[0].length() + " minus barcode length "+ barcodeLen +
-                            " is less then maxTagLength " + preferredTagLength + ".\n" +
-                            "Re-run your files with either a shorter mxTagL value or a higher minimum quality score.\n";
+                            " is less then maxKmerLength " + preferredTagLength + ".\n" +
+                            "Re-run your files with either a shorter mxKmerL value or a higher minimum quality score.\n";
                     throw new StringIndexOutOfBoundsException(errMsg);
                 }
                 Tag tag= TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength() + preferredTagLength)).build();
@@ -776,8 +779,8 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
      *
      * @return Maximum Tag Length
      */
-    public Integer maximumTagLength() {
-        return myMaxTagLength.value();
+    public Integer kmerLength() {
+        return myKmerLength.value();
     }
 
     /**
@@ -791,8 +794,8 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public ProductionSNPCallerPluginV2 maximumTagLength(Integer value) {
-        myMaxTagLength = new PluginParameter<>(myMaxTagLength, value);
+    public ProductionSNPCallerPluginV2 kmerLength(Integer value) {
+        myKmerLength = new PluginParameter<>(myKmerLength, value);
         return this;
     }
     /**
