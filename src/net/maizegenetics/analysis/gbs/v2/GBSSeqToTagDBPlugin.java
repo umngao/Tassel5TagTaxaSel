@@ -60,17 +60,17 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             .description("Key file listing barcodes distinguishing the samples").build();
     private PluginParameter<String> myEnzyme = new PluginParameter.Builder<>("e", null, String.class).guiName("Enzyme").required(true)
             .description("Enzyme used to create the GBS library, if it differs from the one listed in the key file").build();
-    private PluginParameter<Integer> myKmerLength = new PluginParameter.Builder<>("kmerLength", 64, Integer.class).guiName("Maximum Tag Length")
+    private PluginParameter<Integer> myKmerLength = new PluginParameter.Builder<>("kmerLength", 64, Integer.class).guiName("Maximum Kmer Length")
             .description("Specified length for each kmer to process").build();
-    private PluginParameter<Integer> myMinKmerLength = new PluginParameter.Builder<>("minKmerL", 20, Integer.class).guiName("Minimum Tag Length")
+    private PluginParameter<Integer> myMinKmerLength = new PluginParameter.Builder<>("minKmerL", 20, Integer.class).guiName("Minimum Kmer Length")
             .description("Minimum kmer Length after second cut site is removed").build();
-    private PluginParameter<Integer> myMinKmerCount = new PluginParameter.Builder<>("c", 10, Integer.class).guiName("Min Tag Count")
+    private PluginParameter<Integer> myMinKmerCount = new PluginParameter.Builder<>("c", 10, Integer.class).guiName("Min Kmer Count")
             .description("Minimum kmer count").build();
     private PluginParameter<String> myOutputDB = new PluginParameter.Builder<>("db", null, String.class).guiName("Output Database File").required(true).outFile()
             .description("Output Database File").build();
     private PluginParameter<Integer> myMinQualScore = new PluginParameter.Builder<>("mnQS", 0, Integer.class).guiName("Minimum quality score").required(false)
             .description("Minimum quality score within the barcode and read length to be accepted").build();
-    private PluginParameter<Integer> myMaxKmerNumber = new PluginParameter.Builder<>("mxKmerNum", 50000000, Integer.class).guiName("Maximum Tag Number").required(false)
+    private PluginParameter<Integer> myMaxKmerNumber = new PluginParameter.Builder<>("mxKmerNum", 50000000, Integer.class).guiName("Maximum Kmer Number").required(false)
             .description("Maximum number of kmers").build();
     private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 8, Integer.class).guiName("Batch size of fastq files").required(false)
             .description("Number of flow cells being processed simultaneously").build();

@@ -110,7 +110,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             .description("Keep hdf5 genotypes open for future runs that add more taxa or more depth").build();
     private PluginParameter<Boolean> myDepthOutput = new PluginParameter.Builder<>("do", true, Boolean.class).guiName("Write Depths to Output")
             .description("Depth output: True means write depths to the output hdf5 genotypes file, false means do NOT write depths to the hdf5 file").build();
-    private PluginParameter<Integer> myKmerLength = new PluginParameter.Builder<>("kmerLength", 64, Integer.class).guiName("Maximum Tag Length")
+    private PluginParameter<Integer> myKmerLength = new PluginParameter.Builder<>("kmerLength", 64, Integer.class).guiName("Maximum Kmer Length")
             .description("Length of kmers to process").build();
     private PluginParameter<Double> posQualityScore = new PluginParameter.Builder<>("minPosQS", 0.0, Double.class).guiName("Minimun snp quality score")
             .description("Minimum quality score for snp position to be included").build();
