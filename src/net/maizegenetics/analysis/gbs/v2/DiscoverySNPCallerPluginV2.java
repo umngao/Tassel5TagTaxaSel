@@ -81,9 +81,9 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                     + "when the tags at a locus are aligned against each other to call SNPs. The reference allele for each site "
                     + "is then provided in the output HapMap files, under the taxon name \"REFERENCE_GENOME\" (first taxon). "
                     + "DEFAULT: Don't use reference genome.").build();
-    private PluginParameter<Chromosome> myStartChr = new PluginParameter.Builder<>("sC", null, Chromosome.class).guiName("Start Chromosome").required(true)
+    private PluginParameter<Chromosome> myStartChr = new PluginParameter.Builder<>("sC", null, Chromosome.class).guiName("Start Chromosome").required(false)
             .description("Start Chromosome").build();
-    private PluginParameter<Chromosome> myEndChr = new PluginParameter.Builder<>("eC", null, Chromosome.class).guiName("End Chromosome").required(true)
+    private PluginParameter<Chromosome> myEndChr = new PluginParameter.Builder<>("eC", null, Chromosome.class).guiName("End Chromosome").required(false)
             .description("End Chromosome").build();
     private PluginParameter<Boolean> myIncludeRareAlleles = new PluginParameter.Builder<>("inclRare", false, Boolean.class).guiName("Include Rare Alleles")
             .description("Include the rare alleles at site (3 or 4th states)").build();
@@ -129,8 +129,24 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         List<Chromosome> myChroms = tagDataWriter.getChromosomesFromCutPositions();
         if (myChroms == null || myChroms.size() == 0) {
             myLogger.error("No Chromosomes found in cutPosition tables");
+            try{
+                ((TagDataSQLite)tagDataWriter).close();
+            } catch (Exception ex) {ex.printStackTrace();}
             return null;
         }
+        Collections.sort(myChroms); // put in order
+       
+        Chromosome startChrom = myStartChr.isEmpty() ? myChroms.get(0) : startChromosome();
+        Chromosome endChrom = myEndChr.isEmpty() ? myChroms.get(myChroms.size()-1) : endChromosome();
+        if (startChrom.compareTo(endChrom) > 0) {
+            String message = "The start chromosome " + startChrom.getName() 
+                    + " is larger than the end chromosome " + endChrom.getName();
+            myLogger.error(message);
+            try{
+                ((TagDataSQLite)tagDataWriter).close();
+            } catch (Exception ex) {ex.printStackTrace();}
+            return null;
+        } 
         List<Chromosome> chromsToProcess=myChroms.stream()
                 .filter(chrom -> { 
                     // Only keep chromosomes within our range.  The chromosome 
@@ -139,7 +155,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                     //
                     // The "compareTo" method of Chromosome compares the chrom number if
                     // available, otherwise does a string compare on the name. 
-                    return (chrom.compareTo(startChromosome()) >=0 && chrom.compareTo(endChromosome()) <=0);
+                    return (chrom.compareTo(startChrom) >=0 && chrom.compareTo(endChrom) <=0);
                 })
                 .collect(Collectors.toList());
 
@@ -176,10 +192,11 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         if (callBiallelicSNPsWithGap() && includeGaps()) {
             throw new IllegalArgumentException("The callBiSNPsWGap option is mutually exclusive with the inclGaps option.");
         }
-        if (startChromosome().compareTo(endChromosome()) > 0) {
-            throw new IllegalArgumentException("The start chromosome is larger than the end chromosome.");
+        if (!myStartChr.isEmpty() && !myEndChr.isEmpty()) {
+            if (startChromosome().compareTo(endChromosome()) > 0) {
+                throw new IllegalArgumentException("The start chromosome is larger than the end chromosome.");
+            } 
         } 
-
         myLogger.info(String.format("MinMAF:%g %n", minMinorAlleleFreq()));
         myLogger.info(String.format("includeRare:%s includeGaps:%s %n", includeRareAlleles(), includeGaps()));
     }
