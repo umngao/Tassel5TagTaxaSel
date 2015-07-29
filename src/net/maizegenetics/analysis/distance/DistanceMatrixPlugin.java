@@ -72,11 +72,11 @@ public class DistanceMatrixPlugin extends AbstractPlugin {
     }
 
     public static DistanceMatrix getDistanceMatrix(GenotypeTable alignment) {
-        return IBSDistanceMatrix.getInstance(alignment);
+        return IBSDistanceMatrix3Alleles.getInstance(alignment);
     }
 
     public static DistanceMatrix getDistanceMatrix(GenotypeTable alignment, ProgressListener listener) {
-        return IBSDistanceMatrix.getInstance(alignment, listener);
+        return IBSDistanceMatrix3Alleles.getInstance(alignment, listener);
     }
 
     /**
