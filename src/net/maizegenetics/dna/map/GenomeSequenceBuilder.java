@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -226,7 +227,7 @@ class HalfByteGenomeSequence implements GenomeSequence{
     @Override
     public Map<Long, Tuple<Chromosome, Integer>> fullRefCoordinateToChromCoordinate(ArrayList<Long> coordinates) {
         // Returns 0-based value from Chromosome array (values are stored as 0-based) 
-        Map<Long, Tuple<Chromosome, Integer>> mappedCoordinates = new HashMap<Long, Tuple<Chromosome, Integer>>();
+        Map<Long, Tuple<Chromosome, Integer>> mappedCoordinates = new ConcurrentHashMap<Long, Tuple<Chromosome, Integer>>();
         coordinates.stream().parallel().forEach(coordinate -> {
             Map.Entry<Range<Long>,Chromosome> rangeChromEntry=wholeGenomeIndexMap.getEntry(coordinate);
             Chromosome curChrom = rangeChromEntry.getValue();
