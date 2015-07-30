@@ -25,6 +25,7 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
     Object[] myColumnNames;
     double[] myPValues;
     double[] myLogPValues;
+    long[] myPositions;
     String[] myMarkers;
     HashMap myLookupTable;
     int myPValueColumnIndex = -1;
@@ -123,17 +124,6 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
         throw new IllegalArgumentException("No positions in selected data");
     }
 
-    private void setChromNames(TableReport myTableReport) {
-        String currentChrom = "";
-        for (int i = 0; i < myChromNames.length; i++) {
-            myChromNames[i] = ((String) myTableReport.getValueAt(myStartIndex + i, myChromColumnIndex));
-            if (!currentChrom.equals(myChromNames[i])) {
-                numberYAxes++;
-                currentChrom = myChromNames[i];
-            }
-        }
-    }
-
     private void setNumericChromNames() {
         for (int i = 0; i < myChromNames.length; i++) {
             try {
@@ -176,6 +166,31 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
         }
     }
 
+    private void setPositions(TableReport myTableReport) {
+
+        long offset = 0;
+        int currentPosition = 0;
+        int previousPosition = 0;
+        String currentChrom = "";
+        // GLM positions formated as int
+        for (int i = 0; i < myNumRows; i++) {
+
+            currentPosition = Integer.valueOf((myTableReport.getValueAt(myStartIndex + i, myPositionColumnIndex)).toString());
+
+            myChromNames[i] = ((String) myTableReport.getValueAt(myStartIndex + i, myChromColumnIndex));
+            if (!currentChrom.equals(myChromNames[i])) {
+                numberYAxes++;
+                currentChrom = myChromNames[i];
+                previousPosition = currentPosition;
+            }
+
+            myPositions[i] = currentPosition - previousPosition + offset;
+            previousPosition = currentPosition;
+            offset = myPositions[i];
+
+        }
+    }
+
     private void setTrait(TableReport table) {
         myTrait = (String) table.getValueAt(myStartIndex, myTraitColumnIndex);
     }
@@ -208,11 +223,12 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
         myPValues = new double[myNumRows];
         myLogPValues = new double[myNumRows];
         myChromNames = new String[myNumRows];
+        myPositions = new long[myNumRows];
         myMarkers = new String[myNumRows];
         myLookupTable = new HashMap(myNumRows);
         setPValues(theTable);
         setLogPValues();
-        setChromNames(theTable);
+        setPositions(theTable);
         setNumericChromNames();
         setMarkers(theTable);
         setTrait(theTable);
@@ -229,7 +245,7 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
         }
         for (int i = 0; i < myNumRows; i++) {
             try {
-                theData[i][0] = i;
+                theData[i][0] = myPositions[i];
                 if (!myNumericChromNames) {
                     if (!currentChrom.equals(myChromNames[i])) {
                         chromIndex++;
@@ -250,6 +266,6 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
                 System.out.println("throw new NumberFormatException();");
             }
         }
-        xName = "Relative Position";
+        xName = "Position";
     }
 }
