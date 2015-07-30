@@ -77,6 +77,11 @@ public class GBSEnzyme {
             initialCutSiteRemnant = new String[]{"TGCAG"};
             likelyReadEnd = new String[]{"TCGA", "CTGCAG", "TCGAGATC"}; // look for TaqI site, PstI site, or common adapter for TaqI
             readEndCutSiteRemnantLength = 3;
+        } else if (enzyme.matches("(?i)nsi[i1]-msp[i1]")) {
+            theEnzyme = "NsiI-MspI";  //  ATGCA^T   C^CGG
+            initialCutSiteRemnant = new String[]{"TGCAT"};
+            likelyReadEnd = new String[]{"CCGG", "ATGCAT", "CCGAGATC"}; // look for MspI site, NsiI site, or common adapter for MspI
+            readEndCutSiteRemnantLength = 3;
         } else if(enzyme.matches("(?i)PaeR7[i1]-Hha[i1]")) {
             theEnzyme = "PaeR7I-HhaI";
             // Requested by Ye, Songqing, use same Y adapter as Polland paper  -QS
@@ -84,9 +89,19 @@ public class GBSEnzyme {
             likelyReadEnd = new String[]{"GCGC", "CTCGAG", "GCGAGATC"}; // look for HhaI site, PaeR7I site, or common adapter for HhaI
             readEndCutSiteRemnantLength = 3;
         } else if (enzyme.matches("(?i)sbf[i1]-msp[i1]")) {
-            theEnzyme = "SbfI-MspI";
+            theEnzyme = "SbfI-MspI";  // CCTGCA^GG  C^CGG
             initialCutSiteRemnant = new String[]{"TGCAGG"};
             likelyReadEnd = new String[]{"CCGG", "CCTGCAGG", "CCGAGATC"}; // look for MspI site, SbfI site, or common adapter for MspI
+            readEndCutSiteRemnantLength = 3;
+        } else if (enzyme.matches("(?i)sbf[i1]-hpaii|(?i)sbf[i1]-hpa2")) {
+            theEnzyme = "SbfI-HpaII";  // CCTGCA^GG  C^CGG  Nb: HpaII is an isoschizomer of MspI
+            initialCutSiteRemnant = new String[]{"TGCAGG"};
+            likelyReadEnd = new String[]{"CCGG", "CCTGCAGG", "CCGAGATC"}; // look for HpaII site, SbfI site, or common adapter for HpaII
+            readEndCutSiteRemnantLength = 3;
+        } else if (enzyme.matches("(?i)sbf[i1]-bfa[i1]")) {
+            theEnzyme = "SbfI-BfaI";  // CCTGCA^GG  C^TAG
+            initialCutSiteRemnant = new String[]{"TGCAGG"};
+            likelyReadEnd = new String[]{"CTAG", "CCTGCAGG", "CTAAGATC"}; // look for BfaI site, SbfI site, or common adapter for BfaI
             readEndCutSiteRemnantLength = 3;
         } else if (enzyme.matches("(?i)asis[i1]-msp[i1]")) {
             theEnzyme = "AsiSI-MspI";
@@ -128,6 +143,11 @@ public class GBSEnzyme {
             initialCutSiteRemnant = new String[]{"GATCC"};
             likelyReadEnd = new String[]{"AATT", "GGATCC", "AATTAGATC"}; // look for MluCI site, BamHI site, or Poland et al. 2012 Y-adapter for MluCI
             readEndCutSiteRemnantLength = 4;
+        } else if (enzyme.matches("(?i)pst[i1]-mluc[i1]")) {
+            theEnzyme = "PstI-MluCI";  // CTGCA^G   ^AATT (not blunt)
+            initialCutSiteRemnant = new String[]{"TGCAG"};
+            likelyReadEnd = new String[]{"AATT", "CTGCAG", "AATTAGATC"}; // look for MluCI site, PstI site, or Poland et al. 2012 Y-adapter for MluCI
+            readEndCutSiteRemnantLength = 4;
         } else if (enzyme.matches("(?i)psti-msei|(?i)pst1-mse1")) {
             theEnzyme = "PstI-MseI"; // CTGCA^G   T^TAA
             initialCutSiteRemnant = new String[]{"TGCAG"};
@@ -158,6 +178,11 @@ public class GBSEnzyme {
             initialCutSiteRemnant = new String[]{"TCAGC"};
             likelyReadEnd = new String[]{"CCGG", "CCTCAGC", "CCGAGATC"}; // look for MspI site, BbvCI site, or Poland et al. 2012 Y-adapter for MspI
             readEndCutSiteRemnantLength = 3;
+        } else if (enzyme.matches("(?i)msp[i1]-apek[i1]")) {
+            theEnzyme = "MspI-ApeKI";  // C^CGG  G^CWGC
+            initialCutSiteRemnant = new String[]{"CGG", "CAGC", "CTGC"};
+            likelyReadEnd = new String[]{"CCGG", "GCAGC", "GCTGC", "CCGAGATCGG", "GCAGAGAT", "GCTGAGAT"}; 
+            readEndCutSiteRemnantLength = 3; 
         } else if(enzyme.matches("(?i)apo[i1]")){
             theEnzyme = "ApoI";
             initialCutSiteRemnant=new String[]{"AATTC","AATTT"};
@@ -346,13 +371,18 @@ public class GBSEnzyme {
                     +"  HindIII-MspI" +"\n"
                     +"  HindIII-NlaIII" +"\n"
                     +"  KpnI-MspI"    +"\n"
+                    +"  MspI-ApeKI"   +"\n"
+                    +"  NsiI-MspI"    +"\n"
                     +"  PaeR7I-HhaI"  +"\n"
                     +"  PstI-ApeKI"   +"\n"
                     +"  PstI-EcoT22I" +"\n"
+                    +"  PstI-MluCI"   +"\n"
                     +"  PstI-MseI"    +"\n"
                     +"  PstI-MspI"    +"\n"
                     +"  PstI-MspI-GDFcustom"+"\n"
                     +"  PstI-TaqI"    +"\n"
+                    +"  SbfI-BfaI"    +"\n"
+                    +"  SbfI-HpaII"   +"\n"
                     +"  SalI-MspI"    +"\n"
                     +"  SbfI-MspI"    +"\n"
                     +"  SexAI-Sau3AI" +"\n"
