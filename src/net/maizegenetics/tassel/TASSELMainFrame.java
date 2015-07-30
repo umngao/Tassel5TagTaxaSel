@@ -114,8 +114,8 @@ import net.maizegenetics.analysis.workflow.WorkflowPlugin;
 public class TASSELMainFrame extends JFrame implements ActionListener {
 
     private static final Logger myLogger = Logger.getLogger(TASSELMainFrame.class);
-    public static final String version = "5.2.12";
-    public static final String versionDate = "June 25, 2015";
+    public static final String version = "5.2.13";
+    public static final String versionDate = "July 30, 2015";
     private DataTreePanel myDataTreePanel;
     private String tasselDataFile = "TasselDataFile";
     //a variable to control when the progress bar was last updated
