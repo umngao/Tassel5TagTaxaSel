@@ -146,7 +146,8 @@ public class StepwiseAdditiveModelFitter {
         }
 
         //for each phenotype:
-        if (createResidualsByChr) allOfTheResidualPhenotypes = new ArrayList<>();
+        if (createResidualsByChr)
+            allOfTheResidualPhenotypes = new ArrayList<>();
         for (PhenotypeAttribute phenoAttr : dataAttributeList) {
             currentTraitName = phenoAttr.name();
             //build the base model
@@ -169,8 +170,8 @@ public class StepwiseAdditiveModelFitter {
             //call scanFindCI()
             long start = System.nanoTime();
             List<int[]> intervalList = scanToFindCI();
-            myLogger.info(String.format("Rescan in %d ms", (System.nanoTime() - start)/1000000));
-            
+            myLogger.info(String.format("Rescan in %d ms", (System.nanoTime() - start) / 1000000));
+
             //created a new scanned model
             myModel = new ArrayList<>(myBaseModel);
             for (int[] interval : intervalList) {
@@ -205,7 +206,7 @@ public class StepwiseAdditiveModelFitter {
         //run the permutation test, if requested
         System.out.println("Running permutation test, if requested.");
         long start = System.nanoTime();
-        
+
         DoubleMatrixFactory.setDefault(FactoryType.ejml);  //because ejml is faster
         if (numberOfPermutations > 0)
             runPermutationTest();
@@ -214,7 +215,7 @@ public class StepwiseAdditiveModelFitter {
         //loop through forward-backward steps until the stop criterion is met
         Optional<ModelEffect> lastTermRemoved = Optional.empty();
         SweepFastLinearModel sflm = new SweepFastLinearModel(myModel, y);
-        
+
         start = System.nanoTime();
         double selectionCriterionValue = 0;
         switch (modelSelectionCriterion) {
@@ -599,12 +600,13 @@ public class StepwiseAdditiveModelFitter {
 
     public void runPermutationTest() {
         //parallel version of permutation test
-        int enterLimitIndex = (int) (permutationAlpha * numberOfPermutations);
+        int enterLimitIndex = (int) (permutationAlpha * numberOfPermutations);  //index of percentile to be used for the enter limit
 
         //create the permutedData
         SweepFastLinearModel sflm = new SweepFastLinearModel(myModel, y);
         double[] yhat = sflm.getPredictedValues().to1DArray();
         double[] residuals = sflm.getResiduals().to1DArray();
+
         BasicShuffler.shuffle(residuals);
         List<double[]> permutedData = Stream.iterate(residuals, BasicShuffler.shuffleDouble())
                 .limit(numberOfPermutations)
@@ -621,18 +623,21 @@ public class StepwiseAdditiveModelFitter {
         Arrays.fill(maxP, 1.0);
         double[] minP;
         List<double[]> plist = new ArrayList<>();
+
         if (isNested) {
             ModelEffect nestWithin =
                     myModel.stream().filter(me -> nestingEffectName.equals(me.getID())).findFirst().get();
             minP =
-                    StreamSupport.stream(new NestedCovariatePermutationTestSpliterator(permutedData, mySites, myModel, nestWithin), true).reduce(maxP, (a, b) -> {
-                        int n = a.length;
-                        for (int i = 0; i < n; i++) {
-                            if (a[i] > b[i])
-                                a[i] = b[i];
-                        }
-                        return a;
-                    });
+                    StreamSupport.stream(new NestedCovariatePermutationTestSpliterator(permutedData, mySites, myModel, nestWithin), true)
+                            .peek(mp -> plist.add(mp))
+                            .reduce(maxP, (a, b) -> {
+                                int n = a.length;
+                                for (int i = 0; i < n; i++) {
+                                    if (a[i] > b[i])
+                                        a[i] = b[i];
+                                }
+                                return a;
+                            });
         } else {
             minP =
                     StreamSupport.stream(new CovariatePermutationTestSpliterator(permutedData, mySites, myModel), true).reduce(maxP, (a, b) -> {

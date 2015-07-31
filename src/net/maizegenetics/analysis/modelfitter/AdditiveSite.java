@@ -1,6 +1,8 @@
 package net.maizegenetics.analysis.modelfitter;
 
-public interface AdditiveSite extends Comparable<AdditiveSite> {
+import java.io.Serializable;
+
+public interface AdditiveSite extends Comparable<AdditiveSite>, Serializable {
 
     public static enum CRITERION {
         pval,

@@ -66,10 +66,11 @@ public abstract class AbstractForwardRegression implements ForwardRegression {
         
         //Initialize the siteList
         siteList = new ArrayList<>();
+        long start = System.nanoTime();
         for (int s = 0; s < numberOfSites; s++) 
             siteList.add(new GenotypeAdditiveSite(s, CRITERION.pval, myGenotype.genotypeAllTaxa(s), myGenotype.majorAllele(s), myGenotype.majorAlleleFrequency(s)));
         
-        myLogger.debug(String.format("site list created with %d sites.", siteList.size()));
+        myLogger.debug(String.format("site list created with %d sites i  %d ms.", siteList.size(), (System.nanoTime() - start)/1000000));
     }
     
     @Override
