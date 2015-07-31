@@ -69,8 +69,7 @@ public class AdditiveModelForwardRegression extends AbstractForwardRegression {
         }
         
         if (!Double.isNaN(p) && p <= enterLimit) {
-            myFittedVariants.add(new Object[]{traitname, myGenotype.positions().get(bestSite.siteNumber()), new Integer(bestSite.siteNumber()), new Double(p)});  //Position, index, p-value
-            addVariant(bestSite.siteNumber(), p, 0, step);
+            addVariant(bestSite, p, 0, step);
             return true;
         }
         else return false;
@@ -97,7 +96,7 @@ public class AdditiveModelForwardRegression extends AbstractForwardRegression {
         
         if (!Double.isNaN(p) && p <= enterLimit) {
             //columns in myFittedVariants: "trait","SnpID","Chr","Pos", "p-value", "-log10p"
-            addVariant(bestSite.siteNumber(), p, iteration, step);
+            addVariant(bestSite, p, iteration, step);
             return true;
         }
         else return false;

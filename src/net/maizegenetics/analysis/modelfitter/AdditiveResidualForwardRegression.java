@@ -72,7 +72,7 @@ public class AdditiveResidualForwardRegression extends AbstractForwardRegression
         }
         
         if (!Double.isNaN(p) && p <= enterLimit) {
-            addVariant(bestSite.siteNumber(), p, 0, step);
+            addVariant(bestSite, p, 0, step);
             residuals = sflm.getResiduals().to1DArray();
             return true;
         }
@@ -103,7 +103,7 @@ public class AdditiveResidualForwardRegression extends AbstractForwardRegression
         
         if (!Double.isNaN(p) && p <= enterLimit) {
             //columns in myFittedVariants: "trait","SnpID","Chr","Pos", "p-value", "-log10p"
-            addVariant(bestSite.siteNumber(), p, iteration, step);
+            addVariant(bestSite, p, iteration, step);
             residuals = sflm.getResiduals().to1DArray();
             return true;
         }

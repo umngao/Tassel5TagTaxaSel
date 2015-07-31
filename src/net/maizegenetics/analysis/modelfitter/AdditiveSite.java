@@ -28,6 +28,21 @@ public interface AdditiveSite extends Comparable<AdditiveSite>, Serializable {
     int siteNumber();
 
     /**
+     * @return  the name of the chromosome of this site
+     */
+    String chromosomeName();
+    
+    /**
+     * @return  the chromosomal position of this site
+     */
+    int position();
+    
+    /**
+     * @return  the name (SNPID) of this site
+     */
+    String siteName();
+    
+    /**
      * @return     the value of the selection criterion for this site
      */
     double criterionValue();

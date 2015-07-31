@@ -3,11 +3,13 @@ package net.maizegenetics.analysis.modelfitter;
 import java.util.Arrays;
 
 public class RefProbAdditiveSite extends AbstractAdditiveSite {
+
+    private static final long serialVersionUID = 2040665024409852166L;
     private int ntaxa;
     private float[] cov;
 
-    public RefProbAdditiveSite(int site, CRITERION selectionCriteria, float[] covariate) {
-        super(site, selectionCriteria);
+    public RefProbAdditiveSite(int site, String chr, int pos, String id, CRITERION selectionCriteria, float[] covariate) {
+        super(site, chr, pos, id, selectionCriteria);
         cov = covariate;
         ntaxa = cov.length;
     }

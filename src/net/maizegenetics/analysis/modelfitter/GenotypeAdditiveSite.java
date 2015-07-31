@@ -4,6 +4,8 @@ import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 
 public class GenotypeAdditiveSite extends AbstractAdditiveSite {
+
+    private static final long serialVersionUID = -7891486608129027827L;
     private int[] bitStore;
     private double[] byteConversion;
     private int ntaxa;
@@ -14,9 +16,9 @@ public class GenotypeAdditiveSite extends AbstractAdditiveSite {
      * @param majorAllele				major allele
      * @param majorAlleleFrequency		major allele frequency
      */
-    public GenotypeAdditiveSite(int site, CRITERION selectionCriterion, byte[] genotype,
+    public GenotypeAdditiveSite(int site, String chr, int pos, String id, CRITERION selectionCriterion, byte[] genotype,
             byte majorAllele, double majorAlleleFrequency) {
-        super(site, selectionCriterion);
+        super(site, chr, pos, id, selectionCriterion);
         byte unknown = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
         ntaxa = genotype.length;
         double mean = 2 * majorAlleleFrequency;

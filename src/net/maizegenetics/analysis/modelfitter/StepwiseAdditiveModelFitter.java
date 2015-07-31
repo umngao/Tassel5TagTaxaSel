@@ -1,16 +1,11 @@
 package net.maizegenetics.analysis.modelfitter;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Spliterator;
 import java.util.function.Function;
-import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -23,9 +18,7 @@ import org.apache.log4j.spi.RootLogger;
 
 import net.maizegenetics.analysis.association.AssociationUtils;
 import net.maizegenetics.dna.map.Chromosome;
-import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory.FactoryType;
@@ -37,11 +30,9 @@ import net.maizegenetics.phenotype.PhenotypeAttribute;
 import net.maizegenetics.phenotype.PhenotypeBuilder;
 import net.maizegenetics.phenotype.TaxaAttribute;
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
-import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.stats.linearmodels.BasicShuffler;
 import net.maizegenetics.stats.linearmodels.CovariateModelEffect;
 import net.maizegenetics.stats.linearmodels.FactorModelEffect;
-import net.maizegenetics.stats.linearmodels.LinearModelUtils;
 import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.stats.linearmodels.ModelEffectUtils;
 import net.maizegenetics.stats.linearmodels.NestedCovariateModelEffect;
@@ -129,19 +120,21 @@ public class StepwiseAdditiveModelFitter {
     public void runAnalysis() {
         //load the markers into the appropriate additive site list
         if (useReferenceProbability) {
-            mySites = IntStream.range(0, myGenotype.numberOfSites())
-                    .mapToObj(s -> {
-                        int ntaxa = myGenotype.numberOfTaxa();
-                        float[] cov = new float[ntaxa];
-                        for (int t = 0; t < ntaxa; t++)
-                            cov[t] = myGenotype.referenceProbability(t, s);
-                        return new RefProbAdditiveSite(s, modelSelectionCriterion, cov);
-                    })
-                    .collect(Collectors.toList());
+            mySites =
+                    IntStream.range(0, myGenotype.numberOfSites())
+                            .mapToObj(s -> {
+                                int ntaxa = myGenotype.numberOfTaxa();
+                                float[] cov = new float[ntaxa];
+                                for (int t = 0; t < ntaxa; t++)
+                                    cov[t] = myGenotype.referenceProbability(t, s);
+                                return new RefProbAdditiveSite(s, myGenotype.chromosomeName(s), myGenotype.chromosomalPosition(s), myGenotype.siteName(s), modelSelectionCriterion, cov);
+                            })
+                            .collect(Collectors.toList());
         } else {  // use genotype
             mySites =
                     IntStream.range(0, myGenotype.numberOfSites())
-                            .mapToObj(s -> new GenotypeAdditiveSite(s, modelSelectionCriterion, myGenotype.genotypeAllTaxa(s), myGenotype.majorAllele(s), myGenotype.majorAlleleFrequency(s)))
+                            .mapToObj(s -> new GenotypeAdditiveSite(s, myGenotype.chromosomeName(s), myGenotype.chromosomalPosition(s), myGenotype.siteName(s),
+                                    modelSelectionCriterion, myGenotype.genotypeAllTaxa(s), myGenotype.majorAllele(s), myGenotype.majorAlleleFrequency(s)))
                             .collect(Collectors.toList());
         }
 
@@ -501,7 +494,6 @@ public class StepwiseAdditiveModelFitter {
                 baseModel.remove(me);
                 AdditiveSite bestSite = bestTerm(baseModel, support);
                 if (!bestSite.equals(scanSite)) {
-                    int ndxOfMe = myModel.indexOf(me);
                     ModelEffect bestEffect;
                     if (isNested) {
                         bestEffect =

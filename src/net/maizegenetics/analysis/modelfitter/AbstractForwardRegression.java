@@ -18,9 +18,14 @@ import net.maizegenetics.phenotype.NumericAttribute;
 import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.phenotype.PhenotypeAttribute;
+import net.maizegenetics.phenotype.PhenotypeBuilder;
+import net.maizegenetics.phenotype.TaxaAttribute;
 import net.maizegenetics.stats.linearmodels.CovariateModelEffect;
 import net.maizegenetics.stats.linearmodels.FactorModelEffect;
 import net.maizegenetics.stats.linearmodels.ModelEffect;
+import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.TaxaListUtils;
+import net.maizegenetics.taxa.Taxon;
 
 /**
  * @author pbradbury
@@ -38,6 +43,7 @@ public abstract class AbstractForwardRegression implements ForwardRegression {
     protected final GenotypePhenotype myGenotypePhenotype;
     protected final GenotypeTable myGenotype;
     protected final Phenotype myPhenotype;
+    protected final int[] siteIndices;
     protected double enterLimit;
     protected int maxVariants;
     protected final int numberOfSites;
@@ -63,24 +69,52 @@ public abstract class AbstractForwardRegression implements ForwardRegression {
         numberOfObservations = data.numberOfObservations();
         myBaseModel = getBaseModel();
         myModel = new ArrayList<>(myBaseModel);
-        
+
         //Initialize the siteList
         siteList = new ArrayList<>();
         long start = System.nanoTime();
-        for (int s = 0; s < numberOfSites; s++) 
-            siteList.add(new GenotypeAdditiveSite(s, CRITERION.pval, myGenotype.genotypeAllTaxa(s), myGenotype.majorAllele(s), myGenotype.majorAlleleFrequency(s)));
+        for (int s = 0; s < numberOfSites; s++) {
+            Position pos = myGenotype.positions().get(s);
+            siteList.add(new GenotypeAdditiveSite(s, pos.getChromosome().getName(), pos.getPosition(), pos.getSNPID(), CRITERION.pval, myGenotype.genotypeAllTaxa(s), myGenotype.majorAllele(s), myGenotype.majorAlleleFrequency(s)));
+        }
+        myLogger.debug(String.format("site list created with %d sites i  %d ms.", siteList.size(), (System.nanoTime() - start) / 1000000));
         
-        myLogger.debug(String.format("site list created with %d sites i  %d ms.", siteList.size(), (System.nanoTime() - start)/1000000));
+        //create an index from siteList into phenotype
+        TaxaAttribute myTaxa = myPhenotype.taxaAttribute();
+        TaxaList siteTaxaList = myGenotype.taxa();
+        siteIndices = myTaxa.allTaxaAsList().stream().mapToInt(t -> siteTaxaList.indexOf(t)).toArray();
+
+    }
+
+    public AbstractForwardRegression(Phenotype pheno, List<AdditiveSite> siteList, TaxaList siteTaxaList) {
+        myGenotypePhenotype = null;
+        myGenotype = null;
+        this.siteList = siteList;
+        numberOfSites = siteList.size();
+        
+        //reconcile the phenotype and siteTaxaList
+        TaxaList jointTaxaList = TaxaListUtils.getCommonTaxa(siteTaxaList, pheno.taxa());
+        
+        //delete any phenotypes not in the site list
+        myPhenotype = new PhenotypeBuilder().fromPhenotype(pheno).keepTaxa(jointTaxaList).build().get(0);
+        numberOfObservations = myPhenotype.numberOfObservations();
+        myBaseModel = getBaseModel();
+
+        //create an index from siteList into phenotype
+        TaxaAttribute myTaxa = myPhenotype.taxaAttribute();
+        siteIndices = myTaxa.allTaxaAsList().stream().mapToInt(t -> siteTaxaList.indexOf(t)).toArray();
+        
     }
     
     @Override
     public void resetModel(int phenotypeIndex, double enterLimit, int maxVariants) {
         // TODO Auto-generated method stub
-        PhenotypeAttribute myTraitAttribute = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data).get(phenotypeIndex);
+        PhenotypeAttribute myTraitAttribute =
+                myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data).get(phenotypeIndex);
         traitname = myTraitAttribute.name();
         myModel = new ArrayList<>(myBaseModel);
         y = AssociationUtils.convertFloatArrayToDouble((float[]) myTraitAttribute.allValues());
-        
+
         this.enterLimit = enterLimit;
         this.maxVariants = maxVariants;
     }
@@ -90,26 +124,28 @@ public abstract class AbstractForwardRegression implements ForwardRegression {
         int[] mean = new int[numberOfObservations];
         ModelEffect meanEffect = new FactorModelEffect(mean, false, "mean");
         base.add(meanEffect);
-        for (PhenotypeAttribute factor : myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor) ) {
-            ModelEffect factorEffect = new FactorModelEffect( ((CategoricalAttribute) factor).allIntValues(), true, factor.name());
+        for (PhenotypeAttribute factor : myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor)) {
+            ModelEffect factorEffect =
+                    new FactorModelEffect(((CategoricalAttribute) factor).allIntValues(), true, factor.name());
             base.add(factorEffect);
         }
-        for (PhenotypeAttribute cov : myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.covariate) ) {
-            double[] values = AssociationUtils.convertFloatArrayToDouble(((NumericAttribute) cov).floatValues());
+        for (PhenotypeAttribute cov : myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.covariate)) {
+            double[] values =
+                    AssociationUtils.convertFloatArrayToDouble(((NumericAttribute) cov).floatValues());
             ModelEffect covEffect = new CovariateModelEffect(values, cov.name());
             base.add(covEffect);
         }
         return base;
     }
-    
+
     @Override
     public List<Object[]> fittedModel() {
         return myFittedVariants;
     }
 
-    protected void addVariant(int site, double p, int iteration, int step) {
-        Position myPosition = myGenotype.positions().get(site);
-        myFittedVariants.add(new Object[]{traitname, iteration, step, myPosition.getSNPID(), myPosition.getChromosome().getName(), myPosition.getPosition(), p, -Math.log10(p)});
+    protected void addVariant(AdditiveSite site, double p, int iteration, int step) {
+        myFittedVariants.add(new Object[] { traitname, iteration, step, site.siteName(),
+                site.chromosomeName(), site.position(), p, -Math.log10(p) });
     }
 
 }
