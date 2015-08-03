@@ -13,7 +13,9 @@ import javax.swing.ImageIcon;
 
 import com.google.common.collect.Range;
 
+import net.maizegenetics.analysis.modelfitter.AdditiveSite.CRITERION;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTable.GENOTYPE_TABLE_COMPONENT;
 import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
@@ -351,267 +353,461 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
         return "Fit a model using stepwise forward-backward regression.";
     }
 
-    // The following getters and setters were auto-generated.
-    // Please use this method to re-generate.
-    //
-    // public static void main(String[] args) {
-    //     GeneratePluginCode.generate(StepwiseAdditiveModelFitterPlugin.class);
-    // }
+     // The following getters and setters were auto-generated.
+     // Please use this method to re-generate.
+     //
+     // public static void main(String[] args) {
+     //     GeneratePluginCode.generate(StepwiseAdditiveModelFitterPlugin.class);
+     // }
 
-    /**
-     * Convenience method to run plugin with one return object.
-     */
-    // TODO: Replace <Type> with specific type.
-    public DataSet runPlugin(DataSet input) {
-        return null;
-    }
+     /**
+      * Convenience method to run plugin with one return object.
+      */
+    //not implemented because the plugin always returns more than one object
+//     public <Type> runPlugin(DataSet input) {
+//         return (<Type>) performFunction(input).getData(0).getData();
+//     }
 
-    /**
-     * The model selection criterion used to determine which
-     * terms enter the model and how many. Value must be one
-     * of pval, bic, mbic, or aic
-     *
-     * @return Model selection criterion
-     */
-    public AdditiveSite.CRITERION modelCriterion() {
-        return modelCriterion.value();
-    }
+     /**
+      * The model selection criterion used to determine which
+      * terms enter the model and how many. Value must be one
+      * of pval, bic, mbic, or aic
+      *
+      * @return Model selection criterion
+      */
+     public CRITERION modelCriterion() {
+         return modelCriterion.value();
+     }
 
-    /**
-     * Set Model selection criterion. The model selection
-     * criterion used to determine which terms enter the model
-     * and how many. Value must be one of pval, bic, mbic,
-     * or aic
-     *
-     * @param value Model selection criterion
-     *
-     * @return this plugin
-     */
-    public StepwiseAdditiveModelFitterPlugin modelCriterion(AdditiveSite.CRITERION value) {
-        modelCriterion = new PluginParameter<>(modelCriterion, value);
-        return this;
-    }
+     /**
+      * Set Model selection criterion. The model selection
+      * criterion used to determine which terms enter the model
+      * and how many. Value must be one of pval, bic, mbic,
+      * or aic
+      *
+      * @param value Model selection criterion
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin modelCriterion(CRITERION value) {
+         modelCriterion = new PluginParameter<>(modelCriterion, value);
+         return this;
+     }
 
-    /**
-     * Should permutations be used to set the enter and exit
-     * limits for stepwise regression? A permutation test
-     * will be used to determine the enter limit. The exit
-     * limit will be set to 2 times the enter limit.
-     *
-     * @return Use permutations
-     */
-    public Boolean usePermutations() {
-        return usePermutations.value();
-    }
+     /**
+      * Should the each new term be tested using residuals
+      * from the previous model instead of fitting a complete
+      * model each time?
+      *
+      * @return Fit using residuals
+      */
+     public Boolean useResiduals() {
+         return useResiduals.value();
+     }
 
-    /**
-     * Set Use permutations. Should permutations be used to
-     * set the enter and exit limits for stepwise regression?
-     * A permutation test will be used to determine the enter
-     * limit. The exit limit will be set to 2 times the enter
-     * limit.
-     *
-     * @param value Use permutations
-     *
-     * @return this plugin
-     */
-    public StepwiseAdditiveModelFitterPlugin usePermutations(Boolean value) {
-        usePermutations = new PluginParameter<>(usePermutations, value);
-        return this;
-    }
+     /**
+      * Set Fit using residuals. Should the each new term be
+      * tested using residuals from the previous model instead
+      * of fitting a complete model each time?
+      *
+      * @param value Fit using residuals
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin useResiduals(Boolean value) {
+         useResiduals = new PluginParameter<>(useResiduals, value);
+         return this;
+     }
 
-    /**
-     * The number of permutations used to determine the enter
-     * limit.
-     *
-     * @return Number of permutations
-     */
-    public Integer numberOfPermutations() {
-        return numberOfPermutations.value();
-    }
+     /**
+      * Should permutations be used to set the enter and exit
+      * limits for stepwise regression? A permutation test
+      * will be used to determine the enter limit. The exit
+      * limit will be set to 2 times the enter limit.
+      *
+      * @return Use permutations
+      */
+     public Boolean usePermutations() {
+         return usePermutations.value();
+     }
 
-    /**
-     * Set Number of permutations. The number of permutations
-     * used to determine the enter limit.
-     *
-     * @param value Number of permutations
-     *
-     * @return this plugin
-     */
-    public StepwiseAdditiveModelFitterPlugin numberOfPermutations(Integer value) {
-        numberOfPermutations = new PluginParameter<>(numberOfPermutations, value);
-        return this;
-    }
+     /**
+      * Set Use permutations. Should permutations be used to
+      * set the enter and exit limits for stepwise regression?
+      * A permutation test will be used to determine the enter
+      * limit. The exit limit will be set to 2 times the enter
+      * limit.
+      *
+      * @param value Use permutations
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin usePermutations(Boolean value) {
+         usePermutations = new PluginParameter<>(usePermutations, value);
+         return this;
+     }
 
-    /**
-     * Type I errors will be controlled at this level.
-     *
-     * @return Alpha for permutations
-     */
-    public Double permutationAlpha() {
-        return permutationAlpha.value();
-    }
+     /**
+      * The number of permutations used to determine the enter
+      * limit.
+      *
+      * @return Number of permutations
+      */
+     public Integer numberOfPermutations() {
+         return numberOfPermutations.value();
+     }
 
-    /**
-     * Set Alpha for permutations. Type I errors will be controlled
-     * at this level.
-     *
-     * @param value Alpha for permutations
-     *
-     * @return this plugin
-     */
-    public StepwiseAdditiveModelFitterPlugin permutationAlpha(Double value) {
-        permutationAlpha = new PluginParameter<>(permutationAlpha, value);
-        return this;
-    }
+     /**
+      * Set Number of permutations. The number of permutations
+      * used to determine the enter limit.
+      *
+      * @param value Number of permutations
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin numberOfPermutations(Integer value) {
+         numberOfPermutations = new PluginParameter<>(numberOfPermutations, value);
+         return this;
+     }
 
-    /**
-     * When p-value is the model selection criteria, model
-     * fitting will stop when the next term chosen has a p-value
-     * greater than the enterLimit. This value will be over-ridden
-     * the permutation test, if used.
-     *
-     * @return enterLimit
-     */
-    public Double enterLimit() {
-        return enterLimit.value();
-    }
+     /**
+      * Type I errors will be controlled at this level.
+      *
+      * @return Alpha for permutations
+      */
+     public Double permutationAlpha() {
+         return permutationAlpha.value();
+     }
 
-    /**
-     * Set enterLimit. When p-value is the model selection
-     * criteria, model fitting will stop when the next term
-     * chosen has a p-value greater than the enterLimit. This
-     * value will be over-ridden the permutation test, if
-     * used.
-     *
-     * @param value enterLimit
-     *
-     * @return this plugin
-     */
-    public StepwiseAdditiveModelFitterPlugin enterLimit(Double value) {
-        enterLimit = new PluginParameter<>(enterLimit, value);
-        return this;
-    }
+     /**
+      * Set Alpha for permutations. Type I errors will be controlled
+      * at this level.
+      *
+      * @param value Alpha for permutations
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin permutationAlpha(Double value) {
+         permutationAlpha = new PluginParameter<>(permutationAlpha, value);
+         return this;
+     }
 
-    /**
-     * During the backward step of model fitting if p-value
-     * has been chosen as the selection criterion, if the
-     * term in model with the highest p-value has a p-value
-     * > exitLimit, it will be removed from the model.
-     *
-     * @return exitLimit
-     */
-    public Double exitLimit() {
-        return exitLimit.value();
-    }
+     /**
+      * When p-value is the model selection criteria, model
+      * fitting will stop when the next term chosen has a p-value
+      * greater than the enterLimit. This value will be over-ridden
+      * the permutation test, if used.
+      *
+      * @return enterLimit
+      */
+     public Double enterLimit() {
+         return enterLimit.value();
+     }
 
-    /**
-     * Set exitLimit. During the backward step of model fitting
-     * if p-value has been chosen as the selection criterion,
-     * if the term in model with the highest p-value has a
-     * p-value > exitLimit, it will be removed from the model.
-     *
-     * @param value exitLimit
-     *
-     * @return this plugin
-     */
-    public StepwiseAdditiveModelFitterPlugin exitLimit(Double value) {
-        exitLimit = new PluginParameter<>(exitLimit, value);
-        return this;
-    }
+     /**
+      * Set enterLimit. When p-value is the model selection
+      * criteria, model fitting will stop when the next term
+      * chosen has a p-value greater than the enterLimit. This
+      * value will be over-ridden the permutation test, if
+      * used.
+      *
+      * @param value enterLimit
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin enterLimit(Double value) {
+         enterLimit = new PluginParameter<>(enterLimit, value);
+         return this;
+     }
 
-    /**
-     * The maximum number of SNPs/markers that will be fit.
-     * If the model selection criterion is met first, then
-     * the fitting process will stop at that point.
-     *
-     * @return Max SNPs/markers
-     */
-    public Integer maxTerms() {
-        return maxTerms.value();
-    }
+     /**
+      * During the backward step of model fitting if p-value
+      * has been chosen as the selection criterion, if the
+      * term in model with the highest p-value has a p-value
+      * > exitLimit, it will be removed from the model.
+      *
+      * @return exitLimit
+      */
+     public Double exitLimit() {
+         return exitLimit.value();
+     }
 
-    /**
-     * Set Max SNPs/markers. The maximum number of SNPs/markers
-     * that will be fit. If the model selection criterion
-     * is met first, then the fitting process will stop at
-     * that point.
-     *
-     * @param value Max SNPs/markers
-     *
-     * @return this plugin
-     */
-    public StepwiseAdditiveModelFitterPlugin maxTerms(Integer value) {
-        maxTerms = new PluginParameter<>(maxTerms, value);
-        return this;
-    }
+     /**
+      * Set exitLimit. During the backward step of model fitting
+      * if p-value has been chosen as the selection criterion,
+      * if the term in model with the highest p-value has a
+      * p-value > exitLimit, it will be removed from the model.
+      *
+      * @param value exitLimit
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin exitLimit(Double value) {
+         exitLimit = new PluginParameter<>(exitLimit, value);
+         return this;
+     }
 
-    /**
-     * Should SNPs/markers be nested within a factor, such
-     * as family?
-     *
-     * @return Is Nested
-     */
-    public Boolean isNested() {
-        return isNested.value();
-    }
+     /**
+      * The maximum number of SNPs/markers that will be fit.
+      * If the model selection criterion is met first, then
+      * the fitting process will stop at that point.
+      *
+      * @return Max SNPs/markers
+      */
+     public Integer maxTerms() {
+         return maxTerms.value();
+     }
 
-    /**
-     * Set Is Nested. Should SNPs/markers be nested within
-     * a factor, such as family?
-     *
-     * @param value Is Nested
-     *
-     * @return this plugin
-     */
-    public StepwiseAdditiveModelFitterPlugin isNested(Boolean value) {
-        isNested = new PluginParameter<>(isNested, value);
-        return this;
-    }
+     /**
+      * Set Max SNPs/markers. The maximum number of SNPs/markers
+      * that will be fit. If the model selection criterion
+      * is met first, then the fitting process will stop at
+      * that point.
+      *
+      * @param value Max SNPs/markers
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin maxTerms(Integer value) {
+         maxTerms = new PluginParameter<>(maxTerms, value);
+         return this;
+     }
 
-    /**
-     * Nest markers within this factor.
-     *
-     * @return Nesting factor
-     */
-    public List nestingFactor() {
-        return nestingFactor.value();
-    }
+     /**
+      * Should SNPs/markers be nested within a factor, such
+      * as family?
+      *
+      * @return Is Nested
+      */
+     public Boolean isNested() {
+         return isNested.value();
+     }
 
-    /**
-     * Set Nesting factor. Nest markers within this factor.
-     *
-     * @param value Nesting factor
-     *
-     * @return this plugin
-     */
-    public StepwiseAdditiveModelFitterPlugin nestingFactor(List value) {
-        nestingFactor = new PluginParameter<>(nestingFactor, value);
-        return this;
-    }
+     /**
+      * Set Is Nested. Should SNPs/markers be nested within
+      * a factor, such as family?
+      *
+      * @param value Is Nested
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin isNested(Boolean value) {
+         isNested = new PluginParameter<>(isNested, value);
+         return this;
+     }
 
-    /**
-     * If the genotype table contains more than one type of
-     * genotype data, choose the type to use for the analysis.
-     *
-     * @return Genotype Component
-     */
-    public GenotypeTable.GENOTYPE_TABLE_COMPONENT genotypeTable() {
-        return myGenotypeTable.value();
-    }
+     /**
+      * Nest markers within this factor. This parameter cannot
+      * be set from the command line. Instead, the first factor
+      * in the data set will be used.
+      *
+      * @return Nesting factor
+      */
+     public List nestingFactor() {
+         return nestingFactor.value();
+     }
 
-    /**
-     * Set Genotype Component. If the genotype table contains
-     * more than one type of genotype data, choose the type
-     * to use for the analysis.
-     *
-     * @param value Genotype Component
-     *
-     * @return this plugin
-     */
-    public StepwiseAdditiveModelFitterPlugin genotypeTable(GenotypeTable.GENOTYPE_TABLE_COMPONENT value) {
-        myGenotypeTable = new PluginParameter<>(myGenotypeTable, value);
-        return this;
-    }
+     /**
+      * Set Nesting factor. Nest markers within this factor.
+      * This parameter cannot be set from the command line.
+      * Instead, the first factor in the data set will be used.
+      *
+      * @param value Nesting factor
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin nestingFactor(List value) {
+         nestingFactor = new PluginParameter<>(nestingFactor, value);
+         return this;
+     }
+
+     /**
+      * If the genotype table contains more than one type of
+      * genotype data, choose the type to use for the analysis.
+      *
+      * @return Genotype Component
+      */
+     public GENOTYPE_TABLE_COMPONENT genotypeTable() {
+         return myGenotypeTable.value();
+     }
+
+     /**
+      * Set Genotype Component. If the genotype table contains
+      * more than one type of genotype data, choose the type
+      * to use for the analysis.
+      *
+      * @param value Genotype Component
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin genotypeTable(GENOTYPE_TABLE_COMPONENT value) {
+         myGenotypeTable = new PluginParameter<>(myGenotypeTable, value);
+         return this;
+     }
+
+     /**
+      * Create pre- and post-scan anova reports.
+      *
+      * @return Create anova reports
+      */
+     public Boolean createAnova() {
+         return createAnova.value();
+     }
+
+     /**
+      * Set Create anova reports. Create pre- and post-scan
+      * anova reports.
+      *
+      * @param value Create anova reports
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin createAnova(Boolean value) {
+         createAnova = new PluginParameter<>(createAnova, value);
+         return this;
+     }
+
+     /**
+      * Create a report of marker effects based on the scan
+      * results.
+      *
+      * @return Create effects report
+      */
+     public Boolean createEffects() {
+         return createEffects.value();
+     }
+
+     /**
+      * Set Create effects report. Create a report of marker
+      * effects based on the scan results.
+      *
+      * @param value Create effects report
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin createEffects(Boolean value) {
+         createEffects = new PluginParameter<>(createEffects, value);
+         return this;
+     }
+
+     /**
+      * Create a report of marker effects based on the results
+      * pre-scan.
+      *
+      * @return Create prescan effects
+      */
+     public Boolean createEffectsPrescan() {
+         return createEffectsPrescan.value();
+     }
+
+     /**
+      * Set Create prescan effects. Create a report of marker
+      * effects based on the results pre-scan.
+      *
+      * @param value Create prescan effects
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin createEffectsPrescan(Boolean value) {
+         createEffectsPrescan = new PluginParameter<>(createEffectsPrescan, value);
+         return this;
+     }
+
+     /**
+      * Create a report of the which markers enter and leave
+      * the model as it is being fit.
+      *
+      * @return Create step report
+      */
+     public Boolean createStep() {
+         return createStep.value();
+     }
+
+     /**
+      * Set Create step report. Create a report of the which
+      * markers enter and leave the model as it is being fit.
+      *
+      * @param value Create step report
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin createStep(Boolean value) {
+         createStep = new PluginParameter<>(createStep, value);
+         return this;
+     }
+
+     /**
+      * Create a phenotype dataset of model residuals for each
+      * chromosome. For each chromosome, the residuals will
+      * be calculated from a model with all terms EXCEPT the
+      * markers on that chromosome.
+      *
+      * @return Create residuals
+      */
+     public Boolean createResiduals() {
+         return createResiduals.value();
+     }
+
+     /**
+      * Set Create residuals. Create a phenotype dataset of
+      * model residuals for each chromosome. For each chromosome,
+      * the residuals will be calculated from a model with
+      * all terms EXCEPT the markers on that chromosome.
+      *
+      * @param value Create residuals
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin createResiduals(Boolean value) {
+         createResiduals = new PluginParameter<>(createResiduals, value);
+         return this;
+     }
+
+     /**
+      * Should the requested output be written to files?
+      *
+      * @return Write to files
+      */
+     public Boolean writeFiles() {
+         return writeFiles.value();
+     }
+
+     /**
+      * Set Write to files. Should the requested output be
+      * written to files?
+      *
+      * @param value Write to files
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin writeFiles(Boolean value) {
+         writeFiles = new PluginParameter<>(writeFiles, value);
+         return this;
+     }
+
+     /**
+      * The base file path for the save files. Each file saved
+      * will add a descriptive name to the base name.
+      *
+      * @return Base file path
+      */
+     public String outputName() {
+         return outputName.value();
+     }
+
+     /**
+      * Set Base file path. The base file path for the save
+      * files. Each file saved will add a descriptive name
+      * to the base name.
+      *
+      * @param value Base file path
+      *
+      * @return this plugin
+      */
+     public StepwiseAdditiveModelFitterPlugin outputName(String value) {
+         outputName = new PluginParameter<>(outputName, value);
+         return this;
+     }
+
 
 }

@@ -86,21 +86,21 @@ public class StepwiseAdditiveModelFitter {
 
     //TableReport builders
     private final TableReportBuilder anovaReportBuilder =
-            TableReportBuilder.getInstance("", new String[] { "Trait", "Name", "Chr", "Position",
+            TableReportBuilder.getInstance("Anova", new String[] { "Trait", "Name", "Chr", "Position",
                     "df", "MS", "F", "probF", "MarginalRsq" });
     private final TableReportBuilder anovaCIReportBuilder =
-            TableReportBuilder.getInstance("", new String[] { "Trait", "Name", "Chr", "Position",
+            TableReportBuilder.getInstance("Anova", new String[] { "Trait", "Name", "Chr", "Position",
                     "df", "MS", "F", "probF", "MarginalRsq", "SuppLeft", "SuppRight" });
     private final TableReportBuilder markerEffectReportBuilder =
-            TableReportBuilder.getInstance("", new String[] { "Trait", "SiteID", "Chr", "Position",
+            TableReportBuilder.getInstance("Marker Effects", new String[] { "Trait", "SiteID", "Chr", "Position",
                     "Within", "Estimate" });
     private final TableReportBuilder markerEffectCIReportBuilder =
-            TableReportBuilder.getInstance("", new String[] { "Trait", "SiteID", "Chr", "Position",
+            TableReportBuilder.getInstance("Marker Effects", new String[] { "Trait", "SiteID", "Chr", "Position",
                     "Within", "Estimate" });
     private final TableReportBuilder permutationReportBuilder =
-            TableReportBuilder.getInstance("", new String[] { "Trait", "p-value" });
+            TableReportBuilder.getInstance("Empirical Null", new String[] { "Trait", "p-value" });
     private final TableReportBuilder stepsReportBuilder =
-            TableReportBuilder.getInstance("", new String[] { "Trait", "SiteID", "Chr", "Position",
+            TableReportBuilder.getInstance("Steps", new String[] { "Trait", "SiteID", "Chr", "Position",
                     "action", "df", "MS", "F", "probF", "AIC", "BIC", "mBIC", "ModelRsq" });
 
     //constructor takes a GenotypePhenotype and a dataset name, which is needed to label output
@@ -751,8 +751,8 @@ public class StepwiseAdditiveModelFitter {
                     row[col++] = new Integer(myGenotype.positions().get(interval[1]).getPosition());
                     row[col++] = new Integer(myGenotype.positions().get(interval[2]).getPosition());
                 } else {
-                    row[col++] = "";
-                    row[col++] = "";
+                    row[col++] = "--";
+                    row[col++] = "--";
                 }
                 anovaCIReportBuilder.add(row);
             } else {
@@ -777,8 +777,8 @@ public class StepwiseAdditiveModelFitter {
         row[col++] = "--";
         row[col++] = "--";
         if (intervalList.isPresent()) {
-            row[col++] = "";
-            row[col++] = "";
+            row[col++] = "--";
+            row[col++] = "--";
             anovaCIReportBuilder.add(row);
         } else {
             anovaReportBuilder.add(row);
