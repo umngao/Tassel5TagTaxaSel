@@ -41,7 +41,7 @@ import java.util.stream.Stream;
  */
 public class SNPQualityProfilerPlugin extends AbstractPlugin {
 
-    private static final Logger myLogger = Logger.getLogger(SAMToGBSdbPlugin.class);
+    private static final Logger myLogger = Logger.getLogger(SNPQualityProfilerPlugin.class);
 
     private PluginParameter<String> myTaxaFile = new PluginParameter.Builder<String>("taxa", null, String.class).guiName("Taxa List File").inFile()
             .description("Name of taxa list input file in taxa list format").build();
