@@ -159,6 +159,23 @@ public class FastqChunk {
         System.out.println("Fastq file written to " + outputFileS);
     }
     
+    public void writeFasta (String outfileS) {
+        try {
+            BufferedWriter bw = new BufferedWriter(new FileWriter(outfileS), 65536);
+            for (int i = 0; i < this.getReadNum(); i++) {
+                bw.write(">"+this.reads[i].ID);
+                bw.newLine();
+                bw.write(this.reads[i].seq);
+                bw.newLine();
+            }
+            bw.flush();
+            bw.close();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    
     /**
      * Return Fastq read
      * @param index
