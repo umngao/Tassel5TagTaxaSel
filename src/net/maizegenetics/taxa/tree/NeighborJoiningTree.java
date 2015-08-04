@@ -20,10 +20,7 @@ import net.maizegenetics.taxa.distance.DistanceMatrix;
  * @author Alexei Drummond
  */
 public class NeighborJoiningTree extends SimpleTree {
-    //
-    // Public stuff
-    //
-
+    
     /**
      * construct NJ tree
      *
@@ -31,10 +28,10 @@ public class NeighborJoiningTree extends SimpleTree {
      */
     public NeighborJoiningTree(DistanceMatrix m) {
         if (m.getSize() < 3) {
-            throw new IllegalArgumentException("LESS THAN 3 TAXA IN DISTANCE MATRIX");
+            throw new IllegalArgumentException("NeighborJoiningTree: Less than 3 taxa in distance matrix.");
         }
         if (!m.isSymmetric()) {
-            throw new IllegalArgumentException("UNSYMMETRIC DISTANCE MATRIX");
+            throw new IllegalArgumentException("NeighborJoiningTree: Unsymmetrix Distance Matrix: Probably due to taxa with large proportion of missing sites.");
         }
 
         init(m);

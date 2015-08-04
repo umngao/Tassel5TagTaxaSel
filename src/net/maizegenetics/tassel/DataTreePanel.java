@@ -448,9 +448,13 @@ public class DataTreePanel extends JPanel implements PluginListener {
                             SimpleTree tree = (SimpleTree) book.getData();
                             StringWriter writer = null;
                             try {
-                                writer = new StringWriter();
-                                tree.report(writer);
-                                myTASSELMainFrame.setMainText(writer.toString());
+                                if (tree.getExternalNodeCount() < 300) {
+                                    writer = new StringWriter();
+                                    tree.report(writer);
+                                    myTASSELMainFrame.setMainText(writer.toString());
+                                } else {
+                                    myTASSELMainFrame.setMainText(tree.toString());
+                                }
                             } catch (Exception ex) {
                                 myLogger.debug(ex.getMessage(), ex);
                             } finally {

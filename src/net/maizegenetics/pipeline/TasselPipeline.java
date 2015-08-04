@@ -933,9 +933,9 @@ public class TasselPipeline implements PluginListener {
 
                     String temp = args[index++].trim();
                     if (temp.equalsIgnoreCase("Neighbor")) {
-                        plugin.setNeighborJoining(true);
+                        plugin.clusteringMethod(CreateTreePlugin.CLUSTERING_METHOD.Neighbor_Joining);
                     } else if (temp.equalsIgnoreCase("UPGMA")) {
-                        plugin.setNeighborJoining(false);
+                        plugin.clusteringMethod(CreateTreePlugin.CLUSTERING_METHOD.UPGMA);
                     } else {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: tree clustering method must be Neighbor or UPGMA: " + temp);
                     }
@@ -957,7 +957,7 @@ public class TasselPipeline implements PluginListener {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: tree save distance matrix parameter must be true or false: " + value);
                     }
 
-                    plugin.setReturnDistanceMatrix(value);
+                    plugin.saveDistanceMatrix(value);
 
                 } else if (current.equalsIgnoreCase("-gs")) {
                     RidgeRegressionEmmaPlugin plugin = new RidgeRegressionEmmaPlugin(myMainFrame, myIsInteractive);
