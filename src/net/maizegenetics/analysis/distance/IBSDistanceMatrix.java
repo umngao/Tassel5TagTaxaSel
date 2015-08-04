@@ -14,26 +14,13 @@
  */
 package net.maizegenetics.analysis.distance;
 
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.Set;
-import java.util.Spliterator;
-import static java.util.Spliterator.IMMUTABLE;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.BitUtil;
 import net.maizegenetics.util.ProgressListener;
 
-import java.util.function.BiConsumer;
-import java.util.function.BinaryOperator;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.Collector;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 import static net.maizegenetics.dna.WHICH_ALLELE.Major;
 import static net.maizegenetics.dna.WHICH_ALLELE.Minor;
@@ -114,48 +101,11 @@ public class IBSDistanceMatrix extends DistanceMatrix {
      * @param useThirdState
      */
     public static IBSDistanceMatrix getInstance(GenotypeTable theAlignment, int minSiteComp, boolean trueIBS, ProgressListener listener, boolean useThirdState) {
-        Tuple<double[][], Double> distances = computeHetBitDistances(useThirdState, listener, theAlignment, trueIBS, minSiteComp);
-        //setupHetBitDistancesIncrementors();
-        //Tuple<double[][], Double> distances = computeHetBitDistances(theAlignment, listener, trueIBS, minSiteComp);
-        return new IBSDistanceMatrix(distances.x, theAlignment.taxa(), trueIBS, distances.y);
-    }
-
-    private static Tuple<double[][], Double> computeHetBitDistances(GenotypeTable theTBA, ProgressListener listener, boolean isTrueIBS, int minSitesComp) {
-        int numSeqs = theTBA.numberOfTaxa();
-        double avgTotalSites = 0.0;
-        long time = System.currentTimeMillis();
-
-        int[][] counters = stream(theTBA, listener).collect(toCounters(numSeqs)).myCounters;
-
-        double[][] distance = new double[numSeqs][numSeqs];
-        long count = 0;
-        for (int i = 0; i < numSeqs; i++) {
-            int index = 0;
-            for (int j = i; j < numSeqs; j++) {
-                if (j == i && !isTrueIBS) {
-                    distance[i][i] = 0;
-                    index += 3;
-                } else {
-                    int sameCount = counters[i][index++];
-                    int diffCount = counters[i][index++];
-                    int hetCount = counters[i][index++];
-                    long sites = sameCount + diffCount - hetCount;
-                    double identity = ((double) (sameCount) - 0.5 * hetCount) / (double) (sites);
-                    double dist = 1 - identity;
-
-                    if (sites < minSitesComp) {
-                        dist = Double.NaN;
-                    }
-                    distance[i][j] = distance[j][i] = dist;
-                    avgTotalSites += sites;  //this assumes not hets
-                    count++;
-                }
-            }
+        if (useThirdState) {
+            return IBSDistanceMatrix3Alleles.getInstance(theAlignment, minSiteComp, trueIBS, listener);
+        } else {
+            return IBSDistanceMatrix2Alleles.getInstance(theAlignment, minSiteComp, trueIBS, listener);
         }
-
-        avgTotalSites /= (double) count;
-        System.out.println("computeHetBitDistances time = " + (System.currentTimeMillis() - time) / 1000 + " seconds");
-        return new Tuple<>(distance, avgTotalSites);
     }
 
     public static double[] computeHetDistances(byte[] first, byte[] second, int minSitesComp) {
@@ -531,207 +481,6 @@ public class IBSDistanceMatrix extends DistanceMatrix {
      */
     public boolean isTrueIBS() {
         return myIsTrueIBS;
-    }
-
-    private static class Counters {
-
-        private final int[][] myCounters;
-        private final int myNumTaxa;
-
-        public Counters(int numTaxa) {
-            myNumTaxa = numTaxa;
-            myCounters = new int[myNumTaxa][];
-            for (int i = 0; i < myNumTaxa; i++) {
-                myCounters[i] = new int[(myNumTaxa - i) * 3];
-            }
-        }
-
-        public void add(long[] values) {
-            int index = 0;
-            for (int i = 0; i < myNumTaxa; i++) {
-                for (int j = 0; j < myCounters[i].length; j += 3) {
-                    myCounters[i][j] += (int) (values[index] & 0x1FFFFFl);
-                    myCounters[i][j + 1] += (int) ((values[index] >>> 21) & 0x1FFFFFl);
-                    myCounters[i][j + 2] += (int) ((values[index] >>> 42) & 0x1FFFFFl);
-                    index++;
-                }
-            }
-        }
-
-        public void addAll(Counters counters) {
-            int[][] other = counters.myCounters;
-            for (int t = 0; t < myNumTaxa; t++) {
-                for (int i = 0, n = myCounters[t].length; i < n; i++) {
-                    myCounters[t][i] += other[t][i];
-                }
-            }
-        }
-
-    }
-
-    private static Collector<long[], ?, Counters> toCounters(int numTaxa) {
-        return new CountersCollector(numTaxa);
-    }
-
-    private static class CountersCollector implements Collector<long[], Counters, Counters> {
-
-        private final int myNumTaxa;
-
-        public CountersCollector(int numTaxa) {
-            myNumTaxa = numTaxa;
-        }
-
-        @Override
-        public Supplier<Counters> supplier() {
-            return () -> new Counters(myNumTaxa);
-        }
-
-        @Override
-        public BiConsumer<Counters, long[]> accumulator() {
-            return Counters::add;
-        }
-
-        @Override
-        public BinaryOperator<Counters> combiner() {
-            return (left, right) -> {
-                left.addAll(right);
-                return left;
-            };
-        }
-
-        @Override
-        public Function<Counters, Counters> finisher() {
-            return (Counters t) -> t;
-        }
-
-        @Override
-        public Set<Collector.Characteristics> characteristics() {
-            return Collections.unmodifiableSet(EnumSet.of(Collector.Characteristics.UNORDERED, Collector.Characteristics.IDENTITY_FINISH));
-            //return Collections.EMPTY_SET;
-        }
-
-    }
-
-    private static int myNumSitesProcessed = 0;
-    private static final int MAX_NUMBER_20_BITS = 0xFFFFF;
-
-    public static Stream<long[]> stream(GenotypeTable genotypes, ProgressListener listener) {
-        myNumSitesProcessed = 0;
-        return StreamSupport.stream(new ByteCounterSpliterator(genotypes, 0, genotypes.numberOfSites(), listener), true);
-    }
-
-    static class ByteCounterSpliterator implements Spliterator<long[]> {
-
-        private int myCurrentSite;
-        private final int myFence;
-        private final GenotypeTable myGenotypes;
-        private byte[] myCachedSiteGenotype;
-        private int myCachedSite;
-        private final int myNumTaxa;
-        private final int myNumSites;
-        private int myFirstTaxa;
-        private final ProgressListener myProgressListener;
-
-        ByteCounterSpliterator(GenotypeTable genotypes, int currentIndex, int fence, ProgressListener listener) {
-            myGenotypes = genotypes;
-            myNumTaxa = myGenotypes.numberOfTaxa();
-            myNumSites = myGenotypes.numberOfSites();
-            myFirstTaxa = 0;
-            myCurrentSite = currentIndex;
-            myFence = fence;
-            myCachedSiteGenotype = myGenotypes.genotypeAllTaxa(myCurrentSite);
-            myCachedSite = myCurrentSite;
-            myProgressListener = listener;
-        }
-
-        @Override
-        public void forEachRemaining(Consumer<? super long[]> action) {
-            int numSitesProcessed = myFence - myCurrentSite;
-            for (; myCurrentSite < myFence; myCurrentSite += MAX_NUMBER_20_BITS) {
-                int currentBlockFence = Math.min(myCurrentSite + MAX_NUMBER_20_BITS, myFence);
-                long[] result = new long[myNumTaxa * (myNumTaxa + 1) / 2];
-                for (; myCurrentSite < currentBlockFence; myCurrentSite++) {
-                    if (myCurrentSite != myCachedSite) {
-                        myCachedSiteGenotype = myGenotypes.genotypeAllTaxa(myCurrentSite);
-                        myCachedSite = myCurrentSite;
-                    }
-                    int[] keys = new int[myNumTaxa];
-                    for (int i = 0; i < myNumTaxa; i++) {
-                        keys[i] = (myCachedSiteGenotype[i] & 0x70) >>> 1 | (myCachedSiteGenotype[i] & 0x7);
-                    }
-                    int index = 0;
-                    for (; myFirstTaxa < myNumTaxa;) {
-                        if (myCachedSiteGenotype[myFirstTaxa] != GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
-                            long[] incrementFunctions = INCREMENT_FUNCTIONS[keys[myFirstTaxa]];
-                            for (int secondTaxa = myFirstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
-                                result[index++] += incrementFunctions[keys[secondTaxa]];
-                            }
-                        } else {
-                            index += myNumTaxa - myFirstTaxa;
-                        }
-                        myFirstTaxa++;
-                    }
-                    myFirstTaxa = 0;
-                }
-                action.accept(result);
-            }
-            myNumSitesProcessed += numSitesProcessed;
-            fireProgress((int) ((double) myNumSitesProcessed / (double) myNumSites * 100.0), myProgressListener);
-        }
-
-        @Override
-        public boolean tryAdvance(Consumer<? super long[]> action) {
-            if ((myCurrentSite < myFence) && (myFirstTaxa < myNumTaxa)) {
-                int key1 = (myCachedSiteGenotype[myFirstTaxa] & 0x70) >>> 1 | (myCachedSiteGenotype[myFirstTaxa] & 0x7);
-                long[] incrementFunctions = INCREMENT_FUNCTIONS[key1];
-
-                long[] result = new long[myNumTaxa - myFirstTaxa];
-                int index = 0;
-                for (int secondTaxa = myFirstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
-                    int key2 = (myCachedSiteGenotype[secondTaxa] & 0x70) >>> 1 | (myCachedSiteGenotype[secondTaxa] & 0x7);
-                    result[index++] = incrementFunctions[key2];
-                }
-                action.accept(result);
-
-                myFirstTaxa++;
-                if (myFirstTaxa == myNumTaxa) {
-                    myCurrentSite++;
-                    if (myCurrentSite < myFence) {
-                        myCachedSiteGenotype = myGenotypes.genotypeAllTaxa(myCurrentSite);
-                        myCachedSite = myCurrentSite;
-                    } else {
-                        myCachedSiteGenotype = null;
-                        myCachedSite = -1;
-                    }
-                    myFirstTaxa = 0;
-                }
-                return true;
-            } else {
-                return false;
-            }
-        }
-
-        @Override
-        public Spliterator<long[]> trySplit() {
-            int lo = myCurrentSite;
-            int mid = (lo + myFence) >>> 1;
-            if (lo < mid) {
-                myCurrentSite = mid;
-                return new ByteCounterSpliterator(myGenotypes, lo, mid, myProgressListener);
-            } else {
-                return null;
-            }
-        }
-
-        @Override
-        public long estimateSize() {
-            return (long) (myFence - myCurrentSite);
-        }
-
-        @Override
-        public int characteristics() {
-            return IMMUTABLE;
-        }
     }
 
 }

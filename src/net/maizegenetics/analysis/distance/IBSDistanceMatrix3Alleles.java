@@ -5,17 +5,9 @@
  */
 package net.maizegenetics.analysis.distance;
 
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.Set;
 import java.util.Spliterator;
 import static java.util.Spliterator.IMMUTABLE;
-import java.util.function.BiConsumer;
-import java.util.function.BinaryOperator;
 import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.Collector;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import net.maizegenetics.dna.snp.GenotypeTable;
@@ -54,7 +46,12 @@ public class IBSDistanceMatrix3Alleles {
         double avgTotalSites = 0.0;
         long time = System.currentTimeMillis();
 
-        int[][] counters = stream(genotype, listener).collect(toCounters(numSeqs)).myCounters;
+        Counters temp = new Counters(numSeqs);
+        stream(genotype, listener).forEach((long[] t) -> {
+            temp.add(t);
+        });
+
+        int[][] counters = temp.myCounters;
 
         double[][] distance = new double[numSeqs][numSeqs];
         long count = 0;
@@ -121,7 +118,7 @@ public class IBSDistanceMatrix3Alleles {
             }
         }
 
-        public void add(long[] values) {
+        public synchronized void add(long[] values) {
             int index = 0;
             for (int i = 0; i < myNumTaxa; i++) {
                 for (int j = 0; j < myCounters[i].length; j += 3) {
@@ -207,51 +204,6 @@ public class IBSDistanceMatrix3Alleles {
         PRECALCULATED_ENCODINGS[6] = 0xB; // Minor and Second Minor
         PRECALCULATED_ENCODINGS[4] = 0x7; // Second Minor
         PRECALCULATED_ENCODINGS[0] = 0x0; // Unknown
-    }
-
-    private static Collector<long[], ?, IBSDistanceMatrix3Alleles.Counters> toCounters(int numTaxa) {
-        return new CountersCollector(numTaxa);
-    }
-
-    /**
-     * This collector uses the Counters class to accumulate the counts.
-     */
-    private static class CountersCollector implements Collector<long[], IBSDistanceMatrix3Alleles.Counters, IBSDistanceMatrix3Alleles.Counters> {
-
-        private final int myNumTaxa;
-
-        public CountersCollector(int numTaxa) {
-            myNumTaxa = numTaxa;
-        }
-
-        @Override
-        public Supplier<IBSDistanceMatrix3Alleles.Counters> supplier() {
-            return () -> new IBSDistanceMatrix3Alleles.Counters(myNumTaxa);
-        }
-
-        @Override
-        public BiConsumer<IBSDistanceMatrix3Alleles.Counters, long[]> accumulator() {
-            return IBSDistanceMatrix3Alleles.Counters::add;
-        }
-
-        @Override
-        public BinaryOperator<IBSDistanceMatrix3Alleles.Counters> combiner() {
-            return (left, right) -> {
-                left.addAll(right);
-                return left;
-            };
-        }
-
-        @Override
-        public Function<IBSDistanceMatrix3Alleles.Counters, IBSDistanceMatrix3Alleles.Counters> finisher() {
-            return (IBSDistanceMatrix3Alleles.Counters t) -> t;
-        }
-
-        @Override
-        public Set<Collector.Characteristics> characteristics() {
-            return Collections.unmodifiableSet(EnumSet.of(Collector.Characteristics.UNORDERED, Collector.Characteristics.IDENTITY_FINISH));
-        }
-
     }
 
     //
