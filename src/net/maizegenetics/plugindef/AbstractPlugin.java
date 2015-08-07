@@ -18,6 +18,8 @@ import java.awt.event.WindowEvent;
 
 import java.io.File;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
+import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -30,6 +32,7 @@ import java.util.Map;
 
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.io.JSONUtils;
 import net.maizegenetics.gui.DialogUtils;
 import net.maizegenetics.gui.SelectFromAvailableDialog;
 import net.maizegenetics.gui.SiteNamesAvailableListModel;
@@ -51,6 +54,8 @@ abstract public class AbstractPlugin implements Plugin {
     private static final Logger myLogger = Logger.getLogger(AbstractPlugin.class);
 
     public static final String DEFAULT_CITATION = "Bradbury PJ, Zhang Z, Kroon DE, Casstevens TM, Ramdoss Y, Buckler ES. (2007) TASSEL: Software for association mapping of complex traits in diverse samples. Bioinformatics 23:2633-2635.";
+
+    public static final String POSITION_LIST_NONE = "None";
 
     private final List<PluginListener> myListeners = new ArrayList<>();
     private final List<Plugin> myInputs = new ArrayList<>();
@@ -211,12 +216,25 @@ abstract public class AbstractPlugin implements Plugin {
                 return (T) Enum.valueOf((Class<Enum>) outputClass, input);
             } else if (outputClass.isAssignableFrom(String.class)) {
                 return (T) input;
+            } else if (outputClass.isAssignableFrom(Integer.class)) {
+                input = input.replace(",", "");
+                return (T) new Integer(new BigDecimal(input).intValueExact());
+            } else if (outputClass.isAssignableFrom(PositionList.class)) {
+                if ((input == null) || (input.length() == 0)) {
+                    return null;
+                }
+                return (T) JSONUtils.importPositionListFromJSON(input);
             } else {
                 return input == null ? null : outputClass.getConstructor(String.class).newInstance(input);
             }
         } catch (Exception nfe) {
             myLogger.debug(nfe.getMessage(), nfe);
-            throw new IllegalArgumentException("Problem converting: " + input + " to " + outputClass.getName());
+            String message = nfe.getMessage();
+            if (message == null) {
+                throw new IllegalArgumentException("Problem converting: " + input + " to " + Utils.getBasename(outputClass.getName()));
+            } else {
+                throw new IllegalArgumentException(message + " Problem converting: " + input + " to " + Utils.getBasename(outputClass.getName()));
+            }
         }
     }
 
@@ -580,6 +598,18 @@ abstract public class AbstractPlugin implements Plugin {
                             if (input != null) {
                                 setParameter(current.cmdLineName(), input.myObj);
                             }
+                        } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.POSITION_LIST) {
+                            if (component instanceof JComboBox) {
+                                Object temp = ((JComboBox) component).getSelectedItem();
+                                if (temp == POSITION_LIST_NONE) {
+                                    setParameter(current.cmdLineName(), null);
+                                } else {
+                                    setParameter(current.cmdLineName(), ((Datum) temp).getData());
+                                }
+                            } else {
+                                String input = ((JTextField) component).getText().trim();
+                                setParameter(current.cmdLineName(), input);
+                            }
                         } else if ((current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_MULTIPLE_SELECT)
                                 || (current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_SINGLE_SELECT)) {
                             List<?> selectedObjects = ((JList<?>) component).getSelectedValuesList();
@@ -688,6 +718,28 @@ abstract public class AbstractPlugin implements Plugin {
                 temp.setToolTipText(getToolTip(current));
                 panel.add(temp);
                 parameterFields.put(current.cmdLineName(), menu);
+            } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.POSITION_LIST) {
+                Datum datum = getPositionList();
+                if (datum != null) {
+                    JComboBox menu = new JComboBox();
+                    menu.addItem(POSITION_LIST_NONE);
+                    menu.addItem(datum);
+                    menu.setSelectedIndex(0);
+                    createEnableDisableAction(current, parameterFields, menu);
+                    JPanel temp = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                    temp.add(new JLabel(current.guiName()));
+                    temp.add(menu);
+                    temp.setToolTipText(getToolTip(current));
+                    panel.add(temp);
+                    parameterFields.put(current.cmdLineName(), menu);
+                } else {
+                    JTextField field = new JTextField(TEXT_FIELD_WIDTH - 8);
+                    JButton browse = getOpenFile(dialog, field);
+                    JPanel line = getLine(current.guiName(), field, browse, getToolTip(current));
+                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse}, field);
+                    panel.add(line);
+                    parameterFields.put(current.cmdLineName(), field);
+                }
             } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_SINGLE_SELECT) {
                 JPanel listPanel = new JPanel();
                 listPanel.setLayout(new BorderLayout());
@@ -743,7 +795,7 @@ abstract public class AbstractPlugin implements Plugin {
                 temp.add(check);
                 panel.add(temp);
                 parameterFields.put(current.cmdLineName(), check);
-            } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.TAXA_LIST) {
+            } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.TAXA_NAME_LIST) {
                 TaxaList taxa = getTaxaList();
                 JTextField field;
                 if (taxa == null) {
@@ -757,8 +809,8 @@ abstract public class AbstractPlugin implements Plugin {
                 JPanel taxaPanel = getTaxaListPanel(current.guiName(), field, current.description(), dialog, taxa);
                 panel.add(taxaPanel);
                 parameterFields.put(current.cmdLineName(), field);
-            } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.POSITION_LIST) {
-                PositionList positions = getPositionList();
+            } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.SITE_NAME_LIST) {
+                PositionList positions = getSiteNameList();
                 JTextField field;
                 if (positions == null) {
                     field = new JTextField(TEXT_FIELD_WIDTH);
@@ -769,6 +821,13 @@ abstract public class AbstractPlugin implements Plugin {
                     field.setText(current.value().toString());
                 }
                 JPanel positionsPanel = getPositionListPanel(current.guiName(), field, current.description(), dialog, positions);
+                List<JComponent> componentList = new ArrayList<>();
+                for (Component component : positionsPanel.getComponents()) {
+                    if (component instanceof JComponent) {
+                        componentList.add((JComponent) component);
+                    }
+                }
+                createEnableDisableAction(current, parameterFields, componentList.toArray(new JComponent[0]), field);
                 panel.add(positionsPanel);
                 parameterFields.put(current.cmdLineName(), field);
             } else {
@@ -780,7 +839,11 @@ abstract public class AbstractPlugin implements Plugin {
                 }
 
                 if (current.value() != null) {
-                    field.setText(current.value().toString());
+                    if (Integer.class.isAssignableFrom(current.valueType())) {
+                        field.setText(NumberFormat.getInstance().format(current.value()));
+                    } else {
+                        field.setText(current.value().toString());
+                    }
                 }
 
                 field.addFocusListener(new FocusAdapter() {
@@ -792,7 +855,11 @@ abstract public class AbstractPlugin implements Plugin {
                                 JOptionPane.showMessageDialog(dialog, current.guiName() + " range: " + current.rangeToString());
                                 field.setText(getParameterInstance(current.cmdLineName()).value().toString());
                             }
+                            if (Integer.class.isAssignableFrom(current.valueType())) {
+                                field.setText(NumberFormat.getInstance().format(((Integer) convert(field.getText(), Integer.class)).intValue()));
+                            }
                         } catch (Exception ex) {
+                            myLogger.debug(ex.getMessage(), ex);
                             JOptionPane.showMessageDialog(dialog, current.guiName() + ": " + ex.getMessage());
                             field.setText(getParameterInstance(current.cmdLineName()).value().toString());
                         }
@@ -810,19 +877,19 @@ abstract public class AbstractPlugin implements Plugin {
                 if (current.parameterType() == PluginParameter.PARAMETER_TYPE.IN_FILE) {
                     JButton browse = getOpenFile(dialog, field);
                     line = getLine(label, field, browse, getToolTip(current));
-                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse});
+                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse}, field);
                 } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.OUT_FILE) {
                     JButton browse = getSaveFile(dialog, field);
                     line = getLine(label, field, browse, getToolTip(current));
-                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse});
+                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse}, field);
                 } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.IN_DIR) {
                     JButton browse = getOpenDir(dialog, field);
                     line = getLine(label, field, browse, getToolTip(current));
-                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse});
+                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse}, field);
                 } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.OUT_DIR) {
                     JButton browse = getSaveDir(dialog, field);
                     line = getLine(label, field, browse, getToolTip(current));
-                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse});
+                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse}, field);
                 } else {
                     line = getLine(label, field, null, getToolTip(current));
                     createEnableDisableAction(current, parameterFields, field);
@@ -876,24 +943,28 @@ abstract public class AbstractPlugin implements Plugin {
 
         for (final PluginParameter<?> current : parameterInstances) {
             JComponent component = parameterFields.get(current.cmdLineName());
-            if (component instanceof JTextField) {
-                Object defaultValue = current.defaultValue();
-                if (defaultValue == null) {
-                    ((JTextField) component).setText(null);
-                } else {
-                    ((JTextField) component).setText(defaultValue.toString());
-                }
-                setParameter(current.cmdLineName(), defaultValue);
-            } else if (component instanceof JCheckBox) {
-                Boolean value = (Boolean) current.defaultValue();
-                ((JCheckBox) component).setSelected(value);
-                setParameter(current.cmdLineName(), value);
-            } else if (component instanceof JComboBox) {
-                ((JComboBox) component).setSelectedItem(current.defaultValue());
-                setParameter(current.cmdLineName(), current.defaultValue());
-            }
+            setFieldToDefault(component, current);
         }
 
+    }
+
+    private void setFieldToDefault(JComponent component, PluginParameter<?> current) {
+        if (component instanceof JTextField) {
+            Object defaultValue = current.defaultValue();
+            if (defaultValue == null) {
+                ((JTextField) component).setText(null);
+            } else {
+                ((JTextField) component).setText(defaultValue.toString());
+            }
+            setParameter(current.cmdLineName(), defaultValue);
+        } else if (component instanceof JCheckBox) {
+            Boolean value = (Boolean) current.defaultValue();
+            ((JCheckBox) component).setSelected(value);
+            setParameter(current.cmdLineName(), value);
+        } else if (component instanceof JComboBox) {
+            ((JComboBox) component).setSelectedItem(current.defaultValue());
+            setParameter(current.cmdLineName(), current.defaultValue());
+        }
     }
 
     @Override
@@ -932,10 +1003,10 @@ abstract public class AbstractPlugin implements Plugin {
     }
 
     private void createEnableDisableAction(PluginParameter<?> current, Map<String, JComponent> parameterFields, final JComponent component) {
-        createEnableDisableAction(current, parameterFields, new JComponent[]{component});
+        createEnableDisableAction(current, parameterFields, new JComponent[]{component}, component);
     }
 
-    private void createEnableDisableAction(final PluginParameter<?> current, Map<String, JComponent> parameterFields, final JComponent[] components) {
+    private void createEnableDisableAction(final PluginParameter<?> current, Map<String, JComponent> parameterFields, final JComponent[] components, final JComponent input) {
 
         if (current.dependentOnParameter() != null) {
             JComponent depends = parameterFields.get(current.dependentOnParameter().cmdLineName());
@@ -959,6 +1030,10 @@ abstract public class AbstractPlugin implements Plugin {
                                 component.setEnabled(true);
                             } else {
                                 component.setEnabled(false);
+                                setParameter(current.cmdLineName(), current.defaultValue());
+                                if (input != null) {
+                                    setFieldToDefault(component, current);
+                                }
                             }
                         }
                     }
@@ -986,6 +1061,9 @@ abstract public class AbstractPlugin implements Plugin {
                             } else {
                                 component.setEnabled(false);
                                 setParameter(current.cmdLineName(), current.defaultValue());
+                                if (input != null) {
+                                    setFieldToDefault(component, current);
+                                }
                             }
                         }
                     }
@@ -1096,7 +1174,7 @@ abstract public class AbstractPlugin implements Plugin {
 
         if (positions != null) {
             final SelectFromAvailableDialog dialog = new SelectFromAvailableDialog(getParentFrame(), "Site Name Filter", new SiteNamesAvailableListModel(positions));
-            JButton taxaButton = new JButton(new AbstractAction() {
+            JButton siteNamesButton = new JButton(new AbstractAction() {
 
                 @Override
                 public void actionPerformed(ActionEvent e) {
@@ -1116,8 +1194,8 @@ abstract public class AbstractPlugin implements Plugin {
                     dialog.setVisible(false);
                 }
             });
-            taxaButton.setText("Select");
-            result.add(taxaButton);
+            siteNamesButton.setText("Select");
+            result.add(siteNamesButton);
         }
 
         return result;
@@ -1260,20 +1338,39 @@ abstract public class AbstractPlugin implements Plugin {
             return null;
         }
 
-        List<Datum> taxaList = myCurrentInputData.getDataOfType(TaxaList.class);
-        if (!taxaList.isEmpty()) {
-            return (TaxaList) taxaList.get(0).getData();
-        }
-
-        taxaList = myCurrentInputData.getDataOfType(GenotypeTable.class);
+        List<Datum> taxaList = myCurrentInputData.getDataOfType(GenotypeTable.class);
         if (!taxaList.isEmpty()) {
             return ((GenotypeTable) taxaList.get(0).getData()).taxa();
+        }
+
+        taxaList = myCurrentInputData.getDataOfType(TaxaList.class);
+        if (!taxaList.isEmpty()) {
+            return (TaxaList) taxaList.get(0).getData();
         }
 
         return null;
     }
 
-    private PositionList getPositionList() {
+    private PositionList getSiteNameList() {
+
+        if (myCurrentInputData == null) {
+            return null;
+        }
+
+        List<Datum> positionList = myCurrentInputData.getDataOfType(GenotypeTable.class);
+        if (!positionList.isEmpty()) {
+            return ((GenotypeTable) positionList.get(0).getData()).positions();
+        }
+
+        positionList = myCurrentInputData.getDataOfType(PositionList.class);
+        if (!positionList.isEmpty()) {
+            return (PositionList) positionList.get(0).getData();
+        }
+
+        return null;
+    }
+
+    private Datum getPositionList() {
 
         if (myCurrentInputData == null) {
             return null;
@@ -1281,12 +1378,7 @@ abstract public class AbstractPlugin implements Plugin {
 
         List<Datum> positionList = myCurrentInputData.getDataOfType(PositionList.class);
         if (!positionList.isEmpty()) {
-            return (PositionList) positionList.get(0).getData();
-        }
-
-        positionList = myCurrentInputData.getDataOfType(GenotypeTable.class);
-        if (!positionList.isEmpty()) {
-            return ((GenotypeTable) positionList.get(0).getData()).positions();
+            return positionList.get(0);
         }
 
         return null;

@@ -93,6 +93,7 @@ import net.maizegenetics.analysis.data.GetTaxaListPlugin;
 import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
 import net.maizegenetics.analysis.data.SortGenotypeFilePlugin;
 import net.maizegenetics.analysis.distance.DistanceMatrixPlugin;
+import net.maizegenetics.analysis.filter.FilterSiteBuilderPlugin;
 import net.maizegenetics.analysis.gbs.BinaryToTextPlugin;
 import net.maizegenetics.analysis.gbs.DiscoverySNPCallerPlugin;
 import net.maizegenetics.analysis.gbs.FastqToTagCountPlugin;
@@ -587,6 +588,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new FilterTaxaAlignmentPlugin(this, true)));
         result.add(createMenuItem(new FilterTaxaPropertiesPlugin(this, true)));
         result.add(createMenuItem(new FilterTraitsPlugin(this, true)));
+        result.add(createMenuItem(new FilterSiteBuilderPlugin(this, true)));
         return result;
     }
 
