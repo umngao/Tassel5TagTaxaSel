@@ -70,6 +70,7 @@ public class FileLoadPlugin extends AbstractPlugin {
     public static final String FILE_EXT_TOPM = ".topm";
     public static final String FILE_EXT_TOPM_H5 = ".topm.h5";
     public static final String FILE_EXT_FASTA = ".fasta";
+    public static final String FILE_EXT_FILTER = ".filter";
 
     /**
      * Creates a new instance of FileLoadPlugin
