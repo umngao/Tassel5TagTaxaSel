@@ -393,7 +393,10 @@ abstract public class AbstractPlugin implements Plugin {
             builder.append(current.cmdLineName());
             builder.append(": ");
             Object value = current.value();
-            if (value instanceof List) {
+            if (value instanceof PositionList) {
+                builder.append(((PositionList) value).numberOfSites());
+                builder.append(" positions");
+            } else if (value instanceof List) {
                 builder.append((Arrays.toString(((List) value).toArray())));
             } else {
                 builder.append(value);
