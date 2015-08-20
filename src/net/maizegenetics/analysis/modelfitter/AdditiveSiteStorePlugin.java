@@ -87,7 +87,7 @@ public class AdditiveSiteStorePlugin extends AbstractPlugin {
                     out.writeObject(s);
                 } catch (IOException ioe) {
                     throw new RuntimeException("Error writing to SiteList object store.", ioe);
-                }
+                } 
             };
 
             out.writeObject(new Integer(siteList.size()));

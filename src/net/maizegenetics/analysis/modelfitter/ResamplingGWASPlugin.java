@@ -9,14 +9,12 @@ import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import javax.swing.ImageIcon;
 
 import org.apache.log4j.Logger;
 
 import net.maizegenetics.analysis.association.FixedEffectLMPlugin;
-import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.phenotype.Phenotype;
@@ -25,10 +23,8 @@ import net.maizegenetics.phenotype.PhenotypeAttribute;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.stats.linearmodels.BasicShuffler;
-import net.maizegenetics.stats.linearmodels.ModelEffect;
 import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.TableReportBuilder;
 
@@ -47,7 +43,6 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
     //at most one factor is allowed (expected to be family or pop)
 
     private Random randomGen = new Random();
-    private GenotypePhenotype myGenoPheno;
     int numberOfFactors;
     
     private static Logger myLogger = Logger.getLogger(ResamplingGWASPlugin.class);
@@ -81,6 +76,17 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
             .guiName("With Replacement")
             .build();
     
+    private PluginParameter<Boolean> useSerialFile = new PluginParameter.Builder<>("useSitefile", false, Boolean.class)
+            .description("Use an additive site file as the source of genotypes.")
+            .guiName("Use Site File")
+            .build();
+    
+    private PluginParameter<String> serialFilename = new PluginParameter.Builder<>("sitefile", null, String.class)
+            .description("The name of the file containing genotypes stored in site objects.")
+            .guiName("Site Filename")
+            .dependentOnParameter(useSerialFile)
+            .build();
+    
     public ResamplingGWASPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
@@ -88,21 +94,31 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
     
     @Override
     protected void preProcessParameters(DataSet input) {
+        Phenotype pheno;
         //check that there is only one GenotypePhenotype
-        List<Datum> datumList = input.getDataOfType(GenotypePhenotype.class);
-        if (datumList.size() != 1) {
-            throw new IllegalArgumentException("Exactly one joined Genotype-Phenotype dataset must be supplied as input to Resample GWAS.");
+        if (useSerialFile.value()) {
+            //check that there is only one Phenotype
+            List<Datum> datumList = input.getDataOfType(Phenotype.class);
+            if (datumList.size() != 1) {
+                throw new IllegalArgumentException("Exactly one joined Phenotype dataset must be supplied as input to Resample GWAS.");
+            }
+            pheno = (Phenotype) datumList.get(0).getData();
+        } else {
+            //check that there is only one GenotypePhenotype
+            List<Datum> datumList = input.getDataOfType(GenotypePhenotype.class);
+            if (datumList.size() != 1) {
+                throw new IllegalArgumentException("Exactly one joined Genotype-Phenotype dataset must be supplied as input to Resample GWAS.");
+            }
+            pheno = ((GenotypePhenotype) datumList.get(0).getData()).phenotype();
         }
         
-        myGenoPheno = (GenotypePhenotype) datumList.get(0).getData();
-        
         //if the Phenotype has more than one factor level, throw an error
-        numberOfFactors = myGenoPheno.phenotype().numberOfAttributesOfType(ATTRIBUTE_TYPE.factor);
+        numberOfFactors = pheno.numberOfAttributesOfType(ATTRIBUTE_TYPE.factor);
         if (numberOfFactors > 1) 
             throw new IllegalArgumentException("Phenotype supplied to Resample GWAS can have at most one factor");
         
         //if there is any missing data in the phenotype throw an error
-        boolean anyMissing = myGenoPheno.phenotype().attributeStream().anyMatch(pa -> pa.missing().cardinality() > 0 );
+        boolean anyMissing = pheno.attributeStream().anyMatch(pa -> pa.missing().cardinality() > 0 );
         if (anyMissing) 
             throw new IllegalArgumentException("No missing phenotype data allow as input to Resample GWAS");
     }
@@ -110,15 +126,41 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
 
     @Override
     public DataSet processData(DataSet input) {
+        Phenotype pheno;
+        String dataname;
+        List<Datum> datumList;
+        if (useSerialFile.value()) {
+            datumList = input.getDataOfType(Phenotype.class);
+            pheno = (Phenotype) datumList.get(0).getData();
+        } else {
+            datumList = input.getDataOfType(GenotypePhenotype.class);
+            pheno = ((GenotypePhenotype) datumList.get(0).getData()).phenotype();
+        }
+        dataname = datumList.get(0).getName();
         
-        int numberOfTraits = myGenoPheno.phenotype().numberOfAttributesOfType(ATTRIBUTE_TYPE.data);
+        //create the model fitter
+        ForwardRegression modelfitter;
+        if (useResiduals.value()) {
+            //not implemented
+            modelfitter = null;
+        } else {
+            if (useSerialFile.value()) {
+                modelfitter = new AdditiveModelForwardRegression(serialFilename.value(), pheno);
+                pheno = modelfitter.phenotype();
+            } else {
+                GenotypePhenotype myGenoPheno = (GenotypePhenotype) datumList.get(0).getData();
+                modelfitter = new AdditiveModelForwardRegression(myGenoPheno);
+            }
+        }
+        
+
+        int numberOfTraits = pheno.numberOfAttributesOfType(ATTRIBUTE_TYPE.data);
         List<int[]> factorLevelList = new ArrayList<>();
-        List<Datum> datumList = input.getDataOfType(GenotypePhenotype.class);
 
         //create a factor level list for creating subsamples
         //if there are nf factors, the list will contain nf int arrays, each containing the observation numbers for one factor level
         if (numberOfFactors == 1) {
-            CategoricalAttribute myFactor = (CategoricalAttribute) myGenoPheno.phenotype().attributeListOfType(ATTRIBUTE_TYPE.factor).get(0);
+            CategoricalAttribute myFactor = (CategoricalAttribute) pheno.attributeListOfType(ATTRIBUTE_TYPE.factor).get(0);
             int[] levels = myFactor.allIntValues();
             factorLevelList = new ArrayList<>();
             Map<Integer, List<Integer>> factorGroups =  IntStream.range(0, levels.length).boxed().collect(Collectors.groupingBy(i -> new Integer(levels[i])));
@@ -127,28 +169,17 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
                 factorLevelList.add( factorMembers.stream().mapToInt(I -> I.intValue()).toArray() );
             }
         } else {  //number of factors = 0
-            factorLevelList.add(IntStream.range(0,  myGenoPheno.phenotype().numberOfObservations()).toArray());
+            factorLevelList.add(IntStream.range(0,  pheno.numberOfObservations()).toArray());
         }
         
-        String dataname = datumList.get(0).getName();
         //report builder column labels
         String[] columns = new String[]{"trait","interation", "step", "SnpID","Chr","Pos", "p-value", "-log10p"};
         TableReportBuilder reportBuilder = TableReportBuilder.getInstance("Resample terms_" + dataname, columns);
         
-        //create the model fitter
-        ForwardRegression modelfitter;
-        if (useResiduals.value()) {
-            //not implemented
-            modelfitter = null;
-        } else {
-            modelfitter = new AdditiveModelForwardRegression(myGenoPheno);
-        }
-        
         //for each trait
-        List<PhenotypeAttribute> dataAttributes = myGenoPheno.phenotype().attributeListOfType(ATTRIBUTE_TYPE.data);
+        List<PhenotypeAttribute> dataAttributes = pheno.attributeListOfType(ATTRIBUTE_TYPE.data);
         for (int ph = 0; ph < numberOfTraits; ph++) {
             modelfitter.resetModel(ph, enterLimit.value(), maxModelTerms.value());
-            //TODO move site list creation out of phenotype loop
             myLogger.debug(String.format("Analyzing phenotype %d, %s.", ph, dataAttributes.get(ph).name()));
 
             //for each iteration
