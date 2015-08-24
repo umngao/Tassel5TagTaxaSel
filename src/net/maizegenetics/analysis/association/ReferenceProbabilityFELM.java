@@ -97,14 +97,20 @@ public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
 
 	@Override
 	protected String[] siteReportColumnNames() {
-		if (permute) return new String[]{"Trait","Marker","Chr","Pos","marker_F","p","perm_p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
-		return new String[] {"Trait","Marker","Chr","Pos","marker_F","p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
+		if (permute) return new String[]{AssociationConstants.STATS_HEADER_TRAIT,AssociationConstants.STATS_HEADER_MARKER,
+		        AssociationConstants.STATS_HEADER_CHR,AssociationConstants.STATS_HEADER_POSITION,"marker_F",AssociationConstants.STATS_HEADER_P_VALUE,
+		        "perm_p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
+		return new String[] {AssociationConstants.STATS_HEADER_TRAIT,AssociationConstants.STATS_HEADER_MARKER,AssociationConstants.STATS_HEADER_CHR,
+		        AssociationConstants.STATS_HEADER_POSITION,"marker_F",AssociationConstants.STATS_HEADER_P_VALUE,"marker_Rsq","marker_df","marker_MS",
+		        "error_df","error_MS","model_df","model_MS" };
+	
 	}
 
 	@Override
 	protected String[] alleleReportColumnNames() {
 		// TODO Auto-generated method stub
-		return new String[]{"Trait","Marker","Chr","Position","Estimate"};
+		return new String[]{AssociationConstants.STATS_HEADER_TRAIT,AssociationConstants.STATS_HEADER_MARKER,
+                        AssociationConstants.STATS_HEADER_CHR,AssociationConstants.STATS_HEADER_POSITION,"Estimate"};
 	}
 
 }
