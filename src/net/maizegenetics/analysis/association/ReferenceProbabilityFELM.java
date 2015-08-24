@@ -49,7 +49,7 @@ public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
 		if (permute) G = markerModel.getInverseOfXtX();
 		
         //add results to site report
-        //{"Trait","Marker","Chr","Position","marker_F","marker_p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" }
+        //{"Trait","Marker","Chr","Pos","marker_F","p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" }
         if (maxP == 1.0 || p <= maxP) {
     		Object[] rowData = new Object[numberOfSiteReportColumns];
             int columnCount = 0;
@@ -97,8 +97,8 @@ public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
 
 	@Override
 	protected String[] siteReportColumnNames() {
-		if (permute) return new String[]{"Trait","Marker","Chr","Position","marker_F","marker_p","perm_p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
-		return new String[] {"Trait","Marker","Chr","Position","marker_F","marker_p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
+		if (permute) return new String[]{"Trait","Marker","Chr","Pos","marker_F","p","perm_p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
+		return new String[] {"Trait","Marker","Chr","Pos","marker_F","p","marker_Rsq","marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
 	}
 
 	@Override
