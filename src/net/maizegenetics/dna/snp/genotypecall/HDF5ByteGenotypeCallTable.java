@@ -152,13 +152,13 @@ class HDF5ByteGenotypeCallTable extends AbstractGenotypeCallTable {
         }
         myHDF5Reader = reader;
         myGenoCache = CacheBuilder.newBuilder()
-                .maximumSize((3 * numberOfTaxa()) / 2)
+                .maximumSize(numberOfTaxa() * Runtime.getRuntime().availableProcessors())
                 .build(myGenoLoader);
         mySiteAnnoCache = CacheBuilder.newBuilder()
                 .maximumSize(150)
                 .build(siteAnnotLoader);
     }
-
+    
     static HDF5ByteGenotypeCallTable getInstance(IHDF5Reader reader) {
         if (!HDF5Utils.isHDF5GenotypeLocked(reader)) {
             throw new IllegalStateException("The Genotype module of this HDF5 file hasn't been locked, and therefore can't be opened for reading. This could occur if the file was created using the -ko (keep open) option when running the plugin ProductionSNPCallerPluginV2. Please check your file, close if appropriate, and try again.");
