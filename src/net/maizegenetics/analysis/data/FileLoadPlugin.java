@@ -35,6 +35,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.*;
 import java.net.URL;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -145,6 +147,10 @@ public class FileLoadPlugin extends AbstractPlugin {
                     continue;
                 }
 
+                LocalDateTime time = LocalDateTime.now();
+                String timeStr = time.format(DateTimeFormatter.ofPattern("MMM d, uuuu H:mm:s"));
+                myLogger.info("Start Loading File: " + myOpenFiles[i] + " time: " + timeStr);
+
                 DataSet tds = null;
                 try {
 
@@ -211,10 +217,15 @@ public class FileLoadPlugin extends AbstractPlugin {
                     }
                 }
 
+                time = LocalDateTime.now();
+                timeStr = time.format(DateTimeFormatter.ofPattern("MMM d, uuuu H:mm:s"));
                 if (tds != null) {
+                    myLogger.info("Finished Loading File: " + myOpenFiles[i] + " time: " + timeStr);
                     myWasCancelled = false;
                     result.add(tds);
                     fireDataSetReturned(new PluginEvent(tds, FileLoadPlugin.class));
+                } else {
+                    myLogger.info("Nothing Loaded for File: " + myOpenFiles[i] + " time: " + timeStr);
                 }
 
             }

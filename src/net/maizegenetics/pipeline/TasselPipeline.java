@@ -1543,8 +1543,6 @@ public class TasselPipeline implements PluginListener {
 
     public FileLoadPlugin loadFile(String filename, FileLoadPlugin.TasselFileType fileType) {
 
-        myLogger.info("loadFile: " + filename);
-
         FileLoadPlugin plugin = new FileLoadPlugin(myMainFrame, myIsInteractive);
         if (fileType == null) {
             plugin.setTheFileType(FileLoadPlugin.TasselFileType.Unknown);
