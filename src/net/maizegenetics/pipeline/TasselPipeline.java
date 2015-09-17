@@ -436,6 +436,12 @@ public class TasselPipeline implements PluginListener {
                     ProjectionLoadPlugin plugin = new ProjectionLoadPlugin(myMainFrame, myIsInteractive);
                     plugin.recombinationBreakpoints(file);
                     integratePlugin(plugin, true);
+                } else if (current.equalsIgnoreCase("-printGenoSummary")) {
+                    GenotypeSummaryPlugin plugin = new GenotypeSummaryPlugin(myMainFrame, myIsInteractive);
+                    plugin.overview(false);
+                    plugin.siteSummary(false);
+                    plugin.taxaSummary(false);
+                    integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-convertTOPMtoHDF5")) {
                     String filename = args[index++].trim();
                     TagsOnPhysicalMap topm = null;
