@@ -7,17 +7,19 @@ package net.maizegenetics.dna.snp.io;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.json.Json;
 import javax.json.JsonArray;
-import javax.json.JsonNumber;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
 import javax.json.JsonString;
 import javax.json.stream.JsonGenerator;
 import javax.json.stream.JsonGeneratorFactory;
+import javax.json.stream.JsonParser;
+import javax.json.stream.JsonParser.Event;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.GeneralPosition;
 import net.maizegenetics.dna.map.Position;
@@ -257,14 +259,13 @@ public class JSONUtils {
     }
 
     public static PositionList importPositionListFromJSON(String filename) {
-        try (BufferedReader reader = Utils.getBufferedReader(filename)) {
-            try (JsonReader jsonReader = Json.createReader(reader)) {
-                JsonObject obj = jsonReader.readObject();
-                JsonArray positionList = obj.getJsonArray("PositionList");
-                if (positionList == null) {
-                    throw new IllegalArgumentException("JSONUtils: importPositionListFromJSON: There is no TaxaList in this file: " + filename);
+        try (InputStream reader = Utils.getInputStream(filename)) {
+            try (JsonParser parser = Json.createParser(reader)) {
+                Event temp = parser.next();
+                if (temp != Event.START_OBJECT) {
+                    throw new IllegalStateException("JSONUtils: importPositionListFromJSON: Position List must start with JSON Object: " + filename);
                 }
-                return positionListFromJSON(positionList);
+                return positionListFromJSON(parser);
             }
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
@@ -272,106 +273,146 @@ public class JSONUtils {
         }
     }
 
-    private static PositionList positionListFromJSON(JsonArray positionList) {
-        if (positionList.isEmpty()) {
-            return null;
+    private static PositionList positionListFromJSON(JsonParser parser) {
+        Event current = parser.next();
+        if ((current != Event.KEY_NAME) || (!parser.getString().equals("PositionList"))) {
+            throw new IllegalStateException("JSOnUtils: positionListFromJSON: Expecting KEY_NAME PositionList");
+        }
+        current = parser.next();
+        if (current != Event.START_ARRAY) {
+            throw new IllegalStateException("JSONUtils: positionListFromJSON: Position List must start with JSON Array");
         }
         PositionListBuilder builder = new PositionListBuilder();
-        positionList.forEach((current) -> {
-            builder.add(positionFromJSON((JsonObject) current));
-        });
+        current = parser.next();
+        while (current == Event.START_OBJECT) {
+            builder.add(positionFromJSON(parser));
+            current = parser.next();
+        }
         return builder.build();
     }
 
-    private static Position positionFromJSON(JsonObject json) {
-        JsonObject chrObj = json.getJsonObject("chr");
-        Chromosome chr = chromosomeFromJSON(chrObj);
+    private static Position positionFromJSON(JsonParser parser) {
 
-        int position = json.getInt("position");
+        Map<String, Object> values = new HashMap<>();
+        Event current = parser.next();
+        while (current != Event.END_OBJECT) {
+            if (current == Event.KEY_NAME) {
+                String key = parser.getString();
+                current = parser.next();
+                if (current == Event.START_OBJECT) {
+                    if (key.equals("chr")) {
+                        values.put(key, chromosomeFromJSON(parser));
+                    } else if (key.equals("anno")) {
+                        values.put(key, generalAnnotationBuilderFromJSON(parser));
+                    } else {
+                        throw new IllegalStateException("JSONUtils: positionFromJSON: Unknown Object value key: " + key);
+                    }
+                } else {
+                    values.put(key, parser.getString());
+                }
+            } else {
+                throw new IllegalStateException("JSONUtils: positionFromJSON: Don't know how to handle Event type: " + current.name());
+            }
+            current = parser.next();
+        }
 
+        Chromosome chr = (Chromosome) values.remove("chr");
+        if (chr == null) {
+            throw new IllegalStateException("JSONUtils: positionFromJSON: No chromosome defined.");
+        }
+        Object positionStr = values.remove("position");
+        if (positionStr == null) {
+            throw new IllegalStateException("JSONUtils: positionFromJSON: No position defined.");
+        }
+        int position = Integer.parseInt((String) positionStr);
         GeneralPosition.Builder builder;
-        JsonObject anno = json.getJsonObject("anno");
-        if (anno != null) {
+        GeneralAnnotationStorage.Builder anno = (GeneralAnnotationStorage.Builder) values.remove("anno");
+        if (anno == null) {
             builder = new GeneralPosition.Builder(chr, position);
         } else {
-            builder = new GeneralPosition.Builder(chr, position, generalAnnotationBuilderFromJSON(anno));
+            builder = new GeneralPosition.Builder(chr, position, anno);
         }
 
-        JsonString snpID = json.getJsonString("SNPID");
-        if (snpID != null) {
-            builder.snpName(snpID.getString());
-        }
-
-        JsonNumber cm = json.getJsonNumber("CM");
-        if (cm != null) {
-            try {
-                builder.cM(Float.parseFloat(cm.toString()));
-            } catch (NumberFormatException nex) {
-                throw new IllegalStateException("JSONUtils: positionFromJSON: illegal CM value: " + cm);
-            }
-        }
-
-        JsonNumber globalMAF = json.getJsonNumber("globalMAF");
-        if (globalMAF != null) {
-            try {
-                builder.maf(Float.parseFloat(globalMAF.toString()));
-            } catch (NumberFormatException nex) {
-                throw new IllegalStateException("JSONUtils: positionFromJSON: illegal globalMAF value: " + globalMAF);
-            }
-        }
-
-        JsonNumber globalSiteCoverage = json.getJsonNumber("globalSiteCoverage");
-        if (globalSiteCoverage != null) {
-            try {
-                builder.siteCoverage(Float.parseFloat(globalSiteCoverage.toString()));
-            } catch (NumberFormatException nex) {
-                throw new IllegalStateException("JSONUtils: positionFromJSON: illegal globalSiteCoverage value: " + globalSiteCoverage);
-            }
-        }
-
-        String strand = json.getString("strand");
-        if (strand != null) {
-            try {
-                builder.strand(strand);
-            } catch (Exception e) {
-                throw new IllegalStateException("JSONUtils: positionFromJSON: illegal strand value: " + strand);
+        for (Map.Entry<String, Object> entry : values.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            if (key.equals("SNPID")) {
+                builder.snpName((String) value);
+            } else if (key.equals("CM")) {
+                builder.cM(Float.parseFloat((String) value));
+            } else if (key.equals("globalMAF")) {
+                builder.maf(Float.parseFloat((String) value));
+            } else if (key.equals("globalSiteCoverage")) {
+                builder.siteCoverage(Float.parseFloat((String) value));
+            } else if (key.equals("strand")) {
+                builder.strand((String) value);
+            } else {
+                throw new IllegalStateException("JSONUtils: positionFromJSON: Unknown key: " + key);
             }
         }
 
         return builder.build();
+
     }
 
-    private static Chromosome chromosomeFromJSON(JsonObject json) {
-        if (json == null) {
-            return Chromosome.UNKNOWN;
+    private static GeneralAnnotationStorage.Builder generalAnnotationBuilderFromJSON(JsonParser parser) {
+
+        GeneralAnnotationStorage.Builder builder = GeneralAnnotationStorage.getBuilder();
+        Event current = parser.next();
+        while (current != Event.END_OBJECT) {
+            if (current == Event.START_ARRAY) {
+                String key = parser.getString();
+                current = parser.next();
+                while (current != Event.END_ARRAY) {
+                    builder.addAnnotation(key, parser.getString());
+                    current = parser.next();
+                }
+            } else if (current == Event.KEY_NAME) {
+                String key = parser.getString();
+                parser.next();
+                builder.addAnnotation(key, parser.getString());
+            } else {
+
+            }
+            current = parser.next();
         }
 
-        String name = json.getString("name");
-        if (name == null) {
-            throw new IllegalStateException("JSONUtils: chromosomeFromJSON: chromosomes must has a name.");
+        return builder;
+
+    }
+
+    private static GeneralAnnotation generalAnnotationFromJSON(JsonParser parser) {
+        if (!parser.getString().equals("anno")) {
+            return GeneralAnnotationStorage.EMPTY_ANNOTATION_STORAGE;
         }
+        GeneralAnnotationStorage.Builder builder = generalAnnotationBuilderFromJSON(parser);
+        return builder.build();
+    }
 
-        JsonNumber lengthObj = json.getJsonNumber("length");
-
-        JsonObject anno = json.getJsonObject("anno");
-
-        if ((lengthObj == null) && (anno == null)) {
-            return new Chromosome(name);
-        } else {
-            int length = -1;
-            if (lengthObj != null) {
-                try {
-                    length = Integer.valueOf(lengthObj.toString());
-                } catch (NumberFormatException nex) {
-                    throw new IllegalArgumentException("JSONUtils: chromosomeFromJSON: illegal chromosome length: " + lengthObj);
+    private static Chromosome chromosomeFromJSON(JsonParser parser) {
+        String name = null;
+        int length = -1;
+        GeneralAnnotation anno = null;
+        Event current = parser.next();
+        while (current != Event.END_OBJECT) {
+            if (current == Event.KEY_NAME) {
+                String key = parser.getString();
+                parser.next();
+                if (key.equals("name")) {
+                    name = parser.getString();
+                } else if (key.equals("length")) {
+                    length = parser.getInt();
+                } else {
+                    throw new IllegalStateException("JSONUtils: chromosomeFromJSON: Unknown key: " + key);
+                }
+            } else if (current == Event.START_OBJECT) {
+                if (parser.getString().equals("anno")) {
+                    anno = generalAnnotationFromJSON(parser);
                 }
             }
-            GeneralAnnotation annotations = null;
-            if (anno != null) {
-                annotations = generalAnnotationFromJSON(anno);
-            }
-            return new Chromosome(name, length, annotations);
+            current = parser.next();
         }
+        return new Chromosome(name, length, anno);
     }
 
 }
