@@ -49,6 +49,8 @@ import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.util.Tuple;
 import net.maizegenetics.util.Utils;
 
+import org.ahocorasick.trie.Emit;
+import org.ahocorasick.trie.Trie;
 import org.apache.log4j.Logger;
 
 import com.google.common.collect.ArrayListMultimap;
@@ -128,6 +130,9 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
 
     private GenotypeTableBuilder genos = null; //output genotype table
     private PositionList myPositionList = null;
+    
+    protected static int readEndCutSiteRemnantLength;
+    private Trie ahoCorasickTrie; // import from ahocorasick-0.2.1.jar
 
     //Documentation of read depth per sample (one recorded per replicate)
     // Treemap is synchronized as multiple threads may increment values.
@@ -155,6 +160,28 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             throw new IllegalStateException("Problem resolving output directory:" + e);
         }
         genoMergeRule = new BasicGenotypeMergeRule(aveSeqErrorRate());
+        
+        if (!myEnzyme.isEmpty()) {
+            // Add likelyReadEnds to the ahoCorasick trie
+            GBSEnzyme enzyme = new GBSEnzyme(enzyme());
+            String[] likelyReadEnd = enzyme.likelyReadEnd();
+            // the junit test runs about a second faster average 15.5 vs 16.5) without Trie().removeOverlaps();
+            ahoCorasickTrie = new Trie(); // adding caseInsensitive causes nothing to be found
+            for (String readEnd: likelyReadEnd) {
+                ahoCorasickTrie.addKeyword(readEnd);
+            }  
+            readEndCutSiteRemnantLength = enzyme.readEndCutSiteRemnantLength();
+            // Bug in acorasick code that occurs when multiple threads
+            // call parseText at once.  The software computes the failure
+            // states the first time "parseText" is called.  If multiple threads
+            // hit this at once, they will all call "constructFailureStates" 
+            // and this causes problems.  Suggested workaround is to call
+            // parseText once after all keywords are added, and before we enter
+            // multi-threaded mode.  This gets the failure states constructed
+            // before we start processing the fastQ reads.  See this link:
+            //   https://github.com/robert-bor/aho-corasick/issues/16
+            ahoCorasickTrie.parseText("CAGCTTCAGGTGGTGCGGACGTGGTGGATCACGGCGCTGAAGCCCGCGCGCTTGGTCTGGCTGA");
+        }
     }
 
     @Override
@@ -315,14 +342,15 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
                             "Re-run your files with either a shorter mxKmerL value or a higher minimum quality score.\n";
                     throw new StringIndexOutOfBoundsException(errMsg);
                 }
-                Tag tag= TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength() + preferredTagLength)).build();
+                Tag tag = removeSecondCutSiteAhoC(seqAndQual[0].substring(barcodeLen),preferredTagLength);
+                //Tag tag= TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength() + preferredTagLength)).build();
                 if(tag==null) continue;   //null occurs when any base was not A, C, G, T
                 goodBarcodedReads++;
                 Tag canonicalTag=canonicalTags.get(tag);
                 if(canonicalTag!=null) {
                     tagCntMap.put(barcode.getTaxon(),canonicalTag);
                     matchedReadCountsForFullSampleName.put(barcode.getTaxaName(), matchedReadCountsForFullSampleName.get(barcode.getTaxaName()) + 1);
-                }                       
+                }
                 if (allReads % 1000000 == 0) {
                     myLogger.info("Total Reads:" + allReads + " Reads with barcode and cut site overhang:" + goodBarcodedReads
                             + " rate:" + (System.nanoTime()-time)/allReads +" ns/read");
@@ -340,6 +368,49 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         }
     }
 
+    private Tag removeSecondCutSiteAhoC(String seq, int preferredLength) {
+        // Removes the second cut site BEFORE we trim the tag.
+        // this preserves the cut site incase it shows up in the middle       
+        Tag tag = null;
+        int cutSiteIndex = 9999;
+        
+        // handle overlapping cutsite for ApeKI enzyme
+        if (enzyme().equalsIgnoreCase("ApeKI")) {
+            if (seq.startsWith("CAGCTGC") || seq.startsWith("CTGCAGC")) {
+                seq = seq.substring(3,seq.length());
+            }             
+        }
+        // use ahoCorasickTrie to find cut site       
+        // Start at seq+20 since 20 is default minimum length
+        Collection<Emit> emits = null;
+        try {
+            emits = ahoCorasickTrie.parseText(seq.substring(20));
+        } catch (Exception emitsEx) {
+            System.out.println("LCJ - ahoCorasick excep: seq: " + seq);
+            emitsEx.printStackTrace();
+            // proceed as if no tag was found.  need to understand why sometimes
+            // aho-c complains of a null pointer
+            int seqEnd = (byte) Math.min(seq.length(), preferredLength);
+            return TagBuilder.instance(seq.substring(0,seqEnd)).build();
+        }
+        
+        // Using the above as debug, when we find more than 1, the items in the list
+        // appear in the order they appear in the seq.  So we only need to look at the first one
+        for (Emit emit: emits) {
+            cutSiteIndex = emit.getStart();
+            break;
+        }
+
+        if (cutSiteIndex + 20 + readEndCutSiteRemnantLength < preferredLength) { // add 20 as we cut off first 20 for aho-c parsing
+            // trim tag to sequence up to & including the cut site
+            tag = TagBuilder.instance(seq.substring(0, cutSiteIndex + 20 + readEndCutSiteRemnantLength)).build();
+        } else {
+            // if no cut site found, or it is beyond preferred length
+            int seqEnd = (byte) Math.min(seq.length(), preferredLength);
+            tag = TagBuilder.instance(seq.substring(0,seqEnd)).build();
+        }
+        return tag;       
+    }
     private void reportProgress(int[] counters, long readSeqReadTime, long ifRRNotNullTime) {
         myLogger.info(
                 "totalReads:" + counters[0]
