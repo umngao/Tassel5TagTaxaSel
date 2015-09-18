@@ -26,6 +26,7 @@
 
     <pathconvert property="manifest.classpath" pathsep=" ">
         <path refid="build.class.path"/>
+        <map from="lib/forester_1034.jar" to="lib/forester.jar"/>
         <mapper>
             <chainedmapper>
                 <flattenmapper/>
