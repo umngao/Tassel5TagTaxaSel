@@ -93,6 +93,15 @@ class FilterGenotypeCallTable extends AbstractGenotypeCallTable {
     }
 
     @Override
+    public byte[] genotypeForAllTaxa(int site) {
+        if (!myIsTaxaFilter) {
+            return myBaseGenotype.genotypeForAllTaxa(translateSite(site));
+        } else {
+            return super.genotypeForAllTaxa(site);
+        }
+    }
+
+    @Override
     public void transposeData(boolean siteInnerLoop) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
