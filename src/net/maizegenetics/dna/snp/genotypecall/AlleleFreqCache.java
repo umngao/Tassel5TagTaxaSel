@@ -34,7 +34,7 @@ public class AlleleFreqCache {
         myCachedAlleleFreqs = CacheBuilder.newBuilder()
                 .initialCapacity(myGenotype.numberOfSites() / NUM_SITES_TO_CACHE)
                 .build();
-        myThreadPool = new ForkJoinPool();
+        myThreadPool = ForkJoinPool.commonPool();
     }
 
     private static int getStartSite(int site) {
@@ -191,7 +191,7 @@ public class AlleleFreqCache {
 
     private void startLookAhead(int site) {
         int startSite = getStartSite(site);
-        if (myCachedAlleleFreqs.getIfPresent(startSite) == null) {
+        if ((startSite < myGenotype.numberOfSites()) && (myCachedAlleleFreqs.getIfPresent(startSite) == null)) {
             if (myCurrentlyProcessingBlocks.add(startSite)) {
                 myThreadPool.execute(new LookAheadSiteStats(startSite));
             }
@@ -209,12 +209,7 @@ public class AlleleFreqCache {
         @Override
         public void run() {
             try {
-                if (myStartSite >= myGenotype.numberOfSites()) {
-                    return;
-                }
-                if (myCachedAlleleFreqs.getIfPresent(myStartSite) == null) {
-                    calculateAlleleFreq(myStartSite);
-                }
+                calculateAlleleFreq(myStartSite);
             } finally {
                 myCurrentlyProcessingBlocks.remove(myStartSite);
             }
