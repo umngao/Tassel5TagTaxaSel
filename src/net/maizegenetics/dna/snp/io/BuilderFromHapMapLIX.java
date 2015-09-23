@@ -6,9 +6,9 @@
 package net.maizegenetics.dna.snp.io;
 
 import com.google.common.collect.SetMultimap;
-import htsjdk.samtools.seekablestream.SeekableStreamFactory;
 import htsjdk.samtools.util.BlockCompressedInputStream;
 import htsjdk.tribble.util.ParsingUtils;
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -92,7 +92,7 @@ public class BuilderFromHapMapLIX {
 
         TaxaList taxaList = null;
         boolean isOneLetter = false;
-        try (BlockCompressedInputStream reader = new BlockCompressedInputStream(SeekableStreamFactory.getInstance().getBufferedStream(SeekableStreamFactory.getInstance().getStreamFor(hapmapFileBGZip)))) {
+        try (BlockCompressedInputStream reader = new BlockCompressedInputStream(new File(hapmapFileBGZip))) {
 
             Map<String, SetMultimap<String, String>> sampAnnoBuild = new TreeMap<>();
 

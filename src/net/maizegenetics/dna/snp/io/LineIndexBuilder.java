@@ -6,7 +6,6 @@
 package net.maizegenetics.dna.snp.io;
 
 import htsjdk.samtools.SAMFormatException;
-import htsjdk.samtools.seekablestream.SeekableStreamFactory;
 import htsjdk.samtools.util.BlockCompressedInputStream;
 import htsjdk.samtools.util.BlockCompressedOutputStream;
 import htsjdk.tribble.util.LittleEndianInputStream;
@@ -106,7 +105,7 @@ public class LineIndexBuilder {
             output.writeInt(myNumHeaderLinesToSkip);
             output.writeInt(LineIndex.NUM_LINES_PER_INTERVAL);
 
-            try (BlockCompressedInputStream input = new BlockCompressedInputStream(SeekableStreamFactory.getInstance().getBufferedStream(SeekableStreamFactory.getInstance().getStreamFor(myFileToIndex)))) {
+            try (BlockCompressedInputStream input = new BlockCompressedInputStream(new File(myFileToIndex))) {
 
                 boolean notFinished = true;
                 int linesSkipped = 0;

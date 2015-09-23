@@ -14,8 +14,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.dna.snp.io.LineIndex;
@@ -36,7 +35,6 @@ public class LineIndexHapmapGenotypeCallTable extends AbstractGenotypeCallTable 
     private final LineIndex myIndex;
     private final boolean myIsOneLetter;
     private final int myNumLinesPerInterval;
-    private final int myNumLookahead;
     private final int myMaxCacheSize;
     private final ConcurrentLinkedQueue<BlockCompressedInputStream> myReaders = new ConcurrentLinkedQueue<>();
     private final CopyOnWriteArraySet<Integer> myCurrentlyProcessingBlocks = new CopyOnWriteArraySet<>();
@@ -46,24 +44,23 @@ public class LineIndexHapmapGenotypeCallTable extends AbstractGenotypeCallTable 
 
     private final ConcurrentHashMap<Integer, CompletableFuture<byte[]>> myFutureQueue = new ConcurrentHashMap<>();
 
-    private final ExecutorService myThreadPool;
+    private final ForkJoinPool myThreadPool;
 
     private LineIndexHapmapGenotypeCallTable(int numTaxa, int numSites, boolean phased, boolean isOneLetter, LineIndex index, String filename) {
         super(numTaxa, numSites, phased, NucleotideAlignmentConstants.NUCLEOTIDE_ALLELES);
         myIsOneLetter = isOneLetter;
         myIndex = index;
         myNumLinesPerInterval = index.numLinesPerInterval();
-        myNumLookahead = myNumLinesPerInterval * NUM_LOOK_AHEAD_BLOCKS;
         myFilename = filename;
 
         long oneThirdMemory = Runtime.getRuntime().maxMemory() / (numTaxa * 3);
-        myMaxCacheSize = (int) Math.min((long) (210 * Runtime.getRuntime().availableProcessors()), oneThirdMemory);
+        myMaxCacheSize = (int) Math.min((long) (110 * Runtime.getRuntime().availableProcessors()), oneThirdMemory);
 
         myGenoCache = CacheBuilder.newBuilder()
                 .initialCapacity(myMaxCacheSize)
                 .maximumSize(myMaxCacheSize)
                 .build();
-        myThreadPool = Executors.newWorkStealingPool();
+        myThreadPool = new ForkJoinPool();
     }
 
     public static LineIndexHapmapGenotypeCallTable getInstance(int numTaxa, int numSites, boolean phased, boolean isOneLetter, LineIndex index, String filename) {
@@ -84,8 +81,7 @@ public class LineIndexHapmapGenotypeCallTable extends AbstractGenotypeCallTable 
                 future = temp;
             }
             if (myCurrentlyProcessingBlocks.add(blockNumber)) {
-                myThreadPool.execute(new ProcessLines(site));
-                //new Thread(new ProcessLines(site)).start();
+                myThreadPool.submit(new ProcessLines(site));
             }
 
             try {
@@ -227,7 +223,6 @@ public class LineIndexHapmapGenotypeCallTable extends AbstractGenotypeCallTable 
             myProcessBlock = site / myNumLinesPerInterval;
             myStartSite = myProcessBlock * myNumLinesPerInterval;
             mySeekIndex = myStartSite / myNumLinesPerInterval;
-            // System.out.println("ProcessLinesSpliterator: start site: " + myStartSite + "   cache size: " + myGenoCache.size());
         }
 
         @Override
@@ -239,26 +234,49 @@ public class LineIndexHapmapGenotypeCallTable extends AbstractGenotypeCallTable 
 
             BlockCompressedInputStream reader = getReader();
             try {
+
                 reader.seek(myIndex.virtualOffset(mySeekIndex));
-                for (int b = 0; b < NUM_LOOK_AHEAD_BLOCKS; b++) {
-                    if (b != 0) {
-                        if (myGenoCache.getIfPresent(myProcessBlock + b) != null) {
-                            return;
-                        }
-                        if (!myCurrentlyProcessingBlocks.add(myProcessBlock + b)) {
-                            return;
-                        }
+
+                int numSites = Math.min(myNumLinesPerInterval, mySiteCount - myStartSite);
+                byte[][] result = new byte[numSites][];
+                for (int i = 0; i < numSites; i++) {
+                    result[i] = parseLine(reader.readLine(), myTaxaCount, myStartSite + i, myIsOneLetter);
+                    CompletableFuture<byte[]> future = myFutureQueue.remove(myStartSite + i);
+                    if (future != null) {
+                        future.complete(result[i]);
                     }
-                    int numSites = Math.min(myNumLinesPerInterval, mySiteCount - myStartSite);
-                    byte[][] result = new byte[numSites][];
+                }
+                myGenoCache.put(myProcessBlock, result);
+                // This get to prevent early eviction from cache
+                myGenoCache.getIfPresent(myProcessBlock);
+                myCurrentlyProcessingBlocks.remove(myProcessBlock);
+                for (int i = 0; i < numSites; i++) {
+                    CompletableFuture<byte[]> future = myFutureQueue.remove(myStartSite + i);
+                    if (future != null) {
+                        future.complete(result[i]);
+                    }
+                }
+                myStartSite += myNumLinesPerInterval;
+                if (myStartSite >= mySiteCount) {
+                    return;
+                }
+
+                for (int b = 1; b < NUM_LOOK_AHEAD_BLOCKS; b++) {
+
+                    if (myGenoCache.getIfPresent(myProcessBlock + b) != null) {
+                        return;
+                    }
+                    if (!myCurrentlyProcessingBlocks.add(myProcessBlock + b)) {
+                        return;
+                    }
+
+                    numSites = Math.min(myNumLinesPerInterval, mySiteCount - myStartSite);
+                    result = new byte[numSites][];
                     for (int i = 0; i < numSites; i++) {
                         result[i] = parseLine(reader.readLine(), myTaxaCount, myStartSite + i, myIsOneLetter);
-                        CompletableFuture<byte[]> future = myFutureQueue.remove(myStartSite + i);
-                        if (future != null) {
-                            future.complete(result[i]);
-                        }
                     }
                     myGenoCache.put(myProcessBlock + b, result);
+                    // This get to prevent early eviction from cache
                     myGenoCache.getIfPresent(myProcessBlock + b);
                     myCurrentlyProcessingBlocks.remove(myProcessBlock + b);
                     for (int i = 0; i < numSites; i++) {
@@ -272,6 +290,7 @@ public class LineIndexHapmapGenotypeCallTable extends AbstractGenotypeCallTable 
                         return;
                     }
                 }
+
             } catch (Exception e) {
                 myLogger.error(e.getMessage(), e);
             } finally {
