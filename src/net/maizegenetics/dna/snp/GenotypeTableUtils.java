@@ -13,6 +13,7 @@ import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 
 import static net.maizegenetics.dna.snp.GenotypeTable.*;
+import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
 import net.maizegenetics.util.Utils;
 
 /**
@@ -682,18 +683,29 @@ public class GenotypeTableUtils {
     public static int[] getIncludedSitesBasedOnFreqIgnoreMissing(GenotypeTable aa, double minimumProportion, double maximumProportion, int minimumCount) {
 
         ArrayList<Integer> includeAL = new ArrayList<Integer>();
-        for (int i = 0, n = aa.numberOfSites(); i < n; i++) {
+        int numSites = aa.numberOfSites();
 
-            int totalNonMissing = aa.totalGametesNonMissingForSite(i);
+        if (minimumCount > 0) {
+            for (int i = 0; i < numSites; i++) {
 
-            if ((totalNonMissing > 0) && (totalNonMissing >= (minimumCount * 2))) {
+                int[][] alleles = aa.allelesSortedByFrequency(i);
+                int totalNonMissing = AlleleFreqCache.totalGametesNonMissingForSite(alleles);
 
-                double minorCount = aa.minorAlleleCount(i);
-                double obsMinProp = 0.0;
-                if (minorCount != 0) {
-                    obsMinProp = minorCount / (double) totalNonMissing;
+                if (totalNonMissing >= (minimumCount * 2)) {
+
+                    double obsMinProp = AlleleFreqCache.minorAlleleFrequency(alleles);
+
+                    if ((obsMinProp >= minimumProportion) && (obsMinProp <= maximumProportion)) {
+                        includeAL.add(i);
+                    }
+
                 }
+            }
+        } else {
+            for (int i = 0; i < numSites; i++) {
 
+                int[][] alleles = aa.allelesSortedByFrequency(i);
+                double obsMinProp = AlleleFreqCache.minorAlleleFrequency(alleles);
                 if ((obsMinProp >= minimumProportion) && (obsMinProp <= maximumProportion)) {
                     includeAL.add(i);
                 }

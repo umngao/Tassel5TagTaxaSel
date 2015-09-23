@@ -114,36 +114,47 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
             return;
         }
 
-        List<Datum> filterList = input.getDataOfType(FilterSite.class);
-        if (filterList.size() == 1) {
-            FilterSite filter = (FilterSite) filterList.get(0).getData();
-            useFilterValues(filter);
-            return;
+        if (isInteractive()) {
+
+            List<Datum> filterList = input.getDataOfType(FilterSite.class);
+            if (filterList.size() == 1) {
+                FilterSite filter = (FilterSite) filterList.get(0).getData();
+                useFilterValues(filter);
+                return;
+            }
+
+            List<Datum> genotypeTableList = input.getDataOfType(GenotypeTable.class);
+            if (genotypeTableList.size() == 1) {
+                GenotypeTable genotypeTable = (GenotypeTable) genotypeTableList.get(0).getData();
+                int lastSite = genotypeTable.numberOfSites() - 1;
+                setParameter(myEndSite.cmdLineName(), lastSite);
+                PositionList positions = genotypeTable.positions();
+                setParameter(myStartChr, positions.chromosome(0));
+                setParameter(myStartPos, positions.get(0).getPosition());
+                setParameter(myEndChr, positions.chromosome(lastSite));
+                setParameter(myEndPos, positions.get(lastSite).getPosition());
+                return;
+            }
+
+            List<Datum> positionLists = input.getDataOfType(PositionList.class);
+            if (positionLists.size() == 1) {
+                PositionList positions = (PositionList) positionLists.get(0).getData();
+                int lastSite = positions.numberOfSites() - 1;
+                setParameter(myStartChr, positions.chromosome(0));
+                setParameter(myStartPos, positions.get(0).getPosition());
+                setParameter(myEndChr, positions.chromosome(lastSite));
+                setParameter(myEndPos, positions.get(lastSite).getPosition());
+                return;
+            }
+
+        } else {
+
+            if ((!myStartSite.value().equals(myStartSite.defaultValue()) || (!myEndSite.value().equals(myEndSite.defaultValue())))) {
+                setParameter(mySiteFilter, SITE_RANGE_FILTER_TYPES.SITES);
+            }
+
         }
 
-        List<Datum> genotypeTableList = input.getDataOfType(GenotypeTable.class);
-        if (genotypeTableList.size() == 1) {
-            GenotypeTable genotypeTable = (GenotypeTable) genotypeTableList.get(0).getData();
-            int lastSite = genotypeTable.numberOfSites() - 1;
-            setParameter(myEndSite.cmdLineName(), lastSite);
-            PositionList positions = genotypeTable.positions();
-            setParameter(myStartChr, positions.chromosome(0));
-            setParameter(myStartPos, positions.get(0).getPosition());
-            setParameter(myEndChr, positions.chromosome(lastSite));
-            setParameter(myEndPos, positions.get(lastSite).getPosition());
-            return;
-        }
-
-        List<Datum> positionLists = input.getDataOfType(PositionList.class);
-        if (positionLists.size() == 1) {
-            PositionList positions = (PositionList) positionLists.get(0).getData();
-            int lastSite = positions.numberOfSites() - 1;
-            setParameter(myStartChr, positions.chromosome(0));
-            setParameter(myStartPos, positions.get(0).getPosition());
-            setParameter(myEndChr, positions.chromosome(lastSite));
-            setParameter(myEndPos, positions.get(lastSite).getPosition());
-            return;
-        }
     }
 
     @Override
