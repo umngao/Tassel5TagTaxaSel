@@ -13,6 +13,7 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.util.ProgressListener;
 import net.maizegenetics.util.Tuple;
@@ -208,6 +209,8 @@ public class EndelmanDistanceMatrix {
         }
     }
 
+    private static final int NUM_CORES_TO_USE = Runtime.getRuntime().availableProcessors() - 1;
+
     //
     // Used to report progress.  This is not thread-safe but
     // works well enough for this purpose.
@@ -235,6 +238,7 @@ public class EndelmanDistanceMatrix {
         private final int myNumSites;
         private final int myMaxAlleles;
         private final ProgressListener myProgressListener;
+        private final int myMinSitesToProcess;
 
         EndelmanSiteSpliterator(GenotypeTable genotypes, int currentIndex, int fence, int maxAlleles, ProgressListener listener) {
             myGenotypes = genotypes;
@@ -244,6 +248,7 @@ public class EndelmanDistanceMatrix {
             myFence = fence;
             myMaxAlleles = maxAlleles;
             myProgressListener = listener;
+            myMinSitesToProcess = myNumSites / NUM_CORES_TO_USE;
         }
 
         @Override
@@ -356,7 +361,8 @@ public class EndelmanDistanceMatrix {
 
             while ((currentSiteNum < NUM_SITES_PER_BLOCK) && (currentSite < myFence)) {
 
-                int[][] alleles = myGenotypes.allelesSortedByFrequency(currentSite);
+                byte[] genotypes = myGenotypes.genotypeAllTaxa(currentSite);
+                int[][] alleles = AlleleFreqCache.allelesSortedByFrequencyNucleotide(genotypes);
                 int numAlleles = Math.min(alleles[0].length - 1, myMaxAlleles - 1);
 
                 if (numAlleles + currentSiteNum <= NUM_SITES_PER_BLOCK) {
@@ -414,8 +420,7 @@ public class EndelmanDistanceMatrix {
                             int shift = (NUM_SITES_PER_BLOCK - currentSiteNum - 1) * 3;
                             int mask = ~(0x7 << shift) & 0x7FFF;
                             for (int i = 0; i < myNumTaxa; i++) {
-                                byte genotype = myGenotypes.genotype(i, currentSite);
-                                alleleCount[i] = (short) (alleleCount[i] & (mask | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << shift));
+                                alleleCount[i] = (short) (alleleCount[i] & (mask | PRECALCULATED_COUNTS[temp | ((genotypes[i] & 0x70) >>> 1) | (genotypes[i] & 0x7)] << shift));
                             }
                         }
 
@@ -503,12 +508,12 @@ public class EndelmanDistanceMatrix {
 
         @Override
         /**
-         * Splits sites into halves
+         * Splits sites
          */
         public Spliterator<CountersDistances> trySplit() {
             int lo = myCurrentSite;
-            int mid = (lo + myFence) >>> 1;
-            if (lo < mid) {
+            int mid = lo + myMinSitesToProcess;
+            if (mid < myFence) {
                 myCurrentSite = mid;
                 return new EndelmanSiteSpliterator(myGenotypes, lo, mid, myMaxAlleles, myProgressListener);
             } else {
