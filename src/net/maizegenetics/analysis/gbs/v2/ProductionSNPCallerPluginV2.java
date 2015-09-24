@@ -29,6 +29,8 @@ import net.maizegenetics.analysis.gbs.Barcode;
 import net.maizegenetics.dna.BaseEncoder;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.Allele;
+import net.maizegenetics.dna.snp.ExportUtils;
+import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.dna.snp.SimpleAllele;
@@ -63,7 +65,8 @@ import com.google.common.collect.Multimaps;
  *
  * We refer to this step as the "Production Pipeline".
  *
- * The output format is HDF5 genotypes with allelic depth stored. SNP calling is
+ * The output format is either HDF5 or VCF genotypes with allelic depth stored. 
+ * Output file type is determined by presence of the ".h5" suffix.  SNP calling is
  * quantitative with the option of using either the Glaubitz/Buckler binomial
  * method (pHet/pErr > 1 = het) (=default), or the Stacks method.
  *
@@ -74,10 +77,10 @@ import com.google.common.collect.Multimaps;
  * the output GenotypeTableBuilder will be mutable, using closeUnfinished()
  * rather than build().
  *
- * If the target output HDF5 GenotypeTable file doesn't exist, it will be
- * created.
+ * If the target output is HDF5, and that GenotypeTable file doesn't exist, it will be
+ * created.  
  *
- * Each taxon in the HDF5 file is named "ShortName:LibraryPrepID" and is
+ * Each taxon in the output file is named "ShortName:LibraryPrepID" and is
  * annotated with "Flowcell_Lanes" (=source seq data for current genotype).
  *
  * Requires a database with variants added from a previous "Discovery Pipeline" run.
@@ -102,14 +105,15 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             .description("Enzyme used to create the GBS library").build();
     private PluginParameter<String> myInputDB = new PluginParameter.Builder<>("db", null, String.class).guiName("Input GBS Database").required(true).inFile()
             .description("Input Database file if using SQLite").build();
-    private PluginParameter<String> myOutputGenotypes = new PluginParameter.Builder<>("o", null, String.class).guiName("Output HDF5 Genotypes File").required(true).outFile()
-            .description("Output (target) HDF5 genotypes file to add new genotypes to (new file created if it doesn't exist)").build();
+    private PluginParameter<String> myOutputGenotypes = new PluginParameter.Builder<>("o", null, String.class).guiName("Output Genotypes File").required(true).outFile()
+            .description("Output (target) genotypes file to produce.  Default output file type is VCF.  If file suffix is .h5, an hdf5 file will be created instead.")
+            .build();
     private PluginParameter<Double> myAveSeqErrorRate = new PluginParameter.Builder<>("eR", 0.01, Double.class).guiName("Ave Seq Error Rate")
             .description("Average sequencing error rate per base (used to decide between heterozygous and homozygous calls)").build();
     private PluginParameter<Integer> myMaxDivergence = new PluginParameter.Builder<>("d", 0, Integer.class).guiName("Max Divergence")
             .description("Maximum divergence (edit distance) between new read and previously mapped read (Default: 0 = perfect matches only)").build();
     private PluginParameter<Boolean> myKeepGenotypesOpen = new PluginParameter.Builder<>("ko", false, Boolean.class).guiName("Keep Genotypes Open")
-            .description("Keep hdf5 genotypes open for future runs that add more taxa or more depth").build();
+            .description("Only applicable to hdf5 output files: Keep hdf5 genotypes open for future runs that add more taxa or more depth").build();
     private PluginParameter<Boolean> myDepthOutput = new PluginParameter.Builder<>("do", true, Boolean.class).guiName("Write Depths to Output")
             .description("Depth output: True means write depths to the output hdf5 genotypes file, false means do NOT write depths to the hdf5 file").build();
     private PluginParameter<Integer> myKmerLength = new PluginParameter.Builder<>("kmerLength", 64, Integer.class).guiName("Maximum Kmer Length")
@@ -124,6 +128,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     //        .description("Use STACKS likelihood method to call heterozygotes (default: use tasselGBS likelihood ratio method)").build();
 
     private String myOutputDir = null;
+    private static boolean isHDF5 = false; // default is VCF
     private TagData tagDataReader = null;
     Multimap<Taxon,Tag> tagCntMap=Multimaps.synchronizedMultimap(ArrayListMultimap.create(384, 500_000));
     private Set<String> seqFilesInKeyAndDir = new TreeSet<>(); // fastq (or qseq) file names present in input directory that have a "Flowcell_Lane" in the key file
@@ -155,12 +160,17 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     @Override
     public void postProcessParameters() {
         try {
-            myOutputDir = (new File(outputHDF5GenotypesFile())).getCanonicalFile().getParent();
+            myOutputDir = (new File(outputGenotypesFile())).getCanonicalFile().getParent();
         } catch (IOException e) {
             throw new IllegalStateException("Problem resolving output directory:" + e);
         }
         genoMergeRule = new BasicGenotypeMergeRule(aveSeqErrorRate());
         
+        if (!myOutputGenotypes.isEmpty()) {
+            if (outputGenotypesFile().endsWith(".h5")) {
+                isHDF5 = true;
+            }
+        }
         if (!myEnzyme.isEmpty()) {
             // Add likelyReadEnds to the ahoCorasick trie
             GBSEnzyme enzyme = new GBSEnzyme(enzyme());
@@ -215,7 +225,8 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         	myLogger.error(errMsg);
         	return null;
         }
-        GenotypeTableBuilder gtb=setUpGenotypeTableBuilder(outputHDF5GenotypesFile(),positionList, genoMergeRule);
+               
+        GenotypeTableBuilder gtb=setUpGenotypeTableBuilder(outputGenotypesFile(), positionList, genoMergeRule);
         final Multimap<Tag,AlleleWithPosIndex> tagsToIndex=ArrayListMultimap.create();
         tagDataReader.getAlleleMap().entries().stream()
                 .forEach(e -> {
@@ -250,17 +261,25 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
          
             tagCntMap.asMap().entrySet().stream()
             .forEach(e -> {
-            	callGenotypes(e.getKey(), e.getValue(), tagsToIndex, positionList, genoMergeRule,gtb,depthToOutput());
-            	//System.out.println(e.x.getName()+ Arrays.toString(Arrays.copyOfRange(e.y,0,10)))); 
+                callGenotypes(e.getKey(), e.getValue(), tagsToIndex, positionList, genoMergeRule,gtb,depthToOutput());
+                //System.out.println(e.x.getName()+ Arrays.toString(Arrays.copyOfRange(e.y,0,10)))); 
             });
             System.out.println("\nFinished processing batch " + String.valueOf(idx/batchSize+1));
         }
  
-        if (keepGenotypesOpen()) {
-            gtb.closeUnfinished();
-        } else {
-            gtb.build();
+        if (isHDF5) { // build hdf5 output
+            if (keepGenotypesOpen()) {
+                gtb.closeUnfinished();
+            } else {
+                
+                gtb.build();
+            }
+        } else { // VCF output
+            // Build genotype
+            GenotypeTable myGt = gtb.build();
+            ExportUtils.writeToVCF(myGt, outputGenotypesFile(), depthToOutput()); 
         }
+ 
         writeReadsPerSampleReports(tagsToIndex.size());
         return null;
     }
@@ -386,7 +405,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         try {
             emits = ahoCorasickTrie.parseText(seq.substring(20));
         } catch (Exception emitsEx) {
-            System.out.println("LCJ - ahoCorasick excep: seq: " + seq);
+            System.out.println("ahoCorasick excep: seq: " + seq);
             emitsEx.printStackTrace();
             // proceed as if no tag was found.  need to understand why sometimes
             // aho-c complains of a null pointer
@@ -432,111 +451,24 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     }
 
 
-    private static GenotypeTableBuilder setUpGenotypeTableBuilder(String aHDF5File, PositionList positionList, GenotypeMergeRule mergeRule) {
-        File hdf5File = new File(aHDF5File);
-        if (hdf5File.exists()) {
-            myLogger.info("\nGenotypes will be added to existing HDF5 file:\n  " + aHDF5File + "\n");
-            return GenotypeTableBuilder.mergeTaxaIncremental(aHDF5File, mergeRule);
-        } else {
-            myLogger.info("\nThe target HDF5 file:\n  " + aHDF5File
-                    + "\ndoes not exist. A new HDF5 file of that name will be created \nto hold the genotypes from this run.");
-            return GenotypeTableBuilder.getTaxaIncrementalWithMerging(aHDF5File, positionList, mergeRule);
+    private static GenotypeTableBuilder setUpGenotypeTableBuilder(String anOutputFile, PositionList positionList, GenotypeMergeRule mergeRule) {
+        if (isHDF5) {
+            File hdf5File = new File(anOutputFile);
+            if (hdf5File.exists()) {
+                myLogger.info("\nGenotypes will be added to existing HDF5 file:\n  " + anOutputFile + "\n");
+                return GenotypeTableBuilder.mergeTaxaIncremental(anOutputFile, mergeRule);
+            } else {
+                myLogger.info("\nThe target HDF5 file:\n  " + anOutputFile
+                        + "\ndoes not exist. A new HDF5 file of that name will be created \nto hold the genotypes from this run.");
+                return GenotypeTableBuilder.getTaxaIncrementalWithMerging(anOutputFile, positionList, mergeRule);
+            }
+        } else { // create genotype table for VCF
+            GenotypeTableBuilder gtb = GenotypeTableBuilder.getTaxaIncremental(positionList, mergeRule);
+            myLogger.info("\nOutput VCF file: \n" + anOutputFile +
+                    " \ncreated for genotypes from this run.");
+            return gtb;
         }
     }
-
-    /**
-     * Gets an ArrayList of taxa, each named "Sample:LibraryPrepID" and annotated
-     * with Flowcell_Lane as well as all other annotations in the key file, for 
-     * the corresponding fastq file.
-     *
-     * @return ArrayList<Taxon>
-     */
-//    private ArrayList<Taxon> getHDF5Taxa(int fileNum) {
-//        String currFlowcellLane = seqFileNameToFlowcellLane.get(myRawSeqFileNames[fileNum]);
-//        String[] flowcellLane = currFlowcellLane.split("_");
-//        TaxaList annoTL = TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), "LibraryPrepID",
-//                ImmutableMap.of("Flowcell", flowcellLane[0], "Lane", flowcellLane[1]), false);
-//        ArrayList<Taxon> taxaAL = new ArrayList();
-//        for (Taxon tax : annoTL) {
-//            String newName = tax.getTextAnnotation("Sample").length == 0 ? tax.getTextAnnotation("DNASample")[0] : tax.getTextAnnotation("Sample")[0];
-//            String libPrepID = tax.getName();
-//            newName += ":" + libPrepID;
-//            Taxon gbsTaxon = new Taxon.Builder(tax).name(newName).addAnno("Flowcell_Lane", currFlowcellLane)
-//                    .addAnno("LibraryPrepID", libPrepID).addAnno("Status", "private").build();
-//            taxaAL.add(gbsTaxon);
-//        }
-//        return taxaAL;
-//    }
-//
-
-
-//    private int findBestImperfectMatch(long[] read, int[] counters) {
-//        // this method is not ready for prime time -- to resolve a tie, it currently chooses a random tag out of the tied tags
-//        int tagIndex = -1;
-//        TagMatchFinder tmf = new TagMatchFinder(tagDataReader);
-//        TreeMap<Integer, Integer> bestHitsAndDiv = tmf.findMatchesWithIntLengthWords(read, maxDivergence(), true);
-//        if (bestHitsAndDiv.size() > 0) {
-//            counters[4]++; // imperfectMatches
-//            if (bestHitsAndDiv.size() == 1) {
-//                counters[5]++; // singleImperfectMatches
-//            }
-//            tagIndex = bestHitsAndDiv.firstKey();  // a random tag (firstKey) chosen to resolve the tie = suboptimal behavior
-//        }
-//        return tagIndex;
-//    }
-//
-//    private void incrementDepthForTagVariants(int tagIndex, int[][] alleleDepths, int increment) {
-//        int chromosome = tagDataReader.getChromosome(tagIndex);
-//        if (chromosome == TOPMInterface.INT_MISSING) {
-//            return;
-//        }
-//        int startPos = tagDataReader.getStartPosition(tagIndex);
-//        for (int variant = 0; variant < tagDataReader.getMaxNumVariants(); variant++) {
-//            byte newBase = tagDataReader.getVariantDef(tagIndex, variant);
-//            if ((newBase == TOPMInterface.BYTE_MISSING) || (newBase == GenotypeTable.UNKNOWN_ALLELE)) {
-//                continue;
-//            }
-//            int offset = tagDataReader.getVariantPosOff(tagIndex, variant);
-//            int pos = startPos + offset;
-////            int currSite = genos.getSiteOfPhysicalPosition(pos, locus);
-//            int currSite = positionToSite.get(chromosome, pos);
-//            if (currSite < 0) {
-//                continue;
-//            }
-//            alleleDepths[newBase][currSite] += increment;
-//        }
-//    }
-
-//    private void callGenotypes() {
-//        myLogger.info("\nCalling genotypes...");
-//        for (int currTaxonIndex = 0; currTaxonIndex < obsTagsForEachTaxon.length; currTaxonIndex++) {
-//            IntArrayList currTagList = obsTagsForEachTaxon[currTaxonIndex];
-//            currTagList.sort();
-//            int[][] alleleDepths = new int[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][myPositionList.numberOfSites()];
-//            int prevTag = currTagList.getQuick(0);
-//            int currInc = 0;
-//            for (int t = 0; t < currTagList.size(); t++) {
-//                int tag = currTagList.getQuick(t);
-//                if (tag == prevTag) {
-//                    currInc++;
-//                } else {
-//                    incrementDepthForTagVariants(prevTag, alleleDepths, currInc);
-//                    prevTag = tag;
-//                    currInc = 1;
-//                }
-//            }
-//            incrementDepthForTagVariants(prevTag, alleleDepths, currInc);
-//            byte[][] byteDepths = AlleleDepthUtil.depthIntToByte(alleleDepths);
-//            byte[] taxonGenos = resolveGenosForTaxon(byteDepths);
-//            if (noDepthToOutput()) {
-//                genos.addTaxon(taxaList.get(currTaxonIndex), taxonGenos, null);
-//            } else {
-//                genos.addTaxon(taxaList.get(currTaxonIndex), taxonGenos, byteDepths);
-//            }
-//            myLogger.info("  finished calling genotypes for " + taxaList.get(currTaxonIndex).getName());
-//        }
-//        myLogger.info("Finished calling genotypes for " + obsTagsForEachTaxon.length + " taxa\n");
-//    }
 
     private static byte[] resolveGenosForTaxon(int[][] depthsForTaxon, GenotypeMergeRule genoMergeRule) {
         int nAlleles = depthsForTaxon.length;
@@ -727,25 +659,25 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     }
 
     /**
-     * Output (target) HDF5 genotypes file to add new genotypes
+     * Output (target) genotypes file to add new genotypes
      * to (new file created if it doesn't exist)
      *
-     * @return Output HDF5 Genotypes File
+     * @return Output file Genotypes File
      */
-    public String outputHDF5GenotypesFile() {
+    public String outputGenotypesFile() {
         return myOutputGenotypes.value();
     }
 
     /**
-     * Set Output HDF5 Genotypes File. Output (target) HDF5
+     * Set Output  Genotypes File. Output (target)
      * genotypes file to add new genotypes to (new file created
      * if it doesn't exist)
      *
-     * @param value Output HDF5 Genotypes File
+     * @param value Output Genotypes File
      *
      * @return this plugin
      */
-    public ProductionSNPCallerPluginV2 outputHDF5GenotypesFile(String value) {
+    public ProductionSNPCallerPluginV2 outputGenotypesFile(String value) {
         myOutputGenotypes = new PluginParameter<>(myOutputGenotypes, value);
         return this;
     }
