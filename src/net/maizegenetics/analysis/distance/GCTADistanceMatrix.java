@@ -13,6 +13,7 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.util.ProgressListener;
 import net.maizegenetics.util.Tuple;
@@ -96,6 +97,9 @@ public class GCTADistanceMatrix {
 
     protected static void fireProgress(int percent, ProgressListener listener) {
         if (listener != null) {
+            if (percent > 100) {
+                percent = 100;
+            }
             listener.progress(percent, null);
         }
 
@@ -225,6 +229,8 @@ public class GCTADistanceMatrix {
         }
     }
 
+    private static final int NUM_CORES_TO_USE = Runtime.getRuntime().availableProcessors() - 1;
+
     //
     // Used to report progress.  This is not thread-safe but
     // works well enough for this purpose.
@@ -251,6 +257,8 @@ public class GCTADistanceMatrix {
         private final int myNumTaxa;
         private final int myNumSites;
         private final ProgressListener myProgressListener;
+        private final int myMinSitesToProcess;
+        private final int myNumSitesPerBlockForProgressReporting;
 
         GCTASiteSpliterator(GenotypeTable genotypes, int currentIndex, int fence, ProgressListener listener) {
             myGenotypes = genotypes;
@@ -259,12 +267,13 @@ public class GCTADistanceMatrix {
             myCurrentSite = currentIndex;
             myFence = fence;
             myProgressListener = listener;
+            myMinSitesToProcess = myNumSites / NUM_CORES_TO_USE;
+            myNumSitesPerBlockForProgressReporting = (myFence - myCurrentSite) / 10;
         }
 
         @Override
         public void forEachRemaining(Consumer<? super CountersDistances> action) {
 
-            int numSitesProcessed = myFence - myCurrentSite;
             CountersDistances result = new CountersDistances(myNumTaxa);
             int[] counts = result.myCounters;
             float[] distances = result.myDistances;;
@@ -275,67 +284,76 @@ public class GCTADistanceMatrix {
 
             for (; myCurrentSite < myFence;) {
 
-                int[] numSites = new int[1];
+                int currentBlockFence = Math.min(myCurrentSite + myNumSitesPerBlockForProgressReporting, myFence);
 
-                //
-                // Pre-calculates possible terms and gets counts for
-                // three blocks for five sites.
-                //
-                Tuple<short[], float[]> firstBlock = getBlockOfSites(myCurrentSite, numSites);
-                float[] possibleTerms = firstBlock.y;
-                short[] majorCount1 = firstBlock.x;
+                int numSitesProcessed = currentBlockFence - myCurrentSite;
 
-                Tuple<short[], float[]> secondBlock = getBlockOfSites(myCurrentSite + numSites[0], numSites);
-                float[] possibleTerms2 = secondBlock.y;
-                short[] majorCount2 = secondBlock.x;
+                for (; myCurrentSite < currentBlockFence;) {
 
-                Tuple<short[], float[]> thirdBlock = getBlockOfSites(myCurrentSite + numSites[0], numSites);
-                float[] possibleTerms3 = thirdBlock.y;
-                short[] majorCount3 = thirdBlock.x;
+                    int[] numSites = new int[1];
 
-                myCurrentSite += numSites[0];
-
-                //
-                // Using possible terms, calculates all possible answers
-                // for each site block.
-                //
-                for (int i = 0; i < 32768; i++) {
-                    answer1[i] = possibleTerms[(i & 0x7000) >>> 12] + possibleTerms[((i & 0xE00) >>> 9) | 0x8] + possibleTerms[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms[((i & 0x38) >>> 3) | 0x18] + possibleTerms[(i & 0x7) | 0x20];
-                    answer2[i] = possibleTerms2[(i & 0x7000) >>> 12] + possibleTerms2[((i & 0xE00) >>> 9) | 0x8] + possibleTerms2[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms2[((i & 0x38) >>> 3) | 0x18] + possibleTerms2[(i & 0x7) | 0x20];
-                    answer3[i] = possibleTerms3[(i & 0x7000) >>> 12] + possibleTerms3[((i & 0xE00) >>> 9) | 0x8] + possibleTerms3[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms3[((i & 0x38) >>> 3) | 0x18] + possibleTerms3[(i & 0x7) | 0x20];
-                }
-
-                //
-                // Iterates through all pair-wise combinations of taxa adding
-                // distance comparisons and site counts.
-                //
-                int index = 0;
-                for (int firstTaxa = 0; firstTaxa < myNumTaxa; firstTaxa++) {
                     //
-                    // Can skip inter-loop if all fifteen sites for first
-                    // taxon is Unknown diploid allele values
+                    // Pre-calculates possible terms and gets counts for
+                    // three blocks for five sites.
                     //
-                    if ((majorCount1[firstTaxa] != 0x7FFF) || (majorCount2[firstTaxa] != 0x7FFF) || (majorCount3[firstTaxa] != 0x7FFF)) {
-                        for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
-                            //
-                            // Combine first taxon's major allele counts with
-                            // second taxon's major allele counts to
-                            // create index into pre-calculated answers
-                            // and site counts.
-                            //
-                            distances[index] += answer1[majorCount1[firstTaxa] | majorCount1[secondTaxa]] + answer2[majorCount2[firstTaxa] | majorCount2[secondTaxa]] + answer3[majorCount3[firstTaxa] | majorCount3[secondTaxa]];
-                            counts[index] += INCREMENT[majorCount1[firstTaxa] | majorCount1[secondTaxa]] + INCREMENT[majorCount2[firstTaxa] | majorCount2[secondTaxa]] + INCREMENT[majorCount3[firstTaxa] | majorCount3[secondTaxa]];
-                            index++;
+                    Tuple<short[], float[]> firstBlock = getBlockOfSites(myCurrentSite, numSites);
+                    float[] possibleTerms = firstBlock.y;
+                    short[] majorCount1 = firstBlock.x;
+
+                    Tuple<short[], float[]> secondBlock = getBlockOfSites(myCurrentSite + numSites[0], numSites);
+                    float[] possibleTerms2 = secondBlock.y;
+                    short[] majorCount2 = secondBlock.x;
+
+                    Tuple<short[], float[]> thirdBlock = getBlockOfSites(myCurrentSite + numSites[0], numSites);
+                    float[] possibleTerms3 = thirdBlock.y;
+                    short[] majorCount3 = thirdBlock.x;
+
+                    myCurrentSite += numSites[0];
+
+                    //
+                    // Using possible terms, calculates all possible answers
+                    // for each site block.
+                    //
+                    for (int i = 0; i < 32768; i++) {
+                        answer1[i] = possibleTerms[(i & 0x7000) >>> 12] + possibleTerms[((i & 0xE00) >>> 9) | 0x8] + possibleTerms[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms[((i & 0x38) >>> 3) | 0x18] + possibleTerms[(i & 0x7) | 0x20];
+                        answer2[i] = possibleTerms2[(i & 0x7000) >>> 12] + possibleTerms2[((i & 0xE00) >>> 9) | 0x8] + possibleTerms2[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms2[((i & 0x38) >>> 3) | 0x18] + possibleTerms2[(i & 0x7) | 0x20];
+                        answer3[i] = possibleTerms3[(i & 0x7000) >>> 12] + possibleTerms3[((i & 0xE00) >>> 9) | 0x8] + possibleTerms3[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms3[((i & 0x38) >>> 3) | 0x18] + possibleTerms3[(i & 0x7) | 0x20];
+                    }
+
+                    //
+                    // Iterates through all pair-wise combinations of taxa adding
+                    // distance comparisons and site counts.
+                    //
+                    int index = 0;
+                    for (int firstTaxa = 0; firstTaxa < myNumTaxa; firstTaxa++) {
+                        //
+                        // Can skip inter-loop if all fifteen sites for first
+                        // taxon is Unknown diploid allele values
+                        //
+                        if ((majorCount1[firstTaxa] != 0x7FFF) || (majorCount2[firstTaxa] != 0x7FFF) || (majorCount3[firstTaxa] != 0x7FFF)) {
+                            for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
+                                //
+                                // Combine first taxon's major allele counts with
+                                // second taxon's major allele counts to
+                                // create index into pre-calculated answers
+                                // and site counts.
+                                //
+                                distances[index] += answer1[majorCount1[firstTaxa] | majorCount1[secondTaxa]] + answer2[majorCount2[firstTaxa] | majorCount2[secondTaxa]] + answer3[majorCount3[firstTaxa] | majorCount3[secondTaxa]];
+                                counts[index] += INCREMENT[majorCount1[firstTaxa] | majorCount1[secondTaxa]] + INCREMENT[majorCount2[firstTaxa] | majorCount2[secondTaxa]] + INCREMENT[majorCount3[firstTaxa] | majorCount3[secondTaxa]];
+                                index++;
+                            }
+                        } else {
+                            index += myNumTaxa - firstTaxa;
                         }
-                    } else {
-                        index += myNumTaxa - firstTaxa;
                     }
                 }
+
+                myNumSitesProcessed += numSitesProcessed;
+                fireProgress((int) ((double) myNumSitesProcessed / (double) myNumSites * 100.0), myProgressListener);
+
             }
 
             action.accept(result);
-            myNumSitesProcessed += numSitesProcessed;
-            fireProgress((int) ((double) myNumSitesProcessed / (double) myNumSites * 100.0), myProgressListener);
         }
 
         private static final int NUM_SITES_PER_BLOCK = 5;
@@ -368,8 +386,10 @@ public class GCTADistanceMatrix {
 
             while ((currentSiteNum < NUM_SITES_PER_BLOCK) && (currentSite < myFence)) {
 
-                byte major = myGenotypes.majorAllele(currentSite);
-                float majorFreq = (float) myGenotypes.majorAlleleFrequency(currentSite);
+                byte[] genotypes = myGenotypes.genotypeAllTaxa(currentSite);
+                int[][] alleleCounts = AlleleFreqCache.allelesSortedByFrequencyNucleotide(genotypes);
+                byte major = AlleleFreqCache.majorAllele(alleleCounts);
+                float majorFreq = (float) AlleleFreqCache.majorAlleleFrequency(alleleCounts);
                 float majorFreqTimes2 = majorFreq * 2.0f;
                 float denominatorTerm = majorFreqTimes2 * (1.0f - majorFreq);
 
@@ -410,8 +430,7 @@ public class GCTADistanceMatrix {
                     int shift = (NUM_SITES_PER_BLOCK - currentSiteNum - 1) * 3;
                     int mask = ~(0x7 << shift) & 0x7FFF;
                     for (int i = 0; i < myNumTaxa; i++) {
-                        byte genotype = myGenotypes.genotype(i, currentSite);
-                        majorCount[i] = (short) (majorCount[i] & (mask | PRECALCULATED_COUNTS[temp | ((genotype & 0x70) >>> 1) | (genotype & 0x7)] << shift));
+                        majorCount[i] = (short) (majorCount[i] & (mask | PRECALCULATED_COUNTS[temp | ((genotypes[i] & 0x70) >>> 1) | (genotypes[i] & 0x7)] << shift));
                     }
 
                     currentSiteNum++;
@@ -497,12 +516,12 @@ public class GCTADistanceMatrix {
 
         @Override
         /**
-         * Splits sites into halves
+         * Splits sites
          */
         public Spliterator<CountersDistances> trySplit() {
             int lo = myCurrentSite;
-            int mid = (lo + myFence) >>> 1;
-            if (lo < mid) {
+            int mid = lo + myMinSitesToProcess;
+            if (mid < myFence) {
                 myCurrentSite = mid;
                 return new GCTASiteSpliterator(myGenotypes, lo, mid, myProgressListener);
             } else {
