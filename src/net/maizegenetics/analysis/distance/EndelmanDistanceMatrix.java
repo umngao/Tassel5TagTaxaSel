@@ -139,7 +139,7 @@ public class EndelmanDistanceMatrix {
 
     protected static void fireProgress(int percent, ProgressListener listener) {
         if (listener != null) {
-            listener.progress(percent, null);
+            listener.progress(Math.min(percent, 100), null);
         }
 
     }
