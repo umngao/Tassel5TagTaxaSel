@@ -1,9 +1,15 @@
 package net.maizegenetics.analysis.modelfitter;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.List;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
+import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.Taxon;
 
 public class GenotypeAdditiveSite extends AbstractAdditiveSite {
 
@@ -144,5 +150,36 @@ public class GenotypeAdditiveSite extends AbstractAdditiveSite {
             cov[i] = byteConversion[genotypeIndex(taxaIndex[subset[i]])];
         }
         return cov;
+    }
+    
+    public static void serializeAdditiveSites(GenotypeTable geno, String outFile) {
+        long start = System.nanoTime();
+
+        try {
+            ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(outFile));
+            int nsites = geno.numberOfSites();
+            int ntaxa = geno.numberOfTaxa();
+            
+            out.writeObject(new Integer(ntaxa));
+            
+            //for now just serialize taxon name, since Taxon is not serializeable
+            TaxaList myTaxa = geno.taxa();
+            for (Taxon t : myTaxa) 
+                out.writeObject(t.getName());
+            
+            out.writeObject(new Integer(nsites));
+            
+            for (int s = 0; s < nsites; s++) {
+                GenotypeAdditiveSite mySite = new GenotypeAdditiveSite(s, geno.chromosomeName(s), geno.chromosomalPosition(s), geno.siteName(s), AdditiveSite.CRITERION.pval, geno.genotypeAllTaxa(s), geno.majorAllele(s), geno.majorAlleleFrequency(s));
+                out.writeObject(mySite);
+            }
+            out.close();
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(String.format("Error writing additive sites to %s.", outFile), e);
+        } catch (IOException e) {
+            throw new RuntimeException(String.format("Error writing additive sites to %s.", outFile), e);
+        }
+
+        System.out.printf("%d sites written to %s at %d ms.\n", geno.numberOfSites(), outFile, (System.nanoTime() - start) / 1000000);
     }
 }
