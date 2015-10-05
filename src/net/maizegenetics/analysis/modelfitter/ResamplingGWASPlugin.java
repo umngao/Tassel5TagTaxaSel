@@ -36,7 +36,7 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
     //resample method (with/without replacement)
     //resample proportion
     //maximum number of terms in the model
-    
+
     //restrictions:
     //there must be no missing data in the Phenotype
     //the input data set must contain one GenotypeTable and one Phenotype
@@ -44,54 +44,67 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
 
     private Random randomGen = new Random();
     int numberOfFactors;
-    
+
     private static Logger myLogger = Logger.getLogger(ResamplingGWASPlugin.class);
-    
-    private PluginParameter<Double> enterLimit = new PluginParameter.Builder<>("enterLimit", 1e-8, Double.class)
-            .description("A new term entering the model must have a p-value equal to or less than the enter limit. (Default = 1e-8)")
-            .guiName("Enter Limit")
-            .build();
-    private PluginParameter<Integer> maxModelTerms = new PluginParameter.Builder<>("maxterms", 100, Integer.class)
-            .description("The maximum number of variants that will be fit. If the chromosome residuals are being fit, the maximum number of variants fit per chromosome. (Default = 100)")
-            .guiName("Max terms")
-            .build();
-    
-    private PluginParameter<Boolean> useResiduals = new PluginParameter.Builder<>("residuals", false, Boolean.class)
-            .description("Should new terms be tested using residuals from the prior model? The analysis runs faster using this option. (Default = true)")
-            .guiName("Use residuals")
-            .build();
-    
-    private PluginParameter<Integer> numberOfIterations = new PluginParameter.Builder<>("nIterations", 100, Integer.class)
-            .description("The number of times the data should be resampled. (Default = 100)")
-            .guiName("Number of Iterations")
-            .build();
-    
-    private PluginParameter<Double> resampleProportion = new PluginParameter.Builder<>("resampleProportion", 0.8, Double.class)
-            .description("The size of the sample is resample proportion times the number of observations in the complete data. For bootstrap, set this value to 1 and with replacement to true. (Default = 0.8)")
-            .guiName("")
-            .build();
-    
-    private PluginParameter<Boolean> withReplacement = new PluginParameter.Builder<>("replacement", false, Boolean.class)
-            .description("Should the sample be formed by sampling with replacement?  For bootstrap, set resample proportion to 1 and this value to true. (Default = false)")
-            .guiName("With Replacement")
-            .build();
-    
-    private PluginParameter<Boolean> useSerialFile = new PluginParameter.Builder<>("useSitefile", false, Boolean.class)
-            .description("Use an additive site file as the source of genotypes.")
-            .guiName("Use Site File")
-            .build();
-    
-    private PluginParameter<String> serialFilename = new PluginParameter.Builder<>("sitefile", null, String.class)
-            .description("The name of the file containing genotypes stored in site objects.")
-            .guiName("Site Filename")
-            .dependentOnParameter(useSerialFile)
-            .build();
-    
+
+    private PluginParameter<Double> enterLimit =
+            new PluginParameter.Builder<>("enterLimit", 1e-8, Double.class)
+                    .description("A new term entering the model must have a p-value equal to or less than the enter limit. (Default = 1e-8)")
+                    .guiName("Enter Limit")
+                    .build();
+    private PluginParameter<Integer> maxModelTerms =
+            new PluginParameter.Builder<>("maxterms", 100, Integer.class)
+                    .description("The maximum number of variants that will be fit. If the chromosome residuals are being fit, the maximum number of variants fit per chromosome. (Default = 100)")
+                    .guiName("Max terms")
+                    .build();
+
+    private PluginParameter<Boolean> useResiduals =
+            new PluginParameter.Builder<>("residuals", false, Boolean.class)
+                    .description("Should new terms be tested using residuals from the prior model? The analysis runs faster using this option. (Default = true)")
+                    .guiName("Use residuals")
+                    .build();
+
+    private PluginParameter<Integer> numberOfIterations =
+            new PluginParameter.Builder<>("nIterations", 100, Integer.class)
+                    .description("The number of times the data should be resampled. (Default = 100)")
+                    .guiName("Number of Iterations")
+                    .build();
+
+    private PluginParameter<Double> resampleProportion =
+            new PluginParameter.Builder<>("resampleProportion", 0.8, Double.class)
+                    .description("The size of the sample is resample proportion times the number of observations in the complete data. For bootstrap, set this value to 1 and with replacement to true. (Default = 0.8)")
+                    .guiName("")
+                    .build();
+
+    private PluginParameter<Boolean> withReplacement =
+            new PluginParameter.Builder<>("replacement", false, Boolean.class)
+                    .description("Should the sample be formed by sampling with replacement?  For bootstrap, set resample proportion to 1 and this value to true. (Default = false)")
+                    .guiName("With Replacement")
+                    .build();
+
+    private PluginParameter<Boolean> useSerialFile =
+            new PluginParameter.Builder<>("useSitefile", false, Boolean.class)
+                    .description("Use an additive site file as the source of genotypes.")
+                    .guiName("Use Site File")
+                    .build();
+
+    private PluginParameter<String> serialFilename =
+            new PluginParameter.Builder<>("sitefile", null, String.class)
+                    .description("The name of the file containing genotypes stored in site objects.")
+                    .guiName("Site Filename")
+                    .dependentOnParameter(useSerialFile)
+                    .build();
+
+    private PluginParameter<Integer> maxThreads =
+            new PluginParameter.Builder<>("maxThreads", -1, Integer.class)
+                    .description("The maximum number of threads to available to the plugin. If maxThreads = -1, then the value is set to the number of available processors - 2. (Default = -1)")
+                    .guiName("Maximum Thread Number")
+                    .build();
+
     public ResamplingGWASPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
-    
-    
+
     @Override
     protected void preProcessParameters(DataSet input) {
         Phenotype pheno;
@@ -111,18 +124,17 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
             }
             pheno = ((GenotypePhenotype) datumList.get(0).getData()).phenotype();
         }
-        
+
         //if the Phenotype has more than one factor level, throw an error
         numberOfFactors = pheno.numberOfAttributesOfType(ATTRIBUTE_TYPE.factor);
-        if (numberOfFactors > 1) 
+        if (numberOfFactors > 1)
             throw new IllegalArgumentException("Phenotype supplied to Resample GWAS can have at most one factor");
-        
+
         //if there is any missing data in the phenotype throw an error
-        boolean anyMissing = pheno.attributeStream().anyMatch(pa -> pa.missing().cardinality() > 0 );
-        if (anyMissing) 
+        boolean anyMissing = pheno.attributeStream().anyMatch(pa -> pa.missing().cardinality() > 0);
+        if (anyMissing)
             throw new IllegalArgumentException("No missing phenotype data allow as input to Resample GWAS");
     }
-
 
     @Override
     public DataSet processData(DataSet input) {
@@ -138,7 +150,7 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
             pheno = ((GenotypePhenotype) datumList.get(0).getData()).phenotype();
         }
         dataname = datumList.get(0).getName();
-        
+
         //create the model fitter
         ForwardRegression modelfitter;
         if (useResiduals.value()) {
@@ -148,14 +160,13 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
             if (useSerialFile.value()) {
                 long start = System.nanoTime();
                 modelfitter = new AdditiveModelForwardRegression(serialFilename.value(), pheno);
-                myLogger.debug(String.format("Serialized sites loaded in %d ms", (System.nanoTime() - start)/1000000));
+                myLogger.debug(String.format("Serialized sites loaded in %d ms", (System.nanoTime() - start) / 1000000));
                 pheno = modelfitter.phenotype();
             } else {
                 GenotypePhenotype myGenoPheno = (GenotypePhenotype) datumList.get(0).getData();
                 modelfitter = new AdditiveModelForwardRegression(myGenoPheno);
             }
         }
-        
 
         int numberOfTraits = pheno.numberOfAttributesOfType(ATTRIBUTE_TYPE.data);
         List<int[]> factorLevelList = new ArrayList<>();
@@ -163,22 +174,27 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
         //create a factor level list for creating subsamples
         //if there are nf factors, the list will contain nf int arrays, each containing the observation numbers for one factor level
         if (numberOfFactors == 1) {
-            CategoricalAttribute myFactor = (CategoricalAttribute) pheno.attributeListOfType(ATTRIBUTE_TYPE.factor).get(0);
+            CategoricalAttribute myFactor =
+                    (CategoricalAttribute) pheno.attributeListOfType(ATTRIBUTE_TYPE.factor).get(0);
             int[] levels = myFactor.allIntValues();
             factorLevelList = new ArrayList<>();
-            Map<Integer, List<Integer>> factorGroups =  IntStream.range(0, levels.length).boxed().collect(Collectors.groupingBy(i -> new Integer(levels[i])));
+            Map<Integer, List<Integer>> factorGroups =
+                    IntStream.range(0, levels.length).boxed().collect(Collectors.groupingBy(i -> new Integer(levels[i])));
             for (int i = 0; i < factorGroups.size(); i++) {
                 List<Integer> factorMembers = factorGroups.get(i);
-                factorLevelList.add( factorMembers.stream().mapToInt(I -> I.intValue()).toArray() );
+                factorLevelList.add(factorMembers.stream().mapToInt(I -> I.intValue()).toArray());
             }
         } else {  //number of factors = 0
-            factorLevelList.add(IntStream.range(0,  pheno.numberOfObservations()).toArray());
+            factorLevelList.add(IntStream.range(0, pheno.numberOfObservations()).toArray());
         }
-        
+
         //report builder column labels
-        String[] columns = new String[]{"trait","interation", "step", "SnpID","Chr","Pos", "p-value", "-log10p"};
-        TableReportBuilder reportBuilder = TableReportBuilder.getInstance("Resample terms_" + dataname, columns);
-        
+        String[] columns =
+                new String[] { "trait", "interation", "step", "SnpID", "Chr", "Pos", "p-value",
+                        "-log10p" };
+        TableReportBuilder reportBuilder =
+                TableReportBuilder.getInstance("Resample terms_" + dataname, columns);
+
         //for each trait
         long start = System.nanoTime();
         List<PhenotypeAttribute> dataAttributes = pheno.attributeListOfType(ATTRIBUTE_TYPE.data);
@@ -189,22 +205,23 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
             //for each iteration
             for (int iter = 0; iter < numberOfIterations.value(); iter++) {
                 myLogger.debug(String.format("phenotype %d, iteration %d", ph, iter));
-                
+
                 //create a random subsample
                 int[] subsample = randomSample(factorLevelList);
-                
+
                 //generate a model
                 modelfitter.fitModelForSubsample(subsample, iter);
-                
+
             }
-            
+
             //add the model terms and p-values to the result TableReportBuilder
-            for (Object[] row : modelfitter.fittedModel()) reportBuilder.add(row);
-   
+            for (Object[] row : modelfitter.fittedModel())
+                reportBuilder.add(row);
+
         }
-        myLogger.debug(String.format("Resample GWAS model fit in %d ms.", (System.nanoTime() - start)/1000000));
+        myLogger.debug(String.format("Resample GWAS model fit in %d ms.", (System.nanoTime() - start) / 1000000));
         //return a DataSet that contains the TableReportBuilder
-        myLogger.debug(String.format("Elapse time for plugin = %d ms.", (System.nanoTime() - mainStart)/1000000));
+        myLogger.debug(String.format("Elapse time for plugin = %d ms.", (System.nanoTime() - mainStart) / 1000000));
         Datum theResult = new Datum("name", reportBuilder.build(), "comment");
         return new DataSet(theResult, this);
     }
@@ -232,10 +249,10 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
         return "ResamplingGWASPlugin uses forward regression to fit a multiple SNP model to each of a number of samples drawn from the phenotype data. ";
     }
 
-
     @Override
     public ImageIcon getIcon() {
-        URL imageURL = FixedEffectLMPlugin.class.getResource("/net/maizegenetics/analysis/images/resample.png");
+        URL imageURL =
+                FixedEffectLMPlugin.class.getResource("/net/maizegenetics/analysis/images/resample.png");
         if (imageURL == null) {
             return null;
         } else {
@@ -252,7 +269,7 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
     public String getToolTipText() {
         return "GWAS with resampling";
     }
-    
+
     /**
      * Initializes the random number generator with a seed. Primarily used for testing to generate reproducible results.
      * @param seed      the seed for the Random object
