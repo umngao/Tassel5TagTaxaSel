@@ -80,27 +80,44 @@ public abstract class AbstractForwardRegression implements ForwardRegression {
             Position pos = myGenotype.positions().get(s);
             siteList.add(new GenotypeAdditiveSite(s, pos.getChromosome().getName(), pos.getPosition(), pos.getSNPID(), CRITERION.pval, myGenotypePhenotype.genotypeAllTaxa(s), myGenotype.majorAllele(s), myGenotype.majorAlleleFrequency(s)));
         }
-        myLogger.debug(String.format("site list created with %d sites in  d ms.", siteList.size(), (System.nanoTime() - start) / 1000000));
+        myLogger.debug(String.format("site list created with %d sites in %d ms.", siteList.size(), (System.nanoTime() - start) / 1000000));
 
     }
 
+    /**
+     * @param serialFilename    the base name of the serialization files that end in _taxa.bin and _sites.bin
+     * @param pheno     the Phenotype object to be used in the analysis
+     */
     public AbstractForwardRegression(String serialFilename, Phenotype pheno) {
         List<AdditiveSite> mySites = new ArrayList<>();
         TaxaListBuilder taxaBuilder = new TaxaListBuilder();
-
-        try (FileInputStream fos = new FileInputStream(serialFilename)) {
+        int ntaxa = 0, nsites = 0;
+        
+        try (FileInputStream fos = new FileInputStream(serialFilename + "_taxa.bin")) {
             ObjectInputStream input = new ObjectInputStream(fos);
-            int ntaxa = ((Integer) input.readObject()).intValue();
+            ntaxa = ((Integer) input.readObject()).intValue();
+            nsites = ((Integer) input.readObject()).intValue();
+            
             for (int t = 0; t < ntaxa; t++) {
                 taxaBuilder.add(new Taxon((String) input.readObject()));
             }
-            int nsites = ((Integer) input.readObject()).intValue();
+            input.close();
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException("Unable to open taxa.bin input file.", e);
+        } catch (IOException e) {
+            throw new RuntimeException("error deserializing taxa: ", e);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("error deserializing taxa: ", e);
+        }
+        
+        try (FileInputStream fos = new FileInputStream(serialFilename + "_sites.bin")) {
+            ObjectInputStream input = new ObjectInputStream(fos);
             for (int s = 0; s < nsites; s++) {
                 mySites.add((AdditiveSite) input.readObject());
             }
             input.close();
         } catch (FileNotFoundException e) {
-            throw new RuntimeException("Unable to open input file.", e);
+            throw new RuntimeException("Unable to open sites.bin input file.", e);
         } catch (IOException e) {
             throw new RuntimeException("error deserializing sites: ", e);
         } catch (ClassNotFoundException e) {

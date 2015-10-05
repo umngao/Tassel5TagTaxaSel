@@ -43,7 +43,7 @@ public class AdditiveModelForwardRegression extends AbstractForwardRegression {
 
         int maxModelSize = myModel.size() + maxVariants;
         int step = 0;
-        while (forwardStepParallel(subSample, false, iteration, step++)
+        while (forwardStepParallel(subSample, true, iteration, step++)
                 && myModel.size() < maxModelSize)
             ;
 

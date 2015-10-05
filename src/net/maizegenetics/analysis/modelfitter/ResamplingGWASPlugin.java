@@ -126,6 +126,7 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
 
     @Override
     public DataSet processData(DataSet input) {
+        long mainStart = System.nanoTime();
         Phenotype pheno;
         String dataname;
         List<Datum> datumList;
@@ -145,7 +146,9 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
             modelfitter = null;
         } else {
             if (useSerialFile.value()) {
+                long start = System.nanoTime();
                 modelfitter = new AdditiveModelForwardRegression(serialFilename.value(), pheno);
+                myLogger.debug(String.format("Serialized sites loaded in %d ms", (System.nanoTime() - start)/1000000));
                 pheno = modelfitter.phenotype();
             } else {
                 GenotypePhenotype myGenoPheno = (GenotypePhenotype) datumList.get(0).getData();
@@ -177,6 +180,7 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
         TableReportBuilder reportBuilder = TableReportBuilder.getInstance("Resample terms_" + dataname, columns);
         
         //for each trait
+        long start = System.nanoTime();
         List<PhenotypeAttribute> dataAttributes = pheno.attributeListOfType(ATTRIBUTE_TYPE.data);
         for (int ph = 0; ph < numberOfTraits; ph++) {
             modelfitter.resetModel(ph, enterLimit.value(), maxModelTerms.value());
@@ -198,8 +202,9 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
             for (Object[] row : modelfitter.fittedModel()) reportBuilder.add(row);
    
         }
-        
+        myLogger.debug(String.format("Resample GWAS model fit in %d ms.", (System.nanoTime() - start)/1000000));
         //return a DataSet that contains the TableReportBuilder
+        myLogger.debug(String.format("Elapse time for plugin = %d ms.", (System.nanoTime() - mainStart)/1000000));
         Datum theResult = new Datum("name", reportBuilder.build(), "comment");
         return new DataSet(theResult, this);
     }
