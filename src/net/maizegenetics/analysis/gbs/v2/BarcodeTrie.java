@@ -23,12 +23,13 @@ public class BarcodeTrie{
      * @param barcode
      */
     public void addBarcode(Barcode barcode){
-        String word = barcode.getBarcodeString();
-        int lt = word.length();
-        char ct = word.charAt(lt-1);
-        root.addWord(word.toUpperCase());
-        String bcode = word;
-        barcodeInformation.put(bcode, barcode);
+        // Store both barcode and initial cut site
+        String[] barcodeWOverhang = barcode.getBarWOverHang();
+        for (String word: barcodeWOverhang) {
+            root.addWord(word.toUpperCase());
+            String bcode = word;
+            barcodeInformation.put(bcode, barcode);
+        }
     }
 
     /**

@@ -9,7 +9,6 @@ package net.maizegenetics.taxa;
 import net.maizegenetics.util.GeneralAnnotation;
 import net.maizegenetics.util.GeneralAnnotationStorage;
 
-import java.io.Serializable;
 import java.util.*;
 
 /**
@@ -24,9 +23,8 @@ import java.util.*;
  * @author Terry Casstevens
  * @author Ed Buckler
  */
-public class Taxon implements Serializable, Comparable<Taxon> {
+public class Taxon implements Comparable<Taxon> {
 
-    private static final long serialVersionUID = -7873729831795750538L;
     public static final String DELIMITER = ":";
     public static Taxon ANONYMOUS = new Taxon("");
     /**

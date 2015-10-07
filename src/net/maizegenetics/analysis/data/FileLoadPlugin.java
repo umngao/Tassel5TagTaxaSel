@@ -14,6 +14,8 @@ import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.phenotype.PhenotypeBuilder;
 import net.maizegenetics.dna.snp.ReadSequenceAlignmentUtils;
 import net.maizegenetics.dna.snp.io.ReadNumericMarkerUtils;
+import net.maizegenetics.dna.snp.io.BuilderFromHapMapLIX;
+import net.maizegenetics.dna.snp.io.LineIndexBuilder;
 import net.maizegenetics.taxa.distance.ReadDistanceMatrix;
 import net.maizegenetics.util.*;
 import net.maizegenetics.plugindef.AbstractPlugin;
@@ -35,6 +37,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.*;
 import java.net.URL;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -56,12 +60,13 @@ public class FileLoadPlugin extends AbstractPlugin {
 
     public enum TasselFileType {
 
-        SqrMatrix, Sequence, Unknown, Fasta,
-        Hapmap, Plink, Phenotype, ProjectionAlignment, ProjectPCsandRunModelSelection, Phylip_Seq, Phylip_Inter, Table,
+        SqrMatrix, Sequence, Unknown, Fasta, Hapmap, HapmapLIX,
+        Plink, Phenotype, ProjectionAlignment, ProjectPCsandRunModelSelection, Phylip_Seq, Phylip_Inter, Table,
         Serial, HapmapDiploid, Text, VCF, HDF5, TOPM, HDF5Schema, Filter, NumericGenotype, TaxaList, PositionList, SqrMatrixRaw, SqrMatrixBin
     };
     public static final String FILE_EXT_HAPMAP = ".hmp.txt";
     public static final String FILE_EXT_HAPMAP_GZ = ".hmp.txt.gz";
+    public static final String FILE_EXT_HAPMAP_GZ_LIX = FILE_EXT_HAPMAP_GZ + LineIndexBuilder.LINE_INDEX_FILE_EXTENSION;
     public static final String FILE_EXT_PLINK_MAP = ".plk.map";
     public static final String FILE_EXT_PLINK_PED = ".plk.ped";
     public static final String FILE_EXT_SERIAL_GZ = ".serial.gz";
@@ -70,6 +75,7 @@ public class FileLoadPlugin extends AbstractPlugin {
     public static final String FILE_EXT_TOPM = ".topm";
     public static final String FILE_EXT_TOPM_H5 = ".topm.h5";
     public static final String FILE_EXT_FASTA = ".fasta";
+    public static final String FILE_EXT_FILTER = ".filter";
 
     /**
      * Creates a new instance of FileLoadPlugin
@@ -144,11 +150,39 @@ public class FileLoadPlugin extends AbstractPlugin {
                     continue;
                 }
 
+                LocalDateTime time = LocalDateTime.now();
+                String timeStr = time.format(DateTimeFormatter.ofPattern("MMM d, uuuu H:mm:s"));
+                myLogger.info("Start Loading File: " + myOpenFiles[i] + " time: " + timeStr);
+
                 DataSet tds = null;
                 try {
 
                     if (myFileType == TasselFileType.Unknown) {
-                        if (myOpenFiles[i].endsWith(FILE_EXT_HAPMAP) || myOpenFiles[i].endsWith(FILE_EXT_HAPMAP_GZ)) {
+                        if (myOpenFiles[i].endsWith(FILE_EXT_HAPMAP_GZ)) {
+                            String theIndex = myOpenFiles[i].replaceFirst(FILE_EXT_HAPMAP_GZ, FILE_EXT_HAPMAP_GZ_LIX);
+                            if (new File(theIndex).isFile()) {
+                                myLogger.info("guessAtUnknowns: type: " + TasselFileType.HapmapLIX);
+                                alreadyLoaded.add(myOpenFiles[i]);
+                                alreadyLoaded.add(theIndex);
+                                GenotypeTable hapmap = BuilderFromHapMapLIX.build(myOpenFiles[i], theIndex);
+                                tds = new DataSet(new Datum(Utils.getFilename(myOpenFiles[i], FileLoadPlugin.FILE_EXT_HAPMAP_GZ), hapmap, null), this);
+                            } else {
+                                myLogger.info("guessAtUnknowns: type: " + TasselFileType.Hapmap);
+                                alreadyLoaded.add(myOpenFiles[i]);
+                                tds = processDatum(myOpenFiles[i], TasselFileType.Hapmap);
+                            }
+                        } else if (myOpenFiles[i].endsWith(FILE_EXT_HAPMAP_GZ_LIX)) {
+                            String theHapmap = myOpenFiles[i].replaceFirst(FILE_EXT_HAPMAP_GZ_LIX, FILE_EXT_HAPMAP_GZ);
+                            if (new File(theHapmap).isFile()) {
+                                myLogger.info("guessAtUnknowns: type: " + TasselFileType.HapmapLIX);
+                                alreadyLoaded.add(myOpenFiles[i]);
+                                alreadyLoaded.add(theHapmap);
+                                GenotypeTable hapmap = BuilderFromHapMapLIX.build(theHapmap, myOpenFiles[i]);
+                                tds = new DataSet(new Datum(Utils.getFilename(theHapmap, FileLoadPlugin.FILE_EXT_HAPMAP_GZ), hapmap, null), this);
+                            } else {
+                                throw new IllegalStateException("FileLoadPlugin: Can't find file matching: " + myOpenFiles[i]);
+                            }
+                        } else if (myOpenFiles[i].endsWith(FILE_EXT_HAPMAP)) {
                             myLogger.info("guessAtUnknowns: type: " + TasselFileType.Hapmap);
                             alreadyLoaded.add(myOpenFiles[i]);
                             tds = processDatum(myOpenFiles[i], TasselFileType.Hapmap);
@@ -210,10 +244,15 @@ public class FileLoadPlugin extends AbstractPlugin {
                     }
                 }
 
+                time = LocalDateTime.now();
+                timeStr = time.format(DateTimeFormatter.ofPattern("MMM d, uuuu H:mm:s"));
                 if (tds != null) {
+                    myLogger.info("Finished Loading File: " + myOpenFiles[i] + " time: " + timeStr);
                     myWasCancelled = false;
                     result.add(tds);
                     fireDataSetReturned(new PluginEvent(tds, FileLoadPlugin.class));
+                } else {
+                    myLogger.info("Nothing Loaded for File: " + myOpenFiles[i] + " time: " + timeStr);
                 }
 
             }

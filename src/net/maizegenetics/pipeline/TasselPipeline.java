@@ -436,6 +436,12 @@ public class TasselPipeline implements PluginListener {
                     ProjectionLoadPlugin plugin = new ProjectionLoadPlugin(myMainFrame, myIsInteractive);
                     plugin.recombinationBreakpoints(file);
                     integratePlugin(plugin, true);
+                } else if (current.equalsIgnoreCase("-printGenoSummary")) {
+                    GenotypeSummaryPlugin plugin = new GenotypeSummaryPlugin(myMainFrame, myIsInteractive);
+                    plugin.overview(false);
+                    plugin.siteSummary(false);
+                    plugin.taxaSummary(false);
+                    integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-convertTOPMtoHDF5")) {
                     String filename = args[index++].trim();
                     TagsOnPhysicalMap topm = null;
@@ -933,9 +939,9 @@ public class TasselPipeline implements PluginListener {
 
                     String temp = args[index++].trim();
                     if (temp.equalsIgnoreCase("Neighbor")) {
-                        plugin.setNeighborJoining(true);
+                        plugin.clusteringMethod(CreateTreePlugin.CLUSTERING_METHOD.Neighbor_Joining);
                     } else if (temp.equalsIgnoreCase("UPGMA")) {
-                        plugin.setNeighborJoining(false);
+                        plugin.clusteringMethod(CreateTreePlugin.CLUSTERING_METHOD.UPGMA);
                     } else {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: tree clustering method must be Neighbor or UPGMA: " + temp);
                     }
@@ -957,7 +963,7 @@ public class TasselPipeline implements PluginListener {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: tree save distance matrix parameter must be true or false: " + value);
                     }
 
-                    plugin.setReturnDistanceMatrix(value);
+                    plugin.saveDistanceMatrix(value);
 
                 } else if (current.equalsIgnoreCase("-gs")) {
                     RidgeRegressionEmmaPlugin plugin = new RidgeRegressionEmmaPlugin(myMainFrame, myIsInteractive);
@@ -1542,8 +1548,6 @@ public class TasselPipeline implements PluginListener {
     }
 
     public FileLoadPlugin loadFile(String filename, FileLoadPlugin.TasselFileType fileType) {
-
-        myLogger.info("loadFile: " + filename);
 
         FileLoadPlugin plugin = new FileLoadPlugin(myMainFrame, myIsInteractive);
         if (fileType == null) {

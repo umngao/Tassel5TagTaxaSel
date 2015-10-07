@@ -66,6 +66,11 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
 
         try {
 
+            if (!overview() && !siteSummary() && !taxaSummary()) {
+                printSimpleSummary(input);
+                return null;
+            }
+
             myNumGametesMissing = 0;
             myNumHeterozygous = 0;
 
@@ -221,6 +226,25 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
 
         return new SimpleTableReport[]{new SimpleTableReport("Overall Summary", firstColumnNames, data),
             new SimpleTableReport("Allele Summary", alleleColumnNames, data2)};
+    }
+
+    private void printSimpleSummary(DataSet input) {
+
+        List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
+        Datum current = alignInList.get(0);
+        GenotypeTable alignment = (GenotypeTable) current.getData();
+        String name = current.getName();
+
+        long numSites = alignment.numberOfSites();
+        long numTaxa = alignment.numberOfTaxa();
+
+        long totalDiploids = numSites * numTaxa;
+
+        System.out.println("Genotype Table Name: " + name);
+        System.out.println("Number of Taxa: " + numTaxa);
+        System.out.println("Number of Sites: " + numSites);
+        System.out.println("Sites x Taxa: " + totalDiploids);
+
     }
 
     private SimpleTableReport getSiteSummary(GenotypeTable alignment) {

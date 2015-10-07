@@ -26,6 +26,7 @@ import org.apache.log4j.Logger;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -139,7 +140,7 @@ public class BuilderFromVCF {
                 if(currLine.startsWith("#")) continue;
                 txtLines.add(currLine);
                 sitesRead++;
-                if (sitesRead%linesAtTime==0) {
+               if (sitesRead%linesAtTime==0) {
                     ProcessVCFBlock pb;
                     if(inMemory) {
                         pb=ProcessVCFBlock.getInstance(taxaList.numberOfTaxa(), hp, txtLines,includeDepth);}
@@ -149,7 +150,22 @@ public class BuilderFromVCF {
                     //pbs.add(pb);
                         //     pb.run(); //used for testing
                     try {
-                        futures.add(pool.submit(pb));
+                        if(inMemory) {
+                            futures.add(pool.submit(pb));
+                        }
+                        else {
+                            //Put a future on the queue
+                            futures.add(pool.submit(pb));
+                            //If We are streaming to HDF5, we need to block temporarily and clean out the queue.
+                            if(futures.size()>=numThreads) {
+                            //if(futures.size()>0) {
+                                for(Future<ProcessVCFBlock> future : futures) {
+                                    pbs.add(future.get());
+                                }
+                                futures = new ArrayList<>();
+                            }
+                           
+                        }
                     }
                     catch(Exception e) {
                         myLogger.debug(e.getMessage(), e);
@@ -459,16 +475,81 @@ class ProcessVCFBlock implements Callable<ProcessVCFBlock> {
                 else {variants=(refS+"/"+alt).replace(',','/')
                         .replace("<INS>", "+").replace('I', '+')
                         .replace("<DEL>", "-").replace('D', '-');}
+            
+                //GeneralPosition.Builder apb=new GeneralPosition.Builder(currChr, currentPosition)
+                //                                               .knownVariants(variants); //TODO strand, variants,
+                //ZRM 8_26
                 GeneralPosition.Builder apb=new GeneralPosition.Builder(currChr, Integer.parseInt(input.substring(tabPos[hp.POSITION_INDEX-1]+1, tabPos[hp.POSITION_INDEX])))
                         .knownVariants(variants) //TODO strand, variants,
                         ;
                 if(snpID!=null && !snpID.equals(".")) {
                     apb.snpName(snpID);
                 }
-                byte[] alleles=new byte[(variants.length()+1)/2];
+                //byte[] alleles=new byte[(variants.length()+1)/2];
+                byte[] alleles = new byte[variants.split("/").length];
                 for (int i = 0, varInd=0; i < alleles.length; i++, varInd+=2) {
                     alleles[i]=NucleotideAlignmentConstants.getNucleotideAlleleByte(variants.charAt(varInd));
                 }
+                /***ZRM 8_27 New code ***/
+                String[] variantList = variants.split("/");
+                if(variantList[0].length()>1) {
+                    String[] parsedVariantList = new String[variantList.length];
+                    //alt deletion
+                    for(int i = 0; i < variantList.length; i++) {
+                        //Pull off the first character if it exists
+                        if(variantList[i].length()>1) {
+                            parsedVariantList[i] = variantList[i].substring(1);
+                            if(parsedVariantList[i].length()==0) {
+                                parsedVariantList[i] = "-";
+                            }
+                        }
+                        else {
+                            //Mark as deletion
+                            parsedVariantList[i] = "-";
+                        }
+                    }
+                    for(int i = 0; i<parsedVariantList.length; i++) {
+                        alleles[i] = NucleotideAlignmentConstants.getNucleotideAlleleByte(parsedVariantList[i].charAt(0));
+                    }
+                }
+                else {
+                    //Check for reference deletion(insertion)
+                    //Loop through all variants to see if one alt is longer than the ref
+                    boolean isIndel = false;
+                    for(int i = 1; i < variantList.length; i++) {
+                        if(variantList[i].length() > variantList[0].length()) {
+                            isIndel = true;
+                            break;
+                        }
+                    }
+                    if(isIndel) {
+                        String[] parsedVariantList = new String[variantList.length];
+                        //ref+alt deletion
+                        for(int i = 0; i < variantList.length; i++) {
+                            //Pull off the first character if it exists
+                            if(variantList[i].length()>1) {
+                                parsedVariantList[i] = variantList[i].substring(1);
+                                if(parsedVariantList[i].length()==0) {
+                                    parsedVariantList[i] = "-";
+                                }
+                            }
+                            else {
+                                //Mark as deletion
+                                parsedVariantList[i] = "-";
+                            }
+                        }
+                        for(int i = 0; i<parsedVariantList.length; i++) {
+                            alleles[i] = NucleotideAlignmentConstants.getNucleotideAlleleByte(parsedVariantList[i].charAt(0));
+                        }
+                    }
+                    else {
+                        //if not just put it in the allele array
+                        for(int i = 0; i<variantList.length; i++) {
+                            alleles[i] = NucleotideAlignmentConstants.getNucleotideAlleleByte(variantList[i].charAt(0));
+                        }
+                    }
+                }
+                /***ZRM 8_27 New code end ***/
                 apb.allele(WHICH_ALLELE.Reference, alleles[0]);
                 for(String annoS: Splitter.on(";").split(input.substring(tabPos[hp.INFO_INDEX-1]+1, tabPos[hp.INFO_INDEX]))) {
                     apb.addAnno(annoS);
@@ -494,25 +575,26 @@ class ProcessVCFBlock implements Callable<ProcessVCFBlock> {
                     }
                     String[] formatS = unsplitInput.split(":");
                     
-                    /*
-                    String[] formatS=input.substring(tabPos[hp.FORMAT_INDEX-1]+1, tabPos[hp.FORMAT_INDEX]).split(":");
-                    
-                    if(firstEqualIndex(formatS,"GT")!=0) {
-                        throw new IllegalStateException("Error Processing VCF: GT field is not in first position of FORMAT.");
-                    }
-                    */
                     iAD=firstEqualIndex(formatS,"AD");
                 }
-               System.out.println("iAD" + iAD);
                 int t=0;
                 for(String taxaAllG: Splitter.on("\t").split(input.substring(tabPos[hp.NUM_HAPMAP_NON_TAXA_HEADERS-1]+1))) {
                     int f=0;
+                    if(taxaAllG.equals(".")) {
+                        gTS[t][s] = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+                        continue;
+                    }
                     for(String fieldS: Splitter.on(":").split(taxaAllG)) {
                         if(f==iGT) {
                             //String "[.0-9]\\/[.0-9]||[.0-9]\\|[.0-9]" will match a valid diploid
                             if (!fieldS.equals(".")) { //[TAS-509] Check to make sure we are using diploids in the form 0/1 or 0|0
                                 int a1 = fieldS.charAt(0) - '0';
                                 int a2 = fieldS.charAt(2) - '0';
+                                
+                                if(a1>alleles.length-1 || a2>alleles.length-1) {
+                                    Position pos = blkPosList.get(blkPosList.size()-1);
+                                    throw new IllegalStateException("\nError Processing VCF block: Mismatch of alleles.\n  At Chromosome "+ pos.getChromosome().getName() + ", Position "+pos.getPosition() +".\nAllele ID larger than number of alleles" );
+                                }
                                 if (a1 < 0 || a2 < 0) {
                                     gTS[t][s] = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
                                 }
@@ -528,6 +610,8 @@ class ProcessVCFBlock implements Callable<ProcessVCFBlock> {
                         } else if((f==iAD)&&keepDepth) {
                             int i=0;
                             for(String ad: Splitter.on(",").split(fieldS)){
+                                //System.out.println(i);
+                        
                                 if(alleles[i]==GenotypeTable.UNKNOWN_ALLELE) {  //no position for depth of unknown alleles, so skip
                                     //Uncomment when converted
                                     //dTS[t][alleles[i++]][s] = AlleleDepthUtil.depthIntToByte(AlleleDepthUtil.DEPTH_MISSING);
@@ -536,7 +620,6 @@ class ProcessVCFBlock implements Callable<ProcessVCFBlock> {
                                     continue;
                                     }
                                 int adInt=Integer.parseInt(ad);
-                                System.out.println(adInt);
                                 dTS[t][alleles[i++]][s]=AlleleDepthUtil.depthIntToByte(adInt);
                             }
                         }
@@ -549,6 +632,7 @@ class ProcessVCFBlock implements Callable<ProcessVCFBlock> {
             }
             catch(Exception e) {
                 System.err.println("Err Site Number:"+s);
+                System.err.println("Err Site Number:"+blkPosList.get(blkPosList.size()-1).toString());
                 System.err.println("Err:"+input);
                 throw e;
             }

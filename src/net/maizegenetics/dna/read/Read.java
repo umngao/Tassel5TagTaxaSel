@@ -37,9 +37,9 @@ public class Read {
      * Return average quality value of read
      * @return 
      */
-    public byte returnAverageQuality () {
+    public byte returnAverageQuality (int phredScale) {
         double aver = 0;
-        if (qualValue == null) this.buildQualByteArray();
+        if (qualValue == null) this.buildQualByteArray(phredScale);
         for (int i= 0; i < qualValue.length; i++) {
             aver+=qualValue[i];
         }
@@ -50,8 +50,8 @@ public class Read {
      * Return median quality of read
      * @return 
      */
-    public byte getMedianQuality () {
-        if (qualValue == null) this.buildQualByteArray();
+    public byte getMedianQuality (int phredScale) {
+        if (qualValue == null) this.buildQualByteArray(phredScale);
         if (sortedQualValue == null) {
             System.arraycopy(qualValue, 0, sortedQualValue, 0, seq.length());
             Arrays.sort(sortedQualValue);
@@ -72,13 +72,16 @@ public class Read {
      * @param index
      * @return 
      */
-    public byte getBaseQuality (int index) {
-        if (qualValue == null) this.buildQualByteArray();
+    public byte getBaseQuality (int index, int phredScale) {
+        if (qualValue == null) this.buildQualByteArray(phredScale);
         return qualValue[index];
     }
     
-    private void buildQualByteArray() {
+    private void buildQualByteArray(int phredScale) {
         qualValue = qual.getBytes();
+        for (int i = 0; i < qualValue.length; i++) {
+            qualValue[i] = (byte)(qualValue[i]-phredScale);
+        }
     }
     
     /**

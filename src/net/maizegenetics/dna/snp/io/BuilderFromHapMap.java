@@ -335,7 +335,7 @@ public class BuilderFromHapMap {
 
     }
 
-    private static TaxaListBuilder processTaxa(String readLn, Map<String, SetMultimap<String, String>> taxaAnnotation) {
+    static TaxaListBuilder processTaxa(String readLn, Map<String, SetMultimap<String, String>> taxaAnnotation) {
 
         String[] header = WHITESPACE_PATTERN.split(readLn);
         int numTaxa = header.length - NUM_HAPMAP_NON_TAXA_HEADERS;
@@ -360,8 +360,7 @@ public class BuilderFromHapMap {
     }
 
     /**
-     * Set the builder siteo that when built it will siteort the taxa
-     * alphabetically.
+     * Set the builder so that when built it will sort the taxa alphabetically.
      */
     public BuilderFromHapMap sortTaxa() {
         mySortTaxaAlphabetically = true;
@@ -369,7 +368,7 @@ public class BuilderFromHapMap {
     }
 
     /**
-     * Set the builder siteo that when built it will siteort positeitionsite.
+     * Set the builder so that when built it will sort positions.
      */
     public BuilderFromHapMap sortPositions() {
         mySortPositions = true;

@@ -151,8 +151,10 @@ class HDF5ByteGenotypeCallTable extends AbstractGenotypeCallTable {
             genotypePaths[i] = Tassel5HDF5Constants.getGenotypesCallsPath(tL.taxaName(i));
         }
         myHDF5Reader = reader;
+        long oneThirdMemory = Runtime.getRuntime().maxMemory() / 196608l;
+        long oneColumnBlockForEachProcess = numTaxa * Runtime.getRuntime().availableProcessors();
         myGenoCache = CacheBuilder.newBuilder()
-                .maximumSize((3 * numberOfTaxa()) / 2)
+                .maximumSize(Math.min(oneThirdMemory, oneColumnBlockForEachProcess))
                 .build(myGenoLoader);
         mySiteAnnoCache = CacheBuilder.newBuilder()
                 .maximumSize(150)

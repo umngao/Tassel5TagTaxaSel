@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +35,8 @@ import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.util.Utils;
 
+import org.ahocorasick.trie.Emit;
+import org.ahocorasick.trie.Trie;
 import org.apache.log4j.Logger;
 
 /**
@@ -80,7 +83,9 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
 
     private TagDistributionMap tagCntMap;
     private boolean taglenException;
-
+    protected static int readEndCutSiteRemnantLength;
+    private Trie ahoCorasickTrie; // import from ahocorasick-0.2.1.jar
+   
     public GBSSeqToTagDBPlugin() {
         super(null, false);
     }
@@ -137,13 +142,37 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         System.out.printf("Map Tags:%,d  Memory:%,d  TotalDepth:%,d  AvgDepthPerTag:%d%n",stats[0],stats[1],stats[2],stats[3]);
         return stats;
     }
+    @Override
+    public void postProcessParameters() {
 
+        if (!myEnzyme.isEmpty()) {
+            // Add likelyReadEnds to the ahoCorasick trie
+            GBSEnzyme enzyme = new GBSEnzyme(enzyme());
+            String[] likelyReadEnd = enzyme.likelyReadEnd();
+            // the junit test runs about a second faster average 15.5 vs 16.5) without Trie().removeOverlaps();
+            ahoCorasickTrie = new Trie(); // adding caseInsensitive causes nothing to be found
+            for (String readEnd: likelyReadEnd) {
+                ahoCorasickTrie.addKeyword(readEnd);
+            }  
+            readEndCutSiteRemnantLength = enzyme.readEndCutSiteRemnantLength();
+            // Bug in acorasick code that occurs when multiple threads
+            // call parseText at once.  The software computes the failure
+            // states the first time "parseText" is called.  If multiple threads
+            // hit this at once, they will all call "constructFailureStates" 
+            // and this causes problems.  Suggested workaround is to call
+            // parseText once after all keywords are added, and before we enter
+            // multi-threaded mode.  This gets the failure states constructed
+            // before we start processing the fastQ reads.  See this link:
+            //   https://github.com/robert-bor/aho-corasick/issues/16
+            ahoCorasickTrie.parseText("CAGCTTCAGGTGGTGCGGACGTGGTGGATCACGGCGCTGAAGCCCGCGCGCTTGGTCTGGCTGA");
+        }
+        
+    }
     @Override
     public DataSet processData(DataSet input) {
         int batchSize = myBatchSize.value();
         float loadFactor = 0.95f;
         tagCntMap = new TagDistributionMap (myMaxKmerNumber.value(),loadFactor, 128, this.minKmerCount());        
-        double reducePoint = 0.5;
         try {
             //Get the list of fastq files
             Path keyPath= Paths.get(keyFile()).toAbsolutePath();
@@ -251,7 +280,8 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             tagCntMap.removeTagByCount(myMinKmerCount.value());
             System.out.println("By removing kmers with minCount of " + myMinKmerCount.value() + "Kmer number is reduced to " + tagCntMap.size()+"\n");
             
-            removeSecondCutSitesFromMap(new GBSEnzyme(enzyme()));
+            // now done in processFastQ
+            //removeSecondCutSitesFromMap(new GBSEnzyme(enzyme()));
 
             tdw.putTaxaList(masterTaxaList);
             tdw.putAllTag(tagCntMap.keySet());
@@ -310,7 +340,9 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 	throw new StringIndexOutOfBoundsException(errMsg);
                 }
                 
-                Tag tag=TagBuilder.instance(seqAndQual[0].substring(barcodeLen, barcodeLen + preferredTagLength)).build();
+                // call ahocorasick
+                Tag tag = removeSecondCutSiteAhoC(seqAndQual[0].substring(barcodeLen),preferredTagLength);
+                //Tag tag=TagBuilder.instance(seqAndQual[0].substring(barcodeLen, barcodeLen + preferredTagLength)).build();
                 if(tag==null) continue;   //null occurs when any base was not A, C, G, T
                 goodBarcodedReads++;
                 TaxaDistribution taxaDistribution=masterTagTaxaMap.get(tag);
@@ -342,10 +374,68 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         }
     }
 
+    private Tag removeSecondCutSiteAhoC(String seq, int preferredLength) {
+        // Removes the second cut site BEFORE we trim the tag.
+        // this preserves the cut site incase it shows up in the middle       
+        Tag tag = null;
+        int cutSiteIndex = 9999;
+        
+        // handle overlapping cutsite for ApeKI enzyme
+        if (enzyme().equalsIgnoreCase("ApeKI")) {
+            if (seq.startsWith("CAGCTGC") || seq.startsWith("CTGCAGC")) {
+                seq = seq.substring(3,seq.length());
+            }             
+        }
+        // use ahoCorasickTrie to find cut site       
+        // Start at seq+20 since 20 is default minimum length
+        Collection<Emit> emits = null;
+        try {
+            emits = ahoCorasickTrie.parseText(seq.substring(20));
+        } catch (Exception emitsEx) {
+            System.out.println("LCJ - ahoCorasick excep: seq: " + seq);
+            emitsEx.printStackTrace();
+            // proceed as if no tag was found.  need to understand why sometimes
+            // aho-c complains of a null pointer
+            int seqEnd = (byte) Math.min(seq.length(), preferredLength);
+            return TagBuilder.instance(seq.substring(0,seqEnd)).build();
+        }
+        
+//        boolean printit = false;
+//        if (emits.size() > 1) {
+//        System.out.println("LCJ - ahoCorasickTrie emits size: " + emits.size());
+//        printit = true;
+//        }
+//        for (Emit emit: emits) {
+//            int pos = emit.getStart();
+//            if (printit) System.out.println("LCJ - emits pos: " + pos + " " + emit.getKeyword());
+//            if (pos < cutSiteIndex) {
+//                cutSiteIndex = pos;
+//            }
+//        }
+        // Using the above as debug, when we find more than 1, the items in the list
+        // appear in the order they appear in the seq.  So we only need to look at the first one
+        for (Emit emit: emits) {
+            cutSiteIndex = emit.getStart();
+            break;
+        }
+
+        if (cutSiteIndex + 20 + readEndCutSiteRemnantLength < preferredLength) { // add 20 as we cut off first 20 for aho-c parsing
+            // trim tag to sequence up to & including the cut site
+            tag = TagBuilder.instance(seq.substring(0, cutSiteIndex + 20 + readEndCutSiteRemnantLength)).build();
+        } else {
+            // if no cut site found, or it is beyond preferred length
+            int seqEnd = (byte) Math.min(seq.length(), preferredLength);
+            tag = TagBuilder.instance(seq.substring(0,seqEnd)).build();
+        }
+        return tag;       
+    }
+    
+    // THis method now obsolete, replaced with removeSecondCutSiteAhoC
     private void removeSecondCutSitesFromMap(GBSEnzyme enzyme) {
         //this is a little tricky as you cannot add entries at the same time as removing entries to a map
         System.out.println("GBSSeqToTagDBPlugin.removeSecondCutSitesFromMap started Initial Size:"+tagCntMap.size());
         String[] likelyReadEnd=enzyme.likelyReadEnd();
+        long time=System.nanoTime();
 
         Map<Tag,TaxaDistribution> shortTags=new HashMap<>(tagCntMap.size()/5);
         int belowMinSize=0, shortExisting=0;
@@ -381,6 +471,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         System.out.println("After removal shortTags.size() = " + shortTags.size());
         System.out.println("belowMinSize = " + belowMinSize);
         System.out.println("shortExisting = " + shortExisting);
+        System.out.println("removeSecondCutSite: Process took " + (System.nanoTime() - time)/1e6 + " milliseconds.");
         tagCntMap.putAll(shortTags);
         System.out.println("After combining again tagCntMap.size() = " + tagCntMap.size());
     }

@@ -11,6 +11,7 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
 import net.maizegenetics.util.ProgressListener;
 import net.maizegenetics.util.Tuple;
 import org.apache.log4j.Logger;
@@ -195,6 +196,8 @@ public class IBSDistanceMatrix2Alleles {
         PRECALCULATED_ENCODINGS[0] = 0x0; // Unknown
     }
 
+    private static final int NUM_CORES_TO_USE = Runtime.getRuntime().availableProcessors() - 1;
+
     //
     // Used to report progress.  This is not thread-safe but
     // works well enough for this purpose.
@@ -223,6 +226,7 @@ public class IBSDistanceMatrix2Alleles {
         private final int myNumTaxa;
         private final int myNumSites;
         private final ProgressListener myProgressListener;
+        private final int myMinSitesToProcess;
 
         IBSSiteSpliterator(GenotypeTable genotypes, int currentIndex, int fence, ProgressListener listener) {
             myGenotypes = genotypes;
@@ -231,6 +235,7 @@ public class IBSDistanceMatrix2Alleles {
             myCurrentSite = currentIndex;
             myFence = fence;
             myProgressListener = listener;
+            myMinSitesToProcess = myNumSites / NUM_CORES_TO_USE;
         }
 
         @Override
@@ -242,7 +247,7 @@ public class IBSDistanceMatrix2Alleles {
             // This prevents overrunning the max number that can
             // be held in 20 bits of the long.
             //
-            for (; myCurrentSite < myFence; myCurrentSite += MAX_NUMBER_20_BITS) {
+            for (; myCurrentSite < myFence;) {
 
                 int currentBlockFence = Math.min(myCurrentSite + MAX_NUMBER_20_BITS, myFence);
                 long[] counts = new long[myNumTaxa * (myNumTaxa + 1) / 2];
@@ -319,7 +324,8 @@ public class IBSDistanceMatrix2Alleles {
 
             while ((currentSiteNum < NUM_SITES_PER_BLOCK) && (currentSite < currentBlockFence)) {
 
-                int[][] alleles = myGenotypes.allelesSortedByFrequency(currentSite);
+                byte[] genotype = myGenotypes.genotypeAllTaxa(currentSite);
+                int[][] alleles = AlleleFreqCache.allelesSortedByFrequencyNucleotide(genotype);
                 int numAlleles = alleles[0].length;
 
                 //
@@ -332,9 +338,8 @@ public class IBSDistanceMatrix2Alleles {
                     // for current site in 3 bits.
                     //
                     for (int i = 0; i < myNumTaxa; i++) {
-                        byte genotype = myGenotypes.genotype(i, currentSite);
-                        byte first = (byte) (genotype & 0xf);
-                        byte second = (byte) (genotype >>> 4 & 0xf);
+                        byte first = (byte) (genotype[i] & 0xf);
+                        byte second = (byte) (genotype[i] >>> 4 & 0xf);
                         int allelePresent = 0;
                         if ((alleles[0][0] == first) || (alleles[0][0] == second)) {
                             allelePresent = 0x1;
@@ -411,12 +416,12 @@ public class IBSDistanceMatrix2Alleles {
 
         @Override
         /**
-         * Splits sites into halves
+         * Splits sites
          */
         public Spliterator<long[]> trySplit() {
             int lo = myCurrentSite;
-            int mid = (lo + myFence) >>> 1;
-            if (lo < mid) {
+            int mid = lo + myMinSitesToProcess;
+            if (mid < myFence) {
                 myCurrentSite = mid;
                 return new IBSSiteSpliterator(myGenotypes, lo, mid, myProgressListener);
             } else {

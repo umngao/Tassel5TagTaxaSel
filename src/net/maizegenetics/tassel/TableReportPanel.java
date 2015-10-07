@@ -15,6 +15,8 @@ import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.PositionListTableReport;
 import net.maizegenetics.dna.map.TOPMInterface;
 import net.maizegenetics.dna.map.TOPMTableReport;
+import net.maizegenetics.dna.snp.FilterList;
+import net.maizegenetics.dna.snp.FilterTableReport;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListTableReport;
 
@@ -40,6 +42,7 @@ public class TableReportPanel extends JPanel {
         myDataTable = new JTable(theModel);
 
         myDataTable.setDefaultRenderer(Double.class, new DefaultTableCellRenderer() {
+            @Override
             public void setValue(Object value) {
                 setText(DoubleFormat.format((Double) value));
             }
@@ -95,6 +98,15 @@ public class TableReportPanel extends JPanel {
         return result;
     }
 
+    public static TableReportPanel getInstance(FilterList filter) {
+        TableReportPanel result = INSTANCES.get(filter);
+        if (result == null) {
+            result = new TableReportPanel(new FilterTableReport(filter));
+            INSTANCES.put(filter, result);
+        }
+        return result;
+    }
+
     public static TableReportPanel getInstance(TOPMInterface topm) {
         TableReportPanel result = INSTANCES.get(topm);
         if (result == null) {
@@ -125,6 +137,11 @@ public class TableReportPanel extends JPanel {
     private String[][] getRowHeadings(TableReport report) {
 
         Object[] headings = report.getTableColumnNames();
+
+        if (headings.length < 2) {
+            return null;
+        }
+
         for (int i = 0, n = headings.length; i < n; i++) {
             if (headings[i].toString().equalsIgnoreCase("taxa")) {
                 myTaxaColumnIndex = i;

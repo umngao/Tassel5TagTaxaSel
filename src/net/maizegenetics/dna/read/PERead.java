@@ -23,7 +23,7 @@ import org.biojava.nbio.core.exceptions.CompoundNotFoundException;
  * @author Fei Lu
  */
 public class PERead {
-	private static final Logger myLogger = Logger.getLogger(PERead.class);
+    private static final Logger myLogger = Logger.getLogger(PERead.class);
     Read rf;
     Read rb;
     Read pContig = null;

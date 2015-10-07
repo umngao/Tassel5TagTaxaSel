@@ -28,7 +28,7 @@ import net.maizegenetics.util.TableReportBuilder;
 
 public class MultiDimensionalScalingPlugin extends AbstractPlugin {
 	
-	private PluginParameter<Integer> numberOfAxes = new PluginParameter.Builder<>("Number of axes", 5, Integer.class)
+	private PluginParameter<Integer> numberOfAxes = new PluginParameter.Builder<>("axes", 5, Integer.class)
 			.description("The number of axes or dimensions and associated eigenvalues to be returned by the analysis.")
 			.guiName("Number of Axes")
 			.build();

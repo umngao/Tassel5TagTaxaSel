@@ -11,6 +11,8 @@ import java.util.stream.Collectors;
 
 import javax.swing.ImageIcon;
 
+import org.apache.log4j.Logger;
+
 import com.google.common.collect.Range;
 
 import net.maizegenetics.analysis.modelfitter.AdditiveSite.CRITERION;
@@ -41,6 +43,7 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
     //    private String nestingEffectName = "family";
     //    private AdditiveSite.CRITERION modelSelectionCriterion = AdditiveSite.CRITERION.pval;
     //    private int maxSitesInModel = 1000;
+    private static Logger myLogger = Logger.getLogger(StepwiseAdditiveModelFitterPlugin.class);
     private List<String> myFactorNameList;
     private GenotypePhenotype myGenoPheno;
     private String datasetName;
@@ -250,6 +253,8 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
             stamFitter.isNested(false);
         }
 
+        stamFitter.enterLimit(enterLimit.value());
+        stamFitter.exitLimit(exitLimit.value());
         stamFitter.maxSitesInModel(maxTerms.value());
         stamFitter.modelSelectionCriterion(modelCriterion.value());
         stamFitter.createAnovaReport(createAnova.value());
@@ -258,7 +263,9 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
         stamFitter.createResidualsByChr(createResiduals.value());
         stamFitter.createStepReport(createStep.value());
 
+        long start = System.nanoTime();
         stamFitter.runAnalysis();
+        myLogger.debug(String.format("ran analysis in %d ms.",  (System.nanoTime() - start)/1000000));
         
         List<Datum> resultData = new ArrayList<>();
         if (createStep.value()) {

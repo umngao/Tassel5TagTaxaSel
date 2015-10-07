@@ -19,6 +19,7 @@ import net.maizegenetics.util.MultiMemberGZIPInputStream;
  */
 public class PEFastqChunk {
     PERead[] peReads = null;
+    int phredScale = Integer.MIN_VALUE;
     
     /**
      * Constructor to sample PE Fastq files, ignore those bad sequence at the beginning
@@ -32,6 +33,7 @@ public class PEFastqChunk {
         FastqChunk r1c = new FastqChunk (fastqR1FileS, format, startIndex, readNum);
         FastqChunk r2c = new FastqChunk (fastqR2FileS, format, startIndex, readNum);
         this.convert(r1c, r2c);
+        this.phredScale = r1c.getPhredScale();
     }
     
     /**
@@ -44,6 +46,15 @@ public class PEFastqChunk {
         FastqChunk r1c = new FastqChunk (fastqR1FileS, format);
         FastqChunk r2c = new FastqChunk (fastqR2FileS, format);
         this.convert(r1c, r2c);
+        this.phredScale = r1c.getPhredScale();
+    }
+    
+    /**
+     * Return phred score scale of the fastq, 33 or 64
+     * @return 
+     */
+    public int getPhredScale () {
+        return this.phredScale;
     }
     
     private void convert (FastqChunk r1c, FastqChunk r2c) {

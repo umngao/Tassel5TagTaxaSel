@@ -51,7 +51,6 @@ import net.maizegenetics.analysis.filter.FilterTraitsPlugin;
 import net.maizegenetics.analysis.tree.CreateTreePlugin;
 import net.maizegenetics.analysis.tree.ArchaeopteryxPlugin;
 import net.maizegenetics.analysis.chart.ChartDisplayPlugin;
-import net.maizegenetics.analysis.association.RidgeRegressionEmmaPlugin;
 import net.maizegenetics.analysis.modelfitter.StepwiseOLSModelFitterPlugin;
 import net.maizegenetics.analysis.numericaltransform.NumericalGenotypePlugin;
 import net.maizegenetics.analysis.numericaltransform.TransformDataPlugin;
@@ -59,7 +58,6 @@ import net.maizegenetics.gui.PrintHeapAction;
 import net.maizegenetics.plugindef.*;
 import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.progress.ProgressPanel;
-import net.maizegenetics.util.Utils;
 
 import org.apache.log4j.Logger;
 
@@ -80,12 +78,8 @@ import java.awt.font.TextAttribute;
 import java.io.*;
 import java.net.URL;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 import net.maizegenetics.analysis.data.GenosToABHPlugin;
 import net.maizegenetics.analysis.data.GetPositionListPlugin;
@@ -93,6 +87,7 @@ import net.maizegenetics.analysis.data.GetTaxaListPlugin;
 import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
 import net.maizegenetics.analysis.data.SortGenotypeFilePlugin;
 import net.maizegenetics.analysis.distance.DistanceMatrixPlugin;
+import net.maizegenetics.analysis.filter.FilterSiteBuilderPlugin;
 import net.maizegenetics.analysis.gbs.BinaryToTextPlugin;
 import net.maizegenetics.analysis.gbs.DiscoverySNPCallerPlugin;
 import net.maizegenetics.analysis.gbs.FastqToTagCountPlugin;
@@ -114,10 +109,9 @@ import net.maizegenetics.analysis.workflow.WorkflowPlugin;
 public class TASSELMainFrame extends JFrame implements ActionListener {
 
     private static final Logger myLogger = Logger.getLogger(TASSELMainFrame.class);
-    public static final String version = "5.2.13";
-    public static final String versionDate = "July 30, 2015";
+    public static final String version = "5.2.15";
+    public static final String versionDate = "September 24, 2015";
     private DataTreePanel myDataTreePanel;
-    private String tasselDataFile = "TasselDataFile";
     //a variable to control when the progress bar was last updated
     private JFileChooser filerSave = new JFileChooser();
     private JFileChooser filerOpen = new JFileChooser();
@@ -280,207 +274,14 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         filerSave.setCurrentDirectory(new File(TasselPrefs.getSaveDir()));
     }
 
-    /**
-     * Provides a save filer that remembers the last location something was
-     * saved to
-     */
-    private File getSaveFile() {
-
-        File saveFile = null;
-        int returnVal = filerSave.showSaveDialog(this);
-
-        if (returnVal == JFileChooser.APPROVE_OPTION) {
-            saveFile = filerSave.getSelectedFile();
-
-            TasselPrefs.putSaveDir(filerSave.getCurrentDirectory().getPath());
-        }
-        return saveFile;
-    }
-
-    /**
-     * Provides a open filer that remember the last location something was
-     * opened from
-     */
-    private File getOpenFile() {
-
-        File openFile = null;
-
-        int returnVal = filerOpen.showOpenDialog(this);
-        System.out.println("returnVal = " + returnVal);
-
-        System.out.println("JFileChooser.OPEN_DIALOG " + JFileChooser.OPEN_DIALOG);
-
-        if (returnVal == JFileChooser.OPEN_DIALOG || returnVal == JFileChooser.APPROVE_OPTION) {
-            openFile = filerOpen.getSelectedFile();
-            System.out.println("openFile = " + openFile);
-            TasselPrefs.putOpenDir(filerOpen.getCurrentDirectory().getPath());
-        }
-
-        return openFile;
-    }
-
     public void addDataSet(DataSet theDataSet, String defaultNode) {
         myDataTreePanel.addDataSet(theDataSet, defaultNode);
-    }
-
-    private void saveDataTree(String file) {
-
-        Map dataToSerialize = new LinkedHashMap();
-        Map dataFromTree = myDataTreePanel.getDataList();
-        StringBuilder builder = new StringBuilder();
-
-        Iterator itr = dataFromTree.keySet().iterator();
-        while (itr.hasNext()) {
-
-            Datum currentDatum = (Datum) itr.next();
-            String currentNode = (String) dataFromTree.get(currentDatum);
-
-            try {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                ObjectOutputStream oos = new ObjectOutputStream(out);
-                oos.writeObject(currentDatum);
-                oos.close();
-                if (out.toByteArray().length > 0) {
-                    dataToSerialize.put(currentDatum, currentNode);
-                }
-            } catch (Exception e) {
-                myLogger.warn("saveDataTree: object: " + currentDatum.getName() + " type: " + currentDatum.getData().getClass().getName() + " does not serialize.");
-                myLogger.warn("saveDataTree: message: " + e.getMessage());
-                if (builder.length() == 0) {
-                    builder.append("Due to error, these data sets could not\n");
-                    builder.append("included in the saved file...");
-                }
-                builder.append("Data set: ");
-                builder.append(currentDatum.getName());
-                builder.append(" type: ");
-                builder.append(currentDatum.getData().getClass().getName());
-                builder.append("\n");
-            }
-
-        }
-
-        try {
-
-            File theFile = new File(Utils.addSuffixIfNeeded(file, ".zip"));
-            FileOutputStream fos = new FileOutputStream(theFile);
-            java.util.zip.ZipOutputStream zos = new ZipOutputStream(fos);
-
-            ZipEntry thisEntry = new ZipEntry("DATA");
-            zos.putNextEntry(thisEntry);
-            ObjectOutputStream oos = new ObjectOutputStream(zos);
-            oos.writeObject(dataToSerialize);
-            oos.flush();
-            zos.closeEntry();
-            fos.close();
-            sendMessage("Data saved to " + theFile.getAbsolutePath());
-
-        } catch (Exception ee) {
-            sendErrorMessage("Data could not be saved: " + ee);
-            ee.printStackTrace();
-        }
-
-        if (builder.length() != 0) {
-            JOptionPane.showMessageDialog(this, builder.toString(), "These data sets not saved...", JOptionPane.INFORMATION_MESSAGE);
-        }
-
-    }
-
-    private boolean readDataTree(String file) {
-
-        String dataTreeLoadFailed = "Unable to open the saved data tree.  The file format of this version is "
-                + "incompatible with other versions.";
-
-        boolean loadedDataTreePanel = false;
-        try {
-
-            FileInputStream fis = null;
-            ObjectInputStream ois = null;
-            if (file.endsWith("zip")) {
-
-                fis = new FileInputStream(file);
-                java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(fis);
-                zis.getNextEntry();
-                ois = new ObjectInputStream(zis);
-
-            } else {
-
-                fis = new FileInputStream(file);
-                ois = new ObjectInputStream(fis);
-
-            }
-
-            try {
-                Map data = (Map) ois.readObject();
-                Iterator itr = data.keySet().iterator();
-                while (itr.hasNext()) {
-                    Datum currentDatum = (Datum) itr.next();
-                    String currentNode = (String) data.get(currentDatum);
-                    myDataTreePanel.addDatum(currentNode, currentDatum);
-                }
-                loadedDataTreePanel = true;
-            } catch (InvalidClassException ice) {
-                JOptionPane.showMessageDialog(this, dataTreeLoadFailed, "Incompatible File Format", JOptionPane.INFORMATION_MESSAGE);
-            } finally {
-                fis.close();
-            }
-
-            if (loadedDataTreePanel) {
-                sendMessage("Data loaded.");
-            }
-
-        } catch (FileNotFoundException fnfe) {
-            JOptionPane.showMessageDialog(this, "File not found: " + file, "File not found", JOptionPane.INFORMATION_MESSAGE);
-            sendErrorMessage("Data tree could not be loaded.");
-            return false;
-        } catch (Exception ee) {
-            JOptionPane.showMessageDialog(this, dataTreeLoadFailed + ee, "Incompatible File Format", JOptionPane.INFORMATION_MESSAGE);
-            sendErrorMessage("Data tree could not be loaded.");
-            return false;
-        }
-
-        return loadedDataTreePanel;
-
     }
 
     private void helpButton_actionPerformed(ActionEvent e) {
         HelpDialog theHelpDialog = new HelpDialog(this);
         theHelpDialog.setLocationRelativeTo(this);
         theHelpDialog.setVisible(true);
-    }
-
-    private void openCompleteDataTreeMenuItem_actionPerformed(ActionEvent e) {
-
-        String dataFileName = tasselDataFile + ".zip";
-        File dataFile = new File(dataFileName);
-        if (dataFile.exists()) {
-            readDataTree(dataFileName);
-        } else if (new File("QPGADataFile").exists()) {
-            // this exists to maintain backward compatibility with previous versions (pre-v0.99)
-            readDataTree("QPGADataFile");
-        } else {
-            JOptionPane.showMessageDialog(this, "File: " + dataFile.getAbsolutePath() + " does not exist.\n"
-                    + "Try using File/Open Data Tree...");
-        }
-    }
-
-    private void openDataMenuItem_actionPerformed(ActionEvent e) {
-
-        File f = getOpenFile();
-        if (f != null) {
-            readDataTree(f.getAbsolutePath());
-        }
-    }
-
-    private void saveDataTreeMenuItem_actionPerformed(ActionEvent e) {
-
-        File f = getSaveFile();
-        if (f != null) {
-            saveDataTree(f.getAbsolutePath());
-        }
-    }
-
-    private void saveCompleteDataTreeMenuItem_actionPerformed(ActionEvent e) {
-        saveDataTree(tasselDataFile + ".zip");
     }
 
     private void preferencesMenuItem_actionPerformed(ActionEvent e) {
@@ -587,6 +388,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new FilterTaxaAlignmentPlugin(this, true)));
         result.add(createMenuItem(new FilterTaxaPropertiesPlugin(this, true)));
         result.add(createMenuItem(new FilterTraitsPlugin(this, true)));
+        result.add(createMenuItem(new FilterSiteBuilderPlugin(this, true)));
         return result;
     }
 
@@ -667,7 +469,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new MultiDimensionalScalingPlugin(this, true)));
         result.add(createMenuItem(new FixedEffectLMPlugin(this, true)));
         result.add(createMenuItem(new MLMPlugin(this, true)));
-        result.add(createMenuItem(new WeightedMLMPlugin(this,true)));
+        result.add(createMenuItem(new WeightedMLMPlugin(this, true)));
         result.add(createMenuItem(new GenomicSelectionPlugin(this, true)));
         result.add(createMenuItem(new GenotypeSummaryPlugin(this, true)));
         result.add(createMenuItem(new StepwiseOLSModelFitterPlugin(this, true)));
@@ -693,35 +495,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
     private JMenu getFileMenu() {
         JMenu fileMenu = new JMenu();
         fileMenu.setText("File");
-        
-        JMenuItem saveCompleteDataTreeMenuItem = new JMenuItem();
-        saveCompleteDataTreeMenuItem.setText("Save Data Tree");
-        saveCompleteDataTreeMenuItem.addActionListener((ActionEvent e) -> {
-            saveCompleteDataTreeMenuItem_actionPerformed(e);
-        });
-        fileMenu.add(saveCompleteDataTreeMenuItem);
-        
-        JMenuItem openCompleteDataTreeMenuItem = new JMenuItem();
-        openCompleteDataTreeMenuItem.setText("Open Data Tree");
-        openCompleteDataTreeMenuItem.addActionListener((ActionEvent e) -> {
-            openCompleteDataTreeMenuItem_actionPerformed(e);
-        });
-        fileMenu.add(openCompleteDataTreeMenuItem);
-        
-        JMenuItem saveDataTreeAsMenuItem = new JMenuItem();
-        saveDataTreeAsMenuItem.setText("Save Data Tree As ...");
-        saveDataTreeAsMenuItem.addActionListener((ActionEvent e) -> {
-            saveDataTreeMenuItem_actionPerformed(e);
-        });
-        fileMenu.add(saveDataTreeAsMenuItem);
-        
-        JMenuItem openDataMenuItem = new JMenuItem();
-        openDataMenuItem.setText("Open Data Tree...");
-        openDataMenuItem.addActionListener((ActionEvent e) -> {
-            openDataMenuItem_actionPerformed(e);
-        });
-        fileMenu.add(openDataMenuItem);
-        
+
         JMenuItem preferencesMenuItem = new JMenuItem();
         preferencesMenuItem.setText("Set Preferences");
 

@@ -2,6 +2,8 @@ package net.maizegenetics.analysis.modelfitter;
 
 import java.util.List;
 
+import net.maizegenetics.phenotype.Phenotype;
+
 public interface ForwardRegression {
 
     /**
@@ -17,7 +19,9 @@ public interface ForwardRegression {
     void fitModelForSubsample(int[] subSample, int iteration);
 
     void fitModel();
-    
+
+    public Phenotype phenotype();
+
     /**
      * This method resets the fitted model to the base model and sets the index of the trait to be fit. 
      * @param traitIndex        index of the trait to be fit. The index is the index within the list of data attributes.
@@ -25,8 +29,9 @@ public interface ForwardRegression {
      * @param maxVariants       the maximum number of variants that will be fit in a model
      */
     void resetModel(int phenotypeIndex, double enterLimit, int maxVariants);
-    
+
     public static String[] columnLabels() {
-        return new String[]{"trait","iteration","step","SnpID","Chr","Pos", "p-value", "-log10p"};
+        return new String[] { "trait", "iteration", "step", "SnpID", "Chr", "Pos", "p-value",
+                "-log10p" };
     }
 }

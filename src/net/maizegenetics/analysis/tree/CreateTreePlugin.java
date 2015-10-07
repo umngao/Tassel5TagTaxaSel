@@ -10,125 +10,98 @@ import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.PluginEvent;
 import net.maizegenetics.analysis.distance.IBSDistanceMatrix;
+import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.taxa.tree.Tree;
+import net.maizegenetics.taxa.tree.NeighborJoiningTree;
+import net.maizegenetics.taxa.tree.UPGMATree;
+import net.maizegenetics.taxa.distance.DistanceMatrix;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
 
 import java.net.URL;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
+import org.apache.log4j.Logger;
+
 /**
- *
  * @author Ed Buckler
+ * @author Terry Casstevens
  */
 public class CreateTreePlugin extends AbstractPlugin {
-    //  Settings theSettings;
 
-    private boolean isNeighborJoining = true;
-    private boolean isReturnDistanceMatrix = true;
-    //private boolean isReturnGroupTable = false;
+    private static final Logger myLogger = Logger.getLogger(CreateTreePlugin.class);
 
-    /** Creates a new instance of CreateTreePlugin */
+    public static enum CLUSTERING_METHOD {
+
+        Neighbor_Joining, UPGMA
+    };
+
+    private PluginParameter<CLUSTERING_METHOD> myClusteringMethod = new PluginParameter.Builder<>("clusteringMethod", CLUSTERING_METHOD.Neighbor_Joining, CLUSTERING_METHOD.class)
+            .description("")
+            .build();
+    private PluginParameter<Boolean> mySaveDistanceMatrix = new PluginParameter.Builder<>("saveDistanceMatrix", true, Boolean.class)
+            .description("")
+            .build();
+
+    private Datum myGenotypeTable = null;
+
+    /**
+     * Creates a new instance of CreateTreePlugin
+     */
     public CreateTreePlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
 
-    public DataSet performFunction(DataSet input) {
+    @Override
+    protected void preProcessParameters(DataSet input) {
 
-        try {
+        myGenotypeTable = null;
 
-            List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
-            if (alignInList.size() < 1) {
-                String message = "Invalid selection.  Please select sequence or marker alignment.";
-                if (isInteractive()) {
-                    JOptionPane.showMessageDialog(getParentFrame(), message);
-                } else {
-                    System.out.println(message);
-                }
-                return null;
-            }
-
-            if (isInteractive()) {
-                CreateTreeDialog myDialog = new CreateTreeDialog();
-                myDialog.setLocationRelativeTo(getParentFrame());
-                myDialog.setVisible(true);
-                if (myDialog.isCancel()) {
-                    return null;
-                }
-                isNeighborJoining = myDialog.isNeighborJoiningTree();
-                isReturnDistanceMatrix = myDialog.isSaveMatrix();
-                //isReturnGroupTable = myDialog.isSaveGroups();
-                myDialog.dispose();
-            }
-
-            List result = new ArrayList();
-            Iterator<Datum> itr = alignInList.iterator();
-            while (itr.hasNext()) {
-                Datum current = itr.next();
-                DataSet tds = processDatum(current, isNeighborJoining, isReturnDistanceMatrix);
-                result.add(tds);
-                if (tds != null) {
-                    fireDataSetReturned(new PluginEvent(tds, CreateTreePlugin.class));
-                }
-            }
-
-            return DataSet.getDataSet(result, this);
-
-        } finally {
-            fireProgress(100);
+        List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
+        if (alignInList.size() >= 1) {
+            myGenotypeTable = alignInList.get(0);
+            return;
         }
+
+        throw new IllegalArgumentException("CreateTreePlugin: Invalid selection.  Please select a Genotype Table.");
 
     }
 
-    public DataSet processDatum(Datum input, boolean isNJ, boolean isSaveMatrix) {
-        GenotypeTable aa = (GenotypeTable) input.getData();
-        // SitePattern sp = new SitePattern(aa);
-        IBSDistanceMatrix adm = IBSDistanceMatrix.getInstance(aa, this);
-        // adm.recompute(sp);
-        net.maizegenetics.taxa.tree.Tree theTree;
-        List<Datum> results = new ArrayList<Datum>();
-        if (isNJ) {
-            theTree = new net.maizegenetics.taxa.tree.NeighborJoiningTree(adm);
-            results.add(new Datum("Tree:" + input.getName(), theTree, "NJ Tree"));
+    @Override
+    public DataSet processData(DataSet input) {
+
+        Datum datum = null;
+        DistanceMatrix distanceMatrix = null;
+
+        if (myGenotypeTable != null) {
+            datum = myGenotypeTable;
+            distanceMatrix = IBSDistanceMatrix.getInstance((GenotypeTable) myGenotypeTable.getData(), this);
         } else {
-            theTree = new net.maizegenetics.taxa.tree.UPGMATree(adm);
-            results.add(new Datum("Tree:" + input.getName(), theTree, "UPGMA Tree"));
-        }
-        if (isSaveMatrix) {
-            results.add(new Datum("Matrix:" + input.getName(), adm, "Distance Matrix"));
+            throw new IllegalArgumentException("CreateTreePlugin: Invalid selection.  Please select a Genotype Table or Distance Matrix.");
         }
 
-        //TreeCut tc = new TreeCut(theTree);
-        /*
-        // display grouping results;
-        if (isReturnGroupTable) {
+        List<Datum> results = new ArrayList<>();
+
+        if (clusteringMethod() == CLUSTERING_METHOD.Neighbor_Joining) {
+            Tree theTree = new NeighborJoiningTree(distanceMatrix);
+            results.add(new Datum("Tree:" + datum.getName(), theTree, "NJ Tree"));
+        } else if (clusteringMethod() == CLUSTERING_METHOD.UPGMA) {
+            Tree theTree = new UPGMATree(distanceMatrix);
+            results.add(new Datum("Tree:" + datum.getName(), theTree, "UPGMA Tree"));
+        } else {
+            throw new IllegalArgumentException("CreateTreePlugin: processData: Unknown clustering method: " + clusteringMethod());
         }
-         */
 
-        DataSet tds = new DataSet(results, this);
-        return tds;
-    }
+        if (saveDistanceMatrix()) {
+            results.add(new Datum("Matrix:" + datum.getName(), distanceMatrix, "Distance Matrix"));
+        }
 
-    public boolean isNeighborJoining() {
-        return isNeighborJoining;
-    }
+        return new DataSet(results, this);
 
-    public void setNeighborJoining(boolean neighborJoining) {
-        isNeighborJoining = neighborJoining;
-    }
-
-    public boolean isReturnDistanceMatrix() {
-        return isReturnDistanceMatrix;
-    }
-
-    public void setReturnDistanceMatrix(boolean returnDistanceMatrix) {
-        isReturnDistanceMatrix = returnDistanceMatrix;
     }
 
     /**
@@ -136,6 +109,7 @@ public class CreateTreePlugin extends AbstractPlugin {
      *
      * @return ImageIcon
      */
+    @Override
     public ImageIcon getIcon() {
         URL imageURL = CreateTreePlugin.class.getResource("/net/maizegenetics/analysis/images/Tree.gif");
         if (imageURL == null) {
@@ -150,6 +124,7 @@ public class CreateTreePlugin extends AbstractPlugin {
      *
      * @return String
      */
+    @Override
     public String getButtonName() {
         return "Cladogram";
     }
@@ -159,118 +134,64 @@ public class CreateTreePlugin extends AbstractPlugin {
      *
      * @return String
      */
+    @Override
     public String getToolTipText() {
         return "Create a cladogram";
     }
-}
 
-/**
- * Title:        TASSEL
- * Description:  A java program to deal with diversity
- * Copyright:    Copyright (c) 2000
- * Company:      USDA-ARS/NCSU
- * @author Ed Buckler
- * @version 1.0
- */
-class CreateTreeDialog extends JDialog {
-
-    boolean saveMatrix = true;
-    //boolean saveGroups = false;
-    boolean runAnalysis = false;
-    JPanel panel1 = new JPanel();
-    JCheckBox saveMatrixCheckBox = new JCheckBox();
-    //JCheckBox saveGroupsCheckBox = new JCheckBox();
-    JButton runButton = new JButton();
-    JButton closeButton = new JButton();
-    //  String[] subModels = {"None","Max Likelihood"};
-    //  JComboBox subModelComboBox = new JComboBox(subModels);
-    //  JLabel jLabel2 = new JLabel();
-    String[] clustringModels = {"Neighbor Joining", "UPGMA"};
-    JComboBox clusteringComboBox = new JComboBox(clustringModels);
-    JLabel jLabel3 = new JLabel();
-    GridBagLayout gridBagLayout1 = new GridBagLayout();
-
-    public CreateTreeDialog() {
-        super((Frame) null, "Create Tree", true);
-        try {
-            jbInit();
-            pack();
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
+    // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(CreateTreePlugin.class);
+    // }
+    /**
+     * Convenience method to run plugin with one return object.
+     */
+    public Tree runPlugin(DataSet input) {
+        return (Tree) performFunction(input).getData(0).getData();
     }
 
-    void jbInit() throws Exception {
-        panel1.setLayout(gridBagLayout1);
-        saveMatrixCheckBox.setSelected(saveMatrix);
-        saveMatrixCheckBox.setText("Save distance matrix");
-        //saveGroupsCheckBox.setSelected(saveGroups);
-        //saveGroupsCheckBox.setText("Save taxa groups");
-        runButton.setText("Run");
-        runButton.addActionListener(new java.awt.event.ActionListener() {
-
-            public void actionPerformed(ActionEvent e) {
-                runButton_actionPerformed(e);
-            }
-        });
-        closeButton.setText("Close");
-        closeButton.addActionListener(new java.awt.event.ActionListener() {
-
-            public void actionPerformed(ActionEvent e) {
-                closeButton_actionPerformed(e);
-            }
-        });
-        //    jLabel2.setText("Substitution Model");
-        jLabel3.setText("Clustering Method");
-        getContentPane().add(panel1);
-        panel1.add(runButton, new GridBagConstraints(0, 6, 1, 1, 0.0, 0.0, GridBagConstraints.CENTER, GridBagConstraints.NONE, new Insets(76, 55, 26, 0), 32, 5));
-        panel1.add(closeButton, new GridBagConstraints(1, 6, 1, 1, 0.0, 0.0, GridBagConstraints.CENTER, GridBagConstraints.NONE, new Insets(77, 20, 26, 156), 23, 5));
-        //    panel1.add(subModelComboBox,  new GridBagConstraints(0, 1, 2, 1, 1.0, 0.0
-        //            ,GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(0, 105, 0, 152), 50, -1));
-        //    panel1.add(jLabel2,  new GridBagConstraints(0, 0, 2, 1, 0.0, 0.0
-        //            ,GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(36, 107, 0, 171), 35, 9));
-        panel1.add(saveMatrixCheckBox, new GridBagConstraints(1, 2, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(6, 67, 0, 28), 38, 0));
-        //panel1.add(saveGroupsCheckBox, new GridBagConstraints(1, 3, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(6, 67, 0, 28), 38, 0));
-        panel1.add(clusteringComboBox, new GridBagConstraints(0, 5, 2, 1, 1.0, 0.0, GridBagConstraints.CENTER, GridBagConstraints.HORIZONTAL, new Insets(0, 111, 0, 146), 41, -1));
-        panel1.add(jLabel3, new GridBagConstraints(0, 4, 2, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(6, 113, 0, 165), 36, 9));
+    /**
+     * Clustering Method
+     *
+     * @return Clustering Method
+     */
+    public CLUSTERING_METHOD clusteringMethod() {
+        return myClusteringMethod.value();
     }
 
-    /** Returns whether the run button was chosen*/
-    public boolean isRunAnalysis() {
-        return runAnalysis;
+    /**
+     * Set Clustering Method. Clustering Method
+     *
+     * @param value Clustering Method
+     *
+     * @return this plugin
+     */
+    public CreateTreePlugin clusteringMethod(CLUSTERING_METHOD value) {
+        myClusteringMethod = new PluginParameter<>(myClusteringMethod, value);
+        return this;
     }
 
-    public boolean isCancel() {
-        return !runAnalysis;
+    /**
+     * Save Distance Matrix
+     *
+     * @return Save Distance Matrix
+     */
+    public Boolean saveDistanceMatrix() {
+        return mySaveDistanceMatrix.value();
     }
 
-    /** Returns whether the matrix should be saved */
-    public boolean isSaveMatrix() {
-        return saveMatrix;
+    /**
+     * Set Save Distance Matrix. Save Distance Matrix
+     *
+     * @param value Save Distance Matrix
+     *
+     * @return this plugin
+     */
+    public CreateTreePlugin saveDistanceMatrix(Boolean value) {
+        mySaveDistanceMatrix = new PluginParameter<>(mySaveDistanceMatrix, value);
+        return this;
     }
 
-    //public boolean isSaveGroups() {
-    //    return saveGroups;
-    //}
-
-    /** Returns whether the matrix should be saved */
-    public boolean isNeighborJoiningTree() {
-        String s = (String) clusteringComboBox.getSelectedItem();
-        if (s.equals(clustringModels[0])) {
-            return true;
-        }
-        return false;
-    }
-
-    void runButton_actionPerformed(ActionEvent e) {
-        saveMatrix = saveMatrixCheckBox.isSelected();
-        //saveGroups = saveGroupsCheckBox.isSelected();
-        runAnalysis = true;
-        setVisible(false);
-    }
-
-    void closeButton_actionPerformed(ActionEvent e) {
-        runAnalysis = false;
-        setVisible(false);
-    }
 }

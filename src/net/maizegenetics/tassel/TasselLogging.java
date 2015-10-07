@@ -198,6 +198,7 @@ public class TasselLogging extends AbstractPlugin {
         myLogger.info("Max Available Memory Reported by JVM: " + Utils.getMaxHeapSizeMB() + " MB");
         myLogger.info("Java Version: " + System.getProperty("java.version"));
         myLogger.info("OS: " + System.getProperty("os.name"));
+        myLogger.info("Number of Processors: " + Runtime.getRuntime().availableProcessors());
     }
 
     class TextAreaOutputStream extends OutputStream {

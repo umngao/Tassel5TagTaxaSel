@@ -6,8 +6,10 @@
  */
 package net.maizegenetics.analysis.data;
 
+import net.maizegenetics.dna.snp.FilterList;
 import net.maizegenetics.dna.snp.ExportUtils;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.io.FilterJSONUtils;
 import net.maizegenetics.dna.snp.io.SiteScoresIO;
 import net.maizegenetics.dna.snp.io.JSONUtils;
 import net.maizegenetics.dna.map.PositionList;
@@ -87,6 +89,8 @@ public class ExportPlugin extends AbstractPlugin {
                     filename = performFunctionForAlignment((GenotypeTable) data);
                 } else if (data instanceof Phenotype) {
                     filename = performFunctionForPhenotype((Phenotype) data);
+                } else if (data instanceof FilterList) {
+                    filename = performFunctionForFilter((FilterList) data);
                 } else if (data instanceof DistanceMatrix) {
                     filename = performFunctionForDistanceMatrix((DistanceMatrix) data);
                 } else if (data instanceof TaxaList) {
@@ -139,7 +143,7 @@ public class ExportPlugin extends AbstractPlugin {
 
     public String performFunctionForDistanceMatrix(DistanceMatrix input) {
         //int selection = 0;
-        
+
         if (isInteractive()) {
             ExportSquareMatrixDialog theDialog = new ExportSquareMatrixDialog();
             theDialog.setLocationRelativeTo(getParentFrame());
@@ -158,29 +162,27 @@ public class ExportPlugin extends AbstractPlugin {
         }
 
         try {
-            if(myFileType != FileLoadPlugin.TasselFileType.SqrMatrixRaw && myFileType != FileLoadPlugin.TasselFileType.SqrMatrixBin) {
-            //if(selection == 0 ) {
+            if (myFileType != FileLoadPlugin.TasselFileType.SqrMatrixRaw && myFileType != FileLoadPlugin.TasselFileType.SqrMatrixBin) {
+                //if(selection == 0 ) {
                 File theFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".txt"));
                 WriteDistanceMatrix.saveDelimitedDistanceMatrix(input, theFile);
                 return theFile.getCanonicalPath();
-            }
-            else if(myFileType == FileLoadPlugin.TasselFileType.SqrMatrixRaw) {
-            //else if(selection == 1) {
+            } else if (myFileType == FileLoadPlugin.TasselFileType.SqrMatrixRaw) {
+                //else if(selection == 1) {
                 File taxaListFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.id"));
                 File matrixFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.raw"));
-                WriteDistanceMatrix.saveRawMultiBlupMatrix(input,taxaListFile,matrixFile);
+                WriteDistanceMatrix.saveRawMultiBlupMatrix(input, taxaListFile, matrixFile);
                 return matrixFile.getCanonicalPath();
-            }
-            else if(myFileType == FileLoadPlugin.TasselFileType.SqrMatrixBin) {
-            //else if(selection ==2) {
+            } else if (myFileType == FileLoadPlugin.TasselFileType.SqrMatrixBin) {
+                //else if(selection ==2) {
                 File taxaListFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.id"));
                 File countsFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.N.bin"));
                 File kinshipFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.bin"));
-                WriteDistanceMatrix.saveBinMultiBlupMatrix(input,taxaListFile,kinshipFile, countsFile);
+                WriteDistanceMatrix.saveBinMultiBlupMatrix(input, taxaListFile, kinshipFile, countsFile);
                 return kinshipFile.getCanonicalPath();
             }
             return "";
-            
+
         } catch (Exception e) {
             e.printStackTrace();
             throw new IllegalStateException("ExportPlugin: performFunctionForDistanceMatrix: Problem writing file: " + mySaveFile);
@@ -204,6 +206,27 @@ public class ExportPlugin extends AbstractPlugin {
         } catch (Exception e) {
             e.printStackTrace();
             throw new IllegalStateException("ExportPlugin: performFunctionForTableReport: Problem writing file: " + mySaveFile);
+        }
+
+    }
+
+    public String performFunctionForFilter(FilterList filter) {
+
+        if (isInteractive()) {
+            setSaveFile(getFileByChooser());
+        }
+
+        if ((mySaveFile == null) || (mySaveFile.length() == 0)) {
+            return null;
+        }
+
+        try {
+            String theFile = Utils.addSuffixIfNeeded(mySaveFile, FileLoadPlugin.FILE_EXT_FILTER);
+            FilterJSONUtils.exportFilterToJSON(filter, theFile);
+            return theFile;
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("ExportPlugin: performFunctionForFilter: Problem writing file: " + mySaveFile + "\n" + e.getMessage());
         }
 
     }
@@ -344,7 +367,7 @@ public class ExportPlugin extends AbstractPlugin {
         return resultFile;
 
     }
-    
+
     public void setIncludeAnnotations(boolean include) {
         myIncludeTaxaAnnotations = include;
     }
@@ -961,6 +984,7 @@ class ReportOptionDialog extends JDialog {
         return myIsCancel;
     }
 }
+
 class ExportSquareMatrixDialog extends JDialog {
 
     private boolean myIsCancel = true;
@@ -968,7 +992,7 @@ class ExportSquareMatrixDialog extends JDialog {
     private JRadioButton mySquareMatrixButton = new JRadioButton("Write Square Matrix");
     private JRadioButton myRawMultiBlupButton = new JRadioButton("Write Raw MultiBLUP Matrix");
     private JRadioButton myBinMultiBlupButton = new JRadioButton("Write Binary MultiBLUP Matrix");
-   
+
     public ExportSquareMatrixDialog() {
         super((Frame) null, "Export...", true);
         try {
@@ -996,7 +1020,7 @@ class ExportSquareMatrixDialog extends JDialog {
         myButtonGroup.add(mySquareMatrixButton);
         myButtonGroup.add(myRawMultiBlupButton);
         myButtonGroup.add(myBinMultiBlupButton);
-        
+
         mySquareMatrixButton.setSelected(true);
 
     }
@@ -1035,24 +1059,10 @@ class ExportSquareMatrixDialog extends JDialog {
         result.setAlignmentX(JPanel.CENTER_ALIGNMENT);
         result.setBorder(BorderFactory.createEtchedBorder());
 
-        boolean defaultButtonNeedSelected = true;
-
         result.add(Box.createRigidArea(new Dimension(1, 10)));
         result.add(mySquareMatrixButton);
         result.add(myRawMultiBlupButton);
         result.add(myBinMultiBlupButton);
-
-        return result;
-
-    }
-
-    private JPanel getOptionPanel() {
-        JPanel result = new JPanel();
-        BoxLayout layout = new BoxLayout(result, BoxLayout.Y_AXIS);
-        result.setLayout(layout);
-        result.setAlignmentX(JPanel.CENTER_ALIGNMENT);
-        result.setBorder(BorderFactory.createEtchedBorder());
-        result.add(Box.createRigidArea(new Dimension(1, 10)));
 
         return result;
 
@@ -1088,58 +1098,29 @@ class ExportSquareMatrixDialog extends JDialog {
     }
 
     public FileLoadPlugin.TasselFileType getTasselFileType() {
-        if(mySquareMatrixButton.isSelected()) {
+        if (mySquareMatrixButton.isSelected()) {
             return FileLoadPlugin.TasselFileType.SqrMatrix;
-        }
-        else if(myRawMultiBlupButton.isSelected()) {
+        } else if (myRawMultiBlupButton.isSelected()) {
             return FileLoadPlugin.TasselFileType.SqrMatrixRaw;
-        }
-        else if(myBinMultiBlupButton.isSelected()) {
+        } else if (myBinMultiBlupButton.isSelected()) {
             return FileLoadPlugin.TasselFileType.SqrMatrixBin;
         }
         return FileLoadPlugin.TasselFileType.SqrMatrix;
-        /*
-        result.add(mySquareMatrixButton);
-        result.add(myRawMultiBlupButton);
-        result.add(myBinMultiBlupButton);
-        if (myHapMapRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.Hapmap;
-        }
-        if (myByteHDF5RadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.HDF5;
-        }
-        if (myVCFRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.VCF;
-        }
-        if (myPlinkRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.Plink;
-        }
-        if (myPhylipRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.Phylip_Seq;
-        }
-        if (myPhylipInterRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.Phylip_Inter;
-        }
-        if (myTabTableRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.Table;
-        }
-        return null;
-        */
     }
+
     public int getSelection() {
-        if(mySquareMatrixButton.isSelected()) {
+        if (mySquareMatrixButton.isSelected()) {
             return 0;
         }
-        if(myRawMultiBlupButton.isSelected()) {
+        if (myRawMultiBlupButton.isSelected()) {
             return 1;
         }
-        if(myBinMultiBlupButton.isSelected()) {
+        if (myBinMultiBlupButton.isSelected()) {
             return 2;
         }
         return -1;
     }
 
-    
     private void okButton_actionPerformed(ActionEvent e) {
         myIsCancel = false;
         setVisible(false);

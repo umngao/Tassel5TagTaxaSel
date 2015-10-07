@@ -40,6 +40,16 @@ public class TableReportBuilder {
         myWriter = null;
         myInMemory = true;
     }
+    
+    private TableReportBuilder(String tableName, int numColumns) {
+        myTableName = tableName;
+        myColumnNames = null;
+        myNumColumns = numColumns;
+        myData = new ArrayList<>();
+        myFilename = null;
+        myWriter = null;
+        myInMemory = true;
+    }
 
     private TableReportBuilder(String tableName, Object[] columnNames, String filename) {
         myTableName = tableName;
@@ -63,6 +73,10 @@ public class TableReportBuilder {
 
     public static TableReportBuilder getInstance(String tableName, Object[] columnNames) {
         return new TableReportBuilder(tableName, columnNames);
+    }
+    
+    public static TableReportBuilder getInstance(String tableName, int numColumns) {
+        return new TableReportBuilder(tableName, numColumns);
     }
 
     public static TableReportBuilder getInstance(String tableName, Object[] columnNames, String filename) {

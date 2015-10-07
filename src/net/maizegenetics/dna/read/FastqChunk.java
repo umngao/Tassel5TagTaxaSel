@@ -26,6 +26,7 @@ public class FastqChunk {
     private int minStartIndex = 100000;
     private int maxReadNum = 100000;
     Read[] reads = null;
+    int phredScale = Integer.MIN_VALUE;
     
     /**
      * Constructor, sample Fastq file, ignore those bad sequence at the beginning
@@ -44,6 +45,7 @@ public class FastqChunk {
             System.out.println("Number of read was set to " + String.valueOf(readNum));
         }
         this.readFastq(fastqFileS, format, startIndex, readNum);
+        this.setPhredScale();
     }
     
     /**
@@ -53,10 +55,35 @@ public class FastqChunk {
      */
     public FastqChunk (String fastqFileS, ReadFormat format) {
         this.readFastq(fastqFileS, format);
+        this.setPhredScale();
     }
     
     public FastqChunk (Read[] reads) {
         this.reads = reads;
+        this.setPhredScale();
+    }
+    
+    private void setPhredScale () {
+        int size = 10;
+        if (this.getReadNum() < 10) size = this.getReadNum();
+        for (int i = 0; i < size; i++) {
+            byte[] qualB = this.getRead(i).getQual().getBytes();
+            for (int j = this.getRead(i).getReadLength()-1; j > -1; j--) {
+                if (qualB[j] < 65) {
+                    this.phredScale = 33;
+                    return;
+                }
+            }
+        }
+        this.phredScale = 64;
+    }
+    
+    /**
+     * Return phred score scale of the fastq, 33 or 64
+     * @return 
+     */
+    public int getPhredScale () {
+        return this.phredScale;
     }
     
     private void readFastq (String fastqFileS, ReadFormat format) {

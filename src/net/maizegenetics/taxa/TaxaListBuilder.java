@@ -90,6 +90,13 @@ public class TaxaListBuilder {
         }
         return this;
     }
+    
+    public TaxaListBuilder addAll(List<String> taxa) {
+        for (int i = 0, n = taxa.size(); i < n; i++) {
+            add(new Taxon.Builder(taxa.get(i)).build());
+        }
+        return this;
+    }
 
     public TaxaListBuilder addAll(Taxon[] taxa) {
         for (int i = 0, n = taxa.length; i < n; i++) {

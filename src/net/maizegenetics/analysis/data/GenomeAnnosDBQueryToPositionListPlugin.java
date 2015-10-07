@@ -264,9 +264,14 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
     private Connection connectToDatabaseOrDie(String dbName, Properties props) {
         Connection conn = null;
         String url = "not connected yet";
+        String host = props.getProperty("host");
         try {
             Class.forName("org.postgresql.Driver");
-            url = "jdbc:postgresql://localhost/" + dbName;
+            if (host == null) {
+                url = "jdbc:postgresql://localhost/" + dbName;
+            } else {
+                url = "jdbc:postgresql://"+host+"/" + dbName;
+            }
             conn = DriverManager.getConnection(url, props);
         } catch (ClassNotFoundException e) {
             errorMessage = e.getMessage();

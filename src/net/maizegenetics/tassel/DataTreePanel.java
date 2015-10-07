@@ -65,6 +65,7 @@ import java.util.Map;
 import net.maizegenetics.analysis.data.GenotypeSummaryPlugin;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.TOPMInterface;
+import net.maizegenetics.dna.snp.FilterList;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.tree.SimpleTree;
@@ -86,6 +87,7 @@ public class DataTreePanel extends JPanel implements PluginListener {
     public static final String NODE_TYPE_MATRIX = "Matrix";
     public static final String NODE_TYPE_TREE = "Tree";
     public static final String NODE_TYPE_LISTS = "Lists";
+    public static final String NODE_TYPE_FILTERS = "Filters";
     public static final String NODE_TYPE_FUSIONS = "Fusions";
     public static final String NODE_TYPE_SYNONYMS = "Synonyms";
     public static final String NODE_TYPE_DIVERSITY = "Diversity";
@@ -110,6 +112,7 @@ public class DataTreePanel extends JPanel implements PluginListener {
         NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_FUSIONS);
         NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_TOPM);
         NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_LISTS);
+        NODE_TYPE_DATA_CHILDREN.add(NODE_TYPE_FILTERS);
     }
     //Possible line styles...
     //"Angled", "Horizontal", and "None" (the default).
@@ -361,6 +364,9 @@ public class DataTreePanel extends JPanel implements PluginListener {
                                 TableReportPanel theATP = TableReportPanel.getInstance((TableReport) book.getData());
                                 myTASSELMainFrame.mainDisplayPanel.add(theATP, BorderLayout.CENTER);
                             }
+                        } else if (book.getData() instanceof FilterList) {
+                            TableReportPanel theATP = TableReportPanel.getInstance((FilterList) book.getData());
+                            myTASSELMainFrame.mainDisplayPanel.add(theATP, BorderLayout.CENTER);
                         } else if (book.getData() instanceof TOPMInterface) {
                             int size = ((TOPMInterface) book.getData()).getTagCount();
                             myLogger.info("initSelectionListener: TOPM Tag Count: " + size);
@@ -448,9 +454,13 @@ public class DataTreePanel extends JPanel implements PluginListener {
                             SimpleTree tree = (SimpleTree) book.getData();
                             StringWriter writer = null;
                             try {
-                                writer = new StringWriter();
-                                tree.report(writer);
-                                myTASSELMainFrame.setMainText(writer.toString());
+                                if (tree.getExternalNodeCount() < 300) {
+                                    writer = new StringWriter();
+                                    tree.report(writer);
+                                    myTASSELMainFrame.setMainText(writer.toString());
+                                } else {
+                                    myTASSELMainFrame.setMainText(tree.toString());
+                                }
                             } catch (Exception ex) {
                                 myLogger.debug(ex.getMessage(), ex);
                             } finally {
@@ -617,6 +627,11 @@ public class DataTreePanel extends JPanel implements PluginListener {
                 continue;
             }
 
+            if (d.getData() instanceof FilterList) {
+                addDatum(NODE_TYPE_FILTERS, d);
+                continue;
+            }
+
             if (d.getData() instanceof Tree) {
                 addDatum(NODE_TYPE_TREE, d);
                 continue;
@@ -626,7 +641,7 @@ public class DataTreePanel extends JPanel implements PluginListener {
                 addDatum(NODE_TYPE_LISTS, d);
                 continue;
             }
-            
+
             if (d.getData() instanceof PositionList) {
                 addDatum(NODE_TYPE_LISTS, d);
                 continue;
