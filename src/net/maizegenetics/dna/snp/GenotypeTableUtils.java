@@ -9,6 +9,7 @@ import net.maizegenetics.util.OpenBitSet;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 
@@ -541,18 +542,40 @@ public class GenotypeTableUtils {
     }
 
     public static GenotypeTable filterSitesByChrPos(GenotypeTable input, PositionList positionList, boolean includeSites) {
-        Map<String, List<Integer>> positionsByChr = new LinkedHashMap<>();
-        for (Position current : positionList) {
-            String chrName = current.getChromosome().getName();
-            List<Integer> positions = positionsByChr.get(chrName);
-            if (positions == null) {
-                positions = new ArrayList<>();
-                positionsByChr.put(chrName, positions);
-            }
-            positions.add(current.getPosition());
+
+        if (!includeSites) {
+            throw new UnsupportedOperationException();
         }
 
-        return GenotypeTableUtils.filterSitesByChrPos(input, positionsByChr, includeSites);
+        List<Integer> temp = new ArrayList<>();
+
+        PositionList origPositionList = input.positions();
+
+        Chromosome[] chromosomes = positionList.chromosomes();
+        for (Chromosome chromosome : chromosomes) {
+            if (origPositionList.chromosomeSiteCount(chromosome) != 0) {
+                int[] startEndSubSet = positionList.startAndEndOfChromosome(chromosome);
+                int[] startEnd = origPositionList.startAndEndOfChromosome(chromosome);
+                int posIndex = startEndSubSet[0];
+                for (int site = startEnd[0]; site <= startEnd[1]; site++) {
+
+                    Position current = origPositionList.get(site);
+                    int pos = current.getPosition();
+
+                    for (; posIndex <= startEndSubSet[1]; posIndex++) {
+                        int currentPos = positionList.get(posIndex).getPosition();
+                        if (currentPos == pos) {
+                            temp.add(site);
+                        } else if (currentPos > pos) {
+                            break;
+                        }
+                    }
+
+                }
+            }
+        }
+
+        return FilterGenotypeTable.getInstance(input, toPrimitive(temp));
 
     }
 
@@ -564,7 +587,7 @@ public class GenotypeTableUtils {
             while (line != null) {
                 String[] tokens = line.split("\t");
                 if (tokens.length != 2) {
-                    throw new IllegalStateException("GenotypeTableUtils: keepSitesChrPos: Each line in file must have 2 columns (chr, position): " + filename);
+                    throw new IllegalStateException("GenotypeTableUtils: filterSitesByChrPos: Each line in file must have 2 columns (chr, position): " + filename);
                 }
                 List<Integer> positions = positionsByChr.get(tokens[0]);
                 if (positions == null) {
@@ -575,7 +598,7 @@ public class GenotypeTableUtils {
                 line = reader.readLine();
             }
         } catch (Exception e) {
-            throw new IllegalStateException("GenotypeTableUtils: keepSitesChrPos: Problem reading file: " + filename + "\n" + e.getMessage());
+            throw new IllegalStateException("GenotypeTableUtils: filterSitesByChrPos: Problem reading file: " + filename + "\n" + e.getMessage());
         }
 
         return GenotypeTableUtils.filterSitesByChrPos(input, positionsByChr, includeSites);
