@@ -4,6 +4,7 @@
 package net.maizegenetics.analysis.data;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.util.SimpleTableReport;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
@@ -244,6 +245,14 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
         System.out.println("Number of Taxa: " + numTaxa);
         System.out.println("Number of Sites: " + numSites);
         System.out.println("Sites x Taxa: " + totalDiploids);
+
+        System.out.println("Chromosomes...");
+        Chromosome[] chromosomes = alignment.chromosomes();
+        for (int i = 0; i < chromosomes.length; i++) {
+            int[] startEnd = alignment.firstLastSiteOfChromosome(chromosomes[i]);
+            System.out.println(chromosomes[i].getName() + ": start site: " + startEnd[0] + " last site: " + startEnd[1] + " total: " + (startEnd[1] - startEnd[0] + 1));
+        }
+        System.out.println();
 
     }
 
