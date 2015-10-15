@@ -543,11 +543,7 @@ public class GenotypeTableUtils {
 
     public static GenotypeTable filterSitesByChrPos(GenotypeTable input, PositionList positionList, boolean includeSites) {
 
-        if (!includeSites) {
-            throw new UnsupportedOperationException();
-        }
-
-        List<Integer> temp = new ArrayList<>();
+        TreeSet<Integer> temp = new TreeSet<>();
 
         PositionList origPositionList = input.positions();
 
@@ -575,7 +571,19 @@ public class GenotypeTableUtils {
             }
         }
 
-        return FilterGenotypeTable.getInstance(input, toPrimitive(temp));
+        if (includeSites) {
+            return FilterGenotypeTable.getInstance(input, toPrimitive(temp));
+        } else {
+            int numSites = input.numberOfSites();
+            int[] result = new int[numSites - temp.size()];
+            int count = 0;
+            for (int i = 0; i < numSites; i++) {
+                if (!temp.contains(i)) {
+                    result[count++] = i;
+                }
+            }
+            return FilterGenotypeTable.getInstance(input, result);
+        }
 
     }
 
@@ -681,7 +689,7 @@ public class GenotypeTableUtils {
         return temp;
     }
 
-    private static int[] toPrimitive(List<Integer> list) {
+    private static int[] toPrimitive(Collection<Integer> list) {
         int[] result = new int[list.size()];
         int index = 0;
         for (int current : list) {

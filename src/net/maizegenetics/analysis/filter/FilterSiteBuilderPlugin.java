@@ -28,7 +28,6 @@ import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 
 import org.apache.log4j.Logger;
@@ -151,6 +150,28 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
 
             if ((!myStartSite.value().equals(myStartSite.defaultValue()) || (!myEndSite.value().equals(myEndSite.defaultValue())))) {
                 setParameter(mySiteFilter, SITE_RANGE_FILTER_TYPES.SITES);
+            }
+
+            if ((!myStartPos.value().equals(myStartPos.defaultValue()))
+                    || (myStartChr.value() != null)
+                    || (!myEndPos.value().equals(myEndPos.defaultValue()))
+                    || (myEndChr.value() != null)) {
+
+                setParameter(mySiteFilter, SITE_RANGE_FILTER_TYPES.POSITIONS);
+
+                List<Datum> genotypeTableList = input.getDataOfType(GenotypeTable.class);
+                if (genotypeTableList.size() == 1) {
+                    GenotypeTable genotype = (GenotypeTable) genotypeTableList.get(0).getData();
+                    if (myStartPos.value().equals(myStartPos.defaultValue()) && myStartChr.value() != null) {
+                        int[] firstLast = genotype.firstLastSiteOfChromosome(myStartChr.value());
+                        setParameter(myStartPos, genotype.positions().get(firstLast[0]).getPosition());
+                    }
+                    if (myEndPos.value().equals(myEndPos.defaultValue()) && myEndChr.value() != null) {
+                        int[] firstLast = genotype.firstLastSiteOfChromosome(myEndChr.value());
+                        setParameter(myEndPos, genotype.positions().get(firstLast[1]).getPosition());
+                    }
+                }
+
             }
 
         }
@@ -300,10 +321,9 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
     //
-    public static void main(String[] args) {
-        GeneratePluginCode.generate(FilterSiteBuilderPlugin.class);
-    }
-
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(FilterSiteBuilderPlugin.class);
+    // }
     /**
      * Convenience method to run plugin with one return object.
      */
