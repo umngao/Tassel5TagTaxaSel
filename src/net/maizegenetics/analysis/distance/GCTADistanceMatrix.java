@@ -257,7 +257,7 @@ public class GCTADistanceMatrix {
         private final int myNumTaxa;
         private final int myNumSites;
         private final ProgressListener myProgressListener;
-        private final int myMinSitesToProcess;
+        private int myMinSitesToProcess;
         private final int myNumSitesPerBlockForProgressReporting;
 
         GCTASiteSpliterator(GenotypeTable genotypes, int currentIndex, int fence, ProgressListener listener) {
@@ -268,6 +268,9 @@ public class GCTADistanceMatrix {
             myFence = fence;
             myProgressListener = listener;
             myMinSitesToProcess = myNumSites / NUM_CORES_TO_USE;
+            if (myMinSitesToProcess == 0) {
+                myMinSitesToProcess = myNumSites;
+            }
             myNumSitesPerBlockForProgressReporting = (myFence - myCurrentSite) / 10;
         }
 

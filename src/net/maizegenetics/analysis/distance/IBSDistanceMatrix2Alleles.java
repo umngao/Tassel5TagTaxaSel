@@ -226,7 +226,7 @@ public class IBSDistanceMatrix2Alleles {
         private final int myNumTaxa;
         private final int myNumSites;
         private final ProgressListener myProgressListener;
-        private final int myMinSitesToProcess;
+        private int myMinSitesToProcess;
 
         IBSSiteSpliterator(GenotypeTable genotypes, int currentIndex, int fence, ProgressListener listener) {
             myGenotypes = genotypes;
@@ -236,6 +236,9 @@ public class IBSDistanceMatrix2Alleles {
             myFence = fence;
             myProgressListener = listener;
             myMinSitesToProcess = myNumSites / NUM_CORES_TO_USE;
+            if (myMinSitesToProcess == 0) {
+                myMinSitesToProcess = myNumSites;
+            }
         }
 
         @Override
