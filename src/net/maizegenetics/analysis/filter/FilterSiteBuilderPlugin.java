@@ -94,12 +94,17 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
             .build();
     private PluginParameter<PositionList> myPositionList = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.positionList.name(), null, PositionList.class)
             .positionList()
-            .description("")
+            .description("Filter based on position list.")
             .build();
     private PluginParameter<String> mySiteNamesList = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.siteNames.name(), null, String.class)
             .siteNameList()
             .dependentOnParameter(myPositionList, POSITION_LIST_NONE)
-            .description("")
+            .description("Filter based on site names.")
+            .build();
+    private PluginParameter<String> myBedFile = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.bedFile.name(), null, String.class)
+            .inFile()
+            .dependentOnParameter(myPositionList, POSITION_LIST_NONE)
+            .description("Filter based on BED file.")
             .build();
 
     public FilterSiteBuilderPlugin(Frame parentFrame, boolean isInteractive) {
@@ -646,6 +651,27 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
      */
     public FilterSiteBuilderPlugin siteNamesList(String value) {
         mySiteNamesList = new PluginParameter<>(mySiteNamesList, value);
+        return this;
+    }
+    
+    /**
+     * Filter based on BED file.
+     *
+     * @return Bed File
+     */
+    public String bedFile() {
+        return myBedFile.value();
+    }
+
+    /**
+     * Set Bed File. Filter based on BED file.
+     *
+     * @param value Bed File
+     *
+     * @return this plugin
+     */
+    public FilterSiteBuilderPlugin bedFile(String value) {
+        myBedFile = new PluginParameter<>(myBedFile, value);
         return this;
     }
 
