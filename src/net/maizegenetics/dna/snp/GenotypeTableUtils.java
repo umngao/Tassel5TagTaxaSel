@@ -565,8 +565,8 @@ public class GenotypeTableUtils {
             line = reader.readLine();
             while (line != null) {
                 String[] tokens = line.trim().split("\t");
-                if (tokens.length != 3) {
-                    throw new IllegalStateException("filterSitesByBedFile: Expecting 3 columns on line: " + lineNum);
+                if (tokens.length < 3) {
+                    throw new IllegalStateException("filterSitesByBedFile: Expecting at least 3 columns on line: " + lineNum);
                 }
                 int startSite = input.siteOfPhysicalPosition(Integer.parseInt(tokens[1]), new Chromosome(tokens[0]));
                 if (startSite < 0) {
