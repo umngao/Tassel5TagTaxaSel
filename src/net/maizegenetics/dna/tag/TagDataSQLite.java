@@ -144,7 +144,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         try{
             ResultSet rs=connection.createStatement().executeQuery("select count(*) from tag");
             int size=rs.getInt(1);
-            System.out.println("size of all tags in tag table="+size);
+            System.out.println("size of all tags in tag table=" + size);
             if(tagTagIDMap==null || size/(tagTagIDMap.size()+1)>3) tagTagIDMap=HashBiMap.create(size);
             rs=connection.createStatement().executeQuery("select * from tag");
             while(rs.next()) {
@@ -190,7 +190,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 Position p=new GeneralPosition
                         .Builder(new Chromosome(rs.getString("chromosome")),rs.getInt("position"))
                         .strand(rs.getByte("strand"))
-                        .addAnno("QualityScore",rs.getFloat("qualityScore"))
+                        .addAnno("QualityScore", rs.getFloat("qualityScore"))
                         .build();
                 snpPosToIDMap.putIfAbsent(p, rs.getInt("snpid"));
             }
@@ -232,7 +232,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             mappingApproachToIDMap=new HashMap<>(size);
             rs=connection.createStatement().executeQuery("select * from mappingApproach");
             while(rs.next()) {
-                mappingApproachToIDMap.put(rs.getString("approach"),rs.getInt("mapappid"));
+                mappingApproachToIDMap.put(rs.getString("approach"), rs.getInt("mapappid"));
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -271,6 +271,38 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 if(tagTagIDMap.containsKey(tag)) continue;  //it is already in the DB skip
                 tagInsertPS.setBytes(1, tag.seq2BitAsBytes());
                 tagInsertPS.setShort(2, tag.seqLength());
+                tagInsertPS.addBatch();
+                batchCount++;
+                totalCount++;
+                if(batchCount>100000) {
+                    System.out.println("tagInsertPS.executeBatch() "+batchCount);
+                    tagInsertPS.executeBatch();
+                    //connection.commit();
+                    batchCount=0;
+                }
+            }
+            tagInsertPS.executeBatch();
+            connection.setAutoCommit(true);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+        if(totalCount>0) loadTagHash();
+        return true;
+    }
+
+    @Override
+    public boolean putAllNamesTag(Map<Tag, String> tagNameMap) {
+        int batchCount=0, totalCount=0;
+        try {
+            connection.setAutoCommit(false);
+            PreparedStatement tagInsertPS=connection.prepareStatement("insert into tag (sequence, seqlen, tagName) values(?,?,?)");
+            for (Map.Entry<Tag, String> entry : tagNameMap.entrySet()) {
+                Tag tag=entry.getKey();
+                if(tagTagIDMap.containsKey(tag)) continue;  //it is already in the DB skip
+                tagInsertPS.setBytes(1, tag.seq2BitAsBytes());
+                tagInsertPS.setShort(2, tag.seqLength());
+                tagInsertPS.setString(3, entry.getValue());
                 tagInsertPS.addBatch();
                 batchCount++;
                 totalCount++;

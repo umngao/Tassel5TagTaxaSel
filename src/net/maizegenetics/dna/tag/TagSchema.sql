@@ -1,6 +1,7 @@
 -- Table: tag
 CREATE TABLE tag (
     tagid    INTEGER PRIMARY KEY,
+    tagName VARCHAR,
     sequence BLOB NOT NULL,
     seqlen INTEGER NOT NULL,
     UNIQUE (sequence, seqlen)
