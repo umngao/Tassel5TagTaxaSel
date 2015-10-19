@@ -262,6 +262,21 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     }
 
     @Override
+    public Map<Tag, String> getTagsNameMap() {
+        try{
+            Map<Tag, String> tagNameMap=new HashMap<>(tagTagIDMap.size()+1);
+            ResultSet rs=connection.createStatement().executeQuery("select * from tag");
+            while(rs.next()) {
+                tagNameMap.put(TagBuilder.instance(rs.getBytes("sequence"), rs.getShort("seqlen")).build(), rs.getString("tagName"));
+            }
+            return tagNameMap;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    @Override
     public boolean putAllTag(Set<Tag> tags) {
         int batchCount=0, totalCount=0;
         try {

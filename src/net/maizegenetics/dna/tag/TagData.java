@@ -66,9 +66,14 @@ public interface TagData {
     Set<Tag> getTagsForAllele(Allele allele);
 
     /**
-     * Iterator to go through all tags
+     * Set of all tags
      */
     Set<Tag> getTags();
+
+    /**
+     * Map of all tags with associated names
+     */
+    Map<Tag,String> getTagsNameMap();
 
     /**
      * Create the unique list of SNPs (variants) based on all alleles.
