@@ -86,6 +86,23 @@ CREATE TABLE taxa (
     name    TEXT NOT NULL
 );
 
+-- Table: taxa
+CREATE TABLE tissue (
+  tissueid INTEGER PRIMARY KEY,
+  tissue    TEXT NOT NULL
+);
+
+-- Table: tagtaxatissuedist
+CREATE TABLE tagtaxatissuedist (
+  tagtxdstid  INTEGER   PRIMARY KEY,
+  tagid      INTEGER NOT NULL,
+  tissueid      INTEGER NOT NULL,
+  taxonid      INTEGER NOT NULL,
+  readCount  INTEGER
+);
+CREATE INDEX tagtxdstid_idx ON tagtaxatissuedist(tagtxdstid);
+CREATE UNIQUE INDEX tagtistaxon_idx ON tagtaxatissuedist(tagid,tissueid,taxonid);
+
 -- Table: SNP Quality
 --
 CREATE TABLE snpQuality (
