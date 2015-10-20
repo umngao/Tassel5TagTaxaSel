@@ -63,7 +63,38 @@ public class GBSUtils {
             return null;
         }
     }
-    
+ 
+    /**
+     * Method for reading FastQ four line structure, and returning a string array with [sequence, qualityScore]
+     */
+    public static String[] readDeMultiPlexFastQBlock(BufferedReader bw, int currentRead) throws IOException {
+        //consider converting this into a stream of String[]
+        String[] result=new String[2];
+        try{
+            // Grab the barcode from the first line of the fastq sequence
+            String barCode = bw.readLine();
+            if (barCode == null) {
+                return null;
+            }
+ 
+            int index = barCode.lastIndexOf(":");
+            barCode = barCode.substring(index+1);
+            StringBuilder sb = new StringBuilder();
+            sb.append(barCode);
+            sb.append(bw.readLine());
+            // First entry in array is the barcode with sequence
+            result[0]=sb.toString();
+            bw.readLine();
+            // Second entry is the quality score
+            result[1]=bw.readLine();
+            return result;
+        } catch (IOException e) {
+            e.printStackTrace();
+            myLogger.error("Unable to correctly parse the sequence and quality score near line: " + currentRead*4
+                    + " from fastq file.  Your fastq file may have been corrupted.");
+            return null;
+        }
+    }
     /**
      * Method for reading FastQ four line structure, and returning a string array with [sequence, qualityScore]
      */
