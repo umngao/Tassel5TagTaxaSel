@@ -37,6 +37,7 @@ public class GBSUtils {
     static final String flowcellField="Flowcell";
     static final String laneField="Lane";
     static final String barcodeField="Barcode";
+    static final String tissueNameField = "Tissue";
     
     private GBSUtils() {
     }

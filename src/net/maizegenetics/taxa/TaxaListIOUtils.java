@@ -381,5 +381,54 @@ public class TaxaListIOUtils {
         }
         return im.build();
     }
-
+    
+    /**
+     * This method takes a key file and creates a Set<String> that
+     * contains a set of the tissue values.  The set will be null if
+     * no tissues are present
+     * @param fileName - name of Keyfile containing Tissue header
+     * @param tissueNameField - field name
+     * @return
+     */
+    public static Set<String> readTissueAnnotationFile(String fileName, String tissueNameField) {
+        try {
+            BufferedReader fileIn = Utils.getBufferedReader(fileName, 1000000);
+            fileIn.mark(1 << 16);
+            String line = fileIn.readLine();
+            ImmutableSet.Builder<String> tissues = new ImmutableSet.Builder<String>();
+            int indexOfTissue = -1;
+            //parse headers
+            if (line.contains(tissueNameField)) {
+                int idx = 0;
+                for (String header : line.split("\\t")) {
+                    if (header.equals(tissueNameField)) {
+                        indexOfTissue = idx;
+                        break;
+                    }
+                    idx++;
+                }
+                if (indexOfTissue == -1) {
+                    // Tissue header not found - return null
+                    return null;
+                }
+            } else {
+                fileIn.reset();
+            }
+            // Found tissue header, read values - no duplicates, into set
+            while ((line = fileIn.readLine()) != null) {
+                String[] items = line.split("\\t");
+                for (int i = 0; i < items.length; i++) {
+                    if (i == indexOfTissue) {
+                        tissues.add(items[i]);
+                        continue;
+                    }
+                }
+            }
+            return tissues.build();
+        } catch (Exception e) {
+            System.err.println("Error in Reading Annotated Tissue File:" + fileName);
+            e.printStackTrace();
+        }
+        return null;
+    }
 }
