@@ -153,8 +153,18 @@ public class GBSUtils {
         for (Taxon taxon : taxaList) {
             int masterIndex=masterTaxaList.indexOf(taxon.getName());
             GeneralAnnotation annotation = taxon.getAnnotation();
-            Barcode theBC = new Barcode(annotation.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
-                    masterIndex,annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
+            String[] myTissues = annotation.getTextAnnotation("Tissue");
+            // Tissue should be stored as annotation against the taxon
+            Barcode theBC = null;
+            if (myTissues.length > 0) {
+                // keyfile had Tissue column: tissues were added to taxon annotations
+                theBC = new Barcode(annotation.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
+                        myTissues[0],
+                        masterIndex,annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
+            } else { // no tissue variables in the taxon annotations
+                theBC = new Barcode(annotation.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
+                        masterIndex,annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
+            }
             aTrie.addBarcode(theBC);
         }
         return aTrie;

@@ -18,6 +18,8 @@ public class Barcode implements Comparable<Barcode> {
     String[] overhangS;
     /**Taxon (sample) name */
     String taxaName;
+    /**Tissue name */
+    String tissueName;
     /**Flowcell name */
     String flowcell;
      /**Flowcell lane name */
@@ -52,6 +54,37 @@ public class Barcode implements Comparable<Barcode> {
         this.flowcell = flowcell;
         this.lane = lane;
         this.taxaName = taxa;
+        this.tissueName = ""; // null or empty string ??
+        taxon=new Taxon(taxaName);
+        this.taxaIndex=globalTaxaIndex;
+        barOverLong = new long[overhangS.length];
+        barWOverhangS = new String[overhangS.length];
+        for (int i = 0; i < overhangS.length; i++) {
+            barWOverhangS[i]=barcodeS + overhangS[i];
+            barOverLong[i] = BaseEncoder.getLongFromSeq(barWOverhangS[i]);
+        }
+        barOverLength = barcodeS.length() + overhangS[0].length();
+        barLength = barcodeS.length();
+    }
+
+    /**
+     * Constructor creating a barcode
+     * @param barcodeS barcode sequence
+     * @param overhangSunsort overhang sequence array unsorted (array size is 1 for
+     * non-degerate restriction enzymes, degenerate enzymes >1)
+     * @param taxa name of taxon (sample) 
+     * @param tissue name identifying the tissue
+     * @param flowcell name of the flowcell
+     * @param lane name of the lane
+     */
+    public Barcode(String barcodeS, String[] overhangSunsort, String taxa, String tissue, int globalTaxaIndex, String flowcell, String lane) {
+        this.barcodeS = barcodeS;
+        Arrays.sort(overhangSunsort);
+        this.overhangS = overhangSunsort;
+        this.flowcell = flowcell;
+        this.lane = lane;
+        this.taxaName = taxa;
+        this.tissueName = null; // null or empty string ??
         taxon=new Taxon(taxaName);
         this.taxaIndex=globalTaxaIndex;
         barOverLong = new long[overhangS.length];
@@ -131,6 +164,7 @@ public class Barcode implements Comparable<Barcode> {
                 "barcodeS='" + barcodeS + '\'' +
                 ", overhangS=" + Arrays.toString(overhangS) +
                 ", taxaName='" + taxaName + '\'' +
+                ", tissueName='" + tissueName + '\'' +
                 ", flowcell='" + flowcell + '\'' +
                 ", lane='" + lane + '\'' +
                 ", taxaIndex=" + taxaIndex +
