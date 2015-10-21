@@ -86,14 +86,14 @@ CREATE TABLE taxa (
     name    TEXT NOT NULL
 );
 
--- Table: taxa
+-- Table: tissue
 CREATE TABLE tissue (
   tissueid INTEGER PRIMARY KEY,
   tissue    TEXT NOT NULL
 );
 
--- Table: tagtaxatissuedist
-CREATE TABLE tagtaxatissuedist (
+-- Table: tagTaxaTissueDist
+CREATE TABLE tagTaxaTissueDist (
   tagtxdstid  INTEGER   PRIMARY KEY,
   tagid      INTEGER NOT NULL,
   tissueid      INTEGER NOT NULL,
