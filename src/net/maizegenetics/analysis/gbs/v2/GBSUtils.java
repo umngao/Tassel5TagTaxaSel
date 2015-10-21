@@ -32,12 +32,12 @@ import com.google.common.collect.Ordering;
 public class GBSUtils {
 
     private static final Logger myLogger = Logger.getLogger(GBSUtils.class);
-    static final String inputFileGlob="glob:*{.fq,fq.gz,fastq,fastq.txt,fastq.gz,fastq.txt.gz,_sequence.txt,_sequence.txt.gz}";
-    static final String sampleNameField="FullSampleName";
-    static final String flowcellField="Flowcell";
-    static final String laneField="Lane";
-    static final String barcodeField="Barcode";
-    static final String tissueNameField = "Tissue";
+    public static final String inputFileGlob="glob:*{.fq,fq.gz,fastq,fastq.txt,fastq.gz,fastq.txt.gz,_sequence.txt,_sequence.txt.gz}";
+    public static final String sampleNameField="FullSampleName";
+    public static final String flowcellField="Flowcell";
+    public static final String laneField="Lane";
+    public static final String barcodeField="Barcode";
+    public static final String tissueNameField = "Tissue";
     
     private GBSUtils() {
     }
