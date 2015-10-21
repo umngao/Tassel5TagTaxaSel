@@ -32,11 +32,12 @@ import com.google.common.collect.Ordering;
 public class GBSUtils {
 
     private static final Logger myLogger = Logger.getLogger(GBSUtils.class);
-    static final String inputFileGlob="glob:*{.fq,fq.gz,fastq,fastq.txt,fastq.gz,fastq.txt.gz,_sequence.txt,_sequence.txt.gz}";
-    static final String sampleNameField="FullSampleName";
-    static final String flowcellField="Flowcell";
-    static final String laneField="Lane";
-    static final String barcodeField="Barcode";
+    public static final String inputFileGlob="glob:*{.fq,fq.gz,fastq,fastq.txt,fastq.gz,fastq.txt.gz,_sequence.txt,_sequence.txt.gz}";
+    public static final String sampleNameField="FullSampleName";
+    public static final String flowcellField="Flowcell";
+    public static final String laneField="Lane";
+    public static final String barcodeField="Barcode";
+    public static final String tissueNameField = "Tissue";
     
     private GBSUtils() {
     }
@@ -152,8 +153,18 @@ public class GBSUtils {
         for (Taxon taxon : taxaList) {
             int masterIndex=masterTaxaList.indexOf(taxon.getName());
             GeneralAnnotation annotation = taxon.getAnnotation();
-            Barcode theBC = new Barcode(annotation.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
-                    masterIndex,annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
+            String[] myTissues = annotation.getTextAnnotation("Tissue");
+            // Tissue should be stored as annotation against the taxon
+            Barcode theBC = null;
+            if (myTissues.length > 0) {
+                // keyfile had Tissue column: tissues were added to taxon annotations
+                theBC = new Barcode(annotation.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
+                        myTissues[0],
+                        masterIndex,annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
+            } else { // no tissue variables in the taxon annotations
+                theBC = new Barcode(annotation.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
+                        masterIndex,annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
+            }
             aTrie.addBarcode(theBC);
         }
         return aTrie;
