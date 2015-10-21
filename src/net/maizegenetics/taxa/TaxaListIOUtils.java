@@ -417,12 +417,7 @@ public class TaxaListIOUtils {
             // Found tissue header, read values - no duplicates, into set
             while ((line = fileIn.readLine()) != null) {
                 String[] items = line.split("\\t");
-                for (int i = 0; i < items.length; i++) {
-                    if (i == indexOfTissue) {
-                        tissues.add(items[i]);
-                        continue;
-                    }
-                }
+                tissues.add(items[indexOfTissue]);
             }
             return tissues.build();
         } catch (Exception e) {
