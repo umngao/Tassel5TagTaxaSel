@@ -6,19 +6,23 @@
 package net.maizegenetics.analysis.data;
 
 import java.awt.Frame;
+import java.net.URL;
 import java.util.List;
 import javax.swing.ImageIcon;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTableBuilder;
+import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.taxa.Taxon;
 
 /**
  *
  * @author jcg233
  */
-public class SetLowDepthGenotypesToMissingPlugin extends net.maizegenetics.plugindef.AbstractPlugin {
+public class SetLowDepthGenosToMissingPlugin extends net.maizegenetics.plugindef.AbstractPlugin {
 
     @Override
     public String pluginDescription() {
@@ -34,8 +38,9 @@ public class SetLowDepthGenotypesToMissingPlugin extends net.maizegenetics.plugi
             .build();
     
     private GenotypeTable inputGenotypes = null;
+    private String inputGenosName = null;
     
-    public SetLowDepthGenotypesToMissingPlugin(Frame parentFrame, boolean isInteractive) { 
+    public SetLowDepthGenosToMissingPlugin(Frame parentFrame, boolean isInteractive) { 
         super(parentFrame, isInteractive);
     } 
 
@@ -46,6 +51,11 @@ public class SetLowDepthGenotypesToMissingPlugin extends net.maizegenetics.plugi
                 "SetLowDepathGenotypesToMissingPlugin: preProcessParameters: Please select one Genotype Table.");
         }
         List<Datum> genotypeTables = input.getDataOfType(GenotypeTable.class);
+        
+        inputGenosName = genotypeTables.get(0).getName();
+
+        System.out.println("Input genotype name: " + inputGenosName);
+        
         if (genotypeTables.size() == 1) {
             inputGenotypes
                 = (GenotypeTable) genotypeTables.get(0).getData();
@@ -58,25 +68,60 @@ public class SetLowDepthGenotypesToMissingPlugin extends net.maizegenetics.plugi
         }
     }
     
+    @Override
     public DataSet processData(DataSet input) {
-        for (int taxonIndex = 0; taxonIndex < inputGenotypes.numberOfTaxa(); taxonIndex++) {
-            for (int siteIndex = 0; siteIndex < inputGenotypes.numberOfSites(); siteIndex++) {
-                int[][] allelesByFreq = inputGenotypes.allelesSortedByFrequency(siteIndex);
+        int numberOfSites = inputGenotypes.numberOfSites();
+        GenotypeTableBuilder gtb = GenotypeTableBuilder.getTaxaIncremental(inputGenotypes.positions());
+        int[][] allelesAtSite = new int[numberOfSites][];
+        for (int siteIndex = 0; siteIndex < numberOfSites; siteIndex++) {
+            int[][] allelesByFreq = inputGenotypes.allelesSortedByFrequency(siteIndex);
+            int numAlleles = allelesByFreq[0].length;
+            allelesAtSite[siteIndex] = new int[numAlleles];
+            
+            for (int alleleIndex = 0; alleleIndex < numAlleles; alleleIndex++){
+                allelesAtSite[siteIndex][alleleIndex] = allelesByFreq[0][alleleIndex];
+            }
+        }
+        
+        for (Taxon inTaxon : inputGenotypes.taxa()) {
+            int taxonIndex = inputGenotypes.taxa().indexOf(inTaxon);
+            byte[] newGenos = inputGenotypes.genotypeAllSites(taxonIndex);
+            int[][]  origDepths = 
+                new int[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][numberOfSites];
+            for (int siteIndex = 0; siteIndex < numberOfSites; siteIndex++) {
                 int[] alleleDepths = inputGenotypes.depthForAlleles(taxonIndex, siteIndex);
+                for (int alleleIndex = 0; alleleIndex < alleleDepths.length; alleleIndex++){
+                    origDepths[alleleIndex][siteIndex] = alleleDepths[alleleIndex];
+                }    
                 int depthSum = 0;
-                for ( int allele = 0; allele < alleleDepths.length; allele++){
+//                if (taxonIndex == 0) {System.out.println("alleleDepths.length: "+alleleDepths.length);}
+                for ( int allele : allelesAtSite[siteIndex]){
                     depthSum += alleleDepths[allele];
                 }
-                System.out.println("Allele depth sum: " + depthSum);
+                if (depthSum < minDepth()) {
+                    newGenos[siteIndex] = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+                }
+                
+//                System.out.println("Allele depth sum: " + depthSum);
             }
             
+            gtb.addTaxon(inTaxon, origDepths, newGenos);
+            
         }
-        return null;
+        
+        String outGenosName = inputGenosName + "MinDepth" + minDepth();
+        return new DataSet(new Datum(outGenosName, gtb.build(), null), null);
     }
     
     @Override
     public ImageIcon getIcon() {
-        return null;
+        URL imageURL = SetLowDepthGenosToMissingPlugin.class
+            .getResource("/net/maizegenetics/analysis/images/lowDepthToMissing.gif");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
     }
 
     @Override
@@ -86,14 +131,14 @@ public class SetLowDepthGenotypesToMissingPlugin extends net.maizegenetics.plugi
 
     @Override
     public String getToolTipText() {
-        return "Set Genotypes below a minimum depth to missing";
+        return "Set genotypes below a minimum depth to missing";
     }
  
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
     //
     // public static void main(String[] args) {
-    //     GeneratePluginCode.generate(SetLowDepthGenotypesToMissingPlugin.class);
+    //     GeneratePluginCode.generate(SetLowDepthGenosToMissingPlugin.class);
     // }
 
     /**
@@ -120,7 +165,7 @@ public class SetLowDepthGenotypesToMissingPlugin extends net.maizegenetics.plugi
      *
      * @return this plugin
      */
-    public SetLowDepthGenotypesToMissingPlugin minDepth(Integer value) {
+    public SetLowDepthGenosToMissingPlugin minDepth(Integer value) {
         minDepth = new PluginParameter<>(minDepth, value);
         return this;
     }
