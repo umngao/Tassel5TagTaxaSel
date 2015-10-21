@@ -10,6 +10,7 @@ import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.Tuple;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 
@@ -99,4 +100,11 @@ public interface TagDataWriter extends TagData {
      * Removes all data from the snpQuality table
      */
     void clearSNPQualityData();
+
+    /**
+     * Adds list of tissues to the tissue table
+     * @param masterTissueList
+     * @return
+     */
+    boolean putAllTissue(ArrayList<String> masterTissueList);
 }

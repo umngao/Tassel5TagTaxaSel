@@ -383,19 +383,19 @@ public class TaxaListIOUtils {
     }
     
     /**
-     * This method takes a key file and creates a Set<String> that
+     * This method takes a key file and creates a SortedSet<String> that
      * contains a set of the tissue values.  The set will be null if
      * no tissues are present
      * @param fileName - name of Keyfile containing Tissue header
      * @param tissueNameField - field name
      * @return
      */
-    public static Set<String> readTissueAnnotationFile(String fileName, String tissueNameField) {
+    public static List<String> readTissueAnnotationFile(String fileName, String tissueNameField) {
         try {
             BufferedReader fileIn = Utils.getBufferedReader(fileName, 1000000);
             fileIn.mark(1 << 16);
             String line = fileIn.readLine();
-            ImmutableSet.Builder<String> tissues = new ImmutableSet.Builder<String>();
+            List<String> tissues = new ArrayList<String>();
             int indexOfTissue = -1;
             //parse headers
             if (line.contains(tissueNameField)) {
@@ -417,9 +417,13 @@ public class TaxaListIOUtils {
             // Found tissue header, read values - no duplicates, into set
             while ((line = fileIn.readLine()) != null) {
                 String[] items = line.split("\\t");
-                tissues.add(items[indexOfTissue]);
+                if (!tissues.contains(items[indexOfTissue])) {
+                    tissues.add(items[indexOfTissue]);
+                }               
             }
-            return tissues.build();
+            Collections.sort(tissues);
+                
+            return tissues;
         } catch (Exception e) {
             System.err.println("Error in Reading Annotated Tissue File:" + fileName);
             e.printStackTrace();

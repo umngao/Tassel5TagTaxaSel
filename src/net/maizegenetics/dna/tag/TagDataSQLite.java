@@ -40,6 +40,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
     of these objects over and over again.
      */
     private BiMap<Tag,Integer> tagTagIDMap;
+    private BiMap<String,Integer> tissueTissueIDMap;
     private Map<String,Integer> mappingApproachToIDMap;
     private SortedMap<Position,Integer> cutPosToIDMap;
     public BiMap<Position,Integer> snpPosToIDMap;
@@ -90,6 +91,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             }
             initPreparedStatements();
             loadTagHash();
+            loadTissueHash();
             loadMappingApproachHash();
             loadTaxaList();
         }
@@ -154,7 +156,21 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             e.printStackTrace();
         }
     }
-
+    
+    private void loadTissueHash() {
+        try{
+            ResultSet rs=connection.createStatement().executeQuery("select count(*) from tissue");
+            int size=rs.getInt(1);
+            System.out.println("size of all tissues in tissue table=" + size);
+            if(tissueTissueIDMap==null || size/(tissueTissueIDMap.size()+1)>3) tissueTissueIDMap=HashBiMap.create(size);
+            rs=connection.createStatement().executeQuery("select * from tissue");
+            while(rs.next()) {
+                tissueTissueIDMap.putIfAbsent(rs.getString("tissue"),rs.getInt("tissueid"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
     private void loadCutPositionHash() {
         try{
             ResultSet rs=connection.createStatement().executeQuery("select count(*) from cutPosition");
@@ -1280,5 +1296,34 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             exc.printStackTrace();
         }
         return tagTaxaDistMap;
+    }
+    
+    @Override
+    public boolean putAllTissue(ArrayList<String> tissues) {
+        int batchCount=0, totalCount=0;
+        try {
+            connection.setAutoCommit(false);
+            PreparedStatement tissueInsertPS=connection.prepareStatement("insert into tissue (tissue) values(?)");
+            for (String tissue : tissues) {
+                if(tissueTissueIDMap.containsKey(tissue)) continue;  //it is already in the DB skip
+                tissueInsertPS.setString(1, tissue);
+                tissueInsertPS.addBatch();
+                batchCount++;
+                totalCount++;
+                if(batchCount>100000) {
+                    System.out.println("tissueInsertPS.executeBatch() "+batchCount);
+                    tissueInsertPS.executeBatch();
+                    //connection.commit();
+                    batchCount=0;
+                }
+            }
+            tissueInsertPS.executeBatch();
+            connection.setAutoCommit(true);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+        if(totalCount>0) loadTissueHash();
+        return true;
     }
 }
