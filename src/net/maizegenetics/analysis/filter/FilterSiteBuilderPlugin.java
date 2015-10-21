@@ -28,7 +28,6 @@ import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 
 import org.apache.log4j.Logger;
@@ -95,12 +94,17 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
             .build();
     private PluginParameter<PositionList> myPositionList = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.positionList.name(), null, PositionList.class)
             .positionList()
-            .description("")
+            .description("Filter based on position list.")
             .build();
     private PluginParameter<String> mySiteNamesList = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.siteNames.name(), null, String.class)
             .siteNameList()
             .dependentOnParameter(myPositionList, POSITION_LIST_NONE)
-            .description("")
+            .description("Filter based on site names.")
+            .build();
+    private PluginParameter<String> myBedFile = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.bedFile.name(), null, String.class)
+            .inFile()
+            .dependentOnParameter(myPositionList, POSITION_LIST_NONE)
+            .description("Filter based on BED file.")
             .build();
 
     public FilterSiteBuilderPlugin(Frame parentFrame, boolean isInteractive) {
@@ -151,6 +155,28 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
 
             if ((!myStartSite.value().equals(myStartSite.defaultValue()) || (!myEndSite.value().equals(myEndSite.defaultValue())))) {
                 setParameter(mySiteFilter, SITE_RANGE_FILTER_TYPES.SITES);
+            }
+
+            if ((!myStartPos.value().equals(myStartPos.defaultValue()))
+                    || (myStartChr.value() != null)
+                    || (!myEndPos.value().equals(myEndPos.defaultValue()))
+                    || (myEndChr.value() != null)) {
+
+                setParameter(mySiteFilter, SITE_RANGE_FILTER_TYPES.POSITIONS);
+
+                List<Datum> genotypeTableList = input.getDataOfType(GenotypeTable.class);
+                if (genotypeTableList.size() == 1) {
+                    GenotypeTable genotype = (GenotypeTable) genotypeTableList.get(0).getData();
+                    if (myStartPos.value().equals(myStartPos.defaultValue()) && myStartChr.value() != null) {
+                        int[] firstLast = genotype.firstLastSiteOfChromosome(myStartChr.value());
+                        setParameter(myStartPos, genotype.positions().get(firstLast[0]).getPosition());
+                    }
+                    if (myEndPos.value().equals(myEndPos.defaultValue()) && myEndChr.value() != null) {
+                        int[] firstLast = genotype.firstLastSiteOfChromosome(myEndChr.value());
+                        setParameter(myEndPos, genotype.positions().get(firstLast[1]).getPosition());
+                    }
+                }
+
             }
 
         }
@@ -300,10 +326,9 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
     //
-    public static void main(String[] args) {
-        GeneratePluginCode.generate(FilterSiteBuilderPlugin.class);
-    }
-
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(FilterSiteBuilderPlugin.class);
+    // }
     /**
      * Convenience method to run plugin with one return object.
      */
@@ -626,6 +651,27 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
      */
     public FilterSiteBuilderPlugin siteNamesList(String value) {
         mySiteNamesList = new PluginParameter<>(mySiteNamesList, value);
+        return this;
+    }
+    
+    /**
+     * Filter based on BED file.
+     *
+     * @return Bed File
+     */
+    public String bedFile() {
+        return myBedFile.value();
+    }
+
+    /**
+     * Set Bed File. Filter based on BED file.
+     *
+     * @param value Bed File
+     *
+     * @return this plugin
+     */
+    public FilterSiteBuilderPlugin bedFile(String value) {
+        myBedFile = new PluginParameter<>(myBedFile, value);
         return this;
     }
 

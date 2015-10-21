@@ -24,7 +24,7 @@ import net.maizegenetics.util.MultiMemberGZIPInputStream;
  */
 public class FastqChunk {
     private int minStartIndex = 100000;
-    private int maxReadNum = 100000;
+    private int maxReadNum = 1000000;
     Read[] reads = null;
     int phredScale = Integer.MIN_VALUE;
     

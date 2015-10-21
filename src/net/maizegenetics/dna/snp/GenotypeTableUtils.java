@@ -4,17 +4,21 @@
 package net.maizegenetics.dna.snp;
 
 import java.io.BufferedReader;
+
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 
 import static net.maizegenetics.dna.snp.GenotypeTable.*;
 import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
 import net.maizegenetics.util.Utils;
+
+import org.apache.log4j.Logger;
 
 /**
  * Utility methods for comparing, sorting, and counting genotypes.
@@ -23,6 +27,8 @@ import net.maizegenetics.util.Utils;
  * @author Ed Buckler
  */
 public class GenotypeTableUtils {
+
+    private static final Logger myLogger = Logger.getLogger(GenotypeTableUtils.class);
 
     private static final Integer ONE = 1;
     private static final byte HIGHMASK = (byte) 0x0F;
@@ -505,6 +511,11 @@ public class GenotypeTableUtils {
             result = filterSitesByChrPos(result, positions, filter.includeSites());
         }
 
+        String bedFile = filter.bedFile();
+        if ((bedFile != null) && (!bedFile.isEmpty())) {
+            result = filterSitesByBedFile(result, bedFile, filter.includeSites());
+        }
+
         if ((filter.siteMinAlleleFreq() != 0.0) || (filter.siteMaxAlleleFreq() != 1.0) || (filter.siteMinCount() != 0)) {
             result = removeSitesBasedOnFreqIgnoreMissing(result, filter.siteMinAlleleFreq(), filter.siteMaxAlleleFreq(), filter.siteMinCount());
         }
@@ -540,19 +551,98 @@ public class GenotypeTableUtils {
         return FilterGenotypeTable.getInstance(aa, includeSites);
     }
 
-    public static GenotypeTable filterSitesByChrPos(GenotypeTable input, PositionList positionList, boolean includeSites) {
-        Map<String, List<Integer>> positionsByChr = new LinkedHashMap<>();
-        for (Position current : positionList) {
-            String chrName = current.getChromosome().getName();
-            List<Integer> positions = positionsByChr.get(chrName);
-            if (positions == null) {
-                positions = new ArrayList<>();
-                positionsByChr.put(chrName, positions);
-            }
-            positions.add(current.getPosition());
+    public static GenotypeTable filterSitesByBedFile(GenotypeTable input, String bedFile, boolean includeSites) {
+
+        if (!includeSites) {
+            throw new UnsupportedOperationException();
         }
 
-        return GenotypeTableUtils.filterSitesByChrPos(input, positionsByChr, includeSites);
+        int numSites = input.numberOfSites();
+        BitSet sitesToInclude = new OpenBitSet(numSites);
+        String line = null;
+        try (BufferedReader reader = Utils.getBufferedReader(bedFile)) {
+            int lineNum = 1;
+            line = reader.readLine();
+            while (line != null) {
+                String[] tokens = line.trim().split("\t");
+                if (tokens.length < 3) {
+                    throw new IllegalStateException("filterSitesByBedFile: Expecting at least 3 columns on line: " + lineNum);
+                }
+                int startSite = input.siteOfPhysicalPosition(Integer.parseInt(tokens[1]), new Chromosome(tokens[0]));
+                if (startSite < 0) {
+                    startSite = -startSite - 1;
+                }
+                int endSite = input.siteOfPhysicalPosition(Integer.parseInt(tokens[2]), new Chromosome(tokens[0]));
+                if (endSite < 0) {
+                    endSite = -endSite - 2;
+                }
+                for (int i = startSite; i <= endSite; i++) {
+                    sitesToInclude.fastSet(i);
+                }
+                line = reader.readLine();
+                lineNum++;
+            }
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("filterSitesByBedFile: problem reading: " + bedFile + " line: " + line);
+        }
+
+        int numNewSites = (int) sitesToInclude.cardinality();
+        int[] result = new int[numNewSites];
+        int count = 0;
+        for (int s = 0; s < numSites; s++) {
+            if (sitesToInclude.fastGet(s)) {
+                result[count++] = s;
+            }
+        }
+
+        return FilterGenotypeTable.getInstance(input, result);
+
+    }
+
+    public static GenotypeTable filterSitesByChrPos(GenotypeTable input, PositionList positionList, boolean includeSites) {
+
+        TreeSet<Integer> temp = new TreeSet<>();
+
+        PositionList origPositionList = input.positions();
+
+        Chromosome[] chromosomes = positionList.chromosomes();
+        for (Chromosome chromosome : chromosomes) {
+            if (origPositionList.chromosomeSiteCount(chromosome) != 0) {
+                int[] startEndSubSet = positionList.startAndEndOfChromosome(chromosome);
+                int[] startEnd = origPositionList.startAndEndOfChromosome(chromosome);
+                int posIndex = startEndSubSet[0];
+                for (int site = startEnd[0]; site <= startEnd[1]; site++) {
+
+                    Position current = origPositionList.get(site);
+                    int pos = current.getPosition();
+
+                    for (; posIndex <= startEndSubSet[1]; posIndex++) {
+                        int currentPos = positionList.get(posIndex).getPosition();
+                        if (currentPos == pos) {
+                            temp.add(site);
+                        } else if (currentPos > pos) {
+                            break;
+                        }
+                    }
+
+                }
+            }
+        }
+
+        if (includeSites) {
+            return FilterGenotypeTable.getInstance(input, toPrimitive(temp));
+        } else {
+            int numSites = input.numberOfSites();
+            int[] result = new int[numSites - temp.size()];
+            int count = 0;
+            for (int i = 0; i < numSites; i++) {
+                if (!temp.contains(i)) {
+                    result[count++] = i;
+                }
+            }
+            return FilterGenotypeTable.getInstance(input, result);
+        }
 
     }
 
@@ -564,7 +654,7 @@ public class GenotypeTableUtils {
             while (line != null) {
                 String[] tokens = line.split("\t");
                 if (tokens.length != 2) {
-                    throw new IllegalStateException("GenotypeTableUtils: keepSitesChrPos: Each line in file must have 2 columns (chr, position): " + filename);
+                    throw new IllegalStateException("GenotypeTableUtils: filterSitesByChrPos: Each line in file must have 2 columns (chr, position): " + filename);
                 }
                 List<Integer> positions = positionsByChr.get(tokens[0]);
                 if (positions == null) {
@@ -575,7 +665,7 @@ public class GenotypeTableUtils {
                 line = reader.readLine();
             }
         } catch (Exception e) {
-            throw new IllegalStateException("GenotypeTableUtils: keepSitesChrPos: Problem reading file: " + filename + "\n" + e.getMessage());
+            throw new IllegalStateException("GenotypeTableUtils: filterSitesByChrPos: Problem reading file: " + filename + "\n" + e.getMessage());
         }
 
         return GenotypeTableUtils.filterSitesByChrPos(input, positionsByChr, includeSites);
@@ -658,7 +748,7 @@ public class GenotypeTableUtils {
         return temp;
     }
 
-    private static int[] toPrimitive(List<Integer> list) {
+    private static int[] toPrimitive(Collection<Integer> list) {
         int[] result = new int[list.size()];
         int index = 0;
         for (int current : list) {

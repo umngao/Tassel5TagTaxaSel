@@ -1,6 +1,7 @@
 -- Table: tag
 CREATE TABLE tag (
     tagid    INTEGER PRIMARY KEY,
+    tagName VARCHAR,
     sequence BLOB NOT NULL,
     seqlen INTEGER NOT NULL,
     UNIQUE (sequence, seqlen)
@@ -84,6 +85,23 @@ CREATE TABLE taxa (
     taxonid INTEGER PRIMARY KEY,
     name    TEXT NOT NULL
 );
+
+-- Table: tissue
+CREATE TABLE tissue (
+  tissueid INTEGER PRIMARY KEY,
+  tissue    TEXT NOT NULL
+);
+
+-- Table: tagTaxaTissueDist
+CREATE TABLE tagTaxaTissueDist (
+  tagtxdstid  INTEGER   PRIMARY KEY,
+  tagid      INTEGER NOT NULL,
+  tissueid      INTEGER NOT NULL,
+  taxonid      INTEGER NOT NULL,
+  readCount  INTEGER
+);
+CREATE INDEX tagtxdstid_idx ON tagtaxatissuedist(tagtxdstid);
+CREATE UNIQUE INDEX tagtistaxon_idx ON tagtaxatissuedist(tagid,tissueid,taxonid);
 
 -- Table: SNP Quality
 --

@@ -3,10 +3,10 @@
  */
 package net.maizegenetics.dna.snp;
 
-import java.util.List;
-
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
+
+import java.util.List;
 
 /**
  *
@@ -72,8 +72,9 @@ public class FilterGenotypeTableBuilder {
         return this;
     }
 
-    public void sitesToKeep(int[] sitesToKeep) {
+    public FilterGenotypeTableBuilder sitesToKeep(int[] sitesToKeep) {
         mySitesToKeep = sitesToKeep;
+        return this;
     }
 
     public void siteNamesToKeep(List<String> sitesToKeep) {

@@ -5,7 +5,19 @@
  */
 package net.maizegenetics.analysis.data;
 
-import java.awt.Frame;
+import net.maizegenetics.dna.map.Chromosome;
+import net.maizegenetics.dna.map.GeneralPosition;
+import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.map.PositionListBuilder;
+import net.maizegenetics.plugindef.AbstractPlugin;
+import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.util.Utils;
+import org.apache.log4j.Logger;
+
+import javax.swing.*;
+import java.awt.*;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -15,18 +27,6 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.Properties;
 import java.util.stream.Collectors;
-import javax.swing.*;
-import net.maizegenetics.dna.map.Chromosome;
-import net.maizegenetics.dna.map.GeneralPosition;
-import net.maizegenetics.dna.map.PositionList;
-import net.maizegenetics.dna.map.PositionListBuilder;
-import net.maizegenetics.plugindef.AbstractPlugin;
-import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.GeneratePluginCode;
-import net.maizegenetics.plugindef.PluginParameter;
-import net.maizegenetics.util.Utils;
-import org.apache.log4j.Logger;
 
 /**
  * Reads a PostgreSQL query file and a genomeAnnosDB connection config file,
@@ -69,7 +69,7 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
         .build();
 
     private PluginParameter<String> queryFile = new PluginParameter.Builder<>("qf", null, String.class)
-        .required(true)
+        .required(false)
         .inFile()
         .guiName("Query file")
         .description("Query file")
@@ -101,7 +101,8 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
     * any of the bare words ALTER, COPY, CREATE, DELETE, DROP, INSERT, TRUNCATE,
     * or UPDATE.
     * 
-    * @param input A null DataSet (the DB connection config file & query file are PluginParameters -cf and -qf)
+    * @param input A null DataSet (the DB connection config file & query file are PluginParameters -cf and -qf) or String
+     *             that represent with the SQL query (overrides the -qf setting)
     * 
     * @return An annotated position list (any fields in the query result other
     * than chr & position added as annotations)
@@ -113,11 +114,17 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
     public DataSet processData(DataSet input) {
 
         try {
-            
-            String query = readQueryFromFile();
-            if (query == null) {
-                complain("\nA problem occurred while reading the query file\n");
-                return null;
+            System.out.println("test");
+            String query, name;
+            try{
+                name=query=(String)input.getData(0).getData();
+            } catch(NullPointerException e) {
+                query=readQueryFromFile();
+                name = Utils.getFilename(queryFile());
+                if (query==null) {
+                    complain("\nA problem occurred while reading the query file\n");
+                    return null;
+                }
             }
 
             Connection conn = connectToDB();
@@ -132,7 +139,6 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
                 return null;
             }
 
-            String name = Utils.getFilename(queryFile());
             Datum outputDatum = new Datum(name + "_PositionList", posits, "Position List from " + name);
             DataSet output = new DataSet(outputDatum, this);
 

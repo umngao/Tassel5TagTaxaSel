@@ -238,7 +238,7 @@ public class EndelmanDistanceMatrix {
         private final int myNumSites;
         private final int myMaxAlleles;
         private final ProgressListener myProgressListener;
-        private final int myMinSitesToProcess;
+        private int myMinSitesToProcess;
 
         EndelmanSiteSpliterator(GenotypeTable genotypes, int currentIndex, int fence, int maxAlleles, ProgressListener listener) {
             myGenotypes = genotypes;
@@ -249,6 +249,9 @@ public class EndelmanDistanceMatrix {
             myMaxAlleles = maxAlleles;
             myProgressListener = listener;
             myMinSitesToProcess = myNumSites / NUM_CORES_TO_USE;
+            if (myMinSitesToProcess == 0) {
+                myMinSitesToProcess = myNumSites;
+            }
         }
 
         @Override

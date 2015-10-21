@@ -32,11 +32,12 @@ import com.google.common.collect.Ordering;
 public class GBSUtils {
 
     private static final Logger myLogger = Logger.getLogger(GBSUtils.class);
-    static final String inputFileGlob="glob:*{.fq,fq.gz,fastq,fastq.txt,fastq.gz,fastq.txt.gz,_sequence.txt,_sequence.txt.gz}";
-    static final String sampleNameField="FullSampleName";
-    static final String flowcellField="Flowcell";
-    static final String laneField="Lane";
-    static final String barcodeField="Barcode";
+    public static final String inputFileGlob="glob:*{.fq,fq.gz,fastq,fastq.txt,fastq.gz,fastq.txt.gz,_sequence.txt,_sequence.txt.gz}";
+    public static final String sampleNameField="FullSampleName";
+    public static final String flowcellField="Flowcell";
+    public static final String laneField="Lane";
+    public static final String barcodeField="Barcode";
+    public static final String tissueNameField = "Tissue";
     
     private GBSUtils() {
     }
@@ -63,7 +64,38 @@ public class GBSUtils {
             return null;
         }
     }
-    
+ 
+    /**
+     * Method for reading FastQ four line structure, and returning a string array with [sequence, qualityScore]
+     */
+    public static String[] readDeMultiPlexFastQBlock(BufferedReader bw, int currentRead) throws IOException {
+        //consider converting this into a stream of String[]
+        String[] result=new String[2];
+        try{
+            // Grab the barcode from the first line of the fastq sequence
+            String barCode = bw.readLine();
+            if (barCode == null) {
+                return null;
+            }
+ 
+            int index = barCode.lastIndexOf(":");
+            barCode = barCode.substring(index+1);
+            StringBuilder sb = new StringBuilder();
+            sb.append(barCode);
+            sb.append(bw.readLine());
+            // First entry in array is the barcode with sequence
+            result[0]=sb.toString();
+            bw.readLine();
+            // Second entry is the quality score
+            result[1]=bw.readLine();
+            return result;
+        } catch (IOException e) {
+            e.printStackTrace();
+            myLogger.error("Unable to correctly parse the sequence and quality score near line: " + currentRead*4
+                    + " from fastq file.  Your fastq file may have been corrupted.");
+            return null;
+        }
+    }
     /**
      * Method for reading FastQ four line structure, and returning a string array with [sequence, qualityScore]
      */
@@ -121,8 +153,18 @@ public class GBSUtils {
         for (Taxon taxon : taxaList) {
             int masterIndex=masterTaxaList.indexOf(taxon.getName());
             GeneralAnnotation annotation = taxon.getAnnotation();
-            Barcode theBC = new Barcode(annotation.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
-                    masterIndex,annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
+            String[] myTissues = annotation.getTextAnnotation("Tissue");
+            // Tissue should be stored as annotation against the taxon
+            Barcode theBC = null;
+            if (myTissues.length > 0) {
+                // keyfile had Tissue column: tissues were added to taxon annotations
+                theBC = new Barcode(annotation.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
+                        myTissues[0],
+                        masterIndex,annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
+            } else { // no tissue variables in the taxon annotations
+                theBC = new Barcode(annotation.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
+                        masterIndex,annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
+            }
             aTrie.addBarcode(theBC);
         }
         return aTrie;

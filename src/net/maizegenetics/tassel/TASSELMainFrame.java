@@ -85,6 +85,7 @@ import net.maizegenetics.analysis.data.GenosToABHPlugin;
 import net.maizegenetics.analysis.data.GetPositionListPlugin;
 import net.maizegenetics.analysis.data.GetTaxaListPlugin;
 import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
+import net.maizegenetics.analysis.data.SetLowDepthGenosToMissingPlugin;
 import net.maizegenetics.analysis.data.SortGenotypeFilePlugin;
 import net.maizegenetics.analysis.distance.DistanceMatrixPlugin;
 import net.maizegenetics.analysis.filter.FilterSiteBuilderPlugin;
@@ -109,8 +110,8 @@ import net.maizegenetics.analysis.workflow.WorkflowPlugin;
 public class TASSELMainFrame extends JFrame implements ActionListener {
 
     private static final Logger myLogger = Logger.getLogger(TASSELMainFrame.class);
-    public static final String version = "5.2.15";
-    public static final String versionDate = "September 24, 2015";
+    public static final String version = "5.2.16";
+    public static final String versionDate = "October 15, 2015";
     private DataTreePanel myDataTreePanel;
     //a variable to control when the progress bar was last updated
     private JFileChooser filerSave = new JFileChooser();
@@ -408,6 +409,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new MergeGenotypeTablesPlugin(this, true)));
         result.add(createMenuItem(new SeparatePlugin(this, true)));
         result.add(createMenuItem(new HetsToUnknownPlugin(this, true)));
+        result.add(createMenuItem(new SetLowDepthGenosToMissingPlugin(this, true)));
         result.add(createMenuItem(new TransformDataPlugin(this, true)));
         result.add(createMenuItem(new NumericalGenotypePlugin(this, true)));
         result.add(createMenuItem(new GenosToABHPlugin(this, true)));

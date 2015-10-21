@@ -28,10 +28,18 @@ public interface TagDataWriter extends TagData {
     boolean putAllTag(Set<Tag> tags);
 
     /**
+     * Add a tag to list of known tags with their associated names (good for named contigs)
+     * @return true if this set did not already contain the specified element
+     * @param tagNameMap
+     */
+    boolean putAllNamesTag(Map<Tag,String> tagNameMap);
+
+    /**
      * Associates a map full of the specified Tag (key) with the specified TaxaDistribution (value).
      * If there was a prior association is it replaced, as all pairs are unique.
      */
     void putTaxaDistribution(Map<Tag, TaxaDistribution> tagTaxaDistributionMap);
+
 
     /**
      * Associates the specified Tag (key) with the specified cut site Position (value).  Multiple associations are allowed, as

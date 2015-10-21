@@ -48,7 +48,6 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListIOUtils;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.DirectoryCrawler;
-import net.maizegenetics.util.Tuple;
 import net.maizegenetics.util.Utils;
 
 import org.ahocorasick.trie.Emit;
@@ -132,12 +131,10 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
     private TagData tagDataReader = null;
     Multimap<Taxon,Tag> tagCntMap=Multimaps.synchronizedMultimap(ArrayListMultimap.create(384, 500_000));
     private Set<String> seqFilesInKeyAndDir = new TreeSet<>(); // fastq (or qseq) file names present in input directory that have a "Flowcell_Lane" in the key file
-
-    private GenotypeTableBuilder genos = null; //output genotype table
-    private PositionList myPositionList = null;
-    
+ 
     protected static int readEndCutSiteRemnantLength;
     private Trie ahoCorasickTrie; // import from ahocorasick-0.2.1.jar
+    private String[] likelyReadEndStrings;
 
     //Documentation of read depth per sample (one recorded per replicate)
     // Treemap is synchronized as multiple threads may increment values.
@@ -174,23 +171,26 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         if (!myEnzyme.isEmpty()) {
             // Add likelyReadEnds to the ahoCorasick trie
             GBSEnzyme enzyme = new GBSEnzyme(enzyme());
-            String[] likelyReadEnd = enzyme.likelyReadEnd();
-            // the junit test runs about a second faster average 15.5 vs 16.5) without Trie().removeOverlaps();
-            ahoCorasickTrie = new Trie(); // adding caseInsensitive causes nothing to be found
-            for (String readEnd: likelyReadEnd) {
-                ahoCorasickTrie.addKeyword(readEnd);
-            }  
+ 
+            likelyReadEndStrings = enzyme.likelyReadEnd(); // for removeSecondCutSiteIndexOf()
             readEndCutSiteRemnantLength = enzyme.readEndCutSiteRemnantLength();
-            // Bug in acorasick code that occurs when multiple threads
-            // call parseText at once.  The software computes the failure
-            // states the first time "parseText" is called.  If multiple threads
-            // hit this at once, they will all call "constructFailureStates" 
-            // and this causes problems.  Suggested workaround is to call
-            // parseText once after all keywords are added, and before we enter
-            // multi-threaded mode.  This gets the failure states constructed
-            // before we start processing the fastQ reads.  See this link:
-            //   https://github.com/robert-bor/aho-corasick/issues/16
-            ahoCorasickTrie.parseText("CAGCTTCAGGTGGTGCGGACGTGGTGGATCACGGCGCTGAAGCCCGCGCGCTTGGTCTGGCTGA");
+//            // the junit test runs about a second faster average 15.5 vs 16.5) without Trie().removeOverlaps();
+//            String[] likelyReadEnd = enzyme.likelyReadEnd();
+//            ahoCorasickTrie = new Trie(); // adding caseInsensitive causes nothing to be found
+//            for (String readEnd: likelyReadEnd) {
+//                ahoCorasickTrie.addKeyword(readEnd);
+//            }  
+//
+//            // Bug in acorasick code that occurs when multiple threads
+//            // call parseText at once.  The software computes the failure
+//            // states the first time "parseText" is called.  If multiple threads
+//            // hit this at once, they will all call "constructFailureStates" 
+//            // and this causes problems.  Suggested workaround is to call
+//            // parseText once after all keywords are added, and before we enter
+//            // multi-threaded mode.  This gets the failure states constructed
+//            // before we start processing the fastQ reads.  See this link:
+//            //   https://github.com/robert-bor/aho-corasick/issues/16
+//            ahoCorasickTrie.parseText("CAGCTTCAGGTGGTGCGGACGTGGTGGATCACGGCGCTGAAGCCCGCGCGCTTGGTCTGGCTGA");
         }
     }
 
@@ -361,7 +361,9 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
                             "Re-run your files with either a shorter mxKmerL value or a higher minimum quality score.\n";
                     throw new StringIndexOutOfBoundsException(errMsg);
                 }
-                Tag tag = removeSecondCutSiteAhoC(seqAndQual[0].substring(barcodeLen),preferredTagLength);
+ 
+                Tag tag = removeSecondCutSiteIndexOf(seqAndQual[0].substring(barcodeLen),preferredTagLength);
+                //Tag tag = removeSecondCutSiteAhoC(seqAndQual[0].substring(barcodeLen),preferredTagLength);
                 //Tag tag= TagBuilder.instance(seqAndQual[0].substring(barcode.getBarLength(), barcode.getBarLength() + preferredTagLength)).build();
                 if(tag==null) continue;   //null occurs when any base was not A, C, G, T
                 goodBarcodedReads++;
@@ -387,6 +389,38 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         }
     }
 
+
+    // Using indexOf() is much faster than using Aho-C trie to find
+    // the second cut site.  (junits ran on average of 15.81281 seconds
+    // for aho-c after 5 runs, vs 13.53204 for 5 runs using indexOf method)
+    private Tag removeSecondCutSiteIndexOf(String seq, int preferredLength) {
+        Tag tag = null;
+        
+        // handle overlapping cutsite for ApeKI enzyme
+        if (enzyme().equalsIgnoreCase("ApeKI")) {
+            if (seq.startsWith("CAGCTGC") || seq.startsWith("CTGCAGC")) {
+                seq = seq.substring(3,seq.length());
+            }             
+        }
+        int indexOfReadEnd = -1;
+        String shortSeq = seq.substring(20);
+        for (String readEnd: likelyReadEndStrings){
+            int indx = shortSeq.indexOf(readEnd);
+            if (indx > 0 && indx < indexOfReadEnd)
+                indexOfReadEnd = indx;
+        }
+
+        if (indexOfReadEnd > 0 &&
+                (indexOfReadEnd + 20 + readEndCutSiteRemnantLength < preferredLength)) {
+            // trim tag to sequence up to & including the cut site
+            tag = TagBuilder.instance(seq.substring(0, indexOfReadEnd + 20 + readEndCutSiteRemnantLength)).build();
+ 
+        } else {
+            int seqEnd = (byte) Math.min(seq.length(), preferredLength);
+            return TagBuilder.instance(seq.substring(0,seqEnd)).build();
+        }
+        return tag;
+    }
     private Tag removeSecondCutSiteAhoC(String seq, int preferredLength) {
         // Removes the second cut site BEFORE we trim the tag.
         // this preserves the cut site incase it shows up in the middle       

@@ -25,7 +25,7 @@ final public class FilterSite implements Filter {
         siteMinCount, siteMinAlleleFreq, siteMaxAlleleFreq, siteRangeFilterType,
         startSite, endSite, startChr, startPos, endChr,
         endPos, includeSites, siteNames, chrPosFile,
-        positionList, removeMinorSNPStates;
+        positionList, removeMinorSNPStates, bedFile;
     };
 
     public static enum SITE_RANGE_FILTER_TYPES {
@@ -217,6 +217,10 @@ final public class FilterSite implements Filter {
 
     public PositionList positionList() {
         return (PositionList) myAttributes.get(FILTER_SITES_ATTRIBUTES.positionList);
+    }
+
+    public String bedFile() {
+        return (String) myAttributes.get(FILTER_SITES_ATTRIBUTES.bedFile);
     }
 
 }

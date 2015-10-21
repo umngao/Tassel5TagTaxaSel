@@ -372,8 +372,9 @@ public class ExportPlugin extends AbstractPlugin {
         myIncludeTaxaAnnotations = include;
     }
 
-    public void setSiteScoreType(SiteScore.SITE_SCORE_TYPE type) {
+    public ExportPlugin setSiteScoreType(SiteScore.SITE_SCORE_TYPE type) {
         mySiteScoreType = type;
+        return this;
     }
 
     public String performFunctionForSimpleTree(SimpleTree input) {
@@ -509,8 +510,9 @@ public class ExportPlugin extends AbstractPlugin {
         return mySaveFile;
     }
 
-    public void setSaveFile(String saveFile) {
+    public  ExportPlugin setSaveFile(String saveFile) {
         mySaveFile = saveFile;
+        return this;
     }
 
     public void setSaveFile(File saveFile) {
@@ -523,8 +525,9 @@ public class ExportPlugin extends AbstractPlugin {
 
     }
 
-    public void setAlignmentFileType(FileLoadPlugin.TasselFileType type) {
+    public ExportPlugin setAlignmentFileType(FileLoadPlugin.TasselFileType type) {
         myFileType = type;
+        return this;
     }
 
     private File getFileByChooser() {

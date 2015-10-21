@@ -159,15 +159,23 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
         } else {
             if (useSerialFile.value()) {
                 long start = System.nanoTime();
-                modelfitter = new AdditiveModelForwardRegression(serialFilename.value(), pheno);
+                if (maxThreads.value() > 0) {
+                    modelfitter = new AdditiveModelForwardRegression(serialFilename.value(), pheno, maxThreads.value());
+                } else {
+                    modelfitter = new AdditiveModelForwardRegression(serialFilename.value(), pheno);
+                }
                 myLogger.debug(String.format("Serialized sites loaded in %d ms", (System.nanoTime() - start) / 1000000));
                 pheno = modelfitter.phenotype();
             } else {
                 GenotypePhenotype myGenoPheno = (GenotypePhenotype) datumList.get(0).getData();
-                modelfitter = new AdditiveModelForwardRegression(myGenoPheno);
+                if (maxThreads.value() > 0) {
+                    modelfitter = new AdditiveModelForwardRegression(myGenoPheno, maxThreads.value());
+                } else {
+                    modelfitter = new AdditiveModelForwardRegression(myGenoPheno);
+                }
             }
         }
-
+        
         int numberOfTraits = pheno.numberOfAttributesOfType(ATTRIBUTE_TYPE.data);
         List<int[]> factorLevelList = new ArrayList<>();
 
