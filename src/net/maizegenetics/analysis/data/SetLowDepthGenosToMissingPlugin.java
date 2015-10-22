@@ -9,9 +9,12 @@ import java.awt.Frame;
 import java.net.URL;
 import java.util.List;
 import javax.swing.ImageIcon;
+import net.maizegenetics.dna.snp.CoreGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
+import net.maizegenetics.dna.snp.MaskGenotypeTableBuilder;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
+import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.GeneratePluginCode;
@@ -71,46 +74,34 @@ public class SetLowDepthGenosToMissingPlugin extends net.maizegenetics.plugindef
     @Override
     public DataSet processData(DataSet input) {
         int numberOfSites = inputGenotypes.numberOfSites();
-        GenotypeTableBuilder gtb = GenotypeTableBuilder.getTaxaIncremental(inputGenotypes.positions());
-        int[][] allelesAtSite = new int[numberOfSites][];
+        MaskGenotypeTableBuilder mgtb = new MaskGenotypeTableBuilder(inputGenotypes);
+
+
         for (int siteIndex = 0; siteIndex < numberOfSites; siteIndex++) {
             int[][] allelesByFreq = inputGenotypes.allelesSortedByFrequency(siteIndex);
             int numAlleles = allelesByFreq[0].length;
-            allelesAtSite[siteIndex] = new int[numAlleles];
+            int[] allelesAtSite = new int[numAlleles];
             
             for (int alleleIndex = 0; alleleIndex < numAlleles; alleleIndex++){
-                allelesAtSite[siteIndex][alleleIndex] = allelesByFreq[0][alleleIndex];
+                allelesAtSite[alleleIndex] = allelesByFreq[0][alleleIndex];
             }
-        }
-        
-        for (Taxon inTaxon : inputGenotypes.taxa()) {
-            int taxonIndex = inputGenotypes.taxa().indexOf(inTaxon);
-            byte[] newGenos = inputGenotypes.genotypeAllSites(taxonIndex);
-            int[][]  origDepths = 
-                new int[NucleotideAlignmentConstants.NUMBER_NUCLEOTIDE_ALLELES][numberOfSites];
-            for (int siteIndex = 0; siteIndex < numberOfSites; siteIndex++) {
+            
+            for (Taxon inTaxon : inputGenotypes.taxa()) {
+                int taxonIndex = inputGenotypes.taxa().indexOf(inTaxon);
                 int[] alleleDepths = inputGenotypes.depthForAlleles(taxonIndex, siteIndex);
-                for (int alleleIndex = 0; alleleIndex < alleleDepths.length; alleleIndex++){
-                    origDepths[alleleIndex][siteIndex] = alleleDepths[alleleIndex];
-                }    
                 int depthSum = 0;
-//                if (taxonIndex == 0) {System.out.println("alleleDepths.length: "+alleleDepths.length);}
-                for ( int allele : allelesAtSite[siteIndex]){
-                    depthSum += alleleDepths[allele];
+                for ( int allele : allelesAtSite){
+                   depthSum += alleleDepths[allele];
                 }
                 if (depthSum < minDepth()) {
-                    newGenos[siteIndex] = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+                    mgtb.set(taxonIndex, siteIndex);
                 }
-                
-//                System.out.println("Allele depth sum: " + depthSum);
             }
-            
-            gtb.addTaxon(inTaxon, origDepths, newGenos);
-            
         }
-        
+
         String outGenosName = inputGenosName + "MinDepth" + minDepth();
-        return new DataSet(new Datum(outGenosName, gtb.build(), null), null);
+        GenotypeTable outGenos = mgtb.build();
+        return new DataSet(new Datum(outGenosName, outGenos, null), null);
     }
     
     @Override

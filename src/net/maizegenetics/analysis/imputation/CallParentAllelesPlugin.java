@@ -103,6 +103,8 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
 					hapFinder.minMaf = minMinorAlleleFrequency;
 					hapFinder.assignHaplotyes();
 					hapFinder.convertGenotypesToParentCalls();
+					Datum hapDatum = new Datum("clusters_" + family.name, hapFinder.getClusterReport(), "clusters for " + family.name);
+					datumList.add(hapDatum);
 				}
 				String comment = "Parent Calls for family " + family.name + " from " + d.getName() + ".";
 				datumList.add(new Datum(family.name, family, comment));

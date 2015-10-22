@@ -26,7 +26,11 @@ public class MaskGenotypeCallTable extends AbstractGenotypeCallTable {
 
     @Override
     public byte genotype(int taxon, int site) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        if (myBitSets[taxon].get(site)) {
+            return myMaskValue;
+        } else {
+            return myBase.genotype(taxon, site);
+        }
     }
 
     @Override

@@ -5,6 +5,7 @@
  */
 package net.maizegenetics.dna.snp;
 
+import net.maizegenetics.dna.snp.genotypecall.MaskGenotypeCallTable;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
 
@@ -39,8 +40,16 @@ public class MaskGenotypeTableBuilder {
     }
     
     public GenotypeTable build() {
-        //return new CoreGenotypeTable(new MaskGenotypeCalTable(), null, null, null, null, null, null, null);
-        throw new UnsupportedOperationException();
+        return new CoreGenotypeTable(
+            new MaskGenotypeCallTable(myBase.genotypeMatrix(), myMaskValue, myBitSets), 
+            myBase.positions(),
+            myBase.taxa(),
+            myBase.depth(),
+            myBase.alleleProbability(),
+            myBase.referenceProbability(),
+            myBase.dosage(),
+            myBase.annotations()
+        );
     }
 
 }
