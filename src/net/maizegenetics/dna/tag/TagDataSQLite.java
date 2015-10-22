@@ -8,6 +8,7 @@ import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.snp.SimpleAllele;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
+import net.maizegenetics.taxa.TaxaTissueDist;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.Tuple;
 
@@ -372,6 +373,13 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+    
+    @Override
+    public boolean putTaxaTissueDistribution(Map<Tag, TaxaTissueDist> tagTaxaTissueDistributionMap) {
+  
+        //TODO - implement
+        return false;
     }
 
     @Override
@@ -1326,4 +1334,6 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         if(totalCount>0) loadTissueHash();
         return true;
     }
+
+
 }

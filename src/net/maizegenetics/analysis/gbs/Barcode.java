@@ -158,6 +158,10 @@ public class Barcode implements Comparable<Barcode> {
     public int getTaxaIndex() {
         return taxaIndex;
     }
+    
+    public int getTissueIndex() {
+        return tissueIndex;
+    }
 
     public Taxon getTaxon() {
         return taxon;
