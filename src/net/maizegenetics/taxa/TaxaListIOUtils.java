@@ -414,12 +414,18 @@ public class TaxaListIOUtils {
             } else {
                 fileIn.reset();
             }
+            if (indexOfTissue == -1) return null;
             // Found tissue header, read values - no duplicates, into set
             while ((line = fileIn.readLine()) != null) {
                 String[] items = line.split("\\t");
-                if (!tissues.contains(items[indexOfTissue])) {
-                    tissues.add(items[indexOfTissue]);
-                }               
+                for (int idx=0; idx < items.length; idx++) {
+                    if (idx == indexOfTissue) {
+                        if (!(tissues.contains(items[idx]))) {
+                            tissues.add(items[idx]);
+                        }
+                        continue;
+                    }
+                }  
             }
             Collections.sort(tissues);
                 
