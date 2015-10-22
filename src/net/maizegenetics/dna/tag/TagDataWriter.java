@@ -9,9 +9,11 @@ import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaTissueDist;
+import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.Tuple;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -110,8 +112,11 @@ public interface TagDataWriter extends TagData {
     boolean putAllTissue(ArrayList<String> masterTissueList);
     
     /**
-     * Adds distribution of taxa/tissue for each tag
-     * @param tagTissueMap - map of counts
+     * Set distribution of taxa/tissue for each tag
+     * @param taxon
+     * @param tags
+     * @param counts
+     * @return
      */
-    boolean putTaxaTissueDistribution(Map<Tag, TaxaTissueDist> tagTaxaTissueDistributionMap );
+    boolean putTaxaTissueDistribution(String taxon, String tissue, List<Tag> tags, int[] counts);
 }
