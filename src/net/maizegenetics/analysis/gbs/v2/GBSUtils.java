@@ -70,22 +70,19 @@ public class GBSUtils {
      */
     public static String[] readDeMultiPlexFastQBlock(BufferedReader bw, int currentRead) throws IOException {
         //consider converting this into a stream of String[]
-        String[] result=new String[2];
+        String[] result=new String[3];
         try{
             // Grab the barcode from the first line of the fastq sequence
             String barCode = bw.readLine();
             if (barCode == null) {
                 return null;
             }
- 
             int index = barCode.lastIndexOf(":");
-            barCode = barCode.substring(index+1);
-            StringBuilder sb = new StringBuilder();
-            sb.append(barCode);
-            sb.append(bw.readLine());
-            // First entry in array is the barcode with sequence
-            result[0]=sb.toString();
-            bw.readLine();
+            result[2] = barCode.substring(index+1);
+
+            // sequence
+            result[0]=bw.readLine();
+            bw.readLine();//quality header - thrown away
             // Second entry is the quality score
             result[1]=bw.readLine();
             return result;
@@ -233,7 +230,7 @@ public class GBSUtils {
      * Parses a tab-delimited keyFile storing the flow cell and lane values into a multimap.
      * The flow cell is the key, which may have multiple associated lanes.
      *
-     * @param s
+     * @param
      * @return
      */
     public static ListMultimap<String, String> parseKeyfileIntoMap(String fileName) {

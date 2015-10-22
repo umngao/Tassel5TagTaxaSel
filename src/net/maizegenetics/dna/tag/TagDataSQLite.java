@@ -374,12 +374,37 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             e.printStackTrace();
         }
     }
-    
+
     @Override
-    public boolean putTaxaTissueDistribution(Map<Tag, TaxaTissueDist> tagTaxaTissueDistributionMap) {
-  
-        //TODO - implement
-        return false;
+    public boolean putTaxaTissueDistribution(String taxon, String tissue, List<Tag> tags, int[] counts) {
+        int batchCount=0;
+        try {
+            connection.setAutoCommit(false);
+            int tissueID=tissueTissueIDMap.get(tissue);
+            int taxaID=myTaxaList.indexOf(taxon);
+            PreparedStatement tagTaxaTissuePS=connection.prepareStatement("replace into tagTaxaTissueDist (tagid, tissueid, taxonid, readCount) values(?,?,?,?) ");
+            for (int i = 0; i < counts.length; i++) {
+                int tagID=tagTagIDMap.get(tags.get(i));
+                tagTaxaTissuePS.setInt(1, tagID);
+                tagTaxaTissuePS.setInt(2, tissueID);
+                tagTaxaTissuePS.setInt(3, taxaID);
+                tagTaxaTissuePS.setInt(4, counts[i]);
+                tagTaxaTissuePS.addBatch();
+                batchCount++;
+                if(batchCount>100000) {
+                    System.out.println("putTaxaDistribution next"+batchCount);
+                    tagTaxaTissuePS.executeBatch();
+                    //connection.commit();
+                    batchCount=0;
+                }
+            }
+            tagTaxaTissuePS.executeBatch();
+            connection.setAutoCommit(true);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
     }
 
     @Override
