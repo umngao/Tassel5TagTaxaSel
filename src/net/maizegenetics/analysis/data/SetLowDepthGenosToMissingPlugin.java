@@ -12,6 +12,7 @@ import javax.swing.ImageIcon;
 import net.maizegenetics.dna.snp.CoreGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
+import net.maizegenetics.dna.snp.MaskGenotypeTableBuilder;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.plugindef.DataSet;
@@ -73,8 +74,7 @@ public class SetLowDepthGenosToMissingPlugin extends net.maizegenetics.plugindef
     @Override
     public DataSet processData(DataSet input) {
         int numberOfSites = inputGenotypes.numberOfSites();
-        GenotypeCallTableBuilder gctb = 
-            GenotypeCallTableBuilder.getInstance(inputGenotypes.numberOfTaxa(), numberOfSites);
+        MaskGenotypeTableBuilder mgtb = new MaskGenotypeTableBuilder(inputGenotypes);
 
 
         for (int siteIndex = 0; siteIndex < numberOfSites; siteIndex++) {
@@ -93,23 +93,14 @@ public class SetLowDepthGenosToMissingPlugin extends net.maizegenetics.plugindef
                 for ( int allele : allelesAtSite){
                    depthSum += alleleDepths[allele];
                 }
-                if (depthSum >= minDepth()) {
-                    gctb.setBase(taxonIndex, siteIndex, inputGenotypes.genotype(taxonIndex, siteIndex));
+                if (depthSum < minDepth()) {
+                    mgtb.set(taxonIndex, siteIndex);
                 }
             }
         }
 
         String outGenosName = inputGenosName + "MinDepth" + minDepth();
-        GenotypeTable outGenos = GenotypeTableBuilder.getInstance (
-            gctb.build(), 
-            inputGenotypes.positions(), 
-            inputGenotypes.taxa(), 
-            inputGenotypes.depth(), 
-            inputGenotypes.alleleProbability(), 
-            inputGenotypes.referenceProbability(), 
-            inputGenotypes.dosage(), 
-            inputGenotypes.annotations()
-        );
+        GenotypeTable outGenos = mgtb.build();
         return new DataSet(new Datum(outGenosName, outGenos, null), null);
     }
     
