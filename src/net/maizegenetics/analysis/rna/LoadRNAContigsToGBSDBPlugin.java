@@ -33,9 +33,9 @@ import java.util.Map;
  *
  * @author Ed Buckler
  */
-public class LoadRNAContigsToGBSDB extends AbstractPlugin {
+public class LoadRNAContigsToGBSDBPlugin extends AbstractPlugin {
 
-    private static final Logger myLogger = Logger.getLogger(LoadRNAContigsToGBSDB.class);
+    private static final Logger myLogger = Logger.getLogger(LoadRNAContigsToGBSDBPlugin.class);
 
     private PluginParameter<String> myContigFile = new PluginParameter.Builder<>("i", null, String.class).guiName("Input Fasta Contig File").required(true).inFile()
             .description("Input file containing contigs in fasta format.\n").build();
@@ -44,11 +44,11 @@ public class LoadRNAContigsToGBSDB extends AbstractPlugin {
     private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",false,Boolean.class).guiName("Delete Old Data")
             .description("Delete existing SNP quality data from db tables").build();
 
-    public LoadRNAContigsToGBSDB() {
+    public LoadRNAContigsToGBSDBPlugin() {
         super(null, false);
     }
 
-    public LoadRNAContigsToGBSDB(Frame parentFrame, boolean isInteractive) {
+    public LoadRNAContigsToGBSDBPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
 
@@ -156,7 +156,7 @@ public class LoadRNAContigsToGBSDB extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public LoadRNAContigsToGBSDB contigFile(String value) {
+    public LoadRNAContigsToGBSDBPlugin contigFile(String value) {
         myContigFile = new PluginParameter<>(myContigFile, value);
         return this;
     }
@@ -177,7 +177,7 @@ public class LoadRNAContigsToGBSDB extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public LoadRNAContigsToGBSDB outputDB(String value) {
+    public LoadRNAContigsToGBSDBPlugin outputDB(String value) {
         myOutputDB = new PluginParameter<>(myOutputDB, value);
         return this;
     }
@@ -199,7 +199,7 @@ public class LoadRNAContigsToGBSDB extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public LoadRNAContigsToGBSDB deleteOldData(Boolean value) {
+    public LoadRNAContigsToGBSDBPlugin deleteOldData(Boolean value) {
         myDeleteOldData = new PluginParameter<>(myDeleteOldData, value);
         return this;
     }
