@@ -148,7 +148,26 @@ public class GBSUtils {
      * @param myEnzyme
      * @return Barcode trie for examining the prefixes
      */
-    public static BarcodeTrie initializeBarcodeTrie(ArrayList<Taxon> taxaList, TaxaList masterTaxaList, GBSEnzyme myEnzyme){
+
+    public static BarcodeTrie initializeBarcodeTrie(ArrayList<Taxon> taxaList, TaxaList masterTaxaList, 
+             GBSEnzyme myEnzyme){
+        BarcodeTrie aTrie=new BarcodeTrie();
+        for (Taxon taxon : taxaList) {
+            int masterIndex=masterTaxaList.indexOf(taxon.getName());
+            GeneralAnnotation annotation = taxon.getAnnotation();
+            String[] myTissues = annotation.getTextAnnotation("Tissue");
+            // Tissue should be stored as annotation against the taxon
+            Barcode theBC = null;
+            theBC = new Barcode(annotation.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
+                    masterIndex,annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
+            aTrie.addBarcode(theBC);
+        }
+        return aTrie;
+    }  
+    
+    // THis one sends in a  tissue list - is called from the RNASeq pipeline
+    public static BarcodeTrie initializeBarcodeTrie(ArrayList<Taxon> taxaList, TaxaList masterTaxaList, 
+            ArrayList masterTissueList, GBSEnzyme myEnzyme){
         BarcodeTrie aTrie=new BarcodeTrie();
         for (Taxon taxon : taxaList) {
             int masterIndex=masterTaxaList.indexOf(taxon.getName());
@@ -157,10 +176,11 @@ public class GBSUtils {
             // Tissue should be stored as annotation against the taxon
             Barcode theBC = null;
             if (myTissues.length > 0) {
+                int masterTissueIndex = masterTissueList.indexOf(myTissues[0]);
                 // keyfile had Tissue column: tissues were added to taxon annotations
                 theBC = new Barcode(annotation.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
-                        myTissues[0],
-                        masterIndex,annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
+                        masterIndex,myTissues[0], masterTissueIndex, 
+                        annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
             } else { // no tissue variables in the taxon annotations
                 theBC = new Barcode(annotation.getTextAnnotation(barcodeField)[0], myEnzyme.initialCutSiteRemnant(), taxon.getName(),
                         masterIndex,annotation.getTextAnnotation(flowcellField)[0],annotation.getTextAnnotation("Lane")[0]);
@@ -168,8 +188,7 @@ public class GBSUtils {
             aTrie.addBarcode(theBC);
         }
         return aTrie;
-    }
-    
+    }   
     /**
      * Produces a list of fastq files that are represented by the plugin's keyfile
      * @param directoryFiles:  List of all the files in the directory

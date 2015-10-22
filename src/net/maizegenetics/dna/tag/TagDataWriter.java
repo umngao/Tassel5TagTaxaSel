@@ -8,8 +8,10 @@ import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.TaxaTissueDist;
 import net.maizegenetics.util.Tuple;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 
@@ -99,4 +101,17 @@ public interface TagDataWriter extends TagData {
      * Removes all data from the snpQuality table
      */
     void clearSNPQualityData();
+
+    /**
+     * Adds list of tissues to the tissue table
+     * @param masterTissueList
+     * @return
+     */
+    boolean putAllTissue(ArrayList<String> masterTissueList);
+    
+    /**
+     * Adds distribution of taxa/tissue for each tag
+     * @param tagTissueMap - map of counts
+     */
+    boolean putTaxaTissueDistribution(Map<Tag, TaxaTissueDist> tagTaxaTissueDistributionMap );
 }

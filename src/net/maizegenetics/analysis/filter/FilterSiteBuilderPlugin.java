@@ -111,6 +111,10 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
         super(parentFrame, isInteractive);
     }
 
+    public FilterSiteBuilderPlugin() {
+        this(null, false);
+    }
+
     @Override
     protected void preProcessParameters(DataSet input) {
 
@@ -332,9 +336,16 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
     /**
      * Convenience method to run plugin with one return object.
      */
-    // TODO: Replace <Type> with specific type.
-    public FilterSite runPlugin(DataSet input) {
-        return (FilterSite) performFunction(input).getData(0).getData();
+    public FilterSite runPlugin() {
+        return (FilterSite) performFunction(null).getData(0).getData();
+    }
+
+    public GenotypeTable runPlugin(DataSet input) {
+        return (GenotypeTable) performFunction(input).getDataOfType(GenotypeTable.class).get(0).getData();
+    }
+    
+    public GenotypeTable runPlugin(GenotypeTable input) {
+        return (GenotypeTable) performFunction(DataSet.getDataSet(input)).getDataOfType(GenotypeTable.class).get(0).getData();
     }
 
     /**

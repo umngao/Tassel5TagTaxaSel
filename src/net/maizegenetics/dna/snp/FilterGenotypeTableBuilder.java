@@ -35,6 +35,13 @@ public class FilterGenotypeTableBuilder {
         myBaseGenotypeTable = baseGenotypeTable;
     }
 
+    /**
+     * @deprecated
+     * 
+     * This class to be replaced by FilterSiteBuilderPlugin and
+     * FilterTaxaBuilderPlugin
+     * 
+     */
     public static FilterGenotypeTableBuilder getInstance(GenotypeTable baseGenotypeTable) {
         return new FilterGenotypeTableBuilder(baseGenotypeTable);
     }

@@ -34,6 +34,8 @@ public class Barcode implements Comparable<Barcode> {
     int barLength;
     /**Global index of taxa based on the key file (first time taxa encountered.*/
     int taxaIndex;
+    /** Global index of tissue based on the key file */
+    int tissueIndex;
 
     private Taxon taxon;
 
@@ -57,6 +59,7 @@ public class Barcode implements Comparable<Barcode> {
         this.tissueName = ""; // null or empty string ??
         taxon=new Taxon(taxaName);
         this.taxaIndex=globalTaxaIndex;
+        this.tissueIndex = -1;
         barOverLong = new long[overhangS.length];
         barWOverhangS = new String[overhangS.length];
         for (int i = 0; i < overhangS.length; i++) {
@@ -77,7 +80,8 @@ public class Barcode implements Comparable<Barcode> {
      * @param flowcell name of the flowcell
      * @param lane name of the lane
      */
-    public Barcode(String barcodeS, String[] overhangSunsort, String taxa, String tissue, int globalTaxaIndex, String flowcell, String lane) {
+    public Barcode(String barcodeS, String[] overhangSunsort, String taxa,  int globalTaxaIndex, 
+            String tissue, int globalTissueIndex, String flowcell, String lane) {
         this.barcodeS = barcodeS;
         Arrays.sort(overhangSunsort);
         this.overhangS = overhangSunsort;
@@ -87,6 +91,7 @@ public class Barcode implements Comparable<Barcode> {
         this.tissueName = null; // null or empty string ??
         taxon=new Taxon(taxaName);
         this.taxaIndex=globalTaxaIndex;
+        this.tissueIndex=globalTissueIndex;
         barOverLong = new long[overhangS.length];
         barWOverhangS = new String[overhangS.length];
         for (int i = 0; i < overhangS.length; i++) {
@@ -152,6 +157,10 @@ public class Barcode implements Comparable<Barcode> {
 
     public int getTaxaIndex() {
         return taxaIndex;
+    }
+    
+    public int getTissueIndex() {
+        return tissueIndex;
     }
 
     public Taxon getTaxon() {

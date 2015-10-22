@@ -32,17 +32,22 @@ import net.maizegenetics.util.Utils;
 public class AMatrixPlugin extends AbstractPlugin {
 
     private PluginParameter<String> myPedFilename = new PluginParameter.Builder("pedFilename", null, String.class)
-            .description("Create A Matrix")
+            .description("Pedigree Filename")
             .required(true)
             .inFile()
             .build();
 
     private double[][] myAMatrix;
     private HashMap<Integer, Progeny> myProgeny;
-    public List<String> myProgenyIDs;
+    protected List<String> myProgenyIDs;
 
     public AMatrixPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
+    }
+
+    @Override
+    public String pluginDescription() {
+        return "Create Pedigree Matrix";
     }
 
     @Override
@@ -55,10 +60,25 @@ public class AMatrixPlugin extends AbstractPlugin {
         }
         DistanceMatrix matrix = new DistanceMatrix(result, builder.build());
 
-        return new DataSet(new Datum("A Matrix for " + Utils.getFilename(pedFilename()), matrix, null), this);
+        return new DataSet(new Datum("Pedigree Matrix for " + Utils.getFilename(pedFilename()), matrix, null), this);
 
     }
 
+    /**
+     * Takes a filepath to a PLINK formatted file(see below). Converts to a
+     * String[][] format where each row contains 3 columns: Individual
+     * Identifier, Paternal Identifier, Maternal Identifier This format is
+     * convenient in calculating an pedigree-based kinship (A) matrix
+     *
+     * Expected PLINK pedigree file format (.ped) Family ID Individual ID
+     * Paternal ID Maternal ID and several more fields These fields are
+     * separated by one or more whitespace characters, and each row is on its
+     * own line. For our purposes, we expect every Individual ID in the file to
+     * be unique
+     *
+     * @param ped filepath to a valid PLINK .ped file, or compatible file format
+     * @return A n by 3 matrix representing a pedigree as progeny,parent,parent
+     */
     public static String[][] plinkToPed(String ped) {
         try {
             List<String[]> rows = new ArrayList<>();
@@ -86,12 +106,11 @@ public class AMatrixPlugin extends AbstractPlugin {
     }
 
     /**
-     * Calculates an A matrix from a pedigree.
+     * Calculates an A matrix from a pedigree (see {@link #plinkToPed(String)})
      *
      * @param pedigree A n by 3 matrix, where each row is of the format
      * myProgeny, parent1, parent2, where each is its unique string identifier.
-     * Identifiers of * blank, "Unknown", and "U" are treated as unknown
-     * parents.
+     * Identifiers of * blank, "0" are treated as unknown parents.
      * @return A pedigree matrix, sorted alphabetically, with one row for each
      * non-unknown parent.
      */
@@ -123,13 +142,15 @@ public class AMatrixPlugin extends AbstractPlugin {
     }
 
     /**
-     * Given a pedigree, returns the ordered list of identifiers used as indices
-     * in the A matrix.
+     * Given a pedigree in {@link #plinkToPed(String)} format, returns the
+     * ordered list of identifiers used as indices in the matrix returned by
+     * {@link #pedMatrix(String[][])}.
      *
      * @param pedigree A n by 3 matrix, where each row is of the format
      * myProgeny, parent1, parent2, where each is its unique string identifier.
-     * Identifiers of blank, "Unknown", and "U" are treated as unknown parents.
-     * @return the ordered list of identifiers used as indices in the A matrix.
+     * Identifiers of blank, "0" are treated as unknown parents.
+     * @return the ordered list of identifiers used as indices in the
+     * pedigree-based A matrix.
      */
     public List<String> getNameList(String[][] pedigree) {
         HashSet<String> progenySet = new HashSet<>();
@@ -145,7 +166,8 @@ public class AMatrixPlugin extends AbstractPlugin {
 
     /**
      * Given an X,Y location on the matrix, calculates the location if it's not
-     * calculated (also calculates any dependencies)
+     * calculated (also calculates any dependencies) Recursive call for
+     * {@link #pedMatrix(String[][]) pedMatrix}
      *
      * @param x First relationship
      * @param y Second relationship
@@ -230,12 +252,12 @@ public class AMatrixPlugin extends AbstractPlugin {
 
     @Override
     public String getButtonName() {
-        return "Create A Matrix";
+        return "Create Pedigree Matrix";
     }
 
     @Override
     public String getToolTipText() {
-        return "Create A Matrix";
+        return "Create Pedigree Matrix";
     }
 
     @Override
