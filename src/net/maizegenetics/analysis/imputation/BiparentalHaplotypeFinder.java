@@ -1,22 +1,34 @@
 package net.maizegenetics.analysis.imputation;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.TreeSet;
 
 import org.apache.commons.math3.stat.StatUtils;
 import org.apache.log4j.Logger;
 
 import net.maizegenetics.analysis.clustering.Haplotype;
+import net.maizegenetics.analysis.clustering.HaplotypeCluster;
 import net.maizegenetics.analysis.clustering.HaplotypeClusterer;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibrium;
+import net.maizegenetics.dna.map.Chromosome;
+import net.maizegenetics.dna.map.GeneralPosition;
 import net.maizegenetics.dna.map.Position;
+import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
+import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.OpenBitSet;
+import net.maizegenetics.util.TableReport;
+import net.maizegenetics.util.TableReportBuilder;
+import net.maizegenetics.util.Utils;
 
 /**
  * @author pbradbury
@@ -24,8 +36,9 @@ import net.maizegenetics.util.OpenBitSet;
  */
 public class BiparentalHaplotypeFinder {
 	private static final Logger myLogger = Logger.getLogger(BiparentalHaplotypeFinder.class);
-	PopulationData myPopulationData;
-	GenotypeTable initialGenotype;
+	private PopulationData myPopulationData;
+	private GenotypeTable initialGenotype;
+	private TableReportBuilder reportBuilder;
 	static final byte AA = NucleotideAlignmentConstants.getNucleotideDiploidByte("AA");
 	static final byte CC = NucleotideAlignmentConstants.getNucleotideDiploidByte("CC");
 	static final byte AC = NucleotideAlignmentConstants.getNucleotideDiploidByte("AC");
@@ -82,9 +95,40 @@ public class BiparentalHaplotypeFinder {
 	public BiparentalHaplotypeFinder(PopulationData popdata) {
 		myPopulationData = popdata;
 		initialGenotype = popdata.original;
+		String[] colHeaders = new String[]{"Family","Chr","Pos","HapNumber","Haplotype","Cluster_Size"};
+		reportBuilder = TableReportBuilder.getInstance("Haplotypes", colHeaders);
+	}
+	
+	public void addHaplotypesToReport(HaplotypeClusterer clusters, int pos) {
+		int maxClustersToPrint = 6;
+		int nclusters = clusters.getNumberOfClusters();
+		int target = Math.min(maxClustersToPrint, nclusters);
+		for (int c = 0; c < target; c++) {
+			HaplotypeCluster myCluster = clusters.getClusterList().get(c);
+			Object[] row = new Object[6];
+			int col = 0;
+			
+			row[col++] = myPopulationData.name;
+			row[col++] = myPopulationData.original.chromosomeName(pos);
+			row[col++] = new Integer(myPopulationData.original.chromosomalPosition(pos));
+			row[col++] = new Integer(c + 1);
+			row[col++] = myCluster.getHaplotypeAsString();
+			row[col++] = new Integer(myCluster.getSize());
+			reportBuilder.add(row);
+		}
+	}
+	
+	public TableReport getClusterReport() {
+		return reportBuilder.build();
 	}
 	
 	public void assignHaplotyes() {
+		//test diagnostic output
+		List<Position> plist = new ArrayList<>();
+		for (int i = 0; i < window; i++) {
+			plist.add(new GeneralPosition.Builder(new Chromosome("0"), i).build());
+		}
+		
 		int startIncr = window - overlap;
 		int diff = maxDifferenceScore;
 		
@@ -97,7 +141,6 @@ public class BiparentalHaplotypeFinder {
 		//  5. assign remaining clusters to parent or het
 		//	6. record parent or het for each taxon and non-missing site in the window
 		
-//		GenotypeTable filterGeno = myPopulationData.original; 
 		GenotypeTable filterGeno = preFilterSites();
 		myPopulationData.original = filterGeno;
 		
@@ -124,6 +167,7 @@ public class BiparentalHaplotypeFinder {
 			myClusterMaker.sortClusters(); //2
 			myClusterMaker.moveAllHaplotypesToBiggestCluster(diff); //3
 			myClusterMaker.removeHeterozygousClusters(5);
+			
 			h0 = new Haplotype(myClusterMaker.getClusterList().get(0).getMajorityHaplotype());
 			h1 = new Haplotype(myClusterMaker.getClusterList().get(1).getMajorityHaplotype());
 			int cluster2Size = 0;
@@ -132,6 +176,7 @@ public class BiparentalHaplotypeFinder {
 				exactlyTwo = true;
 				parentHaplotypes.get(0).add(h0);
 				parentHaplotypes.get(1).add(h1);
+				addHaplotypesToReport(myClusterMaker, initialStart);
 				
 			} else {
 				initialStart += window;
@@ -156,7 +201,8 @@ public class BiparentalHaplotypeFinder {
 			myClusterMaker.sortClusters(); //2
 			myClusterMaker.moveAllHaplotypesToBiggestCluster(diff); //3
 			myClusterMaker.removeHeterozygousClusters(5);
-			
+			addHaplotypesToReport(myClusterMaker, start);
+
 			//get major haplotypes
 			ArrayList<Haplotype> myHaplotypes = mergeMajorHaplotypes(myClusterMaker, minClusterSize);
 			
@@ -183,6 +229,7 @@ public class BiparentalHaplotypeFinder {
 			myClusterMaker.sortClusters(); //2
 			myClusterMaker.moveAllHaplotypesToBiggestCluster(diff); //3
 			myClusterMaker.removeHeterozygousClusters(5);
+			addHaplotypesToReport(myClusterMaker, start);
 			
 			//get major haplotypes
 			ArrayList<Haplotype> myHaplotypes = mergeMajorHaplotypes(myClusterMaker, minClusterSize);

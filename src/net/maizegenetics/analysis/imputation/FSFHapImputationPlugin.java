@@ -1,6 +1,8 @@
 package net.maizegenetics.analysis.imputation;
 
 import java.awt.Frame;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.swing.ImageIcon;
 
@@ -9,9 +11,11 @@ import com.google.common.collect.Range;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginEvent;
 import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.util.TableReport;
 
 public class FSFHapImputationPlugin extends AbstractPlugin {
 	
@@ -123,8 +127,12 @@ public class FSFHapImputationPlugin extends AbstractPlugin {
 			writePap.setOutputDiploid(!outIUPAC.value());
 			DataSet writeResult = writePap.performFunction(vapResult);
 			
+			List<Datum> allData = new ArrayList<>(writeResult.getDataSet());
+			allData.addAll(cpaResult.getDataOfType(TableReport.class));
+			
 			fireProgress(90); 
-			return writeResult;
+//			return writeResult;
+			return new DataSet(allData, this);
 		} finally {
 			fireProgress(100);
 		}
