@@ -97,6 +97,10 @@ public class DataSet implements Serializable {
         return new DataSet(temp, creator);
 
     }
+    
+    public static DataSet getDataSet(Object data) {
+        return new DataSet(new Datum("Datum", data, null), null);
+    }
 
     public List getDataSet() {
         return new ArrayList(myList);
