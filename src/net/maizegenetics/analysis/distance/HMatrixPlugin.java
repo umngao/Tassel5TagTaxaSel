@@ -6,6 +6,7 @@
 package net.maizegenetics.analysis.distance;
 
 import java.awt.Frame;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -238,7 +239,12 @@ public class HMatrixPlugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        return null;
+        URL imageURL = HMatrixPlugin.class.getResource("/net/maizegenetics/analysis/images/hmatrix.png");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
     }
 
     @Override

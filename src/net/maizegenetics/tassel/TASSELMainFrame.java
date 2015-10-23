@@ -87,7 +87,9 @@ import net.maizegenetics.analysis.data.GetTaxaListPlugin;
 import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
 import net.maizegenetics.analysis.data.SetLowDepthGenosToMissingPlugin;
 import net.maizegenetics.analysis.data.SortGenotypeFilePlugin;
+import net.maizegenetics.analysis.distance.AMatrixPlugin;
 import net.maizegenetics.analysis.distance.DistanceMatrixPlugin;
+import net.maizegenetics.analysis.distance.HMatrixPlugin;
 import net.maizegenetics.analysis.filter.FilterSiteBuilderPlugin;
 import net.maizegenetics.analysis.gbs.BinaryToTextPlugin;
 import net.maizegenetics.analysis.gbs.DiscoverySNPCallerPlugin;
@@ -467,6 +469,8 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new DistanceMatrixPlugin(this, true)));
         result.add(createMenuItem(new CreateTreePlugin(this, true)));
         result.add(createMenuItem(new KinshipPlugin(this, true)));
+        result.add(createMenuItem(new AMatrixPlugin(this, true)));
+        result.add(createMenuItem(new HMatrixPlugin(this, true)));
         result.add(createMenuItem(new PrincipalComponentsPlugin(this, true)));
         result.add(createMenuItem(new MultiDimensionalScalingPlugin(this, true)));
         result.add(createMenuItem(new FixedEffectLMPlugin(this, true)));

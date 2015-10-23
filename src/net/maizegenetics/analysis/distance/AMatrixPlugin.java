@@ -7,6 +7,7 @@ package net.maizegenetics.analysis.distance;
 
 import java.awt.Frame;
 import java.io.BufferedReader;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -247,7 +248,12 @@ public class AMatrixPlugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        return null;
+        URL imageURL = AMatrixPlugin.class.getResource("/net/maizegenetics/analysis/images/amatrix.png");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
     }
 
     @Override
