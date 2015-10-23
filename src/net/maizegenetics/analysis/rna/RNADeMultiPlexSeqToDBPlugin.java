@@ -114,7 +114,7 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
                 .forEach(inputSeqFile -> {
                     try {
                         processFastQFile(masterTaxaList,keyPath, inputSeqFile, myEnzyme,
-                                minimumQualityScore(), minimumKmerLength(), tags);
+                                minimumQualityScore(), minimumKmerLength(), tagCntMap);
                     } catch (StringIndexOutOfBoundsException oobe) {
                         oobe.printStackTrace();
                         myLogger.error(oobe.getMessage());
@@ -150,13 +150,28 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
         return null;
     }
     
+    private long[] calcTagMapStats(TagDistributionMap tagCntMap) {
+        long totalDepth=0, memory=0;
+        int cnt=0;
+        for (Map.Entry<Tag, TaxaDistribution> entry : tagCntMap.entrySet()) {           
+            memory+=entry.getValue().memorySize();
+            memory+=25;
+            totalDepth+=entry.getValue().totalDepth();
+            cnt++;
+        }
+        int currentSize = tagCntMap.size();
+        memory+=tagCntMap.size()*2*16;  //estimate for the map size
+        long[] stats={currentSize,memory, totalDepth,totalDepth/cnt};
+        System.out.printf("Map Tags:%,d  Memory:%,d  TotalDepth:%,d  AvgDepthPerTag:%d%n",stats[0],stats[1],stats[2],stats[3]);
+        return stats;
+    }    
     private static void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
-            int minQuality, int minKmerLen, Set<Tag> tags) throws StringIndexOutOfBoundsException {
+            int minQuality, int minKmerLen, TagDistributionMap tagCntMap) throws StringIndexOutOfBoundsException {
         ArrayList<Taxon> tl=GBSUtils.getLaneAnnotatedTaxaList(keyPath, fastQPath);
         if (tl.size() == 0) return; 
         BarcodeTrie barcodeTrie=GBSUtils.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
         try {
-                processFastQ(fastQPath,barcodeTrie,masterTaxaList,tags,
+                processFastQ(fastQPath,barcodeTrie,masterTaxaList,tagCntMap,
                         minQuality, minKmerLen);
         } catch (StringIndexOutOfBoundsException oobe) {
                 throw oobe; // Let processData() handle it - we want to stop processing on this error
@@ -164,7 +179,7 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
     }
 
     private static void processFastQ(Path fastqFile, BarcodeTrie barcodeTrie, TaxaList masterTaxaList,
-                              Set<Tag> tags, int minQual, int minKmerLen) throws StringIndexOutOfBoundsException{
+            TagDistributionMap tagCntMap, int minQual, int minKmerLen) throws StringIndexOutOfBoundsException{
         int allReads=0, goodBarcodedReads = 0, lowQualityReads = 0, badNoBarcode = 0, nullTags = 0;
         int shortReads = 0;
         int checkSize = 10000000;
@@ -182,7 +197,7 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
                 int adapterStart = 0;
                 String barcodeSeq=seqAndQual[2];
                 String tmpSeq = seqAndQual[2] + seqAndQual[0];
-                Barcode barcode =barcodeTrie.longestPrefix(tmpSeq); // LCJ - do we need this?
+                Barcode barcode =barcodeTrie.longestPrefix(tmpSeq); 
                 if(barcode==null) {
                     System.out.println("BC not found: " + seqAndQual[0]);
                     badNoBarcode++;
