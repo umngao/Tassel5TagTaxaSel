@@ -41,7 +41,7 @@ public class LoadRNAContigsToGBSDBPlugin extends AbstractPlugin {
             .description("Input file containing contigs in fasta format.\n").build();
     private PluginParameter<String> myOutputDB = new PluginParameter.Builder<>("db", null, String.class).guiName("Output Database File").required(true).outFile()
             .description("Output Database File").build();
-    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",false,Boolean.class).guiName("Delete Old Data")
+    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<>("deleteOldData",false,Boolean.class).guiName("Delete Old Data")
             .description("Delete existing SNP quality data from db tables").build();
 
     public LoadRNAContigsToGBSDBPlugin() {
@@ -103,20 +103,6 @@ public class LoadRNAContigsToGBSDBPlugin extends AbstractPlugin {
             ioe.printStackTrace();
         }
         return new DataSet(new Datum("OutputDatabase",outputDB(),""),this);
-    }
-
-
-
-
-    private void processFastQFile(Path fastQPath) throws StringIndexOutOfBoundsException {
-//        ArrayList<Taxon> tl=GBSUtils.getLaneAnnotatedTaxaList(keyPath, fastQPath);
-//        if (tl.size() == 0) return;
-//        BarcodeTrie barcodeTrie=GBSUtils.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
-//        try {
-//            processFastQ(fastQPath,barcodeTrie,masterTaxaList,masterTagTaxaMap,preferredTagLength,minQuality);
-//        } catch (StringIndexOutOfBoundsException oobe) {
-//            throw oobe; // Let processData() handle it - we want to stop processing on this error
-//        }
     }
 
 
