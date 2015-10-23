@@ -10,7 +10,6 @@ import net.maizegenetics.dna.tag.*;
 import net.maizegenetics.plugindef.*;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListIOUtils;
-import net.maizegenetics.taxa.TaxaTissueDist;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.util.Utils;
@@ -35,34 +34,31 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
             .description("Key file listing barcodes distinguishing the samples").build();
     private PluginParameter<String> myInputDB = new PluginParameter.Builder<>("db", null, String.class).guiName("Input GBS Database").required(true).inFile()
             .description("Input Database file if using SQLite").build();
-    private PluginParameter<FindMatchByKmers.MatchType> myMatchingType = new PluginParameter.Builder<>("matchType", null, FindMatchByKmers.MatchType.class)
+    private PluginParameter<FindMatchByWordHash.MatchType> myMatchingType = new PluginParameter.Builder<>("matchType", null, FindMatchByWordHash.MatchType.class)
             .guiName("Matching approach").required(true)
-            .range(Range.encloseAll(Arrays.asList(FindMatchByKmers.MatchType.values())))
+            .range(Range.encloseAll(Arrays.asList(FindMatchByWordHash.MatchType.values())))
             .description("Approach used for matching the reads to the contigs").build();
-    private PluginParameter<Integer> myKmerForMatching = new PluginParameter.Builder<>("kmer", 16, Integer.class).guiName("Minimum Kmer Length")
-            .description("Minimum length for kmer to be kept").build();
+    private PluginParameter<Integer> myWordSizeMatching = new PluginParameter.Builder<>("word", 16, Integer.class).guiName("Word size used by match")
+            .description("Word size used to find matches with reference sequences").build();
+    private PluginParameter<Integer> myMaxWordRepeats = new PluginParameter.Builder<>("wordRep", 10, Integer.class).guiName("Maximum repeats of word")
+            .description("Maximum repetitiveness of the word").build();
+    private PluginParameter<Boolean> mySearchReverseComplement = new PluginParameter.Builder<>("searchRevComp",true,Boolean.class).guiName("Search reverse complement")
+            .description("Search of the reverse complements of the reference sequences").build();
     private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 8, Integer.class).guiName("Batch size of fastq files").required(false)
             .description("Number of flow cells being processed simultaneously").build();
     private PluginParameter<Integer> myMinQualScore = new PluginParameter.Builder<>("mnQS", 0, Integer.class).guiName("Minimum quality score").required(false)
             .description("Minimum quality score within the barcode and read length to be accepted").build();
 
 
+
     private TagDataWriter tdw = null;
     private Map<String,int[]> taxatissueCntMap;
-    private TagTissueDistributionMap tagTaxaTissueMap;
-    private FindMatchByKmers findMatchByKmers;
+    private FindMatchByWordHash findMatchByWordHash;
  
     protected static int readEndCutSiteRemnantLength;
     private static String myEnzyme="ignore";
     private static int maxTaxa;
     private static int maxTissue;
-
-    //Documentation of read depth per sample (one recorded per replicate)
-    // Treemap is synchronized as multiple threads may increment values.
-    private Map<String, Integer> rawReadCountsMap = new TreeMap<>();
-    private Map<String, Integer> rawReadCountsForFullSampleName = Collections.synchronizedMap(rawReadCountsMap);
-    private Map<String, Integer> matchedReadCountsMap = new TreeMap<>();
-    private Map<String, Integer> matchedReadCountsForFullSampleName = Collections.synchronizedMap(matchedReadCountsMap);
 
     private boolean taglenException;
     
@@ -83,14 +79,12 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
     @Override
     public DataSet processData(DataSet input) {
         int batchSize = batchSize();
-        Path keyPath= Paths.get(keyFile()).toAbsolutePath();
         List<Path> directoryFiles= DirectoryCrawler.listPaths(GBSUtils.inputFileGlob, Paths.get(myInputDir.value()).toAbsolutePath());
         if(directoryFiles.isEmpty()) {
             myLogger.warn("No files matching:"+GBSUtils.inputFileGlob);
             return null;
         }
         List<Path> inputSeqFiles =directoryFiles;
-//        List<Path> inputSeqFiles = GBSUtils.culledFiles(directoryFiles,keyPath);
 //        if (inputSeqFiles.size() == 0) return null; // no files to process
 
         tdw =new TagDataSQLite(myInputDB.value());
@@ -114,10 +108,13 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
         maxTissue = masterTissueList.size();
 
         //get all the possible tags (=sequences = contigs)
-        findMatchByKmers=new FindMatchByKmers(tdw.getTags(), matchingType(), kmerForMatching(), 10);
+        findMatchByWordHash = FindMatchByWordHash.getBuilder(tdw.getTags())
+                .matchType(matchingType())
+                .wordLength(wordSizeMatching())
+                .maxWordCopies(maxWordRepeats())
+                .searchBiDirectional(searchReverseComplement())
+                .build();
         taxatissueCntMap=new ConcurrentHashMap<>(maxTissue*maxTaxa*2);
-               
-        writeInitialTaxaReadCounts(masterTaxaList); // initialize synchronized maps
 
         int batchNum = inputSeqFiles.size()/batchSize;
        
@@ -152,7 +149,7 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
         // put counts to database.
         taxatissueCntMap.entrySet().stream().forEach(entry -> {
             String[] taxaTissueNames = entry.getKey().split(",");
-            tdw.putTaxaTissueDistribution(taxaTissueNames[0],taxaTissueNames[1],findMatchByKmers.getTags(),entry.getValue());
+            tdw.putTaxaTissueDistribution(taxaTissueNames[0],taxaTissueNames[1], findMatchByWordHash.getTags(),entry.getValue());
         });
 
 //        writeReadsPerSampleReports(tagTaxaTissueMap.size());
@@ -161,9 +158,8 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
 
 
     private void processFastQ(Path fastqFile, Taxon taxon, int minQual) throws StringIndexOutOfBoundsException {
-        String tissuetaxaKey=taxon.getName()+
-                ","+taxon.getAnnotation().getTextAnnotation("Tissue")[0];
-        taxatissueCntMap.putIfAbsent(tissuetaxaKey, new int[findMatchByKmers.totalNumberOfTags()]);
+        String tissuetaxaKey=taxon.getName()+","+taxon.getAnnotation().getTextAnnotation("Tissue")[0];
+        taxatissueCntMap.putIfAbsent(tissuetaxaKey, new int[findMatchByWordHash.totalNumberOfTags()]);
         int allReads=0, goodBarcodedReads = 0, lowQualityReads = 0;
         int shortReads = 0;
         try {
@@ -183,18 +179,13 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
                 // We to revert the sequence to what is in the fastQ file
                 // so the quality scores match up correctly.
                 String sequence = seqAndQual[0];
-                // Substring it once more to remove the common adaptor
-                // and everything beyond it
+
 
                 adapterStart = sequence.indexOf(likelyReadEnd);
                 if (adapterStart > 0) {
                     sequence = sequence.substring(0, adapterStart-1);
                 }
-//                if (sequence.length() < minKmerLen){
-//                    System.out.println("LCJ - found short read, seq: " + sequence);
-//                     shortReads++;
-//                    continue;
-//                }
+
                 if(minQual>0) {
                     //todo move getFirstLowQualityPos into this class?
                     if(BaseEncoder.getFirstLowQualityPos(seqAndQual[1],minQual, qualityScoreBase) < sequence.length()){
@@ -202,13 +193,16 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
                         continue;
                     }
                 }
-                OptionalInt hitIndex=findMatchByKmers.getMatchIndex(sequence);
-                if(hitIndex.isPresent()) {
+                FindMatchByWordHash.Match hitIndex= findMatchByWordHash.match(sequence);
+                if(!hitIndex.isEmpty()) {
                     goodBarcodedReads++;
-                    taxatissueCntMap.get(tissuetaxaKey)[hitIndex.getAsInt()]++;
+                    taxatissueCntMap.get(tissuetaxaKey)[hitIndex.tagIndex()]++;
+                } else {
+
+                   // if(allReads%10000==0) System.out.println(">"+allReads+"\n"+seqAndQual[0]+"\n"+sequence);
                 }
 
-                if (allReads % 1000000 == 0) {
+                if (allReads % 1_000_000 == 0) {
                     myLogger.info("Total Reads:" + allReads + " Reads with barcode and cut site overhang:" + goodBarcodedReads
                             + " rate:" + (System.nanoTime()-time)/allReads +" ns/read");
                 }
@@ -223,39 +217,6 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
             myLogger.error("Good Barcodes Read: " + goodBarcodedReads);
             e.printStackTrace();
         }
-    }
-
-
-
-//    private void writeReadsPerSampleReports(int tagsProcessed) {
-//        myLogger.info("\nWriting ReadsPerSample log file...");
-//        String outFileS = myOutputDir + File.separator + (new File(keyFile())).getName();
-//        outFileS = outFileS.replaceAll(".txt", "_ReadsPerSample.log");
-//        outFileS = outFileS.replaceAll("_key", "");
-//        try {
-//                String msg = "ReadsPerSample log file: " + outFileS;
-//                myLogger.info(msg);
-//            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(outFileS))), 65536);
-//            bw.write("FullSampleName\t\t\tgoodBarcodedReads\tgoodReadsMatchedToDataBase\n");
-//            for (String fullSampleName : rawReadCountsForFullSampleName.keySet()) {
-//                bw.write(fullSampleName + "\t" + rawReadCountsForFullSampleName.get(fullSampleName) + "\t\t" + matchedReadCountsForFullSampleName.get(fullSampleName) + "\n");
-//            }
-//            bw.close();
-//        } catch (Exception e) {
-//            myLogger.error("Couldn't write to ReadsPerSample log file: " + e);
-//            e.printStackTrace();
-//            System.exit(1);
-//        }
-//        myLogger.info("\n\nTotal number of SNPs processed with minimum quality score " + minimumQualityScore() + " was " + tagsProcessed + ".\n");
-//        myLogger.info("   ...done\n");
-//    }
-    
-    private void writeInitialTaxaReadCounts(TaxaList tl) {
-        tl.stream() // Add initial taxa names with count of 0 to synchronized maps
-        .forEach(taxon -> {
-                 rawReadCountsForFullSampleName.put(taxon.getName(), 0); 
-             matchedReadCountsForFullSampleName.put(taxon.getName(), 0);
-        });
     }
 
     public void setTagLenException() {
@@ -364,7 +325,7 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
      *
      * @return Matching approach
      */
-    public FindMatchByKmers.MatchType matchingType() {
+    public FindMatchByWordHash.MatchType matchingType() {
         return myMatchingType.value();
     }
 
@@ -376,30 +337,75 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public RNADeMultiplexProductionPlugin matchingType(FindMatchByKmers.MatchType value) {
+    public RNADeMultiplexProductionPlugin matchingType(FindMatchByWordHash.MatchType value) {
         myMatchingType = new PluginParameter<>(myMatchingType, value);
         return this;
     }
 
     /**
-     * Minimum length for kmer to be kept
+     * Word size used to find matches with reference sequences
      *
-     * @return Minimum Kmer Length
+     * @return Word size used by match
      */
-    public Integer kmerForMatching() {
-        return myKmerForMatching.value();
+    public Integer wordSizeMatching() {
+        return myWordSizeMatching.value();
     }
 
     /**
-     * Set Minimum Kmer Length. Minimum length for kmer to
-     * be kept
+     * Set Word size used by match. Word size used to find
+     * matches with reference sequences
      *
-     * @param value Minimum Kmer Length
+     * @param value Word size used by match
      *
      * @return this plugin
      */
-    public RNADeMultiplexProductionPlugin kmerForMatching(Integer value) {
-        myKmerForMatching = new PluginParameter<>(myKmerForMatching, value);
+    public RNADeMultiplexProductionPlugin wordSizeMatching(Integer value) {
+        myWordSizeMatching = new PluginParameter<>(myWordSizeMatching, value);
+        return this;
+    }
+
+    /**
+     * Maximum repetitiveness of the word
+     *
+     * @return Maximum repeats of word
+     */
+    public Integer maxWordRepeats() {
+        return myMaxWordRepeats.value();
+    }
+
+    /**
+     * Set Maximum repeats of word. Maximum repetitiveness
+     * of the word
+     *
+     * @param value Maximum repeats of word
+     *
+     * @return this plugin
+     */
+    public RNADeMultiplexProductionPlugin maxWordRepeats(Integer value) {
+        myMaxWordRepeats = new PluginParameter<>(myMaxWordRepeats, value);
+        return this;
+    }
+
+    /**
+     * Search of the reverse complements of the reference
+     * sequences
+     *
+     * @return Search reverse complement
+     */
+    public Boolean searchReverseComplement() {
+        return mySearchReverseComplement.value();
+    }
+
+    /**
+     * Set Search reverse complement. Search of the reverse
+     * complements of the reference sequences
+     *
+     * @param value Search reverse complement
+     *
+     * @return this plugin
+     */
+    public RNADeMultiplexProductionPlugin searchReverseComplement(Boolean value) {
+        mySearchReverseComplement = new PluginParameter<>(mySearchReverseComplement, value);
         return this;
     }
 
@@ -446,39 +452,6 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
     public RNADeMultiplexProductionPlugin minQualScore(Integer value) {
         myMinQualScore = new PluginParameter<>(myMinQualScore, value);
         return this;
-    }
-
-    /**
-     * Set Minimum quality score. Minimum quality score within
-     * the barcode and read length to be accepted
-     *
-     * @param value Minimum quality score
-     *
-     * @return this plugin
-     */
-    public RNADeMultiplexProductionPlugin minimumQualityScore(Integer value) {
-        myMinQualScore = new PluginParameter<>(myMinQualScore, value);
-        return this;
-    }
-    
-    static class TagTissueDistributionMap extends ConcurrentHashMap<Tag,TaxaTissueDist> {
-        private final int maxTagNum;
-        private int minDepthToRetainInMap=2;
-        private final int minCount; // minimum count before tag is tossed
-        
-        TagTissueDistributionMap (int maxTagNumber, float loadFactor, int concurrencyLevel, int minCount) {
-            super((maxTagNumber*2), loadFactor, concurrencyLevel);
-            maxTagNum = maxTagNumber;
-            this.minCount = minCount;
-        }
-        
-        // This is putting the value into the map, not writing the
-        // counts.  But we need to be incrementing concurrently -
-        // where do we "put", where do we "increment".
-        @Override
-        public TaxaTissueDist put(Tag key, TaxaTissueDist value) {
-            return super.put(key, value);
-        }
     }
 
 }
