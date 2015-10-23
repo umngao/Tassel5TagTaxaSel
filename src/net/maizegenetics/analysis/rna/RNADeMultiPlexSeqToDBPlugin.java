@@ -174,7 +174,10 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
     }    
     private static void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
             int minQuality, int minKmerLen, TagDistributionMap masterTagTaxaMap) throws StringIndexOutOfBoundsException {
-        ArrayList<Taxon> tl=GBSUtils.getLaneAnnotatedTaxaList(keyPath, fastQPath);
+       // ArrayList<Taxon> tl=GBSUtils.getLaneAnnotatedTaxaList(keyPath, fastQPath);
+        // Call readTaxaANnotationFileAL directly to avoid needing to name files
+        // with a specific number of underscores.
+        ArrayList<Taxon> tl=TaxaListIOUtils.readTaxaAnnotationFileAL(keyPath.toString(), GBSUtils.sampleNameField, new HashMap<>());
         if (tl.size() == 0) return; 
         BarcodeTrie barcodeTrie=GBSUtils.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
         try {
