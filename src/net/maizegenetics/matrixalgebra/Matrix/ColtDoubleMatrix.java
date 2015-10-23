@@ -10,6 +10,7 @@ import net.maizegenetics.matrixalgebra.decomposition.ColtSingularValueDecomposit
 import net.maizegenetics.matrixalgebra.decomposition.EigenvalueDecomposition;
 import net.maizegenetics.matrixalgebra.decomposition.QRDecomposition;
 import net.maizegenetics.matrixalgebra.decomposition.SingularValueDecomposition;
+import net.maizegenetics.taxa.distance.DistanceMatrix;
 
 public class ColtDoubleMatrix implements DoubleMatrix {
 	DoubleMatrix2D myMatrix;
@@ -32,6 +33,10 @@ public class ColtDoubleMatrix implements DoubleMatrix {
 	
 	public ColtDoubleMatrix(double[][] values) {
 		myMatrix = DoubleFactory2D.dense.make(values);
+	}
+        
+        public ColtDoubleMatrix(DistanceMatrix values) {
+		myMatrix = DoubleFactory2D.dense.make(values.getDistances());
 	}
 	
 	public ColtDoubleMatrix(int size) {

@@ -14,6 +14,7 @@ import net.maizegenetics.matrixalgebra.decomposition.EJMLSingularValueDecomposit
 import net.maizegenetics.matrixalgebra.decomposition.EigenvalueDecomposition;
 import net.maizegenetics.matrixalgebra.decomposition.QRDecomposition;
 import net.maizegenetics.matrixalgebra.decomposition.SingularValueDecomposition;
+import net.maizegenetics.taxa.distance.DistanceMatrix;
 
 public class EJMLDoubleMatrix implements DoubleMatrix {
 
@@ -45,6 +46,10 @@ public class EJMLDoubleMatrix implements DoubleMatrix {
 
 	public EJMLDoubleMatrix(double[][] values) {
 		myMatrix = new DenseMatrix64F(values);
+	}
+        
+        public EJMLDoubleMatrix(DistanceMatrix values) {
+		myMatrix = new DenseMatrix64F(values.getDistances());
 	}
 	
 	public EJMLDoubleMatrix(int size) {
