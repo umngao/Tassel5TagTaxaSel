@@ -2,7 +2,6 @@ package net.maizegenetics.analysis.rna;
 
 import java.awt.Frame;
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -17,15 +16,11 @@ import java.util.concurrent.atomic.LongAdder;
 
 import javax.swing.ImageIcon;
 
-import org.apache.log4j.Logger;
-
 import net.maizegenetics.analysis.gbs.Barcode;
 import net.maizegenetics.analysis.gbs.v2.BarcodeTrie;
 import net.maizegenetics.analysis.gbs.v2.GBSEnzyme;
 import net.maizegenetics.analysis.gbs.v2.GBSUtils;
 import net.maizegenetics.dna.BaseEncoder;
-import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.dna.tag.Tag;
 import net.maizegenetics.dna.tag.TagBuilder;
 import net.maizegenetics.dna.tag.TagDataSQLite;
@@ -33,11 +28,15 @@ import net.maizegenetics.dna.tag.TagDataWriter;
 import net.maizegenetics.dna.tag.TaxaDistBuilder;
 import net.maizegenetics.dna.tag.TaxaDistribution;
 import net.maizegenetics.plugindef.AbstractPlugin;
+import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListIOUtils;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.util.Utils;
+
+import org.apache.log4j.Logger;
 
 public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
     private static final Logger myLogger = Logger.getLogger(RNADeMultiPlexSeqToDBPlugin.class);
@@ -56,6 +55,7 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
             .description("Output Database File").build();
     private PluginParameter<Integer> myMinQualScore = new PluginParameter.Builder<>("mnQS", 0, Integer.class).guiName("Minimum quality score").required(false)
             .description("Minimum quality score within the barcode and read length to be accepted").build();
+    
   
     private static String myEnzyme = "ignore";
     private static Integer myMaxKmerNumber = 50000000;
@@ -67,14 +67,12 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
     static final String barcodeField="Barcode";
 
     private static TagDistributionMap tagCntMap;
-    private static Set<Tag> tags;
     private static boolean taglenException;
 
     @Override
     public DataSet processData(DataSet input) {
         float loadFactor = 0.95f;
         tagCntMap = new TagDistributionMap (myMaxKmerNumber,loadFactor, 128, minKmerCount());  
-        tags = new HashSet<Tag>();
         try {
             //Get the list of fastq files
             Path keyPath= Paths.get(keyFile()).toAbsolutePath();
@@ -86,7 +84,9 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
             } 
 
             // Cull files that are not represented in the given key file 
-            //List<Path> inputSeqFiles = GBSUtils.culledFiles(directoryFiles,keyPath);
+            // This is useful when a user keeps all fastq files in a single
+            // directory, but uses the key file to determine which files to run.
+           // List<Path> inputSeqFiles = GBSUtils.culledFiles(directoryFiles,keyPath);
             List<Path> inputSeqFiles = directoryFiles;
             if (inputSeqFiles.size() == 0) return null; // no files in this directory to process
             int batchNum = inputSeqFiles.size()/myBatchSize;
@@ -107,7 +107,7 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
             for (int i = 0; i < inputSeqFiles.size(); i+=myBatchSize) {
                 int end = i+myBatchSize;
                 if (end > inputSeqFiles.size()) end = inputSeqFiles.size();
-                ArrayList<Path> sub = new ArrayList();
+                ArrayList<Path> sub = new ArrayList<Path>();
                 for (int j = i; j < end; j++) sub.add(inputSeqFiles.get(j));
                 System.out.println("\nStart processing batch " + String.valueOf(i/myBatchSize+1));
                 sub.parallelStream()
@@ -123,12 +123,19 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
                     }
                 });
                 if (taglenException == true) return null; // Tag length failure from processFastQ - halt processing
-
                 System.out.println("\nKmers are added from batch "+String.valueOf(i/myBatchSize+1) + ". Total batch number: " + batchNum);
-                //int currentSize = tagCntMap.size();
-                int currentSize = tags.size();
+                int currentSize = tagCntMap.size();
                 System.out.println("Current number: " + String.valueOf(currentSize) + ". Max kmer number: " + String.valueOf(myMaxKmerNumber));
                 System.out.println(String.valueOf((float)currentSize/(float)myMaxKmerNumber) + " of max tag number");
+
+                if (currentSize > 0) { // calcTagMapStats() gets "divide by 0" error when size == 0
+                    calcTagMapStats(tagCntMap);
+                    System.out.println();
+                    roughTagCnt.reset();
+                    roughTagCnt.add(tagCntMap.size());
+                } else {
+                    System.out.println("WARNING: Current tagcntmap size is 0 after processing batch " + String.valueOf(i/myBatchSize+1) );
+                }
 
                 System.out.println("Total memory: "+ String.valueOf((double)(Runtime.getRuntime().totalMemory()/1024/1024/1024))+" Gb");
                 System.out.println("Free memory: "+ String.valueOf((double)(Runtime.getRuntime().freeMemory()/1024/1024/1024))+" Gb");
@@ -140,10 +147,10 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
             System.out.println("By removing kmers with minCount of " + myMinKmerCount + " Kmer number is reduced to " + tagCntMap.size()+"\n");
             
             tdw.putTaxaList(masterTaxaList);
-            tdw.putAllTag(tags);
-            //tdw.putAllTag(tagCntMap.keySet());
+            tdw.putAllTag(tagCntMap.keySet());
+         // For RNA, taxaTissueDist will be stored when Production is run
             //tdw.putTaxaDistribution(tagCntMap);
-            ((TagDataSQLite)tdw).close();  //todo autocloseable should do this but it is not working.
+            ((TagDataSQLite)tdw).close();
         } catch(Exception e) {
             e.printStackTrace();
         }
@@ -166,12 +173,12 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
         return stats;
     }    
     private static void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
-            int minQuality, int minKmerLen, TagDistributionMap tagCntMap) throws StringIndexOutOfBoundsException {
+            int minQuality, int minKmerLen, TagDistributionMap masterTagTaxaMap) throws StringIndexOutOfBoundsException {
         ArrayList<Taxon> tl=GBSUtils.getLaneAnnotatedTaxaList(keyPath, fastQPath);
         if (tl.size() == 0) return; 
         BarcodeTrie barcodeTrie=GBSUtils.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
         try {
-                processFastQ(fastQPath,barcodeTrie,masterTaxaList,tagCntMap,
+                processFastQ(fastQPath,barcodeTrie,masterTaxaList,masterTagTaxaMap,
                         minQuality, minKmerLen);
         } catch (StringIndexOutOfBoundsException oobe) {
                 throw oobe; // Let processData() handle it - we want to stop processing on this error
@@ -179,9 +186,10 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
     }
 
     private static void processFastQ(Path fastqFile, BarcodeTrie barcodeTrie, TaxaList masterTaxaList,
-            TagDistributionMap tagCntMap, int minQual, int minKmerLen) throws StringIndexOutOfBoundsException{
+            TagDistributionMap masterTagTaxaMap, int minQual, int minKmerLen) throws StringIndexOutOfBoundsException{
         int allReads=0, goodBarcodedReads = 0, lowQualityReads = 0, badNoBarcode = 0, nullTags = 0;
         int shortReads = 0;
+        int maxTaxaNumber=masterTaxaList.size();
         int checkSize = 10000000;
         myLogger.info("processing file " + fastqFile.toString());
         try {
@@ -195,7 +203,6 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
                 allReads++;
                 //After quality score is read, decode barcode using the current sequence & quality  score
                 int adapterStart = 0;
-                String barcodeSeq=seqAndQual[2];
                 String tmpSeq = seqAndQual[2] + seqAndQual[0];
                 Barcode barcode =barcodeTrie.longestPrefix(tmpSeq); 
                 if(barcode==null) {
@@ -213,7 +220,6 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
                 }
  
                 if (sequence.length() < minKmerLen){
-                    System.out.println("LCJ - found short read, seq: " + sequence);
                      shortReads++;
                     continue;
                 }
@@ -230,12 +236,21 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
                 tag=TagBuilder.instance(sequence).build();
                                
                 if(tag==null) {
-                    System.out.println("LCJ - null sequence was: " + sequence);
                     nullTags++;
                     continue;   //null occurs when any base was not A, C, G, T
                 }
                 goodBarcodedReads++;
-                tags.add(tag);
+                TaxaDistribution taxaDistribution=masterTagTaxaMap.get(tag);
+                if(taxaDistribution==null) {
+                    masterTagTaxaMap.put(tag,TaxaDistBuilder.create(maxTaxaNumber,barcode.getTaxaIndex()));
+                    roughTagCnt.increment();
+                } else {
+                    taxaDistribution.increment(barcode.getTaxaIndex());
+                }
+                if (allReads % checkSize == 0) {
+                    myLogger.info("Total Reads:" + allReads + " Reads with barcode and cut site overhang:" + goodBarcodedReads
+                            + " rate:" + (System.nanoTime()-time)/allReads +" ns/read. Current tag count:" + roughTagCnt);
+                }
                 if (allReads % checkSize == 0) {
                     myLogger.info("Total Reads:" + allReads + " Reads with barcode and cut site overhang:" + goodBarcodedReads
                             + " rate:" + (System.nanoTime()-time)/allReads +" ns/read. Current tag count:" + roughTagCnt);
@@ -250,7 +265,6 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
                     "Total number of null tags created=" + nullTags+"\n" +
                     "Timing process (sorting, collapsing, and writing TagCount to file)."+"\n"+
                     "Process took " + (System.nanoTime() - time)/1e6 + " milliseconds.");
-            System.out.println("tag set size: " + tags.size());
             br.close();
         } catch (StringIndexOutOfBoundsException oobe) {
                 throw oobe; // pass it up to print error and stop processing
