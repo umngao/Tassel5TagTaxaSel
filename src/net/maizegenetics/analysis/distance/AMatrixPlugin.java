@@ -31,7 +31,7 @@ import net.maizegenetics.util.Utils;
  */
 public class AMatrixPlugin extends AbstractPlugin {
 
-    private PluginParameter<String> myPedFilename = new PluginParameter.Builder("pedFilename", null, String.class)
+    private PluginParameter<String> myPedFilename = new PluginParameter.Builder("pedigreeFilename", null, String.class)
             .description("Pedigree Filename")
             .required(true)
             .inFile()
@@ -252,12 +252,12 @@ public class AMatrixPlugin extends AbstractPlugin {
 
     @Override
     public String getButtonName() {
-        return "Create Pedigree Matrix";
+        return "Pedigree Relationship Matrix";
     }
 
     @Override
     public String getToolTipText() {
-        return "Create Pedigree Matrix";
+        return "Create Pedigree Relationship Matrix";
     }
 
     @Override
