@@ -31,7 +31,7 @@ import net.maizegenetics.util.Utils;
  */
 public class AMatrixPlugin extends AbstractPlugin {
 
-    private PluginParameter<String> myPedFilename = new PluginParameter.Builder("pedigreeFilename", null, String.class)
+    private PluginParameter<String> myPedFilename = new PluginParameter.Builder<>("pedigreeFilename", null, String.class)
             .description("Pedigree Filename")
             .required(true)
             .inFile()
