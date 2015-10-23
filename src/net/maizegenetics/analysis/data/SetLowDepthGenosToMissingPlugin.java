@@ -5,25 +5,28 @@
  */
 package net.maizegenetics.analysis.data;
 
+import com.google.common.collect.Range;
 import java.awt.Frame;
 import java.net.URL;
 import java.util.List;
 import javax.swing.ImageIcon;
-import net.maizegenetics.dna.snp.CoreGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.MaskGenotypeTableBuilder;
-import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
-import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.Taxon;
+import org.apache.log4j.Logger;
 
 /**
- *
- * @author jcg233
+ * Set genotypes below a minimum depth to missing. Set each genotype in the 
+ * input genotypes to missing if the underlying allelic depth is below a user-
+ * specified minimum.
+ * Input:   GenotypeTable stored as a Datum within a DataSet
+ * Output:  GenotypeTable stored as a Datum within a DataSet
+ * @author Christopher Bottoms
+ * @author Jeff Glaubitz
  */
 public class SetLowDepthGenosToMissingPlugin extends net.maizegenetics.plugindef.AbstractPlugin {
 
@@ -37,11 +40,17 @@ public class SetLowDepthGenosToMissingPlugin extends net.maizegenetics.plugindef
         new PluginParameter.Builder<>("minDepth",null,Integer.class)
             .guiName("minimum genotype depth")
             .required(true)
-            .description("Minimum depth, below which genotypes are set to missing")
+            .description("Minimum depth, below which genotypes are set to missing. Must be between 2 and 127, inclusive.")
+            .range(Range.closed(2, 127))
             .build();
     
+    private static final Logger myLogger = Logger.getLogger(SetLowDepthGenosToMissingPlugin.class);
     private GenotypeTable inputGenotypes = null;
     private String inputGenosName = null;
+    
+    public SetLowDepthGenosToMissingPlugin() { 
+        super(null, false);
+    } 
     
     public SetLowDepthGenosToMissingPlugin(Frame parentFrame, boolean isInteractive) { 
         super(parentFrame, isInteractive);
@@ -57,7 +66,9 @@ public class SetLowDepthGenosToMissingPlugin extends net.maizegenetics.plugindef
         
         inputGenosName = genotypeTables.get(0).getName();
 
-        System.out.println("Input genotype name: " + inputGenosName);
+        myLogger.info( "\n" + pluginDescription() + "\n");
+            
+        myLogger.info("Input genotype name: " + inputGenosName);
         
         if (genotypeTables.size() == 1) {
             inputGenotypes
@@ -71,13 +82,20 @@ public class SetLowDepthGenosToMissingPlugin extends net.maizegenetics.plugindef
         }
     }
     
+    /**
+     * Main method for this plugin.
+     * @param input DataSet object containing the input GenotypeTable.
+     * @return DataSet object containing the output GenotypeTable where genotypes 
+     * with depth below the specified minimum are set to missing.
+     */
     @Override
     public DataSet processData(DataSet input) {
         int numberOfSites = inputGenotypes.numberOfSites();
         MaskGenotypeTableBuilder mgtb = new MaskGenotypeTableBuilder(inputGenotypes);
-
-
+        int nGenosSetToMissing = 0;
+        int nOrigNonMissing = 0;
         for (int siteIndex = 0; siteIndex < numberOfSites; siteIndex++) {
+            nOrigNonMissing += inputGenotypes.totalNonMissingForSite(siteIndex);
             int[][] allelesByFreq = inputGenotypes.allelesSortedByFrequency(siteIndex);
             int numAlleles = allelesByFreq[0].length;
             int[] allelesAtSite = new int[numAlleles];
@@ -95,12 +113,21 @@ public class SetLowDepthGenosToMissingPlugin extends net.maizegenetics.plugindef
                 }
                 if (depthSum < minDepth()) {
                     mgtb.set(taxonIndex, siteIndex);
+                    nGenosSetToMissing++;
                 }
             }
         }
 
         String outGenosName = inputGenosName + "MinDepth" + minDepth();
         GenotypeTable outGenos = mgtb.build();
+        double percentOfTotalSetToMissing = (double) 100 * nGenosSetToMissing / (numberOfSites * inputGenotypes.numberOfTaxa());
+        double percentOfNonMissingSetToMissing = (double) 100 * nGenosSetToMissing / nOrigNonMissing;
+        myLogger.info("\n" + nGenosSetToMissing + " genotypes with a depth less than " 
+            + minDepth() + " were set to missing \n"
+            + "   = "+String.format("%,.2f",percentOfTotalSetToMissing)+"% of the original genotypes"
+            + " (nSites x nSamples), or "
+            +String.format("%,.2f",percentOfNonMissingSetToMissing)+"% of the original "
+            + "nonMissing genotypes.\n");
         return new DataSet(new Datum(outGenosName, outGenos, null), null);
     }
     
@@ -125,7 +152,26 @@ public class SetLowDepthGenosToMissingPlugin extends net.maizegenetics.plugindef
         return "Set genotypes below a minimum depth to missing";
     }
  
-    // The following getters and setters were auto-generated.
+    @Override
+    public String getCitation() {
+        return "Christopher Bottoms, Jeff Glaubitz (2015) TASSEL Hackathon Oct 2015";
+    }
+    
+
+    /**
+     * Convenience method to run plugin with input and output GenotypeTable objects 
+     * (rather than DataSets)
+     * @param inputGenos Input GenotypeTable.
+     * @return GenotypeTable where genotypes with depth below the specified 
+     * minimum are set to missing.
+     */
+    public GenotypeTable runPlugin(GenotypeTable inputGenos) {
+        DataSet input = new DataSet(new Datum("inputGenotypes", inputGenos, null), null);
+        return runPlugin(input);
+    }
+
+
+// The following getters and setters were auto-generated.
     // Please use this method to re-generate.
     //
     // public static void main(String[] args) {
@@ -133,10 +179,13 @@ public class SetLowDepthGenosToMissingPlugin extends net.maizegenetics.plugindef
     // }
 
     /**
-     * Convenience method to run plugin with one return object.
+     * Convenience method to run plugin and output a GenotypeTable object 
+     * (rather than a DataSet)
+     * @param input DataSet object containing the input GenotypeTable.
+     * @return GenotypeTable where genotypes with depth below the specified 
+     * minimum are set to missing.
      */
-    // TODO: Replace <Type> with specific type.
-    public GenotypeTable runPlugin(DataSet input) {
+    private GenotypeTable runPlugin(DataSet input) {
         return (GenotypeTable) performFunction(input).getData(0).getData();
     }
 
