@@ -5,21 +5,29 @@ import net.maizegenetics.dna.BaseEncoder;
 import java.io.Serializable;
 
 /**
- * Interface for tags that captures these bit encoded sequence and there length.
+ * Interface for tags (sequences without N) that captures these bit encoded sequence and there length.
  * 
  * @author Ed Buckler
  */
 public interface Tag {
 
-    public String sequence();
+    /*
+    Sequence of the tag (A,C,G,T) - no ambiguity possible
+     */
+    String sequence();
 
-    public long[] seq2Bit();
+    /*
+    Name of the tag (or sequence).  Generally used for contig sequences, but left blank if GBS tag
+     */
+    String name();
 
-    public byte[] seq2BitAsBytes();
+    long[] seq2Bit();
 
-    public short seqLength();
+    byte[] seq2BitAsBytes();
 
-    public boolean isReference();
+    short seqLength();
+
+    boolean isReference();
 
     default String toCSVString() {
         return sequence() + "," + seqLength();
