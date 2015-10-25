@@ -132,6 +132,9 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
             sub.parallelStream()
             .forEach(inputSeqFile -> {
                 try {
+//                    System.err.println(inputSeqFile);
+//                    System.err.println(fileToTaxonMap.get(inputSeqFile.getFileName().toString()));
+                    if(fileToTaxonMap.get(inputSeqFile.getFileName().toString())==null) return;
                     processFastQ(inputSeqFile,fileToTaxonMap.get(inputSeqFile.getFileName().toString()),minQualScore());
 
                 } catch (StringIndexOutOfBoundsException oobe) {
