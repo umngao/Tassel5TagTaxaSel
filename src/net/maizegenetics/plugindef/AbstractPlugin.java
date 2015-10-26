@@ -40,6 +40,8 @@ import net.maizegenetics.gui.TaxaAvailableListModel;
 import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.distance.DistanceMatrix;
+import net.maizegenetics.taxa.distance.ReadDistanceMatrix;
 import net.maizegenetics.util.ExceptionUtils;
 import net.maizegenetics.util.Utils;
 
@@ -224,6 +226,11 @@ abstract public class AbstractPlugin implements Plugin {
                     return null;
                 }
                 return (T) JSONUtils.importPositionListFromJSON(input);
+            } else if (outputClass.isAssignableFrom(DistanceMatrix.class)) {
+                if ((input == null) || (input.length() == 0)) {
+                    return null;
+                }
+                return (T) ReadDistanceMatrix.readDistanceMatrix(input);
             } else {
                 return input == null ? null : outputClass.getConstructor(String.class).newInstance(input);
             }
@@ -613,6 +620,18 @@ abstract public class AbstractPlugin implements Plugin {
                                 String input = ((JTextField) component).getText().trim();
                                 setParameter(current.cmdLineName(), input);
                             }
+                        } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.DISTANCE_MATRIX) {
+                            if (component instanceof JComboBox) {
+                                Object temp = ((JComboBox) component).getSelectedItem();
+                                if (temp == null) {
+                                    throw new IllegalArgumentException("setParametersViaGUI: must specify a distance matrix.");
+                                } else {
+                                    setParameter(current.cmdLineName(), ((Datum) temp).getData());
+                                }
+                            } else {
+                                String input = ((JTextField) component).getText().trim();
+                                setParameter(current.cmdLineName(), input);
+                            }
                         } else if ((current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_MULTIPLE_SELECT)
                                 || (current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_SINGLE_SELECT)) {
                             List<?> selectedObjects = ((JList<?>) component).getSelectedValuesList();
@@ -727,6 +746,29 @@ abstract public class AbstractPlugin implements Plugin {
                     JComboBox menu = new JComboBox();
                     menu.addItem(POSITION_LIST_NONE);
                     menu.addItem(datum);
+                    menu.setSelectedIndex(0);
+                    createEnableDisableAction(current, parameterFields, menu);
+                    JPanel temp = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                    temp.add(new JLabel(current.guiName()));
+                    temp.add(menu);
+                    temp.setToolTipText(getToolTip(current));
+                    panel.add(temp);
+                    parameterFields.put(current.cmdLineName(), menu);
+                } else {
+                    JTextField field = new JTextField(TEXT_FIELD_WIDTH - 8);
+                    JButton browse = getOpenFile(dialog, field);
+                    JPanel line = getLine(current.guiName(), field, browse, getToolTip(current));
+                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse}, field);
+                    panel.add(line);
+                    parameterFields.put(current.cmdLineName(), field);
+                }
+            } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.DISTANCE_MATRIX) {
+                List<Datum> matrices = getDistanceMatrices();
+                if (!matrices.isEmpty()) {
+                    JComboBox menu = new JComboBox();
+                    for (Datum matrix : matrices) {
+                        menu.addItem(matrix);
+                    }
                     menu.setSelectedIndex(0);
                     createEnableDisableAction(current, parameterFields, menu);
                     JPanel temp = new JPanel(new FlowLayout(FlowLayout.CENTER));
@@ -1385,6 +1427,14 @@ abstract public class AbstractPlugin implements Plugin {
         }
 
         return null;
+    }
+
+    private List<Datum> getDistanceMatrices() {
+        if (myCurrentInputData != null) {
+            return myCurrentInputData.getDataOfType(DistanceMatrix.class);
+        } else {
+            return null;
+        }
     }
 
     /**

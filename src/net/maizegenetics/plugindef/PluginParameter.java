@@ -38,7 +38,7 @@ public final class PluginParameter<T> {
     public enum PARAMETER_TYPE {
 
         NA, IN_FILE, OUT_FILE, IN_DIR, OUT_DIR, GENOTYPE_TABLE, TAXA_NAME_LIST, SITE_NAME_LIST,
-        OBJECT_LIST_SINGLE_SELECT, OBJECT_LIST_MULTIPLE_SELECT, POSITION_LIST
+        OBJECT_LIST_SINGLE_SELECT, OBJECT_LIST_MULTIPLE_SELECT, POSITION_LIST, DISTANCE_MATRIX
     };
     private final PARAMETER_TYPE myParameterType;
 
@@ -306,6 +306,11 @@ public final class PluginParameter<T> {
 
         public Builder<T> genotypeTable() {
             myParameterType = PARAMETER_TYPE.GENOTYPE_TABLE;
+            return this;
+        }
+        
+        public Builder<T> distanceMatrix() {
+            myParameterType = PARAMETER_TYPE.DISTANCE_MATRIX;
             return this;
         }
 

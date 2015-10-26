@@ -9,6 +9,7 @@ import net.maizegenetics.matrixalgebra.decomposition.BlasSingularValueDecomposit
 import net.maizegenetics.matrixalgebra.decomposition.EigenvalueDecomposition;
 import net.maizegenetics.matrixalgebra.decomposition.QRDecomposition;
 import net.maizegenetics.matrixalgebra.decomposition.SingularValueDecomposition;
+import net.maizegenetics.taxa.distance.DistanceMatrix;
 
 public class BlasDoubleMatrix implements DoubleMatrix {
 	private static Logger myLogger = Logger.getLogger(BlasDoubleMatrix.class);
@@ -39,6 +40,19 @@ public class BlasDoubleMatrix implements DoubleMatrix {
 		for (int c = 0; c < ncols; c++) {
 			for (int r = 0; r < nrows; r++) {
 				myMatrix[ptr++] = values[r][c];
+			}
+		}
+	}
+        
+        public BlasDoubleMatrix(DistanceMatrix values) {
+		nrows = (int) values.getRowCount();
+		ncols = values.getColumnCount() - 1;
+		size = nrows * ncols;
+		myMatrix = new double[size];
+		int ptr = 0;
+		for (int c = 0; c < ncols; c++) {
+			for (int r = 0; r < nrows; r++) {
+				myMatrix[ptr++] = values.getDistance(r, c);
 			}
 		}
 	}

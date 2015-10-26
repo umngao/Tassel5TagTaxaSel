@@ -7,6 +7,7 @@ import org.ejml.ops.SpecializedOps;
 
 import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix2D;
+import net.maizegenetics.taxa.distance.DistanceMatrix;
 
 public class DoubleMatrixFactory {
 	private static Logger myLogger = Logger.getLogger(DoubleMatrixFactory.class);
@@ -78,6 +79,14 @@ public class DoubleMatrixFactory {
 	}
 
 	public DoubleMatrix make(double[][] values) {
+		if (myType == FactoryType.ejml) return new EJMLDoubleMatrix(values);
+		if (myType == FactoryType.colt) return new ColtDoubleMatrix(values);
+		if (myType == FactoryType.blas) return new BlasDoubleMatrix(values);
+		if (myType == FactoryType.jblas) return null;
+		return null;
+	}
+        
+        public DoubleMatrix make(DistanceMatrix values) {
 		if (myType == FactoryType.ejml) return new EJMLDoubleMatrix(values);
 		if (myType == FactoryType.colt) return new ColtDoubleMatrix(values);
 		if (myType == FactoryType.blas) return new BlasDoubleMatrix(values);

@@ -12,10 +12,12 @@ import java.util.Arrays;
 public abstract class AbstractTag implements Tag, Comparable<Tag> {
     private final short length;
     private final boolean reference;
+    private final String name;
 
-    protected AbstractTag(short length, boolean reference) {
+    protected AbstractTag(short length, boolean reference, String name) {
         this.length=length;
         this.reference=reference;
+        this.name=name;
     }
 
     @Override
@@ -26,6 +28,12 @@ public abstract class AbstractTag implements Tag, Comparable<Tag> {
     @Override
     public boolean isReference() {
         return reference;
+    }
+
+    @Override
+    public String name() {
+        if(name==null) return "";
+        return name;
     }
 
     @Override

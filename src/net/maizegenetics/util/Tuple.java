@@ -24,6 +24,15 @@ public class Tuple<X, Y> implements Comparable<Tuple<X, Y>> {
         this.x = x;
         this.y = y;
     }
+
+    public X getX() {
+        return x;
+    }
+
+    public Y getY() {
+        return y;
+    }
+
     @Override
     public int hashCode() {
         return (x.hashCode()^y.hashCode());

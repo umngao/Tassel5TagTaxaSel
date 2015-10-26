@@ -16,6 +16,7 @@ public class TagBuilder {
     private final long[] seq2Bit;
     private final short length;
     private boolean isReference=false;
+    private String name=null;
 
 
     private TagBuilder(long[] seq2Bit, short length) {
@@ -28,13 +29,18 @@ public class TagBuilder {
         return this;
     }
 
+    public TagBuilder name(String name) {
+        this.name=name;
+        return this;
+    }
+
     public Tag build() {
         switch (seq2Bit.length) {
             case 0: return null;
-            case 1: return new Tag1Long(seq2Bit,length, isReference);
-            case 2: return new Tag2Long(seq2Bit,length, isReference);
-            case 3: return new Tag3Long(seq2Bit,length, isReference);
-            default: return new TagVarLong(seq2Bit,length, isReference);
+            case 1: return new Tag1Long(seq2Bit,length, isReference, name);
+            case 2: return new Tag2Long(seq2Bit,length, isReference, name);
+            case 3: return new Tag3Long(seq2Bit,length, isReference, name);
+            default: return new TagVarLong(seq2Bit,length, isReference, name);
         }
     }
 
@@ -72,8 +78,8 @@ class Tag1Long extends AbstractTag {
     //An array would add 12 to it
     private final long val0;
 
-    Tag1Long(long[] val, short length, boolean reference) {
-        super(length,reference);
+    Tag1Long(long[] val, short length, boolean reference, String name) {
+        super(length,reference, name);
         val0=val[0];
     }
 
@@ -88,8 +94,8 @@ class Tag2Long extends AbstractTag {
     //An array would add 12 to it
     private final long val0, val1;
 
-    Tag2Long(long[] val, short length, boolean reference) {
-        super(length, reference);
+    Tag2Long(long[] val, short length, boolean reference, String name) {
+        super(length, reference, name);
         val0 = val[0];
         val1 = val[1];
     }
@@ -105,8 +111,8 @@ class Tag3Long extends AbstractTag {
     //An array would add 12 to it
     private long val0, val1, val2;
 
-    Tag3Long(long[] val, short length, boolean reference) {
-        super(length,reference);
+    Tag3Long(long[] val, short length, boolean reference, String name) {
+        super(length,reference, name);
         val0=val[0];
         val1=val[1];
         val2=val[2];
@@ -123,8 +129,8 @@ class TagVarLong extends AbstractTag {
     //memory 8 + 12 + 8*LongLen + 2 = XX bytes
     private long[] val;
 
-    TagVarLong(long[] val, short length, boolean reference) {
-        super(length,reference);
+    TagVarLong(long[] val, short length, boolean reference, String name) {
+        super(length,reference, name);
         this.val=val;
     }
 

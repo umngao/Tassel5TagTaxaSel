@@ -7,6 +7,7 @@ package net.maizegenetics.analysis.distance;
 
 import java.awt.Frame;
 import java.io.BufferedReader;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -31,7 +32,7 @@ import net.maizegenetics.util.Utils;
  */
 public class AMatrixPlugin extends AbstractPlugin {
 
-    private PluginParameter<String> myPedFilename = new PluginParameter.Builder("pedFilename", null, String.class)
+    private PluginParameter<String> myPedFilename = new PluginParameter.Builder<>("pedigreeFilename", null, String.class)
             .description("Pedigree Filename")
             .required(true)
             .inFile()
@@ -247,17 +248,22 @@ public class AMatrixPlugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        return null;
+        URL imageURL = AMatrixPlugin.class.getResource("/net/maizegenetics/analysis/images/amatrix.png");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
     }
 
     @Override
     public String getButtonName() {
-        return "Create Pedigree Matrix";
+        return "Pedigree Relationship Matrix";
     }
 
     @Override
     public String getToolTipText() {
-        return "Create Pedigree Matrix";
+        return "Create Pedigree Relationship Matrix";
     }
 
     @Override

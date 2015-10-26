@@ -1,17 +1,21 @@
 package net.maizegenetics.dna.tag;
 
+import cern.colt.list.FloatArrayList;
+import cern.colt.list.IntArrayList;
 import com.google.common.collect.*;
 import com.google.common.io.CharStreams;
 
 import net.maizegenetics.dna.map.*;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.snp.SimpleAllele;
+import net.maizegenetics.phenotype.*;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.TaxaTissueDist;
 import net.maizegenetics.taxa.Taxon;
-import net.maizegenetics.util.Tuple;
+import net.maizegenetics.util.*;
 
+import net.maizegenetics.util.db.DBTuple;
 import org.sqlite.SQLiteConfig;
 
 import java.io.InputStreamReader;
@@ -19,10 +23,12 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import net.maizegenetics.util.GeneralAnnotation;
 import net.maizegenetics.util.db.SQL;
 
 /**
@@ -150,8 +156,12 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             System.out.println("size of all tags in tag table=" + size);
             if(tagTagIDMap==null || size/(tagTagIDMap.size()+1)>3) tagTagIDMap=HashBiMap.create(size);
             rs=connection.createStatement().executeQuery("select * from tag");
+            boolean hasName;
+            try{rs.findColumn("tagName");hasName=true;}catch (SQLException e) {hasName=false;}
             while(rs.next()) {
-                tagTagIDMap.putIfAbsent(TagBuilder.instance(rs.getBytes("sequence"),rs.getShort("seqlen")).build(),rs.getInt("tagid"));
+                TagBuilder tagBuilder=TagBuilder.instance(rs.getBytes("sequence"),rs.getShort("seqlen"));
+                if(hasName) tagBuilder.name(rs.getString("tagName"));
+                tagTagIDMap.putIfAbsent(tagBuilder.build(),rs.getInt("tagid"));
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -835,6 +845,76 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                     return new AbstractMap.SimpleEntry(allele,TaxaDistBuilder.create(byteArray));
                 });
         return stream;
+    }
+
+    @Override
+    public Phenotype getAllCountsForTagTissue(Tag tag, String tissue) {
+        int tagID=tagTagIDMap.get(tag);
+        int tissueID=tissueTissueIDMap.get(tissue);
+        List<Taxon> taxaList=new ArrayList<>();
+        FloatArrayList countList=new FloatArrayList();
+        SQL.stream(connection,
+                "select t.taxonid, t.readCount from tagTaxaTissueDist t where t.tagid="+tagID+" AND t.tissueid="+tissueID+";")
+                .forEach(entry -> {
+                    taxaList.add(myTaxaList.get(entry.asInt("taxonid")));
+                    countList.add(entry.asInt("readCount"));
+                });
+        NumericAttribute trait = new NumericAttribute(tissue+":"+tag.sequence()+":count", countList.elements(), new OpenBitSet(countList.size()));
+        return new PhenotypeBuilder().fromAttributeList(
+                Arrays.asList(new TaxaAttribute(taxaList),trait),
+                Arrays.asList(Phenotype.ATTRIBUTE_TYPE.taxa, Phenotype.ATTRIBUTE_TYPE.data)).build().get(0);
+    }
+
+    @Override
+    public TableReport getAllCountsForTaxonTissue(Taxon taxon, String tissue) {
+        int taxonID=myTaxaList.indexOf(taxon.getName());
+        int tissueID=tissueTissueIDMap.get(tissue);
+        String[] headers={"Sequence","TagName","ReadCount"};
+        TableReportBuilder reportBuilder=TableReportBuilder.getInstance("CountsFor:"+taxon.getName()+":"+tissue,headers);
+        SQL.stream(connection,
+                "select t.tagid, t.readCount, tag.tagName from tagTaxaTissueDist t, tag where t.taxonid="+taxonID+" AND t.tissueid="+tissueID
+                        +" AND tag.tagid=t.tagid;")
+                .forEach(entry -> {
+                    reportBuilder.addElements(tagTagIDMap.inverse().get(entry.asInt("tagid")).sequence(),
+                            entry.val("tagName").orElse("").toString(), entry.asInt("readCount"));
+                });
+       return reportBuilder.build();
+    }
+
+    @Override
+    public Phenotype getAllCountsForTissue(String tissue) {
+        int tissueID=tissueTissueIDMap.get(tissue);
+
+        final AtomicInteger counter=new AtomicInteger();
+        Map<Integer,Integer> taxaIDtoNumAttIndex=SQL.stream(connection, ("select DISTINCT taxonid from tagTaxaTissueDist where tissueid=" + tissueID + " ORDER BY taxonid;"))
+                .map(entry -> new Tuple<>(entry.asInt("taxonid"), counter.getAndIncrement()))
+                .collect(Collectors.toMap(Tuple::getX, Tuple::getY, (a, b) -> a, TreeMap::new));
+        TaxaList taxaList=taxaIDtoNumAttIndex.keySet().stream().map(myTaxaList::get).collect(TaxaList.collect());
+
+        counter.set(0);
+        Map<Integer,Integer> tagIDtoNumAttIndex=SQL.stream(connection, ("select DISTINCT tagid from tagTaxaTissueDist where tissueid=" + tissueID + " ORDER BY tagid;"))
+                .map(entry -> new Tuple<>(entry.asInt("tagid"),counter.getAndIncrement()))
+                .collect(Collectors.toMap(Tuple::getX, Tuple::getY, (a,b) -> a, TreeMap::new));
+
+        float[][] data=new float[tagIDtoNumAttIndex.size()][taxaIDtoNumAttIndex.size()];
+
+        SQL.stream(connection,
+                "select t.tagid, t.taxonid, t.readCount from tagTaxaTissueDist t where t.tissueid="+tissueID+";")
+                .forEach(entry -> {
+                    data[tagIDtoNumAttIndex.get(entry.asInt("tagid"))][taxaIDtoNumAttIndex.get(entry.asInt("taxonid"))]=entry.asInt("readCount");
+                });
+        List<PhenotypeAttribute> phenotypeAttributes=new ArrayList<>(tagIDtoNumAttIndex.size()+1);
+        List<Phenotype.ATTRIBUTE_TYPE> attributeTypeList=new ArrayList<>(tagIDtoNumAttIndex.size()+1);
+        phenotypeAttributes.add(new TaxaAttribute(taxaList));
+        attributeTypeList.add(Phenotype.ATTRIBUTE_TYPE.taxa);
+        tagIDtoNumAttIndex.entrySet().stream().forEachOrdered(entry -> {
+            Tag tag = tagTagIDMap.inverse().get(entry.getKey());
+            NumericAttribute trait = new NumericAttribute(tissue + ":" + tag.name() + ":count", data[entry.getValue()], new OpenBitSet(data[entry.getValue()].length));
+            phenotypeAttributes.add(trait);
+            attributeTypeList.add(Phenotype.ATTRIBUTE_TYPE.data);
+        });
+
+        return new PhenotypeBuilder().fromAttributeList(phenotypeAttributes,attributeTypeList).build().get(0);
     }
 
     @Override

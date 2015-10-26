@@ -10,8 +10,10 @@ import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.tag.Tag;
 import net.maizegenetics.dna.tag.TaxaDistribution;
+import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.Tuple;
 
 import java.util.HashMap;
@@ -204,4 +206,19 @@ public interface TagData {
       * @return Map<Tag, TaxaDistribution>  - map is empty if db table is empty
       */
      Map<Tag, TaxaDistribution> getAllTagsTaxaMap();
+
+    /*
+    Return a map of the all counts for a given tag (reference sequence) and tissue
+     */
+    Phenotype getAllCountsForTagTissue(Tag tag, String tissue);
+
+    /*
+    Return a map of the all counts for a given Taxon and tissue
+     */
+    TableReport getAllCountsForTaxonTissue(Taxon taxon, String tissue);
+
+    /*
+    Return a map of the all counts for a given Taxon and tissue
+     */
+    Phenotype getAllCountsForTissue(String tissue);
 }
