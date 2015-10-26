@@ -1,6 +1,7 @@
 package net.maizegenetics.analysis.imputation;
 
 import java.awt.Frame;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -11,6 +12,7 @@ import javax.swing.ImageIcon;
 import net.maizegenetics.analysis.clustering.Haplotype;
 import net.maizegenetics.analysis.clustering.HaplotypeCluster;
 import net.maizegenetics.analysis.clustering.HaplotypeClusterer;
+import net.maizegenetics.analysis.data.GetTaxaListPlugin;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
@@ -153,6 +155,7 @@ public class ClusterGenotypesPlugin extends AbstractPlugin {
 		clusterMaker.makeClusters();
 		clusterMaker.sortClusters();
 		if (clusterOnce.value()) clusterMaker.moveAllHaplotypesToBiggestCluster(maxDiff.value());
+		else clusterMaker.mergeClusters(maxDiff.value());
 		ArrayList<HaplotypeCluster> clusterList = clusterMaker.getClusterList();
 		GenotypeTableBuilder genoBuilder = GenotypeTableBuilder
 				.getTaxaIncremental(filterPosList);
@@ -160,7 +163,8 @@ public class ClusterGenotypesPlugin extends AbstractPlugin {
 		for (HaplotypeCluster cluster : clusterList) {
 			String name = String.format("Cluster%d:%d", count++,
 					cluster.getSize());
-			genoBuilder.addTaxon(new Taxon(name), cluster.getHaplotype());
+//			genoBuilder.addTaxon(new Taxon(name), cluster.getHaplotype());
+			genoBuilder.addTaxon(new Taxon(name), cluster.getMajorityHaplotype());
 		}
 
 		List<Datum> resultList = new ArrayList<>();
@@ -247,8 +251,12 @@ public class ClusterGenotypesPlugin extends AbstractPlugin {
 
 	@Override
 	public ImageIcon getIcon() {
-		// TODO Auto-generated method stub
-		return null;
+        URL imageURL = GetTaxaListPlugin.class.getResource("/net/maizegenetics/analysis/images/pca.gif");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
 	}
 
 	@Override
