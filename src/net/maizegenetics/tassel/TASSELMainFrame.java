@@ -416,6 +416,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new NumericalGenotypePlugin(this, true)));
         result.add(createMenuItem(new GenosToABHPlugin(this, true)));
         result.add(createMenuItem(new ThinSitesByPositionPlugin(this, true)));
+        result.add(createMenuItem(new ClusterGenotypesPlugin(this, true)));
         result.addSeparator();
 
         JMenuItem delete = new JMenuItem("Delete Dataset");
