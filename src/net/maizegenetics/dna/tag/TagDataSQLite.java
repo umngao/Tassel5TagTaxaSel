@@ -849,8 +849,12 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     @Override
     public Phenotype getAllCountsForTagTissue(Tag tag, String tissue) {
-        int tagID=tagTagIDMap.get(tag);
-        int tissueID=tissueTissueIDMap.get(tissue);
+        Integer tagID=tagTagIDMap.get(tag);
+        Integer tissueID=tissueTissueIDMap.get(tissue);
+        if (tagID == null || tissueID == null) {
+            System.out.println("getAllCountsForTagTissue: ERROR, either tissueID or tagID not found in DB");
+            return null;
+        }
         List<Taxon> taxaList=new ArrayList<>();
         FloatArrayList countList=new FloatArrayList();
         SQL.stream(connection,
@@ -867,8 +871,13 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     @Override
     public TableReport getAllCountsForTaxonTissue(Taxon taxon, String tissue) {
-        int taxonID=myTaxaList.indexOf(taxon.getName());
-        int tissueID=tissueTissueIDMap.get(tissue);
+        // User may query a tissue type or taxon that is not present in the DB
+        Integer taxonID=myTaxaList.indexOf(taxon.getName());
+        Integer tissueID=tissueTissueIDMap.get(tissue);
+        if (tissueID == null || taxonID == null) {
+            System.out.println("getAllCountsForTaxonTissue: ERROR, either tissueID or taxonID not found in DB");
+            return null;
+        }
         String[] headers={"Sequence","TagName","ReadCount"};
         TableReportBuilder reportBuilder=TableReportBuilder.getInstance("CountsFor:"+taxon.getName()+":"+tissue,headers);
         SQL.stream(connection,
@@ -883,7 +892,11 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     @Override
     public Phenotype getAllCountsForTissue(String tissue) {
-        int tissueID=tissueTissueIDMap.get(tissue);
+        Integer tissueID=tissueTissueIDMap.get(tissue);
+        if (tissueID == null) {
+            System.out.println("getAllCountsForTissue: ERROR, tissue " + tissue + " not found in DB");
+            return null;
+        }
 
         final AtomicInteger counter=new AtomicInteger();
         Map<Integer,Integer> taxaIDtoNumAttIndex=SQL.stream(connection, ("select DISTINCT taxonid from tagTaxaTissueDist where tissueid=" + tissueID + " ORDER BY taxonid;"))
