@@ -1440,5 +1440,10 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         return true;
     }
 
+    @Override
+    public Set<String> getAllTissue() {
+        return tissueTissueIDMap.keySet();
+    }
+
 
 }

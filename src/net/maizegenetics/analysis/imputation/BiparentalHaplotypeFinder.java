@@ -166,7 +166,7 @@ public class BiparentalHaplotypeFinder {
 			HaplotypeClusterer myClusterMaker = clusterWindow(filterGeno, initialStart, window, diff, minNotMissing); //1
 			myClusterMaker.sortClusters(); //2
 			myClusterMaker.moveAllHaplotypesToBiggestCluster(diff); //3
-			myClusterMaker.removeHeterozygousClusters(5);
+			myClusterMaker.removeHeterozygousClusters(5 + diff);
 			
 			h0 = new Haplotype(myClusterMaker.getClusterList().get(0).getMajorityHaplotype());
 			h1 = new Haplotype(myClusterMaker.getClusterList().get(1).getMajorityHaplotype());
@@ -194,13 +194,16 @@ public class BiparentalHaplotypeFinder {
 		
 		for (int start = initialStart + startIncr; start < nsites - overlap; start += startIncr) {
 			int windowSize = window;
-			if (start + window >= nsites) windowSize = nsites - start;
+			if (start + window >= nsites) {
+			    windowSize = nsites - start;
+			    diff = diff * windowSize / window;
+			}
 			int minNotMissingAdjusted = (int) (windowSize * minNotMissingProportion);
 			HaplotypeClusterer myClusterMaker = clusterWindow(filterGeno, start, windowSize, diff, minNotMissingAdjusted); //1
-			
+
 			myClusterMaker.sortClusters(); //2
 			myClusterMaker.moveAllHaplotypesToBiggestCluster(diff); //3
-			myClusterMaker.removeHeterozygousClusters(5);
+			myClusterMaker.removeHeterozygousClusters(diff + 5);
 			addHaplotypesToReport(myClusterMaker, start);
 
 			//get major haplotypes
@@ -220,15 +223,19 @@ public class BiparentalHaplotypeFinder {
 		parentHaplotypes.get(0).add(h0);
 		parentHaplotypes.get(1).clear();
 		parentHaplotypes.get(1).add(h1);
+		diff = maxDifferenceScore;
 		for (int start = (initialStart - startIncr); start > -startIncr; start -= startIncr) {
 			int end = start + window;
-			if (start < 0) start = 0;
+			if (start < 0) {
+			    start = 0;
+			    diff = diff * (end - start) / window;
+			}
 			int windowSize = end - start;
 			int minNotMissingAdjusted = (int) (windowSize * minNotMissingProportion);
 			HaplotypeClusterer myClusterMaker = clusterWindow(myPopulationData.original, start, windowSize, diff, minNotMissingAdjusted); //1
 			myClusterMaker.sortClusters(); //2
 			myClusterMaker.moveAllHaplotypesToBiggestCluster(diff); //3
-			myClusterMaker.removeHeterozygousClusters(5);
+			myClusterMaker.removeHeterozygousClusters(5 + diff);
 			addHaplotypesToReport(myClusterMaker, start);
 			
 			//get major haplotypes
