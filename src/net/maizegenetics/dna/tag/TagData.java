@@ -221,4 +221,9 @@ public interface TagData {
     Return a map of the all counts for a given Taxon and tissue
      */
     Phenotype getAllCountsForTissue(String tissue);
+    
+    /**
+     * Return the set of tissue
+     */
+    Set<String> getAllTissue();
 }
