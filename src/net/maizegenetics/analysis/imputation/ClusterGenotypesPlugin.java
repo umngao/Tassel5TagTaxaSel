@@ -153,18 +153,23 @@ public class ClusterGenotypesPlugin extends AbstractPlugin {
 			throw new RuntimeException("No haplotypes to cluster");
 		HaplotypeClusterer clusterMaker = new HaplotypeClusterer(hapList);
 		clusterMaker.makeClusters();
+		
+		if (clusterOnce.value()) 
+		    clusterMaker.moveAllHaplotypesToBiggestCluster(maxDiff.value());
+		else 
+		    clusterMaker.mergeClusters(maxDiff.value());
+		
 		clusterMaker.sortClusters();
-		if (clusterOnce.value()) clusterMaker.moveAllHaplotypesToBiggestCluster(maxDiff.value());
-		else clusterMaker.mergeClusters(maxDiff.value());
 		ArrayList<HaplotypeCluster> clusterList = clusterMaker.getClusterList();
 		GenotypeTableBuilder genoBuilder = GenotypeTableBuilder
 				.getTaxaIncremental(filterPosList);
 		int count = 0;
+		int minSize = minHap.value();
 		for (HaplotypeCluster cluster : clusterList) {
-			String name = String.format("Cluster%d:%d", count++,
-					cluster.getSize());
-//			genoBuilder.addTaxon(new Taxon(name), cluster.getHaplotype());
-			genoBuilder.addTaxon(new Taxon(name), cluster.getMajorityHaplotype());
+			String name = String.format("Cluster%d:%d(%1.1f)", count++,
+					cluster.getSize(), cluster.getScore());
+			if (cluster.getSize() >= minSize) 
+			    genoBuilder.addTaxon(new Taxon(name), cluster.getMajorityHaplotype());
 		}
 
 		List<Datum> resultList = new ArrayList<>();
