@@ -12,7 +12,7 @@ import net.maizegenetics.util.BitSet;
  * @author Terry Casstevens
  */
 public class MaskGenotypeCallTable extends AbstractGenotypeCallTable {
-    
+
     private final GenotypeCallTable myBase;
     private final byte myMaskValue;
     private final BitSet[] myBitSets;
@@ -26,11 +26,26 @@ public class MaskGenotypeCallTable extends AbstractGenotypeCallTable {
 
     @Override
     public byte genotype(int taxon, int site) {
-        if (myBitSets[taxon].get(site)) {
+        if (myBitSets[taxon].fastGet(site)) {
             return myMaskValue;
         } else {
             return myBase.genotype(taxon, site);
         }
+    }
+
+    @Override
+    public String genotypeAsString(int taxon, int site) {
+        return myBase.diploidAsString(site, genotype(taxon, site));
+    }
+
+    @Override
+    public String genotypeAsStringRange(int taxon, int startSite, int endSite) {
+        return myBase.genotypeAsStringRange(taxon, startSite, endSite);
+    }
+
+    @Override
+    public String diploidAsString(int site, byte value) {
+        return myBase.diploidAsString(site, value);
     }
 
     @Override

@@ -483,12 +483,13 @@ public class PhenotypeBuilder {
 				taxaList.add(new Taxon(values[0]));
 				for (int i = 0; i < ntraits; i++) {
 					float val;
-					if (values[i + 1].startsWith("-99")) {
+					String inval = values[i + 1].trim();
+					if (inval.equals("-99") || inval.equals("-999")) {
 						val = Float.NaN;
 					}
 					else {
 						try {
-							val = Float.parseFloat(values[i + 1]);
+							val = Float.parseFloat(inval);
 						} catch (NumberFormatException e) {
 							val = Float.NaN;
 						}
