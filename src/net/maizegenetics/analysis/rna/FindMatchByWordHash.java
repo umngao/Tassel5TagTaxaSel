@@ -4,6 +4,7 @@ import com.google.common.collect.*;
 import com.google.common.primitives.Ints;
 import net.maizegenetics.dna.BaseEncoder;
 import net.maizegenetics.dna.tag.Tag;
+import net.maizegenetics.util.Tuple;
 import org.biojava.nbio.alignment.Alignments;
 import org.biojava.nbio.alignment.SimpleGapPenalty;
 import org.biojava.nbio.alignment.SubstitutionMatrixHelper;
@@ -189,6 +190,66 @@ public class FindMatchByWordHash {
                 '}';
     }
 
+    public static Tuple<Integer,Integer> calcIdentity(String querySeq, String refSeq) {
+        int seedLength=6;
+        //forward
+        int start=refSeq.indexOf(querySeq.substring(0,seedLength));
+        int matchLength=0;
+        int identical=0;
+        for (int i = 0; i <querySeq.length(); i++) {
+            if(querySeq.charAt(i)==refSeq.charAt(i+start)) identical++;
+            matchLength++;
+        }
+        //reverse
+        return new Tuple<>(matchLength,identical);
+    }
+
+    public static int LevenshteinDistance(byte[] s, byte[] t) {
+        // degenerate cases
+        if (s == t) return 0;
+        if (s.length == 0) return t.length;
+        if (t.length == 0) return s.length;
+
+        // create two work vectors of integer distances
+        int[] v0 = new int[t.length + 1];
+        int[] v1 = new int[s.length + 1];
+
+        // initialize v0 (the previous row of distances)
+        // this row is A[0][i]: edit distance for an empty s
+        // the distance is just the number of characters to delete from t
+        FillConsecutive(v0);
+
+        for (int i = 0; i < s.length; i++) {
+            //System.out.println(Arrays.toString(v0));
+            // calculate v1 (current row distances) from the previous row v0
+
+            // first element of v1 is A[i+1][0]
+            //   edit distance is delete (i+1) chars from s to match empty t
+            v1[0] = i + 1;
+
+            // use formula to fill in the rest of the row
+            for (int j = 0; j < t.length; j++)
+                v1[j + 1] = Math.min(v1[j] + 1, Math.min(v0[j + 1] + 1, v0[j] + mismatchCost(s, i, t, j)));
+
+            // copy v1 (current row) to v0 (previous row) for next iteration
+            //CopyArray(v0, v1);
+            System.arraycopy(v1, 0, v0, 0, v0.length);
+
+        }
+
+        return v1[t.length];
+    }
+
+    private static void FillConsecutive(int[] v) {
+        for (int i = 0; i < v.length; i++)
+            v[i] = i;
+    }
+
+    private static int mismatchCost(byte[] s, int i, byte[] t, int j) {
+        return (s[i] != t[j])?1:0;
+    }
+
+
     private static int mode(int[] array) {
         HashMap<Integer, Integer> cntMap = new HashMap<>();
         int maxCnt = 1, mode = array[0];
@@ -268,7 +329,7 @@ public class FindMatchByWordHash {
         }
 
         public boolean isPresent() {
-            return tag==null;
+            return tag!=null;
         }
 
         public Tag tag() {
