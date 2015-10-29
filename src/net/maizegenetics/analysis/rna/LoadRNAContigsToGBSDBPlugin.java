@@ -83,7 +83,16 @@ public class LoadRNAContigsToGBSDBPlugin extends AbstractPlugin {
                 lineNumber++;
                 if (line.startsWith(">")) {
                     if(header!=null) {
-                        contigNameMap.put(TagBuilder.instance(seq.toString()).build(), header);
+                        Tag newTag = TagBuilder.instance(seq.toString()).build();
+                        // Tag is null if sequence contains anything other than A,G,C,T
+                        // Also null:  A tag consisting of 32 T's becomes -1 in "getLongFromSequence", 
+                        // which results in a "null" tag (seen in the Zea_mays.AGPv3 chromosome files
+                        // when running GBSv2 SAMToGBSdbPlugin)
+                        
+                       // System.out.println("LoadRNAContigsToGBSDBPlugin: processData, NULL tag for sequence: " + seq.toString());
+                        if (newTag != null) {
+                            contigNameMap.put(newTag, header);
+                        }
                     }
                     //reset to new sequence
                     header=line;
@@ -93,7 +102,11 @@ public class LoadRNAContigsToGBSDBPlugin extends AbstractPlugin {
                 }
             }
             if(header!=null) {
-                contigNameMap.put(TagBuilder.instance(seq.toString()).build(),header);
+                Tag newTag = TagBuilder.instance(seq.toString()).build();
+                if (newTag != null) {
+                    contigNameMap.put(newTag,header);
+                }
+                
             }
             tdw.putAllNamesTag(contigNameMap);  //add map to databse
             ((TagDataSQLite)tdw).close();
