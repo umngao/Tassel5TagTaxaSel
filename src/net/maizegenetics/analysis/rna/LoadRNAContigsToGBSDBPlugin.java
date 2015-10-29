@@ -87,11 +87,11 @@ public class LoadRNAContigsToGBSDBPlugin extends AbstractPlugin {
                         // Tag is null if sequence contains anything other than A,G,C,T
                         // Also null:  A tag consisting of 32 T's becomes -1 in "getLongFromSequence", 
                         // which results in a "null" tag (seen in the Zea_mays.AGPv3 chromosome files
-                        // when running GBSv2 SAMToGBSdbPlugin)
-                        
-                       // System.out.println("LoadRNAContigsToGBSDBPlugin: processData, NULL tag for sequence: " + seq.toString());
+                        // when running GBSv2 SAMToGBSdbPlugin) 
                         if (newTag != null) {
                             contigNameMap.put(newTag, header);
+                        } else {
+                            // System.out.println("LoadRNAContigsToGBSDBPlugin: processData, NULL tag for sequence: " + seq.toString());  
                         }
                     }
                     //reset to new sequence
