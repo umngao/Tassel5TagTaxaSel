@@ -26,8 +26,8 @@ import java.util.Set;
  */
 public class CombineDataSetsPlugin extends AbstractPlugin {
 
-    private Map myDataSets = new LinkedHashMap();
-    private Map myOnceDataSets = new LinkedHashMap();
+    private final Map<Plugin, DataSet> myDataSets = new LinkedHashMap<>();
+    private final Map<Plugin, DataSet> myOnceDataSets = new LinkedHashMap<>();
 
     /**
      * Creates a new instance of CombineDataSetsPlugin
@@ -39,19 +39,21 @@ public class CombineDataSetsPlugin extends AbstractPlugin {
     /**
      * Returns combined data set if all inputs have been received.
      *
-     * @param dataSet Not used.
+     * @param dataSet Not used. All input received from listening to other
+     * plugins.
      */
+    @Override
     public DataSet performFunction(DataSet dataSet) {
 
         try {
 
-            List dataSets = null;
+            List<DataSet> dataSets;
             synchronized (myDataSets) {
                 if ((myDataSets.containsValue(null)) || myOnceDataSets.containsValue(null)) {
                     return null;
                 }
 
-                dataSets = new ArrayList();
+                dataSets = new ArrayList<>();
 
                 dataSets.addAll(myDataSets.values());
                 dataSets.addAll(myOnceDataSets.values());
@@ -70,48 +72,34 @@ public class CombineDataSetsPlugin extends AbstractPlugin {
 
     }
 
-    /**
-     * Same as performFunction except this doesn't wait to receive all inputs.
-     */
-    public void flush() {
-
-        List dataSets = new ArrayList();
-
-        dataSets.addAll(myDataSets.values());
-        dataSets.addAll(myOnceDataSets.values());
-
-        reset();
-
-        if (dataSets.size() > 0) {
-            fireDataSetReturned(DataSet.getDataSet(dataSets, this));
-        }
-
-    }
-
     public void reset() {
 
         // Clear only values.
         // Method dataSetReturned knows what inputs
         // to expect based on keys stored here.
-        Set keys = myDataSets.keySet();
-        for (Iterator itr = keys.iterator(); itr.hasNext();) {
+        Set<Plugin> keys = myDataSets.keySet();
+        for (Iterator<Plugin> itr = keys.iterator(); itr.hasNext();) {
             myDataSets.put(itr.next(), null);
         }
 
     }
 
+    @Override
     public String getToolTipText() {
         return "";
     }
 
+    @Override
     public ImageIcon getIcon() {
         return null;
     }
 
+    @Override
     public String getButtonName() {
         return "Combine";
     }
 
+    @Override
     public void dataSetReturned(PluginEvent event) {
 
         DataSet input = (DataSet) event.getSource();
@@ -165,17 +153,19 @@ public class CombineDataSetsPlugin extends AbstractPlugin {
      *
      * @param input input
      */
+    @Override
     public void receiveInput(Plugin input) {
         receiveDataSetFrom(input);
     }
 
+    @Override
     public String toString() {
 
         StringBuilder str = new StringBuilder();
 
-        Iterator itr = myDataSets.values().iterator();
+        Iterator<DataSet> itr = myDataSets.values().iterator();
         while (itr.hasNext()) {
-            DataSet current = (DataSet) itr.next();
+            DataSet current = itr.next();
             if (current != null) {
                 str.append(current.toString());
             }
