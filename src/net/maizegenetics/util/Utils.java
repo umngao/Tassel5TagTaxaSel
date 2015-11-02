@@ -352,7 +352,8 @@ public final class Utils {
 
     public static String addGzSuffixIfNeeded(String filename, String suffix) {
         String gzipSuffix = suffix + ".gz";
-        return addSuffixIfNeeded(filename, gzipSuffix, new String[]{suffix, gzipSuffix});
+        String result = addSuffixIfNeeded(filename, gzipSuffix, new String[]{suffix, gzipSuffix});
+        return addSuffixIfNeeded(result, ".gz");
     }
 
     /**

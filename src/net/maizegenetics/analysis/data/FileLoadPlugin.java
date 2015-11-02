@@ -27,6 +27,7 @@ import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.dna.map.TOPMUtils;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.io.JSONUtils;
+import net.maizegenetics.dna.snp.io.FilterJSONUtils;
 
 import org.apache.log4j.Logger;
 
@@ -74,8 +75,9 @@ public class FileLoadPlugin extends AbstractPlugin {
     public static final String FILE_EXT_VCF = ".vcf";
     public static final String FILE_EXT_TOPM = ".topm";
     public static final String FILE_EXT_TOPM_H5 = ".topm.h5";
+    public static final String FILE_EXT_TOPM_BIN = ".topm.bin";
+    public static final String FILE_EXT_TOPM_TEXT = ".topm.txt";
     public static final String FILE_EXT_FASTA = ".fasta";
-    public static final String FILE_EXT_FILTER = ".filter";
 
     /**
      * Creates a new instance of FileLoadPlugin
@@ -93,7 +95,7 @@ public class FileLoadPlugin extends AbstractPlugin {
     public DataSet performFunction(DataSet input) {
 
         myWasCancelled = true;
-        
+
         try {
 
             if (isInteractive()) {
@@ -186,7 +188,8 @@ public class FileLoadPlugin extends AbstractPlugin {
                             myLogger.info("guessAtUnknowns: type: " + TasselFileType.Hapmap);
                             alreadyLoaded.add(myOpenFiles[i]);
                             tds = processDatum(myOpenFiles[i], TasselFileType.Hapmap);
-                        } else if ((myOpenFiles[i].endsWith(FILE_EXT_TOPM_H5)) || (myOpenFiles[i].endsWith(FILE_EXT_TOPM))) {
+                        } else if ((myOpenFiles[i].endsWith(FILE_EXT_TOPM_H5)) || (myOpenFiles[i].endsWith(FILE_EXT_TOPM))
+                                || (myOpenFiles[i].endsWith(FILE_EXT_TOPM_BIN)) || (myOpenFiles[i].endsWith(FILE_EXT_TOPM_TEXT))) {
                             myLogger.info("guessAtUnknowns: type: " + TasselFileType.TOPM);
                             alreadyLoaded.add(myOpenFiles[i]);
                             tds = processDatum(myOpenFiles[i], TasselFileType.TOPM);
@@ -248,6 +251,7 @@ public class FileLoadPlugin extends AbstractPlugin {
                 timeStr = time.format(DateTimeFormatter.ofPattern("MMM d, uuuu H:mm:s"));
                 if (tds != null) {
                     myLogger.info("Finished Loading File: " + myOpenFiles[i] + " time: " + timeStr);
+                    GenotypeSummaryPlugin.printSimpleSummary(tds);
                     myWasCancelled = false;
                     result.add(tds);
                     fireDataSetReturned(new PluginEvent(tds, FileLoadPlugin.class));
@@ -300,6 +304,8 @@ public class FileLoadPlugin extends AbstractPlugin {
                     guess = TasselFileType.TaxaList;
                 } else if (temp.startsWith("\"PositionList\"")) {
                     guess = TasselFileType.PositionList;
+                } else if (temp.startsWith("\"Filter\"")) {
+                    guess = TasselFileType.Filter;
                 }
             } else if (line1.startsWith("<") || line1.startsWith("#")) {
                 boolean isTrait = false;
@@ -348,6 +354,8 @@ public class FileLoadPlugin extends AbstractPlugin {
                 } else if (isMarker && isNumeric) {
                     guess = TasselFileType.NumericGenotype;
                 } else {
+                    myLogger.warn("Line1: " + line1);
+                    myLogger.warn("Line2: " + line2);
                     throw new IOException("Improperly formatted header. Data will not be imported.");
                 }
             } else if ((line1.startsWith(">")) || (line1.startsWith(";"))) {
@@ -464,6 +472,10 @@ public class FileLoadPlugin extends AbstractPlugin {
                 }
                 case TOPM: {
                     result = TOPMUtils.readTOPM(inFile);
+                    break;
+                }
+                case Filter: {
+                    result = FilterJSONUtils.importJSONToFilter(inFile);
                     break;
                 }
             }

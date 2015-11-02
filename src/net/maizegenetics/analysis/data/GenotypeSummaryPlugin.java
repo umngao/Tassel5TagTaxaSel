@@ -21,6 +21,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import net.maizegenetics.dna.map.PositionList;
 
 /**
  *
@@ -229,10 +230,19 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
             new SimpleTableReport("Allele Summary", alleleColumnNames, data2)};
     }
 
-    private void printSimpleSummary(DataSet input) {
-
+    public static void printSimpleSummary(DataSet input) {
+        if (input == null) {
+            return;
+        }
         List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
-        Datum current = alignInList.get(0);
+        if (alignInList.isEmpty()) {
+            return;
+        }
+        printSimpleSummary(alignInList.get(0));
+    }
+
+    public static void printSimpleSummary(Datum current) {
+
         GenotypeTable alignment = (GenotypeTable) current.getData();
         String name = current.getName();
 
@@ -248,9 +258,10 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
 
         System.out.println("Chromosomes...");
         Chromosome[] chromosomes = alignment.chromosomes();
+        PositionList positions = alignment.positions();
         for (int i = 0; i < chromosomes.length; i++) {
             int[] startEnd = alignment.firstLastSiteOfChromosome(chromosomes[i]);
-            System.out.println(chromosomes[i].getName() + ": start site: " + startEnd[0] + " last site: " + startEnd[1] + " total: " + (startEnd[1] - startEnd[0] + 1));
+            System.out.println(chromosomes[i].getName() + ": start site: " + startEnd[0] + " (" + positions.get(startEnd[0]).getPosition() + ") last site: " + startEnd[1] + " (" + positions.get(startEnd[1]).getPosition() + ") total: " + (startEnd[1] - startEnd[0] + 1));
         }
         System.out.println();
 

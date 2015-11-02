@@ -23,14 +23,14 @@ import org.apache.log4j.Logger;
  * @author Terry Casstevens
  */
 public class FilterJSONUtils {
-    
+
     private static final Logger myLogger = Logger.getLogger(FilterJSONUtils.class);
-    
+
     private FilterJSONUtils() {
         // utility
     }
-    
-    public static void exportFilterToJSON(FilterList filters, String filename) {
+
+    public static String exportFilterToJSON(FilterList filters, String filename) {
         filename = Utils.addGzSuffixIfNeeded(filename, ".json");
         try (BufferedWriter writer = Utils.getBufferedWriter(filename)) {
             Map<String, Object> properties = new HashMap<>(1);
@@ -49,12 +49,13 @@ public class FilterJSONUtils {
                 generator.writeEnd();
                 generator.writeEnd();
             }
+            return filename;
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
             throw new IllegalStateException("FilterJSONUtils: exportFilterToJSON: problem saving file: " + filename + "\n" + e.getMessage());
         }
     }
-    
+
     private static void filterToJSON(FilterSite filter, JsonGenerator generator) {
         generator.writeStartObject();
         generator.writeStartObject("FilterSite");
@@ -65,9 +66,13 @@ public class FilterJSONUtils {
         generator.writeEnd();
         generator.writeEnd();
     }
-    
+
     private static void filterToJSON(FilterTaxa filter, JsonGenerator generator) {
-        
+
     }
-    
+
+    public static FilterList importJSONToFilter(String filename) {
+        return null;
+    }
+
 }
