@@ -33,7 +33,7 @@ public class RemoveNaNFromDistanceMatrixPlugin extends AbstractPlugin {
 
         List<Datum> temp = input.getDataOfType(DistanceMatrix.class);
         if (temp.size() != 1) {
-            throw new IllegalArgumentException("RemoveNaNFromDistanceMatrixPlugin: preProcessParameters: Must select one Distance Matrix");
+            throw new IllegalArgumentException("RemoveNaNFromDistanceMatrixPlugin: processData: Must select one Distance Matrix");
         }
 
         DistanceMatrix origMatrix = (DistanceMatrix) temp.get(0).getData();
