@@ -515,6 +515,11 @@ public class GenotypeTableUtils {
         if ((bedFile != null) && (!bedFile.isEmpty())) {
             result = filterSitesByBedFile(result, bedFile, filter.includeSites());
         }
+        
+        String chrPosFile = filter.chrPosFile();
+        if ((chrPosFile != null) && (!chrPosFile.isEmpty())) {
+            result = filterSitesByChrPos(result, chrPosFile, filter.includeSites());
+        }
 
         if ((filter.siteMinAlleleFreq() != 0.0) || (filter.siteMaxAlleleFreq() != 1.0) || (filter.siteMinCount() != 0)) {
             result = removeSitesBasedOnFreqIgnoreMissing(result, filter.siteMinAlleleFreq(), filter.siteMaxAlleleFreq(), filter.siteMinCount());

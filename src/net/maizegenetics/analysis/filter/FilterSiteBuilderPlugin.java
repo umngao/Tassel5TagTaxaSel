@@ -9,6 +9,7 @@ import com.google.common.collect.Range;
 
 import java.awt.Frame;
 import java.lang.reflect.Field;
+import java.net.URL;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -17,6 +18,7 @@ import java.util.Map;
 
 import javax.swing.ImageIcon;
 
+import net.maizegenetics.analysis.data.GenotypeSummaryPlugin;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.FilterList;
@@ -105,6 +107,10 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
             .inFile()
             .dependentOnParameter(myPositionList, POSITION_LIST_NONE)
             .description("Filter based on BED file.")
+            .build();
+    private PluginParameter<String> myChrPosFile = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.chrPosFile.name(), null, String.class)
+            .inFile()
+            .description("Filter based on list of chromsome / position in file.")
             .build();
 
     public FilterSiteBuilderPlugin(Frame parentFrame, boolean isInteractive) {
@@ -244,7 +250,11 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
                 GenotypeTable current = (GenotypeTable) datum.getData();
                 GenotypeTable filteredGenotype = GenotypeTableUtils.filter(filter, current);
                 if (filteredGenotype != current) {
-                    result.add(new Datum(datum.getName() + "_" + filter.filterName(), filteredGenotype, null));
+                    Datum temp = new Datum(datum.getName() + "_" + filter.filterName(), filteredGenotype, null);
+                    result.add(temp);
+                    GenotypeSummaryPlugin.printSimpleSummary(temp);
+                } else {
+                    myLogger.info("processData: " + datum.getName() + " unchanged.");
                 }
             }
         }
@@ -302,7 +312,12 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        return null;
+        URL imageURL = FilterSiteBuilderPlugin.class.getResource("/net/maizegenetics/analysis/images/FilterNew.gif");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
     }
 
     @Override
@@ -343,7 +358,7 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
     public GenotypeTable runPlugin(DataSet input) {
         return (GenotypeTable) performFunction(input).getDataOfType(GenotypeTable.class).get(0).getData();
     }
-    
+
     public GenotypeTable runPlugin(GenotypeTable input) {
         return (GenotypeTable) performFunction(DataSet.getDataSet(input)).getDataOfType(GenotypeTable.class).get(0).getData();
     }
@@ -664,7 +679,7 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
         mySiteNamesList = new PluginParameter<>(mySiteNamesList, value);
         return this;
     }
-    
+
     /**
      * Filter based on BED file.
      *
@@ -683,6 +698,27 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
      */
     public FilterSiteBuilderPlugin bedFile(String value) {
         myBedFile = new PluginParameter<>(myBedFile, value);
+        return this;
+    }
+
+    /**
+     * Filter based on list of chromsome / position in file.
+     *
+     * @return Chr Pos File
+     */
+    public String chrPosFile() {
+        return myChrPosFile.value();
+    }
+
+    /**
+     * Set Chr Pos File. Filter based on list of chromsome / position in file.
+     *
+     * @param value Chr Pos File
+     *
+     * @return this plugin
+     */
+    public FilterSiteBuilderPlugin chrPosFile(String value) {
+        myChrPosFile = new PluginParameter<>(myChrPosFile, value);
         return this;
     }
 
