@@ -86,6 +86,11 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
             // Cull files that are not represented in the given key file 
             // This is useful when a user keeps all fastq files in a single
             // directory, but uses the key file to determine which files to run.
+            // Commented out here as culledFiles expects to find the flowcell and
+            // lane from the file name, required 3,4 or 5 underscores with the
+            // the number of underscores determining the flowcell/lane position/value.
+            // NOTE: When we "cull" the files, we don't read them, we merely look at the names
+            // to determine whether to include them or not.
            // List<Path> inputSeqFiles = GBSUtils.culledFiles(directoryFiles,keyPath);
             List<Path> inputSeqFiles = directoryFiles;
             if (inputSeqFiles.size() == 0) return null; // no files in this directory to process
@@ -94,14 +99,16 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
             TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), sampleNameField, new HashMap<>(), true);
             
             //  clear existing db.
-            try {
-               Files.delete(Paths.get(outputDatabaseFile()));
-            } catch (Exception exc){
-               System.out.println("Error when trying to delete database file: " + outputDatabaseFile());
-               System.out.println("File delete error: " + exc.getMessage());
-               return null;
+            if (Files.exists(Paths.get(myOutputDB.value()))) {
+                try {
+                    Files.delete(Paths.get(outputDatabaseFile()));
+                 } catch (Exception exc){
+                    System.out.println("Error when trying to delete database file: " + outputDatabaseFile());
+                    System.out.println("File delete error: " + exc.getMessage());
+                    return null;
+                 }
             }
- 
+  
             TagDataWriter tdw=new TagDataSQLite(outputDatabaseFile());
             taglenException = false;
             for (int i = 0; i < inputSeqFiles.size(); i+=myBatchSize) {
@@ -177,7 +184,7 @@ public class RNADeMultiPlexSeqToDBPlugin extends AbstractPlugin{
        // ArrayList<Taxon> tl=GBSUtils.getLaneAnnotatedTaxaList(keyPath, fastQPath);
         // Call readTaxaANnotationFileAL directly to avoid needing to name files
         // with a specific number of underscores.
-        ArrayList<Taxon> tl=TaxaListIOUtils.readTaxaAnnotationFileAL(keyPath.toString(), GBSUtils.sampleNameField, new HashMap<>());
+        ArrayList<Taxon> tl=TaxaListIOUtils.readTaxaAnnotationFileAL(keyPath.toAbsolutePath().toString(), GBSUtils.sampleNameField, new HashMap<>());
         if (tl.size() == 0) return; 
         BarcodeTrie barcodeTrie=GBSUtils.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
         try {
