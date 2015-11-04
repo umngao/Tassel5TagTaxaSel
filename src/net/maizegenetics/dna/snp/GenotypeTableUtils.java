@@ -515,7 +515,7 @@ public class GenotypeTableUtils {
         if ((bedFile != null) && (!bedFile.isEmpty())) {
             result = filterSitesByBedFile(result, bedFile, filter.includeSites());
         }
-        
+
         String chrPosFile = filter.chrPosFile();
         if ((chrPosFile != null) && (!chrPosFile.isEmpty())) {
             result = filterSitesByChrPos(result, chrPosFile, filter.includeSites());
@@ -558,10 +558,6 @@ public class GenotypeTableUtils {
 
     public static GenotypeTable filterSitesByBedFile(GenotypeTable input, String bedFile, boolean includeSites) {
 
-        if (!includeSites) {
-            throw new UnsupportedOperationException();
-        }
-
         int numSites = input.numberOfSites();
         BitSet sitesToInclude = new OpenBitSet(numSites);
         String line = null;
@@ -590,6 +586,10 @@ public class GenotypeTableUtils {
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
             throw new IllegalStateException("filterSitesByBedFile: problem reading: " + bedFile + " line: " + line);
+        }
+
+        if (!includeSites) {
+            sitesToInclude.flip(0, numSites);
         }
 
         int numNewSites = (int) sitesToInclude.cardinality();
