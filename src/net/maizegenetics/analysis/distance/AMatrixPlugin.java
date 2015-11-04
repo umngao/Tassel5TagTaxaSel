@@ -185,7 +185,7 @@ public class AMatrixPlugin extends AbstractPlugin {
         Progeny X = myProgeny.get(x);
         Progeny Y = myProgeny.get(y);
         if (x == y) {
-            result = 1 + calcMatrix(X.parent1, X.parent2);
+            result = 1 + (calcMatrix(X.parent1, X.parent2) / 2);
         } else {
             int F1 = X.parent1;
             int F2 = Y.parent1;

@@ -31,13 +31,13 @@ import net.maizegenetics.taxa.distance.DistanceMatrix;
 public class HMatrixPlugin extends AbstractPlugin {
 
     private PluginParameter<DistanceMatrix> myAMatrix = new PluginParameter.Builder<>("pedigreeMatrix", null, DistanceMatrix.class)
-            .description("Pedigree Matrix")
+            .description("Pedigree Matrix (A Matrix)")
             .required(true)
             .distanceMatrix()
             .build();
 
     private PluginParameter<DistanceMatrix> myGMatrix = new PluginParameter.Builder<>("kinshipMatrix", null, DistanceMatrix.class)
-            .description("Kinship Matrix")
+            .description("Kinship Matrix (G Matrix)")
             .required(true)
             .distanceMatrix()
             .build();
@@ -63,8 +63,8 @@ public class HMatrixPlugin extends AbstractPlugin {
         gDoubleMatrix.invert();
         DistanceMatrix gInverse = new DistanceMatrix(gDoubleMatrix.toArray(), gMatrix().getTaxaList());
 
-        DistanceMatrix matrix = generateHybridMatrix(aInverse, gInverse, weight());
-        result.add(new Datum("Hybrid Genomic Matrix", matrix, null));
+        DistanceMatrix matrix = generateCombinedMatrix(aInverse, gInverse, weight());
+        result.add(new Datum("Combined A and G Matrix", matrix, null));
         result.add(new Datum("A Matrix Inverse", aInverse, null));
         result.add(new Datum("G Matrix Inverse", gInverse, null));
 
@@ -151,18 +151,18 @@ public class HMatrixPlugin extends AbstractPlugin {
     /**
      * Given the inverse of an A matrix (Pedigree Kinship matrix) and a G Matrix
      * (Genetic Kinship Matrix) which contains mostly entries in the A Matrix
-     * creates a hybrid (H) matrix.
+     * creates a combined (H) matrix.
      *
      * @param aInverse Inverted Pedigree kinship(A) matrix
      * @param gInverse Inverted kinship(G) matrix. Should contain mostly Taxa in
      * common with A matrix for best results
      * @param weight 0.0 to 1.0, the 'Trust' put in the G matrix. When creating
-     * the hybrid matrix, uses inverse G * weight + inverse A * 1-weight
-     * @return Hybrid matrix based on aInverse and gInverse
+     * the combined matrix, uses inverse G * weight + inverse A * 1-weight
+     * @return Combined matrix based on aInverse and gInverse
      */
     // Shorthand notation used: A' = A^-1 (A inverse) = A prime
     // a[1,1] is a11 from the research paper
-    public DistanceMatrix generateHybridMatrix(DistanceMatrix aInverse, DistanceMatrix gInverse, double weight) {
+    public DistanceMatrix generateCombinedMatrix(DistanceMatrix aInverse, DistanceMatrix gInverse, double weight) {
         List<Taxon> aTaxa = aInverse.getTaxaList();
         List<Taxon> gTaxa = gInverse.getTaxaList();
 
@@ -189,7 +189,7 @@ public class HMatrixPlugin extends AbstractPlugin {
         int outputSize = aTaxa.size() + gOnlyTaxa.size();
         double[][] hPrime = new double[outputSize][outputSize];
 
-        //Hybrid Matrix entries for A[1][1] are copied from A matrix
+        //Combined Matrix entries for A[1][1] are copied from A matrix
         for (int i = 0; i < aPrime.length; i++) {
             int newI = matrixOrder.indexOf(aTaxa.get(i));
             for (int j = 0; j < aPrime.length; j++) {
@@ -203,7 +203,7 @@ public class HMatrixPlugin extends AbstractPlugin {
             hPrime[newI][newI] = 1.0;
         }
 
-        //Now that we have an hybrid matrix of
+        //Now that we have a combined matrix of
         //a11 a12
         //a21 a22
         //we can replace a22 with
@@ -228,7 +228,7 @@ public class HMatrixPlugin extends AbstractPlugin {
 
     /**
      * Gets the Eigenvalue Decomposition of a distance matrix. Helpful in
-     * determining the optimal weights of a hybrid matrix.
+     * determining the optimal weights of a combined matrix.
      *
      * @param input Input matrix
      * @return Eigenvalue Decomposition of the matrix
@@ -249,12 +249,12 @@ public class HMatrixPlugin extends AbstractPlugin {
 
     @Override
     public String getButtonName() {
-        return "Hybrid Genomic Relationship Matrix";
+        return "Combined A and G Relationship Matrix";
     }
 
     @Override
     public String getToolTipText() {
-        return "Create Hybrid Genomic Relationship Matrix";
+        return "Create Combined A and G Relationship Matrix (H Matrix)";
     }
 
     @Override

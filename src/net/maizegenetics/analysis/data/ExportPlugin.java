@@ -221,9 +221,7 @@ public class ExportPlugin extends AbstractPlugin {
         }
 
         try {
-            String theFile = Utils.addSuffixIfNeeded(mySaveFile, FileLoadPlugin.FILE_EXT_FILTER);
-            FilterJSONUtils.exportFilterToJSON(filter, theFile);
-            return theFile;
+            return FilterJSONUtils.exportFilterToJSON(filter, mySaveFile);
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
             throw new IllegalStateException("ExportPlugin: performFunctionForFilter: Problem writing file: " + mySaveFile + "\n" + e.getMessage());
