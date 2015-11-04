@@ -66,7 +66,7 @@ public class FindMatchByWordHash {
         kmerMap=new HashMap<>(completeKmerMap.size()*3/2); //? why make it 1.5x larger than the complete kmer multimap if we know we will have kmers <= CompleteKmerMap.size?
         for (String kmer : completeKmerMap.keySet()) {
             Collection<Integer> tagIndices=completeKmerMap.get(kmer);
-            if(tagIndices.size()< this.maxWordCopies) { //only record key-value pairs for kmers appearing less than maxKmerCopies times
+            if(tagIndices.size()<= this.maxWordCopies) { //only record key-value pairs for kmers appearing <= maxKmerCopies times
                 kmerMap.put(kmer, Ints.toArray(tagIndices));
             }
         }

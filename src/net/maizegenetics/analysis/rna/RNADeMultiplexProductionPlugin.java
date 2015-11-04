@@ -26,7 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 
 public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
-    private static final Logger myLogger = Logger.getLogger(ProductionSNPCallerPluginV2.class);
+    private static final Logger myLogger = Logger.getLogger(RNADeMultiplexProductionPlugin.class);
 
     private PluginParameter<String> myInputDir = new PluginParameter.Builder<>("i", null, String.class).guiName("Input Directory").required(true).inDir()
             .description("Input directory containing fastq AND/OR qseq files.").build();
@@ -119,7 +119,7 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
         int batchNum = inputSeqFiles.size()/batchSize;
        
         if (inputSeqFiles.size() % batchSize !=0) batchNum++;
-        System.out.println("ProductionSNPCallerPluginV2: Total batches to process: " + batchNum);
+        System.out.println("RNADeMultiplexProductionPlugin: Total batches to process: " + batchNum);
 
 
         taglenException = false;
@@ -163,7 +163,7 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
     private void processFastQ(Path fastqFile, Taxon taxon, int minQual) throws StringIndexOutOfBoundsException {
         String tissuetaxaKey=taxon.getName()+","+taxon.getAnnotation().getTextAnnotation("Tissue")[0];
         taxatissueCntMap.putIfAbsent(tissuetaxaKey, new int[findMatchByWordHash.totalNumberOfTags()]);
-        int allReads=0, goodBarcodedReads = 0, lowQualityReads = 0;
+        int allReads=0, readsMatchedToContigs = 0, lowQualityReads = 0;
         int shortReads = 0;
         try {
             int qualityScoreBase=GBSUtils.determineQualityScoreBase(fastqFile);
@@ -198,26 +198,22 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
                 }
                 FindMatchByWordHash.Match hitIndex= findMatchByWordHash.match(sequence);
                 if(!hitIndex.isEmpty()) {
-                    goodBarcodedReads++;
+                    readsMatchedToContigs++;
                     taxatissueCntMap.get(tissuetaxaKey)[hitIndex.tagIndex()]++;
                 } else {
 
                    // if(allReads%10000==0) System.out.println(">"+allReads+"\n"+seqAndQual[0]+"\n"+sequence);
                 }
 
-                if (allReads % 1_000_000 == 0) {
-                    myLogger.info("Total Reads:" + allReads + " Reads with barcode and cut site overhang:" + goodBarcodedReads
-                            + " rate:" + (System.nanoTime()-time)/allReads +" ns/read");
-                }
             }
-            myLogger.info("Total number of reads in lane=" + allReads);
-            myLogger.info("Total number of good barcoded reads=" + goodBarcodedReads);
-            myLogger.info("Total number of low quality reads=" + lowQualityReads);
+            myLogger.info("Total number of reads in FASTQ file=" + allReads  + " rate:" + (System.nanoTime()-time)/allReads +" ns/read");
+            myLogger.info("Total number of reads matched to <= " + maxWordRepeats() + " contigs/genes=" + readsMatchedToContigs + " (adjust upper limit using maxWordRepeats)");
+            myLogger.info("Total number of rejected low quality reads and reads with non-AGCT bases=" + lowQualityReads);
             myLogger.info("Timing process (sorting, collapsing, and writing TagCount to file).");
-            myLogger.info("Process took " + (System.nanoTime() - time)/1e6 + " milliseconds for file " + fastqFile.toString());
+            myLogger.info("Process took " + (System.nanoTime() - time)/1e9 + " seconds for file " + fastqFile.toString());
             br.close();
         } catch (Exception e) {
-            myLogger.error("Good Barcodes Read: " + goodBarcodedReads);
+            myLogger.error("Matched reads: " + readsMatchedToContigs);
             e.printStackTrace();
         }
     }
@@ -234,12 +230,12 @@ public class RNADeMultiplexProductionPlugin extends AbstractPlugin {
 
     @Override
     public String getButtonName() {
-        return "Production SNP Caller";
+        return "RNA Production Counter";
     }
 
     @Override
     public String getToolTipText() {
-        return "Production SNP Caller";
+        return "RNA Production Counter";
     }
 
     // The following getters and setters were auto-generated.
