@@ -249,17 +249,19 @@ public class DataTreePanel extends JPanel implements PluginListener {
                     StringBuilder builder = new StringBuilder();
                     if (book.getData() instanceof GenotypeTable) {
                         GenotypeTable a = (GenotypeTable) book.getData();
-                        builder.append("Number of sequences: ");
+                        builder.append("Number of taxa: ");
                         builder.append(a.numberOfTaxa());
                         builder.append("\n");
                         builder.append("Number of sites: ");
                         builder.append(a.numberOfSites());
                         builder.append("\n");
                         Chromosome[] loci = a.chromosomes();
+                        PositionList positions = null;
                         boolean first = true;
                         int numLoci = 0;
                         if (loci != null) {
                             numLoci = loci.length;
+                            positions = a.positions();
                         }
                         for (int i = 0; i < numLoci; i++) {
                             String name = loci[i].getName();
@@ -267,15 +269,23 @@ public class DataTreePanel extends JPanel implements PluginListener {
                                 continue;
                             }
                             if (first) {
-                                builder.append("Loci: ");
+                                builder.append("\nChromosomes...\n\n");
                                 first = false;
-                            } else {
-                                builder.append(", ");
                             }
                             builder.append(name);
-                        }
-                        if (!first) {
-                            builder.append("\n");
+                            int[] firstLast = a.firstLastSiteOfChromosome(loci[i]);
+                            builder.append(": ");
+                            builder.append(firstLast[1] - firstLast[0] + 1);
+                            builder.append(" sites:\n");
+                            builder.append(firstLast[0]);
+                            builder.append(" (");
+                            builder.append(positions.get(firstLast[0]).getPosition());
+                            builder.append(") - ");
+                            builder.append(firstLast[1]);
+                            builder.append(" (");
+                            builder.append(positions.get(firstLast[1]).getPosition());
+                            builder.append(")");
+                            builder.append("\n\n");
                         }
                     }
                     if (book.getData() instanceof FilterGenotypeTable) {
