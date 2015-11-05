@@ -4,6 +4,7 @@
  */
 package net.maizegenetics.gui;
 
+import java.text.NumberFormat;
 import javax.swing.table.AbstractTableModel;
 
 import net.maizegenetics.util.TableReport;
@@ -13,6 +14,12 @@ import net.maizegenetics.util.TableReport;
  * @author Terry Casstevens
  */
 public class TableReportNoPagingTableModel extends AbstractTableModel {
+
+    private static final NumberFormat DECIMAL_FORMAT = NumberFormat.getNumberInstance();
+
+    static {
+        DECIMAL_FORMAT.setMaximumFractionDigits(5);
+    }
 
     private TableReport myTable = null;
     private Object[] myColumnHeadings = null;
@@ -28,18 +35,27 @@ public class TableReportNoPagingTableModel extends AbstractTableModel {
     }
 
     // Return values appropriate for the visible table part
+    @Override
     public int getRowCount() {
         return (int) Math.min((long) Integer.MAX_VALUE, myTable.getRowCount());
     }
 
+    @Override
     public int getColumnCount() {
         return myTable.getColumnCount();
     }
 
+    @Override
     public Object getValueAt(int row, int col) {
-        return myTable.getValueAt(row, col);
+        Object result = myTable.getValueAt(row, col);
+        if (result instanceof Double) {
+            return DECIMAL_FORMAT.format(result);
+        } else {
+            return myTable.getValueAt(row, col);
+        }
     }
 
+    @Override
     public String getColumnName(int col) {
         return myColumnHeadings[col].toString();
     }
@@ -57,6 +73,7 @@ public class TableReportNoPagingTableModel extends AbstractTableModel {
     /**
      * Always returns false.
      */
+    @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
         return false;
     }
@@ -64,6 +81,7 @@ public class TableReportNoPagingTableModel extends AbstractTableModel {
     /**
      * No operation.
      */
+    @Override
     public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
         // NO OPERATION
     }
@@ -72,7 +90,13 @@ public class TableReportNoPagingTableModel extends AbstractTableModel {
         fireTableStructureChanged();
     }
 
+    @Override
     public Class<?> getColumnClass(int columnIndex) {
-        return getValueAt(0, columnIndex).getClass();
+        Object value = getValueAt(0, columnIndex);
+        if (value == null) {
+            return String.class;
+        } else {
+            return value.getClass();
+        }
     }
 }
