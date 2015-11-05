@@ -127,26 +127,27 @@ public class TasselPipeline implements PluginListener {
         myIsInteractive = interactive;
         myIsThreaded = !myIsInteractive;
 
+        if ((args.length == 1) && (args[0].equalsIgnoreCase("-versionComment"))) {
+            System.out.println("Version " + TASSELMainFrame.version + " on " + TASSELMainFrame.versionDate);
+            return;
+        }
+
+        if ((args.length == 1) && (args[0].equalsIgnoreCase("-versionTag"))) {
+            System.out.println("V" + TASSELMainFrame.version);
+            return;
+        }
+
+        TasselLogging.basicLoggingInfo();
+
         final ExecutorService pool;
         if (myIsInteractive) {
             pool = null;
         } else {
             int numThreads = Runtime.getRuntime().availableProcessors() / 2;
+            numThreads = Math.max(2, numThreads);
             pool = Executors.newFixedThreadPool(numThreads);
         }
         try {
-
-            if ((args.length == 1) && (args[0].equalsIgnoreCase("-versionComment"))) {
-                System.out.println("Version " + TASSELMainFrame.version + " on " + TASSELMainFrame.versionDate);
-                return;
-            }
-
-            if ((args.length == 1) && (args[0].equalsIgnoreCase("-versionTag"))) {
-                System.out.println("V" + TASSELMainFrame.version);
-                return;
-            }
-
-            TasselLogging.basicLoggingInfo();
 
             if (myIsInteractive) {
                 myStepsDialog = new TasselPipelineStepsDialog(myMainFrame, name);
