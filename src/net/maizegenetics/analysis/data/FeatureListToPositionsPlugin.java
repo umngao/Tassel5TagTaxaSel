@@ -34,7 +34,7 @@ public class FeatureListToPositionsPlugin extends AbstractPlugin {
             .build();
 
     private PluginParameter<String> myFeatureType = new PluginParameter.Builder<>("featureType", "gene", String.class)
-            .description("Feature Type")
+            .description("Feature Type.  Examples: three_prime_utr, gene, exon, five_prime_utr, transcript, cds")
             .build();
 
     private PluginParameter<String> myFeatureListFilename = new PluginParameter.Builder<>("featureListFilename", null, String.class)
