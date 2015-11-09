@@ -156,7 +156,7 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                 int[] alleleDepths = depthsInOrder.stream().mapToInt(depths -> Arrays.stream(depths).sum()).toArray();
                 double totalDepth = (double) Arrays.stream(alleleDepths).sum();
                 StringBuilder strBuild = new StringBuilder();
-                qualMap.put("avgDepth", totalDepth / (double) subsetIndices.length);
+                qualMap.put("avgDepth", totalDepth / (double) subsetIndices.length); 
                 if (totalDepth > 0) {
                     qualMap.put("minorDepthProp", alleleDepths.length > 1 ? alleleDepths[1] / totalDepth : 0.0);
                     qualMap.put("minor2DepthProp", alleleDepths.length > 2 ? alleleDepths[2] / totalDepth : 0.0);
@@ -221,9 +221,11 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                         System.out.println("DONE. Time: "+(((double)System.currentTimeMillis()-startTimeNew)/1000));
                         System.out.print("Processing Positions between "+(adder.intValue())+" and "+(adder.intValue()+10000)+".");
                     }
-                    strBuild.append(currentMap.getKey().position().getChromosome().toString());
+
+                    // This needs to use currentPosition, NOT currentMap !!
+                    strBuild.append(currentPosition.getChromosome().toString());
                     strBuild.append("\t");
-                    strBuild.append(currentMap.getKey().position().getPosition());
+                    strBuild.append(currentPosition.getPosition());
                     strBuild.append("\t");
                     strBuild.append(qualMap.get("avgDepth"));
                     strBuild.append("\t");

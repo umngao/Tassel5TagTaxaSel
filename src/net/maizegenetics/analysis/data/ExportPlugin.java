@@ -164,7 +164,8 @@ public class ExportPlugin extends AbstractPlugin {
         try {
             if (myFileType != FileLoadPlugin.TasselFileType.SqrMatrixRaw && myFileType != FileLoadPlugin.TasselFileType.SqrMatrixBin) {
                 //if(selection == 0 ) {
-                File theFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".txt"));
+                //File theFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".txt"));
+                File theFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".txt",new String[]{".txt", ".txt.gz"}));
                 WriteDistanceMatrix.saveDelimitedDistanceMatrix(input, theFile);
                 return theFile.getCanonicalPath();
             } else if (myFileType == FileLoadPlugin.TasselFileType.SqrMatrixRaw) {

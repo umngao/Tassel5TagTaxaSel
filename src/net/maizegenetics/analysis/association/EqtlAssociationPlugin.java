@@ -134,7 +134,13 @@ public class EqtlAssociationPlugin extends AbstractPlugin {
 	private void initializeOutput() {
 		//output is a TableReport with p-value; site position information: chr, position, id; trait name
 		//add separate values for additive test and dominant test later
-		String[] columnNames = new String[]{"Trait", "Site_id", "Chr", "Position", "df", "r2", "p-value" };
+		String[] columnNames = new String[]{AssociationConstants.STATS_HEADER_TRAIT,
+				AssociationConstants.STATS_HEADER_MARKER,
+				AssociationConstants.STATS_HEADER_CHR,
+				AssociationConstants.STATS_HEADER_POSITION ,
+				"df",
+				"r2",
+				AssociationConstants.STATS_HEADER_P_VALUE};
 		String name = "EqtlReport_" + myDatum.getName();
 		if (saveAsFile.value()) myReportBuilder = TableReportBuilder.getInstance(name, columnNames, reportFilename.value());
 		else myReportBuilder = TableReportBuilder.getInstance(name, columnNames);

@@ -308,7 +308,7 @@ abstract class AbstractGenotypeCallTable implements GenotypeCallTable {
     @Override
     public byte[] minorAlleles(int site) {
         int[][] alleles = allelesSortedByFrequency(site);
-        int resultSize = alleles[0].length - 1;
+        int resultSize = Math.max(0, alleles[0].length - 1);
         byte[] result = new byte[resultSize];
         for (int i = 0; i < resultSize; i++) {
             result[i] = (byte) alleles[0][i + 1];

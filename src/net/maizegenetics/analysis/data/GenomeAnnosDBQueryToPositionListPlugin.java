@@ -127,7 +127,7 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
                 }
             }
 
-            Connection conn = connectToDB();
+            Connection conn = connectToDB(connConfigFile());
             if (conn == null) {
                 complain("\nCould not connect to DB\n");
                 return null;
@@ -236,13 +236,13 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
         return badWordsErrMsg.toString();
     }
 
-    private Connection connectToDB() {
+    public static Connection connectToDB(String configFile) {
 		Properties props = new Properties();
         try {
-            BufferedInputStream inputStream = new BufferedInputStream(new FileInputStream(connConfigFile()));
+            BufferedInputStream inputStream = new BufferedInputStream(new FileInputStream(configFile));
 			props.load(inputStream);
         } catch (IOException e) {
-            errorMessage = "Problem reading DB connection config file (" + connConfigFile() + "):\n\t" + e;
+            errorMessage = "Problem reading DB connection config file (" + configFile + "):\n\t" + e;
             myLogger.error(errorMessage);
             return null;
         }
@@ -250,24 +250,24 @@ public class GenomeAnnosDBQueryToPositionListPlugin extends AbstractPlugin {
         String password = props.getProperty("password");
         String dbName = props.getProperty("DB");
         if (user == null) {
-            errorMessage = "ERROR: Please provide a line with the user name (user=<userName>) in the DB connection config file (" + connConfigFile() + ")";
+            errorMessage = "ERROR: Please provide a line with the user name (user=<userName>) in the DB connection config file (" + configFile + ")";
             myLogger.error(errorMessage);
             return null;
         }
         if (password == null) {
-            errorMessage = "ERROR: Please provide a line with the password (password=<yourPassword>) in the DB connection config file (" + connConfigFile() + ")";
+            errorMessage = "ERROR: Please provide a line with the password (password=<yourPassword>) in the DB connection config file (" + configFile + ")";
             myLogger.error(errorMessage);
             return null;
         }
         if (dbName == null) {
-            errorMessage = "ERROR: Please provide a line with the DB name (DB=<dbName>) in the DB connection config file (" + connConfigFile() + ")";
+            errorMessage = "ERROR: Please provide a line with the DB name (DB=<dbName>) in the DB connection config file (" + configFile + ")";
             myLogger.error(errorMessage);
             return null;
         }
         return connectToDatabaseOrDie(dbName, props);
     }
 
-    private Connection connectToDatabaseOrDie(String dbName, Properties props) {
+    private static Connection connectToDatabaseOrDie(String dbName, Properties props) {
         Connection conn = null;
         String url = "not connected yet";
         String host = props.getProperty("host");
