@@ -124,6 +124,7 @@ final class PositionHDF5List implements PositionList {
         for (String ls : lociStrings) {
             chrs.add(new Chromosome(ls));
         }
+
         int[] locusIndices = reader.readIntArray(Tassel5HDF5Constants.CHROMOSOME_INDICES);
         myChrOffPosTree=new TreeMap<>();
         myChrNameHash=new HashMap<>();
@@ -133,15 +134,43 @@ final class PositionHDF5List implements PositionList {
         chrIndex=new Chromosome[chrs.size()];
         int cI=0;
         for (int i=0; i<locusIndices.length; i++) {
-            if((i==(locusIndices.length-1))||currLocusIndex!=locusIndices[i]) {
-                int end=(i==locusIndices.length-1)?i:i-1;
-                int[] cPos=Arrays.copyOfRange(variableSites,currStart,end+1);
+            // Check for next loci.  if loci has changed, store
+            // the beginning/end position indices for the previous loci
+            if((i==(locusIndices.length-1))||currLocusIndex!=locusIndices[i]) {  
+                //int end=(i==locusIndices.length-1)?i:i-1;
+                int end=((i==(locusIndices.length-1 ))&& (currLocusIndex==locusIndices[i]))?i:i-1;
+                
+                // Using endRange variable instead of "end/end+i" as the value 
+                // varies based on whether we are at the last element in the array.  
+                // Found that without this, when both the last and the second-to-last
+                // positions each belong to a single chromosome, the last position ended
+                // up being counted with both the second-to-last chromosome AND the last
+                // chromosome.  See TAS-915
+                int endRange = (i==locusIndices.length-1)?i+1:i; 
+                int[] cPos=Arrays.copyOfRange(variableSites,currStart,endRange); 
                 Chromosome currChr=chrs.get(currLocusIndex);
                 myChrOffPosTree.put(currChr, new ChrOffPos(currStart, end, cPos));
                 myChrNameHash.put(currChr.getName(),currChr);
                 chrOffsets[cI]=currStart;
                 chrIndex[cI]=currChr;
                 cI++;
+                if (i==(locusIndices.length-1) && currLocusIndex !=locusIndices[i]){
+                    // This is the case where the last chromosome has only 1 position
+                    // Could be case of some chromosomes and lots of small contigs
+                    // not mapped onto the chromosomes.
+                    // We finished off the previous one above, now handle the last one
+                    // Without this check, the last position, if it belongs to a new loci,
+                    // is skipped.
+                    currLocusIndex=locusIndices[i];
+                    currStart = i;
+                    end = i; // start and end are the same - only 1 element
+                    int[] cPosLast=Arrays.copyOfRange(variableSites,currStart, end);
+                    Chromosome lastChr=chrs.get(currLocusIndex); 
+                    myChrOffPosTree.put(lastChr, new ChrOffPos(currStart, end, cPosLast));
+                    myChrNameHash.put(lastChr.getName(),lastChr);
+                    chrOffsets[cI]=currStart;
+                    chrIndex[cI]=currChr;
+                }                   
                 currStart=i;
                 currLocusIndex=locusIndices[i];
             }
