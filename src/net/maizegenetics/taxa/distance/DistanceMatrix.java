@@ -300,6 +300,22 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         return index;
     }
 
+    public static DistanceMatrix hadamardProduct(DistanceMatrix m0, DistanceMatrix m1) {
+        int n = m0.distance.length;
+        if (m0.distance.length != n) 
+            throw new IllegalArgumentException("Matrices must be of the same dimensions to compute a Hadamard product.");
+        
+        double[][] product = new double[n][n];
+        for (int r = 0; r < n; r++) {
+            product[r][r] = m0.distance[r][r] * m0.distance[r][r];
+            for (int c = r + 1; c < n; c++) {
+                product[r][c] = product[c][r] = m0.distance[r][c] * m0.distance[r][c];
+            }
+        }
+        
+        return new DistanceMatrix(product, m0.getTaxaList());    
+    }
+    
     @Override
     public Object[] getTableColumnNames() {
         String[] colNames = new String[getSize() + 1];
