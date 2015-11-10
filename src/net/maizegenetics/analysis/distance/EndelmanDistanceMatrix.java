@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
+import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.util.ProgressListener;
 import net.maizegenetics.util.Tuple;
@@ -139,7 +140,10 @@ public class EndelmanDistanceMatrix {
 
     protected static void fireProgress(int percent, ProgressListener listener) {
         if (listener != null) {
-            listener.progress(Math.min(percent, 100), null);
+            if (percent > 100) {
+                percent = 100;
+            }
+            listener.progress(percent, null);
         }
 
     }
@@ -209,7 +213,15 @@ public class EndelmanDistanceMatrix {
         }
     }
 
-    private static final int NUM_CORES_TO_USE = Runtime.getRuntime().availableProcessors() - 1;
+    private static final int NUM_CORES_TO_USE;
+
+    static {
+        if (TasselPrefs.getMaxThreads() > 0) {
+            NUM_CORES_TO_USE = Math.min(TasselPrefs.getMaxThreads(), Runtime.getRuntime().availableProcessors() - 1);
+        } else {
+            NUM_CORES_TO_USE = Runtime.getRuntime().availableProcessors() - 1;
+        }
+    }
 
     //
     // Used to report progress.  This is not thread-safe but
@@ -248,10 +260,7 @@ public class EndelmanDistanceMatrix {
             myFence = fence;
             myMaxAlleles = maxAlleles;
             myProgressListener = listener;
-            myMinSitesToProcess = myNumSites / NUM_CORES_TO_USE;
-            if (myMinSitesToProcess == 0) {
-                myMinSitesToProcess = myNumSites;
-            }
+            myMinSitesToProcess = Math.max(myNumSites / NUM_CORES_TO_USE, 1000);
         }
 
         @Override

@@ -372,6 +372,15 @@ public class TasselPipeline implements PluginListener {
                     myCurrentPipe = new ArrayList<>();
                     myForks.put(myCurrentFork, myCurrentPipe);
                     integratePlugin(new CombineDataSetsPlugin(), false);
+                } else if (current.equalsIgnoreCase("-maxThreads")) {
+                    String str = args[index++].trim();
+                    int numThreads = -1;
+                    try {
+                        numThreads = Integer.parseInt(str);
+                    } catch (Exception e) {
+                        throw new IllegalArgumentException("TasselPipeline: parseArgs: Problem with number of max threads: " + str);
+                    }
+                    TasselPrefs.putMaxThreads(numThreads);
                 } else if (current.equalsIgnoreCase("-t")) {
                     String traitFile = args[index++].trim();
                     loadFile(traitFile, FileLoadPlugin.TasselFileType.Phenotype);

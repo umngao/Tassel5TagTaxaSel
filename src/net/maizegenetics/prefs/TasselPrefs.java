@@ -36,6 +36,8 @@ public class TasselPrefs {
     public static final int TASSEL_LOG_X_DIM_DEFAULT = -1;
     public static final String TASSEL_LOG_Y_DIM = "logyDimension";
     public static final int TASSEL_LOG_Y_DIM_DEFAULT = -1;
+    public static final String TASSEL_MAX_THREADS = "maxThreads";
+    public static final int TASSEL_MAX_THREADS_DEFAULT = -1;
     //
     // ExportPlugin preferences
     //
@@ -267,6 +269,14 @@ public class TasselPrefs {
 
     public static void putLogYDim(int value) {
         putIntPref(TASSEL_TOP, TASSEL_LOG_Y_DIM, value);
+    }
+    
+    public static int getMaxThreads() {
+        return getIntPref(TASSEL_TOP, TASSEL_MAX_THREADS, TASSEL_MAX_THREADS_DEFAULT);
+    }
+
+    public static void putMaxThreads(int value) {
+        putIntPref(TASSEL_TOP, TASSEL_MAX_THREADS, value);
     }
 
     //
