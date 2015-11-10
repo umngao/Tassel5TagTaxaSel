@@ -213,15 +213,7 @@ public class EndelmanDistanceMatrix {
         }
     }
 
-    private static final int NUM_CORES_TO_USE;
-
-    static {
-        if (TasselPrefs.getMaxThreads() > 0) {
-            NUM_CORES_TO_USE = Math.min(TasselPrefs.getMaxThreads(), Runtime.getRuntime().availableProcessors() - 1);
-        } else {
-            NUM_CORES_TO_USE = Runtime.getRuntime().availableProcessors() - 1;
-        }
-    }
+    private static final int NUM_CORES_TO_USE = TasselPrefs.getMaxThreads();
 
     //
     // Used to report progress.  This is not thread-safe but
@@ -351,7 +343,7 @@ public class EndelmanDistanceMatrix {
 
             //
             // This hold possible terms for the Endelman summation given
-            // site's allele frequency.  First two bits
+            // site's allele frequency.  First three bits
             // identifies relative site (0, 1, 2, 3, 4).  Remaining three bits
             // the allele counts encoding.
             //
@@ -453,65 +445,7 @@ public class EndelmanDistanceMatrix {
         @Override
         public boolean tryAdvance(Consumer<? super CountersDistances> action) {
             if (myCurrentSite < myFence) {
-
-                CountersDistances result = new CountersDistances(myNumTaxa);
-                float[] distances = result.myDistances;
-                byte[] majorCount = new byte[myNumTaxa];
-                float[] answer = new float[12];
-                byte[] increment = new byte[12];
-                increment[0] = increment[1] = increment[2]
-                        = increment[4] = increment[5] = increment[6]
-                        = increment[8] = increment[9] = increment[10] = 1;
-
-                byte major = myGenotypes.majorAllele(myCurrentSite);
-                float majorFreq = (float) myGenotypes.majorAlleleFrequency(myCurrentSite);
-                float majorFreqTimes2 = majorFreq * 2.0f;
-                result.mySumPi = majorFreq * (1.0 - majorFreq);
-                if (major != GenotypeTable.UNKNOWN_ALLELE) {
-
-                    float zeroTerm = 0.0f - majorFreqTimes2;
-                    float oneTerm = 1.0f - majorFreqTimes2;
-                    float twoTerm = 2.0f - majorFreqTimes2;
-
-                    answer[0] = zeroTerm * zeroTerm;
-                    answer[1] = answer[4] = zeroTerm * oneTerm;
-                    answer[2] = answer[8] = zeroTerm * twoTerm;
-                    answer[5] = oneTerm * oneTerm;
-                    answer[6] = answer[9] = oneTerm * twoTerm;
-                    answer[10] = twoTerm * twoTerm;
-
-                    for (int i = 0; i < myNumTaxa; i++) {
-                        byte genotype = myGenotypes.genotype(i, myCurrentSite);
-                        if (genotype == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
-                            majorCount[i] = 3;
-                        } else {
-                            majorCount[i] = 0;
-                            if ((genotype & 0xF) == major) {
-                                majorCount[i]++;
-                            }
-                            if (((genotype >>> 4) & 0xF) == major) {
-                                majorCount[i]++;
-                            }
-                        }
-                    }
-
-                    int index = 0;
-                    for (int firstTaxa = 0; firstTaxa < myNumTaxa; firstTaxa++) {
-                        if (majorCount[firstTaxa] != 3) {
-                            int temp = majorCount[firstTaxa] << 2;
-                            for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
-                                int aIndex = temp | majorCount[secondTaxa];
-                                distances[index] += answer[aIndex];
-                                index++;
-                            }
-                        } else {
-                            index += myNumTaxa - firstTaxa;
-                        }
-                    }
-                }
-
-                action.accept(result);
-
+                forEachRemaining(action);
                 return true;
             } else {
                 return false;

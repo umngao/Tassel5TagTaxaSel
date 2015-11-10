@@ -229,15 +229,7 @@ public class GCTADistanceMatrix {
         }
     }
 
-    private static final int NUM_CORES_TO_USE;
-
-    static {
-        if (TasselPrefs.getMaxThreads() > 0) {
-            NUM_CORES_TO_USE = Math.min(TasselPrefs.getMaxThreads(), Runtime.getRuntime().availableProcessors() - 1);
-        } else {
-            NUM_CORES_TO_USE = Runtime.getRuntime().availableProcessors() - 1;
-        }
-    }
+    private static final int NUM_CORES_TO_USE = TasselPrefs.getMaxThreads();
 
     //
     // Used to report progress.  This is not thread-safe but
