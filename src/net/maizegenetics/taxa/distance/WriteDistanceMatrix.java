@@ -7,34 +7,26 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-
-import net.maizegenetics.taxa.TaxaList;
-import net.maizegenetics.taxa.Taxon;
-
+import net.maizegenetics.util.Utils;
+import org.apache.log4j.Logger;
 
 /**
  * @author Terry Casstevens
  */
 public class WriteDistanceMatrix {
 
+    private static final Logger myLogger = Logger.getLogger(WriteDistanceMatrix.class);
+
     private WriteDistanceMatrix() {
     }
 
     public static void saveDelimitedDistanceMatrix(DistanceMatrix matrix, String saveFile) {
-        saveDelimitedDistanceMatrix(matrix, new File(saveFile));
-    }
 
-    public static void saveDelimitedDistanceMatrix(DistanceMatrix matrix, File saveFile) {
-
-        if (saveFile == null) {
-            return;
+        if ((saveFile == null) || (saveFile.isEmpty())) {
+            throw new IllegalArgumentException("WriteDistanceMatrix: saveDelimitedDistanceMatrix: No file specified.");
         }
-        FileWriter fw = null;
-        BufferedWriter bw = null;
-        try {
 
-            fw = new FileWriter(saveFile);
-            bw = new BufferedWriter(fw);
+        try (BufferedWriter bw = Utils.getBufferedWriter(saveFile)) {
 
             bw.write(String.valueOf(matrix.getRowCount()));
             bw.write("\n");
@@ -51,18 +43,12 @@ public class WriteDistanceMatrix {
             }
 
         } catch (Exception e) {
-            System.out.println("WriteDistanceMatrix: saveDelimitedDistanceMatrix: problem writing file: " + e.getMessage());
-        } finally {
-            try {
-                bw.close();
-                fw.close();
-            } catch (Exception e) {
-                // do nothing
-            }
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("WriteDistanceMatrix: saveDelimitedDistanceMatrix: problem writing file: " + e.getMessage());
         }
 
     }
-    
+
     public static void saveRawMultiBlupMatrix(DistanceMatrix matrix, File taxaFile, File matrixFile) {
 
         if (matrixFile == null || taxaFile == null) {
@@ -76,7 +62,7 @@ public class WriteDistanceMatrix {
             //Write the taxa/ids.  Need 2 columns for MultiBlup.
             taxafw = new FileWriter(taxaFile);
             taxabw = new BufferedWriter(taxafw);
-            
+
             //Write the matrix
             fw = new FileWriter(matrixFile);
             bw = new BufferedWriter(fw);
@@ -84,7 +70,7 @@ public class WriteDistanceMatrix {
             for (long r = 0, n = matrix.getRowCount(); r < n; r++) {
                 Object[] theRow = matrix.getRow(r);
                 taxabw.write(theRow[0].toString() + " " + theRow[0].toString() + "\n");
-                
+
                 for (int i = 1; i < theRow.length; i++) {
                     if (i != 1) {
                         bw.write("\t");
@@ -111,7 +97,7 @@ public class WriteDistanceMatrix {
         }
 
     }
-    
+
     public static void saveBinMultiBlupMatrix(DistanceMatrix matrix, File taxaFile, File matrixFile, File countFile) {
 
         if (matrixFile == null || taxaFile == null || countFile == null) {
@@ -127,29 +113,29 @@ public class WriteDistanceMatrix {
             //Write the taxa/ids.  Need 2 columns for MultiBlup.
             taxafw = new FileWriter(taxaFile);
             taxabw = new BufferedWriter(taxafw);
-            
+
             countfw = new FileOutputStream(countFile);
             countbw = new BufferedOutputStream(countfw);
-            
+
             //Write the matrix
             fw = new FileOutputStream(matrixFile);
             bw = new BufferedOutputStream(fw);
 
             for (long r = 0, n = matrix.getRowCount(); r < n; r++) {
                 Object[] theRow = matrix.getRow(r);
-               
+
                 taxabw.write(theRow[0].toString() + " " + theRow[0].toString() + "\n");
                 for (int i = 1; i < r + 2; i++) {
-                    
+
                     //ByteBuffer kinsBuffer = ByteBuffer.allocate(4).order(ByteOrder.nativeOrder());
                     ByteBuffer kinsBuffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
-                    
+
                     kinsBuffer.putFloat(Float.parseFloat(theRow[i].toString()));
                     bw.write(kinsBuffer.array());
-                    
+
                     //ByteBuffer countsBuffer = ByteBuffer.allocate(4).order(ByteOrder.nativeOrder());
                     ByteBuffer countsBuffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
-                    
+
                     countsBuffer.putFloat(1f);
                     countbw.write(countsBuffer.array());
                 }
