@@ -1,6 +1,7 @@
 package net.maizegenetics.taxa;
 
 import com.google.common.collect.ImmutableMap;
+
 import org.apache.log4j.Logger;
 
 import java.util.*;
@@ -208,5 +209,21 @@ class TaxaArrayList implements TaxaList {
     @Override
     public List<Taxon> subList(int fromIndex, int toIndex) {
         return Collections.unmodifiableList(myTaxaList.subList(fromIndex, toIndex));
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof TaxaList)) return false;
+        TaxaList otherTaxa = (TaxaList) obj;
+        if (numberOfTaxa() != otherTaxa.numberOfTaxa()) return false;
+        Iterator<Taxon> myIter = myTaxaList.iterator();
+        Iterator<Taxon> otherIter = otherTaxa.iterator();
+        while (myIter.hasNext()) {
+            if ( !(myIter.next().equals(otherIter.next())) ) {
+                return false;
+            }
+        }
+        
+        return true;
     }
 }

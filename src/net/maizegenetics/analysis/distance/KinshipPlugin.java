@@ -1,6 +1,7 @@
 package net.maizegenetics.analysis.distance;
 
 import com.google.common.collect.Range;
+
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable.GENOTYPE_TABLE_COMPONENT;
 import net.maizegenetics.plugindef.AbstractPlugin;
@@ -42,12 +43,13 @@ public class KinshipPlugin extends AbstractPlugin {
             .description("The Scaled_IBS (Endelman) method produces a kinship matrix that is scaled to give a reasonable estimate of additive genetic variance. "
                     + "The GCTA uses the algorithm published here: http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3014363/pdf/main.pdf.")
             .build();
+    
     private PluginParameter<GenotypeTable.GENOTYPE_TABLE_COMPONENT> myDatatype = new PluginParameter.Builder<>("genotypeComponent", GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype, GenotypeTable.GENOTYPE_TABLE_COMPONENT.class)
             .genotypeTable()
             .range(GENOTYPE_COMP)
             .description("If the genotype table contains more than one type of genotype data, choose the type to use for calculating kinship.")
             .build();
-
+            
     public KinshipPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
 
@@ -57,14 +59,26 @@ public class KinshipPlugin extends AbstractPlugin {
     protected void preProcessParameters(DataSet input) {
         List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
         if ((alignInList == null) || (alignInList.isEmpty())) {
-            throw new IllegalArgumentException("KinshipPlugin: Nothing selected. Please select a genotype.");
+            alignInList = input.getDataOfType(DistanceMatrix.class);
+            if (alignInList == null || alignInList.size() != 2) {
+                throw new IllegalArgumentException("KinshipPlugin: Nothing useful selected. Please select a genotype.");
+            }
         }
     }
 
     @Override
     public DataSet processData(DataSet input) {
-
         List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
+        if ((alignInList == null) || (alignInList.isEmpty())) {
+            alignInList = input.getDataOfType(DistanceMatrix.class);
+            return calculateHadamardProduct(alignInList);
+        } else {
+            return processGenotypes(alignInList);
+        }
+
+    }
+
+    private DataSet processGenotypes(List<Datum> alignInList) {
 
         List<Datum> result = new ArrayList<>();
         Iterator itr = alignInList.iterator();
@@ -97,9 +111,20 @@ public class KinshipPlugin extends AbstractPlugin {
         }
 
         return new DataSet(result, this);
-
     }
-
+    
+    private DataSet calculateHadamardProduct(List<Datum> alignInList) {
+        DistanceMatrix dm0 = (DistanceMatrix) alignInList.get(0).getData();
+        DistanceMatrix dm1 = (DistanceMatrix) alignInList.get(1).getData();
+        if (!dm0.getTaxaList().equals(dm1.getTaxaList())) 
+            throw new IllegalArgumentException("The two matrices being multiplied have different taxa lists");
+        DistanceMatrix product = DistanceMatrix.hadamardProduct(dm0, dm1);
+        
+        String name = String.format("Interaction_%s_%s", alignInList.get(0).getName(), alignInList.get(0).getName());
+        String comment = String.format("Interaction calculated as Hadamard product of\n%s and \n%s", alignInList.get(0).getName(), alignInList.get(0).getName());
+        return new DataSet(new Datum(name, product, comment), this);
+    }
+    
     @Override
     public ImageIcon getIcon() {
         URL imageURL = KinshipPlugin.class.getResource("/net/maizegenetics/analysis/images/Kin.gif");
