@@ -35,7 +35,6 @@ import java.util.Set;
 public final class SAMToGBSdbPlugin extends AbstractPlugin {
 
     boolean cleanCutSites = true;
-    boolean isBowtie = false;
     private static final Logger myLogger = Logger.getLogger(SAMToGBSdbPlugin.class);
 
     private PluginParameter<String> myInputFile = new PluginParameter.Builder<String>("i", null, String.class).guiName("SAM Input File").required(true).inFile()
@@ -46,6 +45,8 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
             .range(Range.closed(0.0, 1.0) ).description("Minimum proportion of sequence that must align to store the SAM entry").build();
     private PluginParameter<Integer> minAlignLength = new PluginParameter.Builder<Integer>("aLen", 0, Integer.class).guiName("SAM Min Align Length").required(false)
             .range(Range.closed(0, 1000) ).description("Minimum length of bps aligning to store the SAM entry").build();
+    private PluginParameter<String> mappingApproach = new PluginParameter.Builder<String>("mapper", "Bowtie2", String.class).guiName("Mapper").required(false)
+            .description("Mapping approach (one of Bowtie2, BWA, or bwaMem)").build();
     private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",false,Boolean.class).guiName("Delete Old Data")
             .description("Delete existing SNP quality data from db tables").build();
     
@@ -82,7 +83,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
             while((inputLine=bw.readLine())!=null) {
                 if(inputLine.startsWith("@")) {
                     // this is header - check if it is bowtie
-                    if (inputLine.contains("bowtie2")) isBowtie = true;
+                    if (inputLine.contains("bowtie2")) mappingApproach("Bowtie2");
                     continue;
                 }
                 Tuple<Tag,Optional<Position>> tagPositionTuple=parseRow(inputLine);
@@ -144,12 +145,11 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         if (!hasMinAlignProportion(s)) return new Tuple<> (tag,Optional.<Position>empty());
         Chromosome chromosome = new Chromosome(s[chr]); // Chromosome class parses the chromosome
         String alignmentScore=getAlignmentScore(s); 
-        String mappingApproach = isBowtie? "Bowtie2" : "BWA"; // these are only 2 aligners we currently support
         Position position=new GeneralPosition
                 .Builder(chromosome,Integer.parseInt(s[pos]))
                 .strand((byte)1)
                 .addAnno("forward", forwardStrand?"true":"false")
-                .addAnno("mappingapproach", mappingApproach)
+                .addAnno("mappingapproach", mappingApproach())
                 .addAnno("cigar", s[cigar])
                 .addAnno("supportvalue", alignmentScore)  //todo include again
                 .build();
@@ -279,13 +279,13 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
     }
 
     /**
-     * Reads SAM files output from BWA or bowtie2
+     * Reads SAM files output from BWA or Bowtie2
      */
 //    private void readSAMFile(String inputFileName, int tagLengthInLong) {
 //        System.out.println("Reading SAM format tag alignment from: " + inputFileName);
 //        this.tagLengthInLong = tagLengthInLong;
 //        String inputStr = "Nothing has been read from the file yet";
-//        int nHeaderLines = countTagsInSAMfile(inputFileName); // detects if the file is bowtie2, initializes topm matrices
+//        int nHeaderLines = countTagsInSAMfile(inputFileName); // detects if the file is Bowtie2, initializes topm matrices
 //        int tagIndex = Integer.MIN_VALUE;
 //        try {
 //            BufferedReader br;
@@ -448,6 +448,29 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
 //            myLogger.warn("Caught exception while writing log file: " + e);
 //        }
 //    }
+
+    /**
+     * Set Mapper (one of 'Bowtie2', 'BWA', or 'bwaMem').
+     *
+     * @param value Mapper type
+     *
+     * @return this plugin
+     */
+    public SAMToGBSdbPlugin mappingApproach(String value) {
+        mappingApproach = new PluginParameter<>(mappingApproach, value);
+        return this;
+    }
+
+    /**
+     * Get Mapper (one of 'Bowtie2', 'BWA', or 'bwaMem').
+     *
+     * @param value Mapper type
+     *
+     * @return String for mapper type
+     */
+    public String mappingApproach() {
+        return mappingApproach.value();
+    }
 
     // The following getters and setters were auto-generated.
     // Please use this method to re-generate.

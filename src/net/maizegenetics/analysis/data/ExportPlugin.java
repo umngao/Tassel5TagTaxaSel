@@ -142,7 +142,6 @@ public class ExportPlugin extends AbstractPlugin {
     }
 
     public String performFunctionForDistanceMatrix(DistanceMatrix input) {
-        //int selection = 0;
 
         if (isInteractive()) {
             ExportSquareMatrixDialog theDialog = new ExportSquareMatrixDialog();
@@ -152,7 +151,6 @@ public class ExportPlugin extends AbstractPlugin {
                 return null;
             }
             myFileType = theDialog.getTasselFileType();
-            //selection = theDialog.getSelection();
             theDialog.dispose();
             setSaveFile(getFileByChooser());
         }
@@ -162,27 +160,25 @@ public class ExportPlugin extends AbstractPlugin {
         }
 
         try {
+
             if (myFileType != FileLoadPlugin.TasselFileType.SqrMatrixRaw && myFileType != FileLoadPlugin.TasselFileType.SqrMatrixBin) {
-                //if(selection == 0 ) {
-                //File theFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".txt"));
-                File theFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".txt",new String[]{".txt", ".txt.gz"}));
-                WriteDistanceMatrix.saveDelimitedDistanceMatrix(input, theFile);
-                return theFile.getCanonicalPath();
+                String filename = Utils.addSuffixIfNeeded(mySaveFile, ".txt", new String[]{".txt", ".txt.gz"});
+                WriteDistanceMatrix.saveDelimitedDistanceMatrix(input, filename);
+                return filename;
             } else if (myFileType == FileLoadPlugin.TasselFileType.SqrMatrixRaw) {
-                //else if(selection == 1) {
                 File taxaListFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.id"));
                 File matrixFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.raw"));
                 WriteDistanceMatrix.saveRawMultiBlupMatrix(input, taxaListFile, matrixFile);
                 return matrixFile.getCanonicalPath();
             } else if (myFileType == FileLoadPlugin.TasselFileType.SqrMatrixBin) {
-                //else if(selection ==2) {
                 File taxaListFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.id"));
                 File countsFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.N.bin"));
                 File kinshipFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.bin"));
                 WriteDistanceMatrix.saveBinMultiBlupMatrix(input, taxaListFile, kinshipFile, countsFile);
                 return kinshipFile.getCanonicalPath();
+            } else {
+                throw new IllegalArgumentException("ExportPlugin: performFunctionForDistanceMatrix: Unknown file type: " + myFileType);
             }
-            return "";
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -509,7 +505,7 @@ public class ExportPlugin extends AbstractPlugin {
         return mySaveFile;
     }
 
-    public  ExportPlugin setSaveFile(String saveFile) {
+    public ExportPlugin setSaveFile(String saveFile) {
         mySaveFile = saveFile;
         return this;
     }
@@ -1108,19 +1104,6 @@ class ExportSquareMatrixDialog extends JDialog {
             return FileLoadPlugin.TasselFileType.SqrMatrixBin;
         }
         return FileLoadPlugin.TasselFileType.SqrMatrix;
-    }
-
-    public int getSelection() {
-        if (mySquareMatrixButton.isSelected()) {
-            return 0;
-        }
-        if (myRawMultiBlupButton.isSelected()) {
-            return 1;
-        }
-        if (myBinMultiBlupButton.isSelected()) {
-            return 2;
-        }
-        return -1;
     }
 
     private void okButton_actionPerformed(ActionEvent e) {
