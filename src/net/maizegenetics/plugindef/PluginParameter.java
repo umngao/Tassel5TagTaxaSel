@@ -32,7 +32,7 @@ public final class PluginParameter<T> {
     private final boolean myRequired;
     private final Class<T> myClass;
     private final PluginParameter<?> myDependentOnParameter;
-    private final Object myDependentOnParameterValue;
+    private final Object[] myDependentOnParameterValue;
     private final List<?> myPossibleValues;
 
     public enum PARAMETER_TYPE {
@@ -45,7 +45,7 @@ public final class PluginParameter<T> {
     private PluginParameter(String guiName, String guiUnits, String cmdLineName,
             String description, List<Range<Comparable<T>>> ranges, T defaultValue,
             T value, boolean required, PARAMETER_TYPE fileType,
-            PluginParameter<?> dependentOnParameter, Object dependentOnParameterValue,
+            PluginParameter<?> dependentOnParameter, Object[] dependentOnParameterValue,
             List<?> possibleValues, Class<T> type) {
         myGuiName = guiName;
         myUnits = guiUnits;
@@ -215,7 +215,7 @@ public final class PluginParameter<T> {
         return myDependentOnParameter;
     }
 
-    public Object dependentOnParameterValue() {
+    public Object[] dependentOnParameterValue() {
         return myDependentOnParameterValue;
     }
 
@@ -239,7 +239,7 @@ public final class PluginParameter<T> {
         private final Class<T> myClass;
         private PARAMETER_TYPE myParameterType = PARAMETER_TYPE.NA;
         private PluginParameter<?> myDependentOnParameter = null;
-        private Object myDependentOnParameterValue = null;
+        private Object[] myDependentOnParameterValue = null;
         private List<?> myPossibleValues = null;
 
         public Builder(String cmdLineName, T defaultValue, Class<T> type) {
@@ -308,7 +308,7 @@ public final class PluginParameter<T> {
             myParameterType = PARAMETER_TYPE.GENOTYPE_TABLE;
             return this;
         }
-        
+
         public Builder<T> distanceMatrix() {
             myParameterType = PARAMETER_TYPE.DISTANCE_MATRIX;
             return this;
@@ -323,7 +323,7 @@ public final class PluginParameter<T> {
             myParameterType = PARAMETER_TYPE.SITE_NAME_LIST;
             return this;
         }
-        
+
         public Builder<T> positionList() {
             myParameterType = PARAMETER_TYPE.POSITION_LIST;
             return this;
@@ -349,7 +349,15 @@ public final class PluginParameter<T> {
 
         public Builder<T> dependentOnParameter(PluginParameter<?> parameter, Object value) {
             myDependentOnParameter = parameter;
-            myDependentOnParameterValue = value;
+            myDependentOnParameterValue = new Object[]{value};
+            return this;
+        }
+
+        public Builder<T> dependentOnParameter(PluginParameter<?> parameter, Object[] values) {
+            myDependentOnParameter = parameter;
+            Object[] result = new Object[values.length];
+            System.arraycopy(values, 0, result, 0, values.length);
+            myDependentOnParameterValue = result;
             return this;
         }
 

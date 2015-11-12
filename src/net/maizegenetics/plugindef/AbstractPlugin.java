@@ -221,6 +221,9 @@ abstract public class AbstractPlugin implements Plugin {
             } else if (outputClass.isAssignableFrom(Integer.class)) {
                 input = input.replace(",", "");
                 return (T) new Integer(new BigDecimal(input).intValueExact());
+            } else if (outputClass.isAssignableFrom(Double.class)) {
+                input = input.replace(",", "");
+                return (T) new Double(new BigDecimal(input).doubleValue());
             } else if (outputClass.isAssignableFrom(PositionList.class)) {
                 if ((input == null) || (input.length() == 0)) {
                     return null;
@@ -1059,7 +1062,7 @@ abstract public class AbstractPlugin implements Plugin {
                 final JCheckBox checkBox = (JCheckBox) depends;
 
                 for (JComponent component : components) {
-                    if (checkBox.isSelected() == (Boolean) current.dependentOnParameterValue()) {
+                    if (checkBox.isSelected() == (Boolean) current.dependentOnParameterValue()[0]) {
                         component.setEnabled(true);
                     } else {
                         component.setEnabled(false);
@@ -1071,14 +1074,10 @@ abstract public class AbstractPlugin implements Plugin {
                     @Override
                     public void itemStateChanged(ItemEvent e) {
                         for (JComponent component : components) {
-                            if (checkBox.isSelected() == (Boolean) current.dependentOnParameterValue()) {
+                            if (checkBox.isSelected() == (Boolean) current.dependentOnParameterValue()[0]) {
                                 component.setEnabled(true);
                             } else {
                                 component.setEnabled(false);
-                                setParameter(current.cmdLineName(), current.defaultValue());
-                                if (input != null) {
-                                    setFieldToDefault(component, current);
-                                }
                             }
                         }
                     }
@@ -1088,27 +1087,24 @@ abstract public class AbstractPlugin implements Plugin {
                 final JComboBox comboBox = (JComboBox) depends;
 
                 for (JComponent component : components) {
-                    if (comboBox.getSelectedItem() == current.dependentOnParameterValue()) {
-                        component.setEnabled(true);
-                    } else {
-                        component.setEnabled(false);
-                        setParameter(current.cmdLineName(), current.defaultValue());
+                    Object[] values = current.dependentOnParameterValue();
+                    component.setEnabled(false);
+                    for (Object value : values) {
+                        if (comboBox.getSelectedItem() == value) {
+                            component.setEnabled(true);
+                            break;
+                        }
                     }
                 }
 
-                comboBox.addItemListener(new ItemListener() {
-
-                    @Override
-                    public void itemStateChanged(ItemEvent e) {
-                        for (JComponent component : components) {
-                            if (comboBox.getSelectedItem() == current.dependentOnParameterValue()) {
+                comboBox.addItemListener((ItemEvent e) -> {
+                    for (JComponent component : components) {
+                        Object[] values = current.dependentOnParameterValue();
+                        component.setEnabled(false);
+                        for (Object value : values) {
+                            if (comboBox.getSelectedItem() == value) {
                                 component.setEnabled(true);
-                            } else {
-                                component.setEnabled(false);
-                                setParameter(current.cmdLineName(), current.defaultValue());
-                                if (input != null) {
-                                    setFieldToDefault(component, current);
-                                }
+                                break;
                             }
                         }
                     }
