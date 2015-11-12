@@ -349,7 +349,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
 
     @Override
     public String getTableTitle() {
-        return "Alignment Distance Matrix";
+        return "Distance Matrix";
     }
 
     @Override

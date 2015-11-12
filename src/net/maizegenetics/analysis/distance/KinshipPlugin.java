@@ -1,9 +1,7 @@
 package net.maizegenetics.analysis.distance;
 
 import com.google.common.collect.Range;
-
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTable.GENOTYPE_TABLE_COMPONENT;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -15,86 +13,77 @@ import javax.swing.*;
 import java.net.URL;
 import java.awt.Frame;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+
+import org.apache.log4j.Logger;
 
 /**
  * @author Terry Casstevens
  * @author Zhiwu Zhang
  * @author Peter Bradbury
  *
- * modified by Peter Bradbury, 9/26/2014 converted to self-describing Plugin and
- * to use Phenotype package
  */
 public class KinshipPlugin extends AbstractPlugin {
+
+    private static final Logger myLogger = Logger.getLogger(KinshipPlugin.class);
 
     public static enum KINSHIP_METHOD {
 
         Scaled_IBS,
-        GCTA
+        GCTA,
+        Dominance
     };
-    private GenotypeTable.GENOTYPE_TABLE_COMPONENT[] GENOTYPE_COMP = new GenotypeTable.GENOTYPE_TABLE_COMPONENT[]{
+
+    private final GenotypeTable.GENOTYPE_TABLE_COMPONENT[] GENOTYPE_COMP = new GenotypeTable.GENOTYPE_TABLE_COMPONENT[]{
         GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype, GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability, GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability};
 
-    private PluginParameter<KINSHIP_METHOD> method = new PluginParameter.Builder<>("method", KINSHIP_METHOD.Scaled_IBS, KINSHIP_METHOD.class)
+    private PluginParameter<KINSHIP_METHOD> myMethod = new PluginParameter.Builder<>("method", KINSHIP_METHOD.Scaled_IBS, KINSHIP_METHOD.class)
             .guiName("Kinship method")
-            .range(Range.encloseAll(Arrays.asList(KINSHIP_METHOD.values())))
+            .range(KINSHIP_METHOD.values())
             .description("The Scaled_IBS (Endelman) method produces a kinship matrix that is scaled to give a reasonable estimate of additive genetic variance. "
                     + "The GCTA uses the algorithm published here: http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3014363/pdf/main.pdf.")
             .build();
-    
-    private PluginParameter<GenotypeTable.GENOTYPE_TABLE_COMPONENT> myDatatype = new PluginParameter.Builder<>("genotypeComponent", GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype, GenotypeTable.GENOTYPE_TABLE_COMPONENT.class)
-            .genotypeTable()
-            .range(GENOTYPE_COMP)
-            .description("If the genotype table contains more than one type of genotype data, choose the type to use for calculating kinship.")
+
+    private PluginParameter<Integer> myMaxAlleles = new PluginParameter.Builder<>("maxAlleles", 6, Integer.class)
+            .description("")
+            .range(Range.closed(2, 6))
+            .dependentOnParameter(myMethod, new Object[]{KINSHIP_METHOD.Scaled_IBS, KINSHIP_METHOD.Dominance})
             .build();
-            
+
     public KinshipPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
-
     }
 
     @Override
     protected void preProcessParameters(DataSet input) {
         List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
         if ((alignInList == null) || (alignInList.isEmpty())) {
-            alignInList = input.getDataOfType(DistanceMatrix.class);
-            if (alignInList == null || alignInList.size() != 2) {
-                throw new IllegalArgumentException("KinshipPlugin: Nothing useful selected. Please select a genotype.");
-            }
+            throw new IllegalArgumentException("KinshipPlugin: Nothing selected. Please select a genotype.");
         }
     }
 
     @Override
     public DataSet processData(DataSet input) {
+
         List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
-        if ((alignInList == null) || (alignInList.isEmpty())) {
-            alignInList = input.getDataOfType(DistanceMatrix.class);
-            return calculateHadamardProduct(alignInList);
-        } else {
-            return processGenotypes(alignInList);
-        }
-
-    }
-
-    private DataSet processGenotypes(List<Datum> alignInList) {
 
         List<Datum> result = new ArrayList<>();
-        Iterator itr = alignInList.iterator();
+        Iterator<Datum> itr = alignInList.iterator();
         while (itr.hasNext()) {
 
-            Datum current = (Datum) itr.next();
+            Datum current = itr.next();
             String datasetName = current.getName();
             DistanceMatrix kin = null;
 
             if (current.getData() instanceof GenotypeTable) {
                 GenotypeTable myGenotype = (GenotypeTable) current.getData();
                 if (kinshipMethod() == KINSHIP_METHOD.Scaled_IBS) {
-                    //kin = Kinship.createKinship(myGenotype, Kinship.KINSHIP_TYPE.Endelman, myDatatype.value());
-                    kin = EndelmanDistanceMatrix.getInstance(myGenotype, 6, this);
+                    kin = EndelmanDistanceMatrix.getInstance(myGenotype, maxAlleles(), this);
                 } else if (kinshipMethod() == KINSHIP_METHOD.GCTA) {
                     kin = GCTADistanceMatrix.getInstance(myGenotype, this);
+                } else if (kinshipMethod() == KINSHIP_METHOD.Dominance) {
+                    kin = DominanceRelationshipMatrix.getInstance(myGenotype, maxAlleles(), this);
                 } else {
                     throw new IllegalArgumentException("Unknown method to calculate kinship: " + kinshipMethod());
                 }
@@ -104,27 +93,16 @@ public class KinshipPlugin extends AbstractPlugin {
 
             if (kin != null) {
                 //add kin to datatree;
-                Datum ds = new Datum("kin_" + datasetName, kin, "Kinship matrix created from " + datasetName);
+                Datum ds = new Datum(kinshipMethod() + "_" + datasetName, kin, kinshipMethod() + " matrix created from " + datasetName);
                 result.add(ds);
             }
 
         }
 
         return new DataSet(result, this);
+
     }
-    
-    private DataSet calculateHadamardProduct(List<Datum> alignInList) {
-        DistanceMatrix dm0 = (DistanceMatrix) alignInList.get(0).getData();
-        DistanceMatrix dm1 = (DistanceMatrix) alignInList.get(1).getData();
-        if (!dm0.getTaxaList().equals(dm1.getTaxaList())) 
-            throw new IllegalArgumentException("The two matrices being multiplied have different taxa lists");
-        DistanceMatrix product = DistanceMatrix.hadamardProduct(dm0, dm1);
-        
-        String name = String.format("Interaction_%s_%s", alignInList.get(0).getName(), alignInList.get(0).getName());
-        String comment = String.format("Interaction calculated as Hadamard product of\n%s and \n%s", alignInList.get(0).getName(), alignInList.get(0).getName());
-        return new DataSet(new Datum(name, product, comment), this);
-    }
-    
+
     @Override
     public ImageIcon getIcon() {
         URL imageURL = KinshipPlugin.class.getResource("/net/maizegenetics/analysis/images/Kin.gif");
@@ -169,7 +147,7 @@ public class KinshipPlugin extends AbstractPlugin {
      * @return Kinship method
      */
     public KINSHIP_METHOD kinshipMethod() {
-        return method.value();
+        return myMethod.value();
     }
 
     /**
@@ -185,30 +163,28 @@ public class KinshipPlugin extends AbstractPlugin {
      * @return this plugin
      */
     public KinshipPlugin kinshipMethod(KINSHIP_METHOD value) {
-        method = new PluginParameter<>(method, value);
+        myMethod = new PluginParameter<>(myMethod, value);
         return this;
     }
 
     /**
-     * If the genotype table contains more than one type of genotype data,
-     * choose the type to use for calculating kinship.
+     * Max Alleles
      *
-     * @return Genotype Component
+     * @return Max Alleles
      */
-    public GENOTYPE_TABLE_COMPONENT genotypeComponent() {
-        return myDatatype.value();
+    public Integer maxAlleles() {
+        return myMaxAlleles.value();
     }
 
     /**
-     * Set Genotype Component. If the genotype table contains more than one type
-     * of genotype data, choose the type to use for calculating kinship.
+     * Set Max Alleles. Max Alleles
      *
-     * @param value Genotype Component
+     * @param value Max Alleles
      *
      * @return this plugin
      */
-    public KinshipPlugin genotypeComponent(GENOTYPE_TABLE_COMPONENT value) {
-        myDatatype = new PluginParameter<>(myDatatype, value);
+    public KinshipPlugin maxAlleles(Integer value) {
+        myMaxAlleles = new PluginParameter<>(myMaxAlleles, value);
         return this;
     }
 
