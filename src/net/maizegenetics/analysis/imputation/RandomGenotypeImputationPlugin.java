@@ -82,7 +82,9 @@ public class RandomGenotypeImputationPlugin extends AbstractPlugin {
 
         GenotypeTableBuilder myBuilder = GenotypeTableBuilder.getSiteIncremental(myGenotype.taxa());
         int nsites = myGenotype.numberOfSites();
-        int progressAt = nsites / 1000;
+        int progressAt = nsites / 50;
+        progressAt = Math.max(1,  progressAt);
+        
         for (int s = 0; s < nsites; s++) {
             byte[] sitegeno = myGenotype.genotypeAllTaxa(s);
             Optional<byte[]> imputedgeno = imputeRandomGenotypes(sitegeno);
@@ -107,7 +109,8 @@ public class RandomGenotypeImputationPlugin extends AbstractPlugin {
             bw.write(hapmapHeader(myGenotype.taxa()));
             int nsites = myGenotype.numberOfSites();
             int ntaxa = myGenotype.numberOfTaxa();
-            int progressAt = nsites / 1000;
+            int progressAt = nsites / 50;
+            progressAt = Math.max(1,  progressAt);
             for (int s = 0; s < nsites; s++) {
                 byte[] sitegeno = myGenotype.genotypeAllTaxa(s);
                 Optional<byte[]> imputedgeno = imputeRandomGenotypes(sitegeno);
