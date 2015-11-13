@@ -45,7 +45,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
             .range(Range.closed(0.0, 1.0) ).description("Minimum proportion of sequence that must align to store the SAM entry").build();
     private PluginParameter<Integer> minAlignLength = new PluginParameter.Builder<Integer>("aLen", 0, Integer.class).guiName("SAM Min Align Length").required(false)
             .range(Range.closed(0, 1000) ).description("Minimum length of bps aligning to store the SAM entry").build();
-    private PluginParameter<String> mappingApproach = new PluginParameter.Builder<String>("mapper", "Bowtie2", String.class).guiName("Mapper").required(false)
+    private PluginParameter<String> mappingApproach = new PluginParameter.Builder<String>("mapper", "BWA", String.class).guiName("Mapper").required(false)
             .description("Mapping approach (one of Bowtie2, BWA, or bwaMem)").build();
     private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",false,Boolean.class).guiName("Delete Old Data")
             .description("Delete existing SNP quality data from db tables").build();
