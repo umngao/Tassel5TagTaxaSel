@@ -155,6 +155,27 @@ public class TasselPipeline implements PluginListener {
 
             parseArgs(args);
 
+            for (Map.Entry<String, List<Plugin>> fork : myForks.entrySet()) {
+                List<Plugin> current = fork.getValue();
+                if ((current != null) && (!current.isEmpty())) {
+                    Plugin first = current.get(0);
+                    if ((first instanceof AbstractPlugin) && (((AbstractPlugin) first).getInputs().isEmpty())) {
+                        boolean alreadyRun = false;
+                        for (ThreadedPluginListener currentListener : myThreads) {
+                            if (currentListener.getPluginListener() == first) {
+                                alreadyRun = true;
+                                break;
+                            }
+                        }
+                        if (!alreadyRun) {
+                            PluginEvent event = new PluginEvent(new DataSet((Datum) null, null));
+                            ThreadedPluginListener thread = new ThreadedPluginListener(first, event);
+                            myThreads.add(thread);
+                        }
+                    }
+                }
+            }
+
             if ((myMainFrame != null) && (!myIsInteractive)) {
                 ProgressPanel progressPanel = myMainFrame.getProgressPanel();
                 if (progressPanel != null) {
@@ -266,7 +287,7 @@ public class TasselPipeline implements PluginListener {
 
     }
 
-    public void parseArgs(String[] input) {
+    public final void parseArgs(String[] input) {
 
         String[] args = input;
 
@@ -321,6 +342,8 @@ public class TasselPipeline implements PluginListener {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: unknown fork: " + current);
                     } else if (specifiedPipe.isEmpty()) {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: empty fork: " + current);
+                    } else if ((specifiedPipe.get(0) instanceof AbstractPlugin) && (!((AbstractPlugin) specifiedPipe.get(0)).getInputs().isEmpty())) {
+                        throw new IllegalArgumentException("TasselPipeline: parseArgs: this fork does not need to be explicitly run: it is receiving input from another plugin: " + current);
                     } else {
                         PluginEvent event = new PluginEvent(new DataSet((Datum) null, null));
                         ThreadedPluginListener thread = new ThreadedPluginListener(specifiedPipe.get(0), event);
@@ -1507,13 +1530,13 @@ public class TasselPipeline implements PluginListener {
                     } catch (UnsupportedOperationException usoe) {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: this plugin is not self-described: " + current);
                     } catch (Exception e) {
-                        ExceptionUtils.logExceptionCauses(e, myLogger, Level.ERROR);
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: Unknown parameter: " + current);
                     }
 
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                myLogger.error(e.getMessage());
+                myLogger.debug(e.getMessage(), e);
                 System.exit(1);
             }
 
