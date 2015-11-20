@@ -30,25 +30,27 @@ public class KinshipPlugin extends AbstractPlugin {
 
     public static enum KINSHIP_METHOD {
 
-        Scaled_IBS,
-        GCTA,
-        Dominance
+        Centered_IBS,
+        Normalized_IBS,
+        Dominance_Centered_IBS,
+        Dominance_Normalized_IBS
     };
 
     private final GenotypeTable.GENOTYPE_TABLE_COMPONENT[] GENOTYPE_COMP = new GenotypeTable.GENOTYPE_TABLE_COMPONENT[]{
         GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype, GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability, GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability};
 
-    private PluginParameter<KINSHIP_METHOD> myMethod = new PluginParameter.Builder<>("method", KINSHIP_METHOD.Scaled_IBS, KINSHIP_METHOD.class)
+    private PluginParameter<KINSHIP_METHOD> myMethod = new PluginParameter.Builder<>("method", KINSHIP_METHOD.Centered_IBS, KINSHIP_METHOD.class)
             .guiName("Kinship method")
             .range(KINSHIP_METHOD.values())
-            .description("The Scaled_IBS (Endelman) method produces a kinship matrix that is scaled to give a reasonable estimate of additive genetic variance. "
-                    + "The GCTA uses the algorithm published here: http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3014363/pdf/main.pdf.")
+            .description("The Centered_IBS (Endelman - previously Scaled_IBS) method produces a kinship matrix that is scaled to give a reasonable estimate of additive "
+                    + "genetic variance. Uses algorithm http://www.g3journal.org/content/2/11/1405.full.pdf Equation-13. "
+                    + "The Normalized_IBS (Previously GCTA) uses the algorithm published here: http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3014363/pdf/main.pdf.")
             .build();
 
     private PluginParameter<Integer> myMaxAlleles = new PluginParameter.Builder<>("maxAlleles", 6, Integer.class)
             .description("")
             .range(Range.closed(2, 6))
-            .dependentOnParameter(myMethod, new Object[]{KINSHIP_METHOD.Scaled_IBS, KINSHIP_METHOD.Dominance})
+            .dependentOnParameter(myMethod, new Object[]{KINSHIP_METHOD.Centered_IBS, KINSHIP_METHOD.Dominance_Centered_IBS})
             .build();
 
     public KinshipPlugin(Frame parentFrame, boolean isInteractive) {
@@ -61,6 +63,31 @@ public class KinshipPlugin extends AbstractPlugin {
         if ((alignInList == null) || (alignInList.isEmpty())) {
             throw new IllegalArgumentException("KinshipPlugin: Nothing selected. Please select a genotype.");
         }
+    }
+
+    @Override
+    public void setParameters(String[] args) {
+        try {
+            for (int i = 0; i < args.length; i++) {
+                if (args[i].equals("-method")) {
+                    if (args[i + 1].equalsIgnoreCase("GCTA")) {
+                        args[i + 1] = KINSHIP_METHOD.Normalized_IBS.name();
+                        myLogger.warn("setParameters: Notice GCTA has been changed to Normalized_IBS");
+                    } else if (args[i + 1].equalsIgnoreCase("Scaled_IBS")) {
+                        args[i + 1] = KINSHIP_METHOD.Centered_IBS.name();
+                        myLogger.warn("setParameters: Notice Scaled_IBS has been changed to Centered_IBS");
+                    } else if (args[i + 1].equalsIgnoreCase("Dominance")) {
+                        args[i + 1] = KINSHIP_METHOD.Dominance_Centered_IBS.name();
+                        myLogger.warn("setParameters: Notice Dominance has been changed to Dominance_Centered_IBS");
+                    }
+                }
+                break;
+            }
+        } catch (Exception e) {
+            // do nothing
+            myLogger.debug(e.getMessage(), e);
+        }
+        super.setParameters(args);
     }
 
     @Override
@@ -78,12 +105,14 @@ public class KinshipPlugin extends AbstractPlugin {
 
             if (current.getData() instanceof GenotypeTable) {
                 GenotypeTable myGenotype = (GenotypeTable) current.getData();
-                if (kinshipMethod() == KINSHIP_METHOD.Scaled_IBS) {
+                if (kinshipMethod() == KINSHIP_METHOD.Centered_IBS) {
                     kin = EndelmanDistanceMatrix.getInstance(myGenotype, maxAlleles(), this);
-                } else if (kinshipMethod() == KINSHIP_METHOD.GCTA) {
+                } else if (kinshipMethod() == KINSHIP_METHOD.Normalized_IBS) {
                     kin = GCTADistanceMatrix.getInstance(myGenotype, this);
-                } else if (kinshipMethod() == KINSHIP_METHOD.Dominance) {
+                } else if (kinshipMethod() == KINSHIP_METHOD.Dominance_Centered_IBS) {
                     kin = DominanceRelationshipMatrix.getInstance(myGenotype, maxAlleles(), this);
+                } else if (kinshipMethod() == KINSHIP_METHOD.Dominance_Normalized_IBS) {
+                    throw new UnsupportedOperationException("Method Dominance_Normalized_IBS hasn't been implemented yet.");
                 } else {
                     throw new IllegalArgumentException("Unknown method to calculate kinship: " + kinshipMethod());
                 }
