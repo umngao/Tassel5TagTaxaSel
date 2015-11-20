@@ -556,6 +556,18 @@ public class GenotypeTableUtils {
         return FilterGenotypeTable.getInstance(aa, includeSites);
     }
 
+    /**
+     * This returns the subset of genotypes specified by the given BED file.
+     * Start positions are inclusive and end positions are exclusive. If
+     * includeSites is false, this returns everything except the subset
+     * specified by the BED file.
+     *
+     * @param input original genotype
+     * @param bedFile BED file specifying subset
+     * @param includeSites whether to include sites
+     *
+     * @return subset of genotypes
+     */
     public static GenotypeTable filterSitesByBedFile(GenotypeTable input, String bedFile, boolean includeSites) {
 
         int numSites = input.numberOfSites();
@@ -574,8 +586,10 @@ public class GenotypeTableUtils {
                     startSite = -startSite - 1;
                 }
                 int endSite = input.siteOfPhysicalPosition(Integer.parseInt(tokens[2]), new Chromosome(tokens[0]));
-                if (endSite < 0) {
+                if (endSite < 0) { // end position doesn't exist, so already excluded
                     endSite = -endSite - 2;
+                } else { // end position is exclusive
+                    endSite--;
                 }
                 for (int i = startSite; i <= endSite; i++) {
                     sitesToInclude.fastSet(i);
