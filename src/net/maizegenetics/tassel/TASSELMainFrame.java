@@ -124,7 +124,6 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
     JPanel mainDisplayPanel = new JPanel();
     private JTextArea mainPanelTextArea = new JTextArea();
     private JTextField myStatusTextField = new JTextField();
-    private PreferencesDialog thePreferencesDialog;
     private final ProgressPanel myProgressPanel = ProgressPanel.getInstance();
     private HashMap<JMenuItem, Plugin> myMenuItemHash = new HashMap<JMenuItem, Plugin>();
 
@@ -285,16 +284,6 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         HelpDialog theHelpDialog = new HelpDialog(this);
         theHelpDialog.setLocationRelativeTo(this);
         theHelpDialog.setVisible(true);
-    }
-
-    private void preferencesMenuItem_actionPerformed(ActionEvent e) {
-        if (thePreferencesDialog == null) {
-            thePreferencesDialog = new PreferencesDialog();
-            thePreferencesDialog.pack();
-        }
-
-        thePreferencesDialog.setLocationRelativeTo(this);
-        thePreferencesDialog.setVisible(true);
     }
 
     public void updateMainDisplayPanel(JPanel panel) {
@@ -503,14 +492,8 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         JMenu fileMenu = new JMenu();
         fileMenu.setText("File");
 
-        JMenuItem preferencesMenuItem = new JMenuItem();
-        preferencesMenuItem.setText("Set Preferences");
+        fileMenu.add(createMenuItem(new PreferencesDialog(this, true), false));
 
-        preferencesMenuItem.addActionListener((ActionEvent e) -> {
-            preferencesMenuItem_actionPerformed(e);
-        });
-        fileMenu.add(preferencesMenuItem);
-        
         fileMenu.addSeparator();
 
         JMenuItem exitMenuItem = new JMenuItem("Exit");

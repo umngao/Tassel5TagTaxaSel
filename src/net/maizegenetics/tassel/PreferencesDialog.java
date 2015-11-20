@@ -1,136 +1,70 @@
 package net.maizegenetics.tassel;
 
-import java.awt.Container;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.Font;
 import java.awt.Frame;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-
 import javax.swing.*;
+import net.maizegenetics.plugindef.AbstractPlugin;
+import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.PluginParameter;
 
 import net.maizegenetics.prefs.TasselPrefs;
 
 /**
- * @author terryc
+ * @author Terry Casstevens
  */
-public class PreferencesDialog extends JDialog {
-    
-    private final static Font HEADING_FONT = new Font(null, Font.BOLD, 14);
-    private JCheckBox myRetainRareAlleles = new JCheckBox("Retain Rare Alleles");
-    
-    public PreferencesDialog() {
-        super((Frame) null, "Preferences...", true);
-        try {
-            init();
-            pack();
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
+public class PreferencesDialog extends AbstractPlugin {
+
+    private PluginParameter<Boolean> myRetainRareAlleles = new PluginParameter.Builder<>("retainRareAlleles", TasselPrefs.ALIGNMENT_RETAIN_RARE_ALLELES_DEFAULT, Boolean.class)
+            .description("True if rare alleles should be retained.  This has no effect on Nucleotide Data as all alleles will be retained regardless.")
+            .build();
+
+    public PreferencesDialog(Frame parentFrame, boolean isInteractive) {
+        super(parentFrame, isInteractive);
     }
-    
-    private void init() throws Exception {
-        
-        setTitle("Preferences...");
-        setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE);
-        setUndecorated(false);
-        getRootPane().setWindowDecorationStyle(JRootPane.NONE);
-        
-        Container contentPane = getContentPane();
-        
-        JPanel result = new JPanel();
-        BoxLayout layout = new BoxLayout(result, BoxLayout.Y_AXIS);
-        result.setLayout(layout);
-        result.setAlignmentX(JPanel.LEFT_ALIGNMENT);
-        
-        result.add(Box.createRigidArea(new Dimension(1, 30)));
-        
-        result.add(getGenotypeStoringPanel());
-        
-        result.add(Box.createRigidArea(new Dimension(1, 10)));
-        
-        result.add(getButtons());
-        
-        result.add(Box.createRigidArea(new Dimension(1, 20)));
-        
-        contentPane.add(result);
-        
-        pack();
-        
-        setResizable(false);
-        
+
+    @Override
+    protected void preProcessParameters(DataSet input) {
+        setParameter(myRetainRareAlleles, TasselPrefs.getAlignmentRetainRareAlleles());
     }
-    
-    private JPanel getGenotypeStoringPanel() {
-        JPanel result = new JPanel();
-        BoxLayout layout = new BoxLayout(result, BoxLayout.Y_AXIS);
-        result.setLayout(layout);
-        result.setAlignmentX(JPanel.CENTER_ALIGNMENT);
-        
-        JLabel alignPrefsLabel = new JLabel("Alignment Preferences...");
-        alignPrefsLabel.setFont(HEADING_FONT);
-        result.add(alignPrefsLabel);
-        result.add(Box.createRigidArea(new Dimension(1, 10)));
-        
-        myRetainRareAlleles.setSelected(TasselPrefs.getAlignmentRetainRareAlleles());
-        result.add(myRetainRareAlleles);
-        
-        return result;
+
+    @Override
+    public DataSet processData(DataSet input) {
+        TasselPrefs.putAlignmentRetainRareAlleles(retainRareAlleles());
+        return null;
     }
-    
-    private JPanel getLine(String label, JTextField ref) {
-        
-        JPanel result = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        
-        result.add(new JLabel(label));
-        ref.setEditable(true);
-        ref.setHorizontalAlignment(JTextField.LEFT);
-        ref.setAlignmentX(JTextField.CENTER_ALIGNMENT);
-        ref.setAlignmentY(JTextField.CENTER_ALIGNMENT);
-        ref.setMaximumSize(ref.getPreferredSize());
-        result.add(ref);
-        
-        return result;
-        
+
+    /**
+     * Retain Rare Alleles
+     *
+     * @return Retain Rare Alleles
+     */
+    public Boolean retainRareAlleles() {
+        return myRetainRareAlleles.value();
     }
-    
-    private JPanel getButtons() {
-        
-        JButton okButton = new JButton();
-        JButton cancelButton = new JButton();
-        
-        cancelButton.setText("Cancel");
-        cancelButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                cancelButton_actionPerformed(e);
-            }
-        });
-        
-        okButton.setText("OK");
-        okButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                okButton_actionPerformed(e);
-            }
-        });
-        
-        JPanel result = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        
-        result.add(okButton);
-        
-        result.add(cancelButton);
-        
-        return result;
-        
+
+    /**
+     * Set Retain Rare Alleles. Retain Rare Alleles
+     *
+     * @param value Retain Rare Alleles
+     *
+     * @return this plugin
+     */
+    public PreferencesDialog retainRareAlleles(Boolean value) {
+        myRetainRareAlleles = new PluginParameter<>(myRetainRareAlleles, value);
+        return this;
     }
-    
-    private void okButton_actionPerformed(ActionEvent e) {
-        TasselPrefs.putAlignmentRetainRareAlleles(myRetainRareAlleles.isSelected());
-        setVisible(false);
+
+    @Override
+    public ImageIcon getIcon() {
+        return null;
     }
-    
-    private void cancelButton_actionPerformed(ActionEvent e) {
-        myRetainRareAlleles.setSelected(TasselPrefs.getAlignmentRetainRareAlleles());
-        setVisible(false);
+
+    @Override
+    public String getButtonName() {
+        return "Preferences";
+    }
+
+    @Override
+    public String getToolTipText() {
+        return "Preferences";
     }
 }
