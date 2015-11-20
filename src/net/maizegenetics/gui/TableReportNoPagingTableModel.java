@@ -4,7 +4,6 @@
  */
 package net.maizegenetics.gui;
 
-import java.text.NumberFormat;
 import javax.swing.table.AbstractTableModel;
 
 import net.maizegenetics.util.TableReport;
@@ -14,12 +13,6 @@ import net.maizegenetics.util.TableReport;
  * @author Terry Casstevens
  */
 public class TableReportNoPagingTableModel extends AbstractTableModel {
-
-    private static final NumberFormat DECIMAL_FORMAT = NumberFormat.getNumberInstance();
-
-    static {
-        DECIMAL_FORMAT.setMaximumFractionDigits(5);
-    }
 
     private TableReport myTable = null;
     private Object[] myColumnHeadings = null;
@@ -47,12 +40,7 @@ public class TableReportNoPagingTableModel extends AbstractTableModel {
 
     @Override
     public Object getValueAt(int row, int col) {
-        Object result = myTable.getValueAt(row, col);
-        if (result instanceof Double) {
-            return DECIMAL_FORMAT.format(result);
-        } else {
-            return myTable.getValueAt(row, col);
-        }
+        return myTable.getValueAt(row, col);
     }
 
     @Override
