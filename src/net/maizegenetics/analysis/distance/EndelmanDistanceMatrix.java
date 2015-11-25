@@ -15,7 +15,10 @@ import java.util.stream.StreamSupport;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
 import net.maizegenetics.prefs.TasselPrefs;
+import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
+import net.maizegenetics.taxa.distance.DistanceMatrixBuilder;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 import net.maizegenetics.util.ProgressListener;
 import net.maizegenetics.util.Tuple;
 import org.apache.log4j.Logger;
@@ -28,7 +31,7 @@ public class EndelmanDistanceMatrix {
 
     private static final Logger myLogger = Logger.getLogger(EndelmanDistanceMatrix.class);
 
-    private static final int DEFAULT_MAX_ALLELES = 2;
+    private static final int DEFAULT_MAX_ALLELES = 6;
 
     /**
      * Compute Endelman kinship for all pairs of taxa. Missing sites are
@@ -124,17 +127,85 @@ public class EndelmanDistanceMatrix {
         // the distance sums.
         //
         sumpk *= 2.0;
-        double[][] result = new double[numSeqs][numSeqs];
+
+        GeneralAnnotationStorage.Builder annotations = GeneralAnnotationStorage.getBuilder();
+        annotations.addAnnotation(DistanceMatrixBuilder.MATRIX_TYPE, KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString());
+        annotations.addAnnotation(DistanceMatrixBuilder.CENTERED_IBS_SUMPK, sumpk);
+
+        DistanceMatrixBuilder builder = DistanceMatrixBuilder.getInstance(genotype.taxa());
+        builder.annotation(annotations.build());
         int index = 0;
         for (int t = 0; t < numSeqs; t++) {
             for (int i = 0, n = numSeqs - t; i < n; i++) {
-                result[t][t + i] = result[t + i][t] = distances[index] / sumpk;
+                builder.set(t, t + i, distances[index] / sumpk);
                 index++;
             }
         }
 
         myLogger.info("EndelmanDistanceMatrix: computeEndelmanDistances time: " + (System.currentTimeMillis() - time) / 1000 + " seconds");
-        return new DistanceMatrix(result, genotype.taxa());
+        return builder.build();
+
+    }
+
+    public static DistanceMatrix subtractEndelmanDistance(DistanceMatrix[] matrices, DistanceMatrix superMatrix, ProgressListener listener) {
+
+        int numTaxa = superMatrix.numberOfTaxa();
+        String matrixType = superMatrix.annotations().getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE)[0];
+        if (!matrixType.equals(KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString())) {
+            throw new IllegalArgumentException("subtractEndelmanDistance: superset matrix must be matrix type: " + KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString());
+        }
+        for (DistanceMatrix current : matrices) {
+            int currentNumTaxa = current.numberOfTaxa();
+            if (currentNumTaxa != numTaxa) {
+                throw new IllegalArgumentException("subtractEndelmanDistance: subset and superset must have same number of taxa.");
+            }
+            String currentMatrixType = current.annotations().getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE)[0];
+            if (!matrixType.equals(currentMatrixType)) {
+                throw new IllegalArgumentException("subtractEndelmanDistance: subset matrix must be matrix type: " + KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString());
+            }
+        }
+
+        TaxaList superTaxaList = superMatrix.getTaxaList();
+        for (DistanceMatrix current : matrices) {
+            TaxaList subsetTaxaList = current.getTaxaList();
+            for (int t = 0; t < numTaxa; t++) {
+                if (!superTaxaList.get(t).equals(subsetTaxaList.get(t))) {
+                    throw new IllegalArgumentException("subtractEndelmanDistance: superset taxon: " + superTaxaList.get(t).getName() + " doesn't match subset taxon: " + subsetTaxaList.taxaName(t));
+                }
+            }
+        }
+
+        DistanceMatrixBuilder builder = DistanceMatrixBuilder.getInstance(superTaxaList);
+
+        //
+        // This does the final division of the frequency sum into
+        // the distance sums.
+        //
+        int numMatrices = matrices.length;
+        double superSumpk = superMatrix.annotations().getQuantAnnotation(DistanceMatrixBuilder.CENTERED_IBS_SUMPK)[0];
+        double resultSumpk = superSumpk;
+        double[] matricesSumpk = new double[numMatrices];
+        for (int i = 0; i < numMatrices; i++) {
+            matricesSumpk[i] = matrices[i].annotations().getQuantAnnotation(DistanceMatrixBuilder.CENTERED_IBS_SUMPK)[0];
+            resultSumpk -= matricesSumpk[i];
+        }
+
+        GeneralAnnotationStorage.Builder resultAnnotations = GeneralAnnotationStorage.getBuilder();
+        resultAnnotations.addAnnotation(DistanceMatrixBuilder.MATRIX_TYPE, KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString());
+        resultAnnotations.addAnnotation(DistanceMatrixBuilder.CENTERED_IBS_SUMPK, resultSumpk);
+        builder.annotation(resultAnnotations.build());
+
+        for (int t = 0; t < numTaxa; t++) {
+            for (int i = 0, n = numTaxa - t; i < n; i++) {
+                double resultValue = superMatrix.getDistance(t, t + i) * superSumpk;
+                for (int j = 0; j < numMatrices; j++) {
+                    resultValue -= (matrices[j].getDistance(t, t + i) * matricesSumpk[j]);
+                }
+                builder.set(t, t + i, resultValue / resultSumpk);
+            }
+        }
+
+        return builder.build();
 
     }
 
@@ -145,7 +216,6 @@ public class EndelmanDistanceMatrix {
             }
             listener.progress(percent, null);
         }
-
     }
 
     //
@@ -193,7 +263,7 @@ public class EndelmanDistanceMatrix {
             for (int a = 0; a < 8; a++) {
                 for (int b = 0; b < 8; b++) {
                     int temp = (allele << 6) | (a << 3) | b;
-                    if ((allele == 7) | ((a == 7) && (b == 7))) {
+                    if ((allele == 7) || ((a == 7) && (b == 7))) {
                         PRECALCULATED_COUNTS[temp] = 7;
                     } else {
                         if (a == allele) {
