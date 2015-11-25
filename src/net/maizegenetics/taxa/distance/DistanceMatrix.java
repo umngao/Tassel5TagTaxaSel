@@ -10,6 +10,7 @@ import net.maizegenetics.util.FormattedOutput;
 import net.maizegenetics.util.TableReport;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.GeneralAnnotation;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -27,6 +28,7 @@ import java.io.StringWriter;
 public class DistanceMatrix implements TaxaListMatrix, TableReport {
 
     private final TaxaList myTaxaList;
+    private final GeneralAnnotation myAnnotations;
     /**
      * distances [seq1][seq2]
      */
@@ -37,9 +39,13 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
      * constructor taking distances array and IdGroup
      */
     public DistanceMatrix(double[][] distance, TaxaList taxaList) {
-        super();
+        this(distance, taxaList, null);
+    }
+
+    public DistanceMatrix(double[][] distance, TaxaList taxaList, GeneralAnnotation annotations) {
         this.distance = distance;
         myTaxaList = taxaList;
+        myAnnotations = annotations;
     }
 
     /**
@@ -54,6 +60,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         }
         distance = copy;
         myTaxaList = dm.myTaxaList;
+        myAnnotations = dm.myAnnotations;
     }
 
     /**
@@ -75,6 +82,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
             }
         }
         myTaxaList = subset;
+        myAnnotations = dm.myAnnotations;
     }
 
     /**
@@ -221,7 +229,6 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         return dist / (double) count;
     }
 
-    //IdGroup interface
     public Taxon getTaxon(int i) {
         return myTaxaList.get(i);
     }
@@ -241,6 +248,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     /**
      * Return TaxaList of this alignment.
      */
+    @Override
     public TaxaList getTaxaList() {
         return myTaxaList;
     }
@@ -302,9 +310,10 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
 
     public static DistanceMatrix hadamardProduct(DistanceMatrix m0, DistanceMatrix m1) {
         int n = m0.distance.length;
-        if (m0.distance.length != n) 
+        if (m0.distance.length != n) {
             throw new IllegalArgumentException("Matrices must be of the same dimensions to compute a Hadamard product.");
-        
+        }
+
         double[][] product = new double[n][n];
         for (int r = 0; r < n; r++) {
             product[r][r] = m0.distance[r][r] * m0.distance[r][r];
@@ -312,10 +321,10 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
                 product[r][c] = product[c][r] = m0.distance[r][c] * m0.distance[r][c];
             }
         }
-        
-        return new DistanceMatrix(product, m0.getTaxaList());    
+
+        return new DistanceMatrix(product, m0.getTaxaList());
     }
-    
+
     @Override
     public Object[] getTableColumnNames() {
         String[] colNames = new String[getSize() + 1];
@@ -329,7 +338,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     /**
      * Returns specified row.
      *
-     * @param row row number
+     * @param rowLong row number
      *
      * @return row
      */
@@ -388,6 +397,10 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
             return "Taxa";
         }
         return getTaxon(col - 1).toString();
+    }
+
+    public GeneralAnnotation annotations() {
+        return myAnnotations;
     }
 
 }

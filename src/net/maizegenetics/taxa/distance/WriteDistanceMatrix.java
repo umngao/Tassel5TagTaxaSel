@@ -7,6 +7,8 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Map;
+import net.maizegenetics.util.GeneralAnnotation;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 
@@ -27,6 +29,17 @@ public class WriteDistanceMatrix {
         }
 
         try (BufferedWriter bw = Utils.getBufferedWriter(saveFile)) {
+
+            GeneralAnnotation annotations = matrix.annotations();
+            if (annotations != null) {
+                for (Map.Entry<String, String> current : annotations.getAllAnnotationEntries()) {
+                    bw.write("##");
+                    bw.write(current.getKey());
+                    bw.write("=");
+                    bw.write(current.getValue());
+                    bw.write("\n");
+                }
+            }
 
             bw.write(String.valueOf(matrix.getRowCount()));
             bw.write("\n");
