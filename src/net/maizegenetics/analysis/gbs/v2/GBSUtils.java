@@ -196,7 +196,7 @@ public class GBSUtils {
         List<Path> filesToProcess = new ArrayList<Path>();
         // Get map  of flowcell/lanes from the key file
         String keyFileName = keyFile.toString();
-        ListMultimap<String, String> keyFileValues = parseKeyfileIntoMap(keyFileName);          
+        ListMultimap<String, String> keyFileValues = parseKeyfileIntoMap(keyFileName); 
         if (keyFileValues.isEmpty()) return filesToProcess; // no entries
 
         // for each file in the directory, check if the flowcell and lane are represented 
@@ -221,6 +221,12 @@ public class GBSUtils {
                 if (keyFileValues.containsEntry(filenameField[1],filenameField[3])) {
                    filesToProcess.add(directoryFile);
                 }
+            }
+            else {
+                myLogger.error("Error in parsing file name: " + directoryFile.toString());
+                myLogger.error("   The filename does not contain either 3, 4, or 5 underscore-delimited values.");
+                myLogger.error("   Expect: flowcell_lane_fastq.txt.gz OR flowcell_s_lane_fastq.txt.gz OR code_flowcell_s_lane_fastq.txt.gz");
+                myLogger.error("   " + directoryFile.toString() + " will not be processed.");                
             }
         });             
         return filesToProcess; 
