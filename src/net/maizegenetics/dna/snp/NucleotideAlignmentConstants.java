@@ -520,5 +520,17 @@ public final class NucleotideAlignmentConstants {
         }
         return reverseCompBytes;
     }
+    /**
+     * Convert a nucleotide byte array to a string
+     * @param b the array of nucleotide bytes to convert
+     * @return a string representing the nucleotide bytes
+     */
+    public static String nucleotideBytetoString(byte[] b) {
+        StringBuilder result = new StringBuilder();
+        for (int index = 0; index < b.length; index++) {
+            result.append(getNucleotideAlleleValue(b[index]));
+        }
+        return result.toString();
+    }
     
 }
