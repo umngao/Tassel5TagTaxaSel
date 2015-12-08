@@ -85,7 +85,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
     private boolean taglenException;
     protected static int readEndCutSiteRemnantLength;
     private Trie ahoCorasickTrie; // import from ahocorasick-0.2.1.jar
-    private String[] likelyReadEndStrings;
+    String[] likelyReadEndStrings;
    
     public GBSSeqToTagDBPlugin() {
         super(null, false);
