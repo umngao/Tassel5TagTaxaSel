@@ -14,7 +14,6 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Multiset.Entry;
 
-import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.stats.math.GammaFunction;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.PositionListBuilder;
@@ -1145,33 +1144,6 @@ public class NucleotideImputationUtils {
 				snpIndices.clear();
 				snpIndices.addAll(originalList);
 				return taxaClusters;
-			}
-		}
-
-		public static void estimateMissingDistances(DistanceMatrix dm) {
-			int nsize = dm.getSize();
-
-			//average distance
-			double totalDistance = 0;
-			int count = 0;
-			for (int i = 0; i < nsize; i++) {
-				for (int j = i + 1; j < nsize; j++) {
-					double distance = dm.getDistance(i, j);
-					if (!Double.isNaN(distance)) {
-						totalDistance += dm.getDistance(i, j);
-						count++;
-					}
-				}
-			}
-			double avgDist = totalDistance / count;
-
-			for (int i = 0; i < nsize; i++) {
-				if ( Double.isNaN(dm.getDistance(i,i)) ) dm.setDistance(i, i, 0);
-				for (int j = i + 1; j < nsize; j++) {
-					if ( Double.isNaN(dm.getDistance(i,j)) ) {
-						dm.setDistance(i, j, avgDist);
-					}
-				}
 			}
 		}
 

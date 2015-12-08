@@ -34,9 +34,6 @@ import net.maizegenetics.stats.linearmodels.SymmetricMatrixInverterDM;
 
 import org.apache.log4j.Logger;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -44,6 +41,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import net.maizegenetics.taxa.distance.DistanceMatrixBuilder;
 
 public class CompressedMLMusingDoubleMatrix {
 
@@ -976,16 +974,15 @@ public class CompressedMLMusingDoubleMatrix {
             constant = 1;
         }
 
-        DistanceMatrix distanceMatrix = new DistanceMatrix(kin);
+        DistanceMatrixBuilder builder = DistanceMatrixBuilder.getInstance(kin.getTaxaList());
         for (int r = 0; r < n; r++) {
-            distanceMatrix.setDistance(r, r, constant - kin.getDistance(r, r));
+            builder.set(r, r, constant - kin.getDistance(r, r));
             for (int c = r + 1; c < n; c++) {
                 double newval = constant - kin.getDistance(r, c);
-                distanceMatrix.setDistance(r, c, newval);
-                distanceMatrix.setDistance(c, r, newval);
+                builder.set(r, c, newval);
             }
         }
-        return distanceMatrix;
+        return builder.build();
     }
 
     /**

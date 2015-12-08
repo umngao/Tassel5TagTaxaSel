@@ -203,15 +203,6 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     }
 
     /**
-     * Sets both upper and lower triangles.
-     *
-     * @deprecated Needs to have a Builder
-     */
-    public void setDistance(int i, int j, double dist) {
-        distance[i][j] = distance[j][i] = dist;
-    }
-
-    /**
      * Returns the mean pairwise distance of this matrix
      */
     @Override
