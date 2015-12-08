@@ -406,10 +406,12 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
         String shortSeq = seq.substring(20);
         for (String readEnd: likelyReadEndStrings){
             int indx = shortSeq.indexOf(readEnd);
-            if (indx > 0 && indx < indexOfReadEnd)
-                indexOfReadEnd = indx;
+            if (indx > 0 ) {
+                if (indexOfReadEnd < 0 || indx < indexOfReadEnd) {
+                    indexOfReadEnd = indx;
+                } 
+            }
         }
-
         if (indexOfReadEnd > 0 &&
                 (indexOfReadEnd + 20 + readEndCutSiteRemnantLength < preferredLength)) {
             // trim tag to sequence up to & including the cut site
