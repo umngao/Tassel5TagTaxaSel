@@ -27,6 +27,32 @@ public class NumericAttribute implements PhenotypeAttribute {
 		this.missing = missing;
 	}
 	
+	public NumericAttribute(String name, float[] values) {
+            this.name = name;
+            this.values = values;
+            int n = values.length;
+            missing = new OpenBitSet(n);
+            for (int i = 0; i < n; i++) {
+                if (!Float.isFinite(values[i])) {
+                    missing.set(i);
+                }
+            }
+	}
+	
+        public NumericAttribute(String name, double[] doubleValues) {
+            this.name = name;
+            int n = doubleValues.length;
+            missing = new OpenBitSet(n);
+            values = new float[n];
+            for (int i = 0; i < n; i++) {
+                if (!Double.isFinite(doubleValues[i])) {
+                    missing.set(i);
+                    values[i] = Float.NaN;
+                } else values[i] = (float) doubleValues[i];
+            }
+        }
+        
+	
 	public float floatValue(int obs) {
 		return values[obs];
 	}
