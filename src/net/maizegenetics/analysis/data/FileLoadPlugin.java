@@ -43,6 +43,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import net.maizegenetics.taxa.distance.DistanceMatrixBuilder;
 
 /**
  *
@@ -306,6 +307,20 @@ public class FileLoadPlugin extends AbstractPlugin {
                     guess = TasselFileType.PositionList;
                 } else if (temp.startsWith("\"Filter\"")) {
                     guess = TasselFileType.Filter;
+                }
+            } else if (line1.startsWith("##")) {
+                String matrixStr = "##" + DistanceMatrixBuilder.MATRIX_TYPE;
+                if (line1.startsWith(matrixStr) || line2.startsWith(matrixStr)) {
+                    guess = TasselFileType.SqrMatrix;
+                } else {
+                    String line = br.readLine();
+                    while ((line != null) && (line.startsWith("##"))) {
+                        if (line.startsWith(matrixStr)) {
+                            guess = TasselFileType.SqrMatrix;
+                            break;
+                        }
+                        line = br.readLine();
+                    }
                 }
             } else if (line1.startsWith("<") || line1.startsWith("#")) {
                 boolean isTrait = false;
