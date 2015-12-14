@@ -5,13 +5,18 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import javax.swing.ImageIcon;
 
+import org.apache.commons.math3.distribution.FDistribution;
+
+import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.GenotypeTable.GENOTYPE_TABLE_COMPONENT;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.prefs.TasselPrefs;
 
 public class FastMultithreadedAssociationPlugin extends AbstractPlugin {
     private GENOTYPE_TABLE_COMPONENT[] GENOTYPE_COMP = new GENOTYPE_TABLE_COMPONENT[] {
@@ -24,11 +29,6 @@ public class FastMultithreadedAssociationPlugin extends AbstractPlugin {
             new PluginParameter.Builder<>("MaxPValue", .001, Double.class)
                     .guiName("MaxPValue")
                     .description("The maximum p-value that will be output by the analysis.")
-                    .build();
-    private PluginParameter<Boolean> addOnly =
-            new PluginParameter.Builder<>("addOnly", false, Boolean.class)
-                    .description("Should an additive only model be fit? If true, an additive model will be fit. If false, an additive + dominance model will be fit. Default = false.")
-                    .guiName("Additive Only Model")
                     .build();
     private PluginParameter<GENOTYPE_TABLE_COMPONENT> myGenotypeTable =
             new PluginParameter.Builder<>("genotypeComponent", GENOTYPE_TABLE_COMPONENT.Genotype, GENOTYPE_TABLE_COMPONENT.class)
@@ -49,20 +49,24 @@ public class FastMultithreadedAssociationPlugin extends AbstractPlugin {
                     .description("The name of the file to which these results will be saved.")
                     .guiName("Output File")
                     .build();
+    private PluginParameter<Integer> maxThreads = new PluginParameter.Builder<>("maxThreads", TasselPrefs.getMaxThreads(), Integer.class)
+    		.description("the maximum number of threads to be used by this plugin.")
+    		.guiName("Max Threads")
+    		.build();
     
     public FastMultithreadedAssociationPlugin() {
-        // TODO Auto-generated constructor stub
+        this(null, false);
     }
 
     public FastMultithreadedAssociationPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
-        // TODO Auto-generated constructor stub
     }
 
     @Override
     public DataSet processData(DataSet input) {
-        // TODO Auto-generated method stub
-        return super.processData(input);
+        // TODO finish implementing
+    	
+        return null;
     }
 
     @Override
@@ -83,41 +87,83 @@ public class FastMultithreadedAssociationPlugin extends AbstractPlugin {
 
     class SiteTester extends Thread {
         final List<double[]> orthogonalPhenotypes;
-        final BlockingQueue<double[]> siteQueue;
+        final List<String> phenotypeNames;
+        final BlockingQueue<Marker> siteQueue;
+        final BlockingQueue<Object[]> outQueue;
         final double minR2;
         final int nphenotypes;
+        final int numberOfObservations;
+        final double errdf;
+        final private FDistribution Fdist;
         
-        SiteTester(List<double[]> orthogonalPhenotypes, BlockingQueue<double[]> siteQueue, BlockingQueue<Object[]> outQueue, double minRSquare) {
+        SiteTester(List<double[]> orthogonalPhenotypes, List<String> phenotypeNames, BlockingQueue<Marker> siteQueue, BlockingQueue<Object[]> outQueue, double minRSquare, double errdf, int ntaxa) {
             this.orthogonalPhenotypes = orthogonalPhenotypes;
+            this.phenotypeNames = phenotypeNames;
             this.siteQueue = siteQueue;
+            this.outQueue = outQueue;
             minR2 = minRSquare;
+            numberOfObservations = ntaxa;
+            this.errdf = errdf;
             nphenotypes = orthogonalPhenotypes.size();
+            Fdist = new FDistribution(1, errdf);
         }
         
         public void run() {
             try {
-                double[] siteValues = siteQueue.poll(1, TimeUnit.SECONDS);
-                int ntaxa = siteValues.length;
+            	Marker thisMarker = siteQueue.poll(1, TimeUnit.SECONDS);
+                double[] siteValues = thisMarker.values;
                 while (siteValues.length > 0) {
                     double[] r2values = new double[nphenotypes];
                     
                     for (int p = 0; p < nphenotypes; p++) {
                         int sumprod = 0;
                         double[] pheno = orthogonalPhenotypes.get(p);
-                        for (int t = 0; t < ntaxa; t++) sumprod += siteValues[t] * pheno[t];
+                        for (int t = 0; t < numberOfObservations; t++) sumprod += siteValues[t] * pheno[t];
                         r2values[p] = sumprod;
                     }
                     
-                    outputResult(r2values);
-                    siteValues = siteQueue.poll(1, TimeUnit.SECONDS);
+                    outputResult(r2values, thisMarker.myPosition);
+                    thisMarker = siteQueue.poll(1, TimeUnit.SECONDS);
                 }
             } catch (InterruptedException e) {
-                throw new RuntimeException("Error polling the site queue", e);
+                throw new RuntimeException("InterruptedException occurred in SiteTester thread", e);
             }
         }
         
-        private void outputResult(double[] r2Values) {
+        private void outputResult(double[] rvalues, Position pos) throws InterruptedException {
             //for r2 values >= minR2, create an output record and add it to the output queue
+        	for (int p = 0; p < nphenotypes; p++) {
+        		if (rvalues[p] >= minR2) {
+        			Object[] result = new Object[]{ phenotypeNames.get(p), pos.getSNPID(),
+                            pos.getChromosome().getName(), pos.getPosition(),
+                            1, rvalues[p],
+                            pvalue(rvalues[p])};
+        			outQueue.put(result);
+        		}
+        	}
         }
+        
+        private double pvalue(double rvalue) {
+            double F = rvalue / (1 - rvalue) * errdf;
+            double p;
+            try {
+                p = 1 - Fdist.cumulativeProbability(F);
+            } catch (Exception e) {
+                p = Double.NaN;
+            }
+            return p;
+        }
+
+    }
+    
+    class Marker {
+    	double[] values;
+    	Position myPosition;
+    	
+    	Marker(double[] values, Position pos) {
+    		this.values = values;
+    		myPosition = pos;
+    	}
+    	
     }
 }
