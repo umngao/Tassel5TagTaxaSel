@@ -25,7 +25,6 @@ import java.util.stream.IntStream;
 import static net.maizegenetics.dna.WHICH_ALLELE.Major;
 import static net.maizegenetics.dna.WHICH_ALLELE.Minor;
 import static net.maizegenetics.dna.WHICH_ALLELE.Minor2;
-import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.Tuple;
 
 /**
@@ -46,18 +45,10 @@ import net.maizegenetics.util.Tuple;
  * @author Ed Buckler
  * @version 1.0
  */
-public class IBSDistanceMatrix extends DistanceMatrix {
+public class IBSDistanceMatrix {
 
-    /**
-     * Holds the average numbers of sites in the comparisons
-     */
-    private final double myAvgTotalSites;
-    private final boolean myIsTrueIBS;
-
-    public IBSDistanceMatrix(double[][] distances, TaxaList taxa, boolean isTrueIBS, double avgTotalSites) {
-        super(distances, taxa);
-        myIsTrueIBS = isTrueIBS;
-        myAvgTotalSites = avgTotalSites;
+    private IBSDistanceMatrix() {
+        // utility
     }
 
     /**
@@ -65,7 +56,7 @@ public class IBSDistanceMatrix extends DistanceMatrix {
      *
      * @param theAlignment Alignment used to computed distances
      */
-    public static IBSDistanceMatrix getInstance(GenotypeTable theAlignment) {
+    public static DistanceMatrix getInstance(GenotypeTable theAlignment) {
         return getInstance(theAlignment, null);
     }
 
@@ -75,7 +66,7 @@ public class IBSDistanceMatrix extends DistanceMatrix {
      * @param theAlignment Alignment used to computed distances
      * @param listener Listener to track progress in calculations
      */
-    public static IBSDistanceMatrix getInstance(GenotypeTable theAlignment, ProgressListener listener) {
+    public static DistanceMatrix getInstance(GenotypeTable theAlignment, ProgressListener listener) {
         return getInstance(theAlignment, 0, listener);
     }
 
@@ -86,7 +77,7 @@ public class IBSDistanceMatrix extends DistanceMatrix {
      * @param minSiteComp Minimum number of sites needed to estimate distance
      * @param listener Listener to track progress in calculations
      */
-    public static IBSDistanceMatrix getInstance(GenotypeTable theAlignment, int minSiteComp, ProgressListener listener) {
+    public static DistanceMatrix getInstance(GenotypeTable theAlignment, int minSiteComp, ProgressListener listener) {
         return getInstance(theAlignment, minSiteComp, false, listener, true);
     }
 
@@ -100,7 +91,7 @@ public class IBSDistanceMatrix extends DistanceMatrix {
      * @param listener Listener to track progress in calculations
      * @param useThirdState
      */
-    public static IBSDistanceMatrix getInstance(GenotypeTable theAlignment, int minSiteComp, boolean trueIBS, ProgressListener listener, boolean useThirdState) {
+    public static DistanceMatrix getInstance(GenotypeTable theAlignment, int minSiteComp, boolean trueIBS, ProgressListener listener, boolean useThirdState) {
         if (useThirdState) {
             return IBSDistanceMatrix3Alleles.getInstance(theAlignment, minSiteComp, trueIBS, listener);
         } else {
@@ -167,7 +158,7 @@ public class IBSDistanceMatrix extends DistanceMatrix {
                     //count.increment();
                 }
             }
-            fireProgress((int) ((double) (i + 1) / (double) numSeqs * 100.0), listener);
+            //fireProgress((int) ((double) (i + 1) / (double) numSeqs * 100.0), listener);
         });
         //avgTotalSites /= (double) count.longValue();
         System.out.println("computeHetBitDistances time = " + (System.currentTimeMillis() - time) / 1000 + " seconds");
@@ -431,56 +422,6 @@ public class IBSDistanceMatrix extends DistanceMatrix {
             }
         }
 
-    }
-
-    /*
-     * Average number of sites used in calculating the distance matrix
-     */
-    public double getAverageTotalSites() {
-        return myAvgTotalSites;
-    }
-
-    public String toString(int d) {
-        double[][] distance = this.getDistances();
-        /*Return a string representation of this matrix with 'd'
-         displayed digits*/
-        String newln = System.getProperty("line.separator");
-        String outPut = new String();
-        int i, j;
-        java.text.NumberFormat nf = new java.text.DecimalFormat();
-        nf.setMaximumFractionDigits(5);
-        for (i = 0; i < distance.length; i++) {
-            for (j = 0; j < distance[i].length; j++) {
-
-                //Numeric x = new Numeric(distance[i][j]);
-                String num = nf.format(d);
-                //num = x.toString(d);
-                //ed change that screws up formatting
-                //num=""+this.element[i][j];
-                outPut = outPut + num + (char) 9;
-            }
-            outPut = outPut + newln;
-        }
-        return outPut;
-    }
-
-    @Override
-    public String toString() {
-        return this.toString(6);
-    }
-
-    protected static void fireProgress(int percent, ProgressListener listener) {
-        if (listener != null) {
-            listener.progress(percent, null);
-        }
-
-    }
-
-    /*
-     * Returns whether true IBS is calculated for the diagonal 
-     */
-    public boolean isTrueIBS() {
-        return myIsTrueIBS;
     }
 
 }

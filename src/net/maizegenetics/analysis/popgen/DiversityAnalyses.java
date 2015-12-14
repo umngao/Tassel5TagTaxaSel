@@ -24,6 +24,8 @@ import net.maizegenetics.util.TableReport;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import net.maizegenetics.taxa.distance.DistanceMatrix;
+import net.maizegenetics.taxa.distance.DistanceMatrixBuilder;
 
 /**
  *This method calculated estimates of nucleotide diversity (pi, theta, etc).
@@ -106,14 +108,14 @@ public class DiversityAnalyses extends AbstractTableReport implements TableRepor
         double startChrPosition = theAAlignment.chromosomalPosition(start);
         double endChrPosition = theAAlignment.chromosomalPosition(end);
         GenotypeTable theFilteredAlignment = FilterGenotypeTable.getInstance(theAAlignment, start, end);
-        IBSDistanceMatrix adm = IBSDistanceMatrix.getInstance(theFilteredAlignment);
+        DistanceMatrix adm = IBSDistanceMatrix.getInstance(theFilteredAlignment);
         diversityResultsVector.add(evaluate(theFilteredAlignment, adm, start, end, chromosome, startChrPosition, endChrPosition));
         if (thePolymorphismDistribution != null) {
             thePolymorphismDistribution.addDistribution("ALL" + "s" + start + "-e" + end, theFilteredAlignment, true);
         }
     }
 
-    DiversityResults evaluate(GenotypeTable theAlignment, IBSDistanceMatrix dm,
+    DiversityResults evaluate(GenotypeTable theAlignment, DistanceMatrix dm,
             int start, int end, int chromosome, double startChrPosition, double endChrPosition) {
         int sites = end - start + 1;
         DiversityResults theDiversityResults = new DiversityResults(start, end, chromosome, startChrPosition, endChrPosition);
@@ -128,7 +130,8 @@ public class DiversityAnalyses extends AbstractTableReport implements TableRepor
         int segSites = countSegregatingSites(theAlignment);
         int taxa = theAlignment.numberOfTaxa();
         theDiversityResults.pipbp = pipbp;
-        theDiversityResults.avgSiteCoverage = dm.getAverageTotalSites();
+        theDiversityResults.avgSiteCoverage = dm.annotations().getQuantAnnotation(DistanceMatrixBuilder.IBS_DISTANCE_MATRIX_AVE_TOTAL_SITES)[0];
+        //theDiversityResults.avgSiteCoverage = dm.getAverageTotalSites();
         theDiversityResults.totalSites = sites;
         theDiversityResults.segregatingSites = segSites;
         theDiversityResults.thetapbp = estimateThetaPerbp(segSites, sites, theDiversityResults.avgSiteCoverage, taxa);

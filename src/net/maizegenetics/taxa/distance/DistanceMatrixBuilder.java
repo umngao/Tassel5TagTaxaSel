@@ -18,6 +18,11 @@ public class DistanceMatrixBuilder {
 
     public static final String MATRIX_TYPE = "Matrix_Type";
     public static final String CENTERED_IBS_SUMPK = "Centered_IBS.SumPk";
+    
+    public static final String IBS_DISTANCE_MATRIX_TYPE = "IBS_Distance_Matrix";
+    public static final String IBS_DISTANCE_MATRIX_NUM_ALLELES = "IBS_Distance_Matrix.NumAlleles";
+    public static final String IBS_DISTANCE_MATRIX_AVE_TOTAL_SITES = "IBS_Distance_Matrix.AverageTotalSites";
+    public static final String IBS_DISTANCE_MATRIX_TRUE_IBS = "IBS_Distance_Matrix.TrueIBS";
 
     private final int myNumTaxa;
     private final TaxaList myTaxa;

@@ -12,8 +12,10 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
+import net.maizegenetics.taxa.distance.DistanceMatrix;
+import net.maizegenetics.taxa.distance.DistanceMatrixBuilder;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 import net.maizegenetics.util.ProgressListener;
-import net.maizegenetics.util.Tuple;
 import org.apache.log4j.Logger;
 
 /**
@@ -28,20 +30,19 @@ public class IBSDistanceMatrix2Alleles {
         // utility
     }
 
-    public static IBSDistanceMatrix getInstance(GenotypeTable genotype) {
+    public static DistanceMatrix getInstance(GenotypeTable genotype) {
         return getInstance(genotype, 0, false, null);
     }
 
-    public static IBSDistanceMatrix getInstance(GenotypeTable genotype, ProgressListener listener) {
+    public static DistanceMatrix getInstance(GenotypeTable genotype, ProgressListener listener) {
         return getInstance(genotype, 0, false, listener);
     }
 
-    public static IBSDistanceMatrix getInstance(GenotypeTable genotype, int minSiteComp, boolean trueIBS, ProgressListener listener) {
-        Tuple<double[][], Double> distances = computeHetBitDistances(genotype, listener, trueIBS, minSiteComp);
-        return new IBSDistanceMatrix(distances.x, genotype.taxa(), trueIBS, distances.y);
+    public static DistanceMatrix getInstance(GenotypeTable genotype, int minSiteComp, boolean trueIBS, ProgressListener listener) {
+        return computeHetBitDistances(genotype, listener, trueIBS, minSiteComp);
     }
 
-    private static Tuple<double[][], Double> computeHetBitDistances(GenotypeTable genotype, ProgressListener listener, boolean isTrueIBS, int minSitesComp) {
+    private static DistanceMatrix computeHetBitDistances(GenotypeTable genotype, ProgressListener listener, boolean isTrueIBS, int minSitesComp) {
 
         int numSeqs = genotype.numberOfTaxa();
         double avgTotalSites = 0.0;
@@ -54,13 +55,13 @@ public class IBSDistanceMatrix2Alleles {
 
         int[][] counters = temp.myCounters;
 
-        double[][] distance = new double[numSeqs][numSeqs];
+        DistanceMatrixBuilder builder = DistanceMatrixBuilder.getInstance(genotype.taxa());
         long count = 0;
         for (int i = 0; i < numSeqs; i++) {
             int index = 0;
             for (int j = i; j < numSeqs; j++) {
                 if (j == i && !isTrueIBS) {
-                    distance[i][i] = 0;
+                    builder.set(i, i, 0.0);
                     index += 3;
                 } else {
                     int sameCount = counters[i][index++];
@@ -73,7 +74,7 @@ public class IBSDistanceMatrix2Alleles {
                     if (sites < minSitesComp) {
                         dist = Double.NaN;
                     }
-                    distance[i][j] = distance[j][i] = dist;
+                    builder.set(i, j, dist);
                     avgTotalSites += sites;  //this assumes not hets
                     count++;
                 }
@@ -81,8 +82,18 @@ public class IBSDistanceMatrix2Alleles {
         }
 
         avgTotalSites /= (double) count;
+        
+        GeneralAnnotationStorage.Builder annotations = GeneralAnnotationStorage.getBuilder();
+        annotations.addAnnotation(DistanceMatrixBuilder.MATRIX_TYPE, DistanceMatrixBuilder.IBS_DISTANCE_MATRIX_TYPE);
+        annotations.addAnnotation(DistanceMatrixBuilder.IBS_DISTANCE_MATRIX_NUM_ALLELES, "2");
+        annotations.addAnnotation(DistanceMatrixBuilder.IBS_DISTANCE_MATRIX_TRUE_IBS, String.valueOf(isTrueIBS));
+        annotations.addAnnotation(DistanceMatrixBuilder.IBS_DISTANCE_MATRIX_AVE_TOTAL_SITES, String.valueOf(avgTotalSites));
+        
+        builder.annotation(annotations.build());
+        
         myLogger.info("IBSDistanceMatrix2Alleles: computeHetBitDistances time = " + (System.currentTimeMillis() - time) / 1000 + " seconds");
-        return new Tuple<>(distance, avgTotalSites);
+        
+        return builder.build();
 
     }
 
