@@ -38,7 +38,7 @@ public class FeatureListToPositionsPlugin extends AbstractPlugin {
             .build();
 
     private PluginParameter<String> myFeatureListFilename = new PluginParameter.Builder<>("featureListFilename", null, String.class)
-            .description("File with list of features.  If this is not specified, all features of specifed type are retrieved.")
+            .description("File with list of features.  If this is not specified, all features of specified type are retrieved.")
             .inFile()
             .build();
 
@@ -112,10 +112,14 @@ public class FeatureListToPositionsPlugin extends AbstractPlugin {
                     String[] tokens = range.split(",");
                     String startPosStr = tokens[0].trim().substring(1);
                     String endPosStr = tokens[1].trim().substring(0, tokens[1].length() - 1);
-                    int startPos = Math.max(0, Integer.parseInt(startPosStr) - numberBasesPlusOrMinus());
+                    // minus one because bed files are 0-based
+                    // start position from database and bed files are inclusive
+                    int startPos = Math.max(0, Integer.parseInt(startPosStr) - numberBasesPlusOrMinus() - 1);
                     writer.write(String.valueOf(startPos));
                     writer.write("\t");
-                    int endPos = Integer.parseInt(endPosStr) + numberBasesPlusOrMinus();
+                    // minus one because bed files are 0-based
+                    // end position from database and bed files are exclusive
+                    int endPos = Integer.parseInt(endPosStr) + numberBasesPlusOrMinus() - 1;
                     writer.write(String.valueOf(endPos));
                     writer.write("\t");
                     writer.write(featureName);
@@ -140,7 +144,7 @@ public class FeatureListToPositionsPlugin extends AbstractPlugin {
         return null;
 
     }
-
+    
     /**
      * DB connection config file
      *

@@ -581,11 +581,15 @@ public class GenotypeTableUtils {
                 if (tokens.length < 3) {
                     throw new IllegalStateException("filterSitesByBedFile: Expecting at least 3 columns on line: " + lineNum);
                 }
-                int startSite = input.siteOfPhysicalPosition(Integer.parseInt(tokens[1]), new Chromosome(tokens[0]));
+                // tokens[1] is start postion from bed file.
+                // plus one because bed files are 0-base
+                int startSite = input.siteOfPhysicalPosition(Integer.parseInt(tokens[1]) + 1, new Chromosome(tokens[0]));
                 if (startSite < 0) {
                     startSite = -startSite - 1;
                 }
-                int endSite = input.siteOfPhysicalPosition(Integer.parseInt(tokens[2]), new Chromosome(tokens[0]));
+                // tokens[2] is start postion from bed file.
+                // plus one because bed files are 0-base
+                int endSite = input.siteOfPhysicalPosition(Integer.parseInt(tokens[2] + 1), new Chromosome(tokens[0]));
                 if (endSite < 0) { // end position doesn't exist, so already excluded
                     endSite = -endSite - 2;
                 } else { // end position is exclusive
