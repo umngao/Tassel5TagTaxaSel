@@ -589,7 +589,7 @@ public class GenotypeTableUtils {
                 }
                 // tokens[2] is start postion from bed file.
                 // plus one because bed files are 0-base
-                int endSite = input.siteOfPhysicalPosition(Integer.parseInt(tokens[2] + 1), new Chromosome(tokens[0]));
+                int endSite = input.siteOfPhysicalPosition(Integer.parseInt(tokens[2]) + 1, new Chromosome(tokens[0]));
                 if (endSite < 0) { // end position doesn't exist, so already excluded
                     endSite = -endSite - 2;
                 } else { // end position is exclusive
