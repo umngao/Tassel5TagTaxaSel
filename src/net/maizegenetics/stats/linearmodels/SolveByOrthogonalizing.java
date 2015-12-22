@@ -20,7 +20,7 @@ public class SolveByOrthogonalizing {
     private List<double[]> myBasisVectors;
     private List<double[]> myData;
     private List<double[]> myOrthogonalizedData;
-    private List<double[]> UColumns;
+    private List<double[]> UColumns = null;
     private SingularValueDecomposition baseSvd = null;
     private final static double tol = 1e-10;
 
@@ -55,8 +55,12 @@ public class SolveByOrthogonalizing {
 
     public SolveByOrthogonalizing.Marker solveForR(Position pos, double[] values) {
 
+        double[] val1 = center(values);
+        double[] val2 = orthogonalizeByBase(val1);
+        double[] val3 = centerAndScale(val2);
         double[] orthogonalValues = centerAndScale(orthogonalizeByBase(center(values)));
 
+        
         if (orthogonalValues == null) {
             double[] rValues =
                     IntStream.range(0, myOrthogonalizedData.size()).mapToDouble(i -> Double.NaN).toArray();
@@ -295,6 +299,22 @@ public class SolveByOrthogonalizing {
 
     }
 
+    public List<double[]> getOrthogonalizedData() {
+        return myOrthogonalizedData;
+    }
+    
+    public List<double[]> copyOrthogonalizedData() {
+        return myOrthogonalizedData.stream().map(darray -> Arrays.copyOf(darray, darray.length)).collect(Collectors.toList());
+    }
+    
+    public List<double[]> getUColumns() {
+        return UColumns;
+    }
+    
+    public List<double[]> copyUColumns() {
+        return UColumns.stream().map(darray -> Arrays.copyOf(darray, darray.length)).collect(Collectors.toList());
+    }
+    
     public static class Marker {
         public final Position myPosition;
         public final double[] vector1;

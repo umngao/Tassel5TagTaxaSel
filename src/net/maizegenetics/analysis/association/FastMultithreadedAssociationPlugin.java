@@ -130,7 +130,7 @@ public class FastMultithreadedAssociationPlugin extends AbstractPlugin {
         ExecutorService myExecutor = Executors.newFixedThreadPool(nthreads);
                 
         //start report thread
-        BlockingQueue<Object[]> reportQueue = new LinkedBlockingQueue<>(maxObjectsInQueue);
+        BlockingQueue<Object[]> reportQueue = new LinkedBlockingQueue<>();
         
         //start processing and output threads
         BlockingQueue<Marker> siteQueue = new LinkedBlockingQueue<>(maxSitesInQueue);
@@ -388,11 +388,11 @@ public class FastMultithreadedAssociationPlugin extends AbstractPlugin {
             //for r2 values >= minR2, create an output record and add it to the output queue
         	for (int p = 0; p < nphenotypes; p++) {
         		if (rvalues[p] >= minR2) {
-        			Object[] result = new Object[]{ phenotypeNames.get(p), pos.getSNPID(),
-                            pos.getChromosome().getName(), pos.getPosition(),
-                            1, rvalues[p],
-                            pvalue(rvalues[p])};
-        			outQueue.put(result);
+        		    Object[] result = new Object[]{ phenotypeNames.get(p), pos.getSNPID(),
+                                pos.getChromosome().getName(), pos.getPosition(),
+                                1, rvalues[p],
+                                pvalue(rvalues[p])};
+        		    outQueue.put(result);
         		}
         	}
         }
@@ -427,7 +427,9 @@ public class FastMultithreadedAssociationPlugin extends AbstractPlugin {
             try {
                 do {
                     Object[] reportRow = myReportQueue.poll(1, TimeUnit.HOURS);
-                    if (reportRow.length > 0) myReportBuilder.add(reportRow);
+                    if (reportRow.length > 0) {
+                        myReportBuilder.add(reportRow);
+                    }
                     else {
                         numberOfFinishedThreads++;
                         System.out.printf("number of threads finished = %d\n", numberOfFinishedThreads);
