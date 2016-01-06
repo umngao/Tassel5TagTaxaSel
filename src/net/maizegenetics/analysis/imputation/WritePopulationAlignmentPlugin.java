@@ -368,11 +368,20 @@ public class WritePopulationAlignmentPlugin extends AbstractPlugin {
         String filepath = String.format("%s_%s_%s_%s.pa.txt", breakpointBase, family.chromosome, family.name, algorithm);
 //        try (BufferedWriter bw =
 //                new BufferedWriter(new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(filepath.toString()))))) {
+        
+        //count the number of taxa to be written. does not include parents
+        int nsites = family.imputed.numberOfSites();
+        int ntaxa = family.imputed.numberOfTaxa();
+        int nOutputTaxa = 0;
+        for (int t = 0; t < ntaxa; t++) {
+            String tname = family.imputed.taxaName(t);
+            if (!tname.equals(family.parent1) && !tname.equals(family.parent2)) nOutputTaxa++;;
+
+        }
+        
         try (BufferedWriter bw =
                 new BufferedWriter(new OutputStreamWriter(new FileOutputStream(filepath.toString())))) {
-            int nsites = family.imputed.numberOfSites();
-            int ntaxa = family.imputed.numberOfTaxa();
-            bw.write(String.format("%d\t%d\n", 2, ntaxa));
+            bw.write(String.format("%d\t%d\n", 2, nOutputTaxa));
             bw.write(brkptComment1);
             bw.write(String.format("0\t%s\n", family.parent1));
             bw.write(String.format("1\t%s\n", family.parent2));
