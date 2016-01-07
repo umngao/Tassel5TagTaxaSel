@@ -608,19 +608,22 @@ class ProcessVCFBlock implements Callable<ProcessVCFBlock> {
                                         + taxaAllG + ".\nExpected a diploid entry.");
                             }
                         } else if((f==iAD)&&keepDepth) {
-                            int i=0;
-                            for(String ad: Splitter.on(",").split(fieldS)){
-                                //System.out.println(i);
-                        
-                                if(alleles[i]==GenotypeTable.UNKNOWN_ALLELE) {  //no position for depth of unknown alleles, so skip
-                                    //Uncomment when converted
-                                    //dTS[t][alleles[i++]][s] = AlleleDepthUtil.depthIntToByte(AlleleDepthUtil.DEPTH_MISSING);
-                                    //Comment next two lines when converted
-                                    i++;
-                                    continue;
-                                    }
-                                int adInt=Integer.parseInt(ad);
-                                dTS[t][alleles[i++]][s]=AlleleDepthUtil.depthIntToByte(adInt);
+                           // System.out.println("GTS: "+gTS[t][s] + " "+fieldS);
+                            if(gTS[t][s]!=GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+                                int i=0;
+                                for(String ad: Splitter.on(",").split(fieldS)){
+                                    
+                                    if(alleles[i]==GenotypeTable.UNKNOWN_ALLELE || ad.equals(".")) {  //no position for depth of unknown alleles or depth is set to missing, so skip
+                                        //Uncomment when converted
+                                        //dTS[t][alleles[i++]][s] = AlleleDepthUtil.depthIntToByte(AlleleDepthUtil.DEPTH_MISSING);
+                                        //Comment next two lines when converted
+                                        i++;
+                                        continue;
+                                        }
+                                    
+                                    int adInt=Integer.parseInt(ad);
+                                    dTS[t][alleles[i++]][s]=AlleleDepthUtil.depthIntToByte(adInt);
+                                }
                             }
                         }
                         f++;
