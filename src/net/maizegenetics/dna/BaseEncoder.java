@@ -93,8 +93,59 @@ public class BaseEncoder {
     //    System.out.println("PadLength:"+seq.length());
         return getLongArrayFromSeq(seq);
     }
-
-
+    /**
+     * Returns an int for a sequence in a String
+     * NOTE:  this version leaves the padding at the FRONT
+     * of the sequence. This is to facilitate SPARK machine-learning
+     * IT is preferable to have a smaller int when creating the 
+     * sequence.  Padding at the end gives a larger value.
+     * 
+     * Currently this is only used for monetdb encoding.  The
+     * ints can be converted back to sequence by the existing
+     * getSequenceFromInt() method.  User needs to know where
+     * padding was added to correctly analyze the sequence.
+     * 
+     * @param seq
+     * @return 2-bit encode sequence (-1 if an invalid sequence state is provided e.g. N)
+     */
+    public static int getIntFromSeq(String seq) {
+        int chunkSize = 16;
+        int seqLength = seq.length();
+        int v = 0;
+        for (int i = 0; i < seqLength; i++) {
+            switch (seq.charAt(i)) {
+                case 'A':
+                case 'a':
+                    v = v << 2;
+                    break;
+                case 'C':
+                case 'c':
+                    v = (v << 2) + (byte) 1;
+                    break;
+                case 'G':
+                case 'g':
+                    v = (v << 2) + (byte) 2;
+                    break;
+                case 'T':
+                case 't':
+                    v = (v << 2) + (byte) 3;
+                    break;
+                default:
+                    return -1;
+            }
+        }
+        if (seqLength == chunkSize) {
+            return v;
+        }
+        if (seqLength > chunkSize) {
+            return -1;
+        }
+        // Comment out the shift so padding occurs at the front
+        // of the sequence.  This is give smaller numbers and
+        // makes SPARK machine learning happier.
+        //v = (v << (2 * (chunkSize - seqLength))); //if shorter fill with AAAA (which is 0000)
+        return v;
+    }
 
     /**
      * Returns the reverse complement of a sequence already encoded in a 2-bit long.
