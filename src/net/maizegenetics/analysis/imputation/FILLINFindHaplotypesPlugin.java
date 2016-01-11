@@ -143,8 +143,8 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
     
     @Override
     public String getCitation() {
-        return "Swarts K, Li H, Romero Navarro JA, Romay-Alvarez MC, Hearne S, Acharya C, "
-                + "Glaubitz JC, Mitchell S, Elshire RJ, Buckler ES, Bradbury PJ (2014) "
+        return "Swarts K, Li H, Romero Navarro JA, An D, Romay MC, Hearne S, Acharya C, Glaubitz JC, Mitchell S, Elshire RJ, Buckler ES, Bradbury PJ "
+                + "(2014) "
                 + "Novel methods to optimize genotypic imputation for low-coverage, next-generation sequence data in crop plants. "
                 + "Plant Genome 7(3). doi:10.3835/plantgenome2014.05.0023";
     }
