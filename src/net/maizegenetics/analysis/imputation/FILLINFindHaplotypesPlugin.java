@@ -110,6 +110,7 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
     
     @Override
     protected void postProcessParameters() {
+        System.out.println("Calling FILLINFindHaplotypesPlugin.postProcessParameters()...");
         if (nonverboseOutput.value()) verboseOutput= false;
         try {
 //            if (new File(outFileBase.value()).isFile()) {
@@ -144,10 +145,8 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
     public String getCitation() {
         return "Swarts K, Li H, Romero Navarro JA, Romay-Alvarez MC, Hearne S, Acharya C, "
                 + "Glaubitz JC, Mitchell S, Elshire RJ, Buckler ES, Bradbury PJ (2014) "
-                + "FSFHap (Full-Sib Family Haplotype Imputation) and FILLIN "
-                + "(Fast, Inbred Line Library ImputatioN) optimize genotypic imputation "
-                + "for low-coverage, next-generation sequence data in crop plants. "
-                + "Plant Genome (in review)";
+                + "Novel methods to optimize genotypic imputation for low-coverage, next-generation sequence data in crop plants. "
+                + "Plant Genome 7(3). doi:10.3835/plantgenome2014.05.0023";
     }
     
     @Override
@@ -535,7 +534,9 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
      * Convenience method to run plugin with one return object.
      */
     public Boolean runPlugin(DataSet input) {
-        return (Boolean) performFunction(input).getData(0).getData();
+        performFunction(input);
+        return false;
+//        return (Boolean) performFunction(input).getData(0).getData();
     }
 
     /**
