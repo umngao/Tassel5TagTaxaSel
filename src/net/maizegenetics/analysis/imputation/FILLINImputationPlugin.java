@@ -170,6 +170,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
 
     @Override
     protected void postProcessParameters() {
+        System.out.println("Calling FILLINImputationPlugin.postProcessParameters()...");
         minimumDonorDistance=maximumInbredError.value()*5;
         maxNonMedelian=maximumInbredError.value()*5; 
         maxInbredErrFocusHomo= .3*maximumInbredError.value();//.003;
@@ -193,12 +194,10 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     
     @Override
     public String getCitation() {
-        return "Swarts K, Li H, Romero Navarro JA, Romay-Alvarez MC, Hearne S, Acharya C, "
-                + "Glaubitz JC, Mitchell S, Elshire RJ, Buckler ES, Bradbury PJ (2014) "
-                + "FSFHap (Full-Sib Family Haplotype Imputation) and FILLIN "
-                + "(Fast, Inbred Line Library ImputatioN) optimize genotypic imputation "
-                + "for low-coverage, next-generation sequence data in crop plants. "
-                + "Plant Genome (in review)";
+        return "Swarts K, Li H, Romero Navarro JA, An D, Romay MC, Hearne S, Acharya C, Glaubitz JC, Mitchell S, Elshire RJ, Buckler ES, Bradbury PJ "
+                + "(2014) "
+                + "Novel methods to optimize genotypic imputation for low-coverage, next-generation sequence data in crop plants. "
+                + "Plant Genome 7(3). doi:10.3835/plantgenome2014.05.0023";
     }
     
     @Override
