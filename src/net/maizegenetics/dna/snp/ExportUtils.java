@@ -258,6 +258,8 @@ public class ExportUtils {
                 byte refAllele = p.getAllele(WHICH_ALLELE.Reference);
                 int[] sortedAlleles = gt.allelesSortedByFrequency(site)[0]; // which alleles are actually present among the genotypes
                 
+                
+                //ZRM22 Jan7 Remake
                 //If knownVariants.length is greater than 0 its either from a VCF file or Hapmap
                 if(knownVariants.length>0) {
                     //ReOrder based on variant alleles
@@ -266,7 +268,51 @@ public class ExportUtils {
                     ArrayList<Integer> tempSortedAlleles = new ArrayList<Integer>();
                     
                     //Loop through all the knownVariants and check to see if we have an indel
+                    boolean knownVariantIndel = false;
+                    for(String variant:knownVariants) {
+                        if(variant.length()>1) {
+                            knownVariantIndel = true;
+                            break;
+                        }
+                    }
                     
+                    
+                    
+                    //If we do have an indel, we can add the variants after picking off the first character to the tempSortedAlleles
+                    if(knownVariantIndel) {
+                        //Loop through the variants
+                        for(int i = 0; i < knownVariants.length; i++) {
+                            //Pull off the first character if it exists
+                            if(knownVariants[i].length()>1) {
+                                String parsedVariant = knownVariants[i].substring(1);
+                                tempSortedAlleles.add((int)NucleotideAlignmentConstants.getNucleotideAlleleByte(parsedVariant.charAt(0)));
+                            }
+                            else {
+                                //Mark as deletion
+                                tempSortedAlleles.add((int)NucleotideAlignmentConstants.getNucleotideAlleleByte('-'));
+                                
+                            }
+                        }
+                    }else {
+                        //If we dont have an indel, we can add it to the allele array
+                        if(sortedAlleles.length<knownVariants.length){
+                            //Clear it out, we probably dont need to do this
+                            tempSortedAlleles = new ArrayList<Integer>();
+                        }
+                        for(int i = 0; i<knownVariants.length; i++) {
+                            tempSortedAlleles.add((int)NucleotideAlignmentConstants.getNucleotideAlleleByte(knownVariants[i].charAt(0)));
+                        }
+                    }
+                    
+                    //Loop through the sorted alleles and add the to the temp sorted alleles
+                        //Convert indels if necessary
+                    
+                    
+                    //END ZRM22 Jan7
+                    
+                    
+                    //ZRM22 COMMENT OUT 
+                    /*******************************
                     //check to see if indel
                     if(knownVariants[0].length()>1) {
                         //alt deletion
@@ -335,15 +381,35 @@ public class ExportUtils {
                             }
                         }
                     }
+                    ********************/
+                    
                     //Make a copy of KnownVaraints in case we need to add some
                     ArrayList<String> knownVariantsList = new ArrayList<String>();
                     boolean indelsExist = false;
+                    boolean indelsInKnownVariants = false;
                     for(String variant:knownVariants) {
-                        knownVariantsList.add(variant);
+                        //knownVariantsList.add(variant);
                         if(variant.length()>1) {
+                            indelsExist = true;
+                            indelsInKnownVariants = true;
+                        }
+                    }
+                    //Go through sorted alleles and also check for indels
+                    for(int i = 0 ;i<sortedAlleles.length; i++) {
+                        if(NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]).equals("-")) {
                             indelsExist = true;
                         }
                     }
+                    for(String variant:knownVariants) {
+                        if(indelsExist && !indelsInKnownVariants) {
+                            knownVariantsList.add("N"+variant);
+                        }
+                        else {
+                            knownVariantsList.add(variant);
+                        }
+                    }
+                    
+                    
                     //Go through sorted alleles
                     for(int i = 0 ;i<sortedAlleles.length; i++) {
                     //If a sorted allele is not in tempSortedAlleles,
