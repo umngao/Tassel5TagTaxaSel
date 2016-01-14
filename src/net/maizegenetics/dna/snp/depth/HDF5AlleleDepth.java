@@ -36,7 +36,11 @@ public class HDF5AlleleDepth extends AbstractAlleleDepth {
         );
         myReader = reader;
         myNumSites = reader.getIntAttribute(Tassel5HDF5Constants.POSITION_ATTRIBUTES_PATH, Tassel5HDF5Constants.POSITION_NUM_SITES);
-        myTaxa = new TaxaListBuilder().buildFromHDF5(reader);
+        //myTaxa = new TaxaListBuilder().buildFromHDF5(reader);
+        //buildFromHDF5() adds ALL taxa on to the list, whether or not taxa calls 
+        // exist for it. This leads to null pointer exceptions when TaxaArrayListBuilder calls 
+        // TaxaArrayList. We only want on this list those taxa with depths.
+        myTaxa = new TaxaListBuilder().buildFromHDF5Genotypes(reader);
     }
 
     private static long getCacheKey(int taxon, int site) {
