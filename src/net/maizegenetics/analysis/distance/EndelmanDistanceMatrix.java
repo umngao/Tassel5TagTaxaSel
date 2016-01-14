@@ -159,8 +159,11 @@ public class EndelmanDistanceMatrix {
             if (currentNumTaxa != numTaxa) {
                 throw new IllegalArgumentException("subtractEndelmanDistance: subset and superset must have same number of taxa.");
             }
-            String currentMatrixType = current.annotations().getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE)[0];
-            if (!matrixType.equals(currentMatrixType)) {
+            String[] currentMatrixType = current.annotations().getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE);
+            if (currentMatrixType.length == 0) {
+                throw new IllegalArgumentException("subtractEndelmanDistance: subset matrix must be created with a more recent build of Tassel that adds neccessary annotations to the matrix");
+            }
+            if (!matrixType.equals(currentMatrixType[0])) {
                 throw new IllegalArgumentException("subtractEndelmanDistance: subset matrix must be matrix type: " + KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString());
             }
         }
