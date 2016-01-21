@@ -17,8 +17,9 @@ import net.maizegenetics.util.GeneralAnnotation;
 public class DistanceMatrixBuilder {
 
     public static final String MATRIX_TYPE = "Matrix_Type";
+
     public static final String CENTERED_IBS_SUMPK = "Centered_IBS.SumPk";
-    
+
     public static final String IBS_DISTANCE_MATRIX_TYPE = "IBS_Distance_Matrix";
     public static final String IBS_DISTANCE_MATRIX_NUM_ALLELES = "IBS_Distance_Matrix.NumAlleles";
     public static final String IBS_DISTANCE_MATRIX_AVE_TOTAL_SITES = "IBS_Distance_Matrix.AverageTotalSites";
@@ -29,6 +30,7 @@ public class DistanceMatrixBuilder {
     private final double[][] myMatrix;
     private GeneralAnnotation myAnnotation = null;
     private final TaxaListBuilder myTaxaBuilder;
+    private int[] myCounts = null;
 
     private DistanceMatrixBuilder(int numTaxa, TaxaList taxa) {
         myTaxa = taxa;
@@ -65,11 +67,36 @@ public class DistanceMatrixBuilder {
         return this;
     }
 
+    public void setCount(int x, int y, int value) {
+
+        if (myCounts == null) {
+            myCounts = new int[myNumTaxa * (myNumTaxa + 1) / 2];
+        }
+        if (x > y) {
+            int temp = y;
+            y = x;
+            x = temp;
+        }
+
+        int index = y * (y + 1) / 2 + x;
+
+        myCounts[index] = value;
+
+    }
+
     public DistanceMatrix build() {
+
+        TaxaList taxa = null;
         if (myTaxaBuilder == null) {
-            return new DistanceMatrix(myMatrix, myTaxa, myAnnotation);
+            taxa = myTaxa;
         } else {
-            return new DistanceMatrix(myMatrix, myTaxaBuilder.build(), myAnnotation);
+            taxa = myTaxaBuilder.build();
+        }
+
+        if (myCounts == null) {
+            return new DistanceMatrix(myMatrix, taxa, myAnnotation);
+        } else {
+            return new DistanceMatrixWithCounts(myMatrix, taxa, myAnnotation, myCounts);
         }
     }
 
