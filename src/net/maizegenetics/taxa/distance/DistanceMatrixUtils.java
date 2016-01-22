@@ -38,7 +38,7 @@ public class DistanceMatrixUtils {
 
         if (filename.endsWith(".txt")) {
             int txtIndex = filename.lastIndexOf(".txt");
-            String temp = filename.substring(0, txtIndex);
+            String temp = base.substring(0, txtIndex);
             result[0] = temp + ".grm.id";
             result[1] = temp + ".grm.bin";
             result[2] = temp + ".grm.N.bin";
@@ -48,12 +48,12 @@ public class DistanceMatrixUtils {
 
         int grmIndex = filename.lastIndexOf(".grm");
         if (grmIndex == -1) {
-            result[0] = filename + ".grm.id";
-            result[1] = filename + ".grm.bin";
-            result[2] = filename + ".grm.N.bin";
-            result[3] = filename + ".grm.raw";
+            result[0] = base + ".grm.id";
+            result[1] = base + ".grm.bin";
+            result[2] = base + ".grm.N.bin";
+            result[3] = base + ".grm.raw";
         } else {
-            String temp = filename.substring(0, grmIndex);
+            String temp = base.substring(0, grmIndex);
             result[0] = temp + ".grm.id";
             result[1] = temp + ".grm.bin";
             result[2] = temp + ".grm.N.bin";
