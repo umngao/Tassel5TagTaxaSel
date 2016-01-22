@@ -69,8 +69,9 @@ public interface GenotypeCallTable {
 
     /**
      * Returns string representation of diploid values returned by genotype()
-     * for given taxon and site. The two allele values will be separated by a
-     * colon (:) delimiter.
+     * for given taxon and site. The default implementation separates The two
+     * allele values with a colon (:) delimiter. Nucleotide data will be
+     * represented by a single letter IUPAC code.
      *
      * @param taxon taxon
      * @param site site
