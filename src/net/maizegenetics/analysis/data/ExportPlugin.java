@@ -40,6 +40,7 @@ import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.net.URL;
 import java.util.ArrayList;
+import net.maizegenetics.taxa.distance.DistanceMatrixUtils;
 
 /**
  *
@@ -166,16 +167,13 @@ public class ExportPlugin extends AbstractPlugin {
                 WriteDistanceMatrix.saveDelimitedDistanceMatrix(input, filename);
                 return filename;
             } else if (myFileType == FileLoadPlugin.TasselFileType.SqrMatrixRaw) {
-                File taxaListFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.id"));
-                File matrixFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.raw"));
-                WriteDistanceMatrix.saveRawMultiBlupMatrix(input, taxaListFile, matrixFile);
-                return matrixFile.getCanonicalPath();
+                String[] grmFiles = DistanceMatrixUtils.getGRMFilenames(mySaveFile);
+                WriteDistanceMatrix.saveRawMultiBlupMatrix(input, grmFiles[0], grmFiles[3]);
+                return grmFiles[3];
             } else if (myFileType == FileLoadPlugin.TasselFileType.SqrMatrixBin) {
-                File taxaListFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.id"));
-                File countsFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.N.bin"));
-                File kinshipFile = new File(Utils.addSuffixIfNeeded(mySaveFile, ".grm.bin"));
-                WriteDistanceMatrix.saveBinMultiBlupMatrix(input, taxaListFile, kinshipFile, countsFile);
-                return kinshipFile.getCanonicalPath();
+                String[] grmFiles = DistanceMatrixUtils.getGRMFilenames(mySaveFile);
+                WriteDistanceMatrix.saveBinMultiBlupMatrix(input, grmFiles[0], grmFiles[1], grmFiles[2]);
+                return grmFiles[1];
             } else {
                 throw new IllegalArgumentException("ExportPlugin: performFunctionForDistanceMatrix: Unknown file type: " + myFileType);
             }
@@ -313,12 +311,10 @@ public class ExportPlugin extends AbstractPlugin {
                 }
                 isDiploid = diploidDialog.getDiploid();
                 myIncludeTaxaAnnotations = diploidDialog.includeTaxaAnnotations();
-            } else {
-                if (myFileType == FileLoadPlugin.TasselFileType.Hapmap) {
-                    isDiploid = false;
-                } else if (myFileType == FileLoadPlugin.TasselFileType.HapmapDiploid) {
-                    isDiploid = true;
-                }
+            } else if (myFileType == FileLoadPlugin.TasselFileType.Hapmap) {
+                isDiploid = false;
+            } else if (myFileType == FileLoadPlugin.TasselFileType.HapmapDiploid) {
+                isDiploid = true;
             }
             resultFile = ExportUtils.writeToHapmap(inputAlignment, isDiploid, mySaveFile, '\t', myIncludeTaxaAnnotations, this);
         } else if (myFileType == FileLoadPlugin.TasselFileType.Plink) {
