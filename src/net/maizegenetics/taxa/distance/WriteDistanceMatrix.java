@@ -2,24 +2,25 @@ package net.maizegenetics.taxa.distance;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Map;
+import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.GeneralAnnotation;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 
 /**
  * @author Terry Casstevens
+ * @author Zack Miller
  */
 public class WriteDistanceMatrix {
 
     private static final Logger myLogger = Logger.getLogger(WriteDistanceMatrix.class);
 
     private WriteDistanceMatrix() {
+        //utility
     }
 
     public static void saveDelimitedDistanceMatrix(DistanceMatrix matrix, String saveFile) {
@@ -60,29 +61,31 @@ public class WriteDistanceMatrix {
             throw new IllegalStateException("WriteDistanceMatrix: saveDelimitedDistanceMatrix: problem writing file: " + e.getMessage());
         }
 
+        if (matrix instanceof DistanceMatrixWithCounts) {
+            String[] grmFilenames = DistanceMatrixUtils.getGRMFilenames(saveFile);
+            String grmNBinFilename = grmFilenames[2];
+            saveBinMultiBlupCounts(grmNBinFilename, (DistanceMatrixWithCounts) matrix);
+        }
+
     }
 
-    public static void saveRawMultiBlupMatrix(DistanceMatrix matrix, File taxaFile, File matrixFile) {
+    public static void saveRawMultiBlupMatrix(DistanceMatrix matrix, String filename) {
+        String[] grmFilenames = DistanceMatrixUtils.getGRMFilenames(filename);
+        saveRawMultiBlupMatrix(matrix, grmFilenames[0], grmFilenames[3]);
+    }
+
+    public static void saveRawMultiBlupMatrix(DistanceMatrix matrix, String taxaFile, String matrixFile) {
 
         if (matrixFile == null || taxaFile == null) {
             return;
         }
-        FileWriter taxafw = null;
-        BufferedWriter taxabw = null;
-        FileWriter fw = null;
-        BufferedWriter bw = null;
-        try {
-            //Write the taxa/ids.  Need 2 columns for MultiBlup.
-            taxafw = new FileWriter(taxaFile);
-            taxabw = new BufferedWriter(taxafw);
 
-            //Write the matrix
-            fw = new FileWriter(matrixFile);
-            bw = new BufferedWriter(fw);
+        saveMultiBlupIDs(taxaFile, matrix.getTaxaList());
+
+        try (BufferedWriter bw = Utils.getBufferedWriter(matrixFile)) {
 
             for (long r = 0, n = matrix.getRowCount(); r < n; r++) {
                 Object[] theRow = matrix.getRow(r);
-                taxabw.write(theRow[0].toString() + " " + theRow[0].toString() + "\n");
 
                 for (int i = 1; i < theRow.length; i++) {
                     if (i != 1) {
@@ -94,50 +97,31 @@ public class WriteDistanceMatrix {
             }
 
         } catch (Exception e) {
-            System.out.println("WriteDistanceMatrix: saveDelimitedDistanceMatrix: problem writing file: " + e.getMessage());
-        } finally {
-            try {
-                taxabw.flush();
-                bw.flush();
-                taxafw.close();
-                taxabw.close();
-                bw.close();
-                fw.close();
-            } catch (Exception e) {
-                System.out.println(e);
-                // do nothing
-            }
+            myLogger.debug(e.getMessage(), e);
+            myLogger.error("WriteDistanceMatrix: saveDelimitedDistanceMatrix: problem writing file: " + matrixFile);
         }
 
     }
 
-    public static void saveBinMultiBlupMatrix(DistanceMatrix matrix, File taxaFile, File matrixFile, File countFile) {
+    public static void saveBinMultiBlupMatrix(DistanceMatrix matrix, String filename) {
+        String[] grmFilenames = DistanceMatrixUtils.getGRMFilenames(filename);
+        saveBinMultiBlupMatrix(matrix, grmFilenames[0], grmFilenames[1], grmFilenames[2]);
+    }
+
+    public static void saveBinMultiBlupMatrix(DistanceMatrix matrix, String taxaFile, String matrixFile, String countFile) {
 
         if (matrixFile == null || taxaFile == null || countFile == null) {
             return;
         }
-        FileWriter taxafw = null;
-        BufferedWriter taxabw = null;
-        FileOutputStream countfw = null;
-        BufferedOutputStream countbw = null;
-        FileOutputStream fw = null;
-        BufferedOutputStream bw = null;
-        try {
-            //Write the taxa/ids.  Need 2 columns for MultiBlup.
-            taxafw = new FileWriter(taxaFile);
-            taxabw = new BufferedWriter(taxafw);
 
-            countfw = new FileOutputStream(countFile);
-            countbw = new BufferedOutputStream(countfw);
+        saveMultiBlupIDs(taxaFile, matrix.getTaxaList());
+        saveBinMultiBlupCounts(countFile, matrix);
 
-            //Write the matrix
-            fw = new FileOutputStream(matrixFile);
-            bw = new BufferedOutputStream(fw);
+        try (BufferedOutputStream bw = Utils.getBufferedOutputStream(matrixFile)) {
 
             for (long r = 0, n = matrix.getRowCount(); r < n; r++) {
                 Object[] theRow = matrix.getRow(r);
 
-                taxabw.write(theRow[0].toString() + " " + theRow[0].toString() + "\n");
                 for (int i = 1; i < r + 2; i++) {
 
                     //ByteBuffer kinsBuffer = ByteBuffer.allocate(4).order(ByteOrder.nativeOrder());
@@ -146,32 +130,73 @@ public class WriteDistanceMatrix {
                     kinsBuffer.putFloat(Float.parseFloat(theRow[i].toString()));
                     bw.write(kinsBuffer.array());
 
-                    //ByteBuffer countsBuffer = ByteBuffer.allocate(4).order(ByteOrder.nativeOrder());
-                    ByteBuffer countsBuffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
-
-                    countsBuffer.putFloat(1f);
-                    countbw.write(countsBuffer.array());
                 }
             }
 
         } catch (Exception e) {
-            System.out.println("WriteDistanceMatrix: saveDelimitedDistanceMatrix: problem writing file: " + e.getMessage());
-        } finally {
-            try {
-                taxabw.flush();
-                countbw.flush();
-                bw.flush();
-                taxafw.close();
-                taxabw.close();
-                countfw.close();
-                countbw.close();
-                bw.close();
-                fw.close();
-            } catch (Exception e) {
-                System.out.println(e);
-                // do nothing
-            }
+            myLogger.debug(e.getMessage(), e);
+            myLogger.error("WriteDistanceMatrix: saveDelimitedDistanceMatrix: problem writing file: " + matrixFile + ".  " + e.getMessage());
         }
 
     }
+
+    public static void saveMultiBlupIDs(String filename, TaxaList taxa) {
+
+        try (BufferedWriter writer = Utils.getBufferedWriter(filename)) {
+            for (Taxon taxon : taxa) {
+                writer.write(taxon.getName());
+                writer.write("\t");
+                writer.write(taxon.getName());
+                writer.write("\n");
+            }
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("WriteDistanceMatrix: saveMultiBlupIDs: Problem writing: " + filename + ".  " + e.getMessage());
+        }
+
+    }
+
+    public static void saveBinMultiBlupCounts(String filename, DistanceMatrix matrix) {
+
+        if (matrix instanceof DistanceMatrixWithCounts) {
+
+            DistanceMatrixWithCounts matrixWCounts = (DistanceMatrixWithCounts) matrix;
+            int numTaxa = matrixWCounts.numberOfTaxa();
+
+            try (BufferedOutputStream writer = Utils.getBufferedOutputStream(filename)) {
+                ByteBuffer countsBuffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
+                for (int taxaOne = 0; taxaOne < numTaxa; taxaOne++) {
+                    for (int taxaTwo = 0; taxaTwo <= taxaOne; taxaTwo++) {
+                        countsBuffer.clear();
+                        countsBuffer.putFloat((float) matrixWCounts.getCount(taxaOne, taxaTwo));
+                        writer.write(countsBuffer.array());
+                    }
+                }
+            } catch (Exception e) {
+                myLogger.debug(e.getMessage(), e);
+                throw new IllegalStateException("WriteDistanceMatrix: saveBinMultiBlupCounts: Problem writing: " + filename + ".  " + e.getMessage());
+            }
+
+        } else {
+
+            int numTaxa = matrix.numberOfTaxa();
+
+            try (BufferedOutputStream writer = Utils.getBufferedOutputStream(filename)) {
+                ByteBuffer countsBuffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
+                countsBuffer.putFloat(1.0f);
+                byte[] counts = countsBuffer.array();
+                for (int taxaOne = 0; taxaOne < numTaxa; taxaOne++) {
+                    for (int taxaTwo = 0; taxaTwo <= taxaOne; taxaTwo++) {
+                        writer.write(counts);
+                    }
+                }
+            } catch (Exception e) {
+                myLogger.debug(e.getMessage(), e);
+                throw new IllegalStateException("WriteDistanceMatrix: saveBinMultiBlupCounts: Problem writing: " + filename + ".  " + e.getMessage());
+            }
+
+        }
+
+    }
+
 }

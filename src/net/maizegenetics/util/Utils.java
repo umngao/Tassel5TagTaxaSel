@@ -109,7 +109,7 @@ public final class Utils {
         String result = str.substring(index);
         if ((suffix != null) && (result.lastIndexOf(suffix) > 0)) {
             result = result.substring(0, result.lastIndexOf(suffix));
-        } 
+        }
         if (result.endsWith(".gz")) {
             result = result.substring(0, result.lastIndexOf(".gz"));
         }
@@ -366,7 +366,7 @@ public final class Utils {
      * @return filename with suffix
      */
     public static String addSuffixIfNeeded(String filename, String defaultSuffix, String[] possible) {
-        
+
         String temp = filename.toLowerCase();
 
         for (String possible1 : possible) {
@@ -396,20 +396,16 @@ public final class Utils {
         try {
             if (bufSize < 1) {
                 return getBufferedReader(inSourceName);
-            } else {
-                if (inSourceName.startsWith("http")) {
-                    if (inSourceName.endsWith(".gz")) {
-                        return new BufferedReader(new InputStreamReader(new GZIPInputStream((new URL(inSourceName)).openStream(), bufSize)), bufSize);
-                    } else {
-                        return new BufferedReader(new InputStreamReader((new URL(inSourceName)).openStream()), bufSize);
-                    }
+            } else if (inSourceName.startsWith("http")) {
+                if (inSourceName.endsWith(".gz")) {
+                    return new BufferedReader(new InputStreamReader(new GZIPInputStream((new URL(inSourceName)).openStream(), bufSize)), bufSize);
                 } else {
-                    if (inSourceName.endsWith(".gz")) {
-                        return new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(inSourceName), bufSize)), bufSize);
-                    } else {
-                        return new BufferedReader(new InputStreamReader(new FileInputStream(inSourceName)), bufSize);
-                    }
+                    return new BufferedReader(new InputStreamReader((new URL(inSourceName)).openStream()), bufSize);
                 }
+            } else if (inSourceName.endsWith(".gz")) {
+                return new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(inSourceName), bufSize)), bufSize);
+            } else {
+                return new BufferedReader(new InputStreamReader(new FileInputStream(inSourceName)), bufSize);
             }
         } catch (Exception e) {
             myLogger.error("getBufferedReader: Error getting reader for: " + inSourceName);
@@ -580,16 +576,29 @@ public final class Utils {
                 } else {
                     return (new URL(filename)).openStream();
                 }
+            } else if (filename.endsWith(".gz")) {
+                return new GZIPInputStream(new FileInputStream(filename));
             } else {
-                if (filename.endsWith(".gz")) {
-                    return new GZIPInputStream(new FileInputStream(filename));
-                } else {
-                    return new FileInputStream(filename);
-                }
+                return new FileInputStream(filename);
             }
         } catch (Exception e) {
             myLogger.error("getInputStream: Error getting reader for: " + filename);
             e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static BufferedOutputStream getBufferedOutputStream(String filename) {
+
+        try {
+            if (filename.endsWith(".gz")) {
+                return new BufferedOutputStream(new GZIPOutputStream(new FileOutputStream(filename)));
+            } else {
+                return new BufferedOutputStream(new FileOutputStream(filename));
+            }
+        } catch (Exception e) {
+            myLogger.error("getOutputStream: Error getting output stream for: " + filename);
+            myLogger.debug(e.getMessage(), e);
         }
         return null;
     }
