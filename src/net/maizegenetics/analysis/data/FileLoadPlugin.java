@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import net.maizegenetics.taxa.distance.DistanceMatrixBuilder;
+import net.maizegenetics.taxa.distance.DistanceMatrixUtils;
 
 /**
  *
@@ -194,6 +195,21 @@ public class FileLoadPlugin extends AbstractPlugin {
                             myLogger.info("guessAtUnknowns: type: " + TasselFileType.TOPM);
                             alreadyLoaded.add(myOpenFiles[i]);
                             tds = processDatum(myOpenFiles[i], TasselFileType.TOPM);
+                        } else if ((myOpenFiles[i].endsWith(".grm.N.bin")) || (myOpenFiles[i].endsWith(".grm.bin"))
+                                || (myOpenFiles[i].endsWith(".grm.id"))) {
+                            String[] grmFiles = DistanceMatrixUtils.getGRMFilenames(myOpenFiles[i]);
+                            if (new File(grmFiles[0]).isFile() && new File(grmFiles[1]).isFile() && new File(grmFiles[2]).isFile()) {
+                                myLogger.info("guessAtUnknowns: type: " + TasselFileType.SqrMatrixBin);
+                                alreadyLoaded.add(grmFiles[0]);
+                                alreadyLoaded.add(grmFiles[1]);
+                                alreadyLoaded.add(grmFiles[2]);
+                                tds = processDatum(myOpenFiles[i], TasselFileType.SqrMatrixBin);
+                            } else if (myOpenFiles[i].endsWith(".grm.N.bin") && new File(grmFiles[4]).isFile() && new File(myOpenFiles[i]).isFile()) {
+                                myLogger.info("guessAtUnknowns: type: " + TasselFileType.SqrMatrix);
+                                alreadyLoaded.add(myOpenFiles[i]);
+                                alreadyLoaded.add(grmFiles[4]);
+                                tds = processDatum(grmFiles[4], TasselFileType.SqrMatrix);
+                            }
                         } else if (myOpenFiles[i].endsWith(FILE_EXT_PLINK_PED)) {
                             myLogger.info("guessAtUnknowns: type: " + TasselFileType.Plink);
                             String theMapFile = myOpenFiles[i].replaceFirst(FILE_EXT_PLINK_PED, FILE_EXT_PLINK_MAP);
@@ -459,6 +475,10 @@ public class FileLoadPlugin extends AbstractPlugin {
                 }
                 case SqrMatrix: {
                     result = ReadDistanceMatrix.readDistanceMatrix(inFile);
+                    break;
+                }
+                case SqrMatrixBin: {
+                    result = ReadDistanceMatrix.readBinMultiBlupMatrix(inFile);
                     break;
                 }
                 case Phenotype: {

@@ -27,13 +27,14 @@ public class DistanceMatrixUtils {
      *
      * @param base filename base
      *
-     * @return array of file names. Index 0 is the id filename (.grm.id) Index 1
-     * is the binary matrix (.grm.bin) Index 2 is the binary counts (.grm.N.bin)
-     * Index 3 is the raw (text) matrix (.grm.raw)
+     * @return array of file names. Index 0 is the id filename (.grm.id); Index
+     * 1 is the binary matrix (.grm.bin); Index 2 is the binary counts
+     * (.grm.N.bin); Index 3 is the raw (text) matrix (.grm.raw); Index 4 is the
+     * text matrix (.txt)
      */
     public static String[] getGRMFilenames(String base) {
 
-        String[] result = new String[4];
+        String[] result = new String[5];
         String filename = base.toLowerCase();
 
         if (filename.endsWith(".txt")) {
@@ -43,6 +44,7 @@ public class DistanceMatrixUtils {
             result[1] = temp + ".grm.bin";
             result[2] = temp + ".grm.N.bin";
             result[3] = temp + ".grm.raw";
+            result[4] = filename;
             return result;
         }
 
@@ -52,12 +54,14 @@ public class DistanceMatrixUtils {
             result[1] = base + ".grm.bin";
             result[2] = base + ".grm.N.bin";
             result[3] = base + ".grm.raw";
+            result[4] = base + ".txt";
         } else {
             String temp = base.substring(0, grmIndex);
             result[0] = temp + ".grm.id";
             result[1] = temp + ".grm.bin";
             result[2] = temp + ".grm.N.bin";
             result[3] = temp + ".grm.raw";
+            result[4] = temp + ".txt";
         }
 
         return result;
