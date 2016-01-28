@@ -14,15 +14,19 @@ import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.taxa.distance.DistanceMatrixBuilder;
+import net.maizegenetics.taxa.distance.DistanceMatrixWithCounts;
 import net.maizegenetics.taxa.distance.ReadDistanceMatrix;
 import net.maizegenetics.util.GeneralAnnotation;
 import net.maizegenetics.util.Utils;
+import org.apache.log4j.Logger;
 
 /**
  *
  * @author Terry Casstevens
  */
 public class SubtractDistanceMatrixPlugin extends AbstractPlugin {
+    
+    private static final Logger myLogger = Logger.getLogger(SubtractDistanceMatrixPlugin.class);
 
     private PluginParameter<String> myWholeMatrix = new PluginParameter.Builder<>("wholeMatrix", null, String.class)
             .description("The filename of the whole matrix which will be used to subtract input sub-matrices.")
@@ -53,17 +57,34 @@ public class SubtractDistanceMatrixPlugin extends AbstractPlugin {
             myCurrentlyLoadedMatrix = ReadDistanceMatrix.readDistanceMatrix(wholeMatrix());
         }
 
-        List<Datum> matricesList = input.getDataOfType(DistanceMatrix.class);
-        DistanceMatrix[] matrices = new DistanceMatrix[matricesList.size()];
-        for (int i = 0; i < matricesList.size(); i++) {
-            matrices[i] = (DistanceMatrix) matricesList.get(i).getData();
-        }
-
         GeneralAnnotation annotations = myCurrentlyLoadedMatrix.annotations();
 
         String matrixType = annotations.getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE)[0];
         if (matrixType.equals(KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString())) {
+            List<Datum> matricesList = input.getDataOfType(DistanceMatrix.class);
+            DistanceMatrix[] matrices = new DistanceMatrix[matricesList.size()];
+            for (int i = 0; i < matricesList.size(); i++) {
+                matrices[i] = (DistanceMatrix) matricesList.get(i).getData();
+            }
             DistanceMatrix result = EndelmanDistanceMatrix.subtractEndelmanDistance(matrices, myCurrentlyLoadedMatrix, this);
+            return new DataSet(new Datum(Utils.getFilename(wholeMatrix()) + "_Rest", result, null), this);
+        } else if (matrixType.equals(KinshipPlugin.KINSHIP_METHOD.Normalized_IBS.toString())) {
+            List<Datum> matricesList = input.getDataOfType(DistanceMatrixWithCounts.class);
+            if (matricesList.isEmpty()) {
+                throw new IllegalArgumentException("SubtractDistanceMatrixPlugin: processData: must input at least one Distance Matrix with counts to subtract.");
+            }
+            DistanceMatrixWithCounts[] matrices = new DistanceMatrixWithCounts[matricesList.size()];
+            for (int i = 0; i < matricesList.size(); i++) {
+                matrices[i] = (DistanceMatrixWithCounts) matricesList.get(i).getData();
+            }
+            DistanceMatrixWithCounts tempMatrix = null;
+            try {
+                tempMatrix = (DistanceMatrixWithCounts) myCurrentlyLoadedMatrix;
+            } catch (ClassCastException ex) {
+                myLogger.debug(ex.getMessage(), ex);
+                throw new IllegalArgumentException("SubtractDistanceMatrixPlugin: processData: whole matrix must have counts.");
+            }
+            DistanceMatrix result = GCTADistanceMatrix.subtractGCTADistance(matrices, tempMatrix, this);
             return new DataSet(new Datum(Utils.getFilename(wholeMatrix()) + "_Rest", result, null), this);
         } else {
             throw new UnsupportedOperationException("SubstractDistanceMatrixPlugin: processData: unsupported matrix type: " + matrixType);

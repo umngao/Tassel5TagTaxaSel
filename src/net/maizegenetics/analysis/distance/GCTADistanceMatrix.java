@@ -15,7 +15,11 @@ import java.util.stream.StreamSupport;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
 import net.maizegenetics.prefs.TasselPrefs;
+import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
+import net.maizegenetics.taxa.distance.DistanceMatrixBuilder;
+import net.maizegenetics.taxa.distance.DistanceMatrixWithCounts;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 import net.maizegenetics.util.ProgressListener;
 import net.maizegenetics.util.Tuple;
 import org.apache.log4j.Logger;
@@ -33,7 +37,8 @@ public class GCTADistanceMatrix {
     }
 
     /**
-     * Compute GCTA kinship for all pairs of taxa. Missing sites are ignored.
+     * Compute Normalized_IBS (GCTA) kinship for all pairs of taxa. Missing
+     * sites are ignored.
      * http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3014363/pdf/main.pdf
      * Equation-3
      *
@@ -59,7 +64,7 @@ public class GCTADistanceMatrix {
 
     private static DistanceMatrix computeGCTADistances(GenotypeTable genotype, ProgressListener listener) {
 
-        int numSeqs = genotype.numberOfTaxa();
+        int numTaxa = genotype.numberOfTaxa();
         long time = System.currentTimeMillis();
 
         //
@@ -82,17 +87,83 @@ public class GCTADistanceMatrix {
         // This does the final division of the site counts into
         // the distance sums.
         //
-        double[][] result = new double[numSeqs][numSeqs];
+        GeneralAnnotationStorage.Builder annotations = GeneralAnnotationStorage.getBuilder();
+        annotations.addAnnotation(DistanceMatrixBuilder.MATRIX_TYPE, KinshipPlugin.KINSHIP_METHOD.Normalized_IBS.toString());
+
+        DistanceMatrixBuilder builder = DistanceMatrixBuilder.getInstance(genotype.taxa());
+        builder.annotation(annotations.build());
+
         int index = 0;
-        for (int t = 0; t < numSeqs; t++) {
-            for (int i = 0, n = numSeqs - t; i < n; i++) {
-                result[t][t + i] = result[t + i][t] = distances[index] / (double) counts[index];
+        for (int t = 0; t < numTaxa; t++) {
+            for (int i = t; i < numTaxa; i++) {
+                builder.set(t, i, distances[index] / (double) counts[index]);
+                builder.setCount(t, i, counts[index]);
                 index++;
             }
         }
 
         myLogger.info("GCTADistanceMatrix: computeGCTADistances time: " + (System.currentTimeMillis() - time) / 1000 + " seconds");
-        return new DistanceMatrix(result, genotype.taxa());
+        return builder.build();
+
+    }
+
+    public static DistanceMatrix subtractGCTADistance(DistanceMatrixWithCounts[] matrices, DistanceMatrixWithCounts superMatrix, ProgressListener listener) {
+
+        int numTaxa = superMatrix.numberOfTaxa();
+        String matrixType = superMatrix.annotations().getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE)[0];
+        if (!matrixType.equals(KinshipPlugin.KINSHIP_METHOD.Normalized_IBS.toString())) {
+            throw new IllegalArgumentException("subtractGCTADistance: superset matrix must be matrix type: " + KinshipPlugin.KINSHIP_METHOD.Normalized_IBS.toString());
+        }
+        for (DistanceMatrix current : matrices) {
+            int currentNumTaxa = current.numberOfTaxa();
+            if (currentNumTaxa != numTaxa) {
+                throw new IllegalArgumentException("subtractGCTADistance: subset and superset must have same number of taxa.");
+            }
+            String[] currentMatrixType = current.annotations().getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE);
+            if (currentMatrixType.length == 0) {
+                throw new IllegalArgumentException("subtractGCTADistance: subset matrix must be created with a more recent build of Tassel that adds neccessary annotations to the matrix");
+            }
+            if (!matrixType.equals(currentMatrixType[0])) {
+                throw new IllegalArgumentException("subtractGCTADistance: subset matrix must be matrix type: " + KinshipPlugin.KINSHIP_METHOD.Normalized_IBS.toString());
+            }
+        }
+
+        TaxaList superTaxaList = superMatrix.getTaxaList();
+        for (DistanceMatrix current : matrices) {
+            TaxaList subsetTaxaList = current.getTaxaList();
+            for (int t = 0; t < numTaxa; t++) {
+                if (!superTaxaList.get(t).equals(subsetTaxaList.get(t))) {
+                    throw new IllegalArgumentException("subtractGCTADistance: superset taxon: " + superTaxaList.get(t).getName() + " doesn't match subset taxon: " + subsetTaxaList.taxaName(t));
+                }
+            }
+        }
+
+        DistanceMatrixBuilder builder = DistanceMatrixBuilder.getInstance(superTaxaList);
+
+        //
+        // This does the final division of the site counts into
+        // the distance sums.
+        //
+        int numMatrices = matrices.length;
+
+        GeneralAnnotationStorage.Builder resultAnnotations = GeneralAnnotationStorage.getBuilder();
+        resultAnnotations.addAnnotation(DistanceMatrixBuilder.MATRIX_TYPE, KinshipPlugin.KINSHIP_METHOD.Normalized_IBS.toString());
+        builder.annotation(resultAnnotations.build());
+
+        for (int t = 0; t < numTaxa; t++) {
+            for (int i = 0, n = numTaxa - t; i < n; i++) {
+                int resultCount = superMatrix.getCount(t, t + i);
+                double resultValue = superMatrix.getDistance(t, t + i) * (double) resultCount;
+                for (int j = 0; j < numMatrices; j++) {
+                    resultValue -= (matrices[j].getDistance(t, t + i) * matrices[j].getCount(t, t + i));
+                    resultCount -= matrices[j].getCount(t, t + i);
+                }
+                builder.set(t, t + i, resultValue / (double) resultCount);
+                builder.setCount(t, t + i, resultCount);
+            }
+        }
+
+        return builder.build();
 
     }
 
@@ -156,20 +227,18 @@ public class GCTADistanceMatrix {
             for (int a = 0; a < 8; a++) {
                 for (int b = 0; b < 8; b++) {
                     int temp = (major << 6) | (a << 3) | b;
-                    if ((major == 7) | ((a == 7) && (b == 7))) {
+                    if ((major == 7) || ((a == 7) && (b == 7))) {
                         PRECALCULATED_COUNTS[temp] = 7;
-                    } else {
-                        if (a == major) {
-                            if (b == major) {
-                                PRECALCULATED_COUNTS[temp] = 4;
-                            } else {
-                                PRECALCULATED_COUNTS[temp] = 2;
-                            }
-                        } else if (b == major) {
-                            PRECALCULATED_COUNTS[temp] = 2;
+                    } else if (a == major) {
+                        if (b == major) {
+                            PRECALCULATED_COUNTS[temp] = 4;
                         } else {
-                            PRECALCULATED_COUNTS[temp] = 1;
+                            PRECALCULATED_COUNTS[temp] = 2;
                         }
+                    } else if (b == major) {
+                        PRECALCULATED_COUNTS[temp] = 2;
+                    } else {
+                        PRECALCULATED_COUNTS[temp] = 1;
                     }
                 }
             }
@@ -257,7 +326,7 @@ public class GCTADistanceMatrix {
         private final int myNumTaxa;
         private final int myNumSites;
         private final ProgressListener myProgressListener;
-        private int myMinSitesToProcess;
+        private final int myMinSitesToProcess;
         private final int myNumSitesPerBlockForProgressReporting;
 
         GCTASiteSpliterator(GenotypeTable genotypes, int currentIndex, int fence, ProgressListener listener) {
@@ -273,7 +342,7 @@ public class GCTADistanceMatrix {
 
         @Override
         public void forEachRemaining(Consumer<? super CountersDistances> action) {
-            
+
             CountersDistances result = new CountersDistances(myNumTaxa);
             int[] counts = result.myCounters;
             float[] distances = result.myDistances;;
