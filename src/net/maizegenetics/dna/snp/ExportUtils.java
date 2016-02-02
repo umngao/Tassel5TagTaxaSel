@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
+import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
 
 /**
  * Exports Genotype Tables to various file formats.
@@ -138,7 +139,9 @@ public class ExportUtils {
             for (int site = 0; site < numSites; site++) {
                 bw.write(alignment.siteName(site));
                 bw.write(delimChar);
-                int[][] sortedAlleles = alignment.allelesSortedByFrequency(site); // which alleles are actually present among the genotypes
+                byte[] genotypes = alignment.genotypeAllTaxa(site);
+                // which alleles are present among the genotypes
+                int[][] sortedAlleles = AlleleFreqCache.allelesSortedByFrequencyNucleotide(genotypes);
                 int numAlleles = sortedAlleles[0].length;
                 if (numAlleles == 0) {
                     bw.write("NA"); //if data does not exist
@@ -161,7 +164,7 @@ public class ExportUtils {
                     if (diploid == false) {
                         String baseIUPAC = null;
                         try {
-                            baseIUPAC = alignment.genotypeAsString(taxa, site);
+                            baseIUPAC = alignment.diploidAsString(site, genotypes[taxa]);
                         } catch (Exception e) {
                             String[] b = alignment.genotypeAsStringArray(taxa, site);
                             bw.close();
@@ -175,14 +178,9 @@ public class ExportUtils {
                         }
                         bw.write(baseIUPAC);
                     } else {
-                        String[] b = alignment.genotypeAsStringArray(taxa, site);
-                        if (b.length == 1) {
-                            bw.write(b[0]);
-                            bw.write(b[0]);
-                        } else {
-                            bw.write(b[0]);
-                            bw.write(b[1]);
-                        }
+                        byte[] temp = GenotypeTableUtils.getDiploidValues(genotypes[taxa]);
+                        bw.write(alignment.genotypeAsString(site, temp[0]));
+                        bw.write(alignment.genotypeAsString(site, temp[1]));
                     }
                     if (taxa != (numTaxa - 1)) {
                         bw.write(delimChar);
