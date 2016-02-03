@@ -94,7 +94,7 @@ class FilterGenotypeCallTable extends AbstractGenotypeCallTable {
 
     @Override
     public String diploidAsString(int site, byte value) {
-        return myBaseGenotype.genotypeAsString(site, value);
+        return myBaseGenotype.diploidAsString(site, value);
     }
 
     @Override
