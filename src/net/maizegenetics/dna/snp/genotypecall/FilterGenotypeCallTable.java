@@ -93,6 +93,11 @@ class FilterGenotypeCallTable extends AbstractGenotypeCallTable {
     }
 
     @Override
+    public String diploidAsString(int site, byte value) {
+        return myBaseGenotype.genotypeAsString(site, value);
+    }
+
+    @Override
     public byte[] genotypeForAllTaxa(int site) {
         if (!myIsTaxaFilter) {
             return myBaseGenotype.genotypeForAllTaxa(translateSite(site));
