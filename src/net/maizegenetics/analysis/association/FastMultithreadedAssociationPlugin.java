@@ -15,6 +15,7 @@ import javax.swing.ImageIcon;
 
 import org.apache.commons.math3.distribution.FDistribution;
 import org.apache.commons.math3.exception.OutOfRangeException;
+import org.apache.log4j.Logger;
 
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.GenotypeTable;
@@ -40,6 +41,7 @@ import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.TableReportBuilder;
 
 public class FastMultithreadedAssociationPlugin extends AbstractPlugin {
+    private static Logger myLogger = Logger.getLogger(FastMultithreadedAssociationPlugin.class);
     private GENOTYPE_TABLE_COMPONENT[] GENOTYPE_COMP = new GENOTYPE_TABLE_COMPONENT[] {
             GENOTYPE_TABLE_COMPONENT.Genotype, GENOTYPE_TABLE_COMPONENT.ReferenceProbability,
             GENOTYPE_TABLE_COMPONENT.AlleleProbability };
@@ -100,7 +102,7 @@ public class FastMultithreadedAssociationPlugin extends AbstractPlugin {
     public DataSet processData(DataSet input) {
         long start = System.currentTimeMillis();
         
-        int maxSitesInQueue = 200;
+        int maxSitesInQueue = 2000;
         int maxObjectsInQueue = 1000;
         
         Datum inDatum = input.getDataOfType(GenotypePhenotype.class).get(0);
@@ -153,13 +155,14 @@ public class FastMultithreadedAssociationPlugin extends AbstractPlugin {
         int nsites = myGenotype.numberOfSites();
         System.out.printf("myGenotype has %d sites\n", nsites);
         for (int s = 0; s < nsites; s++) {
-            byte major = myGenotype.majorAllele(s);
-            double freq = myGenotype.majorAlleleFrequency(s);
-            byte[] geno = myGenoPheno.genotypeAllTaxa(s);
+            if (s % 1000000 == 0) myLogger.info("Adding site " + s + " to the site queue.");
             try {
+                byte major = myGenotype.majorAllele(s);
+                double freq = myGenotype.majorAlleleFrequency(s);
+                byte[] geno = myGenoPheno.genotypeAllTaxa(s);
                 siteQueue.put(new Marker(geno, major, freq, myGenotype.positions().get(s)));
             } catch (Exception e) {
-                throw new RuntimeException("Site thread interrupted", e);
+                throw new RuntimeException("Site thread interrupted at site " + s, e);
             }
         }
         
@@ -318,7 +321,7 @@ public class FastMultithreadedAssociationPlugin extends AbstractPlugin {
         
         public void run() {
             try {
-            	Marker thisMarker = siteQueue.poll(2, TimeUnit.SECONDS);
+            	Marker thisMarker = siteQueue.poll(4, TimeUnit.SECONDS);
                 
                 byte[] geno = thisMarker.geno;
                 while (geno.length > 0) {
