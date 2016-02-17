@@ -25,7 +25,7 @@ import org.apache.log4j.Logger;
  * @author Terry Casstevens
  */
 public class SubtractDistanceMatrixPlugin extends AbstractPlugin {
-    
+
     private static final Logger myLogger = Logger.getLogger(SubtractDistanceMatrixPlugin.class);
 
     private PluginParameter<String> myWholeMatrix = new PluginParameter.Builder<>("wholeMatrix", null, String.class)
@@ -59,7 +59,15 @@ public class SubtractDistanceMatrixPlugin extends AbstractPlugin {
 
         GeneralAnnotation annotations = myCurrentlyLoadedMatrix.annotations();
 
-        String matrixType = annotations.getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE)[0];
+        String matrixType = null;
+        try {
+            matrixType = annotations.getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE)[0];
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("SubtractDistanceMatrixPlugin: processData: the whole matrix: "
+                    + myCurrentlyLoadedMatrixFile + " doesn't have annotation: " + DistanceMatrixBuilder.MATRIX_TYPE
+                    + ". The matrix must be exported with a more recent build of Tassel.");
+        }
         if (matrixType.equals(KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString())) {
             List<Datum> matricesList = input.getDataOfType(DistanceMatrix.class);
             DistanceMatrix[] matrices = new DistanceMatrix[matricesList.size()];
