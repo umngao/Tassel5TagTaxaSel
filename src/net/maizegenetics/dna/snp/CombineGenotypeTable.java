@@ -401,14 +401,8 @@ public class CombineGenotypeTable implements GenotypeTable {
 
     @Override
     public byte[] genotypeAllTaxa(int site) {
-        byte[] result = new byte[numberOfTaxa()];
-        int offset = 0;
-        for (int i = 0; i < myGenotypeTables.length; i++) {
-            byte[] current = myGenotypeTables[i].genotypeAllTaxa(site);
-            System.arraycopy(current, 0, result, offset, current.length);
-            offset += current.length;
-        }
-        return result;
+        int translate = translateSite(site);
+        return myGenotypeTables[translate].genotypeAllTaxa(site - mySiteOffsets[translate]);
     }
 
     @Override
