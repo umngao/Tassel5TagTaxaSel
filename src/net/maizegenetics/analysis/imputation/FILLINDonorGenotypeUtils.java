@@ -86,7 +86,7 @@ public class FILLINDonorGenotypeUtils {
     }
 
     public static GenotypeTable[] loadDonorAndChunk(String donorFile, GenotypeTable unimpAlign, int appoxSitesPerHaplotype, boolean verboseOutput){
-        GenotypeTable donorMasterGT=ImportUtils.readGuessFormat(donorFile);
+        GenotypeTable donorMasterGT=ImportUtils.read(donorFile);
         donorMasterGT=GenotypeTableBuilder.getHomozygousInstance(donorMasterGT);
         int[][] donorFirstLastSites=FILLINFindHaplotypesPlugin.divideChromosome(donorMasterGT,appoxSitesPerHaplotype,verboseOutput);
         GenotypeTable[] donorAlign=new GenotypeTable[donorFirstLastSites.length];
@@ -106,7 +106,7 @@ public class FILLINDonorGenotypeUtils {
      * @return 
      */
     public static GenotypeTable RemoveSitesThatDoNotMatchMinMaj(String donorFile, GenotypeTable unimp, boolean verboseOutput) {
-        File newDonor= new File(donorFile.replace(".h", "matchMinMaj.h"));
+        File newDonor= new File(donorFile.subSequence(0, donorFile.lastIndexOf("."))+".matchMinMaj.hmp.txt.gz");
         if (newDonor.exists()) {
             System.out.println("Donor already filtered for minMaj");
             return unimp;
@@ -151,7 +151,7 @@ public class FILLINDonorGenotypeUtils {
         }
         GenotypeTable filterDonor= FilterGenotypeTable.getInstance(donor, sitesToKeepDonor);
         GenotypeTable filterUnimp= FilterGenotypeTable.getInstance(unimp, sitesToKeepUnimp);
-        ExportUtils.writeGenotypeHDF5(filterDonor, newDonor.getAbsolutePath());
+        ExportUtils.writeToHapmap(filterDonor, true, newDonor.getAbsolutePath(), '\t', null);
         if (verboseOutput) System.out.println("Wrote donor file to "+newDonor.getAbsolutePath());
         if (verboseOutput) System.out.println("Sites that match positionally: "+matchPos+
                 "\nSites removed because of inconsistent min/maj: "+cntBadMinMaj+
