@@ -172,15 +172,7 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
 
     @Override
     protected void preProcessParameters(DataSet input) {
-        Path currentRelativePath = Paths.get("");
-            String s = currentRelativePath.toAbsolutePath().toString();
         if (!new File(outFileBase.value()).getParentFile().exists()) new File(outFileBase.value()).getParentFile().mkdirs();
-        if (!new File(hmpFile.value()).isAbsolute()) {
-            targetFile(s+"/"+new File(hmpFile.value()).getName());
-        }
-        if (!new File(donorFile.value()).isAbsolute()) {
-            donorDir(s+"/"+new File(donorFile.value()).getName());
-        }
     }
     
     @Override
