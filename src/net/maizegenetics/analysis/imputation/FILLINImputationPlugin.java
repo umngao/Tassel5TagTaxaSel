@@ -16,6 +16,8 @@ import org.apache.log4j.Logger;
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -169,6 +171,19 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     private static final Logger myLogger = Logger.getLogger(FILLINImputationPlugin.class);
 
     @Override
+    protected void preProcessParameters(DataSet input) {
+        Path currentRelativePath = Paths.get("");
+            String s = currentRelativePath.toAbsolutePath().toString();
+        if (!new File(outFileBase.value()).getParentFile().exists()) new File(outFileBase.value()).getParentFile().mkdirs();
+        if (!new File(hmpFile.value()).isAbsolute()) {
+            targetFile(s+"/"+new File(hmpFile.value()).getName());
+        }
+        if (!new File(donorFile.value()).isAbsolute()) {
+            donorDir(s+"/"+new File(donorFile.value()).getName());
+        }
+    }
+    
+    @Override
     protected void postProcessParameters() {
         System.out.println("Calling FILLINImputationPlugin.postProcessParameters()...");
         minimumDonorDistance=maximumInbredError.value()*5;
@@ -204,10 +219,10 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     public DataSet processData(DataSet input) {
         long time=System.currentTimeMillis();
         String donor= donorFile.value();
-        unimpAlign=ImportUtils.readGuessFormat(hmpFile.value());
+        unimpAlign=ImportUtils.read(hmpFile.value());
         if (isOutputProjection.value()) {
             unimpAlign= FILLINDonorGenotypeUtils.RemoveSitesThatDoNotMatchMinMaj(donorFile.value(), unimpAlign,verboseOutput);
-            donor= donorFile.value().replace(".h", "matchMinMaj.h");
+            donor= donor.subSequence(0, donor.lastIndexOf("."))+".matchMinMaj.hmp.txt.gz";
         }
         GenotypeTable[] donorAlign=FILLINDonorGenotypeUtils.loadDonors(donor, unimpAlign, minTestSites.value(),
                 verboseOutput,appoxSitesPerDonorGenotypeTable.value());
