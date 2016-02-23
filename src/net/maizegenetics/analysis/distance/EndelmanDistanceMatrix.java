@@ -212,6 +212,71 @@ public class EndelmanDistanceMatrix {
 
     }
 
+    public static DistanceMatrix addEndelmanDistance(DistanceMatrix[] matrices, ProgressListener listener) {
+
+        int numTaxa = matrices[0].numberOfTaxa();
+        String matrixType = matrices[0].annotations().getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE)[0];
+        if (!matrixType.equals(KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString())) {
+            throw new IllegalArgumentException("addEndelmanDistance: superset matrix must be matrix type: " + KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString());
+        }
+        for (int i = 1; i < matrices.length; i++) {
+            DistanceMatrix current = matrices[i];
+            int currentNumTaxa = current.numberOfTaxa();
+            if (currentNumTaxa != numTaxa) {
+                throw new IllegalArgumentException("addEndelmanDistance: subset and superset must have same number of taxa.");
+            }
+            String[] currentMatrixType = current.annotations().getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE);
+            if (currentMatrixType.length == 0) {
+                throw new IllegalArgumentException("addEndelmanDistance: subset matrix must be created with a more recent build of Tassel that adds neccessary annotations to the matrix");
+            }
+            if (!matrixType.equals(currentMatrixType[0])) {
+                throw new IllegalArgumentException("addEndelmanDistance: subset matrix must be matrix type: " + KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString());
+            }
+        }
+
+        TaxaList superTaxaList = matrices[0].getTaxaList();
+        for (DistanceMatrix current : matrices) {
+            TaxaList subsetTaxaList = current.getTaxaList();
+            for (int t = 0; t < numTaxa; t++) {
+                if (!superTaxaList.get(t).equals(subsetTaxaList.get(t))) {
+                    throw new IllegalArgumentException("addEndelmanDistance: superset taxon: " + superTaxaList.get(t).getName() + " doesn't match subset taxon: " + subsetTaxaList.taxaName(t));
+                }
+            }
+        }
+
+        DistanceMatrixBuilder builder = DistanceMatrixBuilder.getInstance(superTaxaList);
+
+        //
+        // This does the final division of the frequency sum into
+        // the distance sums.
+        //
+        int numMatrices = matrices.length;
+        double resultSumpk = 0.0;
+        double[] matricesSumpk = new double[numMatrices];
+        for (int i = 0; i < numMatrices; i++) {
+            matricesSumpk[i] = matrices[i].annotations().getQuantAnnotation(DistanceMatrixBuilder.CENTERED_IBS_SUMPK)[0];
+            resultSumpk += matricesSumpk[i];
+        }
+
+        GeneralAnnotationStorage.Builder resultAnnotations = GeneralAnnotationStorage.getBuilder();
+        resultAnnotations.addAnnotation(DistanceMatrixBuilder.MATRIX_TYPE, KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString());
+        resultAnnotations.addAnnotation(DistanceMatrixBuilder.CENTERED_IBS_SUMPK, resultSumpk);
+        builder.annotation(resultAnnotations.build());
+
+        for (int t = 0; t < numTaxa; t++) {
+            for (int i = 0, n = numTaxa - t; i < n; i++) {
+                double resultValue = 0.0;
+                for (int j = 0; j < numMatrices; j++) {
+                    resultValue += (matrices[j].getDistance(t, t + i) * matricesSumpk[j]);
+                }
+                builder.set(t, t + i, resultValue / resultSumpk);
+            }
+        }
+
+        return builder.build();
+
+    }
+
     protected static void fireProgress(int percent, ProgressListener listener) {
         if (listener != null) {
             if (percent > 100) {
@@ -268,18 +333,16 @@ public class EndelmanDistanceMatrix {
                     int temp = (allele << 6) | (a << 3) | b;
                     if ((allele == 7) || ((a == 7) && (b == 7))) {
                         PRECALCULATED_COUNTS[temp] = 7;
-                    } else {
-                        if (a == allele) {
-                            if (b == allele) {
-                                PRECALCULATED_COUNTS[temp] = 4;
-                            } else {
-                                PRECALCULATED_COUNTS[temp] = 2;
-                            }
-                        } else if (b == allele) {
-                            PRECALCULATED_COUNTS[temp] = 2;
+                    } else if (a == allele) {
+                        if (b == allele) {
+                            PRECALCULATED_COUNTS[temp] = 4;
                         } else {
-                            PRECALCULATED_COUNTS[temp] = 1;
+                            PRECALCULATED_COUNTS[temp] = 2;
                         }
+                    } else if (b == allele) {
+                        PRECALCULATED_COUNTS[temp] = 2;
+                    } else {
+                        PRECALCULATED_COUNTS[temp] = 1;
                     }
                 }
             }
