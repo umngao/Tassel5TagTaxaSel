@@ -35,7 +35,6 @@ public class SubtractDistanceMatrixPlugin extends AbstractPlugin {
             .build();
 
     private DistanceMatrix myCurrentlyLoadedMatrix = null;
-    private String myCurrentlyLoadedMatrixFile = null;
 
     public SubtractDistanceMatrixPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
@@ -52,8 +51,7 @@ public class SubtractDistanceMatrixPlugin extends AbstractPlugin {
     @Override
     public DataSet processData(DataSet input) {
 
-        if ((myCurrentlyLoadedMatrixFile == null) || (!myCurrentlyLoadedMatrixFile.equals(wholeMatrix()))) {
-            myCurrentlyLoadedMatrixFile = wholeMatrix();
+        if (myCurrentlyLoadedMatrix == null) {
             myCurrentlyLoadedMatrix = ReadDistanceMatrix.readDistanceMatrix(wholeMatrix());
         }
 
@@ -65,7 +63,7 @@ public class SubtractDistanceMatrixPlugin extends AbstractPlugin {
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
             throw new IllegalStateException("SubtractDistanceMatrixPlugin: processData: the whole matrix: "
-                    + myCurrentlyLoadedMatrixFile + " doesn't have annotation: " + DistanceMatrixBuilder.MATRIX_TYPE
+                    + wholeMatrix() + " doesn't have annotation: " + DistanceMatrixBuilder.MATRIX_TYPE
                     + ". The matrix must be exported with a more recent build of Tassel.");
         }
         if (matrixType.equals(KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString())) {
@@ -120,6 +118,13 @@ public class SubtractDistanceMatrixPlugin extends AbstractPlugin {
      */
     public SubtractDistanceMatrixPlugin wholeMatrix(String value) {
         myWholeMatrix = new PluginParameter<>(myWholeMatrix, value);
+        myCurrentlyLoadedMatrix = null;
+        return this;
+    }
+
+    public SubtractDistanceMatrixPlugin wholeMatrix(DistanceMatrix matrix) {
+        myWholeMatrix = new PluginParameter<>(myWholeMatrix, matrix.getTableTitle());
+        myCurrentlyLoadedMatrix = matrix;
         return this;
     }
 
