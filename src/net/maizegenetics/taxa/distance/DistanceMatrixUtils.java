@@ -9,6 +9,8 @@ package net.maizegenetics.taxa.distance;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.BitSet;
+import net.maizegenetics.util.BitUtil;
 
 /**
  * Utility functions for distance matrices
@@ -194,5 +196,34 @@ public class DistanceMatrixUtils {
                 .filter(i -> i > -1)
                 .toArray();
         return keepTaxa(parent, keepIndex);
+    }
+
+    /**
+     * Calculates the IBS distance between two taxa with bitsets for for major
+     * and minor allele
+     *
+     * @param iMajor
+     * @param iMinor
+     * @param jMajor
+     * @param jMinor
+     * @return
+     */
+    public static double getIBSDistance(long[] iMajor, long[] iMinor, long[] jMajor, long[] jMinor) {
+        int sameCnt = 0, diffCnt = 0, hetCnt = 0;
+        for (int x = 0; x < iMajor.length; x++) {
+            long same = (iMajor[x] & jMajor[x]) | (iMinor[x] & jMinor[x]);
+            long diff = (iMajor[x] & jMinor[x]) | (iMinor[x] & jMajor[x]);
+            long hets = same & diff;
+            sameCnt += BitUtil.pop(same);
+            diffCnt += BitUtil.pop(diff);
+            hetCnt += BitUtil.pop(hets);
+        }
+        double identity = (double) (sameCnt + (hetCnt / 2)) / (double) (sameCnt + diffCnt + hetCnt);
+        double dist = 1 - identity;
+        return dist;
+    }
+
+    public static double getIBSDistance(BitSet iMajor, BitSet iMinor, BitSet jMajor, BitSet jMinor) {
+        return getIBSDistance(iMajor.getBits(), iMinor.getBits(), jMajor.getBits(), jMinor.getBits());
     }
 }
