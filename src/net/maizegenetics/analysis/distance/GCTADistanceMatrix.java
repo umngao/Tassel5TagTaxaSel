@@ -167,6 +167,68 @@ public class GCTADistanceMatrix {
 
     }
 
+    public static DistanceMatrix addGCTADistance(DistanceMatrixWithCounts[] matrices, ProgressListener listener) {
+
+        int numTaxa = matrices[0].numberOfTaxa();
+        String matrixType = matrices[0].annotations().getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE)[0];
+        if (!matrixType.equals(KinshipPlugin.KINSHIP_METHOD.Normalized_IBS.toString())) {
+            throw new IllegalArgumentException("addGCTADistance: superset matrix must be matrix type: " + KinshipPlugin.KINSHIP_METHOD.Normalized_IBS.toString());
+        }
+        for (int i = 1; i < matrices.length; i++) {
+            DistanceMatrix current = matrices[i];
+            int currentNumTaxa = current.numberOfTaxa();
+            if (currentNumTaxa != numTaxa) {
+                throw new IllegalArgumentException("addGCTADistance: all matrices must have same number of taxa.");
+            }
+            String[] currentMatrixType = current.annotations().getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE);
+            if (currentMatrixType.length == 0) {
+                throw new IllegalArgumentException("addGCTADistance: matrix must be created with a more recent build of Tassel that adds neccessary annotations to the matrix");
+            }
+            if (!matrixType.equals(currentMatrixType[0])) {
+                throw new IllegalArgumentException("addGCTADistance: matrix must be matrix type: " + KinshipPlugin.KINSHIP_METHOD.Normalized_IBS.toString());
+            }
+        }
+
+        TaxaList superTaxaList = matrices[0].getTaxaList();
+        for (int i = 1; i < matrices.length; i++) {
+            DistanceMatrix current = matrices[i];
+            TaxaList subsetTaxaList = current.getTaxaList();
+            for (int t = 0; t < numTaxa; t++) {
+                if (!superTaxaList.get(t).equals(subsetTaxaList.get(t))) {
+                    throw new IllegalArgumentException("addGCTADistance: superset taxon: " + superTaxaList.get(t).getName() + " doesn't match subset taxon: " + subsetTaxaList.taxaName(t));
+                }
+            }
+        }
+
+        DistanceMatrixBuilder builder = DistanceMatrixBuilder.getInstance(superTaxaList);
+
+        //
+        // This does the final division of the site counts into
+        // the distance sums.
+        //
+        int numMatrices = matrices.length;
+
+        GeneralAnnotationStorage.Builder resultAnnotations = GeneralAnnotationStorage.getBuilder();
+        resultAnnotations.addAnnotation(DistanceMatrixBuilder.MATRIX_TYPE, KinshipPlugin.KINSHIP_METHOD.Normalized_IBS.toString());
+        builder.annotation(resultAnnotations.build());
+
+        for (int t = 0; t < numTaxa; t++) {
+            for (int i = 0, n = numTaxa - t; i < n; i++) {
+                int resultCount = 0;
+                double resultValue = 0.0;
+                for (int j = 0; j < numMatrices; j++) {
+                    resultValue += (matrices[j].getDistance(t, t + i) * matrices[j].getCount(t, t + i));
+                    resultCount += matrices[j].getCount(t, t + i);
+                }
+                builder.set(t, t + i, resultValue / (double) resultCount);
+                builder.setCount(t, t + i, resultCount);
+            }
+        }
+
+        return builder.build();
+
+    }
+
     protected static void fireProgress(int percent, ProgressListener listener) {
         if (listener != null) {
             if (percent > 100) {

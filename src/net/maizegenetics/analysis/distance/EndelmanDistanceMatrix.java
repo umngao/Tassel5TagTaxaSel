@@ -223,19 +223,20 @@ public class EndelmanDistanceMatrix {
             DistanceMatrix current = matrices[i];
             int currentNumTaxa = current.numberOfTaxa();
             if (currentNumTaxa != numTaxa) {
-                throw new IllegalArgumentException("addEndelmanDistance: subset and superset must have same number of taxa.");
+                throw new IllegalArgumentException("addEndelmanDistance: all matrices must have same number of taxa.");
             }
             String[] currentMatrixType = current.annotations().getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE);
             if (currentMatrixType.length == 0) {
-                throw new IllegalArgumentException("addEndelmanDistance: subset matrix must be created with a more recent build of Tassel that adds neccessary annotations to the matrix");
+                throw new IllegalArgumentException("addEndelmanDistance: matrix must be created with a more recent build of Tassel that adds neccessary annotations to the matrix");
             }
             if (!matrixType.equals(currentMatrixType[0])) {
-                throw new IllegalArgumentException("addEndelmanDistance: subset matrix must be matrix type: " + KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString());
+                throw new IllegalArgumentException("addEndelmanDistance: matrix must be matrix type: " + KinshipPlugin.KINSHIP_METHOD.Centered_IBS.toString());
             }
         }
 
         TaxaList superTaxaList = matrices[0].getTaxaList();
-        for (DistanceMatrix current : matrices) {
+        for (int i = 1; i < matrices.length; i++) {
+            DistanceMatrix current = matrices[i];
             TaxaList subsetTaxaList = current.getTaxaList();
             for (int t = 0; t < numTaxa; t++) {
                 if (!superTaxaList.get(t).equals(subsetTaxaList.get(t))) {

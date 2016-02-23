@@ -13,6 +13,7 @@ import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.taxa.distance.DistanceMatrixBuilder;
+import net.maizegenetics.taxa.distance.DistanceMatrixWithCounts;
 import net.maizegenetics.util.GeneralAnnotation;
 import org.apache.log4j.Logger;
 
@@ -81,9 +82,15 @@ public class AddDistanceMatrixPlugin extends AbstractPlugin {
             DistanceMatrix result = EndelmanDistanceMatrix.addEndelmanDistance(matrices, this);
             return new DataSet(new Datum("SumDistanceMatrix", result, null), this);
         } else if (myMethod == KinshipPlugin.KINSHIP_METHOD.Normalized_IBS) {
-            return null;
+            List<Datum> matricesList = input.getDataOfType(DistanceMatrixWithCounts.class);
+            DistanceMatrixWithCounts[] matrices = new DistanceMatrixWithCounts[matricesList.size()];
+            for (int i = 0; i < matricesList.size(); i++) {
+                matrices[i] = (DistanceMatrixWithCounts) matricesList.get(i).getData();
+            }
+            DistanceMatrix result = GCTADistanceMatrix.addGCTADistance(matrices, this);
+            return new DataSet(new Datum("SumDistanceMatrix", result, null), this);
         } else {
-            throw new UnsupportedOperationException("SubstractDistanceMatrixPlugin: processData: unsupported matrix type: " + myMethod);
+            throw new UnsupportedOperationException("AddDistanceMatrixPlugin: processData: unsupported matrix type: " + myMethod);
         }
 
     }
