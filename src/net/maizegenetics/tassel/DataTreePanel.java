@@ -69,6 +69,7 @@ import net.maizegenetics.dna.snp.FilterList;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.tree.SimpleTree;
+import net.maizegenetics.util.GeneralAnnotation;
 import net.maizegenetics.util.HDF5TableReport;
 
 import org.apache.batik.util.gui.MemoryMonitor;
@@ -332,26 +333,40 @@ public class DataTreePanel extends JPanel implements PluginListener {
                     }
                     if (book.getData() instanceof TableReport) {
                         TableReport tr = (TableReport) book.getData();
+                        long numColumns = tr.getColumnCount();
+                        long numRows = tr.getRowCount();
                         builder.append("Table Title: ");
                         builder.append(tr.getTableTitle());
                         builder.append("\n");
                         builder.append("Number of columns: ");
-                        builder.append(tr.getColumnCount());
+                        builder.append(numColumns);
                         builder.append("\n");
                         builder.append("Number of rows: ");
-                        builder.append(tr.getRowCount());
+                        builder.append(numRows);
                         builder.append("\n");
-                        builder.append("Number of elements: ");
-                        builder.append(tr.getElementCount());
+                        builder.append("Matrix size (excludes row headers): ");
+                        builder.append((numColumns - 1) * numRows);
                         builder.append("\n");
                     }
                     if (book.getData() instanceof TOPMInterface) {
                         TOPMInterface topm = (TOPMInterface) book.getData();
                         builder.append("Number of Tags: ");
                         builder.append(topm.getSize());
+                        builder.append("\n");
                     }
-                    if (book.getData() instanceof GenotypeTableMask) {
-                        GenotypeTableMask mask = (GenotypeTableMask) book.getData();
+                    if (book.getData() instanceof DistanceMatrix) {
+                        DistanceMatrix matrix = (DistanceMatrix) book.getData();
+                        GeneralAnnotation annotations = matrix.annotations();
+                        if ((annotations != null) && (annotations.numAnnotations() != 0)) {
+                            builder.append("\nAnnotations...\n");
+                            for (Map.Entry<String, String> entry : annotations.getAllAnnotationEntries()) {
+                                builder.append(entry.getKey());
+                                builder.append(": ");
+                                builder.append(entry.getValue());
+                                builder.append("\n");
+                            }
+                            builder.append("\n");
+                        }
                     }
 
                     String comment = book.getComment();
