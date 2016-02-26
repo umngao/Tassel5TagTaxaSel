@@ -15,6 +15,9 @@ import java.util.stream.IntStream;
  * @author Terry Casstevens
  * @author Zhiwu Zhang
  * @author Peter Bradbury
+ *
+ * @deprecated This utility has been replaced. See KinshipPlugin. Please discuss
+ * with Terry if something needs to be salvaged from this class.
  */
 public class Kinship {
 
@@ -34,7 +37,7 @@ public class Kinship {
      * @deprecated Replaced by {@link EndelmanDistanceMatrix#getInstance(net.maizegenetics.dna.snp.GenotypeTable, int, net.maizegenetics.util.ProgressListener)
      * }
      */
-    public static DistanceMatrix createKinship(GenotypeTable mar, KINSHIP_TYPE kinshipType, GENOTYPE_TABLE_COMPONENT dataType) {
+    private static DistanceMatrix createKinship(GenotypeTable mar, KINSHIP_TYPE kinshipType, GENOTYPE_TABLE_COMPONENT dataType) {
         System.out.println("Starting Kinship.buildFromMarker().");
         long start = System.currentTimeMillis();
         DistanceMatrix result;
@@ -47,7 +50,7 @@ public class Kinship {
         return result;
     }
 
-    public static DistanceMatrix buildFromMarker(GenotypeTable mar, KINSHIP_TYPE kinshipType, GENOTYPE_TABLE_COMPONENT dataType) {
+    private static DistanceMatrix buildFromMarker(GenotypeTable mar, KINSHIP_TYPE kinshipType, GENOTYPE_TABLE_COMPONENT dataType) {
         if (dataType == GENOTYPE_TABLE_COMPONENT.Genotype) {
             return calculateKinshipFromMarkers(mar);
         } else if (dataType == GENOTYPE_TABLE_COMPONENT.ReferenceProbability) {
@@ -65,7 +68,7 @@ public class Kinship {
      * the allele average at that site.
      *
      */
-    public static DistanceMatrix calculateKinshipFromMarkers(GenotypeTable mar) {
+    private static DistanceMatrix calculateKinshipFromMarkers(GenotypeTable mar) {
         //mar is the input genotype table
         byte missingAllele = GenotypeTable.UNKNOWN_ALLELE;
 
@@ -134,7 +137,7 @@ public class Kinship {
      * the allele average at that site.
      *
      */
-    public static DistanceMatrix calculateKinshipFromMarkersV2(GenotypeTable mar) {
+    private static DistanceMatrix calculateKinshipFromMarkersV2(GenotypeTable mar) {
         //mar is the input genotype table
         byte missingAllele = GenotypeTable.UNKNOWN_ALLELE;
 
@@ -218,7 +221,7 @@ public class Kinship {
         return new DistanceMatrix(distance, mar.taxa());
     }
 
-    public static DistanceMatrix calculateRelationshipKinshipFromReferenceProbability(GenotypeTable mar) {
+    private static DistanceMatrix calculateRelationshipKinshipFromReferenceProbability(GenotypeTable mar) {
         ReferenceProbability referenceP = mar.referenceProbability();
 
         //calculate the column averages and sumpq, center W
@@ -266,7 +269,7 @@ public class Kinship {
         return new DistanceMatrix(scaledIBS, mar.taxa());
     }
 
-    public static DistanceMatrix calculateRelationshipKinshipFromAlleleProbabilities() {
+    private static DistanceMatrix calculateRelationshipKinshipFromAlleleProbabilities() {
         //TODO implement
         return null;
     }
