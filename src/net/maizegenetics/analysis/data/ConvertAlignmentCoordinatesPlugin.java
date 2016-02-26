@@ -94,7 +94,7 @@ public class ConvertAlignmentCoordinatesPlugin extends AbstractPlugin {
 
         BufferedReader br = null;
         int count = 1;
-        PositionListBuilder posBuilder = new PositionListBuilder().addAll(alignment.positions());
+        PositionListBuilder posBuilder = new PositionListBuilder().addAll(alignment.positions()).genomeVersion("AGPv3");
         try {
             br = Utils.getBufferedReader(myMapFilename);
             Pattern sep = Pattern.compile("\\s+");
@@ -154,7 +154,24 @@ public class ConvertAlignmentCoordinatesPlugin extends AbstractPlugin {
 
             //          alignment.clean();
             //TODO check sort of positions.
-            return new Datum(input.getName() + "_NewCoordinates", GenotypeTableBuilder.getInstance(alignment.genotypeMatrix(), posBuilder.build(), alignment.taxa()), null);
+            if (alignment.hasDepth()) {
+                return new Datum(input.getName() + "_NewCoordinates",
+                    //getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, ReferenceProbability referenceProbability, Dosage dosage, GeneralAnnotationStorage annotations)
+                    GenotypeTableBuilder.getInstance(
+                        alignment.genotypeMatrix(), 
+                        posBuilder.build(), 
+                        alignment.taxa(),
+                        alignment.depth(),
+                        null,
+                        null,
+                        null,
+                        alignment.annotations()
+                    ), 
+                    null
+                );
+            }  else {
+                return new Datum(input.getName() + "_NewCoordinates", GenotypeTableBuilder.getInstance(alignment.genotypeMatrix(), posBuilder.build(), alignment.taxa()), null);
+            }
 
         } catch (Exception e) {
             myLogger.error("processDatum: problem converting alignment: line: " + count + "  message: " + e.getMessage());
