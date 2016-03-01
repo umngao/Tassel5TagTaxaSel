@@ -82,7 +82,6 @@ public class ClassicMds {
 			if (eval[a] < eval[b]) return 1;
 			return 0;
 		}).mapToInt(I -> I.intValue()).toArray();
-		eigenVectors.column(280);
 	}
 	
 	private DoubleMatrix SquaredDoubleMatrixFromDistanceMatrix() {
