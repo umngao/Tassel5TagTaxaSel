@@ -24,65 +24,104 @@ import java.io.StringWriter;
  *
  * @author Korbinian Strimmer
  * @author Alexei Drummond
+ * @author Terry Casstevens
  */
-public class DistanceMatrix implements TaxaListMatrix, TableReport {
+public class DistanceMatrix implements TableReport {
 
     private final TaxaList myTaxaList;
+    private final int myNumTaxa;
     private final GeneralAnnotation myAnnotations;
-    /**
-     * distances [seq1][seq2]
-     */
-    private double[][] distance = null;
-    static final long serialVersionUID = 4725925229860707633L;
+    private final float[][] myDistances;
 
     /**
-     * constructor taking distances array and IdGroup
+     * Use DistanceMatrixBuilder instead of this.
+     *
+     * @see DistanceMatrixBuilder
      */
-    public DistanceMatrix(double[][] distance, TaxaList taxaList) {
-        this(distance, taxaList, null);
-    }
-
-    public DistanceMatrix(double[][] distance, TaxaList taxaList, GeneralAnnotation annotations) {
-        this.distance = distance;
-        myTaxaList = taxaList;
+    DistanceMatrix(float[][] distances, TaxaList taxa, GeneralAnnotation annotations) {
+        myDistances = distances;
+        myTaxaList = taxa;
+        myNumTaxa = myTaxaList.numberOfTaxa();
         myAnnotations = annotations;
     }
 
     /**
-     * constructor that takes a distance matrix and clones the distances and
-     * IdGroup
+     * Constructor taking distances array and taxa list. Use
+     * DistanceMatrixBuilder instead of this.
+     *
+     * @see DistanceMatrixBuilder
+     */
+    public DistanceMatrix(double[][] distance, TaxaList taxa) {
+        this(distance, taxa, null);
+    }
+
+    /**
+     * Use DistanceMatrixBuilder instead of this.
+     *
+     * @see DistanceMatrixBuilder
+     */
+    public DistanceMatrix(double[][] distances, TaxaList taxa, GeneralAnnotation annotations) {
+        myNumTaxa = taxa.numberOfTaxa();
+        if ((distances == null) || (distances.length != myNumTaxa) || (distances[0].length != myNumTaxa)) {
+            throw new IllegalArgumentException("DistanceMatrix: init: dimensions of distances aren't correct.");
+        }
+        myDistances = new float[myNumTaxa][];
+        for (int i = 0; i < myNumTaxa; i++) {
+            myDistances[i] = new float[i + 1];
+        }
+        for (int x = 0; x < myNumTaxa; x++) {
+            for (int y = 0; y <= x; y++) {
+                if (distances[x][y] != distances[y][x]) {
+                    throw new IllegalStateException("DistanceMatrix: init: values passed in are not symmetrical");
+                }
+                myDistances[x][y] = (float) distances[x][y];
+            }
+        }
+        myTaxaList = taxa;
+        myAnnotations = annotations;
+    }
+
+    /**
+     * Constructor that clones a distance matrix.
      */
     public DistanceMatrix(DistanceMatrix dm) {
-        double[][] copy = new double[dm.distance.length][];
-        for (int i = 0; i < copy.length; i++) {
-            copy[i] = new double[dm.distance[i].length];
-            System.arraycopy(dm.distance[i], 0, copy[i], 0, dm.distance[i].length);
+        myNumTaxa = dm.numberOfTaxa();
+        myDistances = new float[myNumTaxa][];
+        for (int i = 0; i < myNumTaxa; i++) {
+            myDistances[i] = new float[i + 1];
         }
-        distance = copy;
+        for (int x = 0; x < myNumTaxa; x++) {
+            for (int y = 0; y <= x; y++) {
+                myDistances[x][y] = dm.myDistances[x][y];
+            }
+        }
         myTaxaList = dm.myTaxaList;
         myAnnotations = dm.myAnnotations;
     }
 
     /**
-     * constructor that takes a distance matrix and clones the distances, of a
-     * the identifiers in taxaList.
+     * Constructor that clones a distance matrix and for only the specified
+     * taxa.
      */
     public DistanceMatrix(DistanceMatrix dm, TaxaList subset) {
 
-        int index1, index2;
+        myNumTaxa = subset.numberOfTaxa();
+        myDistances = new float[myNumTaxa][];
+        for (int i = 0; i < myNumTaxa; i++) {
+            myDistances[i] = new float[i + 1];
+        }
 
-        distance = new double[subset.numberOfTaxa()][subset.numberOfTaxa()];
-        for (int i = 0; i < distance.length; i++) {
-            index1 = dm.whichIdNumber(subset.taxaName(i));
-            distance[i][i] = dm.distance[index1][index1];
+        for (int i = 0; i < myNumTaxa; i++) {
+            int index1 = dm.whichIdNumber(subset.taxaName(i));
+            myDistances[i][i] = dm.myDistances[index1][index1];
             for (int j = 0; j < i; j++) {
-                index2 = dm.whichIdNumber(subset.taxaName(j));
-                distance[i][j] = dm.distance[index1][index2];
-                distance[j][i] = distance[i][j];
+                int index2 = dm.whichIdNumber(subset.taxaName(j));
+                myDistances[i][j] = dm.getDistance(index1, index2);
             }
         }
         myTaxaList = subset;
         myAnnotations = dm.myAnnotations;
+
     }
 
     /**
@@ -90,15 +129,15 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
      */
     public void printPHYLIP(PrintWriter out) throws IOException {
         // PHYLIP header line
-        out.println("  " + distance.length);
+        out.println("  " + myNumTaxa);
         FormattedOutput format = FormattedOutput.getInstance();
 
-        for (int i = 0; i < distance.length; i++) {
+        for (int i = 0; i < myNumTaxa; i++) {
             format.displayLabel(out,
                     myTaxaList.taxaName(i), 10);
             out.print("      ");
 
-            for (int j = 0; j < distance.length; j++) {
+            for (int j = 0; j < myNumTaxa; j++) {
                 // Chunks of 6 blocks each
                 if (j % 6 == 0 && j != 0) {
                     out.println();
@@ -106,7 +145,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
                 }
 
                 out.print("  ");
-                format.displayDecimal(out, distance[i][j], 5);
+                format.displayDecimal(out, getDistance(i, j), 5);
             }
             out.println();
         }
@@ -126,6 +165,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         }
 
         return sw.toString();
+
     }
 
     /**
@@ -133,14 +173,15 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
      */
     public double squaredDistance(DistanceMatrix mat, boolean weighted) {
         double sum = 0;
-        for (int i = 0; i < distance.length - 1; i++) {
-            for (int j = i + 1; j < distance.length; j++) {
-                double diff = distance[i][j] - mat.distance[i][j];
+        for (int i = 0; i < myNumTaxa - 1; i++) {
+            for (int j = 0; j < i; j++) {
+                double diff = myDistances[i][j] - mat.getDistance(i, j);
                 double weight;
                 if (weighted) {
                     // Fitch-Margoliash weight
                     // (variances proportional to distances)
-                    weight = 1.0 / (distance[i][j] * distance[i][j]);
+                    float distance = myDistances[i][j];
+                    weight = 1.0 / distance * distance;
                 } else {
                     // Cavalli-Sforza-Edwards weight
                     // (homogeneity of variances)
@@ -158,11 +199,9 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
      */
     public double absoluteDistance(DistanceMatrix mat) {
         double sum = 0;
-        for (int i = 0; i < distance.length - 1; i++) {
-            for (int j = i + 1; j < distance.length; j++) {
-                double diff
-                        = Math.abs(distance[i][j] - mat.distance[i][j]);
-
+        for (int i = 0; i < myNumTaxa - 1; i++) {
+            for (int j = 0; j < i; j++) {
+                double diff = Math.abs(myDistances[i][j] - mat.getDistance(i, j));
                 sum += diff;
             }
         }
@@ -171,10 +210,11 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     }
 
     /**
-     * Returns the number of rows and columns that the distance matrix has.
+     * Returns the number of taxa which is also the number of rows and columns
+     * that the distance matrix has.
      */
     public int getSize() {
-        return distance.length;
+        return myNumTaxa;
     }
 
     /**
@@ -182,10 +222,12 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
      * cloned first so it can be altered freely.
      */
     public final double[][] getClonedDistances() {
-        double[][] copy = new double[distance.length][];
-        for (int i = 0; i < copy.length; i++) {
-            copy[i] = new double[distance[i].length];
-            System.arraycopy(distance[i], 0, copy[i], 0, distance[i].length);
+        double[][] copy = new double[myNumTaxa][myNumTaxa];
+        for (int i = 0; i < myNumTaxa; i++) {
+            for (int j = 0; j <= i; j++) {
+                copy[i][j] = myDistances[i][j];
+                copy[j][i] = copy[i][j];
+            }
         }
         return copy;
     }
@@ -198,22 +240,26 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         return getClonedDistances();
     }
 
-    public final double getDistance(final int row, final int col) {
-        return distance[row][col];
+    public final float getDistance(final int row, final int col) {
+        if (row > col) {
+            return myDistances[row][col];
+        } else {
+            return myDistances[col][row];
+        }
     }
 
     /**
      * Returns the mean pairwise distance of this matrix
      */
-    @Override
     public double meanDistance() {
         double dist = 0.0;
         int count = 0;
-        for (int i = 0; i < distance.length; i++) {
-            for (int j = 0; j < distance[i].length; j++) {
-                if ((i != j) && (!Double.isNaN(distance[i][j]))) {
-                    dist += distance[i][j];
-                    count += 1;
+        for (int i = 1; i < myNumTaxa; i++) {
+            for (int j = 0; j < i; j++) {
+                float distance = myDistances[i][j];
+                if (!Float.isNaN(distance)) {
+                    dist += distance;
+                    count++;
                 }
             }
         }
@@ -239,7 +285,6 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     /**
      * Return TaxaList of this alignment.
      */
-    @Override
     public TaxaList getTaxaList() {
         return myTaxaList;
     }
@@ -248,18 +293,10 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
      * test whether this matrix is a symmetric distance matrix
      *
      */
-    @Override
     public boolean isSymmetric() {
-        for (int i = 0; i < distance.length; i++) {
-            if (distance[i][i] != 0) {
+        for (int i = 0; i < myNumTaxa; i++) {
+            if (myDistances[i][i] != 0) {
                 return false;
-            }
-        }
-        for (int i = 0; i < distance.length - 1; i++) {
-            for (int j = i + 1; j < distance.length; j++) {
-                if (distance[i][j] != distance[j][i]) {
-                    return false;
-                }
             }
         }
         return true;
@@ -285,11 +322,11 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
      * @return the index of the member closes to the specified
      */
     public int getClosestIndex(int fromIndex, int[] exclusion) {
-        double min = Double.POSITIVE_INFINITY;
+        float min = Float.POSITIVE_INFINITY;
         int index = -1;
-        for (int i = 0; i < distance.length; i++) {
+        for (int i = 0; i < myNumTaxa; i++) {
             if (i != fromIndex && !isIn(i, exclusion)) {
-                double d = distance[fromIndex][i];
+                float d = getDistance(fromIndex, i);
                 if (d < min) {
                     min = d;
                     index = i;
@@ -300,27 +337,28 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     }
 
     public static DistanceMatrix hadamardProduct(DistanceMatrix m0, DistanceMatrix m1) {
-        int n = m0.distance.length;
-        if (m0.distance.length != n) {
+
+        int n = m0.numberOfTaxa();
+        if (m1.numberOfTaxa() != n) {
             throw new IllegalArgumentException("Matrices must be of the same dimensions to compute a Hadamard product.");
         }
 
-        double[][] product = new double[n][n];
+        DistanceMatrixBuilder builder = DistanceMatrixBuilder.getInstance(m0.getTaxaList());
         for (int r = 0; r < n; r++) {
-            product[r][r] = m0.distance[r][r] * m0.distance[r][r];
-            for (int c = r + 1; c < n; c++) {
-                product[r][c] = product[c][r] = m0.distance[r][c] * m0.distance[r][c];
+            for (int c = 0; c <= r; c++) {
+                builder.set(r, c, m0.myDistances[r][c] * m1.myDistances[r][c]);
             }
         }
 
-        return new DistanceMatrix(product, m0.getTaxaList());
+        return builder.build();
+
     }
 
     @Override
     public Object[] getTableColumnNames() {
         String[] colNames = new String[getSize() + 1];
         colNames[0] = "Taxa";
-        for (int i = 0; i < distance[0].length; i++) {
+        for (int i = 0; i < myNumTaxa; i++) {
             colNames[i + 1] = getTaxon(i).toString();
         }
         return colNames;
@@ -337,10 +375,10 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
     public Object[] getRow(long rowLong) {
 
         int row = (int) rowLong;
-        Object[] result = new Object[distance[row].length + 1];
+        Object[] result = new Object[myNumTaxa + 1];
         result[0] = getTaxon(row);
-        for (int j = 1; j <= distance[row].length; j++) {
-            result[j] = "" + distance[row][j - 1];
+        for (int j = 1; j <= myNumTaxa; j++) {
+            result[j] = String.valueOf(getDistance(row, j - 1));
         }
 
         return result;
@@ -354,11 +392,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
 
     @Override
     public long getRowCount() {
-        if (distance != null) {
-            return distance.length;
-        } else {
-            return 0;
-        }
+        return myNumTaxa;
     }
 
     @Override
@@ -368,11 +402,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
 
     @Override
     public int getColumnCount() {
-        if ((distance != null) && distance[0] != null) {
-            return distance[0].length + 1;
-        } else {
-            return 0;
-        }
+        return myNumTaxa + 1;
     }
 
     @Override
@@ -380,7 +410,7 @@ public class DistanceMatrix implements TaxaListMatrix, TableReport {
         if (columnIndex == 0) {
             return getTaxon((int) rowIndex);
         }
-        return distance[(int) rowIndex][columnIndex - 1];
+        return getDistance((int) rowIndex, columnIndex - 1);
     }
 
     public String getColumnName(int col) {

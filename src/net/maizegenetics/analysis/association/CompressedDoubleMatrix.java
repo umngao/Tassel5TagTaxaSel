@@ -88,7 +88,7 @@ public class CompressedDoubleMatrix {
 				ArrayList<Double> kinshipCoefficients = new ArrayList<Double>();
 				for (int t1: groupMembers[g1]) {
 					for (int t2: groupMembers[g2]) {
-						kinshipCoefficients.add(kinshipMatrix.getDistance(t1, t2));
+						kinshipCoefficients.add(Double.valueOf(kinshipMatrix.getDistance(t1, t2)));
 					}
 				}
 				

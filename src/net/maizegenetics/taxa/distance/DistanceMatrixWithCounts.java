@@ -14,25 +14,24 @@ import net.maizegenetics.util.GeneralAnnotation;
  */
 public class DistanceMatrixWithCounts extends DistanceMatrix {
 
-    private final int[] myCounts;
+    private final int[][] myCounts;
 
-    DistanceMatrixWithCounts(double[][] distance, TaxaList taxaList, GeneralAnnotation annotations, int[] counts) {
+    DistanceMatrixWithCounts(float[][] distances, TaxaList taxa, GeneralAnnotation annotations, int[][] counts) {
+        super(distances, taxa, annotations);
+        myCounts = counts;
+    }
+
+    DistanceMatrixWithCounts(double[][] distance, TaxaList taxaList, GeneralAnnotation annotations, int[][] counts) {
         super(distance, taxaList, annotations);
         myCounts = counts;
     }
 
     public int getCount(int x, int y) {
-
         if (x > y) {
-            int temp = y;
-            y = x;
-            x = temp;
+            return myCounts[x][y];
+        } else {
+            return myCounts[y][x];
         }
-
-        int index = y * (y + 1) / 2 + x;
-
-        return myCounts[index];
-
     }
 
 }

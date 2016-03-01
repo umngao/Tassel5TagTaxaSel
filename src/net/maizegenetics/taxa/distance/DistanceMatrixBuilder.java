@@ -17,6 +17,7 @@ import net.maizegenetics.util.GeneralAnnotation;
 public class DistanceMatrixBuilder {
 
     public static final String MATRIX_TYPE = "Matrix_Type";
+    public static final String MATRIX_ALGORITHM_VARIATION = "Matrix_Variation";
 
     public static final String CENTERED_IBS_SUMPK = "Centered_IBS.SumPk";
 
@@ -27,15 +28,18 @@ public class DistanceMatrixBuilder {
 
     private final int myNumTaxa;
     private final TaxaList myTaxa;
-    private final double[][] myMatrix;
+    private final float[][] myMatrix;
     private GeneralAnnotation myAnnotation = null;
     private final TaxaListBuilder myTaxaBuilder;
-    private int[] myCounts = null;
+    private int[][] myCounts = null;
 
     private DistanceMatrixBuilder(int numTaxa, TaxaList taxa) {
         myTaxa = taxa;
         myNumTaxa = numTaxa;
-        myMatrix = new double[myNumTaxa][myNumTaxa];
+        myMatrix = new float[myNumTaxa][];
+        for (int i = 0; i < myNumTaxa; i++) {
+            myMatrix[i] = new float[i + 1];
+        }
         if (myTaxa == null) {
             myTaxaBuilder = new TaxaListBuilder();
         } else {
@@ -51,8 +55,20 @@ public class DistanceMatrixBuilder {
         return new DistanceMatrixBuilder(numTaxa, null);
     }
 
+    public void set(int x, int y, float value) {
+        if (x > y) {
+            myMatrix[x][y] = value;
+        } else {
+            myMatrix[y][x] = value;
+        }
+    }
+
     public void set(int x, int y, double value) {
-        myMatrix[x][y] = myMatrix[y][x] = value;
+        if (x > y) {
+            myMatrix[x][y] = (float) value;
+        } else {
+            myMatrix[y][x] = (float) value;
+        }
     }
 
     public void addTaxon(Taxon taxon) {
@@ -68,20 +84,17 @@ public class DistanceMatrixBuilder {
     }
 
     public void setCount(int x, int y, int value) {
-
         if (myCounts == null) {
-            myCounts = new int[myNumTaxa * (myNumTaxa + 1) / 2];
+            myCounts = new int[myNumTaxa][];
+            for (int i = 0; i < myNumTaxa; i++) {
+                myCounts[i] = new int[i + 1];
+            }
         }
         if (x > y) {
-            int temp = y;
-            y = x;
-            x = temp;
+            myCounts[x][y] = value;
+        } else {
+            myCounts[y][x] = value;
         }
-
-        int index = y * (y + 1) / 2 + x;
-
-        myCounts[index] = value;
-
     }
 
     public DistanceMatrix build() {
@@ -98,6 +111,7 @@ public class DistanceMatrixBuilder {
         } else {
             return new DistanceMatrixWithCounts(myMatrix, taxa, myAnnotation, myCounts);
         }
+
     }
 
 }
