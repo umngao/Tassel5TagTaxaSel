@@ -51,7 +51,7 @@ import com.sun.scenario.effect.Merge;
 
 public class GenomicSelectionPlugin extends AbstractPlugin {
 
-    private static final Logger myLogger = Logger.getLogger(RidgeRegressionEmmaPlugin.class);
+    private static final Logger myLogger = Logger.getLogger(GenomicSelectionPlugin.class);
 
     private PluginParameter<Boolean> performCrossValidation = new
         PluginParameter.Builder<>("doCV", true, Boolean.class)
