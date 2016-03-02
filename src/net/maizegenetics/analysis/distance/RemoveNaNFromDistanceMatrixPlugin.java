@@ -15,6 +15,8 @@ import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
+import net.maizegenetics.taxa.distance.DistanceMatrixBuilder;
+import net.maizegenetics.taxa.distance.DistanceMatrixWithCounts;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
 
@@ -91,20 +93,33 @@ public class RemoveNaNFromDistanceMatrixPlugin extends AbstractPlugin {
             }
             TaxaList newTaxaList = builder.build();
 
-            double[][] result = new double[newNumTaxa][newNumTaxa];
-            for (int x = 0; x < newNumTaxa; x++) {
-                for (int y = x; y < newNumTaxa; y++) {
-                    result[x][y] = result[y][x] = origMatrix.getDistance(origIndex[x], origIndex[y]);
+            DistanceMatrixBuilder result = DistanceMatrixBuilder.getInstance(newTaxaList);
+            result.annotation(origMatrix.annotations());
+            if (origMatrix instanceof DistanceMatrixWithCounts) {
+                for (int x = 0; x < newNumTaxa; x++) {
+                    for (int y = 0; y <= x; y++) {
+                        result.set(x, y, origMatrix.getDistance(origIndex[x], origIndex[y]));
+                        result.setCount(x, y, ((DistanceMatrixWithCounts) origMatrix).getCount(origIndex[x], origIndex[y]));
+                    }
+                }
+            } else {
+                for (int x = 0; x < newNumTaxa; x++) {
+                    for (int y = 0; y <= x; y++) {
+                        result.set(x, y, origMatrix.getDistance(origIndex[x], origIndex[y]));
+                    }
                 }
             }
 
-            DistanceMatrix resultMatrix = new DistanceMatrix(result, newTaxaList);
-            return new DataSet(new Datum(origName + " with no NaN", resultMatrix, null), this);
+            return new DataSet(new Datum(origName + " with no NaN", result.build(), null), this);
 
         } else {
             return input;
         }
 
+    }
+
+    public static DistanceMatrix runPlugin(DistanceMatrix matrix) {
+        return (DistanceMatrix) (new RemoveNaNFromDistanceMatrixPlugin(null, false).processData(DataSet.getDataSet(matrix))).getData(0).getData();
     }
 
     public static DataSet runPlugin(DataSet input) {
