@@ -8,6 +8,7 @@ import com.google.common.cache.CacheBuilder;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ForkJoinPool;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTableUtils;
 
 /**
  * Cache for allele frequency statistics. Allele frequency can be expensive to
@@ -185,6 +186,24 @@ public class AlleleFreqCache {
             result += alleles[1][i];
         }
         return result;
+    }
+
+    public static double proportionHeterozygous(byte[] data) {
+        int numNotMissing = 0;
+        int numHeterozygous = 0;
+        for (byte current : data) {
+            if (current != GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+                numNotMissing++;
+                if (GenotypeTableUtils.isHeterozygous(current)) {
+                    numHeterozygous++;
+                }
+            }
+        }
+        if (numNotMissing == 0) {
+            return 0.0;
+        } else {
+            return (double) numHeterozygous / (double) numNotMissing;
+        }
     }
 
     private final CopyOnWriteArraySet<Integer> myCurrentlyProcessingBlocks = new CopyOnWriteArraySet<>();
