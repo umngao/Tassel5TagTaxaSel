@@ -36,8 +36,11 @@ public class KinshipPlugin extends AbstractPlugin {
         Dominance_Normalized_IBS
     };
 
-    private final GenotypeTable.GENOTYPE_TABLE_COMPONENT[] GENOTYPE_COMP = new GenotypeTable.GENOTYPE_TABLE_COMPONENT[]{
-        GenotypeTable.GENOTYPE_TABLE_COMPONENT.Genotype, GenotypeTable.GENOTYPE_TABLE_COMPONENT.ReferenceProbability, GenotypeTable.GENOTYPE_TABLE_COMPONENT.AlleleProbability};
+    public static enum ALGORITHM_VARIATION {
+
+        Observed_Allele_Freq,
+        Proportion_Heterozygous
+    };
 
     private PluginParameter<KINSHIP_METHOD> myMethod = new PluginParameter.Builder<>("method", KINSHIP_METHOD.Centered_IBS, KINSHIP_METHOD.class)
             .guiName("Kinship method")
@@ -51,6 +54,11 @@ public class KinshipPlugin extends AbstractPlugin {
             .description("")
             .range(Range.closed(2, 6))
             .dependentOnParameter(myMethod, new Object[]{KINSHIP_METHOD.Centered_IBS, KINSHIP_METHOD.Dominance_Centered_IBS})
+            .build();
+
+    private PluginParameter<ALGORITHM_VARIATION> myAlgorithmVariation = new PluginParameter.Builder<>("algorithmVariation", ALGORITHM_VARIATION.Observed_Allele_Freq, ALGORITHM_VARIATION.class)
+            .description("")
+            .dependentOnParameter(myMethod, new Object[]{KINSHIP_METHOD.Dominance_Centered_IBS})
             .build();
 
     public KinshipPlugin(Frame parentFrame, boolean isInteractive) {
@@ -110,7 +118,7 @@ public class KinshipPlugin extends AbstractPlugin {
                 } else if (kinshipMethod() == KINSHIP_METHOD.Normalized_IBS) {
                     kin = GCTADistanceMatrix.getInstance(myGenotype, this);
                 } else if (kinshipMethod() == KINSHIP_METHOD.Dominance_Centered_IBS) {
-                    kin = DominanceRelationshipMatrix.getInstance(myGenotype, maxAlleles(), this);
+                    kin = DominanceRelationshipMatrix.getInstance(myGenotype, maxAlleles(), algorithmVariation(), this);
                 } else if (kinshipMethod() == KINSHIP_METHOD.Dominance_Normalized_IBS) {
                     throw new UnsupportedOperationException("Method Dominance_Normalized_IBS hasn't been implemented yet.");
                 } else {
@@ -121,8 +129,16 @@ public class KinshipPlugin extends AbstractPlugin {
             }
 
             if (kin != null) {
-                //add kin to datatree;
-                Datum ds = new Datum(kinshipMethod() + "_" + datasetName, kin, kinshipMethod() + " matrix created from " + datasetName);
+                StringBuilder comment = new StringBuilder();
+                comment.append(kinshipMethod());
+                if (kinshipMethod() == KINSHIP_METHOD.Dominance_Centered_IBS) {
+                    comment.append("(variation: ");
+                    comment.append(algorithmVariation());
+                    comment.append(")");
+                }
+                comment.append(" matrix created from ");
+                comment.append(datasetName);
+                Datum ds = new Datum(kinshipMethod() + "_" + datasetName, kin, comment.toString());
                 result.add(ds);
             }
 
@@ -217,4 +233,24 @@ public class KinshipPlugin extends AbstractPlugin {
         return this;
     }
 
+    /**
+     * Algorithm Variation
+     *
+     * @return Algorithm Variation
+     */
+    public ALGORITHM_VARIATION algorithmVariation() {
+        return myAlgorithmVariation.value();
+    }
+
+    /**
+     * Set Algorithm Variation. Algorithm Variation
+     *
+     * @param value Algorithm Variation
+     *
+     * @return this plugin
+     */
+    public KinshipPlugin algorithmVariation(ALGORITHM_VARIATION value) {
+        myAlgorithmVariation = new PluginParameter<>(myAlgorithmVariation, value);
+        return this;
+    }
 }

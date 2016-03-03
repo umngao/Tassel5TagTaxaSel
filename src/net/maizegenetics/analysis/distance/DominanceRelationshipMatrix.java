@@ -15,6 +15,8 @@ import java.util.stream.StreamSupport;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
+import net.maizegenetics.taxa.distance.DistanceMatrixBuilder;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 import net.maizegenetics.util.ProgressListener;
 import net.maizegenetics.util.Tuple;
 import org.apache.log4j.Logger;
@@ -30,6 +32,7 @@ public class DominanceRelationshipMatrix {
     private static final Logger myLogger = Logger.getLogger(DominanceRelationshipMatrix.class);
 
     private static final int DEFAULT_MAX_ALLELES = 6;
+    private static final KinshipPlugin.ALGORITHM_VARIATION DEFAULT_ALGORITHM_VARIATION = KinshipPlugin.ALGORITHM_VARIATION.Observed_Allele_Freq;
 
     private DominanceRelationshipMatrix() {
         // utility
@@ -44,7 +47,7 @@ public class DominanceRelationshipMatrix {
      * @return Dominance Relationship Matrix
      */
     public static DistanceMatrix getInstance(GenotypeTable genotype) {
-        return getInstance(genotype, DEFAULT_MAX_ALLELES, null);
+        return getInstance(genotype, DEFAULT_MAX_ALLELES, DEFAULT_ALGORITHM_VARIATION, null);
     }
 
     /**
@@ -53,18 +56,23 @@ public class DominanceRelationshipMatrix {
      *
      * @param genotype Genotype Table used to compute dominance relationship
      * @param maxAlleles
+     * @param variation
      * @param listener progress listener
      *
      * @return Dominance Relationship Matrix
      */
-    public static DistanceMatrix getInstance(GenotypeTable genotype, int maxAlleles, ProgressListener listener) {
-        return computeDominanceRelationships(genotype, maxAlleles, listener);
+    public static DistanceMatrix getInstance(GenotypeTable genotype, int maxAlleles, KinshipPlugin.ALGORITHM_VARIATION variation, ProgressListener listener) {
+        return computeDominanceRelationships(genotype, maxAlleles, variation, listener);
     }
 
-    private static DistanceMatrix computeDominanceRelationships(GenotypeTable genotype, int maxAlleles, ProgressListener listener) {
+    private static DistanceMatrix computeDominanceRelationships(GenotypeTable genotype, int maxAlleles, KinshipPlugin.ALGORITHM_VARIATION variation, ProgressListener listener) {
 
         if ((maxAlleles < 2) || (maxAlleles > 6)) {
-            throw new IllegalArgumentException("DominanceRelationshipMatrix: computeEndelmanDistances: max alleles must be between 2 and 6 inclusive.");
+            throw new IllegalArgumentException("DominanceRelationshipMatrix: computeDominanceRelationships: max alleles must be between 2 and 6 inclusive.");
+        }
+
+        if ((variation != KinshipPlugin.ALGORITHM_VARIATION.Observed_Allele_Freq) && (variation != KinshipPlugin.ALGORITHM_VARIATION.Proportion_Heterozygous)) {
+            throw new IllegalArgumentException("DominanceRelationshipMatrix: computeDominanceRelationships: variation must be: " + KinshipPlugin.ALGORITHM_VARIATION.Observed_Allele_Freq + " or " + KinshipPlugin.ALGORITHM_VARIATION.Proportion_Heterozygous);
         }
 
         int numTaxa = genotype.numberOfTaxa();
@@ -74,7 +82,7 @@ public class DominanceRelationshipMatrix {
         // Sets up parellel stream to divide up sites for processing.
         // Also reduces the distance sums and sum of frequencies into one instance.
         //
-        Optional<CountersDistances> optional = stream(genotype, maxAlleles, listener).reduce((CountersDistances t, CountersDistances u) -> {
+        Optional<CountersDistances> optional = stream(genotype, maxAlleles, variation, listener).reduce((CountersDistances t, CountersDistances u) -> {
             t.addAll(u);
             return t;
         });
@@ -90,17 +98,23 @@ public class DominanceRelationshipMatrix {
         // This does the final division of the frequency sum into
         // the distance sums.
         //
-        double[][] result = new double[numTaxa][numTaxa];
+        GeneralAnnotationStorage.Builder annotations = GeneralAnnotationStorage.getBuilder();
+        annotations.addAnnotation(DistanceMatrixBuilder.MATRIX_TYPE, KinshipPlugin.KINSHIP_METHOD.Dominance_Centered_IBS.toString());
+        annotations.addAnnotation(DistanceMatrixBuilder.MATRIX_ALGORITHM_VARIATION, variation.toString());
+
+        DistanceMatrixBuilder builder = DistanceMatrixBuilder.getInstance(genotype.taxa());
+        builder.annotation(annotations.build());
+
         int index = 0;
         for (int t = 0; t < numTaxa; t++) {
             for (int i = 0, n = numTaxa - t; i < n; i++) {
-                result[t][t + i] = result[t + i][t] = distances[index] / sumpk;
+                builder.set(t, t + i, distances[index] / sumpk);
                 index++;
             }
         }
 
         myLogger.info("DominanceRelationshipMatrix: computeDominanceRelationships time: " + (System.currentTimeMillis() - time) / 1000 + " seconds");
-        return new DistanceMatrix(result, genotype.taxa());
+        return builder.build();
 
     }
 
@@ -180,9 +194,9 @@ public class DominanceRelationshipMatrix {
     //
     // Creates stream from DominanceSiteSpliterator and Genotype Table
     //
-    private static Stream<CountersDistances> stream(GenotypeTable genotypes, int maxAlleles, ProgressListener listener) {
+    private static Stream<CountersDistances> stream(GenotypeTable genotypes, int maxAlleles, KinshipPlugin.ALGORITHM_VARIATION variation, ProgressListener listener) {
         myNumSitesProcessed = 0;
-        return StreamSupport.stream(new DominanceSiteSpliterator(genotypes, 0, genotypes.numberOfSites(), maxAlleles, listener), true);
+        return StreamSupport.stream(new DominanceSiteSpliterator(genotypes, 0, genotypes.numberOfSites(), maxAlleles, variation, listener), true);
     }
 
     //
@@ -198,14 +212,16 @@ public class DominanceRelationshipMatrix {
         private final ProgressListener myProgressListener;
         private int myMinSitesToProcess;
         private final int myMaxAlleles;
+        private final KinshipPlugin.ALGORITHM_VARIATION myVariation;
 
-        DominanceSiteSpliterator(GenotypeTable genotypes, int currentIndex, int fence, int maxAlleles, ProgressListener listener) {
+        DominanceSiteSpliterator(GenotypeTable genotypes, int currentIndex, int fence, int maxAlleles, KinshipPlugin.ALGORITHM_VARIATION variation, ProgressListener listener) {
             myGenotypes = genotypes;
             myNumTaxa = myGenotypes.numberOfTaxa();
             myNumSites = myGenotypes.numberOfSites();
             myCurrentSite = currentIndex;
             myFence = fence;
             myMaxAlleles = maxAlleles;
+            myVariation = variation;
             myProgressListener = listener;
             myMinSitesToProcess = myNumSites / NUM_CORES_TO_USE;
             if (myMinSitesToProcess == 0) {
@@ -342,8 +358,13 @@ public class DominanceRelationshipMatrix {
                     for (int a = 0; a < numAlleles; a++) {
 
                         byte allele = (byte) alleles[0][a];
-                        float alleleFreq = (float) alleles[1][a] / (float) totalAlleleCount;
-                        float standardizedTerm = 2.0f * alleleFreq * (1.0f - alleleFreq);
+                        float standardizedTerm = 0.0f;
+                        if (myVariation == KinshipPlugin.ALGORITHM_VARIATION.Observed_Allele_Freq) {
+                            float alleleFreq = (float) alleles[1][a] / (float) totalAlleleCount;
+                            standardizedTerm = 2.0f * alleleFreq * (1.0f - alleleFreq);
+                        } else if (myVariation == KinshipPlugin.ALGORITHM_VARIATION.Proportion_Heterozygous) {
+                            standardizedTerm = (float) AlleleFreqCache.proportionHeterozygous(genotypes);
+                        }
                         sumOfVariances[0] += standardizedTerm * (1.0 - standardizedTerm);
 
                         //
@@ -416,7 +437,7 @@ public class DominanceRelationshipMatrix {
             int mid = lo + myMinSitesToProcess;
             if (mid < myFence) {
                 myCurrentSite = mid;
-                return new DominanceSiteSpliterator(myGenotypes, lo, mid, myMaxAlleles, myProgressListener);
+                return new DominanceSiteSpliterator(myGenotypes, lo, mid, myMaxAlleles, myVariation, myProgressListener);
             } else {
                 return null;
             }
