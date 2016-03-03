@@ -3,25 +3,24 @@
  */
 package net.maizegenetics.analysis.data;
 
-import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.map.Chromosome;
-import net.maizegenetics.util.SimpleTableReport;
-import net.maizegenetics.plugindef.AbstractPlugin;
-import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.PluginEvent;
-import net.maizegenetics.plugindef.PluginParameter;
-import net.maizegenetics.util.TableReport;
-
-import org.apache.log4j.Logger;
-
-import javax.swing.*;
 import java.awt.*;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import javax.swing.*;
+import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTableUtils;
+import net.maizegenetics.plugindef.AbstractPlugin;
+import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.plugindef.PluginEvent;
+import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.util.SimpleTableReport;
+import net.maizegenetics.util.TableReport;
+import org.apache.log4j.Logger;
 
 /**
  *
@@ -354,15 +353,38 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
             "Inbreeding Coefficient Scaled by Missing"};
         int numSites = alignment.numberOfSites();
         int numTaxa = alignment.numberOfTaxa();
-        Object[][] data = new Object[numTaxa][columnNames.length];
-
         int totalGametes = numSites * 2;
+
+        int[] gametesNotMissing = new int[numTaxa];
+        int[] sitesNotMissing = new int[numTaxa];
+        int[] heterozygous = new int[numTaxa];
+        for (int s = 0; s < numSites; s++) {
+            byte[] genotypes = alignment.genotypeAllTaxa(s);
+            for (int t = 0; t < numTaxa; t++) {
+                byte[] alleles = GenotypeTableUtils.getDiploidValues(genotypes[t]);
+                if (alleles[0] != GenotypeTable.UNKNOWN_ALLELE) {
+                    if (alleles[1] != GenotypeTable.UNKNOWN_ALLELE) {
+                        gametesNotMissing[t] += 2;
+                        sitesNotMissing[t]++;
+                    } else {
+                        gametesNotMissing[t]++;
+                        sitesNotMissing[t]++;
+                    }
+                } else if (alleles[1] != GenotypeTable.UNKNOWN_ALLELE) {
+                    gametesNotMissing[t]++;
+                    sitesNotMissing[t]++;
+                }
+
+                if (alleles[0] != alleles[1]) {
+                    heterozygous[t]++;
+                }
+            }
+        }
+
+        Object[][] data = new Object[numTaxa][columnNames.length];
         for (int i = 0; i < numTaxa; i++) {
 
-            int totalGametesNotMissing = alignment.totalGametesNonMissingForTaxon(i);
-            int totalGametesMissing = totalGametes - totalGametesNotMissing;
-            int numHeterozygous = alignment.heterozygousCountForTaxon(i);
-            int totalSitesNotMissing = alignment.totalNonMissingForTaxon(i);
+            int totalGametesMissing = totalGametes - gametesNotMissing[i];
 
             int count = 0;
             data[i][count++] = i;
@@ -370,8 +392,8 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
             data[i][count++] = numSites;
             data[i][count++] = totalGametesMissing;
             data[i][count++] = (double) totalGametesMissing / (double) totalGametes;
-            data[i][count++] = numHeterozygous;
-            data[i][count++] = (double) numHeterozygous / (double) totalSitesNotMissing;
+            data[i][count++] = heterozygous[i];
+            data[i][count++] = (double) heterozygous[i] / (double) sitesNotMissing[i];
             data[i][count++] = "Inbreeding Coefficient";
             data[i][count++] = "ICSBM";
         }
