@@ -109,11 +109,38 @@ public class StepwiseAdditiveModelFitter {
         dataname = datasetName;
         myGenotype = myGenoPheno.genotypeTable();
         myPhenotype = myGenoPheno.phenotype();
+        
+        //refuse to run if there is missing data for any trait, since that would require rebuilding the site list
+        Optional<String> missingTest = testPhenotypeForMissingData(myPhenotype);
+        if (missingTest.isPresent()) {
+            throw new RuntimeException("Missing data: " + missingTest.get());
+        }
+        
         dataAttributeList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.data);
         covariateAttributeList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.covariate);
         factorAttributeList = myPhenotype.attributeListOfType(ATTRIBUTE_TYPE.factor);
     }
 
+    /**
+     * @param pheno     a Phenotype
+     * @return  true, if there is missing data for any attribute, false otherwise
+     */
+    public Optional<String> testPhenotypeForMissingData(Phenotype pheno) {
+        int nattr = pheno.numberOfAttributes();
+        int nobs = pheno.numberOfObservations();
+        
+        for (int attr = 0; attr < nattr; attr++) {
+            for (int i = 0; i < nobs; i++) {
+                if (pheno.isMissing(i, attr)) {
+                    String msg = String.format("Value missing for %s, observation %d", pheno.attribute(attr).name(), i);
+                    return Optional.of(msg);
+                }
+            }
+        }
+        
+        return Optional.empty();
+    }
+    
     /**
      * This is called to run the analysis
      */
@@ -123,10 +150,8 @@ public class StepwiseAdditiveModelFitter {
             mySites =
                     IntStream.range(0, myGenotype.numberOfSites())
                             .mapToObj(s -> {
-                                int ntaxa = myGenotype.numberOfTaxa();
-                                float[] cov = new float[ntaxa];
-                                for (int t = 0; t < ntaxa; t++)
-                                    cov[t] = myGenotype.referenceProbability(t, s);
+                                int ntaxa = myPhenotype.numberOfObservations();
+                                float[] cov = myGenoPheno.referenceProb(s);
                                 return new RefProbAdditiveSite(s, myGenotype.chromosomeName(s), myGenotype.chromosomalPosition(s), myGenotype.siteName(s), modelSelectionCriterion, cov);
                             })
                             .collect(Collectors.toList());
@@ -134,7 +159,7 @@ public class StepwiseAdditiveModelFitter {
             mySites =
                     IntStream.range(0, myGenotype.numberOfSites())
                             .mapToObj(s -> new GenotypeAdditiveSite(s, myGenotype.chromosomeName(s), myGenotype.chromosomalPosition(s), myGenotype.siteName(s),
-                                    modelSelectionCriterion, myGenotype.genotypeAllTaxa(s), myGenotype.majorAllele(s), myGenotype.majorAlleleFrequency(s)))
+                                    modelSelectionCriterion, myGenoPheno.genotypeAllTaxa(s), myGenotype.majorAllele(s), myGenotype.majorAlleleFrequency(s)))
                             .collect(Collectors.toList());
         }
 
@@ -143,6 +168,7 @@ public class StepwiseAdditiveModelFitter {
             allOfTheResidualPhenotypes = new ArrayList<>();
         for (PhenotypeAttribute phenoAttr : dataAttributeList) {
             currentTraitName = phenoAttr.name();
+            
             //build the base model
             List<ModelEffect> myBaseModel = baseModel(phenoAttr);
             myModel = new ArrayList<>(myBaseModel);
