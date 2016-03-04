@@ -17,10 +17,18 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 
 /**
- * storage for pairwise distance matrices.<p>
+ * Storage for pairwise distance matrices. Only stores half the matrix as it is
+ * symmetrical.<p>
  *
- * features: - printing in in PHYLIP format, - computation of (weighted) squared
- * distance to other distance matrix - Fills in all of array...
+ * For best performance, iterate over matrix this way.
+ * <blockquote><pre>
+ * DistanceMatrix matrix;
+ * for (int i = 0; i < myNumTaxa; i++) {
+ *     for (int j = 0; j <= i; j++) {
+ *         matrix.getDistance(i, j);
+ *     }
+ * }
+ * </pre></blockquote>
  *
  * @author Korbinian Strimmer
  * @author Alexei Drummond
