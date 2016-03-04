@@ -96,6 +96,11 @@ public class ParseBarcodeRead {
             initialCutSiteRemnant = new String[]{"TGCAG"};
             likelyReadEnd = new String[]{"GCAGC", "GCTGC", "CTGCAG", "GCAGAGAT", "GCTGAGAT"}; // look for ApeKI site, PstI site, or common adapter for ApeKI
             readEndCutSiteRemnantLength = 4;
+        } else if (enzyme.matches("(?i)pst[i1]-bfa[i1]")) {
+            theEnzyme = "PstI-BfaI";  //  PstI: CTGCA^G  BfaI: C^TAG
+            initialCutSiteRemnant = new String[]{"TGCAG"};
+            likelyReadEnd = new String[]{"CTGCAG", "CTAG", "CTAAGATC"}; // look for PstI site, BfaI site, or common adapter start for BfaI
+            readEndCutSiteRemnantLength = 3;
         } else if (enzyme.matches("(?i)pst[i1]-ecot22[i1]")) {
             theEnzyme = "PstI-EcoT22I";
             initialCutSiteRemnant = new String[]{"TGCAG", "TGCAT"};
@@ -143,6 +148,11 @@ public class ParseBarcodeRead {
             initialCutSiteRemnant = new String[]{"TGCAGG"};
             likelyReadEnd = new String[]{"CTAG", "CCTGCAGG", "CTAAGATC"}; // look for BfaI site, SbfI site, or common adapter for BfaI
             readEndCutSiteRemnantLength = 3;
+        } else if (enzyme.matches("(?i)sph[i1]-ecor[i1]")) {
+            theEnzyme = "SphI-EcoRI";  // GCATG^C  G^AATTC
+            initialCutSiteRemnant = new String[]{"CATGC"};  // SphI overhang from the genomic DNA fragment (top strand)
+            likelyReadEnd = new String[]{"GCATGC", "GAATTC", "GAATTAGATC"}; // look for SphI site, EcoRI site, or common adapter for EcoRI
+            readEndCutSiteRemnantLength = 5;
         } else if (enzyme.matches("(?i)asis[i1]-msp[i1]")) {
             theEnzyme = "AsiSI-MspI";
             initialCutSiteRemnant = new String[]{"ATCGC"};
@@ -405,6 +415,7 @@ public class ParseBarcodeRead {
                     +"  NsiI-MspI"    +"\n"
                     +"  PaeR7I-HhaI"  +"\n"
                     +"  PstI-ApeKI"   +"\n"
+                    +"  PstI-BfaI"    +"\n"
                     +"  PstI-EcoT22I" +"\n"
                     +"  PstI-MluCI"   +"\n"
                     +"  PstI-MseI"    +"\n"
@@ -416,6 +427,7 @@ public class ParseBarcodeRead {
                     +"  SalI-MspI"    +"\n"
                     +"  SbfI-MspI"    +"\n"
                     +"  SexAI-Sau3AI" +"\n"
+                    +"  SphI-EcoRI"   +"\n"
                     +"  StyI-MseI"    +"\n"
                     +"  ignore"    +"\n"
             );
