@@ -120,7 +120,7 @@ public class KinshipPlugin extends AbstractPlugin {
                 } else if (kinshipMethod() == KINSHIP_METHOD.Dominance_Centered_IBS) {
                     kin = DominanceRelationshipMatrix.getInstance(myGenotype, maxAlleles(), algorithmVariation(), this);
                 } else if (kinshipMethod() == KINSHIP_METHOD.Dominance_Normalized_IBS) {
-                    throw new UnsupportedOperationException("Method Dominance_Normalized_IBS hasn't been implemented yet.");
+                    kin = DominanceNormalizedIBSMatrix.getInstance(myGenotype, this);
                 } else {
                     throw new IllegalArgumentException("Unknown method to calculate kinship: " + kinshipMethod());
                 }
