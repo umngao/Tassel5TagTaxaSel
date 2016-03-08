@@ -554,7 +554,7 @@ public class StepwiseAdditiveModelFitter {
 
         do {
             leftndx--;
-            if (!myGenotype.positions().chromosome(leftndx).equals(thisChr)) {
+            if (leftndx == -1 || !myGenotype.positions().chromosome(leftndx).equals(thisChr)) {
                 leftndx++;
                 break;
             }
@@ -562,7 +562,7 @@ public class StepwiseAdditiveModelFitter {
 
         do {
             rightndx++;
-            if (!myGenotype.positions().chromosome(rightndx).equals(thisChr)) {
+            if (rightndx == myGenotype.numberOfSites() || !myGenotype.positions().chromosome(rightndx).equals(thisChr)) {
                 rightndx--;
                 break;
             }
@@ -588,7 +588,15 @@ public class StepwiseAdditiveModelFitter {
         double[] residualSSdf = sflm.getResidualSSdf();
         double[] marginalSSdf = sflm.getMarginalSSdf(testedTerm);
         double F = marginalSSdf[0] / marginalSSdf[1] / residualSSdf[0] * residualSSdf[1];
-        return 1 - (new FDistribution(marginalSSdf[1], residualSSdf[1]).cumulativeProbability(F));
+        
+        //debug
+        double prob = 1;
+        try {
+            prob -= (new FDistribution(marginalSSdf[1], residualSSdf[1]).cumulativeProbability(F));
+        } catch(Exception e) {
+            //do nothing
+        }
+        return prob;
     }
 
     private AdditiveSite bestTerm(List<ModelEffect> baseModel, int[] interval) {
@@ -705,7 +713,7 @@ public class StepwiseAdditiveModelFitter {
             List<ATTRIBUTE_TYPE> chrTypes = new ArrayList<>(types);
 
             String traitname =
-                    String.format("%s:chr_%s", currentTraitName, chr.getName());
+                    String.format("%s_chr_%s", currentTraitName, chr.getName());
 
             //create a model without this chromosome
             Predicate<ModelEffect> notInChr = me -> {
