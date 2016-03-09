@@ -144,10 +144,17 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         if (!hasMinAlignLength(s)) return new Tuple<> (tag,Optional.<Position>empty());
         if (!hasMinAlignProportion(s)) return new Tuple<> (tag,Optional.<Position>empty());
         Chromosome chromosome = new Chromosome(s[chr]); // Chromosome class parses the chromosome
-        String alignmentScore=getAlignmentScore(s); 
+        String alignmentScore=getAlignmentScore(s);
+        // TASSEL defines forward/reverse as the following:
+        // public interface Position extends Comparable<Position> {
+
+        // public static final byte STRAND_PLUS = (byte) 1;
+        // public static final byte STRAND_MINUS = (byte) 0;
+        // public static final byte STRAND_UNKNOWN = Byte.MIN_VALUE;
+        byte strand = (byte)(forwardStrand ? 1 : 0);
         Position position=new GeneralPosition
                 .Builder(chromosome,Integer.parseInt(s[pos]))
-                .strand((byte)1)
+                .strand(strand)
                 .addAnno("forward", forwardStrand?"true":"false")
                 .addAnno("mappingapproach", mappingApproach())
                 .addAnno("cigar", s[cigar])
