@@ -20,15 +20,18 @@ public class AdditiveModelForwardRegression extends AbstractForwardRegression {
     double highestSS;
     int bestSite;
     int maxThreads;
+    ForkJoinPool myPool = null;
     
     public AdditiveModelForwardRegression(GenotypePhenotype data, int maxThreads) {
         super(data);
         this.maxThreads = maxThreads;
+        myPool = new ForkJoinPool(maxThreads);
     }
 
     public AdditiveModelForwardRegression(String serialFilename, Phenotype pheno, int maxThreads) {
         super(serialFilename, pheno);
         this.maxThreads = maxThreads;
+        myPool = new ForkJoinPool(maxThreads);
     }
     
     public AdditiveModelForwardRegression(GenotypePhenotype data) {
@@ -53,6 +56,7 @@ public class AdditiveModelForwardRegression extends AbstractForwardRegression {
             while (forwardStepParallel(true, step++) && myModel.size() < maxModelSize)
                 ;
         }
+        
     }
 
     @Override
@@ -109,7 +113,6 @@ public class AdditiveModelForwardRegression extends AbstractForwardRegression {
     }
 
     private boolean forwardStepParallelUseMaxThreads(boolean doParallel, int step) {
-        ForkJoinPool myPool = new ForkJoinPool(maxThreads);
         
         AdditiveSite bestSite;
         try {
@@ -176,7 +179,6 @@ public class AdditiveModelForwardRegression extends AbstractForwardRegression {
     }
 
     private boolean forwardStepParallelUseMaxThreads(int[] subset, boolean doParallel, int iteration, int step) {
-        ForkJoinPool myPool = new ForkJoinPool(maxThreads);
         
         AdditiveSite bestSite;
         try {
@@ -211,6 +213,12 @@ public class AdditiveModelForwardRegression extends AbstractForwardRegression {
             return false;
         }
 
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        if (myPool != null) myPool.shutdown();
+        super.finalize();
     }
 
 }
