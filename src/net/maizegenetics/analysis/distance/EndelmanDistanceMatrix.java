@@ -104,6 +104,14 @@ public class EndelmanDistanceMatrix {
         }
 
         int numSeqs = genotype.numberOfTaxa();
+
+        long estimatedNumMinutesToRun = Math.round((double) numSeqs * ((double) numSeqs + 1.0) / 2.0 * (double) genotype.numberOfSites() / (double) NUM_CORES_TO_USE / 85000000000.0);
+        if (estimatedNumMinutesToRun < 60l) {
+            myLogger.info("EndelmanDistanceMatrix: estimated time: " + estimatedNumMinutesToRun + " minutes");
+        } else {
+            myLogger.info("EndelmanDistanceMatrix: estimated time: " + (estimatedNumMinutesToRun / 60) + " hours " + (estimatedNumMinutesToRun % 60) + " minutes");
+        }
+
         long time = System.currentTimeMillis();
 
         //
@@ -142,7 +150,13 @@ public class EndelmanDistanceMatrix {
             }
         }
 
-        myLogger.info("EndelmanDistanceMatrix: computeEndelmanDistances time: " + (System.currentTimeMillis() - time) / 1000 + " seconds");
+        long actualNumMinutesToRun = Math.round((System.currentTimeMillis() - time) / 60000l);
+        if (actualNumMinutesToRun < 60l) {
+            myLogger.info("EndelmanDistanceMatrix: actual time: " + actualNumMinutesToRun + " minutes");
+        } else {
+            myLogger.info("EndelmanDistanceMatrix: actual time: " + (actualNumMinutesToRun / 60) + " hours " + (actualNumMinutesToRun % 60) + " minutes");
+        }
+
         return builder.build();
 
     }
@@ -379,7 +393,8 @@ public class EndelmanDistanceMatrix {
         private final int myNumSites;
         private final int myMaxAlleles;
         private final ProgressListener myProgressListener;
-        private int myMinSitesToProcess;
+        private final int myMinSitesToProcess;
+        private final int myNumSitesPerBlockForProgressReporting;
 
         EndelmanSiteSpliterator(GenotypeTable genotypes, int currentIndex, int fence, int maxAlleles, ProgressListener listener) {
             myGenotypes = genotypes;
@@ -390,12 +405,12 @@ public class EndelmanDistanceMatrix {
             myMaxAlleles = maxAlleles;
             myProgressListener = listener;
             myMinSitesToProcess = Math.max(myNumSites / NUM_CORES_TO_USE, 1000);
+            myNumSitesPerBlockForProgressReporting = (myFence - myCurrentSite) / 10;
         }
 
         @Override
         public void forEachRemaining(Consumer<? super CountersDistances> action) {
 
-            int numSitesProcessed = myFence - myCurrentSite;
             CountersDistances result = new CountersDistances(myNumTaxa);
             float[] distances = result.myDistances;
             double[] sumpi = new double[1];
@@ -406,70 +421,81 @@ public class EndelmanDistanceMatrix {
 
             for (; myCurrentSite < myFence;) {
 
-                //
-                // This keeps track of number of sites processed.  The blocks
-                // of sites may contain entries for minor allele, 2nd minor
-                // allele, etc.
-                int[] realSites = new int[1];
+                int currentBlockFence = Math.min(myCurrentSite + myNumSitesPerBlockForProgressReporting, myFence);
 
-                //
-                // Pre-calculates possible terms and gets counts for
-                // three blocks for five (pseudo-)sites.
-                //
-                Tuple<short[], float[]> firstBlock = getBlockOfSites(myCurrentSite, sumpi, realSites);
-                float[] possibleTerms = firstBlock.y;
-                short[] alleleCount1 = firstBlock.x;
+                int numSitesProcessed = currentBlockFence - myCurrentSite;
 
-                Tuple<short[], float[]> secondBlock = getBlockOfSites(myCurrentSite + realSites[0], sumpi, realSites);
-                float[] possibleTerms2 = secondBlock.y;
-                short[] alleleCount2 = secondBlock.x;
+                for (; myCurrentSite < currentBlockFence;) {
 
-                Tuple<short[], float[]> thirdBlock = getBlockOfSites(myCurrentSite + realSites[0], sumpi, realSites);
-                float[] possibleTerms3 = thirdBlock.y;
-                short[] alleleCount3 = thirdBlock.x;
-
-                myCurrentSite += realSites[0];
-
-                //
-                // Using possible terms, calculates all possible answers
-                // for each site block.
-                //
-                for (int i = 0; i < 32768; i++) {
-                    answer1[i] = possibleTerms[(i & 0x7000) >>> 12] + possibleTerms[((i & 0xE00) >>> 9) | 0x8] + possibleTerms[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms[((i & 0x38) >>> 3) | 0x18] + possibleTerms[(i & 0x7) | 0x20];
-                    answer2[i] = possibleTerms2[(i & 0x7000) >>> 12] + possibleTerms2[((i & 0xE00) >>> 9) | 0x8] + possibleTerms2[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms2[((i & 0x38) >>> 3) | 0x18] + possibleTerms2[(i & 0x7) | 0x20];
-                    answer3[i] = possibleTerms3[(i & 0x7000) >>> 12] + possibleTerms3[((i & 0xE00) >>> 9) | 0x8] + possibleTerms3[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms3[((i & 0x38) >>> 3) | 0x18] + possibleTerms3[(i & 0x7) | 0x20];
-                }
-
-                //
-                // Iterates through all pair-wise combinations of taxa adding
-                // distance comparisons and site counts.
-                //
-                int index = 0;
-                for (int firstTaxa = 0; firstTaxa < myNumTaxa; firstTaxa++) {
                     //
-                    // Can skip inter-loop if all fifteen sites for first
-                    // taxon is Unknown diploid allele values
+                    // This keeps track of number of sites processed.  The blocks
+                    // of sites may contain entries for minor allele, 2nd minor
+                    // allele, etc.
                     //
-                    if ((alleleCount1[firstTaxa] != 0x7FFF) || (alleleCount2[firstTaxa] != 0x7FFF) || (alleleCount3[firstTaxa] != 0x7FFF)) {
-                        for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
-                            //
-                            // Combine first taxon's allele counts with
-                            // second taxon's major allele counts to
-                            // create index into pre-calculated answers
-                            //
-                            distances[index] += answer1[alleleCount1[firstTaxa] | alleleCount1[secondTaxa]] + answer2[alleleCount2[firstTaxa] | alleleCount2[secondTaxa]] + answer3[alleleCount3[firstTaxa] | alleleCount3[secondTaxa]];
-                            index++;
+                    int[] realSites = new int[1];
+
+                    //
+                    // Pre-calculates possible terms and gets counts for
+                    // three blocks for five (pseudo-)sites.
+                    //
+                    Tuple<short[], float[]> firstBlock = getBlockOfSites(myCurrentSite, sumpi, realSites);
+                    float[] possibleTerms = firstBlock.y;
+                    short[] alleleCount1 = firstBlock.x;
+
+                    Tuple<short[], float[]> secondBlock = getBlockOfSites(myCurrentSite + realSites[0], sumpi, realSites);
+                    float[] possibleTerms2 = secondBlock.y;
+                    short[] alleleCount2 = secondBlock.x;
+
+                    Tuple<short[], float[]> thirdBlock = getBlockOfSites(myCurrentSite + realSites[0], sumpi, realSites);
+                    float[] possibleTerms3 = thirdBlock.y;
+                    short[] alleleCount3 = thirdBlock.x;
+
+                    myCurrentSite += realSites[0];
+
+                    //
+                    // Using possible terms, calculates all possible answers
+                    // for each site block.
+                    //
+                    for (int i = 0; i < 32768; i++) {
+                        answer1[i] = possibleTerms[(i & 0x7000) >>> 12] + possibleTerms[((i & 0xE00) >>> 9) | 0x8] + possibleTerms[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms[((i & 0x38) >>> 3) | 0x18] + possibleTerms[(i & 0x7) | 0x20];
+                        answer2[i] = possibleTerms2[(i & 0x7000) >>> 12] + possibleTerms2[((i & 0xE00) >>> 9) | 0x8] + possibleTerms2[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms2[((i & 0x38) >>> 3) | 0x18] + possibleTerms2[(i & 0x7) | 0x20];
+                        answer3[i] = possibleTerms3[(i & 0x7000) >>> 12] + possibleTerms3[((i & 0xE00) >>> 9) | 0x8] + possibleTerms3[((i & 0x1C0) >>> 6) | 0x10] + possibleTerms3[((i & 0x38) >>> 3) | 0x18] + possibleTerms3[(i & 0x7) | 0x20];
+                    }
+
+                    //
+                    // Iterates through all pair-wise combinations of taxa adding
+                    // distance comparisons and site counts.
+                    //
+                    int index = 0;
+                    for (int firstTaxa = 0; firstTaxa < myNumTaxa; firstTaxa++) {
+                        //
+                        // Can skip inter-loop if all fifteen sites for first
+                        // taxon is Unknown diploid allele values
+                        //
+                        if ((alleleCount1[firstTaxa] != 0x7FFF) || (alleleCount2[firstTaxa] != 0x7FFF) || (alleleCount3[firstTaxa] != 0x7FFF)) {
+                            for (int secondTaxa = firstTaxa; secondTaxa < myNumTaxa; secondTaxa++) {
+                                //
+                                // Combine first taxon's allele counts with
+                                // second taxon's major allele counts to
+                                // create index into pre-calculated answers
+                                //
+                                distances[index] += answer1[alleleCount1[firstTaxa] | alleleCount1[secondTaxa]] + answer2[alleleCount2[firstTaxa] | alleleCount2[secondTaxa]] + answer3[alleleCount3[firstTaxa] | alleleCount3[secondTaxa]];
+                                index++;
+                            }
+                        } else {
+                            index += myNumTaxa - firstTaxa;
                         }
-                    } else {
-                        index += myNumTaxa - firstTaxa;
                     }
                 }
+
+                myNumSitesProcessed += numSitesProcessed;
+                fireProgress((int) ((double) myNumSitesProcessed / (double) myNumSites * 100.0), myProgressListener);
+
             }
 
             result.mySumPi = sumpi[0];
             action.accept(result);
-            myNumSitesProcessed += numSitesProcessed;
-            fireProgress((int) ((double) myNumSitesProcessed / (double) myNumSites * 100.0), myProgressListener);
+
         }
 
         private static final int NUM_SITES_PER_BLOCK = 5;

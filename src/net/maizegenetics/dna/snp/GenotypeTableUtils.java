@@ -672,12 +672,18 @@ public class GenotypeTableUtils {
     public static GenotypeTable filterSitesByChrPos(GenotypeTable input, String filename, boolean includeSites) {
 
         Map<String, List<Integer>> positionsByChr = new HashMap<>();
+        int lineNum = 1;
+        String[] tokens = null;
         try (BufferedReader reader = Utils.getBufferedReader(filename)) {
             String line = reader.readLine();
+            if ((line != null) && (line.toLowerCase().startsWith("chr"))) {
+                line = reader.readLine();
+                lineNum++;
+            }
             while (line != null) {
-                String[] tokens = line.split("\t");
+                tokens = line.split("\t");
                 if (tokens.length != 2) {
-                    throw new IllegalStateException("GenotypeTableUtils: filterSitesByChrPos: Each line in file must have 2 columns (chr, position): " + filename);
+                    throw new IllegalStateException("GenotypeTableUtils: filterSitesByChrPos: Each line in file must have 2 columns (chr, position). line: " + lineNum + " has: " + tokens.length);
                 }
                 List<Integer> positions = positionsByChr.get(tokens[0]);
                 if (positions == null) {
@@ -686,8 +692,12 @@ public class GenotypeTableUtils {
                 }
                 positions.add(Integer.valueOf(tokens[1]));
                 line = reader.readLine();
+                lineNum++;
             }
+        } catch (NumberFormatException nfe) {
+            throw new IllegalArgumentException("GenotypeTableUtils: filterSitesByChrPos: value: " + tokens[1] + " is not a number on line: " + lineNum);
         } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
             throw new IllegalStateException("GenotypeTableUtils: filterSitesByChrPos: Problem reading file: " + filename + "\n" + e.getMessage());
         }
 
