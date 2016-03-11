@@ -88,11 +88,12 @@ public class MLMPlugin extends AbstractPlugin {
     @Override
     public DataSet processData(DataSet input) {
     //public DataSet performFunction(DataSet input) {
-
+        boolean hasGenotypePhenotype = true;
         try {
 
             java.util.List<Datum> alignInList = input.getDataOfType(GenotypePhenotype.class);
             if (alignInList.size() == 0) {
+                hasGenotypePhenotype = false;
                 alignInList = input.getDataOfType(Phenotype.class);
             }
             java.util.List<Datum> kinshipList = input.getDataOfType(DistanceMatrix.class);
@@ -121,8 +122,13 @@ public class MLMPlugin extends AbstractPlugin {
             Iterator<Datum> itr = alignInList.iterator();
 
             if (isInteractive()) {
-            	GenotypePhenotype gp = (GenotypePhenotype) alignInList.get(0).getData();
-                MLMOptionDialog theOptions = new MLMOptionDialog(getParentFrame(), hasDataTypes(gp));
+                MLMOptionDialog theOptions;
+                if (hasGenotypePhenotype) {
+                    GenotypePhenotype gp = (GenotypePhenotype) alignInList.get(0).getData();
+                    theOptions = new MLMOptionDialog(getParentFrame(), hasDataTypes(gp));
+                } else {
+                    theOptions = new MLMOptionDialog(getParentFrame(), new boolean[]{false, false, false});
+                }
 
                 if (theOptions.runClicked) {
                     useP3D = theOptions.useP3D();
@@ -160,9 +166,14 @@ public class MLMPlugin extends AbstractPlugin {
             	Datum current = itr.next();
             	CompressedMLMusingDoubleMatrix theAnalysis;
             	
-        		GenotypeTable myGenotype = ((GenotypePhenotype) current.getData()).genotypeTable();
-        		useGenotype = myGenotype.hasGenotype();
-        		if (!useGenotype) useRefProb = myGenotype.hasReferenceProbablity();
+            	if (hasGenotypePhenotype) {
+                    GenotypeTable myGenotype = ((GenotypePhenotype) current.getData()).genotypeTable();
+                    useGenotype = myGenotype.hasGenotype();
+                    if (!useGenotype) useRefProb = myGenotype.hasReferenceProbablity();
+            	} else {
+            	    useGenotype = false;
+            	    useRefProb = false;
+            	}
 
             	if (useP3D) {
             		if (compressionType.equals(CompressionType.Optimum)) {
