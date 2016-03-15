@@ -331,7 +331,8 @@ public class CompressedMLMusingDoubleMatrix {
 
             //record the results
             if (outputResiduals) {
-                Datum residuals = createResPhenotype(emlm, nonmissingIds, attr.name());
+                List<Taxon> phenotypeTaxa = Arrays.asList(nonMissingTaxa);
+                Datum residuals = createResPhenotype(emlm, phenotypeTaxa, attr.name());
                 results.add(residuals);
                 if(parentPlugin.isWriteOutputToFile()){
                     ExportPlugin exporter = new ExportPlugin(null, false);
