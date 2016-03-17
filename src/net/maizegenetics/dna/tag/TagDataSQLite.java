@@ -214,6 +214,8 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             else if(size==snpPosToIDMap.size()) return;
             rs=connection.createStatement().executeQuery("select * from snpposition");
             while(rs.next()) {
+                // LCJ - this needs to add .allele(WHICH_ALLELE.Reference,refAllele)
+                // WHich means you need a way to know what is the ref allele
                 Position p=new GeneralPosition
                         .Builder(new Chromosome(rs.getString("chromosome")),rs.getInt("position"))
                         .strand(rs.getByte("strand"))
@@ -1103,6 +1105,10 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         Map<Integer,Position> tempPositionMap=new HashMap<>();  //reverse the map
         getPositionSubMap(chromosome,firstPosition,lastPosition).entrySet().stream()
                 .forEach(entry -> tempPositionMap.put(entry.getValue(),entry.getKey()));
+        // Adding totalTagsAdded so this method can be used to verify the counts when
+        // the new method getCutPosForSTrandTagTaxaMap() is called for forward and
+        // reverse strands.  
+        int totalTagsAdded = 0; 
         try{
             ResultSet rs=connection.createStatement().executeQuery(sqlQuery);
             while(rs.next()) {
@@ -1112,14 +1118,58 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 Boolean forwardAlignDirection=rs.getBoolean("forward");
                 Map<Tag, Tuple<Boolean,TaxaDistribution>> tagTaxaMap=positionTagTaxaMap.computeIfAbsent(position, k -> new HashMap<>());
                 tagTaxaMap.put(tag,new Tuple<>(forwardAlignDirection,taxaDistribution));
+                totalTagsAdded++;
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        System.out.println("positionTagTaxaMap = " + positionTagTaxaMap.size());
+       
+        System.out.println("positionTagTaxaMap = " + positionTagTaxaMap.size() +
+                " totalTagsAdded: " + totalTagsAdded);
         return positionTagTaxaMap;
     }
 
+    @Override
+    public Map<Position, Map<Tag, TaxaDistribution>> getCutPosForStrandTagTaxaMap(Chromosome chromosome, int firstPosition, int lastPosition, boolean direction) {
+        // With the change to process Chromosomes as strings instead of int,
+        // this query throws an "SQL error or missing database (unrecognized token: "7D")"
+        // error when the chrom name contains non-digit characters.  The chromosome field in the 
+        // cutposition table is declared as "TEXT" but without the single quotes, SQL takes the
+        // input value as an integer.  Adding single quotes around the string fixes the problem.
+        String sqlQuery="select p.positionid, forward, chromosome, position, strand, t.tagid, depthsRLE  " +
+                "from tag t, cutposition p, tagCutPosition tc, tagtaxadistribution ttd " +
+                "where p.positionid=tc.positionid and tc.tagid=t.tagid and t.tagid=ttd.tagid " +
+                "and chromosome='"+chromosome.toString()+"'" +//" and position>"+firstPosition+" " + //todo position would need to be index to make fast
+                " order by position";
+
+        Map<Position, Map<Tag, TaxaDistribution>> positionTagTaxaMap=new HashMap<>();
+        Map<Integer,Position> tempPositionMap=new HashMap<>();  //reverse the map
+        getPositionSubMap(chromosome,firstPosition,lastPosition).entrySet().stream()
+                .forEach(entry -> tempPositionMap.put(entry.getValue(),entry.getKey()));
+        int totalTagsAdded = 0;
+        try{
+            ResultSet rs=connection.createStatement().executeQuery(sqlQuery);
+            while(rs.next()) {              
+                Boolean forwardAlignDirection=rs.getBoolean("forward");
+                if (forwardAlignDirection == direction) {                   
+                    // tags from forward and reverse strands will be aligned separately
+                    Position position=tempPositionMap.get(rs.getInt("positionid"));
+                    Tag tag=tagTagIDMap.inverse().get(rs.getInt("tagid"));
+                    TaxaDistribution taxaDistribution=TaxaDistBuilder.create(rs.getBytes("depthsRLE"));
+                    Map<Tag, TaxaDistribution> tagTaxaMap=positionTagTaxaMap.computeIfAbsent(position, k -> new HashMap<>());
+                    tagTaxaMap.put(tag,taxaDistribution);
+                    totalTagsAdded++;
+                }               
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        // The positionsTagTaxaMap size is based on number of positions, not number of tags.
+        // Tags added should add up to number of forward tags plus number of reverse tags.
+        System.out.println("positionTagTaxaMap size, forwardStrand, " + direction + " size:" + positionTagTaxaMap.size()
+          +  " totalTagsAdded:" + totalTagsAdded);
+        return positionTagTaxaMap;
+    }
 
     @Override
     public Map<Tag, TaxaDistribution> getTagsTaxaMap(Position cutPosition) {

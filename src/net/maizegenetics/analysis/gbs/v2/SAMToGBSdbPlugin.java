@@ -138,7 +138,20 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         if (tag == null) return null;
         // The two lines need to be here to make sure the sequence can be found in the DB
         boolean forwardStrand=isForwardStrand(s[flag]);
-        if(!forwardStrand) tag=TagBuilder.reverseComplement(tag).build();
+        int samPos = Integer.parseInt(s[pos]);
+        int[] alignSpan = SAMUtils.adjustCoordinates(s[cigar], samPos);
+//        int cutPos;
+//        if (forwardStrand == true) {
+//            cutPos = alignSpan[0];
+//        } else  {
+//            cutPos = alignSpan[1];
+//        }
+        // LCJ - test if adjustCoordinates code is reason we have too many SNPs
+        int cutPos = samPos;
+
+        if(!forwardStrand) {
+            tag=TagBuilder.reverseComplement(tag).build();
+        }
         if (!hasAlignment(s[flag])) return new Tuple<>(tag,Optional.<Position>empty());
         // Check for minimum alignment length and proportion
         if (!hasMinAlignLength(s)) return new Tuple<> (tag,Optional.<Position>empty());
@@ -151,10 +164,18 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         // public static final byte STRAND_PLUS = (byte) 1;
         // public static final byte STRAND_MINUS = (byte) 0;
         // public static final byte STRAND_UNKNOWN = Byte.MIN_VALUE;
+        
+        // The aligner determined if
+        // the tag sequence from the read was forward or backwards. It marks it as
+        // such in the strand bit of the flag.  If it was reverse, the aligner reverse
+        // compliments the sequence.  We check that above and if the aligner reversed it,
+        // we reverse it back so that it matches what is stored in our DB.  For this
+        // position, store whether it was forward.
         byte strand = (byte)(forwardStrand ? 1 : 0);
         Position position=new GeneralPosition
-                .Builder(chromosome,Integer.parseInt(s[pos]))
+                .Builder(chromosome,cutPos)
                 .strand(strand)
+                //.strand((byte)1)
                 .addAnno("forward", forwardStrand?"true":"false")
                 .addAnno("mappingapproach", mappingApproach())
                 .addAnno("cigar", s[cigar])

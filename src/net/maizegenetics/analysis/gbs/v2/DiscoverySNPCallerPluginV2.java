@@ -29,6 +29,7 @@ import net.maizegenetics.dna.map.GenomeSequence;
 import net.maizegenetics.dna.map.GenomeSequenceBuilder;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.Allele;
+import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.dna.snp.SimpleAllele;
 import net.maizegenetics.dna.tag.Tag;
 import net.maizegenetics.dna.tag.TagBuilder;
@@ -100,8 +101,8 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             .description("Delete existing SNP data from tables").build();
     
     private TagDataWriter tagDataWriter = null;
-    private boolean includeReference = false;
-    private static GenomeSequence myRefSequence = null; 
+    boolean includeReference = false;
+    static GenomeSequence myRefSequence = null; 
     private boolean customSNPLogging = true;  // a custom SNP log that collects useful info for filtering SNPs through machine learning criteria
 //    private CustomSNPLog myCustomSNPLog = null;
     private boolean customFiltering = false;
@@ -163,11 +164,28 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             .forEach(chr -> {
             	        myLogger.info("Start processing chromosome " + chr + "\n");
                         Multimap<Tag, Allele> chromosomeAllelemap = HashMultimap.create();
-                        tagDataWriter.getCutPositionTagTaxaMap(chr, -1, -1).entrySet().stream()
-                                .forEach(emp -> {
-                                    Multimap<Tag, Allele> tm = findAlleleByAlignment(emp.getKey(), emp.getValue(), chr);
-                                    if (tm != null) chromosomeAllelemap.putAll(tm);
-                                }); 
+//                        tagDataWriter.getCutPositionTagTaxaMap(chr, -1, -1).entrySet().stream()
+//                                .forEach(emp -> {
+//                                    Multimap<Tag, Allele> tm = findAlleleByAlignment(emp.getKey(), emp.getValue(), chr);
+//                                    if (tm != null) chromosomeAllelemap.putAll(tm);
+//                                }); 
+                        
+
+                        // Get Tags on forward strands that map to cut positions 
+                        myLogger.info("Calling getCutPosForStrand FORWARD strands...");
+                        tagDataWriter.getCutPosForStrandTagTaxaMap(chr, -1, -1,true).entrySet().stream()
+                        .forEach(emp -> {
+                            Multimap<Tag, Allele> tm = findAlleleByAlignment(emp.getKey(), emp.getValue(), chr, true);
+                            if (tm != null) chromosomeAllelemap.putAll(tm);
+                        });
+                        // Get Tags on reverse strands that map to cut positions
+                        myLogger.info("\nCalling getCutPosForStrand REVERSE strands...");
+                        tagDataWriter.getCutPosForStrandTagTaxaMap(chr, -1, -1,false).entrySet().stream()
+                        .forEach(emp -> {
+                            Multimap<Tag, Allele> tm = findAlleleByAlignment(emp.getKey(), emp.getValue(), chr, false);
+                            if (tm != null) chromosomeAllelemap.putAll(tm);
+                        });
+                        
                         myLogger.info("Finished processing chromosome " + chr + "\n\n");
                         tagDataWriter.putTagAlleles(chromosomeAllelemap);                       
                     }
@@ -235,25 +253,28 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      * @param tagTaxaMap  map of Tag -> Tuple (Boolean if reference, TaxaDistribution)
      * @return multimap of tag -> allele
      */
-    Multimap<Tag,Allele> findAlleleByAlignment(Position cutPosition, Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap, Chromosome chromosome) {
+    Multimap<Tag,Allele> findAlleleByAlignment(Position cutPosition, Map<Tag,TaxaDistribution> tagTaxaMap, Chromosome chromosome, boolean forwardStrand) {
         if(tagTaxaMap.isEmpty()) return null;  //todo why would this be empty?
-        final int numberOfTaxa=tagTaxaMap.values().stream().findFirst().get().y.maxTaxa();
+        final int numberOfTaxa=tagTaxaMap.values().stream().findFirst().get().maxTaxa();
         if((minMinorAlleleFreq()>0) && (tagTaxaMap.size()<2)) {//homozygous
             return null;  //consider reporting homozygous
         }
+ 
         if(!tagTaxaMap.keySet().stream().anyMatch(Tag::isReference)) {
         	if (myRefSequence != null) {
-               	tagTaxaMap = createReferenceTag(cutPosition.getPosition(), tagTaxaMap, chromosome, numberOfTaxa);
-               	if (tagTaxaMap == null) return null;
+               	   tagTaxaMap = createReferenceTag(cutPosition, tagTaxaMap, chromosome, numberOfTaxa, forwardStrand);
+               	   if (tagTaxaMap == null) return null;
         	} else {
         		tagTaxaMap=setCommonToReference(tagTaxaMap);
         	}
         }
-        final double taxaCoverage=tagTaxaMap.values().stream().mapToInt(t -> t.y.numberOfTaxaWithTag()).sum()/(double)numberOfTaxa;  //todo this could be changed to taxa with tag
+
+        final double taxaCoverage=tagTaxaMap.values().stream().mapToInt(t -> t.numberOfTaxaWithTag()).sum()/(double)numberOfTaxa;  //todo this could be changed to taxa with tag
         if(taxaCoverage < myMinLocusCoverage.value()) {
             return null;  //consider reporting low coverage
         }
-        Map<Tag,String> alignedTagsUnfiltered=alignTags(tagTaxaMap,maxTagsPerCutSite());
+        // This aligns the tags against each other - it doesn't call SNPs
+        Map<Tag,String> alignedTagsUnfiltered=alignTags(tagTaxaMap,maxTagsPerCutSite(),cutPosition.getStrand());
         if (alignedTagsUnfiltered == null || alignedTagsUnfiltered.size() == 0) {
         	// Errors related to CompoundNotFound were logged in alignTags. 
         	return null;
@@ -261,7 +282,11 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         // Filter the aligned tags.  Throw out all tags from a loci
         // that has any tag with a gap ratio that exceeds the threshold
         Map<Tag,String> alignedTags = filterAlignedTags(alignedTagsUnfiltered, cutPosition, myGapAlignmentThreshold.value());
-        if (alignedTags == null || alignedTags.size() == 0) return null;
+        if (alignedTags == null || alignedTags.size() == 0) {
+            return null;
+        }
+        // Convert the Position, allele, and tagtaxadist values to a table.  "position" is
+        // the key (first item in the row).  
         Table<Position, Byte, List<TagTaxaDistribution>> tAlign=convertAlignmentToTagTable(alignedTags, tagTaxaMap,  cutPosition);
         List<Position> positionToKeep=tAlign.rowMap().entrySet().stream()
                 .filter(entry -> (double) numberTaxaAtSiteIgnoreGaps(entry.getValue()) / (double) numberOfTaxa > minLocusCoverage())
@@ -290,47 +315,100 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         return tagAllelemap;
     }
 
-    private static Map<Tag,Tuple<Boolean,TaxaDistribution>> setCommonToReference(Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap) {
+    private static Map<Tag,TaxaDistribution> setCommonToReference(Map<Tag,TaxaDistribution> tagTaxaMap) {
         Tag commonTag=tagTaxaMap.entrySet().stream()
-                .max(Comparator.comparingInt(e -> e.getValue().y.numberOfTaxaWithTag()))
+                .max(Comparator.comparingInt(e -> e.getValue().numberOfTaxaWithTag()))
                 .map(e -> e.getKey())
                 .get();
-        Tuple<Boolean,TaxaDistribution> commonTD=tagTaxaMap.get(commonTag);
+        TaxaDistribution commonTD=tagTaxaMap.get(commonTag);
         Tag refTag=TagBuilder.instance(commonTag.seq2Bit(),commonTag.seqLength()).reference().build();
-        ImmutableMap.Builder<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMapBuilder=new ImmutableMap.Builder<>();
-        for (Map.Entry<Tag, Tuple<Boolean, TaxaDistribution>> entry : tagTaxaMap.entrySet()) {
+        ImmutableMap.Builder<Tag,TaxaDistribution> tagTaxaMapBuilder=new ImmutableMap.Builder<>();
+        for (Map.Entry<Tag, TaxaDistribution> entry : tagTaxaMap.entrySet()) {
             if(entry.getKey()!=commonTag) {tagTaxaMapBuilder.put(entry);}
             else {tagTaxaMapBuilder.put(refTag,commonTD);}
         }
         return tagTaxaMapBuilder.build();
     }
-
-    private static Map<Tag,Tuple<Boolean,TaxaDistribution>> createReferenceTag(int cutPosition, 
-            Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMap, Chromosome myChrom, int numberOfTaxa) {
+    private static Map<Tag,TaxaDistribution> createReferenceTag(Position cutPos, 
+            Map<Tag,TaxaDistribution> tagTaxaMap, Chromosome myChrom, int numberOfTaxa, boolean forwardStrand) {
 
         Tag refTag = null;
+        int cutPosition = cutPos.getPosition();
+         
         // Find the longest sequence length of all tags
-        short longestTag = tagTaxaMap.keySet().stream()
+//        short longestTag = tagTaxaMap.keySet().stream()
+//                .max(Comparator.comparingInt(key -> key.seqLength()))
+//                .map(key -> key.seqLength())
+//                .get();
+        Tag longestTag = tagTaxaMap.keySet().stream()
                 .max(Comparator.comparingInt(key -> key.seqLength()))
-                .map(key -> key.seqLength())
                 .get();
+        short longestTagLen = longestTag.seqLength();
 
-        // Create reference tag from reference genome, where start position=cutPosition,
-        // and end position = cutPosition+longestTag-1 
-        byte[] seqInBytes = myRefSequence.chromosomeSequence(myChrom, cutPosition, cutPosition + longestTag-1 );
+
+       // boolean forwardStrand = cutPos.getStrand() == 1 ? true: false;
+        // Create reference tag from reference genome
+        // For forward strands:
+        //      start position=cutPosition, end position = cutPosition+longestTag-1
+        // For reverse strands:
+        //      start position = cutPosition-(longestTag-1), endposition = cutPosition
+//      int seqStart = forwardStrand ? cutPosition : cutPosition - (longestTagLen-1);
+//      int seqEnd = forwardStrand ? cutPosition + longestTagLen-1 : cutPosition ;
+        
+        // The above has proven to be false. Analysis of a bowtie created SAM file
+        // with a sequence marked as "reverse" has the same cut position as if it
+        // were a forward aligned read.  This is verified by checking the fasta file
+        // for the position.  The tag is reversed complemented but the start position
+        // is the same.
+
+        int seqStart =  cutPosition ;
+        int seqEnd = cutPosition + longestTagLen-1 ;
+ 
+        byte[] seqInBytes = myRefSequence.chromosomeSequence(myChrom, seqStart, seqEnd );
         if (seqInBytes == null) {
-            String msg = "Error creating reference tag at position " + cutPosition + " with length " + longestTag
+            String msg = "Error creating reference tag at position " + cutPosition + " with length " + longestTagLen
                     + ". Position not found in reference file.  " 
                     + ". Please verify the reference file used for the plugin matches the reference file used for the aligner.";
             myLogger.error(msg);
             return null;
         }
-        refTag = TagBuilder.instance(seqInBytes,longestTag).reference().build();  // setting reference in the tag     
-        ImmutableMap.Builder<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaMapBuilder=new ImmutableMap.Builder<>();
-        TaxaDistribution refTD=TaxaDistBuilder.create(numberOfTaxa); // is numberOfTaxa an appropriate value to use?  		
-        tagTaxaMapBuilder.put(refTag,new Tuple<>(true,refTD));
-        for (Map.Entry<Tag, Tuple<Boolean, TaxaDistribution>> entry : tagTaxaMap.entrySet()) {
-            tagTaxaMapBuilder.put(entry);
+ 
+        String seqInBytesString = NucleotideAlignmentConstants.nucleotideBytetoString(seqInBytes);       
+        if (seqInBytesString.contains("N")) {
+            System.out.println("createReferenceTag: reftag contains N, returning Null for cutPosition " + cutPosition + " forwardStrand:" + forwardStrand);
+            return null;
+        }
+        refTag=TagBuilder.instance(seqInBytesString).reference().build();
+
+        if(!forwardStrand) {           
+            refTag=TagBuilder.reverseComplement(refTag).reference().build();
+        }
+        
+        ImmutableMap.Builder<Tag,TaxaDistribution> tagTaxaMapBuilder=new ImmutableMap.Builder<>();
+        //TaxaDistribution refTD=TaxaDistBuilder.create(numberOfTaxa); // is numberOfTaxa an appropriate value to use? 
+        TaxaDistribution refTD;
+        // If reference tag is not represented, created it and put it on
+        // the map.  If it is represented, set this tag to be reference, grab the
+        // taxa distribution from the existing tag, and put them on the map
+        int mapCount = 0;
+        if (!tagTaxaMap.containsKey(refTag)) {
+            refTD = TaxaDistBuilder.create(numberOfTaxa);
+            tagTaxaMapBuilder.put(refTag,refTD);
+            mapCount++;
+        }  else {
+            // Remove the tag, re-add it with reference set
+            refTD=tagTaxaMap.get(refTag);
+            tagTaxaMap.remove(refTag);
+            tagTaxaMapBuilder.put(refTag,refTD);
+            mapCount++;
+        }
+
+        for (Map.Entry<Tag, TaxaDistribution> entry : tagTaxaMap.entrySet()) {
+            if(!(entry.getKey().equals(refTag))) {
+                tagTaxaMapBuilder.put(entry);
+                mapCount++;
+            }
+            // else - do nothing - refTag is already on the map
         }
         return tagTaxaMapBuilder.build();
     }
@@ -346,34 +424,16 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
 
     /**
      * Aligns a set of tags anchored to the same reference position.
+     * Tags have been pre-sorted to align
      * @return map with tag(values) mapping to String with alignment
      */
-    private static Map<Tag,String> alignTags(Map<Tag,Tuple<Boolean,TaxaDistribution>> tags, int maxTagsPerCutSite) {
+    private static Map<Tag,String> alignTags(Map<Tag,TaxaDistribution> tags, int maxTagsPerCutSite, byte strand) {
         List<DNASequence> lst=new ArrayList<>();
- 
-//        tags.forEach((tag, dir) -> {
-//            String sequence = (dir.x) ? tag.sequence() : tag.toReverseComplement();
-//            try {
-//                DNASequence ds = new DNASequence(sequence);
-//                ds.setUserCollection(ImmutableList.of(tag));
-//                lst.add(ds);
-//            } catch (CompoundNotFoundException ex) {
-//                // Skip any tag whose sequence could not be made into a DNASequence object.
-//                myLogger.error("DSNPCaller:alignTags, compoundNotFound exception from DNASequence call for: " + sequence);
-//                myLogger.debug(ex.getMessage(),ex); 
-//                return;
-//            }
-//        }); 
         
-        // Replacing the  streams code above with the old style forEach due to
-        // the biojava 4 CompoundNotFoundException.  Group consensus is that a
-        // CompoundNotFoundException should halt processing and return.
-        // Streams "forEach" does not allow a "break" or "return with a value". 
-        for (Map.Entry<Tag, Tuple<Boolean, TaxaDistribution>> entry : tags.entrySet())
+        for (Map.Entry<Tag,  TaxaDistribution> entry : tags.entrySet())
         {
-        	Tag tag = entry.getKey();
-        	Tuple<Boolean, TaxaDistribution> dir = entry.getValue();
-            String sequence = (dir.x) ? tag.sequence() : tag.toReverseComplement();
+            Tag tag = entry.getKey();
+            String sequence = (strand == 1) ? tag.sequence() : tag.toReverseComplement();
             try {
                 DNASequence ds = new DNASequence(sequence);
                 ds.setUserCollection(ImmutableList.of(tag));
@@ -399,6 +459,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         // Alignments.getmultipleSequenceAlignment aligns the tags against each other using
         // the ClustalW algorithm
         Profile<DNASequence, NucleotideCompound> profile = Alignments.getMultipleSequenceAlignment(lst);
+        //System.out.printf("Clustalw:%n%s%n", profile);
         for (AlignedSequence<DNASequence, NucleotideCompound> compounds : profile) {
             ImmutableList tagList=(ImmutableList)compounds.getOriginalSequence().getUserCollection();
             result.put((Tag)tagList.get(0),compounds.getSequenceAsString());
@@ -418,8 +479,8 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         // Java 8 "alignedTags.forEach(tag,value) -> {...} " is not used as it does not support "break".
         for (Map.Entry<Tag, String> entry : alignedTags.entrySet())
         {
-        	Tag tag = entry.getKey();
-        	String value = entry.getValue();
+            Tag tag = entry.getKey();
+            String value = entry.getValue();
             int IC = 0;
             int NC = 0;
             for (int index = 0; index < value.length(); index++) {
@@ -454,11 +515,11 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      * @return
      */
     private static Table<Position, Byte, List<TagTaxaDistribution>> convertAlignmentToTagTable(Map<Tag,String> alignedTags,
-                        Map<Tag,Tuple<Boolean,TaxaDistribution>> tagTaxaDistMap, Position refStartPosition) {
+                        Map<Tag,TaxaDistribution> tagTaxaDistMap, Position refStartPosition) {
         Table<Position, Byte, List<TagTaxaDistribution>> alignT= TreeBasedTable.create(); //These could be sorted by depth
         final List<Optional<Position>> referencePositions=referencePositions(refStartPosition,alignedTags);
         alignedTags.forEach((t,s) -> {
-            TagTaxaDistribution td=new TagTaxaDistribution(t,tagTaxaDistMap.get(t).y);
+            TagTaxaDistribution td=new TagTaxaDistribution(t,tagTaxaDistMap.get(t));
             for (int i = 0; i < s.length(); i++) {
                 byte allele=getNucleotideAlleleByte(s.charAt(i));
                 Optional<Position> p=referencePositions.get(i);
@@ -513,10 +574,10 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
     }
 
     private static List<Optional<Position>> referencePositions(Position refStartPosition, Map<Tag,String> alignedTags){
+        // Find the tag marked as the reference.
         Tag refTag=alignedTags.keySet().stream()
                 .filter(Tag::isReference)
                 .findFirst().orElseThrow(() -> new IllegalStateException("Reference not found"));
-        //System.out.println("LCJ - rfp: ref tag: " + alignedTags.get(refTag));
         AtomicInteger start=new AtomicInteger(refStartPosition.getPosition());
         return alignedTags.get(refTag).chars()
                 .mapToObj(c -> (c == GAP_ALLELE_CHAR) ? Optional.<Position>empty() :
@@ -848,8 +909,6 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         }
         return -1; // failure case
     }
-
-
 }
 
 class TagTaxaDistribution {

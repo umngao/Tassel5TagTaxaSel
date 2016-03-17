@@ -163,7 +163,14 @@ public interface TagData {
      * @return  Map of maps for position (key) to Map of Tag(key) to the Tuple(Direction,TaxaDistribution)(Value)
      */
     Map<Position, Map<Tag, Tuple<Boolean,TaxaDistribution>>> getCutPositionTagTaxaMap(Chromosome chromosome, int firstPosition, int lastPosition);
-
+    /**
+     * For a given snp position,
+     * Returns a Map of Allele with its associated Tag/TaxaDistribution 
+     * Differs from getCutPositionTagTaxaMap() in that it now specifies on which
+     * strand the returned tags must appear.
+     * @return Map or null if not available.
+     */
+    Map<Position, Map<Tag, TaxaDistribution>> getCutPosForStrandTagTaxaMap(Chromosome chromosome, int firstPosition, int lastPosition, boolean strand);
 
     /**
      * For a given genomic position returns of the map tags and their distribution.
@@ -226,4 +233,5 @@ public interface TagData {
      * Return the set of tissue
      */
     Set<String> getAllTissue();
+
 }
