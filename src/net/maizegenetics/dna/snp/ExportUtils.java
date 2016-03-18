@@ -422,7 +422,7 @@ public class ExportUtils {
                                 else {
                                     knownVariantsList.add("N"+NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
                                 }
-                                System.out.println("Allele"+NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
+                                //System.out.println("Allele"+NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
 //                                knownVariantsList.add("N"+NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
                             }
                             else {
