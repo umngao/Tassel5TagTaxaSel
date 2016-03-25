@@ -256,6 +256,26 @@ public class ExportUtils {
                 byte refAllele = p.getAllele(WHICH_ALLELE.Reference);
                 int[] sortedAlleles = gt.allelesSortedByFrequency(site)[0]; // which alleles are actually present among the genotypes
                 
+                //ZRM22 March 18 move to add reference into sortedAlleles array if its missing
+                int indexOfRefAllele = Ints.indexOf(sortedAlleles, refAllele);
+                
+                if (indexOfRefAllele < 0) {
+                    indexOfRefAllele = 0;
+                    if(refAllele != GenotypeTable.UNKNOWN_ALLELE) {
+                        int[] sortedAllelesExpanded = new int[sortedAlleles.length+1];
+                        sortedAllelesExpanded[0] = refAllele;
+                        for(int i = 0; i<sortedAlleles.length; i++) {
+                            sortedAllelesExpanded[i+1] = sortedAlleles[i];
+                        }
+                        sortedAlleles = sortedAllelesExpanded;
+                    }
+                }
+                //Resort sorted Alleles if ref is not first in array
+                if (indexOfRefAllele != 0) {
+                    int t = sortedAlleles[0];
+                    sortedAlleles[0] = sortedAlleles[indexOfRefAllele];
+                    sortedAlleles[indexOfRefAllele] = t;
+                }
                 
                 //ZRM22 Jan7 Remake
                 //If knownVariants.length is greater than 0 its either from a VCF file or Hapmap
@@ -297,8 +317,29 @@ public class ExportUtils {
                             //Clear it out, we probably dont need to do this
                             tempSortedAlleles = new ArrayList<Integer>();
                         }
+                        int nIndex = -1;
                         for(int i = 0; i<knownVariants.length; i++) {
-                            tempSortedAlleles.add((int)NucleotideAlignmentConstants.getNucleotideAlleleByte(knownVariants[i].charAt(0)));
+                            //ZRM22 Mar 22
+                            if(knownVariants[i].charAt(0)!='N') {
+                                tempSortedAlleles.add((int)NucleotideAlignmentConstants.getNucleotideAlleleByte(knownVariants[i].charAt(0)));
+                            }
+                            else {
+                                //If N is in our known Variants list but we do not have an indel, we need to remove it
+                                nIndex = i;
+                            }
+                        }
+                        if(nIndex != -1) {
+                            //if we have an N we need to resize KnownVariants
+                            String[] knownVariantsSmall = new String[knownVariants.length-1];
+                            for(int i = 0; i<knownVariants.length; i++) {
+                                if(i < nIndex) {
+                                    knownVariantsSmall[i] = knownVariants[i];
+                                }
+                                else if(i > nIndex) {
+                                    knownVariantsSmall[i-1] = knownVariants[i];
+                                }
+                            }
+                            knownVariants = knownVariantsSmall;
                         }
                     }
                     
@@ -422,7 +463,7 @@ public class ExportUtils {
                                 else {
                                     knownVariantsList.add("N"+NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
                                 }
-                                //System.out.println("Allele"+NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
+//                                System.out.println("Allele"+NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
 //                                knownVariantsList.add("N"+NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
                             }
                             else {
@@ -472,7 +513,7 @@ public class ExportUtils {
                     }
                    
                 }
-                
+                /*ZRM Mar18
                 int indexOfRefAllele = Ints.indexOf(sortedAlleles, refAllele);
                 
                 if (indexOfRefAllele < 0) {
@@ -493,6 +534,7 @@ public class ExportUtils {
                     sortedAlleles[indexOfRefAllele] = t;
                 }
 
+*/
                 int nAlleles = sortedAlleles.length;
                 HashMap<String,Integer> alleleRedirectMap = new HashMap<String,Integer>();
                 String[] alleleRedirect = new String[16];
@@ -741,10 +783,8 @@ public class ExportUtils {
             throw new IllegalArgumentException("Error writing VCF file: " + filename + ": " + ExceptionUtils.getExceptionCauses(e));
         }
         return filename;
-    }
-    
-    
-    
+    } 
+       
     private static void writeVCFSampleAnnotationToWriter(GenotypeTable gt, BufferedWriter bw) throws IOException {
         for (Taxon taxon : gt.taxa()) {
             GeneralAnnotation annotation = taxon.getAnnotation();
