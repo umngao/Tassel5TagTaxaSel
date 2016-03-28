@@ -61,12 +61,14 @@ CREATE UNIQUE INDEX snpidallcall_idx on allele (snpid, allelecall);
 CREATE INDEX newsnpidallcall_idx on allele (snpid);
 
 -- Table: SNP Position
+-- Is the refAllele "NOT NULL" required?
 CREATE TABLE snpposition (
     snpid INTEGER   PRIMARY KEY,
     chromosome TEXT      NOT NULL,
     position   INTEGER   NOT NULL,
     strand     INTEGER(1)  NOT NULL,
-    qualityscore FLOAT(1)
+    qualityscore FLOAT(1),
+    refAllele         INTEGER(1) NOT NULL
 );
 CREATE UNIQUE INDEX snppos_idx ON snpposition(chromosome,position,strand);
 

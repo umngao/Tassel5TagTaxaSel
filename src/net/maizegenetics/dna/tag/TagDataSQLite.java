@@ -5,6 +5,7 @@ import cern.colt.list.IntArrayList;
 import com.google.common.collect.*;
 import com.google.common.io.CharStreams;
 
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.*;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.dna.snp.SimpleAllele;
@@ -132,7 +133,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                     "select tagtaxadistribution.* from tagCutPosition, tagtaxadistribution where tagCutPosition.positionid=? and " +
                             "tagCutPosition.tagid=tagtaxadistribution.tagid and tagCutPosition.bestmapping=1");
             snpPositionsForChromosomePS=connection.prepareStatement(
-            		"select position, qualityScore from snpposition where chromosome=?");
+            		"select position, qualityScore, refAllele from snpposition where chromosome=?");
             alleleTaxaDistForSnpidPS =connection.prepareStatement("select a.*, td.* from allele a, tagallele ta, tagtaxadistribution td\n" +
                     "where a.alleleid=ta.alleleid and ta.tagid=td.tagid and a.snpid=?");
             allAlleleTaxaDistForSnpidPS =connection.prepareStatement("select a.*, td.* from allele a, tagallele ta, tagtaxadistribution td\n" +
@@ -216,10 +217,12 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             while(rs.next()) {
                 // LCJ - this needs to add .allele(WHICH_ALLELE.Reference,refAllele)
                 // WHich means you need a way to know what is the ref allele
+                byte refAllele = (byte)rs.getInt("refAllele");
                 Position p=new GeneralPosition
                         .Builder(new Chromosome(rs.getString("chromosome")),rs.getInt("position"))
                         .strand(rs.getByte("strand"))
                         .addAnno("QualityScore", rs.getFloat("qualityScore"))
+                        .allele(WHICH_ALLELE.Reference,refAllele)
                         .build();
                 snpPosToIDMap.putIfAbsent(p, rs.getInt("snpid"));
             }
@@ -1222,7 +1225,7 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
             if(snpPosToIDMap==null) loadSNPPositionHash(false);
             connection.setAutoCommit(false);
             PreparedStatement snpPosInsertPS=connection.prepareStatement(
-                    "INSERT OR IGNORE into snpposition (chromosome, position, strand,qualityScore) values(?,?,?,?)");
+                    "INSERT OR IGNORE into snpposition (chromosome, position, strand,qualityScore,refAllele) values(?,?,?,?,?)");
             for (Position p : positions) {
                 if(snpPosToIDMap.containsKey(p)) continue;
                 snpPosInsertPS.setString(1, p.getChromosome().toString());
@@ -1233,7 +1236,12 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 	snpPosInsertPS.setFloat(4, (float)qsList[0]);
                 } else {
                 	snpPosInsertPS.setFloat(4, (float)0.0);
-                }               
+                } 
+                // Position is now annotated with reference, add it
+                // from the position's stored Reference - should be created
+                // in Discovery's referencePositions() method
+                snpPosInsertPS.setByte(5,p.getAllele(WHICH_ALLELE.Reference));
+ 
                 snpPosInsertPS.addBatch();
                 batchCount++;
                 if(batchCount>10000) {
@@ -1298,8 +1306,10 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
                 ResultSet rs=snpPositionsForChromosomePS.executeQuery();
                 while(rs.next()) {
                 	Chromosome chr= new Chromosome(Integer.toString(chrom));
+                	byte refAllele = (byte)rs.getInt("refAllele");
                 	Position position = new GeneralPosition.Builder(chr,rs.getInt("position"))
-                	.addAnno("QualityScore",rs.getFloat("qualityScore")).build();
+                	.addAnno("QualityScore",rs.getFloat("qualityScore"))
+                	.allele(WHICH_ALLELE.Reference,refAllele).build();
                     plb.add(position);
                 }
         	} 

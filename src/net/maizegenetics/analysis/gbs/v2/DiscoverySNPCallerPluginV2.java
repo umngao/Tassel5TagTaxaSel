@@ -23,6 +23,7 @@ import java.util.stream.IntStream;
 
 import javax.swing.ImageIcon;
 
+import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.GeneralPosition;
 import net.maizegenetics.dna.map.GenomeSequence;
@@ -288,6 +289,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         // Convert the Position, allele, and tagtaxadist values to a table.  "position" is
         // the key (first item in the row).  
         Table<Position, Byte, List<TagTaxaDistribution>> tAlign=convertAlignmentToTagTable(alignedTags, tagTaxaMap,  cutPosition);
+        // Positions returned in table now have a reference allele stored
         List<Position> positionToKeep=tAlign.rowMap().entrySet().stream()
                 .filter(entry -> (double) numberTaxaAtSiteIgnoreGaps(entry.getValue()) / (double) numberOfTaxa > minLocusCoverage())
                 .filter(entry -> {
@@ -305,8 +307,8 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 Allele allele=new SimpleAllele(entry.getKey(),position);
                 for (TagTaxaDistribution tagTaxaDistribution : entry.getValue()) {
                 	Tag currentTag = tagTaxaDistribution.tag();
-                	if (currentTag.isReference() && myRefSequence != null) ; //don't add ref tag from ref genome to map
-                	else
+//                	if (currentTag.isReference() && myRefSequence != null) ; //don't add ref tag from ref genome to map
+//                	else
                         tagAllelemap.put(currentTag,allele);
                 }
             }
@@ -344,22 +346,9 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 .max(Comparator.comparingInt(key -> key.seqLength()))
                 .get();
         short longestTagLen = longestTag.seqLength();
-
-
-       // boolean forwardStrand = cutPos.getStrand() == 1 ? true: false;
-        // Create reference tag from reference genome
-        // For forward strands:
-        //      start position=cutPosition, end position = cutPosition+longestTag-1
-        // For reverse strands:
-        //      start position = cutPosition-(longestTag-1), endposition = cutPosition
-//      int seqStart = forwardStrand ? cutPosition : cutPosition - (longestTagLen-1);
-//      int seqEnd = forwardStrand ? cutPosition + longestTagLen-1 : cutPosition ;
         
-        // The above has proven to be false. Analysis of a bowtie created SAM file
-        // with a sequence marked as "reverse" has the same cut position as if it
-        // were a forward aligned read.  This is verified by checking the fasta file
-        // for the position.  The tag is reversed complemented but the start position
-        // is the same.
+        // Aligners create the SAM files with the "pos" variable and the "seq" value relative
+        // to the forward strand.
 
         int seqStart =  cutPosition ;
         int seqEnd = cutPosition + longestTagLen-1 ;
@@ -579,10 +568,33 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 .filter(Tag::isReference)
                 .findFirst().orElseThrow(() -> new IllegalStateException("Reference not found"));
         AtomicInteger start=new AtomicInteger(refStartPosition.getPosition());
-        return alignedTags.get(refTag).chars()
-                .mapToObj(c -> (c == GAP_ALLELE_CHAR) ? Optional.<Position>empty() :
-                        Optional.<Position>of(new GeneralPosition.Builder(refStartPosition.getChromosome(), start.getAndIncrement()).build()))
-                .collect(Collectors.toList());
+        // This takes all the characters in the reference tag.  As long as the character
+        // is not equal to a GAP character, it creates a Position object.  The initial
+        // int position in the object is the cut position.  As we move through the sequence,
+        // the position is incremented by 1 and that is the position stored in the Position object
+
+ 
+        // Create position list that contains the reference allele
+        // The cut position is relative to the forward strand
+        String refChars = alignedTags.get(refTag);
+        List <Optional<Position>> positionList = new ArrayList<Optional<Position>>();
+        int nonGap = 0;
+        int gapFound = 0;
+        for (int cidx = 0; cidx < refChars.length(); cidx++) {
+            char currChar = refChars.charAt(cidx);
+            if (currChar == GAP_ALLELE_CHAR) {
+                gapFound++;
+                positionList.add(Optional.<Position>empty());
+            } else {
+                nonGap++;
+                byte refAllele = NucleotideAlignmentConstants.getNucleotideAlleleByte(currChar);
+                // These positions are always relative to the forward strand
+                // if (strand == -1) refAllele = NucleotideAlignmentConstants.getNucleotideComplement(refAllele);
+                positionList.add(Optional.<Position>of(new GeneralPosition.Builder(refStartPosition.getChromosome(), 
+                        start.getAndIncrement()).allele(WHICH_ALLELE.Reference, refAllele).build()));
+            }
+        }       
+        return positionList;
     }
 
     // The following getters and setters were auto-generated.
