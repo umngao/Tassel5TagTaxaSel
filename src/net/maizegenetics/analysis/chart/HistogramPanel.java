@@ -44,7 +44,7 @@ public class HistogramPanel extends BasicChartPanel {
   JLabel jLabel3 = new JLabel();
 
   String[] columnNames;
-  int bins=5;
+  int bins=25;
   GridBagLayout gridBagLayout1 = new GridBagLayout();
 
   public HistogramPanel(TableReport theTable) {
