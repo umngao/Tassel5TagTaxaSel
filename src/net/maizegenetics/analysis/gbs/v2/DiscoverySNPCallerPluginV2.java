@@ -269,13 +269,18 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         		tagTaxaMap=setCommonToReference(tagTaxaMap);
         	}
         }
-
+        boolean printDebug=(cutPosition.getPosition()>179_000 && cutPosition.getPosition()<500_000);  //todo remove after debugging
+        if(printDebug) System.out.println(cutPosition.toString());  //todo remove after debugging
         final double taxaCoverage=tagTaxaMap.values().stream().mapToInt(t -> t.numberOfTaxaWithTag()).sum()/(double)numberOfTaxa;  //todo this could be changed to taxa with tag
+        if(printDebug) System.out.println("taxaCoverage = " + taxaCoverage+" myMinLocusCoverage:"+myMinLocusCoverage.value());
         if(taxaCoverage < myMinLocusCoverage.value()) {
             return null;  //consider reporting low coverage
         }
         // This aligns the tags against each other - it doesn't call SNPs
-        Map<Tag,String> alignedTagsUnfiltered=alignTags(tagTaxaMap,maxTagsPerCutSite(),cutPosition.getStrand());
+
+
+
+        Map<Tag,String> alignedTagsUnfiltered=alignTags(tagTaxaMap,maxTagsPerCutSite(),cutPosition.getStrand(),printDebug);
         if (alignedTagsUnfiltered == null || alignedTagsUnfiltered.size() == 0) {
         	// Errors related to CompoundNotFound were logged in alignTags. 
         	return null;
@@ -294,11 +299,16 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 .filter(entry -> (double) numberTaxaAtSiteIgnoreGaps(entry.getValue()) / (double) numberOfTaxa > minLocusCoverage())
                 .filter(entry -> {
                     List<Tuple<Byte,Integer>> aC=alleleTaxaCounts(entry.getValue());
+                    if(!includeGaps()) {
+                        if(aC.get(0).x==GAP_ALLELE) return false;
+                        if(aC.size()>1 && (aC.get(1).x==GAP_ALLELE)) return false;
+                    }
                     if(minMinorAlleleFreq()<=0) return true;  //permits export of monomorphic SNPs
                     //if(aC.size()>1) System.out.printf("%s %d %g %g %g%n",entry.getKey().toString(),aC.get(1).y, minMinorAlleleFreq(),taxaCoverage,(minMinorAlleleFreq()*taxaCoverage*(double)numberOfTaxa));
                     return (aC.size()>1 && aC.get(1).y>(minMinorAlleleFreq()*taxaCoverage*(double)numberOfTaxa));
                 })
                 .map(Map.Entry::getKey) //get Position
+                .peek(p -> {if(printDebug) System.out.println("SNP:"+p.toString());})  //todo remove after debugging
                 .collect(Collectors.toList());
         //todo convert to stream
         Multimap<Tag,Allele> tagAllelemap= HashMultimap.create();
@@ -416,12 +426,13 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      * Tags have been pre-sorted to align
      * @return map with tag(values) mapping to String with alignment
      */
-    private static Map<Tag,String> alignTags(Map<Tag,TaxaDistribution> tags, int maxTagsPerCutSite, byte strand) {
+    private static Map<Tag,String> alignTags(Map<Tag, TaxaDistribution> tags, int maxTagsPerCutSite, byte strand, boolean printDebug) {
         List<DNASequence> lst=new ArrayList<>();
         
         for (Map.Entry<Tag,  TaxaDistribution> entry : tags.entrySet())
         {
             Tag tag = entry.getKey();
+            if(printDebug) System.out.println(tag.toString());
             String sequence = (strand == 1) ? tag.sequence() : tag.toReverseComplement();
             try {
                 DNASequence ds = new DNASequence(sequence);
@@ -448,7 +459,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         // Alignments.getmultipleSequenceAlignment aligns the tags against each other using
         // the ClustalW algorithm
         Profile<DNASequence, NucleotideCompound> profile = Alignments.getMultipleSequenceAlignment(lst);
-        //System.out.printf("Clustalw:%n%s%n", profile);
+        if(printDebug) System.out.printf("Clustalw:%n%s%n", profile);
         for (AlignedSequence<DNASequence, NucleotideCompound> compounds : profile) {
             ImmutableList tagList=(ImmutableList)compounds.getOriginalSequence().getUserCollection();
             result.put((Tag)tagList.get(0),compounds.getSequenceAsString());
