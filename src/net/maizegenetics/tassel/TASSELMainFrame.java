@@ -375,12 +375,15 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
     private JMenu getFiltersMenu() {
         JMenu result = new JMenu("Filter");
         result.setMnemonic(KeyEvent.VK_F);
-        result.add(createMenuItem(new FilterAlignmentPlugin(this, true)));
-        result.add(createMenuItem(new FilterSiteNamePlugin(this, true)));
+        result.add(createMenuItem(new FilterSiteBuilderPlugin(this, true)));
+        result.add(createMenuItem("Filter Genotype Table Taxa (Coming)", false));
         result.add(createMenuItem(new FilterTaxaAlignmentPlugin(this, true)));
         result.add(createMenuItem(new FilterTaxaPropertiesPlugin(this, true)));
         result.add(createMenuItem(new FilterTraitsPlugin(this, true)));
-        result.add(createMenuItem(new FilterSiteBuilderPlugin(this, true)));
+        result.addSeparator();
+        result.add(createMenuItem("Deprecated", false));
+        result.add(createMenuItem(new FilterAlignmentPlugin(this, true)));
+        result.add(createMenuItem(new FilterSiteNamePlugin(this, true)));
         return result;
     }
 
