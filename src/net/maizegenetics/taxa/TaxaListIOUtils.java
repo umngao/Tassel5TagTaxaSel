@@ -46,6 +46,26 @@ public class TaxaListIOUtils {
     }
 
     /**
+     * Create a Map of all the taxa associated with a particular annotation
+     * value.  If there would be a duplicate mapping, then an Optional.empty() is returned.
+     *
+     * @param taxaList input taxa list with annotation associated with
+     * @param annotation annotation key used to create the map, the values
+     * of these keys become the key of the resulting map
+     * @return Map of AnnotationValues -> Taxon
+     */
+    public static Optional<Map<String, Taxon>> getUniqueMapOfTaxonByAnnotation(TaxaList taxaList, String annotation) {
+        Map<String, Taxon> annoMap = new TreeMap<>();
+        for (Taxon taxon : taxaList) {
+            for (String value : taxon.getAnnotation().getTextAnnotation(annotation)) {
+                if(annoMap.containsKey(value)) return Optional.empty();
+                annoMap.put(value, taxon);
+            }
+        }
+        return Optional.of(ImmutableSortedMap.copyOf(annoMap));
+    }
+
+    /**
      * Returns a subsetted taxa list based on annotation value. For example,
      * return all taxa where {@literal GermType=Inbred}.
      *
