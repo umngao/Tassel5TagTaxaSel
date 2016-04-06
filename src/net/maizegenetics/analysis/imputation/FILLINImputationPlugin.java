@@ -16,8 +16,6 @@ import org.apache.log4j.Logger;
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -171,13 +169,9 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     private static final Logger myLogger = Logger.getLogger(FILLINImputationPlugin.class);
 
     @Override
-    protected void preProcessParameters(DataSet input) {
-        if (!new File(outFileBase.value()).getParentFile().exists()) new File(outFileBase.value()).getParentFile().mkdirs();
-    }
-    
-    @Override
     protected void postProcessParameters() {
         System.out.println("Calling FILLINImputationPlugin.postProcessParameters()...");
+        if (!new File(outFileBase.value()).getParentFile().exists()) new File(outFileBase.value()).getParentFile().mkdirs();
         minimumDonorDistance=maximumInbredError.value()*5;
         maxNonMedelian=maximumInbredError.value()*5; 
         maxInbredErrFocusHomo= .3*maximumInbredError.value();//.003;
