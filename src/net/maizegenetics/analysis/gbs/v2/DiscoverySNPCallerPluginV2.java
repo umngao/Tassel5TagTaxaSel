@@ -87,18 +87,18 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             .description("Start Chromosome").build();
     private PluginParameter<Chromosome> myEndChr = new PluginParameter.Builder<>("eC", null, Chromosome.class).guiName("End Chromosome").required(false)
             .description("End Chromosome").build();
-    private PluginParameter<Boolean> myIncludeRareAlleles = new PluginParameter.Builder<>("inclRare", false, Boolean.class).guiName("Include Rare Alleles")
-            .description("Include the rare alleles at site (3 or 4th states)").build();
+//    private PluginParameter<Boolean> myIncludeRareAlleles = new PluginParameter.Builder<>("inclRare", false, Boolean.class).guiName("Include Rare Alleles")
+//            .description("Include the rare alleles at site (3 or 4th states)").build();
     private PluginParameter<Boolean> myIncludeGaps = new PluginParameter.Builder<>("inclGaps", false, Boolean.class).guiName("Include Gaps")
             .description("Include sites where major or minor allele is a GAP").build();
-    private PluginParameter<Boolean> myCallBiSNPsWGap = new PluginParameter.Builder<>("callBiSNPsWGap", false, Boolean.class).guiName("Call Biallelic SNPs with Gap")
-            .description("Include sites where the third allele is a GAP (mutually exclusive with inclGaps)").build();
+//    private PluginParameter<Boolean> myCallBiSNPsWGap = new PluginParameter.Builder<>("callBiSNPsWGap", false, Boolean.class).guiName("Call Biallelic SNPs with Gap")
+//            .description("Include sites where the third allele is a GAP (mutually exclusive with inclGaps)").build();
     private PluginParameter<Double> myGapAlignmentThreshold = new PluginParameter.Builder<>("gapAlignRatio", 1.0, Double.class).guiName("Gap Alignment Threshold")
             .description("Gap alignment threshold ratio of indel contrasts to non indel contrasts: IC/(IC + NC)."
             		+ " Any loci with a tag alignment value above this threshold will be excluded from the pool.").build();
     private PluginParameter<Integer> maxTagsPerCutSite = new PluginParameter.Builder<Integer>("maxTagsCutSite", 64, Integer.class).guiName("Max Number of Cut Sites").required(false)
             .description("Maximum number of tags per cut site").build();
-    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<>("deleteOldData", false, Boolean.class).guiName("Delete Previous Discovery Data")
+    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<>("deleteOldData", true, Boolean.class).guiName("Delete Previous Discovery Data")
             .description("Delete existing SNP data from tables").build();
     
     private TagDataWriter tagDataWriter = null;
@@ -208,16 +208,16 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             includeReference = true;
             myRefSequence = GenomeSequenceBuilder.instance(referenceGenomeFile());
         }
-        if (callBiallelicSNPsWithGap() && includeGaps()) {
-            throw new IllegalArgumentException("The callBiSNPsWGap option is mutually exclusive with the inclGaps option.");
-        }
+//        if (callBiallelicSNPsWithGap() && includeGaps()) {
+//            throw new IllegalArgumentException("The callBiSNPsWGap option is mutually exclusive with the inclGaps option.");
+//        }
         if (!myStartChr.isEmpty() && !myEndChr.isEmpty()) {
             if (startChromosome().compareTo(endChromosome()) > 0) {
                 throw new IllegalArgumentException("The start chromosome is larger than the end chromosome.");
             } 
         } 
         myLogger.info(String.format("MinMAF:%g %n", minMinorAlleleFreq()));
-        myLogger.info(String.format("includeRare:%s includeGaps:%s %n", includeRareAlleles(), includeGaps()));
+//        myLogger.info(String.format("includeRare:%s includeGaps:%s %n", includeRareAlleles(), includeGaps()));
     }
 
     @Override
@@ -782,27 +782,27 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         return this;
     }
 
-    /**
-     * Include the rare alleles at site (3 or 4th states)
-     *
-     * @return Include Rare Alleles
-     */
-    public Boolean includeRareAlleles() {
-        return myIncludeRareAlleles.value();
-    }
-
-    /**
-     * Set Include Rare Alleles. Include the rare alleles
-     * at site (3 or 4th states)
-     *
-     * @param value Include Rare Alleles
-     *
-     * @return this plugin
-     */
-    public DiscoverySNPCallerPluginV2 includeRareAlleles(Boolean value) {
-        myIncludeRareAlleles = new PluginParameter<>(myIncludeRareAlleles, value);
-        return this;
-    }
+//    /**
+//     * Include the rare alleles at site (3 or 4th states)
+//     *
+//     * @return Include Rare Alleles
+//     */
+//    public Boolean includeRareAlleles() {
+//        return myIncludeRareAlleles.value();
+//    }
+//
+//    /**
+//     * Set Include Rare Alleles. Include the rare alleles
+//     * at site (3 or 4th states)
+//     *
+//     * @param value Include Rare Alleles
+//     *
+//     * @return this plugin
+//     */
+//    public DiscoverySNPCallerPluginV2 includeRareAlleles(Boolean value) {
+//        myIncludeRareAlleles = new PluginParameter<>(myIncludeRareAlleles, value);
+//        return this;
+//    }
 
     /**
      * Include sites where major or minor allele is a GAP
@@ -826,29 +826,29 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         return this;
     }
 
-    /**
-     * Include sites where the third allele is a GAP (mutually
-     * exclusive with inclGaps)
-     *
-     * @return Call Biallelic SNPs with Gap
-     */
-    public Boolean callBiallelicSNPsWithGap() {
-        return myCallBiSNPsWGap.value();
-    }
-
-    /**
-     * Set Call Biallelic SNPs with Gap. Include sites where
-     * the third allele is a GAP (mutually exclusive with
-     * inclGaps)
-     *
-     * @param value Call Biallelic SNPs with Gap
-     *
-     * @return this plugin
-     */
-    public DiscoverySNPCallerPluginV2 callBiallelicSNPsWithGap(Boolean value) {
-        myCallBiSNPsWGap = new PluginParameter<>(myCallBiSNPsWGap, value);
-        return this;
-    }
+//    /**
+//     * Include sites where the third allele is a GAP (mutually
+//     * exclusive with inclGaps)
+//     *
+//     * @return Call Biallelic SNPs with Gap
+//     */
+//    public Boolean callBiallelicSNPsWithGap() {
+//        return myCallBiSNPsWGap.value();
+//    }
+//
+//    /**
+//     * Set Call Biallelic SNPs with Gap. Include sites where
+//     * the third allele is a GAP (mutually exclusive with
+//     * inclGaps)
+//     *
+//     * @param value Call Biallelic SNPs with Gap
+//     *
+//     * @return this plugin
+//     */
+//    public DiscoverySNPCallerPluginV2 callBiallelicSNPsWithGap(Boolean value) {
+//        myCallBiSNPsWGap = new PluginParameter<>(myCallBiSNPsWGap, value);
+//        return this;
+//    }
 
     /**
      * Maximum gap alignment allowed from the equation:

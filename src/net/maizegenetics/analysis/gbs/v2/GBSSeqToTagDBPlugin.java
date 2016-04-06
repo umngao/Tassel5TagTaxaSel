@@ -77,7 +77,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             .description("Maximum number of kmers").build();
     private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 8, Integer.class).guiName("Batch size of fastq files").required(false)
             .description("Number of flow cells being processed simultaneously").build();
-    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",false,Boolean.class).guiName("Delete Old Data")
+    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",true,Boolean.class).guiName("Delete Old Data")
             .description("Delete existing SNP quality data from db tables").build();
     LongAdder roughTagCnt = new LongAdder();
 
