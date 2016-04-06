@@ -72,9 +72,9 @@ public class PositionListIOUtils {
             String line = fileIn.readLine(); // read/skip header
             while ((line = fileIn.readLine()) != null) {
                 String[] tokens = line.split("\\t");
-                if (tokens.length != 3) {
+                if (tokens.length < 3) {
                     System.err.println("Error in SNP Position QualityScore file format:" + fileName);
-                    System.err.println("Expecting tab-delimited file with 2 integer and 1 float value per row "
+                    System.err.println("Expecting tab-delimited file where first 3 values in each row are type: integer, integer, float  "
                     		+ " with header values CHROM POS QUALITYSCORE");
                 }
                 Chromosome chrom = new Chromosome(tokens[0]);
