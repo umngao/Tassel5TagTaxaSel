@@ -23,6 +23,9 @@ import javax.swing.*;
 
 import java.awt.*;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
 
@@ -49,6 +52,8 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
             .description("Mapping approach (one of Bowtie2, BWA, or bwaMem)").build();
     private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",false,Boolean.class).guiName("Delete Old Data")
             .description("Delete existing SNP quality data from db tables").build();
+    private PluginParameter<Integer> minMAPQ = new PluginParameter.Builder<Integer>("minMAPQ", 0, Integer.class).guiName("SAM Min MAPQ value").required(false)
+            .description("Minimum value of MAPQ to store the SAM entry").build();
     
     private enum tagPresence {
         present,
@@ -56,6 +61,8 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         notPresent;       
     }
 
+    private static int mapQBad = 0;
+    private static int mapQGood = 0;
     public SAMToGBSdbPlugin() {
         super(null, false);
     }
@@ -88,30 +95,20 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
                 }
                 Tuple<Tag,Optional<Position>> tagPositionTuple=parseRow(inputLine);
                 if (tagPositionTuple == null) continue;            
-                //if(!knownTags.contains(tagPositionTuple.x)) tagsNotFoundInDB++;
-                tagPresence tagP = isKnownTag(inputLine, tagPositionTuple.x, knownTags);
-                if (tagP == tagPresence.notPresent) {
-                    tagsNotFoundInDB++;
-                }
-                
+                if(!knownTags.contains(tagPositionTuple.x)) tagsNotFoundInDB++;                
                 if(tagPositionTuple.y.isPresent()) {
-                    if (tagP == tagPresence.originalPresent) {                       
-                        String[] stringTokens=inputLine.split("\\s");
-                        String origSeq = stringTokens[0].split("=")[1]; //stringTokens[0] is tagSeg=<original sequence here>
-                        Tag oTag = TagBuilder.instance(origSeq).build();
-                        tagPositions.put(oTag, tagPositionTuple.y.get());
-                    } else {
-                        tagPositions.put(tagPositionTuple.x,tagPositionTuple.y.get());
-                    }                    
+                    tagPositions.put(tagPositionTuple.x,tagPositionTuple.y.get());            
                 } else {
                     tagsNotMapped++;
                 }
             }
             bw.close();
+
             if(tagsNotFoundInDB==0) {tagData.putTagAlignments(tagPositions);
                 myLogger.info("Finished reading SAM file and adding tags to DB."
                     + "\nTotal number of tags mapped: " + tagPositions.keySet().size() + " (total mappings " + tagPositions.size() + ")"
-                        + "\nTags not mapped: " + tagsNotMapped + "\n\n");}
+                        + "\nTags not mapped: " + tagsNotMapped  
+                        + "\nTags dropped due to minimum mapq value: " + mapQBad + "\n\n");}
             else {
                 System.out.println("Unobserved tags were found in the SAM file count= " + tagsNotFoundInDB);
                 myLogger.info("Finished reading SAM file.  No Tags added to DB as "+tagsNotFoundInDB+" unobserved tags were found.\n" +
@@ -132,32 +129,44 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
     private Tuple<Tag,Optional<Position>> parseRow(String inputLine) {
         final int name = 0, flag = 1, chr = 2, pos = 3, cigar = 5, tagS = 9; // column indices in inputLine
         String[] s=inputLine.split("\\s");
-        Tag tag= TagBuilder.instance(s[tagS]).build();
+        // Use the tag we stored in the header field.  This handles forward vs
+        // reverse strand (no longer need to reverse complement to our original)
+        // and it contains seqments that were "clipped" by the aligner.
+                 
+        String origSeq = s[0].split("=")[1]; //s[0] is tagSeg=<original sequence here
+        Tag tag = TagBuilder.instance(origSeq).build();
+        int mapq = Integer.parseInt(s[4]);
+        if (mapq < minMAPQ()) {
+            // Dropping anything with quality less than user specified mapQ. 
+            // Sites  discusing this:
+            // http://biofinysics.blogspot.com/2014/05/how-does-bowtie2-assign-mapq-scores.html
+            // http://www.acgt.me/blog/2014/12/16/understanding-mapq-scores-in-sam-files-does-37-42
+            mapQBad++;
+            return new Tuple<>(tag,Optional.<Position>empty());
+        } else mapQGood++; 
+        
         // A tag consisting of 32 T's become -1 in "getLongFromSequence", which results in a "null" tag
-        // This was seen in the Zea_mays.AGPv3 chromosome files
+        // This was seen in the Zea_mays.AGPv3 chromosome files.  Shouldn't happen since we're now using
+        // the sequence from the header line
         if (tag == null) return null;
         // The two lines need to be here to make sure the sequence can be found in the DB
         boolean forwardStrand=isForwardStrand(s[flag]);
-        int samPos = Integer.parseInt(s[pos]);
-        int[] alignSpan = SAMUtils.adjustCoordinates(s[cigar], samPos);
+        int samPos = Integer.parseInt(s[pos]); 
+        int[] alignSpan = SAMUtils.adjustCoordinates(s[cigar], samPos);        
 //        int cutPos;
 //        if (forwardStrand == true) {
 //            cutPos = alignSpan[0];
 //        } else  {
 //            cutPos = alignSpan[1];
 //        }
-        // LCJ - test if adjustCoordinates code is reason we have too many SNPs
         int cutPos = samPos;
 
-        if(!forwardStrand) {
-            tag=TagBuilder.reverseComplement(tag).build();
-        }
         if (!hasAlignment(s[flag])) return new Tuple<>(tag,Optional.<Position>empty());
         // Check for minimum alignment length and proportion
         if (!hasMinAlignLength(s)) return new Tuple<> (tag,Optional.<Position>empty());
         if (!hasMinAlignProportion(s)) return new Tuple<> (tag,Optional.<Position>empty());
         Chromosome chromosome = new Chromosome(s[chr]); // Chromosome class parses the chromosome
-        String alignmentScore=getAlignmentScore(s);
+        String alignmentScore=getAlignmentScore(s);        
         // TASSEL defines forward/reverse as the following:
         // public interface Position extends Comparable<Position> {
 
@@ -600,6 +609,27 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
      */
     public SAMToGBSdbPlugin minAlignLength(Integer value) {
         minAlignLength = new PluginParameter<>(minAlignLength, value);
+        return this;
+    }
+    /**
+     * Minimum value of MAPQ to store the SAM entry
+     *
+     * @return SAM minimum MAPQ value
+     */
+    public Integer minMAPQ() {
+        return minMAPQ.value();
+    }
+
+    /**
+     * Set SAM minimum MAPQ value. Minimum value of MAPQ
+     * to store the SAM entry
+     *
+     * @param value SAM minimum MAPQ value
+     *
+     * @return this plugin
+     */
+    public SAMToGBSdbPlugin minMAPQ(Integer value) {
+        minMAPQ = new PluginParameter<>(minMAPQ, value);
         return this;
     }
 
