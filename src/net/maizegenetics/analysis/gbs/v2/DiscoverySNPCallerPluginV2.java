@@ -270,7 +270,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         	}
         }
         boolean printDebug=(cutPosition.getPosition()>179_000 && cutPosition.getPosition()<500_000);  //todo remove after debugging
-        if(printDebug) System.out.println(cutPosition.toString());  //todo remove after debugging
+        if(printDebug) System.out.println("\nTagLocus: "+cutPosition.toString());  //todo remove after debugging
         final double taxaCoverage=tagTaxaMap.values().stream().mapToInt(t -> t.numberOfTaxaWithTag()).sum()/(double)numberOfTaxa;  //todo this could be changed to taxa with tag
         if(printDebug) System.out.println("taxaCoverage = " + taxaCoverage+" myMinLocusCoverage:"+myMinLocusCoverage.value());
         if(taxaCoverage < myMinLocusCoverage.value()) {
@@ -362,6 +362,10 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
 
         int seqStart =  cutPosition ;
         int seqEnd = cutPosition + longestTagLen-1 ;
+        if (!forwardStrand) {
+            seqStart =  cutPosition - (longestTagLen-1);
+            seqEnd = cutPosition;
+        }
  
         byte[] seqInBytes = myRefSequence.chromosomeSequence(myChrom, seqStart, seqEnd );
         if (seqInBytes == null) {
@@ -515,9 +519,9 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      * @return
      */
     private static Table<Position, Byte, List<TagTaxaDistribution>> convertAlignmentToTagTable(Map<Tag,String> alignedTags,
-                        Map<Tag,TaxaDistribution> tagTaxaDistMap, Position refStartPosition) {
+                        Map<Tag,TaxaDistribution> tagTaxaDistMap, Position cutPosition) {
         Table<Position, Byte, List<TagTaxaDistribution>> alignT= TreeBasedTable.create(); //These could be sorted by depth
-        final List<Optional<Position>> referencePositions=referencePositions(refStartPosition,alignedTags);
+        final List<Optional<Position>> referencePositions=referencePositions(cutPosition,alignedTags);
         alignedTags.forEach((t,s) -> {
             TagTaxaDistribution td=new TagTaxaDistribution(t,tagTaxaDistMap.get(t));
             for (int i = 0; i < s.length(); i++) {
@@ -573,12 +577,12 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 .sum();
     }
 
-    private static List<Optional<Position>> referencePositions(Position refStartPosition, Map<Tag,String> alignedTags){
+    private static List<Optional<Position>> referencePositions(Position cutPosition, Map<Tag,String> alignedTags){
         // Find the tag marked as the reference.
         Tag refTag=alignedTags.keySet().stream()
                 .filter(Tag::isReference)
                 .findFirst().orElseThrow(() -> new IllegalStateException("Reference not found"));
-        AtomicInteger start=new AtomicInteger(refStartPosition.getPosition());
+        AtomicInteger start=new AtomicInteger(cutPosition.getPosition());
         // This takes all the characters in the reference tag.  As long as the character
         // is not equal to a GAP character, it creates a Position object.  The initial
         // int position in the object is the cut position.  As we move through the sequence,
@@ -588,23 +592,37 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         // Create position list that contains the reference allele
         // The cut position is relative to the forward strand
         String refChars = alignedTags.get(refTag);
+        byte strand = cutPosition.getStrand();
         List <Optional<Position>> positionList = new ArrayList<Optional<Position>>();
-        int nonGap = 0;
-        int gapFound = 0;
-        for (int cidx = 0; cidx < refChars.length(); cidx++) {
-            char currChar = refChars.charAt(cidx);
-            if (currChar == GAP_ALLELE_CHAR) {
-                gapFound++;
-                positionList.add(Optional.<Position>empty());
-            } else {
-                nonGap++;
-                byte refAllele = NucleotideAlignmentConstants.getNucleotideAlleleByte(currChar);
-                // These positions are always relative to the forward strand
-                // if (strand == -1) refAllele = NucleotideAlignmentConstants.getNucleotideComplement(refAllele);
-                positionList.add(Optional.<Position>of(new GeneralPosition.Builder(refStartPosition.getChromosome(), 
-                        start.getAndIncrement()).allele(WHICH_ALLELE.Reference, refAllele).build()));
+        if (strand == 1) {
+            for (int cidx = 0; cidx < refChars.length(); cidx++) {
+                char currChar = refChars.charAt(cidx);
+                if (currChar == GAP_ALLELE_CHAR) {
+                    positionList.add(Optional.<Position>empty());
+                } else {
+                    byte refAllele = NucleotideAlignmentConstants.getNucleotideAlleleByte(currChar);
+                    // These positions are always relative to the forward strand
+                    // if (strand == -1) refAllele = NucleotideAlignmentConstants.getNucleotideComplement(refAllele);
+                    positionList.add(Optional.<Position>of(new GeneralPosition.Builder(cutPosition.getChromosome(), 
+                            start.getAndIncrement()).allele(WHICH_ALLELE.Reference, refAllele).build()));
+                }
+            } 
+        } else {
+            List <Optional<Position>> revPositionList = new ArrayList<Optional<Position>>();
+            for (int revCidx = refChars.length()-1; revCidx >= 0; revCidx--) {
+                char currChar = refChars.charAt(revCidx);
+                if (currChar == GAP_ALLELE_CHAR) {
+                    revPositionList.add(Optional.<Position>empty());
+                } else {
+                    byte refAllele = NucleotideAlignmentConstants.getNucleotideAlleleByte(currChar);
+                    revPositionList.add(Optional.<Position>of(new GeneralPosition.Builder(cutPosition.getChromosome(), 
+                            start.getAndDecrement()).allele(WHICH_ALLELE.Reference, refAllele).build()));
+                }
             }
-        }       
+            for (int revCidx = revPositionList.size()-1; revCidx >= 0; revCidx--) {
+                positionList.add(revPositionList.get(revCidx));
+            }
+        }
         return positionList;
     }
 
