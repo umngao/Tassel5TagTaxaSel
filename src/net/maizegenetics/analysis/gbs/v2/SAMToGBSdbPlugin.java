@@ -153,14 +153,13 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         boolean forwardStrand=isForwardStrand(s[flag]);
         int samPos = Integer.parseInt(s[pos]); 
         int[] alignSpan = SAMUtils.adjustCoordinates(s[cigar], samPos);        
-//        int cutPos;
-//        if (forwardStrand == true) {
-//            cutPos = alignSpan[0];
-//        } else  {
-//            cutPos = alignSpan[1];
-//        }
-        int cutPos = samPos;
-
+        int cutPos;
+        if (forwardStrand == true) {
+            cutPos = alignSpan[0];
+        } else  {
+            cutPos = alignSpan[1];
+        }
+        
         if (!hasAlignment(s[flag])) return new Tuple<>(tag,Optional.<Position>empty());
         // Check for minimum alignment length and proportion
         if (!hasMinAlignLength(s)) return new Tuple<> (tag,Optional.<Position>empty());
