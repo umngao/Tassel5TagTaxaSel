@@ -85,6 +85,7 @@ import net.maizegenetics.analysis.data.GenosToABHPlugin;
 import net.maizegenetics.analysis.data.GetPositionListPlugin;
 import net.maizegenetics.analysis.data.GetTaxaListPlugin;
 import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
+import net.maizegenetics.analysis.data.MaskGenotypePlugin;
 import net.maizegenetics.analysis.data.SetLowDepthGenosToMissingPlugin;
 import net.maizegenetics.analysis.data.SortGenotypeFilePlugin;
 import net.maizegenetics.analysis.distance.AMatrixPlugin;
@@ -409,6 +410,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new GenosToABHPlugin(this, true)));
         result.add(createMenuItem(new ThinSitesByPositionPlugin(this, true)));
         result.add(createMenuItem(new ClusterGenotypesPlugin(this, true)));
+        result.add(createMenuItem(new MaskGenotypePlugin(this, true)));
         result.addSeparator();
 
         JMenuItem delete = new JMenuItem("Delete Dataset");

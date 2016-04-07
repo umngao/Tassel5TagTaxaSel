@@ -7,6 +7,7 @@ package net.maizegenetics.analysis.data;
 
 import com.google.common.collect.Range;
 import java.awt.Frame;
+import java.net.URL;
 import javax.swing.*;
 import java.util.List;
 import java.util.Random;
@@ -14,12 +15,11 @@ import java.util.Random;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTableBuilder;
+import net.maizegenetics.dna.snp.MaskGenotypeTableBuilder;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
-import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
-import net.maizegenetics.dna.snp.genotypecall.MaskedGenotypes;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginParameter;
+import org.apache.log4j.Logger;
 
 /**
  * The purpose of this class is to mask (make UNKNOWN) a portion of the
@@ -30,8 +30,10 @@ import net.maizegenetics.plugindef.PluginParameter;
  */
 public class MaskGenotypePlugin extends AbstractPlugin {
 
+    private static final Logger myLogger = Logger.getLogger(MaskGenotypePlugin.class);
+
     private PluginParameter<Double> myPercentageMasked
-            = new PluginParameter.Builder<>("percentageMasked", 0.0, Double.class)
+            = new PluginParameter.Builder<>("percentageMasked", 0.01, Double.class)
             .range(Range.closed(0.0, 1.0))
             .description("Percentage of genotypes to mask.")
             .build();
@@ -53,59 +55,56 @@ public class MaskGenotypePlugin extends AbstractPlugin {
 
         Datum inputDatum = input.getDataOfType(GenotypeTable.class).get(0);
         GenotypeTable original = (GenotypeTable) inputDatum.getData();
-
         GenotypeCallTable origCalls = original.genotypeMatrix();
 
-        GenotypeCallTableBuilder builder = GenotypeCallTableBuilder.getInstanceCopy(origCalls);
-        MaskedGenotypes mask = new MaskedGenotypes(builder.getTaxaCount(), builder.getSiteCount());
+        MaskGenotypeTableBuilder builder = new MaskGenotypeTableBuilder(original);
 
-        percentageMask(builder, origCalls, mask);
+        percentageMask(builder, origCalls);
 
-        GenotypeTable result = GenotypeTableBuilder.getInstance(original, builder.build());
+        GenotypeTable result = builder.build();
 
         Datum genotype = new Datum(inputDatum.getName() + "_Masked", result, null);
-        Datum maskDatum = new Datum(inputDatum.getName() + "_Mask", mask, null);
 
-        return new DataSet(new Datum[]{genotype, maskDatum}, this);
+        return new DataSet(genotype, this);
 
     }
 
-    private void percentageMask(GenotypeCallTableBuilder builder, GenotypeCallTable origCalls, MaskedGenotypes mask) {
+    private void percentageMask(MaskGenotypeTableBuilder builder, GenotypeCallTable origCalls) {
         if (percentageMasked() == 0.0) {
             return;
         }
 
-        Random random = new Random(1);
-        int numTaxa = builder.getTaxaCount();
-        int numSites = builder.getSiteCount();
+        Random random = new Random();
+        int numTaxa = origCalls.numberOfTaxa();
+        int numSites = origCalls.numberOfSites();
         long totalGenotypes = numTaxa * numSites;
         long numKnown = origCalls.stream().filter(b -> b != GenotypeTable.UNKNOWN_DIPLOID_ALLELE).count();
-        double percentKnown = numKnown / totalGenotypes;
+        double percentKnown = (double) numKnown / (double) totalGenotypes;
         if (percentKnown <= percentageMasked()) {
             throw new IllegalArgumentException("MaskGenotypePlugin: percentMask: Trying to mask: " + percentageMasked() + "%.  But this genotype only has: " + percentKnown + "% Known.");
         }
         long numberMasked = 0;
-        long numberToMask = (long) (totalGenotypes / percentageMasked());
-        long step = (long) (1.0 / percentageMasked() * 2.0);
-        long site = 0;
+        long numberToMask = (long) (numKnown * percentageMasked());
+        myLogger.info("Number of Genotypes Masked: " + numberToMask);
+        double step = 1.0 / percentageMasked() * 2.0;
+        long siteIndex = 0;
         while (true) {
-            for (int t = 0; t < numTaxa;) {
-                site += (long) ((double) step * random.nextDouble());
-                if (site >= numSites) {
-                    site %= numSites;
-                    t += site / numSites;
-                }
-                if ((!mask.get(t, (int) site))
-                        && (origCalls.genotype(t, (int) site) != GenotypeTable.UNKNOWN_DIPLOID_ALLELE)) {
-                    builder.setBase(t, (int) site, GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
-                    mask.set(t, (int) site);
-                    numberMasked++;
-                    if (numberMasked >= numberToMask) {
-                        return;
-                    }
+            siteIndex += (long) (step * random.nextDouble());
+            if (siteIndex >= totalGenotypes) {
+                siteIndex %= totalGenotypes;
+            }
+            int site = (int) (siteIndex % numSites);
+            int t = (int) (siteIndex / numSites);
+            if ((!builder.get(t, site))
+                    && (origCalls.genotype(t, site) != GenotypeTable.UNKNOWN_DIPLOID_ALLELE)) {
+                builder.set(t, site);
+                numberMasked++;
+                if (numberMasked >= numberToMask) {
+                    return;
                 }
             }
         }
+
     }
 
     /**
@@ -143,7 +142,12 @@ public class MaskGenotypePlugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        return null;
+        URL imageURL = GetPositionListPlugin.class.getResource("/net/maizegenetics/analysis/images/mask.gif");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
     }
 
     @Override
