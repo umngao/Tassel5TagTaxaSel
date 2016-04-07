@@ -269,7 +269,8 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         		tagTaxaMap=setCommonToReference(tagTaxaMap);
         	}
         }
-        boolean printDebug=(cutPosition.getPosition()>179_000 && cutPosition.getPosition()<500_000);  //todo remove after debugging
+        boolean printDebug=(cutPosition.getPosition()>179_000 && cutPosition.getPosition()<1_500_000);  //todo remove after debugging
+        printDebug = false;
         if(printDebug) System.out.println("\nTagLocus: "+cutPosition.toString());  //todo remove after debugging
         final double taxaCoverage=tagTaxaMap.values().stream().mapToInt(t -> t.numberOfTaxaWithTag()).sum()/(double)numberOfTaxa;  //todo this could be changed to taxa with tag
         if(printDebug) System.out.println("taxaCoverage = " + taxaCoverage+" myMinLocusCoverage:"+myMinLocusCoverage.value());
@@ -308,7 +309,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                     return (aC.size()>1 && aC.get(1).y>(minMinorAlleleFreq()*taxaCoverage*(double)numberOfTaxa));
                 })
                 .map(Map.Entry::getKey) //get Position
-                .peek(p -> {if(printDebug) System.out.println("SNP:"+p.toString());})  //todo remove after debugging
+//                .peek(p -> {if(printDebug) System.out.println("SNP:"+p.toString());})  //todo remove after debugging
                 .collect(Collectors.toList());
         //todo convert to stream
         Multimap<Tag,Allele> tagAllelemap= HashMultimap.create();
