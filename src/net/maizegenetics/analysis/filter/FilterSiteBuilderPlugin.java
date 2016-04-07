@@ -58,6 +58,7 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
             .description("Site Maximum Minor Allele Frequency")
             .build();
     private PluginParameter<Boolean> myRemoveMinorSNPStates = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.removeMinorSNPStates.name(), false, Boolean.class)
+            .guiName("Remove Minor SNP States")
             .description("")
             .build();
     private PluginParameter<SITE_RANGE_FILTER_TYPES> mySiteFilter = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.siteRangeFilterType.name(), SITE_RANGE_FILTER_TYPES.NONE, SITE_RANGE_FILTER_TYPES.class)

@@ -87,18 +87,18 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             .description("Start Chromosome").build();
     private PluginParameter<Chromosome> myEndChr = new PluginParameter.Builder<>("eC", null, Chromosome.class).guiName("End Chromosome").required(false)
             .description("End Chromosome").build();
-    private PluginParameter<Boolean> myIncludeRareAlleles = new PluginParameter.Builder<>("inclRare", false, Boolean.class).guiName("Include Rare Alleles")
-            .description("Include the rare alleles at site (3 or 4th states)").build();
+//    private PluginParameter<Boolean> myIncludeRareAlleles = new PluginParameter.Builder<>("inclRare", false, Boolean.class).guiName("Include Rare Alleles")
+//            .description("Include the rare alleles at site (3 or 4th states)").build();
     private PluginParameter<Boolean> myIncludeGaps = new PluginParameter.Builder<>("inclGaps", false, Boolean.class).guiName("Include Gaps")
             .description("Include sites where major or minor allele is a GAP").build();
-    private PluginParameter<Boolean> myCallBiSNPsWGap = new PluginParameter.Builder<>("callBiSNPsWGap", false, Boolean.class).guiName("Call Biallelic SNPs with Gap")
-            .description("Include sites where the third allele is a GAP (mutually exclusive with inclGaps)").build();
+//    private PluginParameter<Boolean> myCallBiSNPsWGap = new PluginParameter.Builder<>("callBiSNPsWGap", false, Boolean.class).guiName("Call Biallelic SNPs with Gap")
+//            .description("Include sites where the third allele is a GAP (mutually exclusive with inclGaps)").build();
     private PluginParameter<Double> myGapAlignmentThreshold = new PluginParameter.Builder<>("gapAlignRatio", 1.0, Double.class).guiName("Gap Alignment Threshold")
             .description("Gap alignment threshold ratio of indel contrasts to non indel contrasts: IC/(IC + NC)."
             		+ " Any loci with a tag alignment value above this threshold will be excluded from the pool.").build();
     private PluginParameter<Integer> maxTagsPerCutSite = new PluginParameter.Builder<Integer>("maxTagsCutSite", 64, Integer.class).guiName("Max Number of Cut Sites").required(false)
             .description("Maximum number of tags per cut site").build();
-    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<>("deleteOldData", false, Boolean.class).guiName("Delete Previous Discovery Data")
+    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<>("deleteOldData", true, Boolean.class).guiName("Delete Previous Discovery Data")
             .description("Delete existing SNP data from tables").build();
     
     private TagDataWriter tagDataWriter = null;
@@ -208,16 +208,16 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             includeReference = true;
             myRefSequence = GenomeSequenceBuilder.instance(referenceGenomeFile());
         }
-        if (callBiallelicSNPsWithGap() && includeGaps()) {
-            throw new IllegalArgumentException("The callBiSNPsWGap option is mutually exclusive with the inclGaps option.");
-        }
+//        if (callBiallelicSNPsWithGap() && includeGaps()) {
+//            throw new IllegalArgumentException("The callBiSNPsWGap option is mutually exclusive with the inclGaps option.");
+//        }
         if (!myStartChr.isEmpty() && !myEndChr.isEmpty()) {
             if (startChromosome().compareTo(endChromosome()) > 0) {
                 throw new IllegalArgumentException("The start chromosome is larger than the end chromosome.");
             } 
         } 
         myLogger.info(String.format("MinMAF:%g %n", minMinorAlleleFreq()));
-        myLogger.info(String.format("includeRare:%s includeGaps:%s %n", includeRareAlleles(), includeGaps()));
+//        myLogger.info(String.format("includeRare:%s includeGaps:%s %n", includeRareAlleles(), includeGaps()));
     }
 
     @Override
@@ -269,13 +269,19 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         		tagTaxaMap=setCommonToReference(tagTaxaMap);
         	}
         }
-
+        boolean printDebug=(cutPosition.getPosition()>179_000 && cutPosition.getPosition()<1_500_000);  //todo remove after debugging
+        printDebug = false;
+        if(printDebug) System.out.println("\nTagLocus: "+cutPosition.toString());  //todo remove after debugging
         final double taxaCoverage=tagTaxaMap.values().stream().mapToInt(t -> t.numberOfTaxaWithTag()).sum()/(double)numberOfTaxa;  //todo this could be changed to taxa with tag
+        if(printDebug) System.out.println("taxaCoverage = " + taxaCoverage+" myMinLocusCoverage:"+myMinLocusCoverage.value());
         if(taxaCoverage < myMinLocusCoverage.value()) {
             return null;  //consider reporting low coverage
         }
         // This aligns the tags against each other - it doesn't call SNPs
-        Map<Tag,String> alignedTagsUnfiltered=alignTags(tagTaxaMap,maxTagsPerCutSite(),cutPosition.getStrand());
+
+
+
+        Map<Tag,String> alignedTagsUnfiltered=alignTags(tagTaxaMap,maxTagsPerCutSite(),cutPosition.getStrand(),printDebug);
         if (alignedTagsUnfiltered == null || alignedTagsUnfiltered.size() == 0) {
         	// Errors related to CompoundNotFound were logged in alignTags. 
         	return null;
@@ -294,11 +300,16 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 .filter(entry -> (double) numberTaxaAtSiteIgnoreGaps(entry.getValue()) / (double) numberOfTaxa > minLocusCoverage())
                 .filter(entry -> {
                     List<Tuple<Byte,Integer>> aC=alleleTaxaCounts(entry.getValue());
+                    if(!includeGaps()) {
+                        if(aC.get(0).x==GAP_ALLELE) return false;
+                        if(aC.size()>1 && (aC.get(1).x==GAP_ALLELE)) return false;
+                    }
                     if(minMinorAlleleFreq()<=0) return true;  //permits export of monomorphic SNPs
                     //if(aC.size()>1) System.out.printf("%s %d %g %g %g%n",entry.getKey().toString(),aC.get(1).y, minMinorAlleleFreq(),taxaCoverage,(minMinorAlleleFreq()*taxaCoverage*(double)numberOfTaxa));
                     return (aC.size()>1 && aC.get(1).y>(minMinorAlleleFreq()*taxaCoverage*(double)numberOfTaxa));
                 })
                 .map(Map.Entry::getKey) //get Position
+//                .peek(p -> {if(printDebug) System.out.println("SNP:"+p.toString());})  //todo remove after debugging
                 .collect(Collectors.toList());
         //todo convert to stream
         Multimap<Tag,Allele> tagAllelemap= HashMultimap.create();
@@ -352,6 +363,10 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
 
         int seqStart =  cutPosition ;
         int seqEnd = cutPosition + longestTagLen-1 ;
+        if (!forwardStrand) {
+            seqStart =  cutPosition - (longestTagLen-1);
+            seqEnd = cutPosition;
+        }
  
         byte[] seqInBytes = myRefSequence.chromosomeSequence(myChrom, seqStart, seqEnd );
         if (seqInBytes == null) {
@@ -416,12 +431,13 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      * Tags have been pre-sorted to align
      * @return map with tag(values) mapping to String with alignment
      */
-    private static Map<Tag,String> alignTags(Map<Tag,TaxaDistribution> tags, int maxTagsPerCutSite, byte strand) {
+    private static Map<Tag,String> alignTags(Map<Tag, TaxaDistribution> tags, int maxTagsPerCutSite, byte strand, boolean printDebug) {
         List<DNASequence> lst=new ArrayList<>();
         
         for (Map.Entry<Tag,  TaxaDistribution> entry : tags.entrySet())
         {
             Tag tag = entry.getKey();
+            if(printDebug) System.out.println(tag.toString());
             String sequence = (strand == 1) ? tag.sequence() : tag.toReverseComplement();
             try {
                 DNASequence ds = new DNASequence(sequence);
@@ -448,7 +464,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         // Alignments.getmultipleSequenceAlignment aligns the tags against each other using
         // the ClustalW algorithm
         Profile<DNASequence, NucleotideCompound> profile = Alignments.getMultipleSequenceAlignment(lst);
-        //System.out.printf("Clustalw:%n%s%n", profile);
+        if(printDebug) System.out.printf("Clustalw:%n%s%n", profile);
         for (AlignedSequence<DNASequence, NucleotideCompound> compounds : profile) {
             ImmutableList tagList=(ImmutableList)compounds.getOriginalSequence().getUserCollection();
             result.put((Tag)tagList.get(0),compounds.getSequenceAsString());
@@ -504,9 +520,9 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
      * @return
      */
     private static Table<Position, Byte, List<TagTaxaDistribution>> convertAlignmentToTagTable(Map<Tag,String> alignedTags,
-                        Map<Tag,TaxaDistribution> tagTaxaDistMap, Position refStartPosition) {
+                        Map<Tag,TaxaDistribution> tagTaxaDistMap, Position cutPosition) {
         Table<Position, Byte, List<TagTaxaDistribution>> alignT= TreeBasedTable.create(); //These could be sorted by depth
-        final List<Optional<Position>> referencePositions=referencePositions(refStartPosition,alignedTags);
+        final List<Optional<Position>> referencePositions=referencePositions(cutPosition,alignedTags);
         alignedTags.forEach((t,s) -> {
             TagTaxaDistribution td=new TagTaxaDistribution(t,tagTaxaDistMap.get(t));
             for (int i = 0; i < s.length(); i++) {
@@ -562,12 +578,12 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 .sum();
     }
 
-    private static List<Optional<Position>> referencePositions(Position refStartPosition, Map<Tag,String> alignedTags){
+    private static List<Optional<Position>> referencePositions(Position cutPosition, Map<Tag,String> alignedTags){
         // Find the tag marked as the reference.
         Tag refTag=alignedTags.keySet().stream()
                 .filter(Tag::isReference)
                 .findFirst().orElseThrow(() -> new IllegalStateException("Reference not found"));
-        AtomicInteger start=new AtomicInteger(refStartPosition.getPosition());
+        AtomicInteger start=new AtomicInteger(cutPosition.getPosition());
         // This takes all the characters in the reference tag.  As long as the character
         // is not equal to a GAP character, it creates a Position object.  The initial
         // int position in the object is the cut position.  As we move through the sequence,
@@ -577,23 +593,37 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         // Create position list that contains the reference allele
         // The cut position is relative to the forward strand
         String refChars = alignedTags.get(refTag);
+        byte strand = cutPosition.getStrand();
         List <Optional<Position>> positionList = new ArrayList<Optional<Position>>();
-        int nonGap = 0;
-        int gapFound = 0;
-        for (int cidx = 0; cidx < refChars.length(); cidx++) {
-            char currChar = refChars.charAt(cidx);
-            if (currChar == GAP_ALLELE_CHAR) {
-                gapFound++;
-                positionList.add(Optional.<Position>empty());
-            } else {
-                nonGap++;
-                byte refAllele = NucleotideAlignmentConstants.getNucleotideAlleleByte(currChar);
-                // These positions are always relative to the forward strand
-                // if (strand == -1) refAllele = NucleotideAlignmentConstants.getNucleotideComplement(refAllele);
-                positionList.add(Optional.<Position>of(new GeneralPosition.Builder(refStartPosition.getChromosome(), 
-                        start.getAndIncrement()).allele(WHICH_ALLELE.Reference, refAllele).build()));
+        if (strand == 1) {
+            for (int cidx = 0; cidx < refChars.length(); cidx++) {
+                char currChar = refChars.charAt(cidx);
+                if (currChar == GAP_ALLELE_CHAR) {
+                    positionList.add(Optional.<Position>empty());
+                } else {
+                    byte refAllele = NucleotideAlignmentConstants.getNucleotideAlleleByte(currChar);
+                    // These positions are always relative to the forward strand
+                    // if (strand == -1) refAllele = NucleotideAlignmentConstants.getNucleotideComplement(refAllele);
+                    positionList.add(Optional.<Position>of(new GeneralPosition.Builder(cutPosition.getChromosome(), 
+                            start.getAndIncrement()).allele(WHICH_ALLELE.Reference, refAllele).build()));
+                }
+            } 
+        } else {
+            List <Optional<Position>> revPositionList = new ArrayList<Optional<Position>>();
+            for (int revCidx = refChars.length()-1; revCidx >= 0; revCidx--) {
+                char currChar = refChars.charAt(revCidx);
+                if (currChar == GAP_ALLELE_CHAR) {
+                    revPositionList.add(Optional.<Position>empty());
+                } else {
+                    byte refAllele = NucleotideAlignmentConstants.getNucleotideAlleleByte(currChar);
+                    revPositionList.add(Optional.<Position>of(new GeneralPosition.Builder(cutPosition.getChromosome(), 
+                            start.getAndDecrement()).allele(WHICH_ALLELE.Reference, refAllele).build()));
+                }
             }
-        }       
+            for (int revCidx = revPositionList.size()-1; revCidx >= 0; revCidx--) {
+                positionList.add(revPositionList.get(revCidx));
+            }
+        }
         return positionList;
     }
 
@@ -753,27 +783,27 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         return this;
     }
 
-    /**
-     * Include the rare alleles at site (3 or 4th states)
-     *
-     * @return Include Rare Alleles
-     */
-    public Boolean includeRareAlleles() {
-        return myIncludeRareAlleles.value();
-    }
-
-    /**
-     * Set Include Rare Alleles. Include the rare alleles
-     * at site (3 or 4th states)
-     *
-     * @param value Include Rare Alleles
-     *
-     * @return this plugin
-     */
-    public DiscoverySNPCallerPluginV2 includeRareAlleles(Boolean value) {
-        myIncludeRareAlleles = new PluginParameter<>(myIncludeRareAlleles, value);
-        return this;
-    }
+//    /**
+//     * Include the rare alleles at site (3 or 4th states)
+//     *
+//     * @return Include Rare Alleles
+//     */
+//    public Boolean includeRareAlleles() {
+//        return myIncludeRareAlleles.value();
+//    }
+//
+//    /**
+//     * Set Include Rare Alleles. Include the rare alleles
+//     * at site (3 or 4th states)
+//     *
+//     * @param value Include Rare Alleles
+//     *
+//     * @return this plugin
+//     */
+//    public DiscoverySNPCallerPluginV2 includeRareAlleles(Boolean value) {
+//        myIncludeRareAlleles = new PluginParameter<>(myIncludeRareAlleles, value);
+//        return this;
+//    }
 
     /**
      * Include sites where major or minor allele is a GAP
@@ -797,29 +827,29 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         return this;
     }
 
-    /**
-     * Include sites where the third allele is a GAP (mutually
-     * exclusive with inclGaps)
-     *
-     * @return Call Biallelic SNPs with Gap
-     */
-    public Boolean callBiallelicSNPsWithGap() {
-        return myCallBiSNPsWGap.value();
-    }
-
-    /**
-     * Set Call Biallelic SNPs with Gap. Include sites where
-     * the third allele is a GAP (mutually exclusive with
-     * inclGaps)
-     *
-     * @param value Call Biallelic SNPs with Gap
-     *
-     * @return this plugin
-     */
-    public DiscoverySNPCallerPluginV2 callBiallelicSNPsWithGap(Boolean value) {
-        myCallBiSNPsWGap = new PluginParameter<>(myCallBiSNPsWGap, value);
-        return this;
-    }
+//    /**
+//     * Include sites where the third allele is a GAP (mutually
+//     * exclusive with inclGaps)
+//     *
+//     * @return Call Biallelic SNPs with Gap
+//     */
+//    public Boolean callBiallelicSNPsWithGap() {
+//        return myCallBiSNPsWGap.value();
+//    }
+//
+//    /**
+//     * Set Call Biallelic SNPs with Gap. Include sites where
+//     * the third allele is a GAP (mutually exclusive with
+//     * inclGaps)
+//     *
+//     * @param value Call Biallelic SNPs with Gap
+//     *
+//     * @return this plugin
+//     */
+//    public DiscoverySNPCallerPluginV2 callBiallelicSNPsWithGap(Boolean value) {
+//        myCallBiSNPsWGap = new PluginParameter<>(myCallBiSNPsWGap, value);
+//        return this;
+//    }
 
     /**
      * Maximum gap alignment allowed from the equation:

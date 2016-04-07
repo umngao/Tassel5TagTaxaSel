@@ -29,7 +29,7 @@ public class ChartDisplayPlugin extends AbstractDisplayPlugin {
     int series1 = -1;   //X for XY, category for BarChart
     int series2 = -1;   //Y1 for XY,
     int series3 = -1;   //Y2 for XY, not used for histogram
-    int bins = 5;
+    int bins = 25;
     boolean isRegression = false;  //XY setting
     boolean isBoxWhisker = false, isBar = true, errBar = false;  //Barchart settings
 

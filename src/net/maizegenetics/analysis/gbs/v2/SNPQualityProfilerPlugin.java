@@ -51,7 +51,7 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
             .description("Name of taxa set for database").build();
     private PluginParameter<String> statFileName = new PluginParameter.Builder<String>("statFile",null,String.class).guiName("Name for Stat File Output")
             .description("Name of Stat File for Output").build();
-    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",false,Boolean.class).guiName("Delete Old Data")
+    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",true,Boolean.class).guiName("Delete Old Data")
             .description("Delete existing SNP quality data from db tables").build();
     private TagDataSQLite tagDataWriter;
 

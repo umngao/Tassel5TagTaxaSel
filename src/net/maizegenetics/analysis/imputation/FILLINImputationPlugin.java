@@ -16,8 +16,6 @@ import org.apache.log4j.Logger;
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,6 +26,7 @@ import static net.maizegenetics.dna.WHICH_ALLELE.Major;
 import static net.maizegenetics.dna.WHICH_ALLELE.Minor;
 import static net.maizegenetics.dna.snp.GenotypeTableUtils.isHeterozygous;
 import static net.maizegenetics.dna.snp.NucleotideAlignmentConstants.GAP_DIPLOID_ALLELE;
+import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginParameter;
 
@@ -70,13 +69,13 @@ import net.maizegenetics.plugindef.PluginParameter;
  */
 //@Citation("Two papers: Viterbi from Bradbury, et al (in prep) Recombination patterns in maize\n"+
 //        "NearestNeighborSearch Swarts,...,Buckler (in prep) Imputation with large genotyping by sequencing data\n")
-public class FILLINImputationPlugin extends net.maizegenetics.plugindef.AbstractPlugin {
+public class FILLINImputationPlugin extends AbstractPlugin {
     private int minMajorRatioToMinorCnt=10;  //refinement of minMinorCnt to account for regions with all major
     //Plugin parameters
     private PluginParameter<String> hmpFile= new PluginParameter.Builder<>("hmp",null,String.class).guiName("Target file").inFile().required(true)
             .description("Input HapMap file of target genotypes to impute. Accepts all file types supported by TASSEL5. This file should include _ALL_ available sites, not " +
                     "just those segregating in your material. (ie: don't filter the input)").build();
-    private PluginParameter<String> donorFile= new PluginParameter.Builder<>("d",null,String.class).guiName("Donor").required(true)
+    private PluginParameter<String> donorFile= new PluginParameter.Builder<>("d",null,String.class).guiName("Donor").inDir().required(true)
             .description("Directory containing donor haplotype files from output of FILLINFindHaplotypesPlugin. All files with '.gc' in the filename will be read in, "
                     + "only those with matching sites are used. Alternately, a single file to use as a donor, will be cut into sub genos in size specified (eg, high density"
                     + "SNP file for projection").build();
@@ -171,13 +170,9 @@ public class FILLINImputationPlugin extends net.maizegenetics.plugindef.Abstract
     private static final Logger myLogger = Logger.getLogger(FILLINImputationPlugin.class);
 
     @Override
-    protected void preProcessParameters(DataSet input) {
-        if (!new File(outFileBase.value()).getParentFile().exists()) new File(outFileBase.value()).getParentFile().mkdirs();
-    }
-    
-    @Override
     protected void postProcessParameters() {
         System.out.println("Calling FILLINImputationPlugin.postProcessParameters()...");
+        if (!new File(outFileBase.value()).getParentFile().exists()) new File(outFileBase.value()).getParentFile().mkdirs();
         minimumDonorDistance=maximumInbredError.value()*5;
         maxNonMedelian=maximumInbredError.value()*5; 
         maxInbredErrFocusHomo= .3*maximumInbredError.value();//.003;

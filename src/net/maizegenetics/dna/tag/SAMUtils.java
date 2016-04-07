@@ -85,7 +85,7 @@ public class SAMUtils {
             currentCharacter = cigarString.substring(cigarStringPosition, cigarStringPosition + 1);
 
             // M = Previous bases were present in both query & reference.
-            // S = Previous bases were present in query & reference, but were
+            // S/H = Previous bases were present in query & reference, but were
             //       dropped from reference during alignment to increase score
             //       (can only occur at one or both ends).
             // I = Previous bases were present only in query.
@@ -96,7 +96,7 @@ public class SAMUtils {
                 endCoordinate += Integer.parseInt(currDigits);
                 currDigits = "";
                 firstLetter = false;
-            } else if (currentCharacter.matches("[Ss]")) {
+            } else if (currentCharacter.matches("[SsHh]")) {
                 if (firstLetter) {
                     int span = Integer.parseInt(currDigits);
                     startCoordinate -= span;

@@ -38,6 +38,7 @@ public class GBSUtils {
     public static final String laneField="Lane";
     public static final String barcodeField="Barcode";
     public static final String tissueNameField = "Tissue";
+    public static final String fileNameField = "FileName";
     
     private GBSUtils() {
     }

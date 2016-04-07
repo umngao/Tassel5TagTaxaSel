@@ -49,7 +49,7 @@ public class LDKNNiImputationPlugin extends AbstractPlugin {
             .description("Number of neighbors to use in imputation")
             .build();
 
-    private PluginParameter<Integer> maxDistance = new PluginParameter.Builder<>("maxLDDistance", -1, Integer.class)
+    private PluginParameter<Integer> maxDistance = new PluginParameter.Builder<>("maxLDDistance", 10_000_000, Integer.class)
             .guiName("Max distance between site to find LD")
             .description("Maximum physical distance between sites to search for LD (-1 for no distance cutoff - unlinked chromosomes will be tested)")
             .build();

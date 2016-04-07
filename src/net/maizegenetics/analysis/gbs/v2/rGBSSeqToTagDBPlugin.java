@@ -1,30 +1,9 @@
 package net.maizegenetics.analysis.gbs.v2;
 
-import java.awt.Frame;
-import java.io.BufferedReader;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.LongAdder;
-import java.util.stream.IntStream;
-
-import javax.swing.ImageIcon;
-
+import com.google.common.collect.Multimap;
 import net.maizegenetics.analysis.gbs.Barcode;
 import net.maizegenetics.dna.BaseEncoder;
-import net.maizegenetics.dna.tag.Tag;
-import net.maizegenetics.dna.tag.TagBuilder;
-import net.maizegenetics.dna.tag.TagDataSQLite;
-import net.maizegenetics.dna.tag.TagDataWriter;
-import net.maizegenetics.dna.tag.TaxaDistBuilder;
-import net.maizegenetics.dna.tag.TaxaDistribution;
+import net.maizegenetics.dna.tag.*;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -34,15 +13,27 @@ import net.maizegenetics.taxa.TaxaListIOUtils;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.util.Utils;
-
 import org.ahocorasick.trie.Emit;
 import org.ahocorasick.trie.Trie;
 import org.apache.log4j.Logger;
 
+import javax.swing.*;
+import java.awt.*;
+import java.io.BufferedReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.LongAdder;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 /**
- * Develops a discovery TBT file from a set of GBS sequence files.
+ * Develops a discovery rGBS database based on a folder of sequencing files
  *
- * Keeps only good reads having a barcode and a cut site and no N's in the
+ * Keeps only good reads having no N's in the
  * useful part of the sequence. Trims off the barcodes and truncates sequences
  * that (1) have a second cut site, or (2) read into the common adapter.
  * 
@@ -51,9 +42,9 @@ import org.apache.log4j.Logger;
  *
  * @author Ed Buckler
  */
-public class GBSSeqToTagDBPlugin extends AbstractPlugin {
+public class rGBSSeqToTagDBPlugin extends AbstractPlugin {
 
-    private static final Logger myLogger = Logger.getLogger(GBSSeqToTagDBPlugin.class);
+    private static final Logger myLogger = Logger.getLogger(rGBSSeqToTagDBPlugin.class);
 
     private PluginParameter<String> myInputDir = new PluginParameter.Builder<>("i", null, String.class).guiName("Input Directory").required(true).inDir()
             .description("Input directory containing FASTQ files in text or gzipped text.\n"
@@ -61,11 +52,9 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                     + "     be written WITHOUT a slash after its name.").build();
     private PluginParameter<String> myKeyFile = new PluginParameter.Builder<>("k", null, String.class).guiName("Key File").required(true).inFile()
             .description("Key file listing barcodes distinguishing the samples").build();
-    private PluginParameter<String> myEnzyme = new PluginParameter.Builder<>("e", null, String.class).guiName("Enzyme").required(true)
-            .description("Enzyme used to create the GBS library, if it differs from the one listed in the key file").build();
-    private PluginParameter<Integer> myKmerLength = new PluginParameter.Builder<>("kmerLength", 64, Integer.class).guiName("Maximum Kmer Length")
+    private PluginParameter<Integer> myKmerLength = new PluginParameter.Builder<>("kmerLength", 150, Integer.class).guiName("Maximum Kmer Length")
             .description("Specified length for each kmer to process").build();
-    private PluginParameter<Integer> myMinKmerLength = new PluginParameter.Builder<>("minKmerL", 20, Integer.class).guiName("Minimum Kmer Length")
+    private PluginParameter<Integer> myMinKmerLength = new PluginParameter.Builder<>("minKmerL", 120, Integer.class).guiName("Minimum Kmer Length")
             .description("Minimum kmer Length after second cut site is removed").build();
     private PluginParameter<Integer> myMinKmerCount = new PluginParameter.Builder<>("c", 10, Integer.class).guiName("Min Kmer Count")
             .description("Minimum kmer count").build();
@@ -77,61 +66,28 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             .description("Maximum number of kmers").build();
     private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 8, Integer.class).guiName("Batch size of fastq files").required(false)
             .description("Number of flow cells being processed simultaneously").build();
-    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",true,Boolean.class).guiName("Delete Old Data")
+    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",false,Boolean.class).guiName("Delete Old Data")
             .description("Delete existing SNP quality data from db tables").build();
     LongAdder roughTagCnt = new LongAdder();
 
     private TagDistributionMap tagCntMap;
     private boolean taglenException;
     protected static int readEndCutSiteRemnantLength;
-    private Trie ahoCorasickTrie; // import from ahocorasick-0.2.1.jar
     String[] likelyReadEndStrings;
-   
-    public GBSSeqToTagDBPlugin() {
+
+    public rGBSSeqToTagDBPlugin() {
         super(null, false);
     }
 
-    public GBSSeqToTagDBPlugin(Frame parentFrame, boolean isInteractive) {
+    public rGBSSeqToTagDBPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
 
-    /**
-     * Order files by size to improve concurrent performance
-     * @param fs
-     * @return 
-     */
-    private List<Path> sortFastqBySize (List<Path> fs) {
-        ArrayList<Long> sizeList = new ArrayList();
-        HashMap<Long,Path> sizePathMap = new HashMap();
-        fs.parallelStream().forEach(f -> {
-            try {
-                long s = Files.size(f);
-                sizeList.add(s);
-                sizePathMap.putIfAbsent(s, f);
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
-        Collections.sort(sizeList, Collections.reverseOrder());
-        //Collections.sort(sizeList);
-        ArrayList<Path> np = new ArrayList();
-        //files rarely have the same size, but it might happen
-        try {
-            for (int i = 0; i < sizeList.size(); i++) {
-                np.add(sizePathMap.get(sizeList.get(i)));
-            }
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-        return np;
-    }
-    
+
     private long[] calcTagMapStats(TagDistributionMap tagCntMap) {
         long totalDepth=0, memory=0;
         int cnt=0;
-        for (Map.Entry<Tag, TaxaDistribution> entry : tagCntMap.entrySet()) {       	
+        for (Map.Entry<Tag, TaxaDistribution> entry : tagCntMap.entrySet()) {
             memory+=entry.getValue().memorySize();
             memory+=25;
             totalDepth+=entry.getValue().totalDepth();
@@ -146,54 +102,35 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
     @Override
     public void postProcessParameters() {
 
-        if (!myEnzyme.isEmpty()) {
-            // Add likelyReadEnds to the ahoCorasick trie
-            GBSEnzyme enzyme = new GBSEnzyme(enzyme()); 
-            likelyReadEndStrings = enzyme.likelyReadEnd(); // for removeSecondCutSiteIndexOf()
-            readEndCutSiteRemnantLength = enzyme.readEndCutSiteRemnantLength();
-//            String[] likelyReadEnd = enzyme.likelyReadEnd();
-//            // the junit test runs about a second faster average 15.5 vs 16.5) without Trie().removeOverlaps();
-//            ahoCorasickTrie = new Trie(); // adding caseInsensitive causes nothing to be found
-//            for (String readEnd: likelyReadEnd) {
-//                ahoCorasickTrie.addKeyword(readEnd);
-//            }  
-// 
-//            // Bug in acorasick code that occurs when multiple threads
-//            // call parseText at once.  The software computes the failure
-//            // states the first time "parseText" is called.  If multiple threads
-//            // hit this at once, they will all call "constructFailureStates" 
-//            // and this causes problems.  Suggested workaround is to call
-//            // parseText once after all keywords are added, and before we enter
-//            // multi-threaded mode.  This gets the failure states constructed
-//            // before we start processing the fastQ reads.  See this link:
-//            //   https://github.com/robert-bor/aho-corasick/issues/16
-//            ahoCorasickTrie.parseText("CAGCTTCAGGTGGTGCGGACGTGGTGGATCACGGCGCTGAAGCCCGCGCGCTTGGTCTGGCTGA");
-        }
-        
     }
     @Override
     public DataSet processData(DataSet input) {
         int batchSize = myBatchSize.value();
         float loadFactor = 0.95f;
-        tagCntMap = new TagDistributionMap (myMaxKmerNumber.value(),loadFactor, 128, this.minKmerCount());        
+        tagCntMap = new TagDistributionMap (myMaxKmerNumber.value(),loadFactor, 128, this.minKmerCount());
         try {
+            TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), GBSUtils.sampleNameField, new HashMap<>(), true);
+            Map<String,Taxon> fileTaxaMap=TaxaListIOUtils.getUniqueMapOfTaxonByAnnotation(masterTaxaList,GBSUtils.fileNameField)
+                    .orElseThrow(() -> new IllegalArgumentException("Error: Same file points more than one taxon in the KeyFile"));
             //Get the list of fastq files
-            Path keyPath= Paths.get(keyFile()).toAbsolutePath();
             List<Path> directoryFiles= DirectoryCrawler.listPaths(GBSUtils.inputFileGlob, Paths.get(myInputDir.value()).toAbsolutePath());
-            if(directoryFiles.isEmpty()) { 
+            if(directoryFiles.isEmpty()) {
                 myLogger.warn("No files matching:"+ GBSUtils.inputFileGlob);
                 return null;
-            } 
-            // Cull files that are not represented in the given key file 
-            List<Path> inputSeqFiles = GBSUtils.culledFiles(directoryFiles,keyPath);
+            }
+            // Cull files that are not represented in the given key file
+            List<Path> inputSeqFiles =  directoryFiles.stream()
+                    .peek(path -> System.out.println(path.getFileName().toString()))
+                    .filter(path -> fileTaxaMap.containsKey(path.getFileName().toString()))
+                    .collect(Collectors.toList());
             if (inputSeqFiles.size() == 0) return null; // no files in this directory to process
             //Files in a batch have roughly the same size
             //inputSeqFiles = this.sortFastqBySize(inputSeqFiles);
             int batchNum = inputSeqFiles.size()/batchSize;
             if (inputSeqFiles.size()%batchSize != 0) batchNum++;
-            TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), GBSUtils.sampleNameField, new HashMap<>(), true);
-            
-            // Check if user wants to clear existing db. 
+
+
+            // Check if user wants to clear existing db.
             TagDataWriter tdw = null;
             if (Files.exists(Paths.get(myOutputDB.value()))) {
                 if (deleteOldData()) {
@@ -224,11 +161,11 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                         return null;
                     }
                     // Grab existing data from db, append to empty tagCntMap
-                    Map<Tag, TaxaDistribution> existingTDM = tdw.getAllTagsTaxaMap(); 
+                    Map<Tag, TaxaDistribution> existingTDM = tdw.getAllTagsTaxaMap();
                     tagCntMap.putAll(existingTDM);
                     tdw.clearTagTaxaDistributionData(); // clear old data - it will be re-added at the end.
                 }
-            } 
+            }
             if (tdw == null) tdw=new TagDataSQLite(myOutputDB.value());
             taglenException = false;
             for (int i = 0; i < inputSeqFiles.size(); i+=batchSize) {
@@ -237,17 +174,18 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 ArrayList<Path> sub = new ArrayList();
                 for (int j = i; j < end; j++) sub.add(inputSeqFiles.get(j));
                 System.out.println("\nStart processing batch " + String.valueOf(i/batchSize+1));
-                sub.parallelStream()
-                .forEach(inputSeqFile -> {
-                    try {
-                        processFastQFile(masterTaxaList,keyPath, inputSeqFile, enzyme(),
-                                minimumQualityScore(), tagCntMap, kmerLength());
-                    } catch (StringIndexOutOfBoundsException oobe) {
-                        oobe.printStackTrace();
-                        myLogger.error(oobe.getMessage());
-                        setTagLenException();
-                        return;
-                    }
+                sub//.parallelStream()
+                    .forEach(inputSeqFile -> {
+                        try {
+                            //processFastQFile(masterTaxaList,keyPath, inputSeqFile, minimumQualityScore(), tagCntMap, kmerLength());
+                            int taxaIndex=masterTaxaList.indexOf(fileTaxaMap.get(inputSeqFile.getFileName().toString()));
+                            processFastQ(inputSeqFile, taxaIndex, masterTaxaList, tagCntMap, kmerLength(), minimumQualityScore());
+                        } catch (StringIndexOutOfBoundsException oobe) {
+                            oobe.printStackTrace();
+                            myLogger.error(oobe.getMessage());
+                            setTagLenException();
+                            return;
+                        }
                 });
                 if (taglenException == true) return null; // Tag length failure from processFastQ - halt processing
 
@@ -266,8 +204,8 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                     } else {
                         this.calcTagMapStats(tagCntMap);
                         System.out.println();
-                        System.out.println("Kmer number is reduced to " + tagCntMap.size()+"\n");  
-                    }                   
+                        System.out.println("Kmer number is reduced to " + tagCntMap.size()+"\n");
+                    }
                     this.roughTagCnt.reset();
                     this.roughTagCnt.add(tagCntMap.size());
                 } else {
@@ -282,7 +220,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             System.out.println("\nAll the batch are processed");
             tagCntMap.removeTagByCount(myMinKmerCount.value());
             System.out.println("By removing kmers with minCount of " + myMinKmerCount.value() + "Kmer number is reduced to " + tagCntMap.size()+"\n");
-            
+
             // now done in processFastQ
             //removeSecondCutSitesFromMap(new GBSEnzyme(enzyme()));
 
@@ -295,20 +233,8 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         }
         return new DataSet(new Datum("TagMap",tagCntMap,""),this);
     }
-    
-    private void processFastQFile(TaxaList masterTaxaList, Path keyPath, Path fastQPath, String enzymeName,
-                     int minQuality, TagDistributionMap masterTagTaxaMap, int preferredTagLength) throws StringIndexOutOfBoundsException {
-    	ArrayList<Taxon> tl=GBSUtils.getLaneAnnotatedTaxaList(keyPath, fastQPath);
-    	if (tl.size() == 0) return; 
-        BarcodeTrie barcodeTrie=GBSUtils.initializeBarcodeTrie(tl, masterTaxaList, new GBSEnzyme(enzymeName));
-        try {
-        	processFastQ(fastQPath,barcodeTrie,masterTaxaList,masterTagTaxaMap,preferredTagLength,minQuality);
-        } catch (StringIndexOutOfBoundsException oobe) {
-        	throw oobe; // Let processData() handle it - we want to stop processing on this error
-        }        
-    }
 
-    private void processFastQ(Path fastqFile, BarcodeTrie barcodeTrie, TaxaList masterTaxaList,
+    private void processFastQ(Path fastqFile, int taxaIndex, TaxaList masterTaxaList,
                               TagDistributionMap masterTagTaxaMap, int preferredTagLength, int minQual) throws StringIndexOutOfBoundsException{
         int allReads=0, goodBarcodedReads = 0, lowQualityReads = 0;
         int maxTaxaNumber=masterTaxaList.size();
@@ -319,43 +245,39 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             BufferedReader br = Utils.getBufferedReader(fastqFile.toString(), 1 << 22);
             long time=System.nanoTime();
             String[] seqAndQual;
- 
+
             while ((seqAndQual=GBSUtils.readFastQBlock(br,allReads)) != null) {
                 allReads++;
                 //After quality score is read, decode barcode using the current sequence & quality  score
-                Barcode barcode=barcodeTrie.longestPrefix(seqAndQual[0]);
-                if(barcode==null) continue;
                 if(minQual>0) {
                     //todo move getFirstLowQualityPos into this class?
-                    if(BaseEncoder.getFirstLowQualityPos(seqAndQual[1],minQual, qualityScoreBase)<(barcode.getBarLength()+preferredTagLength)){
+                    if(BaseEncoder.getFirstLowQualityPos(seqAndQual[1],minQual, qualityScoreBase)<(preferredTagLength)){
                     	lowQualityReads++;
                     	continue;
                     }
                 }
 
-                int barcodeLen = barcode.getBarLength();               
-                if (seqAndQual[0].length() - barcodeLen < preferredTagLength) {
+                if (seqAndQual[0].length() < preferredTagLength) {
                 	String errMsg = "\n\nERROR processing " + fastqFile.toString() + "\n" +
                 			"Reading entry number " + allReads + " fails the length test.\n" +
-                			"Sequence length " + seqAndQual[0].length() + " minus barcode length "+ barcodeLen +
+                			"Sequence length " + seqAndQual[0].length() +
                 			" is less then maxKmerLength " + preferredTagLength + ".\n" +
                 			"Re-run your files with either a shorter mxKmerL value or a higher minimum quality score.\n";
                 	throw new StringIndexOutOfBoundsException(errMsg);
                 }
                 // This one has best performance
-                Tag tag = removeSecondCutSiteIndexOf(seqAndQual[0].substring(barcodeLen),preferredTagLength);
-                
-                // call ahocorasick
+                Tag tag = TagBuilder.instance(seqAndQual[0].substring(0,preferredTagLength)).build();
+
                 //Tag tag = removeSecondCutSiteAhoC(seqAndQual[0].substring(barcodeLen),preferredTagLength);
                 //Tag tag=TagBuilder.instance(seqAndQual[0].substring(barcodeLen, barcodeLen + preferredTagLength)).build();
                 if(tag==null) continue;   //null occurs when any base was not A, C, G, T
                 goodBarcodedReads++;
                 TaxaDistribution taxaDistribution=masterTagTaxaMap.get(tag);
                 if(taxaDistribution==null) {
-                    masterTagTaxaMap.put(tag,TaxaDistBuilder.create(maxTaxaNumber,barcode.getTaxaIndex()));
+                    masterTagTaxaMap.put(tag,TaxaDistBuilder.create(maxTaxaNumber,taxaIndex));
                     this.roughTagCnt.increment();
                 } else {
-                    taxaDistribution.increment(barcode.getTaxaIndex());
+                    taxaDistribution.increment(taxaIndex);
                 }
                 if (allReads % checkSize == 0) {
                     myLogger.info("Total Reads:" + allReads + " Reads with barcode and cut site overhang:" + goodBarcodedReads
@@ -374,146 +296,12 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         	throw oobe; // pass it up to print error and stop processing
         } catch (Exception e) {
             myLogger.error("Good Barcodes Read: " + goodBarcodedReads);
-            
+
             e.printStackTrace();
         }
     }
 
-    // This should be moved to GBSUtils as it is used in Production as well
-    private Tag removeSecondCutSiteIndexOf(String seq, int preferredLength) {
-        Tag tag = null;
-        
-        // handle overlapping cutsite for ApeKI enzyme
-        if (enzyme().equalsIgnoreCase("ApeKI")) {
-            if (seq.startsWith("CAGCTGC") || seq.startsWith("CTGCAGC")) {
-                seq = seq.substring(3,seq.length());
-            }             
-        }
-        int indexOfReadEnd = -1;
-        String shortSeq = seq.substring(20);
-        for (String readEnd: likelyReadEndStrings){
-            int indx = shortSeq.indexOf(readEnd);
-            if (indx > 0 ) {
-                if (indexOfReadEnd < 0 || indx < indexOfReadEnd) {
-                    indexOfReadEnd = indx;
-                } 
-            }
-        }
-        
-        if (indexOfReadEnd > 0 &&
-                (indexOfReadEnd + 20 + readEndCutSiteRemnantLength < preferredLength)) {
-            // trim tag to sequence up to & including the cut site
-            tag = TagBuilder.instance(seq.substring(0, indexOfReadEnd + 20 + readEndCutSiteRemnantLength)).build();
- 
-        } else {
-            int seqEnd = (byte) Math.min(seq.length(), preferredLength);
-            return TagBuilder.instance(seq.substring(0,seqEnd)).build();
-        }
-        return tag;
-    }
-    
-    private Tag removeSecondCutSiteAhoC(String seq, int preferredLength) {
-        // Removes the second cut site BEFORE we trim the tag.
-        // this preserves the cut site incase it shows up in the middle       
-        Tag tag = null;
-        int cutSiteIndex = 9999;
-        
-        // handle overlapping cutsite for ApeKI enzyme
-        if (enzyme().equalsIgnoreCase("ApeKI")) {
-            if (seq.startsWith("CAGCTGC") || seq.startsWith("CTGCAGC")) {
-                seq = seq.substring(3,seq.length());
-            }             
-        }
-        // use ahoCorasickTrie to find cut site       
-        // Start at seq+20 since 20 is default minimum length
-        Collection<Emit> emits = null;
-        try {
-            emits = ahoCorasickTrie.parseText(seq.substring(20));
-        } catch (Exception emitsEx) {
-            System.out.println("LCJ - ahoCorasick excep: seq: " + seq);
-            emitsEx.printStackTrace();
-            // proceed as if no tag was found.  need to understand why sometimes
-            // aho-c complains of a null pointer
-            int seqEnd = (byte) Math.min(seq.length(), preferredLength);
-            return TagBuilder.instance(seq.substring(0,seqEnd)).build();
-        }
-        
-//        boolean printit = false;
-//        if (emits.size() > 1) {
-//        System.out.println("LCJ - ahoCorasickTrie emits size: " + emits.size());
-//        printit = true;
-//        }
-//        for (Emit emit: emits) {
-//            int pos = emit.getStart();
-//            if (printit) System.out.println("LCJ - emits pos: " + pos + " " + emit.getKeyword());
-//            if (pos < cutSiteIndex) {
-//                cutSiteIndex = pos;
-//            }
-//        }
-        // Using the above as debug, when we find more than 1, the items in the list
-        // appear in the order they appear in the seq.  So we only need to look at the first one
-        for (Emit emit: emits) {
-            cutSiteIndex = emit.getStart();
-            break;
-        }
 
-        if (cutSiteIndex + 20 + readEndCutSiteRemnantLength < preferredLength) { // add 20 as we cut off first 20 for aho-c parsing
-            // trim tag to sequence up to & including the cut site
-            tag = TagBuilder.instance(seq.substring(0, cutSiteIndex + 20 + readEndCutSiteRemnantLength)).build();
-        } else {
-            // if no cut site found, or it is beyond preferred length
-            int seqEnd = (byte) Math.min(seq.length(), preferredLength);
-            tag = TagBuilder.instance(seq.substring(0,seqEnd)).build();
-        }
-        return tag;       
-    }
-    
-    // THis method now obsolete, replaced with removeSecondCutSiteAhoC
-    private void removeSecondCutSitesFromMap(GBSEnzyme enzyme) {
-        //this is a little tricky as you cannot add entries at the same time as removing entries to a map
-        System.out.println("GBSSeqToTagDBPlugin.removeSecondCutSitesFromMap started Initial Size:"+tagCntMap.size());
-        String[] likelyReadEnd=enzyme.likelyReadEnd();
-        long time=System.nanoTime();
-
-        Map<Tag,TaxaDistribution> shortTags=new HashMap<>(tagCntMap.size()/5);
-        int belowMinSize=0, shortExisting=0;
-        for (Tag origTag : tagCntMap.keySet()) {
-            int minCutSite=Integer.MAX_VALUE;
-            String origTagSequence = origTag.sequence();
-            for (String potentialCutSite : likelyReadEnd) {
-            	int p = origTagSequence.indexOf(potentialCutSite, 1);
-                if(p>0) minCutSite=Math.min(minCutSite,p);
-            }
-            if (minCutSite!=Integer.MAX_VALUE && minCutSite > 1) {
-                if(minCutSite<minimumKmerLength()) {
-                    tagCntMap.remove(origTag);
-                    belowMinSize++;
-                    continue;
-                }
-                TaxaDistribution currentTaxaDist=tagCntMap.remove(origTag);
-                Tag t = TagBuilder.instance(origTagSequence.substring(0, minCutSite + enzyme.readEndCutSiteRemnantLength())).build();
-                TaxaDistribution existingTD=shortTags.get(t);
-                if(existingTD!=null) {
-                    if(currentTaxaDist==null || existingTD==null) {
-                        System.out.println("We have a problem");
-                    }
-                    currentTaxaDist=TaxaDistBuilder.combine(currentTaxaDist,existingTD);
-                    shortExisting++; //System.out.println("existingTD="+t);
-                }
-                shortTags.put(t, currentTaxaDist);
-                //if(ttemp!=null) shortExisting++;
-               // System.out.println(origTag+" -> "+t);
-            }
-        }
-        System.out.println("After removal tagCntMap.size() = " + tagCntMap.size());
-        System.out.println("After removal shortTags.size() = " + shortTags.size());
-        System.out.println("belowMinSize = " + belowMinSize);
-        System.out.println("shortExisting = " + shortExisting);
-        System.out.println("removeSecondCutSite: Process took " + (System.nanoTime() - time)/1e6 + " milliseconds.");
-        tagCntMap.putAll(shortTags);
-        System.out.println("After combining again tagCntMap.size() = " + tagCntMap.size());
-    }
-    
     /**
      * This method removes all tags are are never repeated in a single sample (taxa).  The concept is that
      * all biologically real tag should show up twice somewhere.  This could be called at the end of every
@@ -529,7 +317,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             if(td.totalDepth()<2*minTaxa) {
                 masterTagTaxaMap.remove(t.getKey());
                 tagsRemoved.increment();
-            } 
+            }
             else if(IntStream.of(td.depths()).filter(depth -> depth>1).count()<minTaxa) {
                 masterTagTaxaMap.remove(t.getKey());
                 tagsRemoved.increment();
@@ -537,7 +325,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         });
         System.out.println("Finished removeTagsWithoutReplication.  tagsRemoved = " + tagsRemoved + ". Current tag number: " + String.valueOf(currentSize-tagsRemoved.intValue()));
     }
-    
+
     public void setTagLenException() {
     	taglenException = true;
     }
@@ -581,7 +369,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public GBSSeqToTagDBPlugin inputDirectory(String value) {
+    public rGBSSeqToTagDBPlugin inputDirectory(String value) {
         myInputDir = new PluginParameter<>(myInputDir, value);
         return this;
     }
@@ -603,33 +391,11 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public GBSSeqToTagDBPlugin keyFile(String value) {
+    public rGBSSeqToTagDBPlugin keyFile(String value) {
         myKeyFile = new PluginParameter<>(myKeyFile, value);
         return this;
     }
 
-    /**
-     * Enzyme used to create the GBS library, if it differs
-     * from the one listed in the key file
-     *
-     * @return Enzyme
-     */
-    public String enzyme() {
-        return myEnzyme.value();
-    }
-
-    /**
-     * Set Enzyme. Enzyme used to create the GBS library,
-     * if it differs from the one listed in the key file
-     *
-     * @param value Enzyme
-     *
-     * @return this plugin
-     */
-    public GBSSeqToTagDBPlugin enzyme(String value) {
-        myEnzyme = new PluginParameter<>(myEnzyme, value);
-        return this;
-    }
 
     /**
      * Maximum Tag Length
@@ -647,7 +413,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public GBSSeqToTagDBPlugin kmerLength(Integer value) {
+    public rGBSSeqToTagDBPlugin kmerLength(Integer value) {
         myKmerLength = new PluginParameter<>(myKmerLength, value);
         return this;
     }
@@ -668,7 +434,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public GBSSeqToTagDBPlugin minimumKmerLength(Integer value) {
+    public rGBSSeqToTagDBPlugin minimumKmerLength(Integer value) {
         myMinKmerLength = new PluginParameter<>(myMinKmerLength, value);
         return this;
     }
@@ -689,7 +455,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public GBSSeqToTagDBPlugin minKmerCount(Integer value) {
+    public rGBSSeqToTagDBPlugin minKmerCount(Integer value) {
         myMinKmerCount = new PluginParameter<>(myMinKmerCount, value);
         return this;
     }
@@ -710,7 +476,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public GBSSeqToTagDBPlugin outputDatabaseFile(String value) {
+    public rGBSSeqToTagDBPlugin outputDatabaseFile(String value) {
         myOutputDB = new PluginParameter<>(myOutputDB, value);
         return this;
     }
@@ -733,27 +499,27 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public GBSSeqToTagDBPlugin minimumQualityScore(Integer value) {
+    public rGBSSeqToTagDBPlugin minimumQualityScore(Integer value) {
         myMinQualScore = new PluginParameter<>(myMinQualScore, value);
         return this;
     }
-    
+
     /**
      * Set maximum number of kmers
      * @param value
-     * @return 
+     * @return
      */
-    public GBSSeqToTagDBPlugin maximumKmerNumber(Integer value) {
+    public rGBSSeqToTagDBPlugin maximumKmerNumber(Integer value) {
         myMaxKmerNumber = new PluginParameter<>(myMaxKmerNumber, value);
         return this;
     }
-    
+
     /**
      * Set number of Fastq files processed simultaneously
      * @param value
-     * @return 
+     * @return
      */
-    public GBSSeqToTagDBPlugin batchSize(Integer value) {
+    public rGBSSeqToTagDBPlugin batchSize(Integer value) {
         myBatchSize = new PluginParameter<>(myBatchSize, value);
         return this;
     }
@@ -774,7 +540,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public GBSSeqToTagDBPlugin deleteOldData(Boolean value) {
+    public rGBSSeqToTagDBPlugin deleteOldData(Boolean value) {
         myDeleteOldData = new PluginParameter<>(myDeleteOldData, value);
         return this;
     }
@@ -801,13 +567,13 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         private final int maxTagNum;
         private int minDepthToRetainInMap=2;
         private final int minCount;
-        
+
         TagDistributionMap (int maxTagNumber, float loadFactor, int concurrencyLevel, int minCount) {
             super((maxTagNumber*2), loadFactor, concurrencyLevel);
             maxTagNum = maxTagNumber;
             this.minCount = minCount;
         }
-        
+
         @Override
         public TaxaDistribution put(Tag key, TaxaDistribution value) {
             return super.put(key, value);
@@ -818,12 +584,12 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                     .filter(e -> e.getValue().totalDepth()<minCnt)
                     .forEach(e -> remove(e.getKey()));
         }
-        
-            
+
+
         public long estimateMapMemorySize() {
             long size=0;
             int cnt=0;
-            for (Map.Entry<Tag, TaxaDistribution> entry : entrySet()) {
+            for (Entry<Tag, TaxaDistribution> entry : entrySet()) {
                 size+=8+16+1; //Tag size
                 size+=16; //Map references
                 size+=entry.getValue().memorySize();
@@ -837,7 +603,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
         public long[] depthDistribution() {
             long[] base2bins=new long[34];
             int cnt=0;
-            for (Map.Entry<Tag, TaxaDistribution> entry : entrySet()) {
+            for (Entry<Tag, TaxaDistribution> entry : entrySet()) {
                 base2bins[31-Integer.numberOfLeadingZeros(entry.getValue().totalDepth())]++;
                 cnt++;
                // if(cnt>100000) break;
