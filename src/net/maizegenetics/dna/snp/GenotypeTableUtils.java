@@ -465,7 +465,7 @@ public class GenotypeTableUtils {
         if (filter.siteFilterType() == FilterSite.SITE_RANGE_FILTER_TYPES.SITES) {
             int start = filter.startSite();
             int end = filter.endSite();
-            if ((start < 0) || (start > end) || (end > genotype.numberOfSites())) {
+            if ((start < 0) || (start > end) || (end >= genotype.numberOfSites())) {
                 throw new IllegalArgumentException("GenotypeTableUtils: filter: start: " + start + " or end: " + end + " site outside acceptable range.");
             }
             result = FilterGenotypeTable.getInstance(result, start, end);
@@ -481,7 +481,7 @@ public class GenotypeTableUtils {
 
             int end = genotype.siteOfPhysicalPosition(filter.endPos(), filter.endChr());
             if (end < 0) {
-                end = -(end + 1);
+                end = -end - 2;
                 if (end >= numSites) {
                     end = numSites - 1;
                 }
@@ -651,6 +651,10 @@ public class GenotypeTableUtils {
 
                 }
             }
+        }
+
+        if (temp.size() == origPositionList.size()) {
+            return input;
         }
 
         if (includeSites) {
