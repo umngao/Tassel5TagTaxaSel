@@ -172,7 +172,10 @@ public class FILLINImputationPlugin extends AbstractPlugin {
     @Override
     protected void postProcessParameters() {
         System.out.println("Calling FILLINImputationPlugin.postProcessParameters()...");
-        if (!new File(outFileBase.value()).getParentFile().exists()) new File(outFileBase.value()).getParentFile().mkdirs();
+        File parent = new File(outputFilename()).getParentFile();
+        if ((parent != null) && (!parent.exists())) {
+            parent.mkdirs();
+        }
         minimumDonorDistance=maximumInbredError.value()*5;
         maxNonMedelian=maximumInbredError.value()*5; 
         maxInbredErrFocusHomo= .3*maximumInbredError.value();//.003;
