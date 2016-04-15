@@ -19,6 +19,7 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.TaxaListIOUtils;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.ProgressListener;
 import net.maizegenetics.util.Tassel5HDF5Constants;
 import net.maizegenetics.util.Utils;
 
@@ -61,10 +62,13 @@ public class BuilderFromVCF {
     private boolean inMemory=true;
     private String hdf5Outfile=null;
     private GenotypeTableBuilder hdf5GenoTableBuilder=null;
+    private final ProgressListener myProgressListener;
 
-    private BuilderFromVCF(String infile) {
+    private BuilderFromVCF(String infile,ProgressListener listener) {
         this.infile=infile;
+        this.myProgressListener = listener;
     }
+    
 
     /**
      * Create a builder for loading a VCF file into memory
@@ -72,7 +76,17 @@ public class BuilderFromVCF {
      * @return a builder
      */
     public static BuilderFromVCF getBuilder(String infile) {
-        return new BuilderFromVCF(infile);
+        return new BuilderFromVCF(infile,null);
+    }
+    
+    /**
+     * Create a builder for loading a VCF file into memory
+     * @param infile name of the VCF file to be load
+     * @param listener Progress listener for GUI
+     * @return a builder
+     */
+    public static BuilderFromVCF getBuilder(String infile, ProgressListener listener) {
+        return new BuilderFromVCF(infile,listener);
     }
 
     /**
@@ -194,6 +208,8 @@ public class BuilderFromVCF {
                 throw new IllegalStateException(e.getMessage());
                 }
             }
+            int numFutures = futures.size();
+            int count = 0;
             for(Future<ProcessVCFBlock> future : futures) {
                 try {
                     pbs.add(future.get());
@@ -201,6 +217,10 @@ public class BuilderFromVCF {
                 catch(Exception e) {
                     myLogger.debug(e.getMessage(),e);
                     throw new IllegalStateException(e.getMessage());
+                }
+                if(myProgressListener != null) {
+                    count++;
+                    myProgressListener.progress(count * 100 / numFutures,null);
                 }
             }
             pool.shutdown();

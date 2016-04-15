@@ -350,7 +350,7 @@ public class ExportPlugin extends AbstractPlugin {
         } else if (myFileType == FileLoadPlugin.TasselFileType.HDF5) {
             resultFile = ExportUtils.writeGenotypeHDF5(inputAlignment, mySaveFile, myKeepDepth);
         } else if (myFileType == FileLoadPlugin.TasselFileType.VCF) {
-            resultFile = ExportUtils.writeToVCF(inputAlignment, mySaveFile, myKeepDepth);
+            resultFile = ExportUtils.writeToVCF(inputAlignment, mySaveFile, myKeepDepth,this);
         } else {
             throw new IllegalStateException("ExportPlugin: performFunction: Unknown Alignment File Format: " + myFileType);
         }

@@ -107,13 +107,17 @@ public class ImportUtils {
 
     public static GenotypeTable readFromVCF(final String filename, ProgressListener listener, boolean ignoreDepth) {
         if (ignoreDepth) {
-            return BuilderFromVCF.getBuilder(filename).keepDepth().build();
+            return BuilderFromVCF.getBuilder(filename,listener).keepDepth().build();
         }
-        return BuilderFromVCF.getBuilder(filename).build();
+        return BuilderFromVCF.getBuilder(filename,listener).build();
     }
 
     public static GenotypeTable readFromVCF(final String filename, ProgressListener listener) {
         return readFromVCF(filename, listener, true);
+    }
+    
+    public static GenotypeTable readFromVCF(final String filename) {
+        return readFromVCF(filename,null);
     }
 
     /**
