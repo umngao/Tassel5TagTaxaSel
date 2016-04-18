@@ -277,10 +277,8 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         if(taxaCoverage < myMinLocusCoverage.value()) {
             return null;  //consider reporting low coverage
         }
+        
         // This aligns the tags against each other - it doesn't call SNPs
-
-
-
         Map<Tag,String> alignedTagsUnfiltered=alignTags(tagTaxaMap,maxTagsPerCutSite(),cutPosition.getStrand(),printDebug);
         if (alignedTagsUnfiltered == null || alignedTagsUnfiltered.size() == 0) {
         	// Errors related to CompoundNotFound were logged in alignTags. 
@@ -377,9 +375,13 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             return null;
         }
  
-        String seqInBytesString = NucleotideAlignmentConstants.nucleotideBytetoString(seqInBytes);       
-        if (seqInBytesString.contains("N")) {
-            System.out.println("createReferenceTag: reftag contains N, returning Null for cutPosition " + cutPosition + " forwardStrand:" + forwardStrand);
+        String seqInBytesString = NucleotideAlignmentConstants.nucleotideBytetoString(seqInBytes); 
+        // "null" may be returned from NucleotideBytetoString() for anything that isn't
+        // AGCTN.  The Wheat fasta file has R,Y,K,M values, which get translated to 
+        // UNDEFINED_ALLELE, which is "6".  These are translated to "null" by nucleotideBytetoString() above
+        if (seqInBytesString.contains("N") || seqInBytesString.contains("null")) {
+            // This gets lots of hits in wheat - commenting out, but leave for debugging
+            //System.out.println("createReferenceTag: reftag contains non-ACGT character, returning Null for cutPosition " + cutPosition + " forwardStrand:" + forwardStrand);
             return null;
         }
         refTag=TagBuilder.instance(seqInBytesString).reference().build();
