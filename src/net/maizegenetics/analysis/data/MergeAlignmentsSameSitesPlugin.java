@@ -7,7 +7,6 @@ import java.awt.Frame;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.FileWriter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +24,7 @@ import org.apache.log4j.Logger;
 
 /**
  *
- * @author terry
+ * @author Terry Casstevens
  */
 public class MergeAlignmentsSameSitesPlugin extends AbstractPlugin {
 
@@ -51,23 +50,28 @@ public class MergeAlignmentsSameSitesPlugin extends AbstractPlugin {
             return null;
         }
 
-        FileWriter fw = null;
-        BufferedWriter bw = null;
         int numInputs = myInputFiles.size();
         BufferedReader[] readers = new BufferedReader[numInputs];
-        try {
+        try (BufferedWriter bw = Utils.getBufferedWriter(Utils.addSuffixIfNeeded(myOutputFile, ".hmp.txt"))) {
 
-            fw = new FileWriter(Utils.addSuffixIfNeeded(myOutputFile, ".hmp.txt"));
-            bw = new BufferedWriter(fw, 1000000);
+            String[] headers = new String[numInputs];
+            for (int i = 0; i < numInputs; i++) {
+                readers[i] = Utils.getBufferedReader(myInputFiles.get(i));
+                headers[i] = readers[i].readLine();
+                while (headers[i].startsWith("##")) {
+                    bw.write(headers[i]);
+                    bw.write("\n");
+                    headers[i] = readers[i].readLine();
+                }
+            }
 
             writeHeader(bw);
             for (int i = 0; i < numInputs; i++) {
-                readers[i] = Utils.getBufferedReader(myInputFiles.get(i));
-                String header = readers[i].readLine();
-                int index = Utils.findNthOccurrenceInString(header, DELIMITER, ImportUtils.NUM_HAPMAP_NON_TAXA_HEADERS);
-                bw.write(header.substring(index));
+                int index = Utils.findNthOccurrenceInString(headers[i], DELIMITER, ImportUtils.NUM_HAPMAP_NON_TAXA_HEADERS);
+                bw.write(headers[i].substring(index));
             }
             bw.write("\n");
+            headers = null;
 
             String[] current = new String[numInputs];
             int line = 1;
@@ -94,17 +98,9 @@ public class MergeAlignmentsSameSitesPlugin extends AbstractPlugin {
                 bw.write("\n");
             }
 
-
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            try {
-                bw.close();
-                fw.close();
-            } catch (Exception e) {
-                // do nothing
-            }
-
             for (int i = 0; i < readers.length; i++) {
                 try {
                     readers[i].close();
