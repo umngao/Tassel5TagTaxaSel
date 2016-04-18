@@ -315,7 +315,7 @@ public class GCTADistanceMatrix {
     // GenotypeTable.UNKNOWN_DIPLOID_ALLELE.  Any pair-wise comparison when
     // either taxa has GenotypeTable.UNKNOWN_DIPLOID_ALLELE at a given site,
     // is not involved in the calulation. The index of this array represents
-    // every bitwise OR combination of major allele count (1, 2, 4) and UNKNOWN (7)
+    // every bitwise OR combination of major allele count encoding (1, 2, 4) and UNKNOWN (7)
     // for five consecutive sites.  Each three bits encodes two counts.
     // Those three bits times five sites equals 32768 combinations.
     // Code 001 - both counts zero
@@ -495,7 +495,7 @@ public class GCTADistanceMatrix {
 
             //
             // This hold possible terms for the GCTA summation given
-            // site's major allele frequency.  First two bits
+            // site's major allele frequency.  First three bits
             // identifies relative site (0, 1, 2, 3, 4).  Remaining three bits
             // the major allele counts encoding.
             //
@@ -510,8 +510,8 @@ public class GCTADistanceMatrix {
             short[] majorCount = new short[myNumTaxa];
 
             //
-            // This initializes the counts to 0x3333.  That means
-            // diploid allele values for the four sites are Unknown.
+            // This initializes the count encodings to 0x7FFF.  That means
+            // diploid allele values for the five sites are Unknown.
             //
             Arrays.fill(majorCount, (short) 0x7FFF);
 
@@ -554,7 +554,7 @@ public class GCTADistanceMatrix {
                     possibleTerms[siteNumIncrement + 4] = term[2] * term[2] / denominatorTerm;
 
                     //
-                    // Records major allele counts (C) for current site in
+                    // Records major allele count encodings for current site in
                     // three bits.
                     //
                     int temp = (major & 0x7) << 6;
