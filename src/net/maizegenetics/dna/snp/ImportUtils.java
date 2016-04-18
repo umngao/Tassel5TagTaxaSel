@@ -105,8 +105,8 @@ public class ImportUtils {
 
     }
 
-    public static GenotypeTable readFromVCF(final String filename, ProgressListener listener, boolean ignoreDepth) {
-        if (ignoreDepth) {
+    public static GenotypeTable readFromVCF(final String filename, ProgressListener listener, boolean keepDepth) {
+        if (keepDepth) {
             return BuilderFromVCF.getBuilder(filename,listener).keepDepth().build();
         }
         return BuilderFromVCF.getBuilder(filename,listener).build();
