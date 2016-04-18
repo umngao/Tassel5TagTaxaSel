@@ -137,7 +137,6 @@ public class VCAPScanPlugin extends AbstractPlugin {
                 String startPosStr = String.format("%012d", genotypeChr.chromosomalPosition(0));
                 String endPosStr = String.format("%012d", genotypeChr.chromosomalPosition(numSites - 1));
                 String saveFilename = outputDir() + "Kinship_" + chrStr + "_" + startPosStr + "_" + endPosStr;
-                //String saveFilename = outputDir() + "Kinship_" + chrStr;
                 matrixFiles.add(saveFilename);
                 exportPlugin.setSaveFile(saveFilename);
                 threadPool.submit(new ThreadedPluginListener(exportPlugin, new PluginEvent(new DataSet(part.getData(0), part.getCreator()))));
@@ -269,7 +268,7 @@ public class VCAPScanPlugin extends AbstractPlugin {
             }
 
             String command = ldakCommand()
-                    + " --reml " + "results" + Utils.getFilename(filename)
+                    + " --reml " + outputDir() + "Results" + Utils.getFilename(filename)
                     + " --mgrm " + "kinship_list.txt"
                     + " --pheno " + phenotypeFile()
                     + " --kinship-details NO";
@@ -370,6 +369,14 @@ public class VCAPScanPlugin extends AbstractPlugin {
             } else {
                 return false;
             }
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = 5;
+            hash = 37 * hash + myChr;
+            hash = 37 * hash + myPos;
+            return hash;
         }
 
         @Override
