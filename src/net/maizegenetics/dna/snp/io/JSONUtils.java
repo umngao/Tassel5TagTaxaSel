@@ -125,7 +125,9 @@ public class JSONUtils {
                 if (taxaList == null) {
                     throw new IllegalArgumentException("JSONUtils: importTaxaListFromJSON: There is no TaxaList in this file: " + filename);
                 }
-                return taxaListFromJSON(taxaList);
+                TaxaList result = taxaListFromJSON(taxaList);
+                myLogger.info("JSONUtils: importTaxaListFromJSON: Imported: " + result.numberOfTaxa() + " taxa from: " + filename);
+                return result;
             }
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
@@ -265,7 +267,9 @@ public class JSONUtils {
                 if (temp != Event.START_OBJECT) {
                     throw new IllegalStateException("JSONUtils: importPositionListFromJSON: Position List must start with JSON Object: " + filename);
                 }
-                return positionListFromJSON(parser);
+                PositionList result = positionListFromJSON(parser);
+                myLogger.info("JSONUtils: importPositionListFromJSON: Imported: " + result.numberOfSites() + " positions from: " + filename);
+                return result;
             }
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
