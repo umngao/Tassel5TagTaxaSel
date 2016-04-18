@@ -69,6 +69,7 @@ import java.util.concurrent.Future;
 import java.util.regex.Pattern;
 
 import net.maizegenetics.analysis.chart.ManhattanDisplayPlugin;
+import net.maizegenetics.analysis.data.MemoryUsagePlugin;
 import net.maizegenetics.analysis.data.PrincipalComponentsPlugin;
 
 /**
@@ -475,6 +476,9 @@ public class TasselPipeline implements PluginListener {
                     plugin.siteSummary(false);
                     plugin.taxaSummary(false);
                     integratePlugin(plugin, true);
+                } else if (current.equalsIgnoreCase("-printMemoryUsage")) {
+                    MemoryUsagePlugin plugin = new MemoryUsagePlugin(myMainFrame, myIsInteractive);
+                    integratePlugin(plugin, false);
                 } else if (current.equalsIgnoreCase("-convertTOPMtoHDF5")) {
                     String filename = args[index++].trim();
                     TagsOnPhysicalMap topm = null;

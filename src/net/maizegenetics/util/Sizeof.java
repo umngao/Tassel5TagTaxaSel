@@ -17,19 +17,25 @@ public class Sizeof {
         printMemoryUse();
     }
 
-    public static void printMemoryUse() throws Exception {
+    public static void printMemoryUse() {
 
         NumberFormat format = NumberFormat.getInstance();
 
-        System.out.print("Current Heap Size: ");
-        long current = Sizeof.getMemoryUse();
-        String currentStr = format.format(current);
-        System.out.print(currentStr);
-        System.out.println(" Bytes");
-        System.out.print("Max Available Heap: ");
-        System.out.print(Utils.getMaxHeapSizeMB());
-        System.out.println(" MB");
-        
+        try {
+            System.out.println("-------------------------------");
+            System.out.print("Current Heap Size: ");
+            long current = Sizeof.getMemoryUse() / 1048576l;
+            String currentStr = format.format(current);
+            System.out.print(currentStr);
+            System.out.println(" MB");
+            System.out.print("Max Available Heap: ");
+            System.out.print(Utils.getMaxHeapSizeMB());
+            System.out.println(" MB");
+            System.out.println("-------------------------------");
+        } catch (Exception e) {
+            System.out.println("Problem getting heap size: " + e.getMessage());
+        }
+
     }
 
     public static long getMemoryUse() throws Exception {
