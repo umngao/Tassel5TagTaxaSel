@@ -1779,6 +1779,11 @@ public class NucleotideImputationUtils {
 			int npresent, nhet;
 			do {
 				headSite++;
+                                if (headSite >= nOriginalSites) {
+                                    myLogger.error("Unable to locate a starting site with MAF > " + minMaf + " and fraction missing < " +
+                                    maxMissing + " and fraction heterozygous < " + maxHet);
+                                    break;
+                                }
 				maf = a.minorAlleleFrequency(headSite);
 				npresent = a.totalNonMissingForSite(headSite);
 				nhet = a.heterozygousCount(headSite);

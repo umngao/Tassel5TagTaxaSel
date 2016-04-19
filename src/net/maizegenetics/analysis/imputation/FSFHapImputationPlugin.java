@@ -12,8 +12,6 @@ import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.GeneratePluginCode;
-import net.maizegenetics.plugindef.PluginEvent;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.TableReport;
 
@@ -22,39 +20,51 @@ public class FSFHapImputationPlugin extends AbstractPlugin {
 	//parameters for CallParentAllelesPlugin
 	private PluginParameter<String> pedigreeFilename = new PluginParameter.Builder<>("pedigrees", null, String.class)
 			.description("the pedigree file name")
+                        .guiName("Pedigree File")
 			.inFile().required(true).build();
 	private PluginParameter<String> logFilename = new PluginParameter.Builder<>("logfile", null, String.class)
 			.description("the name of a log file for runtime messages")
+                        .guiName("Log File")
 			.outFile().build();
 	private PluginParameter<Boolean> useClusterAlgorithm = new PluginParameter.Builder<>("cluster", false, Boolean.class)
+                        .guiName("Use Cluster Algorithm")
 			.description("use the cluster algorithm").build();
 	private PluginParameter<Boolean> useWindowLD = new PluginParameter.Builder<>("windowLD", false, Boolean.class)
+                        .guiName("Use Window LD Algorithm")
 			.description("use the windowLD algorithm").build();
 	private PluginParameter<Boolean> useBCFilter = new PluginParameter.Builder<>("bc", true, Boolean.class)
+                        .guiName("Use Single Backcross Algorithm")
 			.description("use the single backcross algorithm").build();
 	private PluginParameter<Boolean> useMultipleBCFilter = new PluginParameter.Builder<>("multbc", false, Boolean.class)
+                        .guiName("Use Multiple Backcross Algorithm")
 			.description("use the multiple backcross algorithm").build();
 	private PluginParameter<Double> minMinorAlleleFreq = new PluginParameter.Builder<>("minMaf", 0.1, Double.class)
+                        .guiName("Min Minor Allele Frequency")
 			.range(Range.closed(0.0, 1.0)).description("filter out sites with less than minimumMinorAlleleFrequency").build();
 	private PluginParameter<Integer> windowSize = new PluginParameter.Builder<>("window", 50, Integer.class)
-			.description("filter out sites with less than minimumMinorAlleleFrequency").build();
+                        .guiName("Window Size")
+			.description("Window Size").build();
 	private PluginParameter<Double> minRforSnps = new PluginParameter.Builder<>("minR", 0.2, Double.class)
 			.range(Range.closed(0.0, 1.0)).description("filter out sites not correlated with neighboring sites").build();
 	private PluginParameter<Double> maxMissing = new PluginParameter.Builder<>("maxMissing", 0.8, Double.class)
 			.range(Range.closed(0.0, 1.0)).description("filter out sites with proportion missing > maxMissing").build();
 	private PluginParameter<Boolean> noHets = new PluginParameter.Builder<>("nohets", false, Boolean.class)
+                        .guiName("Don't Use Heterozygous Calls")
 			.description("delete heterozygous calls before imputing").build();
 	private PluginParameter<Integer> maxDifference = new PluginParameter.Builder<>("maxDiff", 0, Integer.class)
 			.description("use to decide if two haplotypes are equivalent").build();
 	private PluginParameter<Integer> minHaplotypeCluster = new PluginParameter.Builder<>("minHap", 5, Integer.class)
 			.description("haplotype must be observed at least this often").build();
 	private PluginParameter<Integer> overlap = new PluginParameter.Builder<>("overlap", 25, Integer.class)
+                        .guiName("Window Overlap")
 			.description("overlap between adjacent windows").build();
 	
 	//parameters for ViterbiAlgorithmPlugin
 	private PluginParameter<Boolean> fillgaps = new PluginParameter.Builder<>("fillgaps", false, Boolean.class)
+                        .guiName("Fill Gaps")
 			.description("replace missing values with flanking values if equal").build();
 	private PluginParameter<Double> probHeterozygous = new PluginParameter.Builder<>("phet", 0.07, Double.class)
+                        .guiName("Proportion Heterozygous")
 			.range(Range.closed(0.0, 1.0)).description("proportion of sites that are heterozygous").build();
 	
 	//parameters for WritePopulationAlignmentPlugin
@@ -63,8 +73,10 @@ public class FSFHapImputationPlugin extends AbstractPlugin {
 	private PluginParameter<Boolean> outParentCalls = new PluginParameter.Builder<>("outParents", true, Boolean.class)
 			.description("replace missing values with flanking values if equal").build();
 	private PluginParameter<Boolean> outNucleotides = new PluginParameter.Builder<>("outNuc", true, Boolean.class)
+                        .guiName("Out Nucleotides")
 			.description("replace missing values with flanking values if equal").build();
 	private PluginParameter<Boolean> outIUPAC = new PluginParameter.Builder<>("outIUPAC", true, Boolean.class)
+                        .guiName("Output IUPAC Codes")
 			.description("use IUPAC ambiguity codes for output").build();
 	
 	

@@ -16,7 +16,6 @@ import org.apache.log4j.Appender;
 import org.apache.log4j.FileAppender;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
-import org.apache.log4j.xml.DOMConfigurator;
 
 import javax.swing.*;
 import java.awt.*;
@@ -75,6 +74,10 @@ public class CallParentAllelesPlugin extends AbstractPlugin {
                 myLogger.info("creating family alignment for family " + family.name);
                 TaxaList tL = new TaxaListBuilder().addAll(ids).build();
                 family.original = FilterGenotypeTable.getInstance(align, tL, false);
+                if (family.original.numberOfTaxa() == 0) {
+                    myLogger.error("Genotype table for imputation of family " + family.name + " has zero taxa and will be skipped");
+                    continue;
+                }
 
                 if (!useHets) {
                     byte NN = NucleotideAlignmentConstants.getNucleotideDiploidByte('N');
