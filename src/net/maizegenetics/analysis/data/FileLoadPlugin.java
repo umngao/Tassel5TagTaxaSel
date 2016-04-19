@@ -147,7 +147,7 @@ public class FileLoadPlugin extends AbstractPlugin {
             }
 
             List result = new ArrayList();
-            ArrayList<String> alreadyLoaded = new ArrayList();
+            ArrayList<String> alreadyLoaded = new ArrayList<>();
             for (int i = 0; i < myOpenFiles.length; i++) {
 
                 if (alreadyLoaded.contains(myOpenFiles[i])) {
@@ -291,7 +291,7 @@ public class FileLoadPlugin extends AbstractPlugin {
 
     public DataSet guessAtUnknowns(String filename) {
 
-        TasselFileType guess = TasselFileType.Sequence;
+        TasselFileType guess = TasselFileType.Unknown;
         DataSet tds = null;
 
         try (BufferedReader br = Utils.getBufferedReader(filename)) {
@@ -512,6 +512,9 @@ public class FileLoadPlugin extends AbstractPlugin {
                 case Filter: {
                     result = FilterJSONUtils.importJSONToFilter(inFile);
                     break;
+                }
+                default: {
+                    throw new IllegalStateException("Unknown Format: " + theFT + ".\n  Please check file format or select specific format.");
                 }
             }
         } catch (Exception e) {
