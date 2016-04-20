@@ -65,6 +65,7 @@ import javax.swing.*;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Insets;
@@ -76,6 +77,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
 import java.awt.font.TextAttribute;
 import java.io.*;
+import java.net.URI;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
@@ -279,12 +281,6 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
     public void addDataSet(DataSet theDataSet, String defaultNode) {
         myDataTreePanel.addDataSet(theDataSet, defaultNode);
-    }
-
-    private void helpButton_actionPerformed(ActionEvent e) {
-        HelpDialog theHelpDialog = new HelpDialog(this);
-        theHelpDialog.setLocationRelativeTo(this);
-        theHelpDialog.setVisible(true);
     }
 
     public void updateMainDisplayPanel(JPanel panel) {
@@ -591,7 +587,14 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                helpButton_actionPerformed(e);
+                final String html = "https://bitbucket.org/tasseladmin/tassel-5-source/wiki/Home";
+                try {
+                    Desktop desktop = Desktop.getDesktop();
+                    URI uri = new URI(html);
+                    desktop.browse(uri);
+                } catch (Exception ex) {
+                    myLogger.warn("Problem showing Tassel Wiki URl in Browser.", ex);
+                }
             }
         }, -1));
 
