@@ -27,6 +27,7 @@ import net.maizegenetics.dna.snp.FilterSite.SITE_RANGE_FILTER_TYPES;
 import net.maizegenetics.dna.snp.FilterSite.FILTER_SITES_ATTRIBUTES;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
+import net.maizegenetics.gui.DialogUtils;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -195,6 +196,13 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
     }
 
     @Override
+    protected void postProcessParameters() {
+        if (siteMaxAlleleFreq() < siteMinAlleleFreq()) {
+            throw new IllegalArgumentException("Site Max. Minor Allele Frequency: " + siteMaxAlleleFreq() + " is less than Site Min. Minor Allele Frequency: " + siteMinAlleleFreq());
+        }
+    }
+
+    @Override
     public DataSet processData(DataSet input) {
 
         Map<String, Object> values = new LinkedHashMap<>();
@@ -250,12 +258,15 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
             for (Datum datum : genotypeTableList) {
                 GenotypeTable current = (GenotypeTable) datum.getData();
                 GenotypeTable filteredGenotype = GenotypeTableUtils.filter(filter, current);
-                if (filteredGenotype != current) {
+                if ((filteredGenotype == null) || filteredGenotype.numberOfSites() == 0) {
+                    DialogUtils.showWarning("No genotype data remained after filtering: " + datum.getName(), getParentFrame());
+                } else if (filteredGenotype != current) {
                     Datum temp = new Datum(datum.getName() + "_" + filter.filterName(), filteredGenotype, null);
                     result.add(temp);
                     GenotypeSummaryPlugin.printSimpleSummary(temp);
                 } else {
-                    myLogger.info("processData: " + datum.getName() + " unchanged.");
+                    result.add(datum);
+                    DialogUtils.showWarning("Genotype data unchanged after filtering: " + datum.getName(), getParentFrame());
                 }
             }
         }
@@ -619,22 +630,22 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
     }
 
     /**
-     * Include Site Names
+     * Include Sites
      *
-     * @return Include Site Names
+     * @return Include Sites
      */
-    public Boolean includeSiteNames() {
+    public Boolean includeSites() {
         return myIncludeSites.value();
     }
 
     /**
-     * Set Include Site Names. Include Site Names
+     * Set Include Sites.
      *
-     * @param value Include Site Names
+     * @param value Include Sites
      *
      * @return this plugin
      */
-    public FilterSiteBuilderPlugin includeSiteNames(Boolean value) {
+    public FilterSiteBuilderPlugin includeSites(Boolean value) {
         myIncludeSites = new PluginParameter<>(myIncludeSites, value);
         return this;
     }
