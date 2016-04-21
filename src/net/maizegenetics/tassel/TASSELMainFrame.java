@@ -105,6 +105,15 @@ import net.maizegenetics.analysis.gbs.SeqToTBTHDF5Plugin;
 import net.maizegenetics.analysis.gbs.TagCountToFastqPlugin;
 import net.maizegenetics.analysis.gbs.UTagCountToTagPairPlugin;
 import net.maizegenetics.analysis.gbs.UTagPairToTOPMPlugin;
+import net.maizegenetics.analysis.gbs.v2.DiscoverySNPCallerPluginV2;
+import net.maizegenetics.analysis.gbs.v2.GBSSeqToTagDBPlugin;
+import net.maizegenetics.analysis.gbs.v2.GetTagSequenceFromDBPlugin;
+import net.maizegenetics.analysis.gbs.v2.ProductionSNPCallerPluginV2;
+import net.maizegenetics.analysis.gbs.v2.SAMToGBSdbPlugin;
+import net.maizegenetics.analysis.gbs.v2.SNPCutPosTagVerificationPlugin;
+import net.maizegenetics.analysis.gbs.v2.SNPQualityProfilerPlugin;
+import net.maizegenetics.analysis.gbs.v2.TagExportToFastqPlugin;
+import net.maizegenetics.analysis.gbs.v2.UpdateSNPPositionQualityPlugin;
 import net.maizegenetics.analysis.numericaltransform.ImputationPlugin;
 import net.maizegenetics.analysis.workflow.WorkflowPlugin;
 
@@ -234,6 +243,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         jMenuBar.add(getFiltersMenu());
         jMenuBar.add(getAnalysisMenu());
         jMenuBar.add(getResultsMenu());
+        jMenuBar.add(getGBSv2Menu());
         jMenuBar.add(getGBSMenu());
         jMenuBar.add(getWorkflowMenu());
         jMenuBar.add(Box.createHorizontalGlue());
@@ -509,55 +519,75 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         return fileMenu;
     }
 
+    private JMenu getGBSv2Menu() {
+
+        JMenu result = new JMenu("GBSv2");
+        result.setMnemonic(KeyEvent.VK_G);
+
+        result.add(createMenuItem(new GBSSeqToTagDBPlugin(this, true), false));
+        result.add(createMenuItem(new TagExportToFastqPlugin(this, true), false));
+        result.add(createMenuItem("Align to Reference", false));
+        result.add(createMenuItem(new SAMToGBSdbPlugin(this, true), false));
+        result.add(createMenuItem(new DiscoverySNPCallerPluginV2(this, true), false));
+        result.add(createMenuItem(new SNPQualityProfilerPlugin(this, true), false));
+        result.add(createMenuItem(new UpdateSNPPositionQualityPlugin(this, true), false));
+        result.addSeparator();
+        result.add(createMenuItem(new ProductionSNPCallerPluginV2(this, true), false));
+        result.addSeparator();
+        result.add(createMenuItem(new GetTagSequenceFromDBPlugin(this, true), false));
+        result.addSeparator();
+        result.add(createMenuItem(new SNPCutPosTagVerificationPlugin(this, true), false));
+
+        return result;
+    }
+
     private JMenu getGBSMenu() {
 
         JMenu result = new JMenu("GBS");
-        result.setMnemonic(KeyEvent.VK_G);
 
-        result.add(createMenuItem(new BinaryToTextPlugin(this, true), false));
-        result.add(createMenuItem(new FastqToTagCountPlugin(this, true), false));
-        result.add(createMenuItem(new MergeMultipleTagCountPlugin(this, true), false));
+        addMenuItemDeprecated(result, createMenuItem(new BinaryToTextPlugin(this, true), false));
+        addMenuItemDeprecated(result, createMenuItem(new FastqToTagCountPlugin(this, true), false));
+        addMenuItemDeprecated(result, createMenuItem(new MergeMultipleTagCountPlugin(this, true), false));
         result.addSeparator();
-        result.add(getGBSReferenceMenu());
+        addMenuItemDeprecated(result, getGBSReferenceMenu());
         result.addSeparator();
-        result.add(getUNEAKMenu());
+        addMenuItemDeprecated(result, getUNEAKMenu());
         result.addSeparator();
-        result.add(createMenuItem(new SeqToTBTHDF5Plugin(this, true), false));
-        result.add(createMenuItem(new ModifyTBTHDF5Plugin(this, true), false));
-        result.add(createMenuItem(new DiscoverySNPCallerPlugin(this, true), false));
-        result.add(createMenuItem(new ProductionSNPCallerPlugin(this, true), false));
+        addMenuItemDeprecated(result, createMenuItem(new SeqToTBTHDF5Plugin(this, true), false));
+        addMenuItemDeprecated(result, createMenuItem(new ModifyTBTHDF5Plugin(this, true), false));
+        addMenuItemDeprecated(result, createMenuItem(new DiscoverySNPCallerPlugin(this, true), false));
+        addMenuItemDeprecated(result, createMenuItem(new ProductionSNPCallerPlugin(this, true), false));
 
         return result;
     }
 
     private JMenu getGBSReferenceMenu() {
-
         JMenu result = new JMenu("Reference Genome");
-
-        result.add(createMenuItem(new TagCountToFastqPlugin(this, true), false));
-        result.add(createMenuItem("Align to Reference", false));
-        result.add(createMenuItem(new SAMConverterPlugin(this, true), false));
-
+        addMenuItemDeprecated(result, createMenuItem(new TagCountToFastqPlugin(this, true), false));
+        addMenuItemDeprecated(result, createMenuItem("Align to Reference", false));
+        addMenuItemDeprecated(result, createMenuItem(new SAMConverterPlugin(this, true), false));
         return result;
     }
 
     private JMenu getUNEAKMenu() {
-
         JMenu result = new JMenu("UNEAK (No Reference)");
+        addMenuItemDeprecated(result, createMenuItem(new UTagCountToTagPairPlugin(this, true), false));
+        addMenuItemDeprecated(result, createMenuItem(new UTagPairToTOPMPlugin(this, true), false));
+        return result;
+    }
 
-        JMenuItem item = createMenuItem(new UTagCountToTagPairPlugin(this, true));
+    private void addMenuItemDeprecated(JMenu menu, JMenuItem item) {
         Map attributes = item.getFont().getAttributes();
         attributes.put(TextAttribute.STRIKETHROUGH, TextAttribute.STRIKETHROUGH_ON);
         item.setFont(new Font(attributes));
-        result.add(item);
+        menu.add(item);
+    }
 
-        item = createMenuItem(new UTagPairToTOPMPlugin(this, true));
-        attributes = item.getFont().getAttributes();
+    private void addMenuItemDeprecated(JMenu menu, JMenu item) {
+        Map attributes = item.getFont().getAttributes();
         attributes.put(TextAttribute.STRIKETHROUGH, TextAttribute.STRIKETHROUGH_ON);
         item.setFont(new Font(attributes));
-        result.add(item);
-
-        return result;
+        menu.add(item);
     }
 
     private JMenu getWorkflowMenu() {
