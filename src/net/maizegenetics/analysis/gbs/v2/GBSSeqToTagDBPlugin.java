@@ -785,12 +785,12 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
 
     @Override
     public String getButtonName() {
-        return "Discovery Tags By Taxa";
+        return "Sequence to Tag/Taxa DB";
     }
 
     @Override
     public String getToolTipText() {
-        return "Discovery Tags By Taxa";
+        return "Input GBS Sequence to Tag/Taxa tables in DB";
     }
 
     /**
