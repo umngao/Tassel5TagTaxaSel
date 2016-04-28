@@ -25,7 +25,7 @@ public class AddDistanceMatrixPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(AddDistanceMatrixPlugin.class);
 
-    KinshipPlugin.KINSHIP_METHOD myMethod = null;
+    private KinshipPlugin.KINSHIP_METHOD myMethod = null;
 
     public AddDistanceMatrixPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
@@ -45,7 +45,7 @@ public class AddDistanceMatrixPlugin extends AbstractPlugin {
             matrixType = annotations.getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE)[0];
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
-            throw new IllegalStateException("SubtractDistanceMatrixPlugin: preProcessParameters: all matrices "
+            throw new IllegalStateException("AddDistanceMatrixPlugin: preProcessParameters: all matrices "
                     + " must have annotation: " + DistanceMatrixBuilder.MATRIX_TYPE
                     + ". Matrices must be exported with a more recent build of Tassel.");
         }
@@ -57,12 +57,12 @@ public class AddDistanceMatrixPlugin extends AbstractPlugin {
                 currentType = currentAnno.getTextAnnotation(DistanceMatrixBuilder.MATRIX_TYPE)[0];
             } catch (Exception e) {
                 myLogger.debug(e.getMessage(), e);
-                throw new IllegalStateException("SubtractDistanceMatrixPlugin: preProcessParameters: all matrices "
+                throw new IllegalStateException("AddDistanceMatrixPlugin: preProcessParameters: all matrices "
                         + " must have annotation: " + DistanceMatrixBuilder.MATRIX_TYPE
                         + ". Matrices must be exported with a more recent build of Tassel.");
             }
             if (!matrixType.equals(currentType)) {
-                throw new IllegalStateException("SubtractDistanceMatrixPlugin: preProcessParameters: all matrices must have same matrix type.");
+                throw new IllegalStateException("AddDistanceMatrixPlugin: preProcessParameters: all matrices must have same matrix type.");
             }
         }
 
