@@ -120,9 +120,9 @@ abstract public class AbstractPlugin implements Plugin {
                 myLogger.debug(e.getMessage(), e);
                 DialogUtils.showError(e.getMessage() + "\n", getParentFrame());
             } else {
-                myLogger.error(e.getMessage());
-                printUsage();
                 myLogger.debug(e.getMessage(), e);
+                printUsage();
+                myLogger.error(e.getMessage());
                 System.exit(1);
             }
             return null;
