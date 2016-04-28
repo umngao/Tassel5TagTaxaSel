@@ -39,13 +39,7 @@ public class GetTaxaListPlugin extends AbstractPlugin {
             List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
 
             if (alignInList.size() != 1) {
-                String gpMessage = "Invalid selection.  Please select one genotype alignment.";
-                if (isInteractive()) {
-                    JOptionPane.showMessageDialog(getParentFrame(), gpMessage);
-                } else {
-                    myLogger.error(gpMessage);
-                }
-                return null;
+                throw new IllegalArgumentException("Invalid selection.  Please select one genotype table.");
             }
 
             Datum current = alignInList.get(0);
