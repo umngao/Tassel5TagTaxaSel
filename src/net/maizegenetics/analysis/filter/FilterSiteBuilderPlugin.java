@@ -28,6 +28,8 @@ import net.maizegenetics.dna.snp.FilterSite.FILTER_SITES_ATTRIBUTES;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.gui.DialogUtils;
+import net.maizegenetics.phenotype.GenotypePhenotype;
+import net.maizegenetics.phenotype.GenotypePhenotypeBuilder;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -264,6 +266,31 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
                     Datum temp = new Datum(datum.getName() + "_" + filter.filterName(), filteredGenotype, null);
                     result.add(temp);
                     GenotypeSummaryPlugin.printSimpleSummary(temp);
+                } else {
+                    result.add(datum);
+                    DialogUtils.showWarning("Genotype data unchanged after filtering: " + datum.getName(), getParentFrame());
+                }
+            }
+        }
+
+        List<Datum> phenoGenoTableList = input.getDataOfType(GenotypePhenotype.class);
+        if (phenoGenoTableList.size() >= 1) {
+            for (Datum datum : phenoGenoTableList) {
+                GenotypePhenotype pheno = (GenotypePhenotype) datum.getData();
+                GenotypeTable current = pheno.genotypeTable();
+                GenotypeTable filteredGenotype = GenotypeTableUtils.filter(filter, current);
+                if ((filteredGenotype == null) || filteredGenotype.numberOfSites() == 0) {
+                    DialogUtils.showWarning("No genotype data remained after filtering: " + datum.getName(), getParentFrame());
+                } else if (filteredGenotype != current) {
+                    GenotypePhenotype resultPheno = new GenotypePhenotypeBuilder()
+                            .genotype(filteredGenotype)
+                            .phenotype(pheno.phenotype())
+                            .union()
+                            .build();
+                    String name = datum.getName() + "_" + filter.filterName();
+                    Datum temp = new Datum(name, resultPheno, null);
+                    result.add(temp);
+                    GenotypeSummaryPlugin.printSimpleSummary(filteredGenotype, name);
                 } else {
                     result.add(datum);
                     DialogUtils.showWarning("Genotype data unchanged after filtering: " + datum.getName(), getParentFrame());

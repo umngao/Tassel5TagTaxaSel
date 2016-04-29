@@ -542,6 +542,7 @@ public class FileLoadPlugin extends AbstractPlugin {
         }
         builder.append(Utils.shortenStrLineLen(ExceptionUtils.getExceptionCauses(e), 50));
         String str = builder.toString();
+        myLogger.debug(e.getMessage(), e);
         if (isInteractive()) {
             DialogUtils.showError(str, getParentFrame());
         } else {
