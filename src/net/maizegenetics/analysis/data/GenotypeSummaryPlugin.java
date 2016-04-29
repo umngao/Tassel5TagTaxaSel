@@ -241,9 +241,12 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
     }
 
     public static void printSimpleSummary(Datum current) {
-
         GenotypeTable alignment = (GenotypeTable) current.getData();
         String name = current.getName();
+        printSimpleSummary(alignment, name);
+    }
+
+    public static void printSimpleSummary(GenotypeTable alignment, String name) {
 
         long numSites = alignment.numberOfSites();
         long numTaxa = alignment.numberOfTaxa();
