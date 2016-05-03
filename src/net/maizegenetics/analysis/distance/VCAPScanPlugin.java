@@ -22,6 +22,7 @@ import net.maizegenetics.analysis.data.FileLoadPlugin;
 import net.maizegenetics.analysis.filter.FilterSiteBuilderPlugin;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.io.JSONUtils;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -44,6 +45,7 @@ public class VCAPScanPlugin extends AbstractPlugin {
 
         Chromosome,
         Site_Blocks,
+        Directory_Of_Files,
         Bed_File
     };
 
@@ -55,6 +57,11 @@ public class VCAPScanPlugin extends AbstractPlugin {
 
     private PluginParameter<Integer> myNumSitesPerBlock = new PluginParameter.Builder<>("numSitesPerBlock", 10000, Integer.class)
             .description("For Site_Blocks method, this sets number of sites per block. Blocks do not span chromosomes.")
+            .build();
+
+    private PluginParameter<String> myDirOfFiles = new PluginParameter.Builder<>("dirOfFiles", null, String.class)
+            .description("Directory contains files for sub-matrices. Can be text (.txt) containing chromosome / positions, Bed (.bed), or Position List (.json or .json.gz)")
+            .inDir()
             .build();
 
     private PluginParameter<String> myBedFile = new PluginParameter.Builder<>("bedFile", null, String.class)
@@ -144,7 +151,7 @@ public class VCAPScanPlugin extends AbstractPlugin {
                 ExportPlugin exportPlugin1 = new ExportPlugin(null, false);
                 exportPlugin1.setAlignmentFileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
                 exportPlugin1.setSaveFile(saveFilename + "Rest");
-                threadPool.submit(new ThreadedPluginListener(exportPlugin1, new PluginEvent(new DataSet(rest.getData(0), part.getCreator()))));
+                threadPool.submit(new ThreadedPluginListener(exportPlugin1, new PluginEvent(new DataSet(rest.getData(0), rest.getCreator()))));
 
             }
 
@@ -210,9 +217,70 @@ public class VCAPScanPlugin extends AbstractPlugin {
                     ExportPlugin exportPlugin1 = new ExportPlugin(null, false);
                     exportPlugin1.setAlignmentFileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
                     exportPlugin1.setSaveFile(saveFilename + "Rest");
-                    threadPool.submit(new ThreadedPluginListener(exportPlugin1, new PluginEvent(new DataSet(rest.getData(0), part.getCreator()))));
+                    threadPool.submit(new ThreadedPluginListener(exportPlugin1, new PluginEvent(new DataSet(rest.getData(0), rest.getCreator()))));
 
                 }
+
+            }
+
+            threadPool.shutdown();
+            try {
+                threadPool.awaitTermination(20, TimeUnit.MINUTES);
+            } catch (Exception e) {
+                myLogger.debug(e.getMessage(), e);
+                throw new IllegalStateException("VCAPScanPlugin: processData: problem: " + e.getMessage());
+            }
+
+        } else if (method() == SCAN_METHOD.Directory_Of_Files) {
+
+            ForkJoinPool threadPool = new ForkJoinPool();
+
+            KinshipPlugin kinshipPlugin = new KinshipPlugin(null, false)
+                    .kinshipMethod(KinshipPlugin.KINSHIP_METHOD.Centered_IBS);
+            kinshipPlugin.addListener(DefaultPluginListener.getInstance());
+
+            SubtractDistanceMatrixPlugin subtractPlugin = new SubtractDistanceMatrixPlugin(null, false)
+                    .wholeMatrix(createWholeMatrixIfNeeded(input));
+
+            String[] files = new File(dirOfFiles()).list();
+            for (String current : files) {
+
+                String file = dirOfFiles() + "/" + current;
+
+                DataSet genotypeDataSet = null;
+                if (file.endsWith(".txt")) {
+                    FilterSiteBuilderPlugin filterChr = new FilterSiteBuilderPlugin(null, false)
+                            .chrPosFile(file);
+                    genotypeDataSet = filterChr.performFunction(input);
+                } else if (file.endsWith(".bed")) {
+                    FilterSiteBuilderPlugin filterChr = new FilterSiteBuilderPlugin(null, false)
+                            .bedFile(file);
+                    genotypeDataSet = filterChr.performFunction(input);
+                } else if (file.endsWith(".json") || file.endsWith(".json.gz")) {
+                    FilterSiteBuilderPlugin filterChr = new FilterSiteBuilderPlugin(null, false)
+                            .positionList(JSONUtils.importPositionListFromJSON(file));
+                    genotypeDataSet = filterChr.performFunction(input);
+                } else {
+                    continue;
+                }
+
+                DataSet part = kinshipPlugin.performFunction(genotypeDataSet);
+                DataSet rest = subtractPlugin.performFunction(part);
+                GenotypeTable genotypeChr = (GenotypeTable) genotypeDataSet.getData(0).getData();
+                int numSites = genotypeChr.numberOfSites();
+                ExportPlugin exportPlugin = new ExportPlugin(null, false);
+                exportPlugin.setAlignmentFileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
+                String startPosStr = String.format("%012d", genotypeChr.chromosomalPosition(0));
+                String endPosStr = String.format("%012d", genotypeChr.chromosomalPosition(numSites - 1));
+                String saveFilename = outputDir() + "Kinship_0_" + startPosStr + "_" + endPosStr + "_" + Utils.getFilename(file);
+                matrixFiles.add(saveFilename);
+                exportPlugin.setSaveFile(saveFilename);
+                threadPool.submit(new ThreadedPluginListener(exportPlugin, new PluginEvent(new DataSet(part.getData(0), part.getCreator()))));
+
+                ExportPlugin exportPlugin1 = new ExportPlugin(null, false);
+                exportPlugin1.setAlignmentFileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
+                exportPlugin1.setSaveFile(saveFilename + "Rest");
+                threadPool.submit(new ThreadedPluginListener(exportPlugin1, new PluginEvent(new DataSet(rest.getData(0), rest.getCreator()))));
 
             }
 
@@ -298,24 +366,28 @@ public class VCAPScanPlugin extends AbstractPlugin {
         String output = outputDir() + Utils.getFilename(phenotypeFile()) + "Results.txt";
 
         String[] files = new File(outputDir()).list();
-        System.out.println("number of files: " + files.length);
         for (String file : files) {
             if (file.endsWith(".reml")) {
-                String[] result = new String[5];
+                String[] result = new String[6];
                 String[] tokens = file.substring(0, file.indexOf(".reml")).split("_");
                 result[0] = tokens[1]; // chr
                 result[1] = tokens[2]; // start pos
                 result[2] = tokens[3]; // end pos
+                if (tokens.length > 4) {
+                    result[3] = tokens[4]; // comment
+                } else {
+                    result[3] = "";
+                }
                 String file3 = outputDir() + file;
                 try (BufferedReader reader = Utils.getBufferedReader(file3)) {
                     String line = reader.readLine();
                     while (line != null) {
                         if (line.startsWith("Her_K1")) {
                             String[] temp = line.split(" ");
-                            result[3] = temp[1];
+                            result[4] = temp[1];
                         } else if (line.startsWith("Her_K2")) {
                             String[] temp = line.split(" ");
-                            result[4] = temp[1];
+                            result[5] = temp[1];
                         }
                         line = reader.readLine();
                     }
@@ -329,6 +401,8 @@ public class VCAPScanPlugin extends AbstractPlugin {
 
         myLogger.info("Writing Results file: " + output);
         try (BufferedWriter writer = Utils.getBufferedWriter(output)) {
+
+            writer.write("Chromosome\tStart Position\tEnd Position\tComment\tHeritably Subset\tHeritably Rest\n");
 
             for (Map.Entry<ChrPos, String[]> current : rows.entrySet()) {
                 boolean first = true;
@@ -436,6 +510,30 @@ public class VCAPScanPlugin extends AbstractPlugin {
      */
     public VCAPScanPlugin numSitesPerBlock(Integer value) {
         myNumSitesPerBlock = new PluginParameter<>(myNumSitesPerBlock, value);
+        return this;
+    }
+
+    /**
+     * Directory contains files for sub-matrices. Can be text (.txt) containing
+     * chromosome / positions, Bed (.bed), or Position List (.json or .json.gz)
+     *
+     * @return Dir Of Files
+     */
+    public String dirOfFiles() {
+        return myDirOfFiles.value();
+    }
+
+    /**
+     * Set Dir Of Files. Directory contains files for sub-matrices. Can be text
+     * (.txt) containing chromosome / positions, Bed (.bed), or Position List
+     * (.json or .json.gz)
+     *
+     * @param value Dir Of Files
+     *
+     * @return this plugin
+     */
+    public VCAPScanPlugin dirOfFiles(String value) {
+        myDirOfFiles = new PluginParameter<>(myDirOfFiles, value);
         return this;
     }
 
