@@ -192,8 +192,8 @@ public class VCAPScanPlugin extends AbstractPlugin {
 
                     int endSite = Math.min(startSite + numSitesPerBlock - 1, numSites - 1);
 
-                    String startPosStr = String.format("%012d", genotype.chromosomalPosition(startSite));
-                    String endPosStr = String.format("%012d", genotype.chromosomalPosition(endSite));
+                    String startPosStr = String.format("%012d", genotypeChr.chromosomalPosition(startSite));
+                    String endPosStr = String.format("%012d", genotypeChr.chromosomalPosition(endSite));
                     String saveFilename = outputDir() + "Kinship_" + chrStr + "_" + startPosStr + "_" + endPosStr;
                     if (new File(saveFilename).isFile()) {
                         continue;
