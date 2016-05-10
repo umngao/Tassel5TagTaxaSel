@@ -1,5 +1,5 @@
 /*
- *  FindInversions
+ *  FindInversionsPlugin
  * 
  *  Created on May 9, 2016
  */
@@ -22,7 +22,7 @@ import net.maizegenetics.plugindef.PluginParameter;
  *
  * @author Terry Casstevens
  */
-public class FindInversions extends AbstractPlugin {
+public class FindInversionsPlugin extends AbstractPlugin {
 
     private PluginParameter<Integer> myStepSize = new PluginParameter.Builder<>("stepSize", 100, Integer.class)
             .description("Step Size")
@@ -34,7 +34,7 @@ public class FindInversions extends AbstractPlugin {
             .range(Range.atLeast(0))
             .build();
 
-    public FindInversions(Frame parentFrame, boolean isInteractive) {
+    public FindInversionsPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
 
@@ -105,7 +105,7 @@ public class FindInversions extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FindInversions stepSize(Integer value) {
+    public FindInversionsPlugin stepSize(Integer value) {
         myStepSize = new PluginParameter<>(myStepSize, value);
         return this;
     }
@@ -126,7 +126,7 @@ public class FindInversions extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FindInversions windowSize(Integer value) {
+    public FindInversionsPlugin windowSize(Integer value) {
         myWindowSize = new PluginParameter<>(myWindowSize, value);
         return this;
     }
