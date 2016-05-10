@@ -11,8 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.PriorityQueue;
 import javax.swing.ImageIcon;
 import net.maizegenetics.analysis.distance.DistanceMatrixPlugin;
 import net.maizegenetics.analysis.distance.MultiDimensionalScalingPlugin;
@@ -50,7 +49,7 @@ public class FindInversionsPlugin extends AbstractPlugin {
     protected void preProcessParameters(DataSet input) {
         List<Datum> data = input.getDataOfType(GenotypeTable.class);
         if (data.size() != 1) {
-            throw new IllegalArgumentException("FindInversions: preProcessParameters: must input 1 GenotypeTable.");
+            throw new IllegalArgumentException("FindInversionsPlugin: preProcessParameters: must input 1 GenotypeTable.");
         }
     }
 
@@ -116,15 +115,39 @@ public class FindInversionsPlugin extends AbstractPlugin {
             }
         }
 
+        reduce(3);
+
     }
 
-    Set<Edge> myEdges = new TreeSet<>();
+    private void reduce(int numClusters) {
+        int numEdges = numClusters * (numClusters + 1) / 2 - numClusters;
+        reduceClusters(numEdges);
+    }
+
+    private void reduceClusters(int numEdges) {
+
+        if (myEdges.size() <= numEdges) {
+            return;
+        }
+
+        Edge current = myEdges.remove();
+        Cluster cluster1 = current.myCluster1;
+        Cluster cluster2 = current.myCluster2;
+        Cluster newCluster = Cluster.getInstance(cluster1, cluster2);
+
+        List<Edge> edges1 = cluster1.myEdges;
+        List<Edge> edges2 = cluster2.myEdges;
+
+    }
+
+    PriorityQueue<Edge> myEdges = new PriorityQueue<>();
 
     private static class Cluster {
 
         private static Map<Taxon, Cluster> myInstances = new HashMap<>();
 
         private final List<Taxon> myList = new ArrayList<>();
+        private final List<Edge> myEdges = new ArrayList<>();
 
         private Cluster(Taxon taxon) {
             myList.add(taxon);
@@ -148,6 +171,19 @@ public class FindInversionsPlugin extends AbstractPlugin {
             result.addAll(cluster1.myList);
             result.addAll(cluster2.myList);
             return new Cluster(result);
+        }
+
+        public int numTaxa() {
+            return myList.size();
+        }
+
+        public void addEdge(Edge edge) {
+            myEdges.add(edge);
+        }
+
+        @Override
+        public String toString() {
+            return "Cluster{" + "myList=" + myList + '}';
         }
 
     }
