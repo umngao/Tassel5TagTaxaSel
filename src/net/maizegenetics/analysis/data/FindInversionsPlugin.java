@@ -7,8 +7,15 @@ package net.maizegenetics.analysis.data;
 
 import com.google.common.collect.Range;
 import java.awt.Frame;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import javax.swing.ImageIcon;
+import net.maizegenetics.analysis.distance.DistanceMatrixPlugin;
+import net.maizegenetics.analysis.distance.MultiDimensionalScalingPlugin;
 import net.maizegenetics.analysis.filter.FilterSiteBuilderPlugin;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.snp.GenotypeTable;
@@ -17,6 +24,7 @@ import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.taxa.Taxon;
 
 /**
  *
@@ -52,8 +60,10 @@ public class FindInversionsPlugin extends AbstractPlugin {
         Datum data = input.getDataOfType(GenotypeTable.class).get(0);
         GenotypeTable genotypeTable = (GenotypeTable) data.getData();
 
-        PrincipalComponentsPlugin pca = new PrincipalComponentsPlugin(getParentFrame(), false);
-        pca.numberOfComponents(2);
+        DistanceMatrixPlugin distance = new DistanceMatrixPlugin(getParentFrame(), false);
+
+        MultiDimensionalScalingPlugin mds = new MultiDimensionalScalingPlugin(getParentFrame(), false);
+        mds.numberOfAxes(2);
 
         Chromosome[] chromosomes = genotypeTable.chromosomes();
 
@@ -75,8 +85,10 @@ public class FindInversionsPlugin extends AbstractPlugin {
                         .endSite(endSite);
                 DataSet filteredGenotype = filter.performFunction(genotypeDataSet);
 
-                DataSet pcaResults = pca.performFunction(filteredGenotype);
-                scorePCA((CorePhenotype) pcaResults.getDataOfType(CorePhenotype.class).get(0).getData());
+                DataSet distanceMatrix = distance.performFunction(filteredGenotype);
+
+                DataSet mdsResults = mds.performFunction(distanceMatrix);
+                scoreMDS((CorePhenotype) mdsResults.getDataOfType(CorePhenotype.class).get(0).getData());
 
             }
 
@@ -85,7 +97,84 @@ public class FindInversionsPlugin extends AbstractPlugin {
         return null;
     }
 
-    private void scorePCA(CorePhenotype pcaResults) {
+    private void scoreMDS(CorePhenotype pcaResults) {
+
+        long rowCount = pcaResults.getRowCount();
+        for (long i = 0; i < rowCount; i++) {
+            Object[] current = pcaResults.getRow(i);
+            Taxon taxon1 = (Taxon) current[0];
+            float pca1x = (float) current[1];
+            float pca1y = (float) current[2];
+            Cluster first = Cluster.getInstance(taxon1);
+            for (long j = i + 1; j < rowCount; j++) {
+                Object[] next = pcaResults.getRow(j);
+                Taxon taxon2 = (Taxon) next[0];
+                float pca2x = (float) next[1];
+                float pca2y = (float) next[2];
+                Cluster second = Cluster.getInstance(taxon2);
+                myEdges.add(new Edge(first, second, calculateDistance(pca1x, pca1y, pca2x, pca2y)));
+            }
+        }
+
+    }
+
+    Set<Edge> myEdges = new TreeSet<>();
+
+    private static class Cluster {
+
+        private static Map<Taxon, Cluster> myInstances = new HashMap<>();
+
+        private final List<Taxon> myList = new ArrayList<>();
+
+        private Cluster(Taxon taxon) {
+            myList.add(taxon);
+        }
+
+        private Cluster(List<Taxon> taxa) {
+            myList.addAll(taxa);
+        }
+
+        public static Cluster getInstance(Taxon taxon) {
+            Cluster result = myInstances.get(taxon);
+            if (result == null) {
+                result = new Cluster(taxon);
+                myInstances.put(taxon, result);
+            }
+            return result;
+        }
+
+        public static Cluster getInstance(Cluster cluster1, Cluster cluster2) {
+            List<Taxon> result = new ArrayList<>();
+            result.addAll(cluster1.myList);
+            result.addAll(cluster2.myList);
+            return new Cluster(result);
+        }
+
+    }
+
+    private static class Edge implements Comparable<Edge> {
+
+        private final Cluster myCluster1;
+        private final Cluster myCluster2;
+        private final float myDistance;
+
+        public Edge(Cluster cluster1, Cluster cluster2, float distance) {
+            myCluster1 = cluster1;
+            myCluster2 = cluster2;
+            myDistance = distance;
+        }
+
+        @Override
+        public int compareTo(Edge o) {
+            if (myDistance < o.myDistance) {
+                return -1;
+            } else if (myDistance > o.myDistance) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+
     }
 
     /**
@@ -98,7 +187,9 @@ public class FindInversionsPlugin extends AbstractPlugin {
      * @return
      */
     private float calculateDistance(float x1, float y1, float x2, float y2) {
-        return 0.0f;
+        float xSqr = (float) Math.pow(x1 - x2, 2);
+        float ySqr = (float) Math.pow(y1 - y2, 2);
+        return (float) Math.sqrt(xSqr + ySqr);
     }
 
     /**
