@@ -86,6 +86,19 @@ public class FindInversionsPlugin extends AbstractPlugin {
     }
 
     private void scorePCA(CorePhenotype pcaResults) {
+    /**
+     * Calculates distance between two points.
+     *
+     * @param x1
+     * @param y1
+     * @param x2
+     * @param y2
+     * @return
+     */
+    private float calculateDistance(float x1, float y1, float x2, float y2) {
+        return 0.0f;
+    }
+
 
     }
 
