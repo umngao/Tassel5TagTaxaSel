@@ -690,7 +690,7 @@ public class TasselPipeline implements PluginListener {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: Diversity Start Base can't be less than 0.");
                     }
 
-                    plugin.setStartSite(start);
+                    plugin.startSite(start);
 
                 } else if (current.equalsIgnoreCase("-diversityEndBase")) {
 
@@ -709,7 +709,7 @@ public class TasselPipeline implements PluginListener {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: Problem with Diversity Start Base number: " + str);
                     }
 
-                    plugin.setEndSite(end);
+                    plugin.endSite(end);
 
                 } else if (current.equalsIgnoreCase("-diversitySlidingWin")) {
                     SequenceDiversityPlugin plugin = null;
@@ -718,7 +718,7 @@ public class TasselPipeline implements PluginListener {
                     } catch (Exception e) {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: No SequenceDiversityPlugin step defined: " + current);
                     }
-                    plugin.setSlidingWindowAnalysis(true);
+                    plugin.isSlidingWindowAnalysis(true);
                 } else if (current.equalsIgnoreCase("-diversitySlidingWinStep")) {
 
                     SequenceDiversityPlugin plugin = null;
@@ -736,8 +736,8 @@ public class TasselPipeline implements PluginListener {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: Problem with Diversity Sliding Win Step number: " + str);
                     }
 
-                    plugin.setStepSize(step);
-                    plugin.setSlidingWindowAnalysis(true);
+                    plugin.stepSize(step);
+                    plugin.isSlidingWindowAnalysis(true);
 
                 } else if (current.equalsIgnoreCase("-diversitySlidingWinSize")) {
 
@@ -756,8 +756,8 @@ public class TasselPipeline implements PluginListener {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: Problem with Diversity Sliding Win Size number: " + str);
                     }
 
-                    plugin.setWindowSize(size);
-                    plugin.setSlidingWindowAnalysis(true);
+                    plugin.windowSize(size);
+                    plugin.isSlidingWindowAnalysis(true);
 
                 } else if (current.equalsIgnoreCase("-ld")) {
                     LinkageDisequilibriumPlugin plugin = new LinkageDisequilibriumPlugin(myMainFrame, myIsInteractive);
