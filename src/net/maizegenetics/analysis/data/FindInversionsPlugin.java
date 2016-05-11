@@ -7,11 +7,13 @@ package net.maizegenetics.analysis.data;
 
 import com.google.common.collect.Range;
 import java.awt.Frame;
+import java.io.BufferedWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.TreeMap;
 import javax.swing.ImageIcon;
 import net.maizegenetics.analysis.distance.DistanceMatrixPlugin;
 import net.maizegenetics.analysis.distance.MultiDimensionalScalingPlugin;
@@ -24,12 +26,16 @@ import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.Utils;
+import org.apache.log4j.Logger;
 
 /**
  *
  * @author Terry Casstevens
  */
 public class FindInversionsPlugin extends AbstractPlugin {
+
+    private static final Logger myLogger = Logger.getLogger(FindInversionsPlugin.class);
 
     private PluginParameter<Integer> myStepSize = new PluginParameter.Builder<>("stepSize", 100, Integer.class)
             .description("Step Size")
@@ -39,6 +45,11 @@ public class FindInversionsPlugin extends AbstractPlugin {
     private PluginParameter<Integer> myWindowSize = new PluginParameter.Builder<>("windowSize", 500, Integer.class)
             .description("Window Size")
             .range(Range.atLeast(0))
+            .build();
+
+    private PluginParameter<String> myOutputFile = new PluginParameter.Builder<>("outputFile", null, String.class)
+            .description("")
+            .outFile()
             .build();
 
     public FindInversionsPlugin(Frame parentFrame, boolean isInteractive) {
@@ -83,20 +94,47 @@ public class FindInversionsPlugin extends AbstractPlugin {
                         .startSite(startSite)
                         .endSite(endSite);
                 DataSet filteredGenotype = filter.performFunction(genotypeDataSet);
+                GenotypeTable fgt = (GenotypeTable) filteredGenotype.getData(0).getData();
 
                 DataSet distanceMatrix = distance.performFunction(filteredGenotype);
 
-                DataSet mdsResults = mds.performFunction(distanceMatrix);
-                scoreMDS((CorePhenotype) mdsResults.getDataOfType(CorePhenotype.class).get(0).getData());
+                try {
+                    myLogger.info("Starting MDS...");
+                    DataSet mdsResults = mds.processData(distanceMatrix);
+                    myLogger.info("Finsihed MDS...");
+                    scoreMDS((CorePhenotype) mdsResults.getDataOfType(CorePhenotype.class).get(0).getData(),
+                            new ChrPos(c, startSite, endSite, fgt.chromosomalPosition(startSite), fgt.chromosomalPosition(endSite)));
+                } catch (Exception e) {
+                    myLogger.warn("Problem calculating MDS for window chr: " + c.getName() + " start site: " + startSite + " end site: " + endSite);
+                }
 
             }
 
         }
 
+        try (BufferedWriter writer = Utils.getBufferedWriter(Utils.addSuffixIfNeeded(outputFile(), ".txt"))) {
+            writer.write("Chromosome\tStart Site\tEnd Site\tStart Postion\tEnd Position\tDistance 1\tDistance 2\tDistance 3\n");
+            for (Map.Entry<ChrPos, PriorityQueue<Edge>> current : myResult.entrySet()) {
+                ChrPos chrPos = current.getKey();
+                writer.write(chrPos.myChr.getName() + "\t" + chrPos.myStartSite + "\t" + chrPos.myEndSite + "\t" + chrPos.myStartPos + "\t" + chrPos.myEndPos);
+                for (Edge edge : current.getValue()) {
+                    writer.write("\t" + edge.myDistance);
+                }
+                writer.write("\n");
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Problem writing file: " + outputFile());
+        }
+
         return null;
     }
 
-    private void scoreMDS(CorePhenotype pcaResults) {
+    private Map<ChrPos, PriorityQueue<Edge>> myResult = new TreeMap<>();
+
+    private void scoreMDS(CorePhenotype pcaResults, ChrPos chrPos) {
+
+        myEdges.clear();
+        Cluster.clearCachedClusters();
 
         long rowCount = pcaResults.getRowCount();
         for (long i = 0; i < rowCount; i++) {
@@ -111,11 +149,18 @@ public class FindInversionsPlugin extends AbstractPlugin {
                 float pca2x = (float) next[1];
                 float pca2y = (float) next[2];
                 Cluster second = Cluster.getInstance(taxon2);
-                myEdges.add(new Edge(first, second, calculateDistance(pca1x, pca1y, pca2x, pca2y)));
+                Edge edge = new Edge(first, second, calculateDistance(pca1x, pca1y, pca2x, pca2y));
+                myEdges.add(edge);
             }
         }
 
         reduce(3);
+
+        for (Edge edge : myEdges) {
+            System.out.println(edge.myCluster1 + "\t" + edge.myCluster2 + "\t" + edge.myDistance);
+        }
+
+        myResult.put(chrPos, new PriorityQueue<>(myEdges));
 
     }
 
@@ -135,9 +180,36 @@ public class FindInversionsPlugin extends AbstractPlugin {
         Cluster cluster2 = current.myCluster2;
         Cluster newCluster = Cluster.getInstance(cluster1, cluster2);
 
-        List<Edge> edges1 = cluster1.myEdges;
-        List<Edge> edges2 = cluster2.myEdges;
+        int weight1 = cluster1.numTaxa();
+        int weight2 = cluster2.numTaxa();
+        int totalWeight = weight1 + weight2;
 
+        Map<Cluster, Edge> edges1 = new HashMap<>(cluster1.myEdges);
+        Map<Cluster, Edge> edges2 = new HashMap<>(cluster2.myEdges);
+
+        for (Map.Entry<Cluster, Edge> entry : edges1.entrySet()) {
+            Edge firstEdge = entry.getValue();
+            Cluster same = entry.getKey();
+            if (same == cluster2) {
+                removeEdge(firstEdge);
+            } else {
+                Edge secondEdge = edges2.get(same);
+                float distance = ((firstEdge.myDistance * weight1) + (secondEdge.myDistance * weight2)) / (float) totalWeight;
+                Edge newEdge = new Edge(newCluster, same, distance);
+                removeEdge(firstEdge);
+                removeEdge(secondEdge);
+                myEdges.add(newEdge);
+            }
+        }
+
+        reduceClusters(numEdges);
+
+    }
+
+    private void removeEdge(Edge edge) {
+        edge.myCluster1.myEdges.remove(edge.myCluster2);
+        edge.myCluster2.myEdges.remove(edge.myCluster1);
+        myEdges.remove(edge);
     }
 
     PriorityQueue<Edge> myEdges = new PriorityQueue<>();
@@ -147,7 +219,7 @@ public class FindInversionsPlugin extends AbstractPlugin {
         private static Map<Taxon, Cluster> myInstances = new HashMap<>();
 
         private final List<Taxon> myList = new ArrayList<>();
-        private final List<Edge> myEdges = new ArrayList<>();
+        private final Map<Cluster, Edge> myEdges = new HashMap<>();
 
         private Cluster(Taxon taxon) {
             myList.add(taxon);
@@ -178,7 +250,15 @@ public class FindInversionsPlugin extends AbstractPlugin {
         }
 
         public void addEdge(Edge edge) {
-            myEdges.add(edge);
+            if (edge.myCluster1 != this) {
+                myEdges.put(edge.myCluster1, edge);
+            } else {
+                myEdges.put(edge.myCluster2, edge);
+            }
+        }
+
+        public static void clearCachedClusters() {
+            myInstances.clear();
         }
 
         @Override
@@ -198,6 +278,8 @@ public class FindInversionsPlugin extends AbstractPlugin {
             myCluster1 = cluster1;
             myCluster2 = cluster2;
             myDistance = distance;
+            myCluster1.addEdge(this);
+            myCluster2.addEdge(this);
         }
 
         @Override
@@ -226,6 +308,61 @@ public class FindInversionsPlugin extends AbstractPlugin {
         float xSqr = (float) Math.pow(x1 - x2, 2);
         float ySqr = (float) Math.pow(y1 - y2, 2);
         return (float) Math.sqrt(xSqr + ySqr);
+    }
+
+    private class ChrPos implements Comparable<ChrPos> {
+
+        private final Chromosome myChr;
+        private final int myStartSite;
+        private final int myEndSite;
+        private final int myStartPos;
+        private final int myEndPos;
+
+        public ChrPos(Chromosome chr, int startSite, int endSite, int startPos, int endPos) {
+            myChr = chr;
+            myStartSite = startSite;
+            myEndSite = endSite;
+            myStartPos = startPos;
+            myEndPos = endPos;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof ChrPos)) {
+                return false;
+            }
+            ChrPos other = (ChrPos) obj;
+            if ((myChr == other.myChr) && (myStartPos == other.myStartPos)) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = 5;
+            hash = 37 * hash + myChr.getChromosomeNumber();
+            hash = 37 * hash + myStartPos;
+            return hash;
+        }
+
+        @Override
+        public int compareTo(ChrPos o) {
+            if (myChr.getChromosomeNumber() < o.myChr.getChromosomeNumber()) {
+                return -1;
+            } else if (myChr.getChromosomeNumber() > o.myChr.getChromosomeNumber()) {
+                return 1;
+            }
+            if (myStartPos < o.myStartPos) {
+                return -1;
+            } else if (myStartPos > o.myStartPos) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
+
     }
 
     /**
@@ -267,6 +404,27 @@ public class FindInversionsPlugin extends AbstractPlugin {
      */
     public FindInversionsPlugin windowSize(Integer value) {
         myWindowSize = new PluginParameter<>(myWindowSize, value);
+        return this;
+    }
+
+    /**
+     * Output File
+     *
+     * @return Output File
+     */
+    public String outputFile() {
+        return myOutputFile.value();
+    }
+
+    /**
+     * Set Output File. Output File
+     *
+     * @param value Output File
+     *
+     * @return this plugin
+     */
+    public FindInversionsPlugin outputFile(String value) {
+        myOutputFile = new PluginParameter<>(myOutputFile, value);
         return this;
     }
 
