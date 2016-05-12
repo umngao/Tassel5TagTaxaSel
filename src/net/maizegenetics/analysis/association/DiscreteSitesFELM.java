@@ -155,6 +155,7 @@ public class DiscreteSitesFELM extends AbstractFixedEffectLM {
             rowData[columnCount++] = new Double(errorSSdf[0]/errorSSdf[1]);
             rowData[columnCount++] = new Double(modelSSdf[1]);
             rowData[columnCount++] = new Double(modelSSdf[0]/modelSSdf[1]);
+            rowData[columnCount++] = new Integer(myCurrentSiteMinimumClassSize);
             siteReportBuilder.add(rowData);
             if (permute) siteTableReportRows.add(rowData);
             
@@ -189,7 +190,12 @@ public class DiscreteSitesFELM extends AbstractFixedEffectLM {
 			if (allSiteGenotypes[i].contains("N")) missingObsForSite.fastSet(i);
 		}
 		siteGenotypes = AssociationUtils.getNonMissingValues(allSiteGenotypes, missingObsForSite);
-		
 	}
 
+	@Override
+	protected void getGenotypeAfterUpdatingMissing() {
+		siteGenotypes = AssociationUtils.getNonMissingValues(myGenoPheno.getStringGenotype(myCurrentSite), missingObsForSite);
+	}
+
+	
 }

@@ -2,6 +2,7 @@ package net.maizegenetics.analysis.association;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 
+import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.score.SiteScore;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.phenotype.GenotypePhenotype;
@@ -46,6 +48,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	protected int numberOfAlleleReportColumns;
 	protected float[] allData;
 	protected int myCurrentSite;
+	protected int myCurrentSiteMinimumClassSize;
 	protected double[] siteData;
 	protected OpenBitSet missingObsForSite;
 	protected String currentTraitName;
@@ -55,6 +58,12 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	protected String alleleReportFilename;
 	protected double maxP = 1.0;
 	protected FixedEffectLMPlugin myParentPlugin;
+	
+	//filtering criteria
+	protected int minClassSize = 0;
+	protected boolean biallelicOnly = false;
+	protected boolean outputSiteStats = false;
+	protected String siteStatsFile = null;
 	
 	//fields used for permutation testing
 	protected boolean permute = false;
@@ -144,6 +153,8 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 				//updata missing obs for this site
 				myCurrentSite = s;
 				getGenotypeAndUpdateMissing(missingObs);
+				boolean keepSite = applySiteFilters();
+				if (!keepSite) continue;
 				siteData = AssociationUtils.getNonMissingDoubles(allData, missingObsForSite);
 				myBaseModel = baseModel();
 				numberOfBaseEffects = myBaseModel.size();
@@ -164,6 +175,76 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 			siteReportBuilder.build();
 			alleleReportBuilder.build();
 		}
+	}
+	
+	private boolean applySiteFilters() {
+		//does the site pass the filter for biallelic sites
+		//start with the sites to be analyzed
+		if (!myGenoPheno.genotypeTable().hasGenotype()) return true;
+		byte[] siteGeno = myGenoPheno.genotypeAllTaxa(myCurrentSite);
+		int nsites = siteGeno.length;
+		Map<Byte,Integer> genoCountMap = new HashMap<>();
+		for (int s = 0; s < nsites; s++) {
+			if (!missingObsForSite.get(s)) {
+				Integer genoCount = genoCountMap.get(siteGeno[s]);
+				if (genoCount == null) {
+					genoCountMap.put(siteGeno[s], 1);
+				} else {
+					genoCountMap.put(siteGeno[s], genoCount + 1);
+				}
+			}
+		}
+		
+		boolean keepSite = true;
+		if (biallelicOnly) {
+			keepSite = false;
+			//the site is biallelic if genoCount = 2 or if genoCount == 3 and one of the genotypes is heterozygous
+			if (genoCountMap.size() == 2) keepSite = true;
+			else if (genoCountMap.size() == 3) {
+				int hetCount = 0;
+				for (Byte genoval : genoCountMap.keySet()) {
+					if (GenotypeTableUtils.isHeterozygous(genoval)) hetCount++;
+				}
+				if (hetCount == 1) keepSite = true;
+			}
+		}
+		
+		//apply minClassSizeFilter
+		if (keepSite && minClassSize > 0) {
+			int numberBigEnough = 0;
+			int numberTooSmall = 0;
+			for (Integer ival : genoCountMap.values()) {
+				if (ival < minClassSize) numberTooSmall++;
+				else numberBigEnough++;
+			}
+			
+			//if there is only one class that has enough taxa, eliminate the site
+			if (numberBigEnough < 2) keepSite = false;
+			//if the minimum class size is too small and there are more than two classes set that class to missing
+			else if (numberTooSmall > 0) {
+				for (Byte Bval : genoCountMap.keySet()) {
+					int classSize = genoCountMap.get(Bval);
+					if (classSize < minClassSize) {
+						byte classValue = Bval.byteValue();
+						for (int s = 0; s < nsites; s++) {
+							if (siteGeno[s] == classValue) missingObsForSite.set(s);
+						}
+					}
+				}
+				getGenotypeAfterUpdatingMissing();
+			}
+		}
+		
+		//calculate the minimum class size
+		//if two classes min class size = the smaller of the two class counts
+		//if three classes return second largest site count
+		List<Integer> classSizes = new ArrayList<>(genoCountMap.values());
+		Collections.sort(classSizes);
+		int nclasses = classSizes.size();
+		if (nclasses > 1) myCurrentSiteMinimumClassSize = classSizes.get(nclasses - 2);
+		else myCurrentSiteMinimumClassSize = 0;
+		
+		return keepSite;
 	}
 	
 	@Override
@@ -204,6 +285,11 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	protected abstract void getGenotypeAndUpdateMissing(BitSet missingObsBeforeSite);
 	
 	/**
+	 * 	updates the genotype after missingObsForSite has changed
+	 */
+	protected abstract void getGenotypeAfterUpdatingMissing();
+	
+	/**
 	 * @param siteNumber		a site number
 	 * This method tests the significance of this site and estimates the allele effects then appends the results to the site and allele reports.
 	 */
@@ -213,7 +299,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		markerpvalueColumn = 5;
 		permpvalueColumn = 6;
 		if (permute) return new String[]{AssociationConstants.STATS_HEADER_TRAIT,AssociationConstants.STATS_HEADER_MARKER,AssociationConstants.STATS_HEADER_CHR,AssociationConstants.STATS_HEADER_POSITION,"marker_F",AssociationConstants.STATS_HEADER_P_VALUE,"perm_p","marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
-		return new String[] {AssociationConstants.STATS_HEADER_TRAIT,AssociationConstants.STATS_HEADER_MARKER,AssociationConstants.STATS_HEADER_CHR,AssociationConstants.STATS_HEADER_POSITION,"marker_F",AssociationConstants.STATS_HEADER_P_VALUE,"marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
+		return new String[] {AssociationConstants.STATS_HEADER_TRAIT,AssociationConstants.STATS_HEADER_MARKER,AssociationConstants.STATS_HEADER_CHR,AssociationConstants.STATS_HEADER_POSITION,"marker_F",AssociationConstants.STATS_HEADER_P_VALUE,"marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS","minorObs"};
 	}
 	
 	protected String[] alleleReportColumnNames() {
@@ -406,6 +492,26 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	public void alleleReportFilepath(String savefile) {
 		saveToFile = true;
 		alleleReportFilename = savefile;
+	}
+
+	@Override
+	public void biallelicOnly(boolean biallelic) {
+		biallelicOnly = biallelic;
+	}
+
+	@Override
+	public void minimumClassSize(int minsize) {
+		minClassSize = minsize;
+	}
+
+	@Override
+	public void saveSiteStats(boolean siteStats) {
+		outputSiteStats = siteStats;
+	}
+
+	@Override
+	public void siteStatsFile(String filename) {
+		siteStatsFile = filename;
 	}
 
 	/**

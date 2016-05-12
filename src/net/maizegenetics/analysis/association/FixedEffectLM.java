@@ -53,4 +53,23 @@ public interface FixedEffectLM {
 	 */
 	public void alleleReportFilepath(String savefile);
 
+	/**
+	 * @param biallelic		If true, only biallelic sites will be included in the analysis
+	 */
+	public void biallelicOnly(boolean biallelic);
+	
+	/**
+	 * @param minsize		If a genotype class has fewer than minsize observations, it will not be tested.
+	 */
+	public void minimumClassSize(int minsize);
+	
+	/**
+	 * @param siteStats		If true, site statistics will be output as a file.
+	 */
+	public void saveSiteStats(boolean siteStats);
+	
+	/**
+	 * @param filename		The filename to which the site statistics will be written
+	 */
+	public void siteStatsFile(String filename);
 }

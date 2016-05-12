@@ -104,6 +104,11 @@ public class ReferenceProbabilityFELM extends AbstractFixedEffectLM {
     }
 
     @Override
+	protected void getGenotypeAfterUpdatingMissing() {
+    	myProbabilities = AssociationUtils.getNonMissingDoubles(myGenoPheno.referenceProb(myCurrentSite), missingObsForSite);
+	}
+
+	@Override
     protected String[] siteReportColumnNames() {
         markerpvalueColumn = 5;
         permpvalueColumn = 6;

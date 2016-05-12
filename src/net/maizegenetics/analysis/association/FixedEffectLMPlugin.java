@@ -75,7 +75,27 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
 	        .range(GENOTYPE_COMP)
 	        .description("If the genotype table contains more than one type of genotype data, choose the type to use for the analysis.")
 	        .build();
+	
+	private PluginParameter<Integer> minClassSize = new PluginParameter.Builder<>("minClassSize", 0, Integer.class)
+			.description("The minimum acceptable genotype class size. Genotypes in a class with a smaller size will be set to missing.")
+			.guiName("Minimum Class Size")
+			.build();
+	private PluginParameter<Boolean> biallelicOnly = new PluginParameter.Builder<>("biallelicOnly", false, Boolean.class)
+			.description("Only test sites that are bi-allelic. The alternative is to test sites with two or more alleles.")
+			.guiName("Bi-Allelic Sites Only")
+			.build();
+    private PluginParameter<Boolean> siteStatsOutput = new PluginParameter.Builder<>("siteStatsOut", false, Boolean.class)
+    		.description("Generate an output dataset with only p-val, F statistic, and number of obs per site for all sites.")
+    		.guiName("Output Site Stats")
+    		.build();
+    private PluginParameter<String> siteStatFilename = new PluginParameter.Builder<>("siteStatFile", null, String.class)
+    		.description("")
+    		.guiName("")
+    		.dependentOnParameter(siteStatsOutput)
+    		.outFile()
+    		.build();
     
+	
     public FixedEffectLMPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
@@ -142,6 +162,8 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
         		myLM.alleleReportFilepath(alleleReportFilename.value());
         	}
         	myLM.maxP(maxPvalue.value());
+        	myLM.biallelicOnly(biallelicOnly.value());
+        	myLM.minimumClassSize(minClassSize.value());
         	myLM.solve();
         	if (saveAsFile.value()) return null;
         	else return new DataSet(myLM.datumList(), this);
@@ -159,11 +181,11 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
     }
     
     public void setMaxP(double maxp) {
-    	maxPValue(maxp);
+    	maxPvalue(maxp);
     }
     
     public void setPermute(boolean permute) {
-    	runPermutations(permute);
+    	permute(permute);
     }
     
     public void setNumberOfPermutations(int nperm) {
@@ -178,19 +200,12 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
     // }
 
     /**
-     * Convenience method to run plugin with one return object.
-     */
-    public TableReport runPlugin(DataSet input) {
-        return (TableReport) performFunction(input).getData(0).getData();
-    }
-
-    /**
      * Should the phenotype be analyzed with no markers and
      * BLUEs generated? (BLUE = best linear unbiased estimate)
      *
      * @return Analyze Phenotype Only
      */
-    public Boolean analyzePhenotypeOnly() {
+    public Boolean phenotypeOnly() {
         return phenotypeOnly.value();
     }
 
@@ -203,7 +218,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FixedEffectLMPlugin analyzePhenotypeOnly(Boolean value) {
+    public FixedEffectLMPlugin phenotypeOnly(Boolean value) {
         phenotypeOnly = new PluginParameter<>(phenotypeOnly, value);
         return this;
     }
@@ -217,7 +232,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
      *
      * @return Save to file
      */
-    public Boolean saveToFile() {
+    public Boolean saveAsFile() {
         return saveAsFile.value();
     }
 
@@ -232,7 +247,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FixedEffectLMPlugin saveToFile(Boolean value) {
+    public FixedEffectLMPlugin saveAsFile(Boolean value) {
         saveAsFile = new PluginParameter<>(saveAsFile, value);
         return this;
     }
@@ -243,7 +258,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
      *
      * @return Statistics File
      */
-    public String statisticsFile() {
+    public String siteReportFilename() {
         return siteReportFilename.value();
     }
 
@@ -255,7 +270,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FixedEffectLMPlugin statisticsFile(String value) {
+    public FixedEffectLMPlugin siteReportFilename(String value) {
         siteReportFilename = new PluginParameter<>(siteReportFilename, value);
         return this;
     }
@@ -266,7 +281,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
      *
      * @return Genotype Effect File
      */
-    public String genotypeEffectFile() {
+    public String alleleReportFilename() {
         return alleleReportFilename.value();
     }
 
@@ -278,7 +293,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FixedEffectLMPlugin genotypeEffectFile(String value) {
+    public FixedEffectLMPlugin alleleReportFilename(String value) {
         alleleReportFilename = new PluginParameter<>(alleleReportFilename, value);
         return this;
     }
@@ -289,7 +304,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
      *
      * @return max P value
      */
-    public Double maxPValue() {
+    public Double maxPvalue() {
         return maxPvalue.value();
     }
 
@@ -301,7 +316,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FixedEffectLMPlugin maxPValue(Double value) {
+    public FixedEffectLMPlugin maxPvalue(Double value) {
         maxPvalue = new PluginParameter<>(maxPvalue, value);
         return this;
     }
@@ -313,7 +328,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
      *
      * @return Run Permutations
      */
-    public Boolean runPermutations() {
+    public Boolean permute() {
         return permute.value();
     }
 
@@ -326,7 +341,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FixedEffectLMPlugin runPermutations(Boolean value) {
+    public FixedEffectLMPlugin permute(Boolean value) {
         permute = new PluginParameter<>(permute, value);
         return this;
     }
@@ -360,7 +375,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
      *
      * @return Genotype Component
      */
-    public GENOTYPE_TABLE_COMPONENT genotypeComponent() {
+    public GENOTYPE_TABLE_COMPONENT genotypeTable() {
         return myGenotypeTable.value();
     }
 
@@ -373,12 +388,103 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FixedEffectLMPlugin genotypeComponent(GENOTYPE_TABLE_COMPONENT value) {
+    public FixedEffectLMPlugin genotypeTable(GENOTYPE_TABLE_COMPONENT value) {
         myGenotypeTable = new PluginParameter<>(myGenotypeTable, value);
         return this;
     }
 
+    /**
+     * The minimum acceptable genotype class size. Genotypes
+     * in a class with a smaller size will be set to missing.
+     *
+     * @return Minimum Class Size
+     */
+    public Integer minClassSize() {
+        return minClassSize.value();
+    }
 
+    /**
+     * Set Minimum Class Size. The minimum acceptable genotype
+     * class size. Genotypes in a class with a smaller size
+     * will be set to missing.
+     *
+     * @param value Minimum Class Size
+     *
+     * @return this plugin
+     */
+    public FixedEffectLMPlugin minClassSize(Integer value) {
+        minClassSize = new PluginParameter<>(minClassSize, value);
+        return this;
+    }
+
+    /**
+     * Only test sites that are bi-allelic. The alternative
+     * is to test sites with two or more alleles.
+     *
+     * @return Bi-Allelic Sites Only
+     */
+    public Boolean biallelicOnly() {
+        return biallelicOnly.value();
+    }
+
+    /**
+     * Set Bi-Allelic Sites Only. Only test sites that are
+     * bi-allelic. The alternative is to test sites with two
+     * or more alleles.
+     *
+     * @param value Bi-Allelic Sites Only
+     *
+     * @return this plugin
+     */
+    public FixedEffectLMPlugin biallelicOnly(Boolean value) {
+        biallelicOnly = new PluginParameter<>(biallelicOnly, value);
+        return this;
+    }
+
+    /**
+     * Generate an output dataset with only p-val, F statistic,
+     * and number of obs per site for all sites.
+     *
+     * @return Output Site Stats
+     */
+    public Boolean siteStatsOutput() {
+        return siteStatsOutput.value();
+    }
+
+    /**
+     * Set Output Site Stats. Generate an output dataset with
+     * only p-val, F statistic, and number of obs per site
+     * for all sites.
+     *
+     * @param value Output Site Stats
+     *
+     * @return this plugin
+     */
+    public FixedEffectLMPlugin siteStatsOutput(Boolean value) {
+        siteStatsOutput = new PluginParameter<>(siteStatsOutput, value);
+        return this;
+    }
+
+    /**
+     * Site Stat File
+     *
+     * @return Site Stat File
+     */
+    public String siteStatFilename() {
+        return siteStatFilename.value();
+    }
+
+    /**
+     * Set Site Stat File. Site Stat File
+     *
+     * @param value Site Stat File
+     *
+     * @return this plugin
+     */
+    public FixedEffectLMPlugin siteStatFilename(String value) {
+        siteStatFilename = new PluginParameter<>(siteStatFilename, value);
+        return this;
+    }
 
 }
 
