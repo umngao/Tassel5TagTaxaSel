@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 
+import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.util.Tuple;
 
 
@@ -63,6 +64,10 @@ public interface GenomeSequence {
      * @return A byte array of alleles in NucleotideAlignmentConstant
      */
     public byte[] genomeSequence(long startSite, long lastSite);
+
+    default String genomeSequenceAsString(long startSite, long lastSite){
+        return NucleotideAlignmentConstants.nucleotideBytetoString(genomeSequence(startSite,lastSite));
+    }
     
     /**
      * Takes a list of coordinates from the full genome sequence and for each returns
@@ -93,5 +98,7 @@ public interface GenomeSequence {
      * Returns the number of chromosomes
      */
     public int numberOfChromosomes();
+
+
 
 }

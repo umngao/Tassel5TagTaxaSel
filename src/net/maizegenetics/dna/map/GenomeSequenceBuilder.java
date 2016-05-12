@@ -70,7 +70,8 @@ public class GenomeSequenceBuilder {
     public static GenomeSequence instance(Chromosome chromosome, String sequence) {
         Function<Character, Character> charConversion= (c) -> c;
         Map<Chromosome, byte[]> chromPositionMap = new HashMap<>();
-        chromPositionMap.put(chromosome,halfByteCompression(sequence.getBytes(),charConversion));
+        Chromosome currChr=new Chromosome(chromosome.getName(),sequence.length(),chromosome.getAnnotation());
+        chromPositionMap.put(currChr,halfByteCompression(sequence.getBytes(),charConversion));
         return new HalfByteGenomeSequence(chromPositionMap);
     }
 
