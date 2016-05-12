@@ -61,6 +61,19 @@ public class GenomeSequenceBuilder {
         return new HalfByteGenomeSequence(chromPositionMap);
     }
 
+    /**
+     * Builds GenomeSequence from a String with one Chromosome.
+     * @param chromosome chromosome object
+     * @param sequence in upper case character
+     * @return GenomeSequence object
+     */
+    public static GenomeSequence instance(Chromosome chromosome, String sequence) {
+        Function<Character, Character> charConversion= (c) -> c;
+        Map<Chromosome, byte[]> chromPositionMap = new HashMap<>();
+        chromPositionMap.put(chromosome,halfByteCompression(sequence.getBytes(),charConversion));
+        return new HalfByteGenomeSequence(chromPositionMap);
+    }
+
     protected static  Map<Chromosome, byte[]> readReferenceGenomeChr(String fastaFileName, Function<Character, Character> charConversion) {
         // Read specified file, return entire sequence for requested chromosome
         String base="ACGTNacgtn";
