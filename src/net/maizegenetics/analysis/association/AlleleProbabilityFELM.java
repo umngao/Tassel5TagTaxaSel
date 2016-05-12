@@ -134,5 +134,11 @@ public class AlleleProbabilityFELM extends AbstractFixedEffectLM {
 		}
 	}
 
+	@Override
+	protected void getGenotypeAfterUpdatingMissing() {
+		// TODO Auto-generated method stub
+		//does nothing
+	}
+
 
 }
