@@ -58,6 +58,12 @@ public class FindInversionsPlugin extends AbstractPlugin {
             .range(Range.atLeast(0))
             .build();
 
+    private PluginParameter<Integer> myNumPCAs = new PluginParameter.Builder<>("numPCAs", 1, Integer.class)
+            .description("")
+            .range(Range.atLeast(1))
+            .guiName("Number of PCAs")
+            .build();
+
     private PluginParameter<String> myOutputFile = new PluginParameter.Builder<>("outputFile", null, String.class)
             .description("")
             .outFile()
@@ -84,7 +90,7 @@ public class FindInversionsPlugin extends AbstractPlugin {
         DistanceMatrixPlugin distance = new DistanceMatrixPlugin(getParentFrame(), false);
 
         MultiDimensionalScalingPlugin mds = new MultiDimensionalScalingPlugin(getParentFrame(), false);
-        mds.numberOfAxes(1);
+        mds.numberOfAxes(numPCAs());
 
         Chromosome[] chromosomes = genotypeTable.chromosomes();
 
@@ -142,8 +148,10 @@ public class FindInversionsPlugin extends AbstractPlugin {
                     myLogger.info("Starting MDS...");
                     DataSet mdsResults = mds.processData(distanceMatrix);
                     myLogger.info("Finsihed MDS...");
-                    scoreSinglePCA((CorePhenotype) mdsResults.getDataOfType(CorePhenotype.class).get(0).getData(),
-                            new ChrPos(c, startSite, endSite, genotypeChr.chromosomalPosition(startSite), genotypeChr.chromosomalPosition(endSite)));
+                    for (int i = 1; i <= numPCAs(); i++) {
+                        scoreSinglePCA((CorePhenotype) mdsResults.getDataOfType(CorePhenotype.class).get(0).getData(),
+                                new ChrPos(c, startSite, endSite, genotypeChr.chromosomalPosition(startSite), genotypeChr.chromosomalPosition(endSite)), i);
+                    }
                 } catch (Exception e) {
                     myLogger.debug(e.getMessage(), e);
                     myLogger.warn("Problem calculating MDS for window chr: " + c.getName() + " start site: " + startSite + " end site: " + endSite);
@@ -167,12 +175,14 @@ public class FindInversionsPlugin extends AbstractPlugin {
                     int resultType = count % 3;
                     if ((resultType == 0) && (peak > 20.0f)) {
                         numBigGaps++;
-                    } else if ((resultType == 2) && (peak < 10.0f)) {
+                    }
+                    if ((resultType == 2) && (peak < 20.0f)) {
                         numSmallRegionPeaks++;
                     }
+                    count++;
                     writer.write("\t" + peak);
                 }
-                if ((numBigGaps == 2) && (numSmallRegionPeaks == 3)) {
+                if ((numBigGaps >= 2) && (numSmallRegionPeaks >= 3)) {
                     Object[] row = new Object[3];
                     row[0] = chrPos.myChr;
                     row[1] = chrPos.myStartPos;
@@ -184,18 +194,17 @@ public class FindInversionsPlugin extends AbstractPlugin {
         } catch (Exception e) {
             throw new IllegalStateException("Problem writing file: " + outputFile());
         }
-        
-        
-        return DataSet.getDataSet(builder.build());
+
+        return new DataSet(new Datum("Candidate Inversions", builder.build(), null), this);
     }
 
-    private void scoreSinglePCA(CorePhenotype pcaResults, ChrPos chrPos) {
+    private void scoreSinglePCA(CorePhenotype pcaResults, ChrPos chrPos, int whichPCA) {
 
         int rowCount = (int) pcaResults.getRowCount();
         int numBins = Math.min(100, rowCount);
         float[] pcaValues = new float[rowCount];
         for (int i = 0; i < rowCount; i++) {
-            pcaValues[i] = (float) pcaResults.getRow(i)[1];
+            pcaValues[i] = (float) pcaResults.getRow(i)[whichPCA];
         }
 
         Arrays.sort(pcaValues);
@@ -563,6 +572,27 @@ public class FindInversionsPlugin extends AbstractPlugin {
      */
     public FindInversionsPlugin windowSize(Integer value) {
         myWindowSize = new PluginParameter<>(myWindowSize, value);
+        return this;
+    }
+
+    /**
+     * Num PCAs
+     *
+     * @return Num PCAs
+     */
+    public Integer numPCAs() {
+        return myNumPCAs.value();
+    }
+
+    /**
+     * Set Num PCAs. Num PCAs
+     *
+     * @param value Num PCAs
+     *
+     * @return this plugin
+     */
+    public FindInversionsPlugin numPCAs(Integer value) {
+        myNumPCAs = new PluginParameter<>(myNumPCAs, value);
         return this;
     }
 
