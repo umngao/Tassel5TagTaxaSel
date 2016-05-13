@@ -9,6 +9,7 @@ import com.google.common.collect.Range;
 import java.awt.Frame;
 import java.io.BufferedWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +74,7 @@ public class FindInversionsPlugin extends AbstractPlugin {
         DistanceMatrixPlugin distance = new DistanceMatrixPlugin(getParentFrame(), false);
 
         MultiDimensionalScalingPlugin mds = new MultiDimensionalScalingPlugin(getParentFrame(), false);
-        mds.numberOfAxes(2);
+        mds.numberOfAxes(1);
 
         Chromosome[] chromosomes = genotypeTable.chromosomes();
 
@@ -102,9 +103,10 @@ public class FindInversionsPlugin extends AbstractPlugin {
                     myLogger.info("Starting MDS...");
                     DataSet mdsResults = mds.processData(distanceMatrix);
                     myLogger.info("Finsihed MDS...");
-                    scoreMDS((CorePhenotype) mdsResults.getDataOfType(CorePhenotype.class).get(0).getData(),
-                            new ChrPos(c, startSite, endSite, fgt.chromosomalPosition(startSite), fgt.chromosomalPosition(endSite)));
+                    scoreSinglePCA((CorePhenotype) mdsResults.getDataOfType(CorePhenotype.class).get(0).getData(),
+                            new ChrPos(c, startSite, endSite, genotypeChr.chromosomalPosition(startSite), genotypeChr.chromosomalPosition(endSite)));
                 } catch (Exception e) {
+                    myLogger.debug(e.getMessage(), e);
                     myLogger.warn("Problem calculating MDS for window chr: " + c.getName() + " start site: " + startSite + " end site: " + endSite);
                 }
 
@@ -114,21 +116,85 @@ public class FindInversionsPlugin extends AbstractPlugin {
 
         try (BufferedWriter writer = Utils.getBufferedWriter(Utils.addSuffixIfNeeded(outputFile(), ".txt"))) {
             writer.write("Chromosome\tStart Site\tEnd Site\tStart Postion\tEnd Position\tDistance 1\tDistance 2\tDistance 3\n");
-            for (Map.Entry<ChrPos, PriorityQueue<Edge>> current : myResult.entrySet()) {
+            for (Map.Entry<ChrPos, List<Float>> current : myResults.entrySet()) {
                 ChrPos chrPos = current.getKey();
                 writer.write(chrPos.myChr.getName() + "\t" + chrPos.myStartSite + "\t" + chrPos.myEndSite + "\t" + chrPos.myStartPos + "\t" + chrPos.myEndPos);
-                for (Edge edge : current.getValue()) {
-                    writer.write("\t" + edge.myDistance);
+                for (Float peak : current.getValue()) {
+                    writer.write("\t" + peak);
                 }
                 writer.write("\n");
             }
         } catch (Exception e) {
             throw new IllegalStateException("Problem writing file: " + outputFile());
         }
-
         return null;
     }
 
+    private void scoreSinglePCA(CorePhenotype pcaResults, ChrPos chrPos) {
+
+        int rowCount = (int) pcaResults.getRowCount();
+        int numBins = Math.min(100, rowCount);
+        float[] pcaValues = new float[rowCount];
+        for (int i = 0; i < rowCount; i++) {
+            pcaValues[i] = (float) pcaResults.getRow(i)[1];
+        }
+
+        Arrays.sort(pcaValues);
+        float minValue = pcaValues[0];
+        float maxValue = pcaValues[rowCount - 1];
+        float range = maxValue - minValue;
+        float increment = range / ((float) numBins - 1.0f);
+
+        float step = minValue;
+        int[] bins = new int[numBins];
+        int count = 0;
+        for (int i = 0; i < numBins - 1; i++) {
+            step += increment;
+            while ((pcaValues[count] < step) && (count < rowCount)) {
+                bins[i]++;
+                count++;
+            }
+        }
+        bins[numBins - 1] = rowCount - count;
+
+        int threshold = Math.round((float) rowCount * 0.005f);
+
+        List<Float> peaks = new ArrayList<>();
+        float currentPeak = 0.0f;
+        int totalWeight = 0;
+        float gap = 0.0f;
+        boolean inRegion = false;
+        for (int i = 0; i < numBins; i++) {
+            if (bins[i] <= threshold) {
+                if (inRegion) {
+                    currentPeak /= (float) totalWeight;
+                    peaks.add(currentPeak);
+                    currentPeak = 0.0f;
+                    totalWeight = 0;
+                }
+                gap++;  
+                inRegion = false;
+            } else {
+                if (!inRegion) {
+                    peaks.add(gap);
+                    gap = 0.0f;
+                }
+                currentPeak += (float) bins[i] * (float) i;
+                totalWeight += bins[i];
+                inRegion = true;
+            }
+        }
+
+        if (totalWeight > 0) {
+            currentPeak /= (float) totalWeight;
+            peaks.add(currentPeak);
+        }
+
+        myResults.put(chrPos, peaks);
+
+    }
+
+    private Map<ChrPos, List<Float>> myResults = new TreeMap<>();
     private Map<ChrPos, PriorityQueue<Edge>> myResult = new TreeMap<>();
 
     private void scoreMDS(CorePhenotype pcaResults, ChrPos chrPos) {
@@ -142,14 +208,14 @@ public class FindInversionsPlugin extends AbstractPlugin {
             Taxon taxon1 = (Taxon) current[0];
             float pca1x = (float) current[1];
             float pca1y = (float) current[2];
-            Cluster first = Cluster.getInstance(taxon1);
+            Cluster first = Cluster.getInstance(taxon1, pca1x, pca1y);
             for (long j = i + 1; j < rowCount; j++) {
                 Object[] next = pcaResults.getRow(j);
                 Taxon taxon2 = (Taxon) next[0];
                 float pca2x = (float) next[1];
                 float pca2y = (float) next[2];
-                Cluster second = Cluster.getInstance(taxon2);
-                Edge edge = new Edge(first, second, calculateDistance(pca1x, pca1y, pca2x, pca2y));
+                Cluster second = Cluster.getInstance(taxon2, pca2x, pca2y);
+                Edge edge = new Edge(first, second);
                 myEdges.add(edge);
             }
         }
@@ -194,8 +260,8 @@ public class FindInversionsPlugin extends AbstractPlugin {
                 removeEdge(firstEdge);
             } else {
                 Edge secondEdge = edges2.get(same);
-                float distance = ((firstEdge.myDistance * weight1) + (secondEdge.myDistance * weight2)) / (float) totalWeight;
-                Edge newEdge = new Edge(newCluster, same, distance);
+                float distance = ((firstEdge.myDistance * (float) weight1) + (secondEdge.myDistance * (float) weight2)) / (float) totalWeight;
+                Edge newEdge = new Edge(newCluster, same);
                 removeEdge(firstEdge);
                 removeEdge(secondEdge);
                 myEdges.add(newEdge);
@@ -220,19 +286,25 @@ public class FindInversionsPlugin extends AbstractPlugin {
 
         private final List<Taxon> myList = new ArrayList<>();
         private final Map<Cluster, Edge> myEdges = new HashMap<>();
+        private final float myX;
+        private final float myY;
 
-        private Cluster(Taxon taxon) {
+        private Cluster(Taxon taxon, float x, float y) {
             myList.add(taxon);
+            myX = x;
+            myY = y;
         }
 
-        private Cluster(List<Taxon> taxa) {
+        private Cluster(List<Taxon> taxa, float x, float y) {
             myList.addAll(taxa);
+            myX = x;
+            myY = y;
         }
 
-        public static Cluster getInstance(Taxon taxon) {
+        public static Cluster getInstance(Taxon taxon, float x, float y) {
             Cluster result = myInstances.get(taxon);
             if (result == null) {
-                result = new Cluster(taxon);
+                result = new Cluster(taxon, x, y);
                 myInstances.put(taxon, result);
             }
             return result;
@@ -242,7 +314,10 @@ public class FindInversionsPlugin extends AbstractPlugin {
             List<Taxon> result = new ArrayList<>();
             result.addAll(cluster1.myList);
             result.addAll(cluster2.myList);
-            return new Cluster(result);
+            float weight1 = (float) cluster1.numTaxa();
+            float weight2 = (float) cluster2.numTaxa();
+            float totalWeight = weight1 + weight2;
+            return new Cluster(result, (cluster1.myX * weight1 + cluster2.myX * weight2) / totalWeight, (cluster1.myY * weight1 + cluster2.myY * weight2) / totalWeight);
         }
 
         public int numTaxa() {
@@ -274,10 +349,10 @@ public class FindInversionsPlugin extends AbstractPlugin {
         private final Cluster myCluster2;
         private final float myDistance;
 
-        public Edge(Cluster cluster1, Cluster cluster2, float distance) {
+        public Edge(Cluster cluster1, Cluster cluster2) {
             myCluster1 = cluster1;
             myCluster2 = cluster2;
-            myDistance = distance;
+            myDistance = calculateDistance(cluster1.myX, cluster1.myY, cluster2.myX, cluster2.myY);
             myCluster1.addEdge(this);
             myCluster2.addEdge(this);
         }
@@ -304,9 +379,9 @@ public class FindInversionsPlugin extends AbstractPlugin {
      * @param y2
      * @return
      */
-    private float calculateDistance(float x1, float y1, float x2, float y2) {
-        float xSqr = (float) Math.pow(x1 - x2, 2);
-        float ySqr = (float) Math.pow(y1 - y2, 2);
+    private static float calculateDistance(float x1, float y1, float x2, float y2) {
+        float xSqr = (x1 - x2) * (x1 - x2);
+        float ySqr = (y1 - y2) * (y1 - y2);
         return (float) Math.sqrt(xSqr + ySqr);
     }
 
