@@ -27,6 +27,7 @@ import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.TableReportBuilder;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 
@@ -37,6 +38,15 @@ import org.apache.log4j.Logger;
 public class FindInversionsPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(FindInversionsPlugin.class);
+
+    public static enum WINDOW_UNIT {
+        Sites, Positions
+    };
+
+    private PluginParameter<WINDOW_UNIT> myWindowUnit = new PluginParameter.Builder<>("windowUnit", WINDOW_UNIT.Sites, WINDOW_UNIT.class)
+            .description("Window Unit")
+            .range(WINDOW_UNIT.values())
+            .build();
 
     private PluginParameter<Integer> myStepSize = new PluginParameter.Builder<>("stepSize", 100, Integer.class)
             .description("Step Size")
@@ -87,15 +97,44 @@ public class FindInversionsPlugin extends AbstractPlugin {
             GenotypeTable genotypeChr = (GenotypeTable) genotypeDataSet.getData(0).getData();
             int numSites = genotypeChr.numberOfSites();
 
-            for (int startSite = 0; startSite < numSites; startSite += stepSize()) {
+            for (int start = 0;; start += stepSize()) {
 
-                int endSite = Math.min(startSite + windowSize() - 1, numSites - 1);
+                int startSite = -1;
+                int endSite = -1;
+                if (windowUnit() == WINDOW_UNIT.Sites) {
+                    if (start > numSites) {
+                        break;
+                    }
+                    startSite = start;
+                    endSite = Math.min(start + windowSize() - 1, numSites - 1);
+                } else if (windowUnit() == WINDOW_UNIT.Positions) {
+                    startSite = genotypeChr.siteOfPhysicalPosition(start, c);
+                    endSite += start + windowSize();
+                    if (startSite < 0) {
+                        startSite = -(startSite + 1);
+                        if (startSite >= numSites) {
+                            startSite = numSites - 1;
+                        }
+                    }
+                    if (startSite > numSites) {
+                        break;
+                    }
+                    endSite = genotypeChr.siteOfPhysicalPosition(endSite, c);
+                    if (endSite < 0) {
+                        endSite = -endSite - 2;
+                        if (endSite >= numSites) {
+                            endSite = numSites - 1;
+                        }
+                    }
+                    if (startSite > endSite) {
+                        continue;
+                    }
+                }
 
                 FilterSiteBuilderPlugin filter = new FilterSiteBuilderPlugin(null, false)
                         .startSite(startSite)
                         .endSite(endSite);
                 DataSet filteredGenotype = filter.performFunction(genotypeDataSet);
-                GenotypeTable fgt = (GenotypeTable) filteredGenotype.getData(0).getData();
 
                 DataSet distanceMatrix = distance.performFunction(filteredGenotype);
 
@@ -114,20 +153,40 @@ public class FindInversionsPlugin extends AbstractPlugin {
 
         }
 
+        String[] columnHeaders = new String[]{"Chromosome", "Start Position", "End Position"};
+        TableReportBuilder builder = TableReportBuilder.getInstance("Candidates", columnHeaders);
         try (BufferedWriter writer = Utils.getBufferedWriter(Utils.addSuffixIfNeeded(outputFile(), ".txt"))) {
-            writer.write("Chromosome\tStart Site\tEnd Site\tStart Postion\tEnd Position\tDistance 1\tDistance 2\tDistance 3\n");
+            writer.write("Chromosome\tStart Site\tEnd Site\tStart Postion\tEnd Position\tNum Gap Bins 1\tPeak Bin 1\tNum Peak Bins 1\tNum Gap Bins 2\tPeak Bin 2\tNum Peak Bins 2\tNum Gap Bins 3\tPeak Bin 3\tNum Peak Bins 3\tNum Gap Bins 4\t...\n");
             for (Map.Entry<ChrPos, List<Float>> current : myResults.entrySet()) {
                 ChrPos chrPos = current.getKey();
                 writer.write(chrPos.myChr.getName() + "\t" + chrPos.myStartSite + "\t" + chrPos.myEndSite + "\t" + chrPos.myStartPos + "\t" + chrPos.myEndPos);
+                int numBigGaps = 0;
+                int numSmallRegionPeaks = 0;
+                int count = 0;
                 for (Float peak : current.getValue()) {
+                    int resultType = count % 3;
+                    if ((resultType == 0) && (peak > 20.0f)) {
+                        numBigGaps++;
+                    } else if ((resultType == 2) && (peak < 10.0f)) {
+                        numSmallRegionPeaks++;
+                    }
                     writer.write("\t" + peak);
+                }
+                if ((numBigGaps == 2) && (numSmallRegionPeaks == 3)) {
+                    Object[] row = new Object[3];
+                    row[0] = chrPos.myChr;
+                    row[1] = chrPos.myStartPos;
+                    row[2] = chrPos.myEndPos;
+                    builder.addElements(row);
                 }
                 writer.write("\n");
             }
         } catch (Exception e) {
             throw new IllegalStateException("Problem writing file: " + outputFile());
         }
-        return null;
+        
+        
+        return DataSet.getDataSet(builder.build());
     }
 
     private void scoreSinglePCA(CorePhenotype pcaResults, ChrPos chrPos) {
@@ -150,7 +209,7 @@ public class FindInversionsPlugin extends AbstractPlugin {
         int count = 0;
         for (int i = 0; i < numBins - 1; i++) {
             step += increment;
-            while ((pcaValues[count] < step) && (count < rowCount)) {
+            while ((count < rowCount) && (pcaValues[count] < step)) {
                 bins[i]++;
                 count++;
             }
@@ -159,26 +218,30 @@ public class FindInversionsPlugin extends AbstractPlugin {
 
         int threshold = Math.round((float) rowCount * 0.005f);
 
-        List<Float> peaks = new ArrayList<>();
+        List<Float> peaksGapsWidths = new ArrayList<>();
         float currentPeak = 0.0f;
         int totalWeight = 0;
         float gap = 0.0f;
+        float region = 0.0f;
         boolean inRegion = false;
         for (int i = 0; i < numBins; i++) {
             if (bins[i] <= threshold) {
                 if (inRegion) {
                     currentPeak /= (float) totalWeight;
-                    peaks.add(currentPeak);
+                    peaksGapsWidths.add(currentPeak);
                     currentPeak = 0.0f;
                     totalWeight = 0;
+                    peaksGapsWidths.add(region);
+                    region = 0.0f;
                 }
-                gap++;  
+                gap++;
                 inRegion = false;
             } else {
                 if (!inRegion) {
-                    peaks.add(gap);
+                    peaksGapsWidths.add(gap);
                     gap = 0.0f;
                 }
+                region++;
                 currentPeak += (float) bins[i] * (float) i;
                 totalWeight += bins[i];
                 inRegion = true;
@@ -187,10 +250,10 @@ public class FindInversionsPlugin extends AbstractPlugin {
 
         if (totalWeight > 0) {
             currentPeak /= (float) totalWeight;
-            peaks.add(currentPeak);
+            peaksGapsWidths.add(currentPeak);
         }
 
-        myResults.put(chrPos, peaks);
+        myResults.put(chrPos, peaksGapsWidths);
 
     }
 
@@ -438,6 +501,27 @@ public class FindInversionsPlugin extends AbstractPlugin {
             }
         }
 
+    }
+
+    /**
+     * Window Unit
+     *
+     * @return Window Unit
+     */
+    public WINDOW_UNIT windowUnit() {
+        return myWindowUnit.value();
+    }
+
+    /**
+     * Set Window Unit. Window Unit
+     *
+     * @param value Window Unit
+     *
+     * @return this plugin
+     */
+    public FindInversionsPlugin windowUnit(WINDOW_UNIT value) {
+        myWindowUnit = new PluginParameter<>(myWindowUnit, value);
+        return this;
     }
 
     /**
