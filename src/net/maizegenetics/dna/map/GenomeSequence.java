@@ -65,6 +65,16 @@ public interface GenomeSequence {
      */
     public byte[] genomeSequence(long startSite, long lastSite);
 
+    /**
+     * Returns the partial genomic sequence from the specified start
+     * position to the specified end position.  The start/end positions are inclusive and
+     * the request is 0-based (though the alleles are stored in a 0-based byte array).  Note the difference with
+     * chromosomes, which start with 1.  Can only return 2.1 billion sites per call.
+     *
+     * @param startSite:  the 0-based position in the sequence to start the pull.
+     * @param lastSite:  the 0-based position in the sequence that will be the last allele in the pull
+     * @return A String of the sequence
+     */
     default String genomeSequenceAsString(long startSite, long lastSite){
         return NucleotideAlignmentConstants.nucleotideBytetoString(genomeSequence(startSite,lastSite));
     }
