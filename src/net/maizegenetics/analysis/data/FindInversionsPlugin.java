@@ -8,11 +8,13 @@ package net.maizegenetics.analysis.data;
 import com.google.common.collect.Range;
 import java.awt.Frame;
 import java.io.BufferedWriter;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.TreeMap;
 import javax.swing.ImageIcon;
@@ -150,7 +152,7 @@ public class FindInversionsPlugin extends AbstractPlugin {
                     myLogger.info("Finsihed MDS...");
                     for (int i = 1; i <= numPCAs(); i++) {
                         scoreSinglePCA((CorePhenotype) mdsResults.getDataOfType(CorePhenotype.class).get(0).getData(),
-                                new ChrPos(c, startSite, endSite, genotypeChr.chromosomalPosition(startSite), genotypeChr.chromosomalPosition(endSite)), i);
+                                new ChrPos(c, startSite, endSite, genotypeChr.chromosomalPosition(startSite), genotypeChr.chromosomalPosition(endSite), i), i);
                     }
                 } catch (Exception e) {
                     myLogger.debug(e.getMessage(), e);
@@ -161,13 +163,29 @@ public class FindInversionsPlugin extends AbstractPlugin {
 
         }
 
-        String[] columnHeaders = new String[]{"Chromosome", "Start Position", "End Position"};
+        String[] columnHeaders = new String[]{"Chromosome", "Start Position", "End Position", "PCA Num", "Rank"};
         TableReportBuilder builder = TableReportBuilder.getInstance("Candidates", columnHeaders);
         try (BufferedWriter writer = Utils.getBufferedWriter(Utils.addSuffixIfNeeded(outputFile(), ".txt"))) {
-            writer.write("Chromosome\tStart Site\tEnd Site\tStart Postion\tEnd Position\tNum Gap Bins 1\tPeak Bin 1\tNum Peak Bins 1\tNum Gap Bins 2\tPeak Bin 2\tNum Peak Bins 2\tNum Gap Bins 3\tPeak Bin 3\tNum Peak Bins 3\tNum Gap Bins 4\t...\n");
+            writer.write("Chromosome\tStart Site\tEnd Site\tStart Postion\tEnd Position\tPCA Num\tPeak Count 1\tGap Count\tPeak Count 2\tGap Count\tNPeak Count 3\n");
             for (Map.Entry<ChrPos, List<Float>> current : myResults.entrySet()) {
                 ChrPos chrPos = current.getKey();
-                writer.write(chrPos.myChr.getName() + "\t" + chrPos.myStartSite + "\t" + chrPos.myEndSite + "\t" + chrPos.myStartPos + "\t" + chrPos.myEndPos);
+                List<Float> peakNew = current.getValue();
+                if ((peakNew.get(0) / peakNew.get(1) > 1.8f)
+                        && (peakNew.get(2) / peakNew.get(1) > 1.8f)
+                        && (peakNew.get(2) / peakNew.get(3) > 1.8f)
+                        && (peakNew.get(4) / peakNew.get(3) > 1.8f)) {
+                    Object[] row = new Object[5];
+                    row[0] = chrPos.myChr;
+                    row[1] = chrPos.myStartPos;
+                    row[2] = chrPos.myEndPos;
+                    row[3] = chrPos.myPCANum;
+                    row[4] = (peakNew.get(0) - peakNew.get(1))
+                            + (peakNew.get(2) - peakNew.get(1))
+                            + (peakNew.get(2) - peakNew.get(3))
+                            + (peakNew.get(4) - peakNew.get(3));
+                    builder.addElements(row);
+                }
+                writer.write(chrPos.myChr.getName() + "\t" + chrPos.myStartSite + "\t" + chrPos.myEndSite + "\t" + chrPos.myStartPos + "\t" + chrPos.myEndPos + "\t" + chrPos.myPCANum);
                 int numBigGaps = 0;
                 int numSmallRegionPeaks = 0;
                 int count = 0;
@@ -192,7 +210,10 @@ public class FindInversionsPlugin extends AbstractPlugin {
                 writer.write("\n");
             }
         } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
             throw new IllegalStateException("Problem writing file: " + outputFile());
+        } finally {
+            myResults.clear();
         }
 
         return new DataSet(new Datum("Candidate Inversions", builder.build(), null), this);
@@ -201,7 +222,7 @@ public class FindInversionsPlugin extends AbstractPlugin {
     private void scoreSinglePCA(CorePhenotype pcaResults, ChrPos chrPos, int whichPCA) {
 
         int rowCount = (int) pcaResults.getRowCount();
-        int numBins = Math.min(100, rowCount);
+        int numBins = 98;
         float[] pcaValues = new float[rowCount];
         for (int i = 0; i < rowCount; i++) {
             pcaValues[i] = (float) pcaResults.getRow(i)[whichPCA];
@@ -225,42 +246,37 @@ public class FindInversionsPlugin extends AbstractPlugin {
         }
         bins[numBins - 1] = rowCount - count;
 
-        int threshold = Math.round((float) rowCount * 0.005f);
-
         List<Float> peaksGapsWidths = new ArrayList<>();
-        float currentPeak = 0.0f;
-        int totalWeight = 0;
-        float gap = 0.0f;
-        float region = 0.0f;
-        boolean inRegion = false;
-        for (int i = 0; i < numBins; i++) {
-            if (bins[i] <= threshold) {
-                if (inRegion) {
-                    currentPeak /= (float) totalWeight;
-                    peaksGapsWidths.add(currentPeak);
-                    currentPeak = 0.0f;
-                    totalWeight = 0;
-                    peaksGapsWidths.add(region);
-                    region = 0.0f;
-                }
-                gap++;
-                inRegion = false;
-            } else {
-                if (!inRegion) {
-                    peaksGapsWidths.add(gap);
-                    gap = 0.0f;
-                }
-                region++;
-                currentPeak += (float) bins[i] * (float) i;
-                totalWeight += bins[i];
-                inRegion = true;
-            }
-        }
 
-        if (totalWeight > 0) {
-            currentPeak /= (float) totalWeight;
-            peaksGapsWidths.add(currentPeak);
+        float peak1 = 0.0f;
+        for (int i = 7; i <= 41; i++) {
+            peak1 += (float) bins[i];
         }
+        peaksGapsWidths.add(peak1);
+
+        float gap1 = 0.0f;
+        for (int i = 30; i <= 43; i++) {
+            gap1 += bins[i];
+        }
+        peaksGapsWidths.add(gap1);
+
+        float peak2 = 0.0f;
+        for (int i = 32; i <= 66; i++) {
+            peak2 += (float) bins[i];
+        }
+        peaksGapsWidths.add(peak2);
+
+        float gap2 = 0.0f;
+        for (int i = 55; i <= 68; i++) {
+            gap2 += bins[i];
+        }
+        peaksGapsWidths.add(gap2);
+
+        float peak3 = 0.0f;
+        for (int i = 57; i <= 91; i++) {
+            peak3 += (float) bins[i];
+        }
+        peaksGapsWidths.add(peak3);
 
         myResults.put(chrPos, peaksGapsWidths);
 
@@ -464,13 +480,15 @@ public class FindInversionsPlugin extends AbstractPlugin {
         private final int myEndSite;
         private final int myStartPos;
         private final int myEndPos;
+        private final int myPCANum;
 
-        public ChrPos(Chromosome chr, int startSite, int endSite, int startPos, int endPos) {
+        public ChrPos(Chromosome chr, int startSite, int endSite, int startPos, int endPos, int pcaNum) {
             myChr = chr;
             myStartSite = startSite;
             myEndSite = endSite;
             myStartPos = startPos;
             myEndPos = endPos;
+            myPCANum = pcaNum;
         }
 
         @Override
@@ -479,18 +497,15 @@ public class FindInversionsPlugin extends AbstractPlugin {
                 return false;
             }
             ChrPos other = (ChrPos) obj;
-            if ((myChr == other.myChr) && (myStartPos == other.myStartPos)) {
-                return true;
-            } else {
-                return false;
-            }
+            return compareTo(other) == 0;
         }
 
         @Override
         public int hashCode() {
-            int hash = 5;
-            hash = 37 * hash + myChr.getChromosomeNumber();
-            hash = 37 * hash + myStartPos;
+            int hash = 7;
+            hash = 97 * hash + Objects.hashCode(this.myChr);
+            hash = 97 * hash + this.myStartPos;
+            hash = 97 * hash + this.myPCANum;
             return hash;
         }
 
@@ -501,9 +516,16 @@ public class FindInversionsPlugin extends AbstractPlugin {
             } else if (myChr.getChromosomeNumber() > o.myChr.getChromosomeNumber()) {
                 return 1;
             }
+
             if (myStartPos < o.myStartPos) {
                 return -1;
             } else if (myStartPos > o.myStartPos) {
+                return 1;
+            }
+
+            if (myPCANum < o.myPCANum) {
+                return -1;
+            } else if (myPCANum > o.myPCANum) {
                 return 1;
             } else {
                 return 0;
@@ -624,7 +646,12 @@ public class FindInversionsPlugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        return null;
+        URL imageURL = MaskGenotypePlugin.class.getResource("/net/maizegenetics/analysis/images/inversion.gif");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
     }
 
     @Override
