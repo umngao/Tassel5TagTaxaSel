@@ -661,7 +661,7 @@ public class FindInversionsPlugin extends AbstractPlugin {
 
     @Override
     public String getCitation() {
-        return "Mei W, Casstevens T. (May 2016) Third Tassel Hackathon.";
+        return "Mei W, Casstevens T. (May 2016) Third TASSEL Hackathon.";
     }
 
 }
