@@ -345,7 +345,7 @@ public class FilterGenotypeTable implements GenotypeTable {
     }
 
     public static FilterGenotypeTable getInstanceRemoveSiteNames(GenotypeTable a, List<String> siteNamesToRemove) {
-        return getInstance(a, siteNamesToRemove.toArray(new String[siteNamesToRemove.size()]));
+        return getInstanceRemoveSiteNames(a, siteNamesToRemove.toArray(new String[siteNamesToRemove.size()]));
     }
 
     public static FilterGenotypeTable getInstanceRemoveSiteNames(GenotypeTable a, String[] siteNamesToRemove) {
