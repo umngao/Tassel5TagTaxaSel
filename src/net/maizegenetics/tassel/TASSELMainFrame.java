@@ -82,6 +82,7 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import net.maizegenetics.analysis.data.CreateHybridGenotypesPlugin;
 import net.maizegenetics.analysis.data.FindInversionsPlugin;
 
 import net.maizegenetics.analysis.data.GenosToABHPlugin;
@@ -419,6 +420,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new ClusterGenotypesPlugin(this, true)));
         result.add(createMenuItem(new MaskGenotypePlugin(this, true)));
         result.add(createMenuItem(new FindInversionsPlugin(this, true)));
+        result.add(createMenuItem(new CreateHybridGenotypesPlugin(this, true)));
         result.addSeparator();
 
         JMenuItem delete = new JMenuItem("Delete Dataset");
