@@ -809,7 +809,7 @@ public class GenotypeTableUtils {
      */
     public static int[] getIncludedSitesBasedOnFreqIgnoreMissing(GenotypeTable aa, double minimumProportion, double maximumProportion, int minimumCount) {
 
-        ArrayList<Integer> includeAL = new ArrayList<Integer>();
+        ArrayList<Integer> includeAL = new ArrayList<>();
         int numSites = aa.numberOfSites();
 
         if (minimumCount > 0) {
@@ -879,6 +879,20 @@ public class GenotypeTableUtils {
         } else {
             return true;
         }
+    }
+
+    /**
+     * Returns whether diploid allele values are homozygous. Unknown values
+     * return false.
+     *
+     * @param diploidAllele
+     * @return true if allele values are the same; false if unknown or not equal
+     */
+    public static boolean isHomozygous(byte diploidAllele) {
+        if (diploidAllele == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+            return false;
+        }
+        return ((diploidAllele >>> 4) & 0xf) == (diploidAllele & 0xf);
     }
 
     /**
