@@ -429,6 +429,9 @@ abstract public class AbstractPlugin implements Plugin {
         builder.append("\nUsage:\n");
         builder.append(Utils.getBasename(getClass().getName())).append(" <options>\n");
         for (PluginParameter<?> current : getParameterInstances()) {
+            if (current.parameterType() == PluginParameter.PARAMETER_TYPE.LABEL) {
+                continue;
+            }
             builder.append("-");
             builder.append(current.cmdLineName());
             builder.append(" ");
@@ -472,6 +475,9 @@ abstract public class AbstractPlugin implements Plugin {
             builder.append("\n\n");
         }
         for (PluginParameter<?> current : getParameterInstances()) {
+            if (current.parameterType() == PluginParameter.PARAMETER_TYPE.LABEL) {
+                continue;
+            }
             builder.append("\n");
             builder.append(current.guiName());
             builder.append(" : ");
@@ -606,7 +612,9 @@ abstract public class AbstractPlugin implements Plugin {
                 try {
                     for (final PluginParameter<?> current : parameterInstances) {
                         JComponent component = parameterFields.get(current.cmdLineName());
-                        if (current.parameterType() == PluginParameter.PARAMETER_TYPE.GENOTYPE_TABLE) {
+                        if (current.parameterType() == PluginParameter.PARAMETER_TYPE.LABEL) {
+                            // do nothing
+                        } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.GENOTYPE_TABLE) {
                             GenotypeWrapper input = (GenotypeWrapper) ((JComboBox) component).getSelectedItem();
                             if (input != null) {
                                 setParameter(current.cmdLineName(), input.myObj);
@@ -878,6 +886,12 @@ abstract public class AbstractPlugin implements Plugin {
                 createEnableDisableAction(current, parameterFields, componentList.toArray(new JComponent[0]), field);
                 panel.add(positionsPanel);
                 parameterFields.put(current.cmdLineName(), field);
+            } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.LABEL) {
+                JPanel temp = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                JLabel label = new JLabel(current.guiName());
+                label.setFont(new Font("Dialog", Font.BOLD, 14));
+                temp.add(label);
+                panel.add(temp);
             } else {
                 final JTextField field;
                 if (current.parameterType() != PluginParameter.PARAMETER_TYPE.NA) {
