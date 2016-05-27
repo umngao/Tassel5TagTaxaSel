@@ -12,12 +12,12 @@ import java.util.prefs.Preferences;
 
 /**
  *
- * @author terryc
+ * @author Terry Casstevens
  */
 public class TasselPrefs {
 
     private static boolean PERSIST_PREFERENCES = false;
-    private static Map<String, Object> TEMP_CACHED_VALUES = new HashMap<>();
+    private static final Map<String, Object> TEMP_CACHED_VALUES = new HashMap<>();
     //
     // Top level preferences
     //
@@ -78,8 +78,10 @@ public class TasselPrefs {
     // Alignment preferences
     //
     public static final String ALIGNMENT_TOP = "/tassel/alignment";
+    // Retain Rare Alleles
     public static final String ALIGNMENT_RETAIN_RARE_ALLELES = "retainRareAlleles";
     public static final boolean ALIGNMENT_RETAIN_RARE_ALLELES_DEFAULT = false;
+    // Genome is base zero
 
     /**
      * Creates a new instance of TasselPrefs
