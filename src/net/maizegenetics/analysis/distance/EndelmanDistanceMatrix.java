@@ -405,7 +405,7 @@ public class EndelmanDistanceMatrix {
             myMaxAlleles = maxAlleles;
             myProgressListener = listener;
             myMinSitesToProcess = Math.max(myNumSites / NUM_CORES_TO_USE, 1000);
-            myNumSitesPerBlockForProgressReporting = (myFence - myCurrentSite) / 10;
+            myNumSitesPerBlockForProgressReporting = Math.max((myFence - myCurrentSite) / 10, 100);
         }
 
         @Override
