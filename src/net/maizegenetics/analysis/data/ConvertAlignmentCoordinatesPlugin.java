@@ -3,81 +3,61 @@
  */
 package net.maizegenetics.analysis.data;
 
-import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTableBuilder;
-import net.maizegenetics.dna.map.Chromosome;
-import net.maizegenetics.dna.map.GeneralPosition;
-import net.maizegenetics.dna.map.PositionListBuilder;
-import net.maizegenetics.plugindef.AbstractPlugin;
-import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.PluginEvent;
-import net.maizegenetics.util.Utils;
-import org.apache.log4j.Logger;
-
-import javax.swing.*;
 import java.awt.*;
 import java.io.BufferedReader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Pattern;
+import javax.swing.*;
+import net.maizegenetics.dna.map.Chromosome;
+import net.maizegenetics.dna.map.GeneralPosition;
+import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.map.PositionListBuilder;
+import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTableBuilder;
+import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
+import net.maizegenetics.plugindef.AbstractPlugin;
+import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.util.Utils;
+import org.apache.log4j.Logger;
 
 /**
  *
- * @author terry
+ * @author Terry Casstevens
  */
 public class ConvertAlignmentCoordinatesPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(ConvertAlignmentCoordinatesPlugin.class);
-    private String myMapFilename = null;
-    private final HashMap<String, Chromosome> myLociMap = new HashMap<String, Chromosome>();
-    private final HashMap<String, Chromosome> myAlignmentLociMap = new HashMap<String, Chromosome>();
 
-    public ConvertAlignmentCoordinatesPlugin(Frame parentFrame) {
-        super(parentFrame, false);
+    private PluginParameter<String> myMapFilename = new PluginParameter.Builder<>("mapFile", null, String.class)
+            .description("")
+            .inFile()
+            .required(true)
+            .build();
+
+    private PluginParameter<String> myGenomeVersion = new PluginParameter.Builder<>("genomeVersion", "AGPv3", String.class)
+            .description("")
+            .build();
+
+    private final HashMap<String, Chromosome> myLociMap = new HashMap<>();
+    private final HashMap<String, Chromosome> myAlignmentLociMap = new HashMap<>();
+
+    public ConvertAlignmentCoordinatesPlugin(Frame parentFrame, boolean isInteractive) {
+        super(parentFrame, isInteractive);
     }
 
-    public DataSet performFunction(DataSet input) {
+    @Override
+    public DataSet processData(DataSet input) {
 
-        try {
+        List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
 
-            List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
-
-            if (alignInList.size() != 1) {
-                String gpMessage = "Invalid selection.  Please select one genotype alignment.";
-                if (isInteractive()) {
-                    JOptionPane.showMessageDialog(getParentFrame(), gpMessage);
-                } else {
-                    myLogger.error(gpMessage);
-                }
-                return null;
-            }
-            Datum current = alignInList.get(0);
-            Datum result = processDatum(current);
-            DataSet output = new DataSet(result, this);
-            fireDataSetReturned(new PluginEvent(output, ConvertAlignmentCoordinatesPlugin.class));
-
-            return output;
-
-        } finally {
-            fireProgress(100);
+        if (alignInList.size() != 1) {
+            throw new IllegalArgumentException("Invalid selection.  Please select one genotype table.");
         }
-
-    }
-
-    private Datum processDatum(Datum input) {
-
-        if ((myMapFilename == null) || (myMapFilename.length() == 0)) {
-            throw new IllegalStateException("ConvertAlignmentCoordinatesPlugin: processDatum: map filename not set.");
-        }
-
-        GenotypeTable alignment = null;
-
-        if (input.getData() instanceof GenotypeTable) {
-            alignment = (GenotypeTable) input.getData();
-        } else {
-            throw new IllegalStateException("ConvertAlignmentCoordinatesPlugin: processDatum: datum must be instanceof Alignment.");
-        }
+        Datum datum = alignInList.get(0);
+        GenotypeTable alignment = (GenotypeTable) datum.getData();
 
         Chromosome[] loci = alignment.chromosomes();
         myLociMap.clear();
@@ -92,11 +72,10 @@ public class ConvertAlignmentCoordinatesPlugin extends AbstractPlugin {
             snpIDs[i] = alignment.siteName(i);
         }
 
-        BufferedReader br = null;
         int count = 1;
-        PositionListBuilder posBuilder = new PositionListBuilder().addAll(alignment.positions()).genomeVersion("AGPv3");
-        try {
-            br = Utils.getBufferedReader(myMapFilename);
+        PositionListBuilder posBuilder = new PositionListBuilder().addAll(alignment.positions()).genomeVersion(genomeVersion());
+        try (BufferedReader br = Utils.getBufferedReader(mapFilename())) {
+
             Pattern sep = Pattern.compile("\\s+");
 
             // Ignore head, then get first line.
@@ -115,7 +94,7 @@ public class ConvertAlignmentCoordinatesPlugin extends AbstractPlugin {
 
                 if (myAlignmentLociMap.get(locus1) != null) {
 
-                    String snpID = new String(parsedline[0]);
+                    String snpID = parsedline[0];
                     int pos1 = Integer.valueOf(parsedline[2]);
                     String locus2 = getLocusName(parsedline[3]);
                     int pos2 = Integer.valueOf(parsedline[4]);
@@ -124,7 +103,6 @@ public class ConvertAlignmentCoordinatesPlugin extends AbstractPlugin {
 
                         int site = getSiteOfSNPID(snpID, snpIDs);
                         if (site < 0) {
-                            //myLogger.warn("map file line: " + count + "  SNP ID: " + snpID + "  position: " + pos1 + "  locus: " + locus1 + " not found in alignment.");
                             continue;
                         }
 
@@ -139,11 +117,6 @@ public class ConvertAlignmentCoordinatesPlugin extends AbstractPlugin {
                         newPos.chromosome(getLocusObj(locus2)).position(pos2).snpName(snpID);
                         posBuilder.set(site, newPos.build());
 
-                        // posBuilder.setPositionOfSite(site, pos2);
-                        //
-                        // if (!locus1.equals(locus2)) {
-                        //     posBuilder.setLocusOfSite(site, getLocusObj(locus2));
-                        // }
                     }
 
                 }
@@ -152,38 +125,28 @@ public class ConvertAlignmentCoordinatesPlugin extends AbstractPlugin {
 
             myLogger.info("Number Changes: " + numChanges);
 
-            //          alignment.clean();
-            //TODO check sort of positions.
-            if (alignment.hasDepth()) {
-                return new Datum(input.getName() + "_NewCoordinates",
-                    //getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, ReferenceProbability referenceProbability, Dosage dosage, GeneralAnnotationStorage annotations)
+            GenotypeCallTableBuilder genotypeBuilder = GenotypeCallTableBuilder.getInstanceCopy(alignment.genotypeMatrix());
+            PositionList positions = posBuilder.build(genotypeBuilder);
+            Datum result = new Datum(datum.getName() + "_NewCoordinates",
                     GenotypeTableBuilder.getInstance(
-                        alignment.genotypeMatrix(), 
-                        posBuilder.build(), 
-                        alignment.taxa(),
-                        alignment.depth(),
-                        null,
-                        null,
-                        null,
-                        alignment.annotations()
-                    ), 
+                            genotypeBuilder.build(),
+                            positions,
+                            alignment.taxa(),
+                            alignment.depth(),
+                            alignment.alleleProbability(),
+                            alignment.referenceProbability(),
+                            alignment.dosage(),
+                            alignment.annotations()
+                    ),
                     null
-                );
-            }  else {
-                return new Datum(input.getName() + "_NewCoordinates", GenotypeTableBuilder.getInstance(alignment.genotypeMatrix(), posBuilder.build(), alignment.taxa()), null);
-            }
+            );
+
+            return new DataSet(result, this);
 
         } catch (Exception e) {
-            myLogger.error("processDatum: problem converting alignment: line: " + count + "  message: " + e.getMessage());
-        } finally {
-            try {
-                br.close();
-            } catch (Exception e) {
-                // do nothing
-            }
+            throw new IllegalStateException("ConvertAlignmentCoordinatesPlugin: processDatum: problem converting alignment: line: " + count + "  message: " + e.getMessage());
         }
 
-        return null;
     }
 
     private Chromosome getLocusObj(String locus) {
@@ -199,7 +162,7 @@ public class ConvertAlignmentCoordinatesPlugin extends AbstractPlugin {
         if (input.startsWith("chr")) {
             return input.substring(3);
         } else {
-            return new String(input);
+            return input;
         }
     }
 
@@ -212,23 +175,60 @@ public class ConvertAlignmentCoordinatesPlugin extends AbstractPlugin {
         return -1;
     }
 
-    public void setMapFilename(String filename) {
-        myMapFilename = filename;
+    /**
+     * Map File
+     *
+     * @return Map File
+     */
+    public String mapFilename() {
+        return myMapFilename.value();
     }
 
-    public String getMapFilename() {
-        return myMapFilename;
+    /**
+     * Set Map File. Map File
+     *
+     * @param value Map File
+     *
+     * @return this plugin
+     */
+    public ConvertAlignmentCoordinatesPlugin mapFilename(String value) {
+        myMapFilename = new PluginParameter<>(myMapFilename, value);
+        return this;
     }
 
+    /**
+     * Genome Version
+     *
+     * @return Genome Version
+     */
+    public String genomeVersion() {
+        return myGenomeVersion.value();
+    }
+
+    /**
+     * Set Genome Version. Genome Version
+     *
+     * @param value Genome Version
+     *
+     * @return this plugin
+     */
+    public ConvertAlignmentCoordinatesPlugin genomeVersion(String value) {
+        myGenomeVersion = new PluginParameter<>(myGenomeVersion, value);
+        return this;
+    }
+
+    @Override
     public ImageIcon getIcon() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return null;
     }
 
+    @Override
     public String getButtonName() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return "Convert Genotype Table Coordinates";
     }
 
+    @Override
     public String getToolTipText() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return "Convert Genotype Table Coordinates";
     }
 }
