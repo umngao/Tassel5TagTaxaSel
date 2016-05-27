@@ -53,4 +53,9 @@ public class MaskGenotypeCallTable extends AbstractGenotypeCallTable {
         myBase.transposeData(siteInnerLoop);
     }
 
+    @Override
+    public boolean isSiteOptimized() {
+        return myBase.isSiteOptimized();
+    }
+    
 }

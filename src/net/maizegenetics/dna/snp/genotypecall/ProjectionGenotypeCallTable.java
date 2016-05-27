@@ -181,6 +181,15 @@ public class ProjectionGenotypeCallTable extends AbstractGenotypeCallTable {
 
     }
 
+    @Override
+    public boolean isSiteOptimized() {
+        if (currMode == BaseMode.Site) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+
     private class DonorSiteHaps {
 
         private final int startSite;

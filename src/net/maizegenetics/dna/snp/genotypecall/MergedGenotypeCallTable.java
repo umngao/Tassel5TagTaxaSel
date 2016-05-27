@@ -1,11 +1,8 @@
 package net.maizegenetics.dna.snp.genotypecall;
 
-import java.util.HashMap;
 import java.util.function.BiFunction;
-import java.util.stream.Stream;
 
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
-import net.maizegenetics.taxa.Taxon;
 
 public class MergedGenotypeCallTable extends AbstractGenotypeCallTable {
 
@@ -164,7 +161,13 @@ public class MergedGenotypeCallTable extends AbstractGenotypeCallTable {
     public void transposeData(boolean siteInnerLoop) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
+    
+    @Override
+    public boolean isSiteOptimized() {
+        return myGenotypeCallTables[0].isSiteOptimized();
+    }
 
+    @Override
     public byte[] genotypeArray(int taxon, int site) {
         return GenotypeTableUtils.getDiploidValues(genotype(taxon, site));
     }

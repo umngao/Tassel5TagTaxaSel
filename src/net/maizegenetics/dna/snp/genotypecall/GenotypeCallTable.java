@@ -497,6 +497,15 @@ public interface GenotypeCallTable {
     public void transposeData(boolean siteInnerLoop);
 
     /**
+     * This returns true if this Genotype performs better when processing whole
+     * sites at a time. Return false if performance is better when processing
+     * whole taxa.
+     *
+     * @return true if optimized for site processing
+     */
+    public boolean isSiteOptimized();
+
+    /**
      * Returns a Stream over the genotype calls.
      *
      * @return Stream over the genotype calls

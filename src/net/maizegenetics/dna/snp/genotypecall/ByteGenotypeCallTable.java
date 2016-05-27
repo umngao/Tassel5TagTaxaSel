@@ -86,6 +86,15 @@ class ByteGenotypeCallTable extends AbstractGenotypeCallTable {
     }
 
     @Override
+    public boolean isSiteOptimized() {
+        if (myTaxonInnerLoop != null) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    @Override
     public Stream<Byte> stream() {
         return myGenotype.stream();
     }
@@ -94,4 +103,5 @@ class ByteGenotypeCallTable extends AbstractGenotypeCallTable {
     public Stream<Byte> stream(int taxon) {
         return myGenotype.stream(taxon);
     }
+
 }

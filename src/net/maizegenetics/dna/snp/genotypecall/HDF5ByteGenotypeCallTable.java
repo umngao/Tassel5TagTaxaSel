@@ -220,6 +220,11 @@ class HDF5ByteGenotypeCallTable extends AbstractGenotypeCallTable {
     }
 
     @Override
+    public boolean isSiteOptimized() {
+        return false;
+    }
+
+    @Override
     public Stream<Byte> stream() {
         return StreamSupport.stream(spliterator(), true);
     }

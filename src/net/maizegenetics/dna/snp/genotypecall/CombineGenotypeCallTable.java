@@ -128,4 +128,9 @@ public class CombineGenotypeCallTable extends AbstractGenotypeCallTable {
 
     }
 
+    @Override
+    public boolean isSiteOptimized() {
+        return myGenotypeCallTables[0].isSiteOptimized();
+    }
+
 }

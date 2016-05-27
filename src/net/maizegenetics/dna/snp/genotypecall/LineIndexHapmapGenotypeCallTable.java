@@ -159,6 +159,11 @@ public class LineIndexHapmapGenotypeCallTable extends AbstractGenotypeCallTable 
     public void transposeData(boolean siteInnerLoop) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
+    
+    @Override
+    public boolean isSiteOptimized() {
+        return true;
+    }
 
     /**
      * Parse line from Hapmap file to genotypes for a site.
