@@ -448,7 +448,16 @@ public class OpenBitSet implements BitSet, Cloneable, Serializable {
         myBits[wordNum] |= bitmask;
         return val;
     }
-
+    
+    public boolean getAndClear(int index) {
+        int wordNum = index >> 6;      // div 64
+        int bit = index & 0x3f;     // mod 64
+        long bitmask = 1L << bit;
+        boolean val = (myBits[wordNum] & bitmask) != 0;
+        myBits[wordNum] &= ~bitmask;
+        return val;
+    }
+    
     /**
      * Sets a bit and returns the previous value. The index should be less than
      * the OpenBitSet size.

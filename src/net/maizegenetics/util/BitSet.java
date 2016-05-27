@@ -156,6 +156,12 @@ public interface BitSet {
      * The index should be less than the BitSet size.
      */
     public boolean getAndSet(int index);
+    
+    /**
+     * Clears a bit and returns the previous value.
+     * The index should be less than the BitSet size.
+     */
+    public boolean getAndClear(int index);
 
     /**
      * Sets a bit and returns the previous value.
