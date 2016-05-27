@@ -152,6 +152,11 @@ public class UnmodifiableBitSet implements BitSet {
     }
     
     @Override
+    public boolean getAndClear(int index) {
+        throw new UnsupportedOperationException("UnmodifiableBitSet.");
+    }
+    
+    @Override
     public boolean getAndSet(long index) {
         throw new UnsupportedOperationException("UnmodifiableBitSet.");
     }
