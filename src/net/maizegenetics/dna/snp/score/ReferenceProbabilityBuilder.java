@@ -40,7 +40,7 @@ public class ReferenceProbabilityBuilder {
     }
 
     public static ReferenceProbability getFilteredInstance(ReferenceProbability base, FilterGenotypeTable filterGenotypeTable) {
-        FilterByte2D resultStorage = Byte2DBuilder.getFilteredInstance(base.byteStorage(SiteScore.SITE_SCORE_TYPE.ReferenceProbablity), filterGenotypeTable);
+        FilterByte2D resultStorage = Byte2DBuilder.getFilteredInstance(base.byteStorage(), filterGenotypeTable);
         return new ReferenceProbability(resultStorage);
     }
 

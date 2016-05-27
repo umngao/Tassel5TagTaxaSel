@@ -9,11 +9,11 @@ import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.dna.snp.bit.BitStorage;
 import net.maizegenetics.dna.snp.bit.DynamicBitStorage;
-import net.maizegenetics.dna.snp.depth.AlleleDepth;
-import net.maizegenetics.dna.snp.depth.FilterAlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.dna.map.Position;
+import net.maizegenetics.dna.snp.score.AlleleDepth;
+import net.maizegenetics.dna.snp.score.AlleleDepthBuilder;
 import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.dna.snp.score.AlleleProbabilityBuilder;
 import net.maizegenetics.dna.snp.score.ReferenceProbability;
@@ -40,7 +40,6 @@ import java.util.stream.Stream;
  */
 public class FilterGenotypeTable implements GenotypeTable {
 
-    private static final long serialVersionUID = -5197800047652332969L;
     private static final Logger myLogger = Logger.getLogger(FilterGenotypeTable.class);
     private final boolean myIsTaxaFilter;
     private final boolean myIsSiteFilter;
@@ -932,7 +931,7 @@ public class FilterGenotypeTable implements GenotypeTable {
         if (depth == null) {
             return null;
         } else if (myAlleleDepth == null) {
-            myAlleleDepth = new FilterAlleleDepth(depth, this);
+            myAlleleDepth = AlleleDepthBuilder.getFilteredInstance(depth, this);
         }
         return myAlleleDepth;
     }

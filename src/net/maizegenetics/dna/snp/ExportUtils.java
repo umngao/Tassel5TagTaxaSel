@@ -5,7 +5,6 @@ package net.maizegenetics.dna.snp;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Multimap;
-import com.google.common.primitives.Ints;
 
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Position;
@@ -71,7 +70,7 @@ public class ExportUtils {
             if (a.hasDepth() == false || keepDepth == false) {
                 aB.addTaxon(a.taxa().get(t), bases, null);
             } else {
-                aB.addTaxon(a.taxa().get(t), bases, a.depth().depthAllSitesByte(t));
+                aB.addTaxon(a.taxa().get(t), bases, a.depth().valuesForTaxonByte(t));
             }
         }
         aB.build();

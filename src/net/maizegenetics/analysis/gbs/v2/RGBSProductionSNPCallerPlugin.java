@@ -10,7 +10,7 @@ import net.maizegenetics.analysis.gbs.Barcode;
 import net.maizegenetics.dna.BaseEncoder;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.*;
-import net.maizegenetics.dna.snp.depth.AlleleDepthUtil;
+import net.maizegenetics.dna.snp.score.AlleleDepthUtil;
 import net.maizegenetics.dna.snp.genotypecall.BasicGenotypeMergeRule;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeMergeRule;
 import net.maizegenetics.dna.tag.Tag;

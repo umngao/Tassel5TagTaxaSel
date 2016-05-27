@@ -1,7 +1,7 @@
 package net.maizegenetics.dna.snp.genotypecall;
 
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.depth.AlleleDepthUtil;
+import net.maizegenetics.dna.snp.score.AlleleDepthUtil;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 
 import static net.maizegenetics.dna.snp.GenotypeTable.UNKNOWN_DIPLOID_ALLELE;

@@ -3,21 +3,48 @@
  */
 package net.maizegenetics.dna.snp.score;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import net.maizegenetics.dna.snp.byte2d.Byte2D;
 
 /**
  *
  * @author Terry Casstevens
  */
-public class AlleleDepth extends SiteScore {
+public class AlleleDepth implements SiteScore {
 
     public static final SiteScore.SITE_SCORE_TYPE[] ALLELE_DEPTH_TYPES = new SiteScore.SITE_SCORE_TYPE[]{
         SiteScore.SITE_SCORE_TYPE.DepthA, SiteScore.SITE_SCORE_TYPE.DepthC,
         SiteScore.SITE_SCORE_TYPE.DepthG, SiteScore.SITE_SCORE_TYPE.DepthT,
-        SiteScore.SITE_SCORE_TYPE.DepthGap, SiteScore.SITE_SCORE_TYPE.DepthInsertion};
+        SiteScore.SITE_SCORE_TYPE.DepthInsertion, SiteScore.SITE_SCORE_TYPE.DepthGap};
+
+    private final Map<SITE_SCORE_TYPE, Byte2D> myValues;
+    private final int myNumTaxa;
+    private final int myNumSites;
 
     AlleleDepth(Byte2D[] values) {
-        super(values);
+        if (values.length == 0) {
+            throw new IllegalArgumentException("AlleleDepth: init: no values provided.");
+        }
+        myValues = new HashMap<>();
+        myNumTaxa = values[0].numTaxa();
+        myNumSites = values[0].numSites();
+        for (int i = 0; i < values.length; i++) {
+            if ((myNumTaxa != values[i].numTaxa()) || (myNumSites != values[i].numSites())) {
+                throw new IllegalArgumentException("AlleleDepth: init: number of taxa or sites don't match for all values.");
+            }
+            myValues.put(values[i].siteScoreType(), values[i]);
+        }
+    }
+
+    public AlleleDepth(int numTaxa, int numSites) {
+        myNumTaxa = numTaxa;
+        myNumSites = numSites;
+        myValues = null;
     }
 
     /**
@@ -32,7 +59,7 @@ public class AlleleDepth extends SiteScore {
      * @return depth
      */
     public int value(int taxon, int site, SITE_SCORE_TYPE scoreType) {
-        return AlleleDepthUtil.depthByteToInt(byteStorage(scoreType).valueForAllele(taxon, site));
+        return AlleleDepthUtil.depthByteToInt(myValues.get(scoreType).valueForAllele(taxon, site));
     }
 
     /**
@@ -87,7 +114,7 @@ public class AlleleDepth extends SiteScore {
      * @return depth
      */
     public byte valueByte(int taxon, int site, SITE_SCORE_TYPE scoreType) {
-        return byteStorage(scoreType).valueForAllele(taxon, site);
+        return myValues.get(scoreType).valueForAllele(taxon, site);
     }
 
     /**
@@ -195,6 +222,25 @@ public class AlleleDepth extends SiteScore {
             result += depth(taxon, site);
         }
         return result;
+    }
+
+    Collection<Byte2D> byteStorage() {
+        return myValues.values();
+    }
+
+    @Override
+    public Set<SITE_SCORE_TYPE> siteScoreTypes() {
+        return new HashSet<>(Arrays.asList(ALLELE_DEPTH_TYPES));
+    }
+
+    @Override
+    public int numTaxa() {
+        return myNumTaxa;
+    }
+
+    @Override
+    public int numSites() {
+        return myNumSites;
     }
 
 }

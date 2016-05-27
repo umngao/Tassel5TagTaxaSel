@@ -9,10 +9,8 @@ import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
-import net.maizegenetics.dna.snp.depth.AlleleDepthBuilder;
-import net.maizegenetics.dna.snp.depth.AlleleDepthUtil;
-//import net.maizegenetics.dna.snp.score.AlleleDepthBuilder;
-//import net.maizegenetics.dna.snp.score.AlleleDepthUtil;
+import net.maizegenetics.dna.snp.score.AlleleDepthBuilder;
+import net.maizegenetics.dna.snp.score.AlleleDepthUtil;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.taxa.TaxaList;
@@ -27,7 +25,6 @@ import org.apache.log4j.Logger;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -36,7 +33,6 @@ import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Future;
 import java.util.regex.Pattern;
 
@@ -280,8 +276,7 @@ public class BuilderFromVCF {
         GenotypeCallTableBuilder gb=GenotypeCallTableBuilder.getUnphasedNucleotideGenotypeBuilder(taxaList.numberOfTaxa(), numberOfSites);
         AlleleDepthBuilder db=null;
        
-        //if(includeDepth) db=AlleleDepthBuilder.getInstance(taxaList.numberOfTaxa(),numberOfSites,taxaList);
-        if(includeDepth) db=AlleleDepthBuilder.getInstance(taxaList.numberOfTaxa(),numberOfSites,6);
+        if(includeDepth) db=AlleleDepthBuilder.getInstance(taxaList.numberOfTaxa(),numberOfSites,taxaList);
      
         
         for (ProcessVCFBlock pb: pbs) {
@@ -293,8 +288,7 @@ public class BuilderFromVCF {
             if(includeDepth) {
                 byte[][][] bdTS=pb.getDepthTS();
                 for (int t=0; t<bgTS.length; t++) {
-                    db.setDepthRangeForTaxon(t, currentSite, bdTS[t]);
-                    //db.addTaxon(t, bdTS[t]);
+                    db.addTaxon(t, bdTS[t]);
                 }
                 
             }

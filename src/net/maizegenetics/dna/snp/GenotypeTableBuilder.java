@@ -10,12 +10,11 @@ import ch.systemsx.cisd.hdf5.IHDF5WriterConfigurator;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.PositionListBuilder;
-import net.maizegenetics.dna.snp.depth.AlleleDepth;
-import net.maizegenetics.dna.snp.depth.AlleleDepthBuilder;
-import net.maizegenetics.dna.snp.depth.AlleleDepthUtil;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeMergeRule;
+import net.maizegenetics.dna.snp.score.AlleleDepth;
+import net.maizegenetics.dna.snp.score.Dosage;
 import net.maizegenetics.dna.snp.score.AlleleProbabilityBuilder;
 import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.dna.snp.score.ReferenceProbabilityBuilder;
@@ -32,7 +31,6 @@ import net.maizegenetics.util.GeneralAnnotation;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import net.maizegenetics.dna.snp.score.Dosage;
 
 /**
  * Builder for GenotypeTables. New genotypeTables are built from a minimum of
@@ -261,7 +259,7 @@ public class GenotypeTableBuilder {
         boolean hasDepth = genotypeTable.hasDepth();
         for (int i = 0; i < genotypeTable.numberOfTaxa(); i++) {
             if (hasDepth) {
-                gtb.addTaxon(genotypeTable.taxa().get(i), genotypeTable.genotypeAllSites(i), genotypeTable.depth().depthAllSitesByte(i));
+                gtb.addTaxon(genotypeTable.taxa().get(i), genotypeTable.genotypeAllSites(i), genotypeTable.depth().valuesForTaxonByte(i));
             } else {
                 gtb.addTaxon(genotypeTable.taxa().get(i), genotypeTable.genotypeAllSites(i));
             }
@@ -446,7 +444,7 @@ public class GenotypeTableBuilder {
         TaxaList tL = new TaxaListBuilder().buildFromHDF5Genotypes(reader);
         PositionList pL = PositionListBuilder.getInstance(reader);
         GenotypeCallTable geno = GenotypeCallTableBuilder.buildHDF5(reader);
-        AlleleDepth depth = AlleleDepthBuilder.getExistingHDF5Instance(reader);
+        AlleleDepth depth = AlleleDepthBuilder.getInstance(reader);
         return GenotypeTableBuilder.getInstance(geno, pL, tL, depth, null, null, null, HDF5Utils.readHDF5Annotation(reader, Tassel5HDF5Constants.ROOT, GenotypeTable.GENOTYPE_TABLE_ANNOTATIONS));
     }
 
@@ -667,12 +665,12 @@ public class GenotypeTableBuilder {
                 boolean hasDepth = (incDepth.size() == tl.numberOfTaxa() && incDepth.get(0) != null);
                 AlleleDepthBuilder adb = null;
                 if (hasDepth) {
-                    adb = AlleleDepthBuilder.getNucleotideInstance(tl.numberOfTaxa(), positionList.numberOfSites());
+                    adb = AlleleDepthBuilder.getInstance(tl.numberOfTaxa(), positionList.numberOfSites(), taxaList);
                 }
                 for (int i = 0; i < incGeno.size(); i++) {
                     gB.setBaseRangeForTaxon(i, 0, incGeno.get(incTaxonIndex.get(tl.get(i))));
                     if (hasDepth) {
-                        adb.setDepth(i, incDepth.get(incTaxonIndex.get(tl.get(i))));
+                        adb.addTaxon(i, incDepth.get(incTaxonIndex.get(tl.get(i))));
                     }
                 }
                 AlleleDepth ad = (hasDepth) ? adb.build() : null;

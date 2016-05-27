@@ -11,7 +11,7 @@ import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.bit.BitStorage;
-import net.maizegenetics.dna.snp.depth.AlleleDepth;
+import net.maizegenetics.dna.snp.score.AlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.genotypecall.MergedGenotypeCallTable;
 import net.maizegenetics.dna.snp.score.AlleleProbability;

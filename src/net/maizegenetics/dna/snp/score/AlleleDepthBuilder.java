@@ -22,36 +22,38 @@ import net.maizegenetics.taxa.TaxaList;
  */
 public class AlleleDepthBuilder {
 
-    private final Map<SiteScore.SITE_SCORE_TYPE, Byte2DBuilder> myBuilders = new LinkedHashMap<>();
+    private final Map<SiteScore.SITE_SCORE_TYPE, Byte2DBuilder> myBuilders;
     private final int myNumSites;
 
     private AlleleDepthBuilder(int numTaxa, int numSites, TaxaList taxaList) {
+        myBuilders = new LinkedHashMap<>();
         for (int i = 0; i < AlleleDepth.ALLELE_DEPTH_TYPES.length; i++) {
             myBuilders.put(AlleleDepth.ALLELE_DEPTH_TYPES[i], Byte2DBuilder.getInstance(numTaxa, numSites, AlleleDepth.ALLELE_DEPTH_TYPES[i], taxaList));
         }
         myNumSites = numSites;
     }
 
-    private AlleleDepthBuilder(IHDF5Writer writer, int numTaxa, int numSites, TaxaList taxaList) {
-        for (int i = 0; i < AlleleDepth.ALLELE_DEPTH_TYPES.length; i++) {
-            myBuilders.put(AlleleDepth.ALLELE_DEPTH_TYPES[i], Byte2DBuilder.getInstance(writer, numSites, AlleleDepth.ALLELE_DEPTH_TYPES[i], taxaList));
-        }
+    // For HDF5AlleleDepthBuilder
+    protected AlleleDepthBuilder(int numSites) {
         myNumSites = numSites;
+        myBuilders = null;
     }
 
     /**
-     * This returns an AlleleDepthBuilder where depths are stored in a HDF5
-     * file.
+     * AlleleDepthBuilder is created and depths are stored in a HDF5 file.
+     * setDepth methods are used to set the depths. Finish the building with
+     * build()
      *
-     * @param writer writer
-     * @param numTaxa number of taxa
-     * @param numSites number of sites
-     * @param taxaList taxa list
-     *
-     * @return AlleleDepthBuilder
+     * @param writer
+     * @param numSites
+     * @return
      */
-    public static AlleleDepthBuilder getInstance(IHDF5Writer writer, int numTaxa, int numSites, TaxaList taxaList) {
-        return new AlleleDepthBuilder(writer, numTaxa, numSites, taxaList);
+    public static AlleleDepthBuilder getInstance(IHDF5Writer writer, int numSites) {
+        return HDF5AlleleDepthBuilder.getHDF5NucleotideInstance(writer, numSites);
+    }
+    
+    public static AlleleDepth getFilteredInstance(HDF5AlleleDepth alleleDepth, FilterGenotypeTable filter) {
+        return HDF5AlleleDepthBuilder.getFilteredInstance(alleleDepth, filter);
     }
 
     /**
@@ -93,13 +95,7 @@ public class AlleleDepthBuilder {
      * @return AlleleDepth
      */
     public static AlleleDepth getInstance(IHDF5Reader reader) {
-        int numAlleles = AlleleDepth.ALLELE_DEPTH_TYPES.length;
-        Byte2D[] input = new Byte2D[numAlleles];
-        int count = 0;
-        for (SiteScore.SITE_SCORE_TYPE current : AlleleDepth.ALLELE_DEPTH_TYPES) {
-            input[count++] = Byte2DBuilder.getInstance(reader, current);
-        }
-        return new AlleleDepth(input);
+        return HDF5AlleleDepthBuilder.getExistingHDF5Instance(reader);
     }
 
     public AlleleDepthBuilder addTaxon(int taxon, int[] values, SiteScore.SITE_SCORE_TYPE type) {

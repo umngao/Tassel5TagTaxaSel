@@ -8,8 +8,8 @@ import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.bit.BitStorage;
 import net.maizegenetics.dna.snp.bit.DynamicBitStorage;
-import net.maizegenetics.dna.snp.depth.AlleleDepth;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
+import net.maizegenetics.dna.snp.score.AlleleDepth;
 import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.dna.snp.score.ReferenceProbability;
 import net.maizegenetics.dna.snp.score.Dosage;
@@ -487,7 +487,7 @@ public class CoreGenotypeTable implements GenotypeTable {
 
     @Override
     public int[] depthForAlleles(int taxon, int site) {
-        return myAlleleDepth.depthForAlleles(taxon, site);
+        return myAlleleDepth.values(taxon, site);
     }
 
     @Override

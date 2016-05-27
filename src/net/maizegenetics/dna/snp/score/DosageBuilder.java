@@ -40,7 +40,7 @@ public class DosageBuilder {
     }
 
     public static Dosage getFilteredInstance(Dosage base, FilterGenotypeTable filterGenotypeTable) {
-        FilterByte2D resultStorage = Byte2DBuilder.getFilteredInstance(base.byteStorage(SiteScore.SITE_SCORE_TYPE.Dosage), filterGenotypeTable);
+        FilterByte2D resultStorage = Byte2DBuilder.getFilteredInstance(base.byteStorage(), filterGenotypeTable);
         return new Dosage(resultStorage);
     }
 
