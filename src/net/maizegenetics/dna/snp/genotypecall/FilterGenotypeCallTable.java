@@ -108,6 +108,15 @@ class FilterGenotypeCallTable extends AbstractGenotypeCallTable {
     }
 
     @Override
+    public int[][] allelesSortedByFrequency(int site) {
+        if (!myIsTaxaFilter) {
+            return myBaseGenotype.allelesSortedByFrequency(translateSite(site));
+        } else {
+            return super.allelesSortedByFrequency(site);
+        }
+    }
+
+    @Override
     public void transposeData(boolean siteInnerLoop) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
