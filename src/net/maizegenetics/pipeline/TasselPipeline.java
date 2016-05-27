@@ -1475,9 +1475,9 @@ public class TasselPipeline implements PluginListener {
                     }
                     integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-newCoordinates")) {
-                    ConvertAlignmentCoordinatesPlugin plugin = new ConvertAlignmentCoordinatesPlugin(myMainFrame);
+                    ConvertAlignmentCoordinatesPlugin plugin = new ConvertAlignmentCoordinatesPlugin(myMainFrame, myIsInteractive);
                     String mapFile = args[index++].trim();
-                    plugin.setMapFilename(mapFile);
+                    plugin.mapFilename(mapFile);
                     integratePlugin(plugin, true);
                 } else {
 
