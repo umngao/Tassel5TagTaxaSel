@@ -20,6 +20,8 @@ import net.maizegenetics.dna.snp.score.AlleleProbability;
 import net.maizegenetics.dna.snp.score.ReferenceProbabilityBuilder;
 import net.maizegenetics.dna.snp.score.ReferenceProbability;
 import net.maizegenetics.dna.snp.score.DosageBuilder;
+import net.maizegenetics.dna.snp.score.AlleleDepthBuilder;
+import net.maizegenetics.dna.snp.score.AlleleDepthUtil;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
