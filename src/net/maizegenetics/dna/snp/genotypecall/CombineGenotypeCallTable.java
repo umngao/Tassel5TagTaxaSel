@@ -111,6 +111,12 @@ public class CombineGenotypeCallTable extends AbstractGenotypeCallTable {
         int translate = translateSite(site);
         return myGenotypeCallTables[translate].genotypeAsString(taxon, site - mySiteOffsets[translate]);
     }
+    
+    @Override
+    public String diploidAsString(int site, byte value) {
+        int translate = translateSite(site);
+        return myGenotypeCallTables[translate].diploidAsString(site - mySiteOffsets[translate], value);
+    }
 
     @Override
     public void transposeData(boolean siteInnerLoop) {
