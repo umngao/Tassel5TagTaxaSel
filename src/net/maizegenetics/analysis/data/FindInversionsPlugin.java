@@ -646,7 +646,7 @@ public class FindInversionsPlugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        URL imageURL = MaskGenotypePlugin.class.getResource("/net/maizegenetics/analysis/images/inversion.gif");
+        URL imageURL = FindInversionsPlugin.class.getResource("/net/maizegenetics/analysis/images/inversion.gif");
         if (imageURL == null) {
             return null;
         } else {

@@ -86,7 +86,7 @@ public class CombineDataSetsPlugin extends AbstractPlugin {
 
     @Override
     public String getToolTipText() {
-        return "";
+        return "Combine Datasets";
     }
 
     @Override

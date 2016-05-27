@@ -147,7 +147,7 @@ public class CreateHybridGenotypesPlugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        URL imageURL = MaskGenotypePlugin.class.getResource("/net/maizegenetics/analysis/images/hybrid.gif");
+        URL imageURL = CreateHybridGenotypesPlugin.class.getResource("/net/maizegenetics/analysis/images/hybrid.gif");
         if (imageURL == null) {
             return null;
         } else {
