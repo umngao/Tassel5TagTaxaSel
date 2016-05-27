@@ -51,6 +51,10 @@ public class TaxaListBuilder {
         tempLookup.put(taxon,myTaxaList.size()-1);
         return this;
     }
+    
+    public boolean contains(Taxon taxon) {
+        return tempLookup.containsKey(taxon);
+    }
 
     public TaxaListBuilder addOrMerge(Taxon taxon) {
         if(tempLookup.containsKey(taxon)) {
