@@ -112,7 +112,10 @@ public class BasicGenotypeMergeRule implements GenotypeMergeRule {
                 return (byte) ((maxAllele << 4) | nextMaxAllele); // call it a het
             }
         } else {
-            if (nextMax / totCount < 0.1) {
+            // Must cast to double.  In java, int1/int2 where int1 < int2 always returns 0
+            // as the conversion to float happens AFTER the division.
+            double resultDouble = (double)nextMax/totCount;
+            if (resultDouble < 0.1) {               
                 return (byte) ((maxAllele << 4) | maxAllele); // call it a homozygote
             } else {
                 return (byte) ((maxAllele << 4) | nextMaxAllele); // call it a het
