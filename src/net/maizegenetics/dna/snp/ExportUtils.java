@@ -5,6 +5,7 @@ package net.maizegenetics.dna.snp;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Multimap;
+import com.google.common.primitives.Ints;
 
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Position;
@@ -22,6 +23,7 @@ import java.util.HashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
+
 import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
 
 /**
@@ -259,12 +261,19 @@ public class ExportUtils {
                 byte refAllele = p.getAllele(WHICH_ALLELE.Reference);
                 int[] sortedAlleles = gt.allelesSortedByFrequency(site)[0]; // which alleles are actually present among the genotypes
                 
+                
+                
                 //ZRM22 March 18 2016 move to add reference into sortedAlleles array if its missing
-                sortedAlleles = VCFUtil.resolveRefSorted(sortedAlleles, refAllele);
-
+                int[] sortedAllelesTemp = VCFUtil.resolveRefSorted(sortedAlleles, refAllele);
+                
+                //ZRM22 June 6 2016 fix variants with ref allele
+                
+                
+                sortedAlleles = sortedAllelesTemp;
                 //ZRM22 Jan7 Remake
                 //If knownVariants.length is greater than 0 its either from a VCF file or Hapmap
                 if(knownVariants.length>0) {
+                    
                     //ReOrder based on variant alleles
                     //Store a tempSortedAlleles so we can appropriately handle hapmap to vcf
                     //int[] tempSortedAlleles = new int[knownVariants.length];
@@ -274,6 +283,7 @@ public class ExportUtils {
                     
                     //Loop through all the knownVariants and check to see if we have an indel
                     boolean knownVariantIndel = VCFUtil.indelInKnownVariant(knownVariants);
+                    
                     
                     //If we do have an indel, we can add the variants after picking off the first character to the tempSortedAlleles
                     if(knownVariantIndel) {
@@ -346,41 +356,89 @@ public class ExportUtils {
                             knownVariantsList.add(variant);
                         }
                     }
-                    
-                    //Go through sorted alleles
-                    for(int i = 0 ;i<sortedAlleles.length; i++) {
-                    //If a sorted allele is not in tempSortedAlleles,
+                    //ZRM Jun6 fix to force Ref annotated alleles to stay in REF for export
+                    //Need to reorder the variants based on the original sorting
+                    ArrayList<Integer> sortedAllelesList = new ArrayList<Integer>();
+                    HashMap<Integer,String> sortedAlleleKnownVariantMap = new HashMap<Integer, String>();
+                    for(int i = 0; i < sortedAlleles.length; i++) {
+                        //Add it to the new sorted list
+                        sortedAllelesList.add(sortedAlleles[i]);
                         if(!tempSortedAlleles.contains(sortedAlleles[i])) {
-                            //if its not add it to sorted alleles and knownVariants
-                            tempSortedAlleles.add(sortedAlleles[i]);
                             //Check for an indel
                             if(indelsExist) {
                                 if(NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]).equals("-")) {
-                                    knownVariantsList.add("N");
+                                  //Add an Entry to the sortedAllele, knownVariant mapping
+                                    sortedAlleleKnownVariantMap.put(sortedAlleles[i],"N");
                                 }
                                 else {
-                                    knownVariantsList.add("N"+NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
-                                }
-//                                knownVariantsList.add("N"+NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
+                                    sortedAlleleKnownVariantMap.put(sortedAlleles[i],NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
+                                } 
                             }
                             else {
-                                knownVariantsList.add(NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
+                                sortedAlleleKnownVariantMap.put(sortedAlleles[i],NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
                             }
                         }
+                        else {
+                            //Find the index in tempSortedAlleles
+                            int variantIndex = tempSortedAlleles.indexOf(sortedAlleles[i]);
+                            //Use it to get the correct KnownVariant
+                            sortedAlleleKnownVariantMap.put(sortedAlleles[i],knownVariants[variantIndex]);   
+                        }
                     }
-                    //reset knownVariants and sortedAlleles to reflect the changes
-                    String[] knownVariantsExtended = new String[knownVariantsList.size()];
-                    for(int i = 0; i < knownVariantsExtended.length; i++) {
-                        knownVariantsExtended[i] = knownVariantsList.get(i);
+                    //loop through tempSortedAlleles and make sure we have them all
+                    //Else add to the end
+                    for(int i = 0; i < tempSortedAlleles.size(); i++) {
+                        if(!sortedAllelesList.contains(tempSortedAlleles.get(i))) {
+                           sortedAllelesList.add(tempSortedAlleles.get(i)); 
+                           sortedAlleleKnownVariantMap.put(tempSortedAlleles.get(i),knownVariantsList.get(i));
+                        }
                     }
-                    knownVariants = knownVariantsExtended;
-                    
-                    int[] sortedAllelesExtended = new int[tempSortedAlleles.size()];
+                    int[] sortedAllelesExtended = new int[sortedAllelesList.size()];
                     for(int i = 0; i < sortedAllelesExtended.length; i++) {
-                        sortedAllelesExtended[i] = tempSortedAlleles.get(i);
+                        sortedAllelesExtended[i] = sortedAllelesList.get(i);
                     }
                     sortedAlleles = sortedAllelesExtended;
-                    //sortedAlleles = tempSortedAlleles.toArray(new int[tempSortedAlleles.size()]);
+                    
+                    String[] knownVariantsExtended = new String[sortedAllelesList.size()];
+                    for(int i = 0; i < knownVariantsExtended.length; i++) {
+                        knownVariantsExtended[i] = sortedAlleleKnownVariantMap.get(sortedAllelesList.get(i));
+                    }
+                    knownVariants = knownVariantsExtended;
+                  //TODO Cleanup
+//                    //Go through sorted alleles
+//                    for(int i = 0 ;i<sortedAlleles.length; i++) {
+//                    //If a sorted allele is not in tempSortedAlleles,
+//                        if(!tempSortedAlleles.contains(sortedAlleles[i])) {
+//                            //if its not add it to sorted alleles and knownVariants
+//                            tempSortedAlleles.add(sortedAlleles[i]);
+//                            //Check for an indel
+//                            if(indelsExist) {
+//                                if(NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]).equals("-")) {
+//                                    knownVariantsList.add("N");
+//                                }
+//                                else {
+//                                    knownVariantsList.add("N"+NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
+//                                }
+////                                knownVariantsList.add("N"+NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
+//                            }
+//                            else {
+//                                knownVariantsList.add(NucleotideAlignmentConstants.getHaplotypeNucleotide((byte)sortedAlleles[i]));
+//                            }
+//                        }
+//                    }
+//                    //reset knownVariants and sortedAlleles to reflect the changes
+//                    String[] knownVariantsExtended = new String[knownVariantsList.size()];
+//                    for(int i = 0; i < knownVariantsExtended.length; i++) {
+//                        knownVariantsExtended[i] = knownVariantsList.get(i);
+//                    }
+//                    knownVariants = knownVariantsExtended;
+//                    
+//                    int[] sortedAllelesExtended = new int[tempSortedAlleles.size()];
+//                    for(int i = 0; i < sortedAllelesExtended.length; i++) {
+//                        sortedAllelesExtended[i] = tempSortedAlleles.get(i);
+//                    }
+//                    sortedAlleles = sortedAllelesExtended;
+//                    //sortedAlleles = tempSortedAlleles.toArray(new int[tempSortedAlleles.size()]);
                 }
                 else {
                     //No known variants, but we need to handle indels
@@ -603,8 +661,11 @@ public class ExportUtils {
                     //Fix missing commas in depth information
                     for(int ss = 0; ss < sortedAlleles.length; ss++) {
                         if(ss!=indelIndex) {
-                            depthsList.add(AlleleDepthUtil.depthByteToInt((byte)siteAlleleDepths[sortedAlleles[ss]]));
-                            siteTotalDepth += AlleleDepthUtil.depthByteToInt((byte)siteAlleleDepths[sortedAlleles[ss]]);
+                            depthsList.add(siteAlleleDepths[sortedAlleles[ss]]);
+                            siteTotalDepth += siteAlleleDepths[sortedAlleles[ss]];
+                            //TODO Cleanup
+//                            depthsList.add(AlleleDepthUtil.depthByteToInt((byte)siteAlleleDepths[sortedAlleles[ss]]));
+//                            siteTotalDepth += AlleleDepthUtil.depthByteToInt((byte)siteAlleleDepths[sortedAlleles[ss]]);
                         }
                     }
                     
@@ -642,18 +703,40 @@ public class ExportUtils {
                             int k = sortedAlleles.length - 1;
                             int[] fullPL = new int[(k * (k+1)/2)+k+1];
                             
+                            
+                            //Set all the values to 255 as Higher PL means its less likely to be correct
+                            //Zero PL means the probability of error is 0
+                            Arrays.fill(fullPL,255);
+                            
                             //Leaving these indicies in expanded form so we know its correct
                             //it should really just be in positions 0,1, and 2 regardless of number of sites
                             //(k*(k+1)/2)+j
-                            fullPL[(0 * (0 + 1)/2) + 0] = scores[0];
-                            fullPL[(1 * (1 + 1)/2) + 0] = scores[1];
-                            fullPL[(1 * (1 + 1)/2) + 1] = scores[2];
+                            //If we only have 1 allele we should only have 1 likelihood
+                            if(fullPL.length==1) {
+                                fullPL[0] = scores[0];
+                            }
+                            else {
+                                fullPL[(0 * (0 + 1)/2) + 0] = scores[0];
+                                fullPL[(1 * (1 + 1)/2) + 0] = scores[1];
+                                fullPL[(1 * (1 + 1)/2) + 1] = scores[2];
+                            }
                             for(int i = 0; i < fullPL.length-1; i++) {
                                 bw.write(fullPL[i] + ",");
                             }
                             bw.write(""+fullPL[fullPL.length-1]);
-                            //
-                            //bw.write(scores[0] + "," + scores[1] + "," + scores[2]);
+                            
+//                            //Leaving these indicies in expanded form so we know its correct
+//                            //it should really just be in positions 0,1, and 2 regardless of number of sites
+//                            //(k*(k+1)/2)+j
+//                            fullPL[(0 * (0 + 1)/2) + 0] = scores[0];
+//                            fullPL[(1 * (1 + 1)/2) + 0] = scores[1];
+//                            fullPL[(1 * (1 + 1)/2) + 1] = scores[2];
+//                            for(int i = 0; i < fullPL.length-1; i++) {
+//                                bw.write(fullPL[i] + ",");
+//                            }
+//                            bw.write(""+fullPL[fullPL.length-1]);
+//                            //
+//                            //bw.write(scores[0] + "," + scores[1] + "," + scores[2]);
                         }
                     }
 //                    else {
