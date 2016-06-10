@@ -51,7 +51,7 @@ public class AlleleDepthBuilder {
     public static AlleleDepthBuilder getInstance(IHDF5Writer writer, int numSites) {
         return HDF5AlleleDepthBuilder.getHDF5NucleotideInstance(writer, numSites);
     }
-    
+
     public static AlleleDepth getFilteredInstance(HDF5AlleleDepth alleleDepth, FilterGenotypeTable filter) {
         return HDF5AlleleDepthBuilder.getFilteredInstance(alleleDepth, filter);
     }
@@ -78,6 +78,9 @@ public class AlleleDepthBuilder {
      * @return filtered AlleleDepth
      */
     public static AlleleDepth getFilteredInstance(AlleleDepth base, FilterGenotypeTable filterGenotypeTable) {
+        if (base instanceof HDF5AlleleDepth) {
+            return HDF5AlleleDepthBuilder.getFilteredInstance((HDF5AlleleDepth) base, filterGenotypeTable);
+        }
         Collection<Byte2D> storage = base.byteStorage();
         FilterByte2D[] resultStorage = new FilterByte2D[storage.size()];
         int count = 0;
