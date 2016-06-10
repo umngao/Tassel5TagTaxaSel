@@ -8,6 +8,8 @@ package net.maizegenetics.analysis.data;
 
 import java.awt.Frame;
 
+import java.io.File;
+
 import java.util.List;
 
 import javax.swing.ImageIcon;
@@ -16,6 +18,7 @@ import net.maizegenetics.dna.snp.score.SiteScore;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.util.Utils;
 
 import org.apache.log4j.Logger;
 
@@ -30,12 +33,15 @@ public class ExportMultiplePlugin extends AbstractPlugin {
     private String[] mySaveFiles = null;
     private final ExportPlugin myExportPlugin;
 
-    /** Creates a new instance of ExportMultiplePlugin */
+    /**
+     * Creates a new instance of ExportMultiplePlugin
+     */
     public ExportMultiplePlugin(Frame parentFrame) {
         super(parentFrame, false);
         myExportPlugin = new ExportPlugin(parentFrame, false);
     }
 
+    @Override
     public DataSet performFunction(DataSet input) {
 
         List data = input.getDataSet();
@@ -67,9 +73,18 @@ public class ExportMultiplePlugin extends AbstractPlugin {
                 if (data.size() == 1) {
                     temp = mySaveFiles[0];
                 } else {
-                    temp = mySaveFiles[0].replaceFirst("\\.", (i + 1) + ".");
-                    if (temp.length() == mySaveFiles[0].length()) {
-                        temp = mySaveFiles[0] + (i + 1);
+                    String filename = Utils.getFilename(mySaveFiles[0]);
+                    temp = filename.replaceFirst("\\.", (i + 1) + ".");
+                    if (temp.length() == filename.length()) {
+                        temp = filename + (i + 1);
+                    }
+                    String directory = Utils.getDirectory(mySaveFiles[0]);
+                    if (!directory.equals(".")) {
+                        File dir = new File(directory);
+                        if (!dir.exists()) {
+                            dir.mkdirs();
+                        }
+                        temp = directory + "/" + temp;
                     }
                 }
                 myExportPlugin.setSaveFile(temp);
@@ -139,11 +154,11 @@ public class ExportMultiplePlugin extends AbstractPlugin {
     public void setAlignmentFileType(FileLoadPlugin.TasselFileType type) {
         myFileTypes = new FileLoadPlugin.TasselFileType[]{type};
     }
-    
+
     public void setIncludeAnnotations(boolean include) {
         myExportPlugin.setIncludeAnnotations(include);
     }
-    
+
     public void setSiteScoreType(SiteScore.SITE_SCORE_TYPE type) {
         myExportPlugin.setSiteScoreType(type);
     }
