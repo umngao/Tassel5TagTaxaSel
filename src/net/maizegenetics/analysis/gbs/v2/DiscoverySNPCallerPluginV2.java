@@ -23,6 +23,7 @@ import java.util.stream.IntStream;
 
 import javax.swing.ImageIcon;
 
+import net.maizegenetics.dna.BaseEncoder;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.GeneralPosition;
@@ -376,6 +377,9 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
         }
  
         String seqInBytesString = NucleotideAlignmentConstants.nucleotideBytetoString(seqInBytes); 
+        if (seqInBytesString == null) {
+            System.out.println(" createReferenceTag: seqInBytesString is null, seqInBytes value: " + seqInBytes);
+        }
         // "null" may be returned from NucleotideBytetoString() for anything that isn't
         // AGCTN.  The Wheat fasta file has R,Y,K,M values, which get translated to 
         // UNDEFINED_ALLELE, which is "6".  These are translated to "null" by nucleotideBytetoString() above
@@ -385,15 +389,33 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             return null;
         }
         refTag=TagBuilder.instance(seqInBytesString).reference().build();
+        if (refTag== null) {
+            // We caught bad data above, so this probably means we hit a long string of T's.
+            // Two examples are from barley:
+            //   CAGCAGGAGAAAGTATGATACTTTGATTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+            //   AATGTGTATGTCTATGCCAACAAACGGTGCTGTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+            // These strings have 32 T's, and BaseEncoder.getLongFromSeq() returns -1 for this, as a result of continually
+            // shifting and adding 3's as per this code:
+            // long v=0; - then in a loop that keeps hitting T's:
+            // v = (v << 2) + (byte) 3;
+            // after 32 T's, we have -1
+            System.out.println("\ncreateReferenceTag: forward strand refTag is null, seqInBytesString: " + seqInBytesString + "\n");
+            return null;
+        }
 
         if(!forwardStrand) {           
             refTag=TagBuilder.reverseComplement(refTag).reference().build();
+            if (refTag== null) {
+                // See problem with 32 T's as above.
+                System.out.println("\ncreateReferenceTag: reverse complemented refTag is null for seqInBytesString: " + seqInBytesString + "\n");
+                return null;
+            }
         }
-        
+                
         ImmutableMap.Builder<Tag,TaxaDistribution> tagTaxaMapBuilder=new ImmutableMap.Builder<>();
         //TaxaDistribution refTD=TaxaDistBuilder.create(numberOfTaxa); // is numberOfTaxa an appropriate value to use? 
         TaxaDistribution refTD;
-        // If reference tag is not represented, created it and put it on
+        // If reference tag is not represented, create it and put it on
         // the map.  If it is represented, set this tag to be reference, grab the
         // taxa distribution from the existing tag, and put them on the map
         int mapCount = 0;
