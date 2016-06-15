@@ -101,6 +101,13 @@ abstract class AbstractGenotypeCallTable implements GenotypeCallTable {
         byte[] temp = genotypeArray(taxon, site);
         return new String[]{alleleStates[0][temp[0]], alleleStates[0][temp[1]]};
     }
+    
+    @Override
+    public String[] genotypeAsStringArray(int site, byte value) {
+        String[][] alleleStates = alleleDefinitions();
+        byte[] temp = GenotypeTableUtils.getDiploidValues(value);
+        return new String[]{alleleStates[0][temp[0]], alleleStates[0][temp[1]]};
+    }
 
     @Override
     public int[][] allelesSortedByFrequency(int site) {

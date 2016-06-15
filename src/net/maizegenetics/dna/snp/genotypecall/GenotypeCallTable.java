@@ -117,6 +117,17 @@ public interface GenotypeCallTable {
     public String[] genotypeAsStringArray(int taxon, int site);
 
     /**
+     * Same as genotypeAsStringArray(taxon, site), except given value is
+     * converted for given site.
+     *
+     * @param site site
+     * @param value diploid allele value
+     *
+     * @return String representation
+     */
+    public String[] genotypeAsStringArray(int site, byte value);
+
+    /**
      * Returns whether allele values at given taxon and site are heterozygous.
      * If two values returned by genotype() are different, this will return
      * false.
