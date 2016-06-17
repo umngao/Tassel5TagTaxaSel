@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>org.apache.xmlgraphics</groupId>
+  <artifactId>batik-css</artifactId>
+  <versioning>
+    <release>1.x</release>
+    <versions>
+      <version>1.x</version>
+    </versions>
+    <lastUpdated>20150702142415</lastUpdated>
+  </versioning>
+</metadata>
