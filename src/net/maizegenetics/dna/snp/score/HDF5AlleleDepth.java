@@ -154,7 +154,7 @@ public class HDF5AlleleDepth extends AlleleDepth {
         if (data == null) {
             data = cacheDepthBlock(taxon, site, key);
         }
-        return data[scoreType.ordinal()][site % MAX_CACHE_SIZE];
+        return data[scoreType.getIndex()][site % MAX_CACHE_SIZE];
     }
 
     @Override

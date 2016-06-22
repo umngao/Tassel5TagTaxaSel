@@ -13,9 +13,20 @@ public interface SiteScore {
 
     public static enum SITE_SCORE_TYPE {
 
-        None, QualityScore, ReferenceProbablity, Dosage,
-        DepthA, DepthC, DepthG, DepthT, DepthGap, DepthInsertion,
-        ProbA, ProbC, ProbG, ProbT, ProbGap, ProbInsertion
+        None(0), QualityScore(0), ReferenceProbablity(0), Dosage(0),
+        DepthA(0), DepthC(1), DepthG(2), DepthT(3), DepthGap(4), DepthInsertion(5),
+        ProbA(0), ProbC(1), ProbG(2), ProbT(3), ProbGap(4), ProbInsertion(5);
+
+        private final int myIndex;
+
+        SITE_SCORE_TYPE(int index) {
+            myIndex = index;
+        }
+
+        public int getIndex() {
+            return myIndex;
+        }
+
     };
 
     /**
@@ -29,14 +40,4 @@ public interface SiteScore {
 
     public int numSites();
 
-//    public int numAlleles() {
-//        return myValues.size();
-//    }
-//    protected Byte2D byteStorage(SITE_SCORE_TYPE type) {
-//        return myValues.get(type);
-//    }
-//
-//    Collection<Byte2D> byteStorage() {
-//        return myValues.values();
-//    }
 }
