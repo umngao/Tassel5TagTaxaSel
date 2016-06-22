@@ -25,14 +25,15 @@ import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 
 /**
- * Plugin to convert genotypes to A/B/H values where A means the genotype
- * matches parent A's genotype, "B" means the genotype matches Parent B's
- * genotype, and "H" means it is a heterozygote. If the genotype is neither A or
+ * Plugin to convert genotypes to parental comparisons and store them in an output file.
+ * The user can get outputs as A/H/B, 0/1/2, or 0/0.5/1 for a genotype matching
+ * parent A's genotype, heterozygous, or parent B's genotype respectively.  If the genotype is neither A or
  * B or a het combination of A/B (B/A) then it is coded as "NA".
  *
  * @author Stefan Reuscher
  * @author jeff Glaubitz
  * @author lynn Johnson
+ * @author Josh Guy 
  *
  */
 public class GenosToABHPlugin extends AbstractPlugin {
@@ -40,15 +41,20 @@ public class GenosToABHPlugin extends AbstractPlugin {
     private static final Logger myLogger = Logger.getLogger(GenosToABHPlugin.class);
     private ArrayList<Integer> parentAIndices = null;
     private ArrayList<Integer> parentBIndices = null;
+    public static enum OUTPUT_CHECK{c, i, r}
 
     private PluginParameter<String> outfile = new PluginParameter.Builder<>("o", null, String.class)
-            .required(true).outFile().guiName("Output file").description("Output genotype file with ABH encoding").build();
+            .required(true).outFile().guiName("Output file").description("Output genotype file").build();
     private PluginParameter<String> parentA = new PluginParameter.Builder<>("parentA", null, String.class)
             .required(true).guiName("Parent A").inFile()
             .description("The full name of file containing list of taxa names for parent A").build();
     private PluginParameter<String> parentB = new PluginParameter.Builder<>("parentB", null, String.class)
             .required(true).guiName("Parent B").inFile()
             .description("The full name of file containing list of taxa names for parent B").build();
+    private PluginParameter<OUTPUT_CHECK> outputFormat = new PluginParameter.Builder<>("outputFormat", null, OUTPUT_CHECK.class)
+            .required(true).guiName("Output Format")
+            .description("Enter \"c\" for A,H,B to code for parent A, het, and parent B; Enter \"i\" for 0, 1, 2 to code for parent A, het, and parent B; Enter \"r\" for 0, 0.5, 1 to code for parent A, het, and parent B")
+            .range(OUTPUT_CHECK.values()).build();
 
     private GenotypeTable myInput = null;
 
@@ -74,11 +80,10 @@ public class GenosToABHPlugin extends AbstractPlugin {
     }
 
     /**
-     * The main method. Plugin to convert genotypes to A/B/H values where A
-     * means the genotype matches parent A's genotype, "B" means the genotype
-     * matches Parent B's genotype, and "H" means it is a heterozygote. If the
-     * genotype is neither A or B or a het combination of A/B (B/A) then it is
-     * coded as "NA".
+     * The main method.  Plugin to convert genotypes to parental comparisons and store them in an output file.
+     * The user can get outputs as A/H/B, 0/1/2, or 0/0.5/1 for a genotype matching
+     * parent A's genotype, heterozygous, or parent B's genotype respectively.  If the genotype is neither A or
+     * B or a het combination of A/B (B/A) then it is coded as "NA".
      */
     public DataSet processData(DataSet input) {
 
@@ -247,14 +252,38 @@ public class GenosToABHPlugin extends AbstractPlugin {
                         continue;
                     }
                     byte geno = genos.genotype(taxon, site);
-                    if (geno == parentAGenos[site]) {
-                        strB.append(",A");
-                    } else if (geno == parentBGenos[site]) {
-                        strB.append(",B");
-                    } else if (geno == hets[0][site] || geno == hets[1][site]) {
-                        strB.append(",H");
-                    } else {
-                        strB.append(",NA");
+                    
+                    //Check desired output and append the corresponding value
+                    if (outputFormat.value()== OUTPUT_CHECK.c) {
+                        if (geno == parentAGenos[site]) {
+                            strB.append(",A");
+                        } else if (geno == parentBGenos[site]) {
+                            strB.append(",B");
+                        } else if (geno == hets[0][site] || geno == hets[1][site]) {
+                            strB.append(",H");
+                        } else {
+                            strB.append(",NA");
+                        }
+                    } else if (outputFormat.value()== OUTPUT_CHECK.i) {
+                        if (geno == parentAGenos[site]) {
+                            strB.append(",0");
+                        } else if (geno == parentBGenos[site]) {
+                            strB.append(",2");
+                        } else if (geno == hets[0][site] || geno == hets[1][site]) {
+                            strB.append(",1");
+                        } else {
+                            strB.append(",NA");
+                        }
+                    } else if (outputFormat.value()== OUTPUT_CHECK.r) {
+                        if (geno == parentAGenos[site]) {
+                            strB.append(",0");
+                        } else if (geno == parentBGenos[site]) {
+                            strB.append(",1");
+                        } else if (geno == hets[0][site] || geno == hets[1][site]) {
+                            strB.append(",0.5");
+                        } else {
+                            strB.append(",NA");
+                        }
                     }
                 }
                 writeLine(strB, bw);
@@ -351,7 +380,7 @@ public class GenosToABHPlugin extends AbstractPlugin {
     }
 
     /**
-     * The full name of parent to be encoded as A
+     * The full name of parent to be encoded as B
      *
      * @return Parent B
      */
@@ -360,7 +389,7 @@ public class GenosToABHPlugin extends AbstractPlugin {
     }
 
     /**
-     * Set Parent B. The full name of parent to be encoded as A
+     * Set Parent B. The full name of parent to be encoded as B
      *
      * @param value Parent B
      *
@@ -368,6 +397,27 @@ public class GenosToABHPlugin extends AbstractPlugin {
      */
     public GenosToABHPlugin parentB(String value) {
         parentB = new PluginParameter<>(parentB, value);
+        return this;
+    }
+    
+    /**
+     * The output format enum
+     *
+     * @return Output Format
+     */  
+    public OUTPUT_CHECK outputFormat() {
+        return outputFormat.value();
+    }
+    
+    /**
+     * Set Output Format. The output format enum
+     *
+     * @param value Output Format
+     *
+     * @return this plugin
+     */
+    public GenosToABHPlugin outputFormat(OUTPUT_CHECK value) {
+        outputFormat = new PluginParameter<>(outputFormat, value);
         return this;
     }
 
