@@ -51,8 +51,8 @@ public class GenosToABHPlugin extends AbstractPlugin {
     private PluginParameter<String> parentB = new PluginParameter.Builder<>("parentB", null, String.class)
             .required(true).guiName("Parent B").inFile()
             .description("The full name of file containing list of taxa names for parent B").build();
-    private PluginParameter<OUTPUT_CHECK> outputFormat = new PluginParameter.Builder<>("outputFormat", null, OUTPUT_CHECK.class)
-            .required(true).guiName("Output Format")
+    private PluginParameter<OUTPUT_CHECK> outputFormat = new PluginParameter.Builder<>("outputFormat", OUTPUT_CHECK.c, OUTPUT_CHECK.class)
+            .required(false).guiName("Output Format")
             .description("Enter \"c\" for A,H,B to code for parent A, het, and parent B; Enter \"i\" for 0, 1, 2 to code for parent A, het, and parent B; Enter \"r\" for 0, 0.5, 1 to code for parent A, het, and parent B")
             .range(OUTPUT_CHECK.values()).build();
 
@@ -254,7 +254,7 @@ public class GenosToABHPlugin extends AbstractPlugin {
                     byte geno = genos.genotype(taxon, site);
                     
                     //Check desired output and append the corresponding value
-                    if (outputFormat.value()== OUTPUT_CHECK.c) {
+                    if (outputFormat.value()== OUTPUT_CHECK.c || outputFormat == null) {
                         if (geno == parentAGenos[site]) {
                             strB.append(",A");
                         } else if (geno == parentBGenos[site]) {
