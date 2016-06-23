@@ -15,7 +15,7 @@ import static net.maizegenetics.dna.snp.GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
  */
 public class BasicGenotypeMergeRule implements GenotypeMergeRule {
     private final double errorRate;
-    private final int maxCountAtGeno=500;
+    private final int maxCountAtGeno=200; // can return to 500 once we fix the BinomialDistribution below, which exceeded 30%
     private final int[] likelihoodRatioThreshAlleleCnt;  // index = sample size; value = min count of less tagged allele for likelihood ratio > 1
         // if less tagged allele has counts < likelihoodRatioThreshAlleleCnt[totalCount], call it a homozygote
         // where likelihood ratio = (binomial likelihood het) / (binomial likelihood all less tagged alleles are errors)
@@ -27,7 +27,7 @@ public class BasicGenotypeMergeRule implements GenotypeMergeRule {
         for (int trials = 0; trials < 2; ++trials) {
             likelihoodRatioThreshAlleleCnt[trials] = 1;
         }
-        int lastThresh = 1;
+        int lastThresh = 1;       
         for (int trials = 2; trials < likelihoodRatioThreshAlleleCnt.length; ++trials) {
             BinomialDistribution binomHet = new BinomialDistribution(trials, 0.5);
             BinomialDistribution binomErr = new BinomialDistribution(trials, errorRate);
@@ -39,7 +39,9 @@ public class BasicGenotypeMergeRule implements GenotypeMergeRule {
                     LikeRatio = binomHet.cumulativeProbability(lastThresh) / (1 - binomErr.cumulativeProbability(lastThresh) + binomErr.probability(lastThresh));
                 }
                 likelihoodRatioThreshAlleleCnt[trials] = lastThresh;
-//                System.out.println(trials + "\t" + lastThresh);
+                //double resultDouble = (double)lastThresh/trials; 
+                //System.out.println(trials + "\t" + lastThresh + "\t" + prevLikeRatio + "\t" + LikeRatio + "\t" + resultDouble);
+                
             } catch (Exception e) {
                 System.err.println("Error in the TagsAtLocus.BinomialDistributionImpl");
             }
