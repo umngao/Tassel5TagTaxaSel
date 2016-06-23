@@ -7,8 +7,6 @@ import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 
 import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.byte2d.Byte2D;
@@ -22,13 +20,13 @@ import net.maizegenetics.taxa.TaxaList;
  */
 public class AlleleDepthBuilder {
 
-    private final Map<SiteScore.SITE_SCORE_TYPE, Byte2DBuilder> myBuilders;
+    private Byte2DBuilder[] myBuilders;
     private final int myNumSites;
 
     private AlleleDepthBuilder(int numTaxa, int numSites, TaxaList taxaList) {
-        myBuilders = new LinkedHashMap<>();
-        for (int i = 0; i < AlleleDepth.ALLELE_DEPTH_TYPES.length; i++) {
-            myBuilders.put(AlleleDepth.ALLELE_DEPTH_TYPES[i], Byte2DBuilder.getInstance(numTaxa, numSites, AlleleDepth.ALLELE_DEPTH_TYPES[i], taxaList));
+        myBuilders = new Byte2DBuilder[AlleleDepth.NUM_ALLELE_DEPTH_TYPES];
+        for (int i = 0; i < AlleleDepth.NUM_ALLELE_DEPTH_TYPES; i++) {
+            myBuilders[i] = Byte2DBuilder.getInstance(numTaxa, numSites, AlleleDepth.ALLELE_DEPTH_TYPES[i], taxaList);
         }
         myNumSites = numSites;
     }
@@ -106,31 +104,54 @@ public class AlleleDepthBuilder {
             throw new IllegalArgumentException("AlleleDepthBuilder: addTaxon: number of values: " + values.length + " doesn't equal number of sites: " + myNumSites);
         }
         byte[] result = AlleleDepthUtil.depthIntToByte(values);
-        myBuilders.get(type).addTaxon(taxon, result);
+        myBuilders[type.getIndex()].addTaxon(taxon, result);
         return this;
     }
 
     public AlleleDepthBuilder addTaxon(int taxon, byte[][] values) {
-        if (AlleleDepth.ALLELE_DEPTH_TYPES.length != values.length) {
-            throw new IllegalArgumentException("AlleleDepthBuilder: addTaxon: number of alleles: " + values.length + " doesn't equals: " + AlleleDepth.ALLELE_DEPTH_TYPES.length);
+        if (AlleleDepth.NUM_ALLELE_DEPTH_TYPES != values.length) {
+            throw new IllegalArgumentException("AlleleDepthBuilder: addTaxon: number of alleles: " + values.length + " doesn't equals: " + AlleleDepth.NUM_ALLELE_DEPTH_TYPES);
         }
         if (myNumSites != values[0].length) {
             throw new IllegalArgumentException("AlleleDepthBuilder: addTaxon: number of values: " + values[0].length + " doesn't equal number of sites: " + myNumSites);
         }
-        int count = 0;
-        for (SiteScore.SITE_SCORE_TYPE current : AlleleDepth.ALLELE_DEPTH_TYPES) {
-            myBuilders.get(current).addTaxon(taxon, values[count++]);
+        for (int i = 0; i < AlleleDepth.NUM_ALLELE_DEPTH_TYPES; i++) {
+            myBuilders[i].addTaxon(taxon, values[i]);
         }
         return this;
     }
 
-    public AlleleDepth build() {
-        Byte2D[] input = new Byte2D[myBuilders.size()];
-        int count = 0;
-        for (Byte2DBuilder builder : myBuilders.values()) {
-            input[count++] = builder.build();
+    /**
+     * Set depth for range of sites and alleles for a taxon simultaneously.
+     * First dimension of depths is number of alleles (6 for Nucleotide) and
+     * second dimension is sites.
+     *
+     * @param taxon Index of taxon
+     * @param siteOffset site offset
+     * @param depths array[allele][site] of all values
+     *
+     * @return builder
+     */
+    public AlleleDepthBuilder setDepthRangeForTaxon(int taxon, int siteOffset, byte[][] depths) {
+
+        int numAlleles = depths.length;
+        if (numAlleles != AlleleDepth.NUM_ALLELE_DEPTH_TYPES) {
+            throw new IllegalArgumentException("AlleleDepthBuilder: setDepthRangeForTaxon: value number of alleles: " + numAlleles + " should be: " + AlleleDepth.NUM_ALLELE_DEPTH_TYPES);
         }
-        myBuilders.clear();
+        for (int a = 0; a < AlleleDepth.NUM_ALLELE_DEPTH_TYPES; a++) {
+            myBuilders[a].setDepthRangeForTaxon(taxon, siteOffset, depths[a]);
+        }
+
+        return this;
+
+    }
+
+    public AlleleDepth build() {
+        Byte2D[] input = new Byte2D[AlleleDepth.NUM_ALLELE_DEPTH_TYPES];
+        for (int a = 0; a < AlleleDepth.NUM_ALLELE_DEPTH_TYPES; a++) {
+            input[a] = myBuilders[a].build();
+        }
+        myBuilders = null;
         return new AlleleDepth(input);
     }
 

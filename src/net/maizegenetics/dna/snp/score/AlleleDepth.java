@@ -22,6 +22,8 @@ public class AlleleDepth implements SiteScore {
         SiteScore.SITE_SCORE_TYPE.DepthG, SiteScore.SITE_SCORE_TYPE.DepthT,
         SiteScore.SITE_SCORE_TYPE.DepthInsertion, SiteScore.SITE_SCORE_TYPE.DepthGap};
 
+    public static final int NUM_ALLELE_DEPTH_TYPES = ALLELE_DEPTH_TYPES.length;
+
     private final Map<SITE_SCORE_TYPE, Byte2D> myValues;
     private final int myNumTaxa;
     private final int myNumSites;
@@ -73,7 +75,7 @@ public class AlleleDepth implements SiteScore {
      * @return depths
      */
     public int[] values(int taxon, int site) {
-        int[] result = new int[ALLELE_DEPTH_TYPES.length];
+        int[] result = new int[NUM_ALLELE_DEPTH_TYPES];
         int count = 0;
         for (SITE_SCORE_TYPE current : ALLELE_DEPTH_TYPES) {
             result[count++] = value(taxon, site, current);
@@ -91,7 +93,7 @@ public class AlleleDepth implements SiteScore {
      * @return depths
      */
     public int[][] values(int taxon) {
-        int[][] result = new int[ALLELE_DEPTH_TYPES.length][numSites()];
+        int[][] result = new int[NUM_ALLELE_DEPTH_TYPES][numSites()];
         int count = 0;
         for (SITE_SCORE_TYPE current : ALLELE_DEPTH_TYPES) {
             for (int site = 0; site < numSites(); site++) {
@@ -128,7 +130,7 @@ public class AlleleDepth implements SiteScore {
      * @return depths
      */
     public byte[] valuesByte(int taxon, int site) {
-        byte[] result = new byte[ALLELE_DEPTH_TYPES.length];
+        byte[] result = new byte[NUM_ALLELE_DEPTH_TYPES];
         int count = 0;
         for (SITE_SCORE_TYPE current : ALLELE_DEPTH_TYPES) {
             result[count++] = valueByte(taxon, site, current);
@@ -146,7 +148,7 @@ public class AlleleDepth implements SiteScore {
      * @return depths
      */
     public byte[][] valuesForTaxonByte(int taxon) {
-        byte[][] result = new byte[ALLELE_DEPTH_TYPES.length][numSites()];
+        byte[][] result = new byte[NUM_ALLELE_DEPTH_TYPES][numSites()];
         int count = 0;
         for (SITE_SCORE_TYPE current : ALLELE_DEPTH_TYPES) {
             for (int site = 0; site < numSites(); site++) {
@@ -167,7 +169,7 @@ public class AlleleDepth implements SiteScore {
      * @return depths
      */
     public byte[][] valuesForSiteByte(int site) {
-        byte[][] result = new byte[ALLELE_DEPTH_TYPES.length][numTaxa()];
+        byte[][] result = new byte[NUM_ALLELE_DEPTH_TYPES][numTaxa()];
         int count = 0;
         for (SITE_SCORE_TYPE current : ALLELE_DEPTH_TYPES) {
             for (int taxon = 0; taxon < numTaxa(); taxon++) {

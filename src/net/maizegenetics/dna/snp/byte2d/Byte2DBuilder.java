@@ -90,6 +90,29 @@ public class Byte2DBuilder {
         return this;
     }
 
+    /**
+     * Set values for range of sites and alleles for a taxon simultaneously.
+     *
+     * @param taxon Index of taxon
+     * @param siteOffset site offset
+     * @param values array[sites] range of values
+     *
+     * @return builder
+     */
+    public Byte2DBuilder setDepthRangeForTaxon(int taxon, int siteOffset, byte[] values) {
+
+        if (myIsHDF5) {
+            throw new UnsupportedOperationException();
+        } else {
+            for (int s = 0; s < values.length; s++) {
+                myValues.set(taxon, s + siteOffset, values[s]);
+            }
+        }
+
+        return this;
+
+    }
+
     public Byte2D build() {
         if (myIsHDF5) {
             IHDF5Reader reader = myHDF5Writer;

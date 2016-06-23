@@ -288,7 +288,7 @@ public class BuilderFromVCF {
             if(includeDepth) {
                 byte[][][] bdTS=pb.getDepthTS();
                 for (int t=0; t<bgTS.length; t++) {
-                    db.addTaxon(t, bdTS[t]);
+                    db.setDepthRangeForTaxon(t, currentSite, bdTS[t]);
                 }
                 
             }
