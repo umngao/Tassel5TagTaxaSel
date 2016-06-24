@@ -298,7 +298,7 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 	protected String[] siteReportColumnNames() {
 		markerpvalueColumn = 5;
 		permpvalueColumn = 6;
-		if (permute) return new String[]{AssociationConstants.STATS_HEADER_TRAIT,AssociationConstants.STATS_HEADER_MARKER,AssociationConstants.STATS_HEADER_CHR,AssociationConstants.STATS_HEADER_POSITION,"marker_F",AssociationConstants.STATS_HEADER_P_VALUE,"perm_p","marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS" };
+		if (permute) return new String[]{AssociationConstants.STATS_HEADER_TRAIT,AssociationConstants.STATS_HEADER_MARKER,AssociationConstants.STATS_HEADER_CHR,AssociationConstants.STATS_HEADER_POSITION,"marker_F",AssociationConstants.STATS_HEADER_P_VALUE,"perm_p","marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS","minorObs"};
 		return new String[] {AssociationConstants.STATS_HEADER_TRAIT,AssociationConstants.STATS_HEADER_MARKER,AssociationConstants.STATS_HEADER_CHR,AssociationConstants.STATS_HEADER_POSITION,"marker_F",AssociationConstants.STATS_HEADER_P_VALUE,"marker_Rsq","add_F","add_p","dom_F","dom_p", "marker_df","marker_MS","error_df","error_MS","model_df","model_MS","minorObs"};
 	}
 	
