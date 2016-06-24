@@ -426,6 +426,17 @@ public class HaplotypeCluster implements Comparable<HaplotypeCluster> {
 		return taxa;
 	}
 	
+	public int countTaxaSharedWith(HaplotypeCluster hapCluster) {
+		int[] otherTaxa = hapCluster.listTaxaInCluster();
+		Arrays.sort(otherTaxa);
+		int count = 0;
+		
+		for (Haplotype hap:hapList) {
+			if (Arrays.binarySearch(otherTaxa, hap.taxonIndex) > -1) count++;
+		}
+		return count;
+	}
+	
 	public boolean contains(Haplotype hap) {
 		return hapList.contains(hap);
 	}

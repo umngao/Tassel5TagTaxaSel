@@ -1,5 +1,7 @@
 package net.maizegenetics.analysis.clustering;
 
+import java.util.Arrays;
+
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 
@@ -99,6 +101,14 @@ public class Haplotype implements Comparable<Haplotype>{
 		return 0;
 	}
 	
+	public int numberOfHets() {
+		int nhets = 0;
+		for (byte b : seq) {
+			if (GenotypeTableUtils.isHeterozygous(b)) nhets++;
+		}
+		return nhets;
+	}
+	
 	/**
 	 * Distance is defined as the sum of the distances between each pair of sites. If one or both of the sites are missing then
 	 * the distance is zero. If the sites are equal the distance is zero. If both sites are homozygous but different, the distance is 2.
@@ -109,6 +119,14 @@ public class Haplotype implements Comparable<Haplotype>{
 	public int distanceFrom(Haplotype h0) {
 		return getDistance(seq, h0.seq);
 	}
+
+	public Haplotype subHaplotype(int size, boolean fromStart) {
+		byte[] newseq;
+		if (fromStart) newseq = Arrays.copyOf(seq, size);
+		else newseq = Arrays.copyOfRange(seq, seqlen - size, seqlen);
+		return new Haplotype(newseq, taxonIndex);
+	}
+	
 
 	/**
 	 * @param hap0	the first Haplotype

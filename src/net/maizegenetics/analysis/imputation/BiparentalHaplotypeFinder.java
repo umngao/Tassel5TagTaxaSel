@@ -36,9 +36,9 @@ import net.maizegenetics.util.Utils;
  */
 public class BiparentalHaplotypeFinder {
 	private static final Logger myLogger = Logger.getLogger(BiparentalHaplotypeFinder.class);
-	private PopulationData myPopulationData;
-	private GenotypeTable initialGenotype;
-	private TableReportBuilder reportBuilder;
+	protected PopulationData myPopulationData;
+	protected GenotypeTable initialGenotype;
+	protected TableReportBuilder reportBuilder;
 	static final byte AA = NucleotideAlignmentConstants.getNucleotideDiploidByte("AA");
 	static final byte CC = NucleotideAlignmentConstants.getNucleotideDiploidByte("CC");
 	static final byte AC = NucleotideAlignmentConstants.getNucleotideDiploidByte("AC");
@@ -49,48 +49,48 @@ public class BiparentalHaplotypeFinder {
 	/**
 	 * The size of the window in which to evaluate haplotypes
 	 */
-	int window = 100;
+	protected int window = 100;
 	
 	/**
 	 * The extent of overlap between adjacent windows. The overlap is used to assign individual haplotypes to the same parent groups as the previous window.
 	 */
-	int overlap = 25;
+	protected int overlap = 25;
 	
 	/**
 	 * Only cluster haplotypes with a minimum number of non missing values.
 	 */
-	double minNotMissingProportion = 0.2;
+	protected double minNotMissingProportion = 0.2;
 	
 	/**
 	 * Only use clusters with minClusterSize taxa as parent haplotypes
 	 */
-	int minClusterSize = 3;
+	protected int minClusterSize = 3;
 	
 	/**
 	 * Haplotypes with a difference score less than or equal to maxDifferenceScore will be assigned to the same cluster.
 	 * The difference between two non-equal homozygotes is 2, between a homozygote and heterozygote is 1.
 	 */
-	int maxDifferenceScore = 0;
+	protected int maxDifferenceScore = 0;
 	
 	/**
 	 * Filter out sites with less than minR2 average r-square with neighboring sites (window size = 50).
 	 */
-	double minR2 = 0.2;
+	protected double minR2 = 0.2;
 	
 	/**
 	 * Filter out sites with minimum allele frequency less than minMaf.
 	 */
-	double minMaf = 0.05;
+	protected double minMaf = 0.05;
 	
 	/**
 	 * Filter out sites with coverage less than minCoverage.
 	 */
-	double minCoverage = 0.2;
+	protected double minCoverage = 0.2;
 	
 	/**
 	 * Filter out sites more than maxHetDeviation * (standard deviation) different from the mean percent heterozygosity.;
 	 */
-	double maxHetDeviation = 5;
+	protected double maxHetDeviation = 5;
 	
 	public BiparentalHaplotypeFinder(PopulationData popdata) {
 		myPopulationData = popdata;
