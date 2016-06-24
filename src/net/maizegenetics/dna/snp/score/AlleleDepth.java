@@ -65,6 +65,19 @@ public class AlleleDepth implements SiteScore {
     }
 
     /**
+     * Same as value() but translates allele into scoreType
+     * 
+     * @param taxon taxon
+     * @param site site
+     * @param allele allele code (see NucleotideAlignmentConstants)
+     * 
+     * @return depth 
+     */
+    public int depthForAllele(int taxon, int site, int allele) {
+        return value(taxon, site, ALLELE_DEPTH_TYPES[allele]);
+    }
+
+    /**
      * Returns the depth values of all nucleotides at given taxon and site.
      * Depth values are stored in bytes and translated to integer using
      * AlleleDepthUtil.depthByteToInt().
