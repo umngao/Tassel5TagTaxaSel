@@ -10,6 +10,10 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
+import net.maizegenetics.dna.map.Chromosome;
+import net.maizegenetics.dna.map.GeneralPosition;
+import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
@@ -60,7 +64,7 @@ public class GOBIIPostgresConnection {
 
     }
 
-    public static TaxaList taxaList(Connection connection, int experimentID, int analysisID) {
+    public static TaxaList taxaList(Connection connection, String datasetName) {
 
         if (connection == null) {
             throw new IllegalArgumentException("GOBIIPostgresConnection: taxaList: Must specify database connection.");
@@ -68,17 +72,16 @@ public class GOBIIPostgresConnection {
 
         // select distinct(germplasm.name) from dataset, dataset_dnarun, dnarun,
         // dnasample, germplasm
-        // where dataset.experiment_id=5 and dataset.callinganalysis_id=4
+        // where dataset.name='maize282_raw_AGPv2'
         // and dataset_dnarun.dataset_id = dataset.dataset_id
         // and dnarun.dnarun_id = dataset_dnarun.dnarun_id
         // and dnarun.dnasample_id = dnasample.dnasample_id
         // and dnasample.germplasm_id = germplasm.germplasm_id;
         StringBuilder builder = new StringBuilder();
         builder.append("select distinct(germplasm.name) from dataset, dataset_dnarun, dnarun, dnasample, germplasm ");
-        builder.append("where dataset.experiment_id=");
-        builder.append(experimentID);
-        builder.append(" and dataset.callinganalysis_id=");
-        builder.append(analysisID);
+        builder.append("where dataset.name='");
+        builder.append(datasetName);
+        builder.append("'");
         builder.append(" and dataset_dnarun.dataset_id = dataset.dataset_id");
         builder.append(" and dnarun.dnarun_id = dataset_dnarun.dnarun_id");
         builder.append(" and dnarun.dnasample_id = dnasample.dnasample_id");
@@ -101,12 +104,67 @@ public class GOBIIPostgresConnection {
 
     }
 
+    public static PositionList positionList(Connection connection, String datasetName) {
+
+        if (connection == null) {
+            throw new IllegalArgumentException("GOBIIPostgresConnection: positionList: Must specify database connection.");
+        }
+
+        // select marker.name, marker_linkage_group.start, marker_linkage_group.stop, linkage_group.name
+        // from dataset, dataset_marker, marker, marker_linkage_group, linkage_group
+        // where dataset.name='maize282_raw_AGPv2'
+        // and dataset.dataset_id=dataset_marker.dataset_id
+        // and dataset_marker.marker_id=marker.marker_id
+        // and marker.marker_id=marker_linkage_group.marker_id
+        // and marker_linkage_group.linkage_group_id=linkage_group.linkage_group_id;
+        StringBuilder builder = new StringBuilder();
+        builder.append("select marker.name, marker_linkage_group.start, marker_linkage_group.stop, linkage_group.name ");
+        builder.append("from dataset, dataset_marker, marker, marker_linkage_group, linkage_group ");
+        builder.append("where dataset.name='");
+        builder.append(datasetName);
+        builder.append("'");
+        builder.append(" and dataset.dataset_id=dataset_marker.dataset_id");
+        builder.append(" and dataset_marker.marker_id=marker.marker_id");
+        builder.append(" and marker.marker_id=marker_linkage_group.marker_id");
+        builder.append(" and marker_linkage_group.linkage_group_id=linkage_group.linkage_group_id;");
+
+        String query = builder.toString();
+        myLogger.info("taxaList: query statement: " + query);
+
+        try (ResultSet rs = connection.createStatement().executeQuery(query)) {
+            PositionListBuilder positions = new PositionListBuilder();
+            while (rs.next()) {
+                int start = rs.getInt("start");
+                int end = rs.getInt("stop");
+                if (start != end) {
+                    throw new IllegalArgumentException("GOBIIPostgresConnection: positionList: start position: " + start + " and end position: " + end + " should be the same.");
+                }
+                String snpName = rs.getString(1);
+                // Todo - Insert Chromosome
+                GeneralPosition.Builder current = new GeneralPosition.Builder(Chromosome.UNKNOWN, start);
+                current.snpName(snpName);
+                positions.add(current.build());
+            }
+            return positions.build();
+        } catch (Exception se) {
+            myLogger.debug(se.getMessage(), se);
+            throw new IllegalStateException("GOBIIPostgresConnection: taxaList: Problem querying the database: " + se.getMessage());
+        }
+
+    }
+
     public static void main(String[] args) {
-        int experimentID = 1;
-        int analysisID = 1;
+
+        String datasetName = "maize282_raw_AGPv2";
+
         Connection conneciton = connection("/home/tmc46/gobii_maizeifltest_props.txt");
-        TaxaList taxa = taxaList(conneciton, experimentID, analysisID);
+
+        TaxaList taxa = taxaList(conneciton, datasetName);
         System.out.println("number of taxa: " + taxa.numberOfTaxa());
+
+        PositionList positions = positionList(conneciton, datasetName);
+        System.out.println("number of positions: " + positions.numberOfSites());
+
     }
 
 }
