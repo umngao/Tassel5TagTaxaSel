@@ -51,7 +51,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
     private PluginParameter<String> mappingApproach = new PluginParameter.Builder<String>("mapper", "BWA", String.class).guiName("Mapper").required(false)
             .description("Mapping approach (one of Bowtie2, BWA, or bwaMem)").build();
     private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",true,Boolean.class).guiName("Delete Old Data")
-            .description("Delete existing SNP quality data from db tables").build();
+            .description("Delete existing SNP data from db tables").build();
     private PluginParameter<Integer> minMAPQ = new PluginParameter.Builder<Integer>("minMAPQ", 0, Integer.class).guiName("SAM Min MAPQ value").required(false)
             .description("Minimum value of MAPQ to store the SAM entry").build();
     
@@ -152,6 +152,7 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         // The two lines need to be here to make sure the sequence can be found in the DB
         boolean forwardStrand=isForwardStrand(s[flag]);
         int samPos = Integer.parseInt(s[pos]); 
+        
         int[] alignSpan = SAMUtils.adjustCoordinates(s[cigar], samPos);        
         int cutPos;
         if (forwardStrand == true) {
@@ -159,7 +160,16 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         } else  {
             cutPos = alignSpan[1];
         }
-        
+        // adjustCpoordinates()  considers indels and clipping when re-calculating where this
+        // sequence's first bp matches to the refence genome.  The result should not be negative.
+        // It can become negative when clipping moves the alignment out of range of the
+        // reference.  For example:  the .sam file says the leftmost mapping position of 
+        // the first matched bp is 1 (ie "pos" = 1), but the cigar is 32S32M (32 soft clipped,
+        // then 32 match).  Drop these alignments.
+        if (cutPos < 1) {
+            return new Tuple<>(tag,Optional.<Position>empty());
+        }
+
         if (!hasAlignment(s[flag])) return new Tuple<>(tag,Optional.<Position>empty());
         // Check for minimum alignment length and proportion
         if (!hasMinAlignLength(s)) return new Tuple<> (tag,Optional.<Position>empty());
