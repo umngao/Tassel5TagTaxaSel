@@ -15,7 +15,7 @@ import static net.maizegenetics.dna.snp.GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
  */
 public class BasicGenotypeMergeRule implements GenotypeMergeRule {
     private final double errorRate;
-    private final int maxCountAtGeno=200; // can return to 500 once we fix the BinomialDistribution below, which exceeded 30%
+    private final int maxCountAtGeno=100; // can return to 500 once we fix the BinomialDistribution below, which exceeded 30%
     private final int[] likelihoodRatioThreshAlleleCnt;  // index = sample size; value = min count of less tagged allele for likelihood ratio > 1
         // if less tagged allele has counts < likelihoodRatioThreshAlleleCnt[totalCount], call it a homozygote
         // where likelihood ratio = (binomial likelihood het) / (binomial likelihood all less tagged alleles are errors)
@@ -39,8 +39,9 @@ public class BasicGenotypeMergeRule implements GenotypeMergeRule {
                     LikeRatio = binomHet.cumulativeProbability(lastThresh) / (1 - binomErr.cumulativeProbability(lastThresh) + binomErr.probability(lastThresh));
                 }
                 likelihoodRatioThreshAlleleCnt[trials] = lastThresh;
-                //double resultDouble = (double)lastThresh/trials; 
-                //System.out.println(trials + "\t" + lastThresh + "\t" + prevLikeRatio + "\t" + LikeRatio + "\t" + resultDouble);
+               // double resultDouble = (double)lastThresh/trials; 
+               // System.out.println(trials + "\t" + lastThresh + "\t" +  LikeRatio + "\t" + resultDouble);
+               // System.out.println(trials + "\t" + lastThresh); // if just want to see total depth and min num for het call
                 
             } catch (Exception e) {
                 System.err.println("Error in the TagsAtLocus.BinomialDistributionImpl");
