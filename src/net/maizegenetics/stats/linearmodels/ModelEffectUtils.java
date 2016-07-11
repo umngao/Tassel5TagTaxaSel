@@ -113,6 +113,33 @@ public class ModelEffectUtils {
     	return intLevels;
     }
     
+    public static int[] getIntegerLevelsSortedByGenotype(String[] originalLevels, ArrayList<String> ids) {
+    	int nLevels = originalLevels.length;
+    	int[] intLevels = new int[nLevels];
+    	
+    	String nukes = "ACGT";
+    	HashSet<String> idSet = Arrays.stream(originalLevels).collect(Collectors.toCollection(HashSet::new));
+    	ids.addAll(idSet);
+    	Collections.sort(ids, (a,b) -> {
+    		String id1 = a.toString();
+    		String id2 = b.toString();
+    		if (nukes.contains(id1)) {
+    			if (nukes.contains(id2)) return id1.compareTo(id2);
+    			else return -1;
+    		} else {
+    			if (nukes.contains(id2)) return 1;
+    			else return id1.compareTo(id2);
+    		}
+    	});
+    	
+    	HashMap<String,Integer> levelMap = new HashMap<>();
+    	for (int i = 0; i < ids.size(); i++) {
+    		levelMap.put(ids.get(i), i);
+    	}
+    	for (int i = 0; i < nLevels; i++) intLevels[i] = levelMap.get(originalLevels[i]);
+    	return intLevels;
+    }
+    
     /**
      * @param genotypes		a byte array of genotypes
      * @param ids			an empty array list that will hold the Bytes corresponding to each level
