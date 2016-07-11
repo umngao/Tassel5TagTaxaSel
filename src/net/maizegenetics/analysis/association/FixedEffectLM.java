@@ -72,4 +72,9 @@ public interface FixedEffectLM {
 	 * @param filename		The filename to which the site statistics will be written
 	 */
 	public void siteStatsFile(String filename);
+	
+	/**
+	 * @param append If true, additive and dominance effects will be add to the stats report for bi-allelic loci.
+	 */
+	public void appendAddDom(boolean append);
 }

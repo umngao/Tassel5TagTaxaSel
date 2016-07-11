@@ -31,9 +31,10 @@ public class DiscreteSitesFELM extends AbstractFixedEffectLM {
 		//add the marker to the model
         String[] siteGenotypes = AssociationUtils.getNonMissingValues(myGenoPheno.getStringGenotype(myCurrentSite), missingObsForSite);
         ArrayList<String> markerIds = new ArrayList<>();
-        int[] markerLevels = ModelEffectUtils.getIntegerLevels(siteGenotypes, markerIds);
+        int[] markerLevels = ModelEffectUtils.getIntegerLevelsSortedByGenotype(siteGenotypes, markerIds);
         String siteName = myGenotype.siteName(myCurrentSite);
         FactorModelEffect markerEffect = new FactorModelEffect(markerLevels, true, siteName);
+        int firstMarkerParm = myModel.size();
         myModel.add(markerEffect);
         
         //add taxa:marker effect at end
@@ -64,7 +65,20 @@ public class DiscreteSitesFELM extends AbstractFixedEffectLM {
         double[] beta = sflm.getBeta();
 		G = null;
 		if (permute) G = sflm.getInverseOfXtX();
- 
+		
+		double domEffect = Double.NaN, addEffect = Double.NaN;
+		if (appendAddDomEffects) {
+			//test for bi-allelic and hets present
+			if (myGenotype.alleles(myCurrentSite).length == 2) {
+				if (markerIds.size() == 2) {
+					addEffect = Math.abs(beta[firstMarkerParm] / 2);
+				} else if (markerIds.size() == 3) {
+					addEffect = Math.abs((beta[firstMarkerParm] -  beta[firstMarkerParm + 1])/ 2);
+					domEffect = -(beta[firstMarkerParm] + beta[firstMarkerParm + 1])/ 2;
+				}
+			}
+		}
+		
 		//calculate additive and dominance F and p
 		ArrayList<ModelEffect> myAdditiveModel = new ArrayList<>(myBaseModel);
 		byte[] alleles = myGenotype.alleles(myCurrentSite);
@@ -156,6 +170,10 @@ public class DiscreteSitesFELM extends AbstractFixedEffectLM {
             rowData[columnCount++] = new Double(modelSSdf[1]);
             rowData[columnCount++] = new Double(modelSSdf[0]/modelSSdf[1]);
             rowData[columnCount++] = new Integer(myCurrentSiteMinimumClassSize);
+            if (appendAddDomEffects) {
+            	rowData[columnCount++] = new Double(addEffect);
+            	rowData[columnCount++] = new Double(domEffect);
+            }
             siteReportBuilder.add(rowData);
             if (permute) siteTableReportRows.add(rowData);
             

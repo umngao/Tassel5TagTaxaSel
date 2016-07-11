@@ -94,7 +94,11 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
     		.dependentOnParameter(siteStatsOutput)
     		.outFile()
     		.build();
-    
+    private PluginParameter<Boolean> appendAddDom = new PluginParameter.Builder<>("appendAddDom", false, Boolean.class)
+    		.description("If true, additive and dominance effect estimates will be added to the stats report for bi-allelic sites only. The effect will only be estimated when the data source is genotype (not a probability). The additive effect will always be non-negative.")
+    		.guiName("Append Effect Estimates to Stats")
+//    		.dependentOnParameter(myGenotypeTable, GENOTYPE_COMP[0])
+    		.build();
 	
     public FixedEffectLMPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
@@ -164,6 +168,7 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
         	myLM.maxP(maxPvalue.value());
         	myLM.biallelicOnly(biallelicOnly.value());
         	myLM.minimumClassSize(minClassSize.value());
+        	myLM.appendAddDom(appendAddDom.value());
         	myLM.solve();
         	if (saveAsFile.value()) return null;
         	else return new DataSet(myLM.datumList(), this);
@@ -485,6 +490,38 @@ public class FixedEffectLMPlugin extends AbstractPlugin {
         siteStatFilename = new PluginParameter<>(siteStatFilename, value);
         return this;
     }
+
+    /**
+     * If true, additive and dominance effect estimates will
+     * be added to the stats report for bi-allelic sites only.
+     * The effect will only be estimated when the data source
+     * is genotype (not a probability). The additive effect
+     * will always be non-negative.
+     *
+     * @return Append Effect Estimates to Stats
+     */
+    public Boolean appendAddDom() {
+        return appendAddDom.value();
+    }
+
+    /**
+     * Set Append Effect Estimates to Stats. If true, additive
+     * and dominance effect estimates will be added to the
+     * stats report for bi-allelic sites only. The effect
+     * will only be estimated when the data source is genotype
+     * (not a probability). The additive effect will always
+     * be non-negative.
+     *
+     * @param value Append Effect Estimates to Stats
+     *
+     * @return this plugin
+     */
+    public FixedEffectLMPlugin appendAddDom(Boolean value) {
+        appendAddDom = new PluginParameter<>(appendAddDom, value);
+        return this;
+    }
+
+
 
 }
 
