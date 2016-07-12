@@ -17,6 +17,7 @@ import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.LoggingUtils;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 
@@ -70,15 +71,20 @@ public class GOBIIPostgresConnection {
             throw new IllegalArgumentException("GOBIIPostgresConnection: taxaList: Must specify database connection.");
         }
 
-        // select distinct(germplasm.name) from dataset, dataset_dnarun, dnarun,
+        //
+        // germplasm.external_code is GID that maps to BMS
+        //
+        // select distinct(germplasm.external_code) from dataset, dataset_dnarun, dnarun,
         // dnasample, germplasm
         // where dataset.name='maize282_raw_AGPv2'
         // and dataset_dnarun.dataset_id = dataset.dataset_id
         // and dnarun.dnarun_id = dataset_dnarun.dnarun_id
         // and dnarun.dnasample_id = dnasample.dnasample_id
         // and dnasample.germplasm_id = germplasm.germplasm_id;
+        //
+        
         StringBuilder builder = new StringBuilder();
-        builder.append("select distinct(germplasm.name) from dataset, dataset_dnarun, dnarun, dnasample, germplasm ");
+        builder.append("select distinct(germplasm.external_code) from dataset, dataset_dnarun, dnarun, dnasample, germplasm ");
         builder.append("where dataset.name='");
         builder.append(datasetName);
         builder.append("'");
@@ -93,7 +99,7 @@ public class GOBIIPostgresConnection {
         try (ResultSet rs = connection.createStatement().executeQuery(query)) {
             TaxaListBuilder taxa = new TaxaListBuilder();
             while (rs.next()) {
-                Taxon current = new Taxon(rs.getString("name"));
+                Taxon current = new Taxon(rs.getString("external_code"));
                 taxa.add(current);
             }
             return taxa.build();
@@ -154,8 +160,10 @@ public class GOBIIPostgresConnection {
     }
 
     public static void main(String[] args) {
+        
+        LoggingUtils.setupDebugLogging();
 
-        String datasetName = "maize282_raw_AGPv2";
+        String datasetName = "ZeaGBSv27_20160209_AGPv2_282";
 
         Connection conneciton = connection("/home/tmc46/gobii_maizeifltest_props.txt");
 
