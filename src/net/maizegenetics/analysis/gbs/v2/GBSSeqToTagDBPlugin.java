@@ -186,7 +186,12 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             } 
             // Cull files that are not represented in the given key file 
             List<Path> inputSeqFiles = GBSUtils.culledFiles(directoryFiles,keyPath);
-            if (inputSeqFiles.size() == 0) return null; // no files in this directory to process
+            if (inputSeqFiles.size() == 0) {
+                System.out.println("GBSSeqToTagDBPlugin:processData - found NO files represented in key file.");
+                System.out.println("Please verify your file names are formatted correctly and that your key file contains the required headers.");
+                return null; // no files in this directory to process
+            }
+            System.out.println("Found " + inputSeqFiles.size() + " files to process");
             //Files in a batch have roughly the same size
             //inputSeqFiles = this.sortFastqBySize(inputSeqFiles);
             int batchNum = inputSeqFiles.size()/batchSize;
