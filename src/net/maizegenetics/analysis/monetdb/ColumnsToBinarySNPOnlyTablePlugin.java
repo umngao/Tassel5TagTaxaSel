@@ -57,9 +57,9 @@ public class ColumnsToBinarySNPOnlyTablePlugin extends AbstractPlugin {
     private PluginParameter<Boolean> range= new PluginParameter.Builder<>("range",false,Boolean.class).guiName("Range information?").required(false)
             .description("Columns for range data. If true, will look for 'start' and 'end' (inclusive exclusive) or 'first' 'last' (inclusive inclusive) instead of 'Pos' ").build();
     private PluginParameter<Boolean> negToZero= new PluginParameter.Builder<>("negToZero",false,Boolean.class).guiName("Negative floats to zero?").required(false)
-            .description("Will set negative float denoted column values to zero (otherwise they are set to Float.MIN").build();
+            .description("Will set negative  column values to zero (otherwise they are set to NULL").build();
     private PluginParameter<Boolean> missToZero= new PluginParameter.Builder<>("missToZero",false,Boolean.class).guiName("Missing float values to zero?").required(false)
-            .description("Will set missing float denoted column values to zero (otherwise they are set to Float.MIN").build();
+            .description("Will set missing  column values to zero (otherwise they are set to NULL").build();
     private PluginParameter<Boolean> oneBased= new PluginParameter.Builder<>("oneBased",true,Boolean.class).guiName("positions are 1 based?").required(false)
             .description("Will assume all positions and ranges are 1-based unless this value is set to false").build();
     
@@ -261,13 +261,13 @@ public class ColumnsToBinarySNPOnlyTablePlugin extends AbstractPlugin {
                 realWriters.get(i).writeFloat(missToZero.value()?0:-Float.MAX_VALUE);
             }}
             if (log10HM!=null) {for (Integer i:log10Writers.keySet()) {
-                    log10Writers.get(i).writeFloat(-Float.MAX_VALUE);
+                    log10Writers.get(i).writeFloat(missToZero()?0:-Float.MAX_VALUE);
             }}
             if (shortHM!=null) {for (Integer i:shortWriters.keySet()) {
-                shortWriters.get(i).writeShort(Short.MIN_VALUE);
+                shortWriters.get(i).writeShort(missToZero() ? 0:Short.MIN_VALUE);
             }}
             if (longHM!=null) {for (Integer i:longWriters.keySet()) {
-                longWriters.get(i).writeLong(Long.MIN_VALUE);
+                longWriters.get(i).writeLong(missToZero() ? 0 :Long.MIN_VALUE);
             }}
             // lcj - you ALWAYS need the null, this worked in TE_LTRSuperFamily ... for MIchelle
             //String fam = sampLine.substring(tabPos[12] + 1, tabPos[13]) + "\n";
@@ -279,10 +279,10 @@ public class ColumnsToBinarySNPOnlyTablePlugin extends AbstractPlugin {
             }
           
             if (intHM!=null) {for (Integer i:intWriters.keySet()) {
-                intWriters.get(i).writeInt(Integer.MIN_VALUE);
+                intWriters.get(i).writeInt(missToZero() ? 0 : Integer.MIN_VALUE);
             }}
             if (byteHM!=null) {for (Integer i:byteWriters.keySet()) {
-                byteWriters.get(i).writeByte(Byte.MIN_VALUE);
+                byteWriters.get(i).writeByte(missToZero() ? 0:Byte.MIN_VALUE);
             }}
             totalLines++; linesForChr++; totalZeroLines++;
         }
@@ -295,38 +295,51 @@ public class ColumnsToBinarySNPOnlyTablePlugin extends AbstractPlugin {
     private void WriteValues(String[] next) {
         try {
             if (realHM!=null) {for (Integer i:realWriters.keySet()) {
-                double val= Double.MIN_VALUE; float v;
-                try {
-                    val = Double.parseDouble(next[i.intValue()]);
-                } catch (NumberFormatException nfe) {val = Double.MIN_VALUE;}
-                if (val==Double.MIN_VALUE) v= missToZero.value()?0:-Float.MAX_VALUE;
-                else if (negToZero.value() && val<=0) v= 0;
-                else v= (float) val;
-                realWriters.get(i).writeFloat(v);
-            }}
-            if (log10HM!=null) {for (Integer i:log10Writers.keySet()) {
-                double val= Double.MIN_VALUE;
+                double val= Double.MIN_VALUE; float storedVal;
                 try {
                     val = Double.parseDouble(next[i.intValue()]);
                 } catch (NumberFormatException nfe) {
                     val = Double.MIN_VALUE;
                 }
-                log10Writers.get(i).writeFloat(val==Double.MIN_VALUE?-Float.MAX_VALUE:(float)(-Math.log10(val)));
+                if (val==Double.MIN_VALUE) storedVal= missToZero.value()?0:-Float.MAX_VALUE;
+                else if (negToZero.value() && val<=0) storedVal= 0;
+                else storedVal= (float) val;
+                realWriters.get(i).writeFloat(storedVal);
+            }}
+            if (log10HM!=null) {for (Integer i:log10Writers.keySet()) {
+                double val= Double.MIN_VALUE; double storedVal;
+                try {
+                    val = Double.parseDouble(next[i.intValue()]);
+                } catch (NumberFormatException nfe) {
+                    val = Double.MIN_VALUE;
+                }
+                if (val==Double.MIN_VALUE) storedVal= missToZero.value()?0:-Float.MAX_VALUE;
+                else if (negToZero.value() && val<=0) storedVal= 0;
+                else storedVal = val==Double.MIN_VALUE?-Float.MAX_VALUE:(float)(-Math.log10(val));
+                log10Writers.get(i).writeFloat((float)storedVal);
             }}
             if (shortHM!=null) {for (Integer i:shortWriters.keySet()) {
-                short val= Short.MIN_VALUE;
+                short val= Short.MIN_VALUE; short storedVal;
                 try {
                     val = Short.parseShort(next[i.intValue()]);
                 } catch (NumberFormatException nfe) {
                     val = Short.MIN_VALUE;
                 }
-                shortWriters.get(i).writeShort(val);
+                if (val==Short.MIN_VALUE) storedVal= missToZero.value()?0:Short.MIN_VALUE;
+                else if (negToZero.value() && val<=0) storedVal= 0;
+                else storedVal = val;
+                shortWriters.get(i).writeShort(storedVal);
             }}
             if (longHM!=null) {for (Integer i:longWriters.keySet()) {
-                long val= Long.MIN_VALUE;
+                long val= Long.MIN_VALUE; long storedVal;
                 try {val = Long.parseLong(next[i.intValue()]);
-                } catch (NumberFormatException nfe) {val = Long.MIN_VALUE;}
-                longWriters.get(i).writeLong(val);
+                } catch (NumberFormatException nfe) {
+                    val = Long.MIN_VALUE;
+                }
+                if (val==Long.MIN_VALUE) storedVal= missToZero.value()?0:Long.MIN_VALUE;
+                else if (negToZero.value() && val<=0) storedVal= 0;
+                else storedVal = val;
+                longWriters.get(i).writeLong(storedVal);
             }}
             // lcj - always want \n !!
             if (charHM!=null) {
@@ -336,20 +349,26 @@ public class ColumnsToBinarySNPOnlyTablePlugin extends AbstractPlugin {
                 }
             }
             if (intHM!=null) {for (Integer i:intWriters.keySet()) {
-                int val= Integer.MIN_VALUE;
+                int val= Integer.MIN_VALUE; int storedVal;
                 try {val = Integer.parseInt(next[i.intValue()]);
                 } catch (NumberFormatException nfe) {val = Integer.MIN_VALUE;}
-                intWriters.get(i).writeInt(val);
+                if (val==Integer.MIN_VALUE) storedVal= missToZero.value()?0:Integer.MIN_VALUE;
+                else if (negToZero.value() && val<=0) storedVal= 0;
+                else storedVal = val;
+                intWriters.get(i).writeInt(storedVal);
             }}
             if (byteHM!=null) {
                 for (Integer i:byteWriters.keySet()) {
-                  int val= Byte.MIN_VALUE;
+                  byte val= Byte.MIN_VALUE; byte storedVal;
                   try {
-                    val = Integer.parseInt(next[i.intValue()]);                   
+                    val = (byte)(Integer.parseInt(next[i.intValue()]));                   
                   } catch (NumberFormatException nfe) {
                     val = Byte.MIN_VALUE;
                   }
-                  byteWriters.get(i).writeByte((byte)val);
+                  if (val==Byte.MIN_VALUE) storedVal= missToZero.value()?0:Byte.MIN_VALUE;
+                  else if (negToZero.value() && val<=0) storedVal= 0;
+                  else storedVal = val;
+                  byteWriters.get(i).writeByte((byte)storedVal);
                 }
              }
                 
