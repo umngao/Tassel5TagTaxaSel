@@ -54,6 +54,13 @@ import net.maizegenetics.util.Utils;
  * chr01.txt, chr02.txt ... chr09.txt, chr10.txt will sort from 1-10.  But files named
  * chr1.txt, chr2,txt ... chr9.txt, chr10.txt will not.  In the latter case, chr10.txt will
  * be processed before the other files.
+ * 
+ * This plugin should be augmented to handle allele calls translated to bytes as done in
+ * my other plugins.  From privatemaizegenetics, this was calls to:
+ * 
+ *                  String refAllele = BedFileUtils.refAlleleFromChromPos(refChromBytes, pos+1); 
+ *                  int refAlleleInt = BedFileUtils.getIntFromSeq(refAllele); 
+ * Need to pass in the value from the column (one char) and call getIntFromSeq on it. 
  * @author lcj34
  *
  */
@@ -76,6 +83,8 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
             .description("Comma separated list of column names to generate character/text binaries for").build();
     private PluginParameter<String> colsByte= new PluginParameter.Builder<>("colNamesByte",null,String.class).guiName("Columns keep as Byte").required(false)
             .description("Comma separated list of column names to generate byte binaries for").build();
+    private PluginParameter<String> colsAllele= new PluginParameter.Builder<>("colNamesAllele",null,String.class).guiName("Columns translate Alleles").required(false)
+            .description("Comma separated list of column names to generate for single char alleles to be translated to 0-5 for A/C/G/T/+/-").build();
     private PluginParameter<String> colsLog10= new PluginParameter.Builder<>("colNamesLog10",null,String.class).guiName("Columns to Keep and transform -log10").required(false)
             .description("Comma separated list of column names to first transform using -log10 then generate binaries for").build();
     private PluginParameter<Boolean> range= new PluginParameter.Builder<>("range",false,Boolean.class).guiName("Range information?").required(false)
@@ -102,6 +111,8 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
     private HashMap<Integer,LittleEndianDataOutputStream> intWriters= null;
     private HashMap<Integer,String> byteHM= null;
     private HashMap<Integer,LittleEndianDataOutputStream> byteWriters= null;
+    private HashMap<Integer,String> alleleHM= null;
+    private HashMap<Integer,LittleEndianDataOutputStream> alleleWriters= null;
     private int chrCol= -1;
     private String chrName= "CHR";
     private int posCol= -1;
@@ -169,7 +180,7 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
         try {
             String currChr = null;
             Chromosome currChrom = null; // for getting reference sequence
-            System.out.println("LCJ - byCHrom: size of infiles: " + infiles.size());
+            System.out.println("processData: number of infiles: " + infiles.size());
             for (Path filepath: infiles) {
                 String inputFile = filepath.toString();
                 int refChromPosSize = 0;
@@ -261,14 +272,14 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
                         lastStart= currPosOnChr; //last is just for making sure that lines aren't duplicated, and checks start of range
                         lastEnd= end-1;
                     }
-                } // lcj - end while loop for processing this chrom file
+                } //  end while loop for processing this chrom file
                 // Write everything to null between the last line and the end of the chromosome when it hits the end of the file
                 // add +1 because writeNull writes until " < end", assuming 0-based, but this is 1-based.
                 writeNull(lastLinePos,refChromPosSize); 
                 System.out.println(linesForChr+" SECOND lines output for chr "+currChr  
                         + " lastLinePos " + lastLinePos + " refChromPosSize:" + refChromPosSize);
                 linesForChr = 0;
-            } // lcj - end for loop processing each file
+            } //  end for loop processing each file
  
             Shutdown(); // close out writers
         } catch (Exception e) {
@@ -277,7 +288,7 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
             return null;
         }
         System.out.println("Process took " + (System.nanoTime() - time)/1e9 + " seconds.");
-        System.out.println("LCJ - wrote the big file with totalReads: " + totalLines 
+        System.out.println("Wrote the files with totalReads: " + totalLines 
                 + " totalZeroLines written: " + totalZeroLines + " totalNonZeroLines written: " + totalNonZeroLines);
         return null;
     } 
@@ -300,7 +311,7 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
             if (longHM!=null) {for (Integer i:longWriters.keySet()) {
                 longWriters.get(i).writeLong(missToZero() ? 0 :Long.MIN_VALUE);
             }}
-            // lcj - you ALWAYS need the null, this worked in TE_LTRSuperFamily ... for MIchelle
+            // You ALWAYS need the \n, this worked in TE_LTRSuperFamily ... for MIchelle
             //String fam = sampLine.substring(tabPos[12] + 1, tabPos[13]) + "\n";
             //writerFam.writeChars(fam.getBytes()); 
             if (charHM!=null) {
@@ -314,6 +325,9 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
             }}
             if (byteHM!=null) {for (Integer i:byteWriters.keySet()) {
                 byteWriters.get(i).writeByte(missToZero() ? 0:Byte.MIN_VALUE);
+            }}
+            if (alleleHM!=null) {for (Integer i:alleleWriters.keySet()) {
+                alleleWriters.get(i).writeByte(Byte.MIN_VALUE); // for missing alleles write null
             }}
             totalLines++; linesForChr++; totalZeroLines++;
         }
@@ -371,7 +385,7 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
                 longWriters.get(i).writeLong(storedVal);
                 //longWriters.get(i).writeLong(val);
             }}
-            // lcj - always want \n !!
+            // always want \n !!
             if (charHM!=null) {
                 for (Integer i:charWriters.keySet()) {
                   String charData = next[i.intValue()] + "\n";
@@ -402,6 +416,25 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
                   byteWriters.get(i).writeByte(val);
                 }
              }
+            if (alleleHM!=null){
+                // Not checking missToZero or negToZero - these are character alleles, missing is null
+                // otherwise stored as is done in TASSEL as 0-5 for A/G/C/T/+/-
+                for (Integer idx:alleleWriters.keySet()) {
+                    byte val = Byte.MIN_VALUE;// monetdb stores Byte.MIN_VALUE as null
+                    try {
+                        String allele = next[idx.intValue()];
+                        int alleleInt = ColumnsToBinaryUtils.getIntFromSeq(allele);
+                        // getIntFromSeq allows for ins/del as 4/5. 
+                        if (alleleInt >= 0 || alleleInt <= 5) val =(byte) alleleInt; 
+                        else 
+                            throw new IllegalStateException("Illegal allele char, must be A/C/G/T/+/- but found " + allele);
+                        alleleWriters.get(idx).writeByte(val); // store null
+                    } catch (Exception exc) {
+                        exc.printStackTrace();
+                        throw new IllegalStateException("Error parsing  allele column " + alleleWriters.get(idx));
+                    }
+                }
+            }
                 
         } catch (Exception e) {
             for (String i:next) {System.out.println(i);}
@@ -569,6 +602,19 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
                 if (search<0) {System.out.println("Cannot find column "+s);
                 } else {byteHM.put(search, s);ncols++;System.out.println("Found "+s+" in column "+search+" as byte");}
             }
+        } 
+        //Get indices of column names to keep as alleles translated to 0-5
+        if (colsAllele.value()!=null && !colsAllele.value().equalsIgnoreCase("null") && !colsAllele.value().isEmpty()) {
+        alleleHM= new HashMap<>(); alleleWriters= new HashMap<>(); search= -1;
+            for (String s:colsAllele.value().split(",")) {
+                for (int col = 0; col < next.length; col++) {
+                    if (s.equalsIgnoreCase(next[col])) {
+                        search= col; break;
+                    }
+                }
+                if (search<0) {System.out.println("Cannot find column "+s);
+                } else {alleleHM.put(search, s);ncols++;System.out.println("Found "+s+" in column "+search+" as allele");}
+            }
         }  
          if (ncols<1) throw new IllegalStateException("No valid columns to read in!");   
     }
@@ -582,78 +628,170 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
         totalNonZeroLines = 0;
         linesForChr = 0;
         try {
-            DataOutputStream outCopy = Utils.getDataOutputStream(outBase.value()+"_copy.sql", 1040);
-            DataOutputStream outCreate = Utils.getDataOutputStream(outBase.value()+"_create.sql", 1040);
-            outCopy.writeBytes("COPY binary into ... from ('./chr_int.bin','./pos_int.bin',"); boolean first= true;
-            outCreate.writeBytes("CREATE TABLE ... (chr int,pos int,"); String out= new File(outBase.value()).getName(); String outDir= new File(outBase.value()).getParent();
+            System.out.println("\nColumnsToBInaryFullGenomeTable: outBase is : " + outBase() + "\n\n");
+            DataOutputStream outCopy = Utils.getDataOutputStream(outBase.value()+"copy.sql", 1040);
+            DataOutputStream outCreate = Utils.getDataOutputStream(outBase.value()+"create.sql", 1040);
+            outCopy.writeBytes("COPY binary into ... from ('snpChrFile.bin','snpPosFile.bin',"); boolean first= true;
+            outCreate.writeBytes("CREATE TABLE ... (chr int,pos int,"); 
+            String lastChar = outBase().substring(outBase().length()-1,outBase().length());
+            String out = null;
+            if (!(lastChar.equals("/"))) {
+                out = new File(outBase.value()).getName();
+            }
+            //String outDir= new File(outBase.value()).getParent();
             if (realHM!=null) {
                 for (Integer i:realHM.keySet()) {
-                    String outFile = out + "_"+realHM.get(i) + "_real.bin";
+                    String copyFile;
+                    String createFile;
+                    if (out != null) {
+                        copyFile = out + realHM.get(i) + "_real.bin";
+                        createFile = out +  realHM.get(i) + " real";
+                    } else {
+                        copyFile = realHM.get(i) + "_real.bin";
+                        createFile = realHM.get(i) + " real";
+                    }
+                    String outFile = outBase() + realHM.get(i) + "_real.bin";
                     if (!first) {outCopy.writeBytes(",");outCreate.writeBytes(",");}
                     first= false;
-                    outCopy.writeBytes("'"+outFile+"'"); first= false;
-                    outCreate.writeBytes("./"+out + "_"+realHM.get(i)+" real"); 
-                    realWriters.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outDir+"/"+outFile))));
+                    outCopy.writeBytes("'"+copyFile+"'"); first= false;
+                    outCreate.writeBytes( createFile );
+                   // outCreate.writeBytes(out + realHM.get(i)+" real"); 
+                    realWriters.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outFile))));
+                    //realWriters.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outDir+"/"+outFile))));
                 }
             }
             if (intHM!=null) {
                 for (Integer i:intHM.keySet()) {
-                    String outFile = out + "_"+ intHM.get(i) + "_int.bin";
+                    String copyFile;
+                    String createFile;
+                    if (out != null) {
+                        copyFile = out +  intHM.get(i) + "_int.bin";
+                        createFile = out +  intHM.get(i) + " int";
+                    } else {
+                        copyFile = intHM.get(i) + "_int.bin";
+                        createFile = intHM.get(i) + " int";
+                    }
+                    
+                    String outFile = outBase() +  intHM.get(i) + "_int.bin";
                     if (!first) {outCopy.writeBytes(",");outCreate.writeBytes(",");}
                     first= false;
-                    outCopy.writeBytes("'"+outFile+"'"); 
-                    outCreate.writeBytes("./"+out + "_"+intHM.get(i) + " int");
-                    intWriters.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outDir+"/"+outFile))));
+                    outCopy.writeBytes("'"+copyFile+"'"); 
+                    outCreate.writeBytes(createFile );
+                    intWriters.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outFile))));
                 }
             }
             if (byteHM!=null) { // tinyint is a byte
                 for (Integer i:byteHM.keySet()) {
-                    String outFile = out + "_"+ byteHM.get(i) + "_byte.bin";
+                    String copyFile;
+                    String createFile;
+                    if (out != null) {
+                        copyFile = out + byteHM.get(i) + "_byte.bin";
+                        createFile = out + byteHM.get(i) + " byte";
+                    } else {
+                        copyFile = byteHM.get(i) + "_byte.bin";
+                        createFile = byteHM.get(i) + " byte";
+                    }
+                    String outFile = outBase() + byteHM.get(i) + "_byte.bin";
                     if (!first) {outCopy.writeBytes(",");outCreate.writeBytes(",");}
                     first= false;
-                    outCopy.writeBytes("'"+outFile+"'"); 
-                    outCreate.writeBytes("./"+out + "_"+byteHM.get(i) + " tinyint");
-                    byteWriters.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outDir+"/"+outFile))));
+                    outCopy.writeBytes("'"+copyFile+"'"); 
+                    outCreate.writeBytes(createFile); // monetdb doesn't have "byte", tinyint instead
+                    byteWriters.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outFile))));
+                }
+            }
+            if (alleleHM!=null) { // alleles are stored as bytes, here as tinyints
+                for (Integer i:alleleHM.keySet()) {
+                    String copyFile;
+                    String createFile;
+                    if (out != null) {
+                        copyFile = out + alleleHM.get(i) + "_allelebyte.bin";
+                        createFile = out + alleleHM.get(i) + " tinyint";
+                    } else {
+                        copyFile = alleleHM.get(i) + "_allelebyte.bin";
+                        createFile = alleleHM.get(i) + " tinyint";
+                    }
+                    String outFile = outBase() + alleleHM.get(i) + "_allelebyte.bin";
+                    if (!first) {outCopy.writeBytes(",");outCreate.writeBytes(",");}
+                    first= false;
+                    outCopy.writeBytes("'"+copyFile+"'"); 
+                    outCreate.writeBytes(createFile); // monetdb doesn't have "byte", tinyint instead
+                    alleleWriters.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outFile))));
                 }
             }
             if (log10HM!=null) {
                 for (Integer i:log10HM.keySet()) {
-                    String outFile = out + "_"+ log10HM.get(i) + "_neglog10_real.bin";
+                    String copyFile;
+                    String createFile;
+                    if (out != null) {
+                        copyFile = out +  log10HM.get(i) + "_neglog10_real.bin";
+                        createFile = out +  log10HM.get(i) + "_neglog10 real";
+                    } else {
+                        copyFile = log10HM.get(i) + "_neglog10_real.bin";
+                        createFile = log10HM.get(i) + "_neglog10 real";
+                    }
+                    String outFile = outBase() +  log10HM.get(i) + "_neglog10_real.bin";
                     if (!first) {outCopy.writeBytes(",");outCreate.writeBytes(",");}
                     first= false;
-                    outCopy.writeBytes("'"+outFile+"'");
-                    outCreate.writeBytes("./"+out + "_"+log10HM.get(i) + "_negLog10 real"); 
-                    log10Writers.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outDir+"/"+outFile))));
+                    outCopy.writeBytes("'"+copyFile+"'");
+                    outCreate.writeBytes(createFile); 
+                    log10Writers.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outFile))));
                 }
             }
             if (shortHM!=null) {
                 for (Integer i:shortHM.keySet()) {
-                    String outFile = out + "_"+shortHM.get(i) + "_short.bin";
+                    String copyFile;
+                    String createFile;
+                    if (out != null) {
+                        copyFile = out + shortHM.get(i) + "_short.bin";
+                        createFile = out + shortHM.get(i) + " short";
+                    } else {
+                        copyFile = shortHM.get(i) + "_short.bin";
+                        createFile = shortHM.get(i) + " short";
+                    }
+                    String outFile = outBase() + shortHM.get(i) + "_short.bin";
                     if (!first) {outCopy.writeBytes(",");outCreate.writeBytes(",");}
                     first= false;
-                    outCopy.writeBytes("'"+outFile+"'");
-                    outCreate.writeBytes("./"+out + "_"+shortHM.get(i)+" smallint"); 
-                    shortWriters.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outDir+"/"+outFile))));
+                    outCopy.writeBytes("'"+copyFile+"'");
+                    outCreate.writeBytes(createFile); 
+                    shortWriters.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outFile))));
                 }
             }
             if (longHM!=null) {
                 for (Integer i:longHM.keySet()) {
-                    String outFile = out + "_"+longHM.get(i) + "_long.bin";
+                    String copyFile;
+                    String createFile;
+                    if (out != null) {
+                        copyFile = out + "_"+longHM.get(i) + "_long.bin";
+                        createFile = out + "_"+longHM.get(i) + " long";
+                    } else {
+                        copyFile = longHM.get(i) + "_long.bin";
+                        createFile = longHM.get(i) + " long";
+                    }
+                    String outFile = outBase() + longHM.get(i) + "_long.bin";
                     if (!first) {outCopy.writeBytes(",");outCreate.writeBytes(",");}
                     first= false;
-                    outCopy.writeBytes("'"+outFile+"'");
-                    outCreate.writeBytes("./"+out + "_"+longHM.get(i)+" bigint"); 
-                    longWriters.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outDir+"/"+outFile))));
+                    outCopy.writeBytes("'"+copyFile+"'");
+                    outCreate.writeBytes(createFile); 
+                    longWriters.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outFile))));
                 }
             }
             if (charHM!=null) {
                 for (Integer i:charHM.keySet()) {
-                    String outFile = out + "_"+charHM.get(i) + "_char.bin";
+                    String copyFile;
+                    String createFile;
+                    if (out != null) {
+                        copyFile = out + charHM.get(i) + "_char.bin";
+                        createFile = out + charHM.get(i) + " char";
+                    } else {
+                        copyFile = charHM.get(i) + "_char.bin";
+                        createFile = charHM.get(i) + " char";
+                    }
+                    String outFile = outBase() + charHM.get(i) + "_char.bin";
                     if (!first) {outCopy.writeBytes(",");outCreate.writeBytes(",");}
                     first= false;
-                    outCopy.writeBytes("'"+outFile+"'");
-                    outCreate.writeBytes("./"+out + "_"+charHM.get(i)+" varchar(200)"); 
-                    charWriters.put(i,new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outDir+"/"+outFile))));
+                    outCopy.writeBytes("'"+copyFile+"'");
+                    outCreate.writeBytes(createFile); 
+                    charWriters.put(i,new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outFile))));
                 }
             }
         outCopy.writeBytes(");"); outCopy.close();
@@ -661,7 +799,7 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        
+
     }
     
     private void Shutdown() {
@@ -721,7 +859,6 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
       * @return Input File 
       */
      public String inputFile() {
-         System.out.println("LCJ - inputFile call, will return: " + inputFile.value());
          return inputFile.value();
      }
 
@@ -897,7 +1034,29 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
          colsByte = new PluginParameter<>(colsByte, value);
          return this;
      }
-     
+     /**
+      * Comma separated list of column names to generate byte
+      * binaries for
+      *
+      * @return Columns keep as Byte
+      */
+     public String colsAllele() {
+         return colsAllele.value();
+     }
+
+     /**
+      * Set Columns translate allele values to 0-5. Comma separated list of column
+      * names of single character alleles to be translated from A/C/G/T/+/- to
+      * 0-5.
+      *
+      * @param value Columns keep for translated alleles stored as bytes
+      *
+      * @return this plugin
+      */
+     public ColumnsToBinaryFullGenomeTablePlugin colsAllele(String value) {
+         colsAllele = new PluginParameter<>(colsAllele, value);
+         return this;
+     }     
      /**
       * Comma separated list of column names to generate char
       * binaries for
