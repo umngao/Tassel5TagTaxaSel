@@ -30,12 +30,34 @@ import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.util.Utils;
 
 /**
+ * This plugin is copied from Kelly's ColumnsToBinaryPlugin (which was re-worked
+ * from various lynn methods) to create binary files for loading into the
+ * hmp321_snp table in the maizeFullGenomeDB of the Rare ALleles monetdb 
+ * instance.  THe difference between this plugin and the ColumnsToBinaryFullGenomeTablePlugin
+ * is the latter creates entries for all positions listed in the reference genome.
+ * This method only creates entries  positions identified as SNPs from hmp321.
+ * 
+ * To be consistent with the existing columns in monetdb, the reference directory must
+ * be a link to a directory that contains copies of the SNPPos_chromX.txt files stored 
+ * on andersonii in Research/Zea/Genotypes/Annotations/monetDB/refGenomeFiles.
+ * 
+ * The "inputFile" parameter can be either a single file containing data for all chromosomes or a 
+ * directory of files split by chromosome.  If all chroms are in a single file, that file
+ * must be sorted by chromosome and position, and must contain a header line that contains
+ * the columns "chr" and "pos" along with user specified data columns.
+ * 
+ * If the "inputFile" parameter is a directory, the only *.txt files it holds must be files
+ * intended for this processing.  These files must be split by chromosome and must be named
+ * such that they will sort lexicographically in chromosome order.  For example:  files named
+ * chr01.txt, chr02.txt ... chr09.txt, chr10.txt will sort from 1-10.  But files named
+ * chr1.txt, chr2,txt ... chr9.txt, chr10.txt will not.  In the latter case, chr10.txt will
+ * be processed before the other files.
  * @author lcj34
  *
  */
 public class ColumnsToBinarySNPOnlyTablePlugin extends AbstractPlugin {
     private PluginParameter<String> inputFile= new PluginParameter.Builder<>("inputFile",null,String.class).guiName("Input File").required(true)
-            .description("Input File or Directory containing Tab-delimited files with data to add to the database. Files must be named chr01.txt, chr02.txt etc!").build();
+            .description("Input File containing a header line and entries sorted by chromosome and position, or Directory containing Tab-delimited files split by chromosome and sorted by position.  \nIf parameter is a directory, each file must contain a header line, and the files must end with .txt and be named in a maaner that sorts lexicographically by chromosome").build();
     private PluginParameter<String> refDir= new PluginParameter.Builder<>("refDir",null,String.class).guiName("refDir").required(true)
             .description("Directory holding files that contain all the SNP physical positions, separated by chr").build();
     private PluginParameter<String> outBase= new PluginParameter.Builder<>("outBase",null,String.class).guiName("outBase").required(true)
@@ -59,7 +81,7 @@ public class ColumnsToBinarySNPOnlyTablePlugin extends AbstractPlugin {
     private PluginParameter<Boolean> range= new PluginParameter.Builder<>("range",false,Boolean.class).guiName("Range information?").required(false)
             .description("Columns for range data. If true, will look for 'start' and 'end' (inclusive exclusive) or 'first' 'last' (inclusive inclusive) instead of 'Pos' ").build();
     private PluginParameter<Boolean> negToZero= new PluginParameter.Builder<>("negToZero",false,Boolean.class).guiName("Negative floats to zero?").required(false)
-            .description("Will set negative  column values to zero (otherwise they are set to NULL").build();
+            .description("Will set negative column values to zero (otherwise they are stored as is").build();
     private PluginParameter<Boolean> missToZero= new PluginParameter.Builder<>("missToZero",false,Boolean.class).guiName("Missing float values to zero?").required(false)
             .description("Will set missing  column values to zero (otherwise they are set to NULL").build();
     private PluginParameter<Boolean> oneBased= new PluginParameter.Builder<>("oneBased",true,Boolean.class).guiName("positions are 1 based?").required(false)

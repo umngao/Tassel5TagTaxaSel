@@ -32,15 +32,16 @@ import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.util.Utils;
 
 /**
- * This plugin is copied from the ColumnsToBinarySNPOnlyTablePlugin (which was copied from various lynn
- * methods) to create binary files for loading into the hmp321_snp table in the
- * maizeFullGenomeDB of the Rare Alleles monetdb instance.  THe difference between this plugin
- * and the ColumnsToBinarySNPOnlyTablePlugin is the latter creates entries only for identified hmp321 SNPs
- * This method (ColumnsToBinaryFullGenomePlugin) creates entries  for all positions listed in the reference
- * genome.
+ * This plugin is copied from the ColumnsToBinarySNPOnlyTablePlugin (which was copied Kelly's
+ * ColumnsToBinaryPlugin, which re-worked  various lynn methods) to create 
+ * binary files for loading into the hmp321_snp table in the maizeFullGEnomeDB of the
+ * Rare Alleles monetdb instance.  THe difference between this plugin and the 
+ * ColumnsToBinarySNPOnlyTablePlugin is the latter creates entries only for identified hmp321 SNPs
+ * This method (ColumnsToBinaryFullGenomePlugin) creates entries  for all positions listed in 
+ * in the reference genome.
  * 
- * To be consistent with the existing columns in monetdb, the reference directory must
- * be a link to a directory that contains copies of the SNPPos_chromX.txt files stored 
+ * To be consistent with the existing columns in monetdb maize tables, the reference file must
+ * be a link to a copy of the Zea_mays.AGPv3.20.dna.genome.fa file stored 
  * on andersonii in Research/Zea/Genotypes/Annotations/monetDB/refGenomeFiles.
  * 
  * The "inputFile" parameter can be either a single file containing data for all chromosomes or a 
@@ -55,12 +56,10 @@ import net.maizegenetics.util.Utils;
  * chr1.txt, chr2,txt ... chr9.txt, chr10.txt will not.  In the latter case, chr10.txt will
  * be processed before the other files.
  * 
- * This plugin should be augmented to handle allele calls translated to bytes as done in
- * my other plugins.  From privatemaizegenetics, this was calls to:
+ * This plugin may also be used to create binaries for the maizeChrom10DB.  In this case,
+ * we still use the full reference genome, but only chrom 10 is processed.  The inputFile
+ * paramaeter shoudl be just 1 file containing chromosome 10 data.
  * 
- *                  String refAllele = BedFileUtils.refAlleleFromChromPos(refChromBytes, pos+1); 
- *                  int refAlleleInt = BedFileUtils.getIntFromSeq(refAllele); 
- * Need to pass in the value from the column (one char) and call getIntFromSeq on it. 
  * @author lcj34
  *
  */
@@ -90,9 +89,9 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
     private PluginParameter<Boolean> range= new PluginParameter.Builder<>("range",false,Boolean.class).guiName("Range information?").required(false)
             .description("Columns for range data. If true, will look for 'start' and 'end' (inclusive exclusive) or 'first' 'last' (inclusive inclusive) instead of 'Pos' ").build();
     private PluginParameter<Boolean> negToZero= new PluginParameter.Builder<>("negToZero",false,Boolean.class).guiName("Negative floats to zero?").required(false)
-            .description("Will set negative float denoted column values to zero (otherwise they are set to Float.MIN").build();
+            .description("Will set negative column values to zero (otherwise they the negative value is stored").build();
     private PluginParameter<Boolean> missToZero= new PluginParameter.Builder<>("missToZero",false,Boolean.class).guiName("Missing float values to zero?").required(false)
-            .description("Will set missing float denoted column values to zero (otherwise they are set to Float.MIN").build();
+            .description("Will set missing  column values to zero (otherwise they are set to null").build();
     private PluginParameter<Boolean> oneBased= new PluginParameter.Builder<>("oneBased",true,Boolean.class).guiName("positions are 1 based?").required(false)
             .description("Will assume all positions and ranges are 1-based unless this value is set to false").build();
     
