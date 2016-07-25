@@ -60,6 +60,7 @@ import net.maizegenetics.util.Utils;
  * we still use the full reference genome, but only chrom 10 is processed.  The inputFile
  * paramaeter shoudl be just 1 file containing chromosome 10 data.
  * 
+ * @author kelly
  * @author lcj34
  *
  */
@@ -211,7 +212,7 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
                     if (!currChr.equals(next[chrCol])) {
                         // Write everything to null between the last line and the end of the chromosome
                         writeNull(lastLinePos,refChromPosSize);
-                        System.out.println(linesForChr+" FIRST lines output for chr "+currChr);
+                        System.out.println("Chrom within file changed, " + linesForChr+" lines output for chr "+currChr);
                         linesForChr= 0; lastLinePos = 1;
                         //if chromosomes not ordered 1-10, shut everything down and throw exception
                         if (Integer.parseInt(currChr)!=(Integer.parseInt(next[chrCol])-1)) {
@@ -275,7 +276,7 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
                 // Write everything to null between the last line and the end of the chromosome when it hits the end of the file
                 // add +1 because writeNull writes until " < end", assuming 0-based, but this is 1-based.
                 writeNull(lastLinePos,refChromPosSize); 
-                System.out.println(linesForChr+" SECOND lines output for chr "+currChr  
+                System.out.println("File changed, " + linesForChr+"  lines output for chr "+currChr  
                         + " lastLinePos " + lastLinePos + " refChromPosSize:" + refChromPosSize);
                 linesForChr = 0;
             } //  end for loop processing each file
@@ -342,7 +343,9 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
                 double val= Double.MIN_VALUE; float storedVal;
                 try {
                     val = Double.parseDouble(next[i.intValue()]);
-                } catch (NumberFormatException nfe) {val = Double.MIN_VALUE;}
+                } catch (NumberFormatException nfe) {
+                    val = Double.MIN_VALUE;
+                }
                 if (val==Double.MIN_VALUE) storedVal= missToZero.value()?0:-Float.MAX_VALUE;
                 else if (negToZero.value() && val<=0) storedVal= 0;
                 else storedVal= (float) val;
@@ -376,8 +379,11 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
             }}
             if (longHM!=null) {for (Integer i:longWriters.keySet()) {
                 long val= Long.MIN_VALUE;long storedVal;
-                try {val = Long.parseLong(next[i.intValue()]);
-                } catch (NumberFormatException nfe) {val = Long.MIN_VALUE;}
+                try {
+                    val = Long.parseLong(next[i.intValue()]);
+                } catch (NumberFormatException nfe) {
+                    val = Long.MIN_VALUE;
+                }
                 if (val==Long.MIN_VALUE) storedVal= missToZero.value()?0:Long.MIN_VALUE;
                 else if (negToZero.value() && val<=0) storedVal= 0;
                 else storedVal = val;

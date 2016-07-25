@@ -52,6 +52,8 @@ import net.maizegenetics.util.Utils;
  * chr01.txt, chr02.txt ... chr09.txt, chr10.txt will sort from 1-10.  But files named
  * chr1.txt, chr2,txt ... chr9.txt, chr10.txt will not.  In the latter case, chr10.txt will
  * be processed before the other files.
+ * 
+ * @author kelly
  * @author lcj34
  *
  */
