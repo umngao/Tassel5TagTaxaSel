@@ -17,7 +17,6 @@ import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
-import net.maizegenetics.util.LoggingUtils;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 
@@ -48,8 +47,14 @@ public class GOBIIPostgresConnection {
         String password = properties.getProperty("password");
         String dbName = properties.getProperty("DB");
 
+        return connection(host, user, password, dbName);
+
+    }
+
+    public static Connection connection(String host, String user, String password, String dbName) {
+
         Connection connection = null;
-        String url = "jdbc:postgresql://localhost/" + dbName;
+        String url = "jdbc:postgresql://" + host + "/" + dbName;
         try {
             Class.forName("org.postgresql.Driver");
             connection = DriverManager.getConnection(url, user, password);
@@ -82,7 +87,6 @@ public class GOBIIPostgresConnection {
         // and dnarun.dnasample_id = dnasample.dnasample_id
         // and dnasample.germplasm_id = germplasm.germplasm_id;
         //
-        
         StringBuilder builder = new StringBuilder();
         builder.append("select distinct(germplasm.external_code) from dataset, dataset_dnarun, dnarun, dnasample, germplasm ");
         builder.append("where dataset.name='");
@@ -159,19 +163,38 @@ public class GOBIIPostgresConnection {
 
     }
 
-    public static void main(String[] args) {
-        
-        LoggingUtils.setupDebugLogging();
+    public static String hdf5Filename(Connection connection, String datasetName) {
 
-        String datasetName = "ZeaGBSv27_20160209_AGPv2_282";
+        if (connection == null) {
+            throw new IllegalArgumentException("GOBIIPostgresConnection: hdf5Filename: Must specify database connection.");
+        }
 
-        Connection conneciton = connection("/home/tmc46/gobii_maizeifltest_props.txt");
+        //
+        // select data_file from dataset where dataset.name='name';
+        //
+        StringBuilder builder = new StringBuilder();
+        builder.append("select data_file ");
+        builder.append("from dataset ");
+        builder.append("where dataset.name='");
+        builder.append(datasetName);
+        builder.append("';");
 
-        TaxaList taxa = taxaList(conneciton, datasetName);
-        System.out.println("number of taxa: " + taxa.numberOfTaxa());
+        String query = builder.toString();
+        myLogger.info("hdf5Filename: query statement: " + query);
 
-        PositionList positions = positionList(conneciton, datasetName);
-        System.out.println("number of positions: " + positions.numberOfSites());
+        try (ResultSet rs = connection.createStatement().executeQuery(query)) {
+            if (!rs.next()) {
+                throw new IllegalStateException("GOBIIPostgresConnection: hdf5Filename: dataset name: " + datasetName + " doesn't map to any hdf5 filename.");
+            }
+            String result = rs.getString("data_file");
+            if (rs.next()) {
+                throw new IllegalStateException("GOBIIPostgresConnection: hdf5Filename: dataset name: " + datasetName + " maps to more than one hdf5 filename.");
+            }
+            return result;
+        } catch (Exception se) {
+            myLogger.debug(se.getMessage(), se);
+            throw new IllegalStateException("GOBIIPostgresConnection: hdf5Filename: Problem querying the database: " + se.getMessage());
+        }
 
     }
 
