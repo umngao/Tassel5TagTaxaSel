@@ -53,13 +53,15 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
             .description("Chromsome containing the positions").build();
     private PluginParameter<Integer> myPosition = new PluginParameter.Builder<Integer>("pos", null, Integer.class).guiName("Cut or SNP Position").required(true)
             .description("A cut or SNP position number").build();
+    private PluginParameter<Byte> myStrand = new PluginParameter.Builder<Byte>("strand", null, Byte.class).guiName("Strand").required(true)
+            .description("The strand - 0 for reverse, 1 for forward").build();
     private PluginParameter<String> myPositionType = new PluginParameter.Builder<String>("type", null, String.class).guiName("Type of Position").required(true)
             .description("Type of Position - either snp or cut - for which the TaxaDistribution will be presented").build();
     private PluginParameter<String> myOutputFile = new PluginParameter.Builder<String>("outFile", null, String.class).guiName("Output file").required(true).outFile()
             .description("File name to which tab-delimited output will be written").build();
 
     private TagDataWriter tdw = null;
-    
+
     public SNPCutPosTagVerificationPlugin() {
         super(null, false);
     }
@@ -74,39 +76,39 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
 
     @Override
     public DataSet processData(DataSet input) {
-    	// Need tag depths for each tag that aligns to the specified position
-    	// Cut position gives us position where tag aligns. 
-    	// SNP position gives us position within tag where alleles differ
+        // Need tag depths for each tag that aligns to the specified position
+        // Cut position gives us position where tag aligns. 
+        // SNP position gives us position within tag where alleles differ
         tdw = new TagDataSQLite(inputDB()); 
         Map<Tag, TaxaDistribution> cutPositionMap = null;
         Multimap<Allele, Map<Tag, TaxaDistribution>> snpPositionMap = null;
         Map<Tag, Position> tagCutPosMap = null;
         try {
-        	Chromosome myChr = new Chromosome(chrom());
-        	Position pos = new GeneralPosition.Builder(myChr, cutOrSnpPosition()).build();      	        	
-        	TaxaList taxaList = tdw.getTaxaList(); // Used for printing taxon column headers
-        	if (positionType().equals("cut")) {
-        		// Get tag/taxon map, print to tab-delimited file
-               	cutPositionMap = tdw.getTagsTaxaMap(pos);
-               	writeCutPositionTagTaxonFile(taxaList, cutPositionMap);
-        	} else if (positionType().equals("snp")) {
-               	// create map with alleles, tag and taxon, print to tab-delimited file
-            	snpPositionMap = tdw.getAllelesTagTaxaDistForSNP(pos);
-//            	snpPositionMap.entries().forEach( entry-> {
-//            		System.out.println("LCJ - Allele call is: " + entry.getKey().alleleAsString());
-//            	});
-            	// get list of tags, send to db to get cut position/strand
-            	Set<Tag> fullTagList = new HashSet<Tag>();
-            	snpPositionMap.entries().forEach(entry -> {
-            		Set<Tag> tags= entry.getValue().keySet();
-            		fullTagList.addAll(tags);
-            	});;
-            	tagCutPosMap = tdw.getTagCutPosition(fullTagList);
-            	writeSNPPositionTagTaxonFile(taxaList, snpPositionMap, tagCutPosMap);
-        	} else {
-        		myLogger.error("Position type must be specified as either snp or cut\n");
-        		return null;
-        	}       	
+            Chromosome myChr = new Chromosome(chrom());
+            Position pos = new GeneralPosition.Builder(myChr, cutOrSnpPosition()).strand(strand()).build();      	        	
+            TaxaList taxaList = tdw.getTaxaList(); // Used for printing taxon column headers
+            if (positionType().equals("cut")) {
+                // Get tag/taxon map, print to tab-delimited file 
+                cutPositionMap = tdw.getTagsTaxaMap(pos);
+                writeCutPositionTagTaxonFile(taxaList, cutPositionMap);
+            } else if (positionType().equals("snp")) {
+                // create map with alleles, tag and taxon, print to tab-delimited file
+                snpPositionMap = tdw.getAllelesTagTaxaDistForSNP(pos);
+                //            	snpPositionMap.entries().forEach( entry-> {
+                //            		System.out.println("LCJ - Allele call is: " + entry.getKey().alleleAsString());
+                //            	});
+                // get list of tags, send to db to get cut position/strand
+                Set<Tag> fullTagList = new HashSet<Tag>();
+                snpPositionMap.entries().forEach(entry -> {
+                    Set<Tag> tags= entry.getValue().keySet();
+                    fullTagList.addAll(tags);
+                });;
+                tagCutPosMap = tdw.getTagCutPosition(fullTagList);
+                writeSNPPositionTagTaxonFile(taxaList, snpPositionMap, tagCutPosMap);
+            } else {
+                myLogger.error("Position type must be specified as either snp or cut\n");
+                return null;
+            }       	
             ((TagDataSQLite)tdw).close();  
             myLogger.info("SNPCutPosTagVerificationPlugin: Finished writing TaxaDistribution to file for position " + positionType() + ".\n");
         } catch (Exception exc) {
@@ -115,120 +117,120 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
         }
         return null;
     }
-    
+
     private void writeCutPositionTagTaxonFile(TaxaList taxaList, Map<Tag, TaxaDistribution> cutPositionMap) throws Exception{
         BufferedWriter fileWriter = null;
         StringBuilder strB = new StringBuilder();
         if(outputFile()!=null) {
             // taxanumber from TaxaDistribution is in the depths - they are ordered
             // by the taxalist numbers.  Is the TaxaList order alphabetically ???
-        	// first write the headers, which is a list of the taxa
-        	strB.append("Chr\tPos\tTag");
-        	taxaList.stream().forEach(item -> { // column names are the taxon names
-        		strB.append("\t");
-        		strB.append(item.getName());
-        	});
-        	strB.append("\n");
- 
+            // first write the headers, which is a list of the taxa
+            strB.append("Chr\tPos\tTag");
+            taxaList.stream().forEach(item -> { // column names are the taxon names
+                strB.append("\t");
+                strB.append(item.getName());
+            });
+            strB.append("\n");
+
             cutPositionMap.entrySet().stream().forEach(entry -> {  
-            	strB.append(chrom());
-            	strB.append("\t");
-            	strB.append(cutOrSnpPosition());
-            	strB.append("\t");
-            	Tag curTag = entry.getKey();
-            	strB.append(curTag.sequence()); // add tag sequence in first column
-            	
-            	// This is CUT position - no ALLELEs here
-            	TaxaDistribution tagTD = entry.getValue();
-            	int[] depths = tagTD.depths(); // gives us the depths for each taxon
-            	for (int idx = 0; idx < depths.length; idx++) {
-            		strB.append("\t"); 
-            		strB.append(depths[idx]);  // add tag depth         		
-            	}
-            	strB.append("\n"); // end of line - start next tag           	
+                strB.append(chrom());
+                strB.append("\t");
+                strB.append(cutOrSnpPosition());
+                strB.append("\t");
+                Tag curTag = entry.getKey();
+                strB.append(curTag.sequence()); // add tag sequence in first column
+
+                // This is CUT position - no ALLELEs here
+                TaxaDistribution tagTD = entry.getValue();
+                int[] depths = tagTD.depths(); // gives us the depths for each taxon
+                for (int idx = 0; idx < depths.length; idx++) {
+                    strB.append("\t"); 
+                    strB.append(depths[idx]);  // add tag depth         		
+                }
+                strB.append("\n"); // end of line - start next tag           	
             });
             try {  
-            	fileWriter = new BufferedWriter(new FileWriter(outputFile()));
+                fileWriter = new BufferedWriter(new FileWriter(outputFile()));
                 fileWriter.write(strB.toString());
             }
             catch(IOException e) {
-            	myLogger.error("Caught Exception in writeCutPositionTagTaxonFile");
+                myLogger.error("Caught Exception in writeCutPositionTagTaxonFile");
                 System.out.println(e);
             }
             fileWriter.close();
         } else {
-        	myLogger.warn("Outputfile is null - nothing happening here");
+            myLogger.warn("Outputfile is null - nothing happening here");
         }
     }
-    
+
     private void writeSNPPositionTagTaxonFile(TaxaList taxaList, 
-    		Multimap<Allele, Map<Tag, TaxaDistribution>> snpPositionMap, Map<Tag, Position>tagPosMap) throws Exception{
+            Multimap<Allele, Map<Tag, TaxaDistribution>> snpPositionMap, Map<Tag, Position>tagPosMap) throws Exception{
         BufferedWriter fileWriter = null;
         StringBuilder strB = new StringBuilder();
         if(outputFile()!=null) {
             // taxanumber from TaxaDistribution is in the depths - they are ordered
             // by the taxalist numbers.  Is the TaxaList order alphabetically ???
-        	strB.append("Chr\tSNPPos\tAllele\tTag\tForwardStrand\tTagAsForwardStrand\tCutPos-SNPOffset"); // first column, ie row header
-        	taxaList.stream().forEach(item -> { // column names are the taxon names
-        		strB.append("\t");
-        		strB.append(item.getName());
-        	});
-        	strB.append("\n");
- 
+            strB.append("Chr\tSNPPos\tAllele\tTag\tForwardStrand\tTagAsForwardStrand\tCutPos-SNPOffset"); // first column, ie row header
+            taxaList.stream().forEach(item -> { // column names are the taxon names
+                strB.append("\t");
+                strB.append(item.getName());
+            });
+            strB.append("\n");
+
             snpPositionMap.entries().stream().forEach(entry -> {
-            	Allele curAllele = entry.getKey();
-            	strB.append(chrom());
-            	strB.append("\t");
-            	strB.append(cutOrSnpPosition());
-            	strB.append("\t");
-            	strB.append(NucleotideAlignmentConstants.getHaplotypeNucleotide(curAllele.allele()));
-            	strB.append("\t");
-            	Map<Tag, TaxaDistribution> curTagTaxa = entry.getValue();
-            	// Loop through the tag/taxa for this tag. 
-            	for ( Map.Entry<Tag, TaxaDistribution> tagTaxaMap : curTagTaxa.entrySet()) {
-                	Tag curTag = tagTaxaMap.getKey();
-                	Position cutPos = tagPosMap.get(curTag);
-                	TaxaDistribution tagTD = tagTaxaMap.getValue();
-                	strB.append(curTag.sequence()); 
-                	strB.append("\t");
-                	boolean isForward = cutPos.getAnnotation().getTextAnnotation("forward")[0].equals("true") ? true: false;
-                	strB.append(cutPos.getAnnotation().getTextAnnotation("forward")[0]);
-                	strB.append("\t");
-                	if (isForward) {
-                		strB.append(curTag.sequence());
-                	} else { // alignments are based on forward strand, create and add for easier SNP verification
-                		strB.append(curTag.toReverseComplement());
-                	}
-                	strB.append("\t");
-                	strB.append(cutPos.getPosition());
-                	strB.append("-");
-                	int offSetVal = cutPos.getPosition() - cutOrSnpPosition();
-                	strB.append(offSetVal);
-                	
-                	int[] depths = tagTD.depths(); // gives us the depths for each taxon
-                	for (int idx = 0; idx < depths.length; idx++) {
-                		// write the tag depth to each column
-                		strB.append("\t");
-                		strB.append(depths[idx]);           		
-                	}
-                	strB.append("\n"); // end of line - start next tag           	
-            	}
-            	// new line already added to file
+                Allele curAllele = entry.getKey();
+                strB.append(chrom());
+                strB.append("\t");
+                strB.append(cutOrSnpPosition());
+                strB.append("\t");
+                strB.append(NucleotideAlignmentConstants.getHaplotypeNucleotide(curAllele.allele()));
+                strB.append("\t");
+                Map<Tag, TaxaDistribution> curTagTaxa = entry.getValue();
+                // Loop through the tag/taxa for this tag. 
+                for ( Map.Entry<Tag, TaxaDistribution> tagTaxaMap : curTagTaxa.entrySet()) {
+                    Tag curTag = tagTaxaMap.getKey();
+                    Position cutPos = tagPosMap.get(curTag);
+                    TaxaDistribution tagTD = tagTaxaMap.getValue();
+                    strB.append(curTag.sequence()); 
+                    strB.append("\t");
+                    boolean isForward = cutPos.getAnnotation().getTextAnnotation("forward")[0].equals("true") ? true: false;
+                    strB.append(cutPos.getAnnotation().getTextAnnotation("forward")[0]);
+                    strB.append("\t");
+                    if (isForward) {
+                        strB.append(curTag.sequence());
+                    } else { // alignments are based on forward strand, create and add for easier SNP verification
+                        strB.append(curTag.toReverseComplement());
+                    }
+                    strB.append("\t");
+                    strB.append(cutPos.getPosition());
+                    strB.append("-");
+                    int offSetVal = cutPos.getPosition() - cutOrSnpPosition();
+                    strB.append(offSetVal);
+
+                    int[] depths = tagTD.depths(); // gives us the depths for each taxon
+                    for (int idx = 0; idx < depths.length; idx++) {
+                        // write the tag depth to each column
+                        strB.append("\t");
+                        strB.append(depths[idx]);           		
+                    }
+                    strB.append("\n"); // end of line - start next tag           	
+                }
+                // new line already added to file
             });
             try {  
-            	fileWriter = new BufferedWriter(new FileWriter(outputFile()));
+                fileWriter = new BufferedWriter(new FileWriter(outputFile()));
                 fileWriter.write(strB.toString());
             }
             catch(IOException e) {
-            	myLogger.error("Caught exception in writeSNPPositionTagTaxonFile");
+                myLogger.error("Caught exception in writeSNPPositionTagTaxonFile");
                 System.out.println(e);
             }
             fileWriter.close();
         } else {
-        	myLogger.warn("Outputfile is null - nothing happening here");
+            myLogger.warn("Outputfile is null - nothing happening here");
         }
     }
-    
+
 
     @Override
     public String getToolTipText() {
@@ -296,7 +298,7 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
         myChrom = new PluginParameter<>(myChrom, value);
         return this;
     }
-    
+
     /**
      * Cut Position
      *
@@ -317,7 +319,27 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
         myPosition = new PluginParameter<>(myPosition, value);
         return this;
     }
-    
+
+    /**
+     * Strand direction
+     *
+     * @return Strand direction
+     */
+    public Byte strand() {
+        return myStrand.value();
+    }
+
+    /**
+     * Set strand direction. 
+     *
+     * @param value strand direction
+     *
+     * @return this plugin
+     */
+    public SNPCutPosTagVerificationPlugin strand(Byte value) {
+        myStrand = new PluginParameter<>(myStrand, value);
+        return this;
+    }
     /**
      * SNP Position
      *
@@ -346,7 +368,7 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
     public String outputFile() {
         return myOutputFile.value();
     }
-    
+
     /**
      * Set outputDir path.  Directory file path where
      * output files will be writen
