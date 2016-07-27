@@ -23,6 +23,11 @@ import org.apache.log4j.Logger;
 /**
  *
  * @author Terry Casstevens
+ *
+ * This class implements the GenotypeCallTable interface for the specific
+ * purpose to cache genotypes read from the GOBII HDF5 files (Resulting from the
+ * genotypes stored in the MonetDB).
+ *
  */
 public class GOBIIGenotypeCallTable extends AbstractGenotypeCallTable {
 
@@ -30,8 +35,7 @@ public class GOBIIGenotypeCallTable extends AbstractGenotypeCallTable {
     private static final int NUM_LOOK_AHEAD_BLOCKS = 103;
 
     private final String myFilename;
-    private final boolean myIsOneLetter;
-    private final int myNumLinesPerInterval = 10;
+    private final int myNumLinesPerInterval = 100;
     private final int myMaxCacheSize;
     private final ConcurrentLinkedQueue<IHDF5Reader> myReaders = new ConcurrentLinkedQueue<>();
     private final CopyOnWriteArraySet<Integer> myCurrentlyProcessingBlocks = new CopyOnWriteArraySet<>();
@@ -43,9 +47,8 @@ public class GOBIIGenotypeCallTable extends AbstractGenotypeCallTable {
 
     private final ForkJoinPool myThreadPool;
 
-    private GOBIIGenotypeCallTable(int numTaxa, int numSites, boolean phased, boolean isOneLetter, String filename) {
+    private GOBIIGenotypeCallTable(int numTaxa, int numSites, boolean phased, String filename) {
         super(numTaxa, numSites, phased, NucleotideAlignmentConstants.NUCLEOTIDE_ALLELES);
-        myIsOneLetter = isOneLetter;
         myFilename = filename;
 
         long oneThirdMemory = Runtime.getRuntime().maxMemory() / (numTaxa * 3);
@@ -58,8 +61,8 @@ public class GOBIIGenotypeCallTable extends AbstractGenotypeCallTable {
         myThreadPool = new ForkJoinPool();
     }
 
-    public static GOBIIGenotypeCallTable getInstance(int numTaxa, int numSites, boolean phased, boolean isOneLetter, String filename) {
-        return new GOBIIGenotypeCallTable(numTaxa, numSites, phased, isOneLetter, filename);
+    public static GOBIIGenotypeCallTable getInstance(int numTaxa, int numSites, boolean phased, String filename) {
+        return new GOBIIGenotypeCallTable(numTaxa, numSites, phased, filename);
     }
 
     private byte[] getFromCache(int site) {
@@ -161,24 +164,24 @@ public class GOBIIGenotypeCallTable extends AbstractGenotypeCallTable {
     }
 
     /**
-     * Parse line from Hapmap file to genotypes for a site.
+     * Parse line from GOBII HDF5 file to genotypes for a site.
      *
      * @param input input line
      * @param numTaxa number of taxa
      * @param site site
-     * @param isOneLetter is genotypes code as one letter or two
+     * @param relativeSite relative site in input
      *
      * @return genotypes
      */
-    private static byte[] parseLine(MDArray<String> input, int numTaxa, int site, boolean isOneLetter) {
+    private static byte[] parseLine(MDArray<String> input, int numTaxa, int site, int relativeSite) {
 
-        if (input.size() != numTaxa) {
+        if (input.dimensions()[1] != numTaxa) {
             throw new IllegalStateException("GOBIIGenotypeCallTable: Site: " + site + " has wrong number of taxa: " + input.size() + ".  Number of taxa: " + numTaxa);
         }
 
         byte[] data = new byte[numTaxa];
         for (int t = 0; t < numTaxa; t++) {
-            data[t] = NucleotideAlignmentConstants.getNucleotideDiploidByte(input.get(t));
+            data[t] = NucleotideAlignmentConstants.getNucleotideDiploidByte(input.get(relativeSite, t));
         }
 
         return data;
@@ -206,9 +209,9 @@ public class GOBIIGenotypeCallTable extends AbstractGenotypeCallTable {
 
                 int numSites = Math.min(myNumLinesPerInterval, mySiteCount - myStartSite);
                 byte[][] result = new byte[numSites][];
+                MDArray<String> input = reader.readStringMDArrayBlockWithOffset("allelematrix", new int[]{numSites, myTaxaCount}, new long[]{myStartSite, 0});
                 for (int i = 0; i < numSites; i++) {
-                    MDArray<String> input = reader.readStringMDArrayBlockWithOffset("allelematrix", new int[]{1, myTaxaCount}, new long[]{myStartSite + i, 0});
-                    result[i] = parseLine(input, myTaxaCount, myStartSite + i, myIsOneLetter);
+                    result[i] = parseLine(input, myTaxaCount, myStartSite + i, i);
                     CompletableFuture<byte[]> future = myFutureQueue.remove(myStartSite + i);
                     if (future != null) {
                         future.complete(result[i]);
@@ -240,9 +243,9 @@ public class GOBIIGenotypeCallTable extends AbstractGenotypeCallTable {
 
                     numSites = Math.min(myNumLinesPerInterval, mySiteCount - myStartSite);
                     result = new byte[numSites][];
+                    input = reader.readStringMDArrayBlockWithOffset("allelematrix", new int[]{numSites, myTaxaCount}, new long[]{myStartSite, 0});
                     for (int i = 0; i < numSites; i++) {
-                        MDArray<String> input = reader.readStringMDArrayBlockWithOffset("allelematrix", new int[]{1, myTaxaCount}, new long[]{myStartSite + i, 0});
-                        result[i] = parseLine(input, myTaxaCount, myStartSite + i, myIsOneLetter);
+                        result[i] = parseLine(input, myTaxaCount, myStartSite + i, i);
                     }
                     myGenoCache.put(myProcessBlock + b, result);
                     // This get to prevent early eviction from cache
@@ -269,12 +272,18 @@ public class GOBIIGenotypeCallTable extends AbstractGenotypeCallTable {
         }
 
     }
-    
+
     public static void main(String[] args) {
         String filename = "/SSD/gobii/gobii_terry/DS_1.h5";
         IHDF5Reader reader = HDF5Factory.openForReading(filename);
-        MDArray<String> input = reader.readStringMDArrayBlockWithOffset("allelematrix", new int[]{1, 282}, new long[]{1, 0});
-        for (int i=0; i<input.size(); i++) {
+        MDArray<String> input = reader.readStringMDArrayBlockWithOffset("allelematrix", new int[]{5, 282}, new long[]{1, 0});
+
+        int[] dimensions = input.dimensions();
+        for (int dim : dimensions) {
+            System.out.println("dim: " + dim);
+        }
+
+        for (int i = 0; i < input.size(); i++) {
             System.out.println(i + ": " + input.get(i));
         }
     }
