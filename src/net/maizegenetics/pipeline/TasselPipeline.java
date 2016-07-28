@@ -320,7 +320,32 @@ public class TasselPipeline implements PluginListener {
             args = addForkFlagsIfNeeded(args);
         }
 
-        myLogger.info("Tassel Pipeline Arguments: " + Arrays.deepToString(args));
+        StringBuilder argsStr = new StringBuilder();
+        argsStr.append("[");
+        boolean print = true;
+        boolean first = true;
+        for (String current : args) {
+
+            if (first) {
+                first = false;
+            } else {
+                argsStr.append(", ");
+            }
+
+            if (print) {
+                argsStr.append(current);
+            } else {
+                argsStr.append("?????");
+                print = true;
+            }
+
+            if (current.toUpperCase().contains("PASSWORD")) {
+                print = false;
+            }
+
+        }
+        argsStr.append("]");
+        myLogger.info("Tassel Pipeline Arguments: " + argsStr.toString());
         int index = 0;
         while (index < args.length) {
 
@@ -566,7 +591,7 @@ public class TasselPipeline implements PluginListener {
                     integratePlugin(plugin, true);
                 } else if (current.equalsIgnoreCase("-mlmVarCompEst")) {
                     WeightedMLMPlugin plugin = (WeightedMLMPlugin) findLastPluginFromCurrentPipe(new Class[]{WeightedMLMPlugin.class});
-                    
+
                     if (plugin == null) {
                         throw new IllegalArgumentException("TasselPipeline: parseArgs: No MLM step defined: " + current);
                     }
