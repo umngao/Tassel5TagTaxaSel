@@ -12,6 +12,7 @@ import java.text.NumberFormat;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.score.AlleleDepth;
 import net.maizegenetics.dna.snp.score.ReferenceProbability;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.util.Utils;
@@ -77,6 +78,54 @@ public class SiteScoresIO {
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
             throw new IllegalStateException("SiteScoresIO: writeReferenceProbability: problem saving file: " + filename);
+        }
+
+        return filename;
+
+    }
+
+    public static String writeDepth(GenotypeTable genotypeTable, String filename) {
+
+        filename = Utils.addSuffixIfNeeded(filename, ".txt");
+
+        AlleleDepth depth = genotypeTable.depth();
+        if (depth == null) {
+            throw new IllegalStateException("SiteScoresIO: writeDepth: this genotype table has no depth.");
+        }
+
+        try (BufferedWriter writer = Utils.getBufferedWriter(filename)) {
+
+            writer.write("Taxa");
+            PositionList positions = genotypeTable.positions();
+            for (Position current : positions) {
+                writer.write(DELIMITER);
+                writer.write(current.getSNPID());
+            }
+            writer.write("\n");
+
+            TaxaList taxa = genotypeTable.taxa();
+            for (int t = 0, n = depth.numTaxa(); t < n; t++) {
+                writer.write(taxa.get(t).getName());
+                for (int s = 0, m = depth.numSites(); s < m; s++) {
+                    byte genotype = genotypeTable.genotype(t, s);
+                    writer.write(DELIMITER);
+                    int value = 0;
+                    byte allele1 = (byte) ((genotype >>> 4) & 0xf);
+                    if (allele1 < 6) {
+                        value = depth.depthForAllele(t, s, allele1);
+                    }
+                    byte allele2 = (byte) (genotype & 0xf);
+                    if ((allele2 < 6) && (allele2 != allele1)) {
+                        value += depth.depthForAllele(t, s, allele2);
+                    }
+                    writer.write(String.valueOf(value));
+                }
+                writer.write("\n");
+            }
+
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("SiteScoresIO: writeDepth: problem saving file: " + filename);
         }
 
         return filename;

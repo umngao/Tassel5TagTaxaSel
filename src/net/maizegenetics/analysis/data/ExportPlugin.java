@@ -300,6 +300,8 @@ public class ExportPlugin extends AbstractPlugin {
 
         if (mySiteScoreType == SiteScore.SITE_SCORE_TYPE.ReferenceProbablity) {
             resultFile = SiteScoresIO.writeReferenceProbability(inputAlignment, resultFile);
+        } else if (mySiteScoreType == SiteScore.SITE_SCORE_TYPE.DepthA) {
+            resultFile = SiteScoresIO.writeDepth(inputAlignment, resultFile);
         } else if ((myFileType == FileLoadPlugin.TasselFileType.Hapmap) || (myFileType == FileLoadPlugin.TasselFileType.HapmapDiploid)) {
             boolean isDiploid = false;
             if (isInteractive()) {
@@ -552,6 +554,7 @@ public class ExportPlugin extends AbstractPlugin {
         private JRadioButton myTabTableRadioButton = new JRadioButton("Write Tab Delimited");
 
         private JRadioButton myReferenceProbabilityRadioButton = new JRadioButton("Reference Probability");
+        private JRadioButton myDepthRadioButton = new JRadioButton("Depth");
 
         private JCheckBox myKeepDepthCheck = new JCheckBox("Keep Depth (VCF or HDF5)", true);
 
@@ -591,6 +594,7 @@ public class ExportPlugin extends AbstractPlugin {
             myButtonGroup.add(myTabTableRadioButton);
 
             myButtonGroup.add(myReferenceProbabilityRadioButton);
+            myButtonGroup.add(myDepthRadioButton);
 
         }
 
@@ -652,6 +656,13 @@ public class ExportPlugin extends AbstractPlugin {
                     result.add(myReferenceProbabilityRadioButton);
                     if (defaultButtonNeedSelected) {
                         myReferenceProbabilityRadioButton.setSelected(true);
+                        defaultButtonNeedSelected = false;
+                    }
+                }
+                if (myComponents.contains(GenotypeTable.GENOTYPE_TABLE_COMPONENT.Depth)) {
+                    result.add(myDepthRadioButton);
+                    if (defaultButtonNeedSelected) {
+                        myDepthRadioButton.setSelected(true);
                         defaultButtonNeedSelected = false;
                     }
                 }
@@ -733,6 +744,9 @@ public class ExportPlugin extends AbstractPlugin {
         public SiteScore.SITE_SCORE_TYPE getSiteScoreType() {
             if (myReferenceProbabilityRadioButton.isSelected()) {
                 return SiteScore.SITE_SCORE_TYPE.ReferenceProbablity;
+            }
+            if (myDepthRadioButton.isSelected()) {
+                return SiteScore.SITE_SCORE_TYPE.DepthA;
             }
             return null;
         }
