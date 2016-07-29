@@ -400,6 +400,9 @@ abstract public class AbstractPlugin implements Plugin {
         builder.append(Utils.getBasename(getClass().getName()));
         builder.append(" Parameters\n");
         for (PluginParameter<?> current : parameters) {
+            if (current.parameterType() == PluginParameter.PARAMETER_TYPE.LABEL) {
+                continue;
+            }
             builder.append(current.cmdLineName());
             builder.append(": ");
             Object value = current.value();
@@ -408,6 +411,8 @@ abstract public class AbstractPlugin implements Plugin {
                 builder.append(" positions");
             } else if (value instanceof List) {
                 builder.append((Arrays.toString(((List) value).toArray())));
+            } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.PASSWORD) {
+                builder.append("?????");
             } else {
                 builder.append(value);
             }
@@ -894,7 +899,9 @@ abstract public class AbstractPlugin implements Plugin {
                 panel.add(temp);
             } else {
                 final JTextField field;
-                if (current.parameterType() != PluginParameter.PARAMETER_TYPE.NA) {
+                if (current.parameterType() == PluginParameter.PARAMETER_TYPE.PASSWORD) {
+                    field = new JPasswordField(TEXT_FIELD_WIDTH);
+                } else if (current.parameterType() != PluginParameter.PARAMETER_TYPE.NA) {
                     field = new JTextField(TEXT_FIELD_WIDTH - 8);
                 } else {
                     field = new JTextField(TEXT_FIELD_WIDTH);
@@ -918,7 +925,7 @@ abstract public class AbstractPlugin implements Plugin {
                                 field.setText(getParameterInstance(current.cmdLineName()).value().toString());
                             }
                             if (Integer.class.isAssignableFrom(current.valueType())) {
-                                field.setText(NumberFormat.getInstance().format(((Integer) convert(field.getText(), Integer.class)).intValue()));
+                                field.setText(NumberFormat.getInstance().format(convert(field.getText(), Integer.class).intValue()));
                             }
                         } catch (Exception ex) {
                             myLogger.debug(ex.getMessage(), ex);

@@ -39,7 +39,7 @@ public final class PluginParameter<T> {
 
         NA, IN_FILE, OUT_FILE, IN_DIR, OUT_DIR, GENOTYPE_TABLE, TAXA_NAME_LIST, SITE_NAME_LIST,
         OBJECT_LIST_SINGLE_SELECT, OBJECT_LIST_MULTIPLE_SELECT, POSITION_LIST, DISTANCE_MATRIX,
-        LABEL
+        LABEL, PASSWORD
     };
     private final PARAMETER_TYPE myParameterType;
 
@@ -106,7 +106,7 @@ public final class PluginParameter<T> {
     }
 
     public static PluginParameter<String> getLabelInstance(String label) {
-        return new PluginParameter<>(label, null, label, null, null, null, null, false, PARAMETER_TYPE.LABEL, null, null, null, String.class);
+        return new PluginParameter<>(label, null, label, "label", null, null, null, false, PARAMETER_TYPE.LABEL, null, null, null, String.class);
     }
 
     public String guiName() {
@@ -341,6 +341,11 @@ public final class PluginParameter<T> {
 
         public Builder<T> objectListMultipleSelect() {
             myParameterType = PARAMETER_TYPE.OBJECT_LIST_MULTIPLE_SELECT;
+            return this;
+        }
+
+        public Builder<T> password() {
+            myParameterType = PARAMETER_TYPE.PASSWORD;
             return this;
         }
 
