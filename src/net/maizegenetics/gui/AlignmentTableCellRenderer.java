@@ -74,11 +74,16 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
 
         List<RENDERING_TYPE> temp = new ArrayList<>();
 
-        if (myAlignment.genotypeMatrix() instanceof ProjectionGenotypeCallTable) {
-            temp.add(RENDERING_TYPE.Projection);
-        }
-
         if (myAlignment.hasGenotype()) {
+
+            try {
+                if (myAlignment.genotypeMatrix() instanceof ProjectionGenotypeCallTable) {
+                    temp.add(RENDERING_TYPE.Projection);
+                }
+            } catch (Exception e) {
+                // do nothing
+            }
+
             for (int i = 0; i < GENOTYPE_RENDERING_TYPES.length; i++) {
                 temp.add(GENOTYPE_RENDERING_TYPES[i]);
             }
@@ -91,6 +96,10 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
             } catch (Exception e) {
                 myLogger.debug(e.getMessage(), e);
             }
+        }
+
+        if (myAlignment.hasDepth()) {
+            temp.add(RENDERING_TYPE.Depth);
         }
 
         if (myAlignment.hasReferenceProbablity()) {
@@ -132,6 +141,8 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
                 return getProjectionRendering(table, value, isSelected, hasFocus, row, col);
             case GeneticDistanceMasks:
                 return getGeneticDistanceMasksRendering(table, value, isSelected, hasFocus, row, col);
+            case Depth:
+                return getDepthMasksRendering(table, value, isSelected, hasFocus, row, col);
             case None:
                 return getDefaultRendering(table, value, isSelected, hasFocus, row, col);
             default:
@@ -456,6 +467,46 @@ public class AlignmentTableCellRenderer extends DefaultTableCellRenderer {
             aveDistance /= masks.length;
 
             comp.setBackground(COLORS_256[aveDistance]);
+
+        }
+
+        return comp;
+
+    }
+
+    public Component getDepthMasksRendering(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
+
+        Component comp = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col);
+
+        setHorizontalAlignment(SwingConstants.CENTER);
+
+        if (isSelected) {
+            comp.setBackground(Color.DARK_GRAY);
+        } else if (!myAlignment.hasDepth()) {
+            comp.setBackground(null);
+        } else {
+
+            int depth = 0;
+            int site = myAlignmentTableModel.getRealColumnIndex(col);
+            byte[] diploidValues = myAlignment.genotypeArray(row, site);
+            int[] depths = myAlignment.depthForAlleles(row, site);
+            if (diploidValues[0] < 6) {
+                depth = depths[diploidValues[0]];
+            }
+            if ((diploidValues[1] < 6) && (diploidValues[1] != diploidValues[0])) {
+                depth += depths[diploidValues[1]];
+            }
+
+            if (depth == 0) {
+                comp.setBackground(null);
+            } else {
+                //depth = (int) Math.rint((double) depth / (double) count * 100.0);
+                depth *= 30;
+                if (depth > 255) {
+                    depth = 255;
+                }
+                comp.setBackground(COLORS_256[255 - depth]);
+            }
 
         }
 
