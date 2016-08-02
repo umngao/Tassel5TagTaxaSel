@@ -77,7 +77,7 @@ class FilterGenotypeCallTable extends AbstractGenotypeCallTable {
     public byte genotype(int taxon, int site) {
         int taxaIndex = translateTaxon(taxon);
         if (taxaIndex == -1) {
-            return GenotypeTable.UNKNOWN_ALLELE;
+            return GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
         } else {
             return myBaseGenotype.genotype(taxaIndex, translateSite(site));
         }
