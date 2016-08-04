@@ -59,11 +59,11 @@ public class GOBIIPostgresConnection {
             Class.forName("org.postgresql.Driver");
             connection = DriverManager.getConnection(url, user, password);
         } catch (ClassNotFoundException e) {
-            myLogger.error(e.getMessage());
-            return null;
+            myLogger.error(e.getMessage(), e);
+            throw new IllegalStateException("GOBIIPostgresConnection: connection: org.postgresql.Driver can't be found");
         } catch (SQLException e) {
-            myLogger.error(e.getMessage());
-            return null;
+            myLogger.error(e.getMessage(), e);
+            throw new IllegalStateException("GOBIIPostgresConnection: connection: problem connecting to database: " + e.getMessage());
         }
         myLogger.info("Connected to database:  " + url + "\n");
         return connection;
@@ -190,10 +190,41 @@ public class GOBIIPostgresConnection {
             if (rs.next()) {
                 throw new IllegalStateException("GOBIIPostgresConnection: hdf5Filename: dataset name: " + datasetName + " maps to more than one hdf5 filename.");
             }
+            if ((result == null) || (result.length() == 0)) {
+                throw new IllegalStateException("GOBIIPostgresConnection: hdf5Filename: dataset name: " + datasetName + " doesn't map to any hdf5 filename.");
+            }
+            myLogger.info("Dataset Name: " + datasetName + " HDF5 Filename: " + result);
             return result;
         } catch (Exception se) {
             myLogger.debug(se.getMessage(), se);
             throw new IllegalStateException("GOBIIPostgresConnection: hdf5Filename: Problem querying the database: " + se.getMessage());
+        }
+
+    }
+
+    public static void printAvailableDatasets(Connection connection) {
+
+        if (connection == null) {
+            throw new IllegalArgumentException("GOBIIPostgresConnection: printAvailableDatasets: Must specify database connection.");
+        }
+
+        //
+        // select name from dataset;
+        //
+        StringBuilder builder = new StringBuilder();
+        builder.append("select name from dataset;");
+
+        String query = builder.toString();
+        myLogger.info("printAvailableDatasets: query statement: " + query);
+
+        myLogger.info("Avaliable Datasets...");
+        try (ResultSet rs = connection.createStatement().executeQuery(query)) {
+            while (rs.next()) {
+                System.out.println(rs.getString("name"));
+            }
+        } catch (Exception se) {
+            myLogger.debug(se.getMessage(), se);
+            throw new IllegalStateException("GOBIIPostgresConnection: printAvailableDatasets: Problem querying the database: " + se.getMessage());
         }
 
     }
