@@ -6,7 +6,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -16,6 +15,9 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.IntStream;
 
 import javax.swing.ImageIcon;
+
+import org.ahocorasick.trie.Trie;
+import org.apache.log4j.Logger;
 
 import net.maizegenetics.analysis.gbs.Barcode;
 import net.maizegenetics.dna.BaseEncoder;
@@ -34,10 +36,6 @@ import net.maizegenetics.taxa.TaxaListIOUtils;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.DirectoryCrawler;
 import net.maizegenetics.util.Utils;
-
-import org.ahocorasick.trie.Emit;
-import org.ahocorasick.trie.Trie;
-import org.apache.log4j.Logger;
 
 /**
  * Develops a discovery TBT file from a set of GBS sequence files.
@@ -86,7 +84,7 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
     protected static int readEndCutSiteRemnantLength;
     private Trie ahoCorasickTrie; // import from ahocorasick-0.2.1.jar
     String[] likelyReadEndStrings;
-   
+    
     public GBSSeqToTagDBPlugin() {
         super(null, false);
     }
@@ -147,27 +145,10 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
     public void postProcessParameters() {
 
         if (!myEnzyme.isEmpty()) {
-            // Add likelyReadEnds to the ahoCorasick trie
+            // Add likelyReadEnds for later processing
             GBSEnzyme enzyme = new GBSEnzyme(enzyme()); 
             likelyReadEndStrings = enzyme.likelyReadEnd(); // for removeSecondCutSiteIndexOf()
             readEndCutSiteRemnantLength = enzyme.readEndCutSiteRemnantLength();
-//            String[] likelyReadEnd = enzyme.likelyReadEnd();
-//            // the junit test runs about a second faster average 15.5 vs 16.5) without Trie().removeOverlaps();
-//            ahoCorasickTrie = new Trie(); // adding caseInsensitive causes nothing to be found
-//            for (String readEnd: likelyReadEnd) {
-//                ahoCorasickTrie.addKeyword(readEnd);
-//            }  
-// 
-//            // Bug in acorasick code that occurs when multiple threads
-//            // call parseText at once.  The software computes the failure
-//            // states the first time "parseText" is called.  If multiple threads
-//            // hit this at once, they will all call "constructFailureStates" 
-//            // and this causes problems.  Suggested workaround is to call
-//            // parseText once after all keywords are added, and before we enter
-//            // multi-threaded mode.  This gets the failure states constructed
-//            // before we start processing the fastQ reads.  See this link:
-//            //   https://github.com/robert-bor/aho-corasick/issues/16
-//            ahoCorasickTrie.parseText("CAGCTTCAGGTGGTGCGGACGTGGTGGATCACGGCGCTGAAGCCCGCGCGCTTGGTCTGGCTGA");
         }
         
     }
@@ -350,8 +331,6 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                 // This one has best performance
                 Tag tag = removeSecondCutSiteIndexOf(seqAndQual[0].substring(barcodeLen),preferredTagLength);
                 
-                // call ahocorasick
-                //Tag tag = removeSecondCutSiteAhoC(seqAndQual[0].substring(barcodeLen),preferredTagLength);
                 //Tag tag=TagBuilder.instance(seqAndQual[0].substring(barcodeLen, barcodeLen + preferredTagLength)).build();
                 if(tag==null) continue;   //null occurs when any base was not A, C, G, T
                 goodBarcodedReads++;
@@ -405,72 +384,19 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
             }
         }
         
+        int tagLen = indexOfReadEnd + 20 + readEndCutSiteRemnantLength;
         if (indexOfReadEnd > 0 &&
-                (indexOfReadEnd + 20 + readEndCutSiteRemnantLength < preferredLength)) {
+                (tagLen < preferredLength)) {            
+            if (tagLen < minimumKmerLength()) { // Tag is shorter than user specified minimum length - toss it
+                return null;
+            }
             // trim tag to sequence up to & including the cut site
-            tag = TagBuilder.instance(seq.substring(0, indexOfReadEnd + 20 + readEndCutSiteRemnantLength)).build();
- 
+            tag = TagBuilder.instance(seq.substring(0, tagLen)).build();
         } else {
             int seqEnd = (byte) Math.min(seq.length(), preferredLength);
             return TagBuilder.instance(seq.substring(0,seqEnd)).build();
         }
         return tag;
-    }
-    
-    private Tag removeSecondCutSiteAhoC(String seq, int preferredLength) {
-        // Removes the second cut site BEFORE we trim the tag.
-        // this preserves the cut site incase it shows up in the middle       
-        Tag tag = null;
-        int cutSiteIndex = 9999;
-        
-        // handle overlapping cutsite for ApeKI enzyme
-        if (enzyme().equalsIgnoreCase("ApeKI")) {
-            if (seq.startsWith("CAGCTGC") || seq.startsWith("CTGCAGC")) {
-                seq = seq.substring(3,seq.length());
-            }             
-        }
-        // use ahoCorasickTrie to find cut site       
-        // Start at seq+20 since 20 is default minimum length
-        Collection<Emit> emits = null;
-        try {
-            emits = ahoCorasickTrie.parseText(seq.substring(20));
-        } catch (Exception emitsEx) {
-            System.out.println("LCJ - ahoCorasick excep: seq: " + seq);
-            emitsEx.printStackTrace();
-            // proceed as if no tag was found.  need to understand why sometimes
-            // aho-c complains of a null pointer
-            int seqEnd = (byte) Math.min(seq.length(), preferredLength);
-            return TagBuilder.instance(seq.substring(0,seqEnd)).build();
-        }
-        
-//        boolean printit = false;
-//        if (emits.size() > 1) {
-//        System.out.println("LCJ - ahoCorasickTrie emits size: " + emits.size());
-//        printit = true;
-//        }
-//        for (Emit emit: emits) {
-//            int pos = emit.getStart();
-//            if (printit) System.out.println("LCJ - emits pos: " + pos + " " + emit.getKeyword());
-//            if (pos < cutSiteIndex) {
-//                cutSiteIndex = pos;
-//            }
-//        }
-        // Using the above as debug, when we find more than 1, the items in the list
-        // appear in the order they appear in the seq.  So we only need to look at the first one
-        for (Emit emit: emits) {
-            cutSiteIndex = emit.getStart();
-            break;
-        }
-
-        if (cutSiteIndex + 20 + readEndCutSiteRemnantLength < preferredLength) { // add 20 as we cut off first 20 for aho-c parsing
-            // trim tag to sequence up to & including the cut site
-            tag = TagBuilder.instance(seq.substring(0, cutSiteIndex + 20 + readEndCutSiteRemnantLength)).build();
-        } else {
-            // if no cut site found, or it is beyond preferred length
-            int seqEnd = (byte) Math.min(seq.length(), preferredLength);
-            tag = TagBuilder.instance(seq.substring(0,seqEnd)).build();
-        }
-        return tag;       
     }
     
     // THis method now obsolete, replaced with removeSecondCutSiteAhoC
