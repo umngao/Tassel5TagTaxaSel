@@ -257,35 +257,35 @@ public class PreProcessGOBIIMappingFilePlugin extends AbstractPlugin {
                 // There shoudl only be entries in this file that have assigned GIDs. Sometimes there
                 // is a problem, and Robert didn't get something merged.  However, I don't want these
                 // in the file.  Should not need the check for data[gidIdx] != null
-                if (data[gidIdx] != null && !(existingGermplasm.contains(data[gidIdx]))) {
+                if (data[gidIdx].trim() != null && !(existingGermplasm.contains(data[gidIdx].trim()))) {
                     // tab over fields not filled in, add values for others.  Name is skipped (first column)
                     // external_code (2nd column) is now GID
-                    String gpentry = "\t" + data[gidIdx] + "\t" + data[speciesIdx] + "\t" + data[typeIdx] + "\t\t\t\t\t1\t0\n";
+                    String gpentry = "\t" + data[gidIdx].trim() + "\t" + data[speciesIdx].trim() + "\t" + data[typeIdx].trim() + "\t\t\t\t\t1\t0\n";
                     writergp.write(gpentry);
                 } else {
-                    System.out.println("LCJ - not adding " + data[nameIdx] + " to germplasm file");
+                    System.out.println("LCJ - not adding " + data[nameIdx].trim() + " to germplasm file");
                     germplasmNotAdded++;
                 }
                 //System.out.println("\n");
-                String sampleName = data[gidIdx] + ":" + data[plateIdx] + ":" + data[wellIdx];
+                String sampleName = data[sampleNameIdx].trim();
                 if (data[gidIdx] != null && !(existingDNASample.contains(sampleName))) {
                     // tab over fields not filled in, add values for others, 
                     // "dummycode" is stored for code.  format is:
                     // name,code,platename,num,well_row,well_col,project_name,external_code,created_by,created_date,modified_by,modified_date,status
-                    String wellRow = data[wellIdx];
+                    String wellRow = data[wellIdx].trim();
                     String wellCol = "";
-                    if (!(wellRow.trim()).equals("")){ // this field may be blank
+                    if (!(wellRow).equals("")){ // this field may be blank
                         wellRow = wellRow.substring(0,1);
                         wellCol = data[wellIdx].substring(1);
                     }
-                    String dnaentry = sampleName + "\tdummycode\t" + data[plateIdx] + "\t\t" + wellRow + "\t" + wellCol + "\t" 
-                            + data[projectIdx] + "\t" + data[gidIdx] + "\t" + "6\t\t\t\t1\n";
+                    String dnaentry = sampleName + "\tdummycode\t" + data[plateIdx].trim() + "\t\t" + wellRow + "\t" + wellCol + "\t" 
+                            + data[projectIdx].trim() + "\t" + data[gidIdx].trim() + "\t" + "6\t\t\t\t1\n";
                     writerdna.write(dnaentry);
                 } else {
-                    System.out.println("LCJ - not adding " + data[nameIdx] + " to dnasample file");
+                    System.out.println("LCJ - not adding " + data[nameIdx].trim() + " to dnasample file");
                     dnaNotAdded++;
                 }
-                if (data[gidIdx] != null && (existingLib.contains(data[libIdx]))) {
+                if (data[gidIdx].trim() != null && (existingLib.contains(data[libIdx].trim()))) {
                     // Found a duplicate library prep ID - record it
                     writerlib.write(mline);
                 }
