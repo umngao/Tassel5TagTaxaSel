@@ -75,7 +75,7 @@ public class FILLINImputationPlugin extends AbstractPlugin {
     private PluginParameter<String> hmpFile= new PluginParameter.Builder<>("hmp",null,String.class).guiName("Target file").inFile().required(true)
             .description("Input HapMap file of target genotypes to impute. Accepts all file types supported by TASSEL5. This file should include _ALL_ available sites, not " +
                     "just those segregating in your material. (ie: don't filter the input)").build();
-    private PluginParameter<String> donorFile= new PluginParameter.Builder<>("d",null,String.class).guiName("Donor").inDir().required(true)
+    private PluginParameter<String> donorFile= new PluginParameter.Builder<>("d",null,String.class).guiName("Donor").required(true)
             .description("Directory containing donor haplotype files from output of FILLINFindHaplotypesPlugin. All files with '.gc' in the filename will be read in, "
                     + "only those with matching sites are used. Alternately, a single file to use as a donor, will be cut into sub genos in size specified (eg, high density"
                     + "SNP file for projection").build();
