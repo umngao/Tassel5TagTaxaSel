@@ -81,7 +81,14 @@ public class TasselPrefs {
     // Retain Rare Alleles
     public static final String ALIGNMENT_RETAIN_RARE_ALLELES = "retainRareAlleles";
     public static final boolean ALIGNMENT_RETAIN_RARE_ALLELES_DEFAULT = false;
-    // Genome is base zero
+    //
+    // GOBII preferences
+    //
+    public static final String GOBII_TOP = "/tassel/gobii";
+    public static final String GOBII_USER = "user";
+    public static final String GOBII_USER_DEFAULT = "";
+    public static final String GOBII_DB = "db";
+    public static final String GOBII_DB_DEFAULT = "";
 
     /**
      * Creates a new instance of TasselPrefs
@@ -366,5 +373,24 @@ public class TasselPrefs {
 
     public static void putAlignmentRetainRareAlleles(boolean value) {
         putBooleanPref(ALIGNMENT_TOP, ALIGNMENT_RETAIN_RARE_ALLELES, value);
+    }
+
+    //
+    // GOBII preferences
+    //
+    public static String getGOBIIDB() {
+        return getPref(GOBII_TOP, GOBII_DB, GOBII_DB_DEFAULT);
+    }
+
+    public static void putGOBIIDB(String value) {
+        putPref(GOBII_TOP, GOBII_DB, value);
+    }
+
+    public static String getGOBIIUser() {
+        return getPref(GOBII_TOP, GOBII_USER, GOBII_USER_DEFAULT);
+    }
+
+    public static void putGOBIIUser(String value) {
+        putPref(GOBII_TOP, GOBII_USER, value);
     }
 }
