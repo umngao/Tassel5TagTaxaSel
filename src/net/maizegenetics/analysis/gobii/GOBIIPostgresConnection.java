@@ -9,6 +9,9 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Properties;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.GeneralPosition;
@@ -120,13 +123,16 @@ public class GOBIIPostgresConnection {
             throw new IllegalArgumentException("GOBIIPostgresConnection: positionList: Must specify database connection.");
         }
 
+        //
         // select marker.name, marker_linkage_group.start, marker_linkage_group.stop, linkage_group.name
         // from dataset, dataset_marker, marker, marker_linkage_group, linkage_group
         // where dataset.name='maize282_raw_AGPv2'
         // and dataset.dataset_id=dataset_marker.dataset_id
         // and dataset_marker.marker_id=marker.marker_id
         // and marker.marker_id=marker_linkage_group.marker_id
-        // and marker_linkage_group.linkage_group_id=linkage_group.linkage_group_id;
+        // and marker_linkage_group.linkage_group_id=linkage_group.linkage_group_id
+        //  order by dataset_marker.marker_idx;
+        //
         StringBuilder builder = new StringBuilder();
         builder.append("select marker.name, marker_linkage_group.start, marker_linkage_group.stop, linkage_group.name ");
         builder.append("from dataset, dataset_marker, marker, marker_linkage_group, linkage_group ");
@@ -137,23 +143,39 @@ public class GOBIIPostgresConnection {
         builder.append(" and dataset_marker.marker_id=marker.marker_id");
         builder.append(" and marker.marker_id=marker_linkage_group.marker_id");
         builder.append(" and marker_linkage_group.linkage_group_id=linkage_group.linkage_group_id;");
+        //builder.append(" order by dataset_marker.marker_idx;");
 
         String query = builder.toString();
-        myLogger.info("taxaList: query statement: " + query);
+        myLogger.info("positionList: query statement: " + query);
 
+        Map<String, Chromosome> chromosomes = new HashMap<>();
         try (ResultSet rs = connection.createStatement().executeQuery(query)) {
             PositionListBuilder positions = new PositionListBuilder();
             while (rs.next()) {
+
+                // marker_linkage_group.start
                 int start = rs.getInt("start");
+                // marker_linkage_group.stop
                 int end = rs.getInt("stop");
                 if (start != end) {
                     throw new IllegalArgumentException("GOBIIPostgresConnection: positionList: start position: " + start + " and end position: " + end + " should be the same.");
                 }
+
+                // marker.name
                 String snpName = rs.getString(1);
-                // Todo - Insert Chromosome
-                GeneralPosition.Builder current = new GeneralPosition.Builder(Chromosome.UNKNOWN, start);
+
+                // linkage_group.name
+                String chrStr = rs.getString(4);
+                Chromosome chr = chromosomes.get(chrStr);
+                if (chr == null) {
+                    chr = new Chromosome(chrStr);
+                    chromosomes.put(chrStr, chr);
+                }
+
+                GeneralPosition.Builder current = new GeneralPosition.Builder(chr, start);
                 current.snpName(snpName);
                 positions.add(current.build());
+
             }
             return positions.build();
         } catch (Exception se) {
