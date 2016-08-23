@@ -35,6 +35,13 @@ public class GOBIIPostgresConnection {
         //utility
     }
 
+    /**
+     * Creates a Postgres database connection given a properties file
+     *
+     * @param propertiesFile properties file
+     *
+     * @return Postgres database connection
+     */
     public static Connection connection(String propertiesFile) {
 
         Properties properties = new Properties();
@@ -54,6 +61,16 @@ public class GOBIIPostgresConnection {
 
     }
 
+    /**
+     * Creates a Postgres database connection.
+     *
+     * @param host hostname
+     * @param user user id
+     * @param password password
+     * @param dbName database name
+     *
+     * @return Postgres database connection
+     */
     public static Connection connection(String host, String user, String password, String dbName) {
 
         Connection connection = null;
