@@ -30,9 +30,9 @@ import net.maizegenetics.util.Utils;
  * 1.  Run this class to create the needed files (DS_X.mh5i and DS_X.sh5i)
  * 2.  sftp these files to cbsudc01.tc.cornell into /workdir/lcj34/postgresFiles/update_idxes_files dir
  * 3.  Run the file through gobii_ifl.scripts (change the script to return after the preprocess_ifl.py step !!)
- *         python gobii_ifl.py -c postgresql://lcj34:<pwd>@localhost:5432/gobii_maize2 -i /workdir/lcj34/postgresFiles/update_idxes_files/DS_5.sh5i -o /tmp/ -v
+ *          python gobii_ifl.py -c postgresql://lcj34:<pwd>@localhost:5432/gobii_maize2 -i /workdir/lcj34/postgresFiles/update_idxes_files/DS_5.sh5i -o /tmp/ -v
  * 4.  Run the /tmp/ppd_* file created in step 3 through the update_dnarun_idx.py or update_marker_idx.py script
- *         python update_dnarun_idx.py "postgresql://lcj34:<pwd>@cbsudc01.tc.cornell.edu/gobii_maize2" /tmp/ppd_DS_5.sh5i 5
+ *          python update_dnarun_idx.py "postgresql://lcj34:<pwd>@cbsudc01.tc.cornell.edu/gobii_maize2" /tmp/ppd_DS_5.sh5i 5
  * 5.  Verify the db has values for dataset_marker.marker_idx and dataset_dnarun.dnarun_idx for 
  *     the specified dataset_id.
  * 6. Change the gobii_ifl.py script to re-comment the "return" after the preprocess_ifl call
@@ -65,7 +65,7 @@ public class UpdateMarkerAndDNA_idxes {
             
             builder.append("select name from dnarun,dataset_dnarun where dataset_dnarun.dnarun_id=dnarun.dnarun_id and dataset_dnarun.dataset_id='");
             builder.append(datasetID);
-            builder.append("';");
+            builder.append("' order by dnarun.dnarun_id;");
             
             String query = builder.toString();
             myLogger.info("processData: query statement for dnarun: " + query);
@@ -93,7 +93,7 @@ public class UpdateMarkerAndDNA_idxes {
             builder = new StringBuilder();
             builder.append("select name from marker, dataset_marker where marker.marker_id=dataset_marker.marker_id and dataset_marker.dataset_id='");
             builder.append(datasetID);
-            builder.append("';");
+            builder.append("' order by marker.marker_id;");
             
             query = builder.toString();
             myLogger.info("processData: query statement: " + query);
