@@ -85,10 +85,18 @@ public class TasselPrefs {
     // GOBII preferences
     //
     public static final String GOBII_TOP = "/tassel/gobii";
+    // Postgres
     public static final String GOBII_USER = "user";
     public static final String GOBII_USER_DEFAULT = "";
     public static final String GOBII_DB = "db";
     public static final String GOBII_DB_DEFAULT = "";
+    // BMS
+    public static final String BMS_USER = "bmsuser";
+    public static final String BMS_USER_DEFAULT = "";
+    public static final String BMS_HOST = "bmshost";
+    public static final String BMS_HOST_DEFAULT = "localhost";
+    public static final String BMS_DB = "bmsdb";
+    public static final String BMS_DB_DEFAULT = "";
 
     /**
      * Creates a new instance of TasselPrefs
@@ -392,5 +400,29 @@ public class TasselPrefs {
 
     public static void putGOBIIUser(String value) {
         putPref(GOBII_TOP, GOBII_USER, value);
+    }
+
+    public static String getBMSHost() {
+        return getPref(GOBII_TOP, BMS_HOST, BMS_HOST_DEFAULT);
+    }
+
+    public static void putBMSHost(String value) {
+        putPref(GOBII_TOP, BMS_HOST, value);
+    }
+
+    public static String getBMSDB() {
+        return getPref(GOBII_TOP, BMS_DB, BMS_DB_DEFAULT);
+    }
+
+    public static void putBMSDB(String value) {
+        putPref(GOBII_TOP, BMS_DB, value);
+    }
+
+    public static String getBMSUser() {
+        return getPref(GOBII_TOP, BMS_USER, BMS_USER_DEFAULT);
+    }
+
+    public static void putBMSUser(String value) {
+        putPref(GOBII_TOP, BMS_USER, value);
     }
 }

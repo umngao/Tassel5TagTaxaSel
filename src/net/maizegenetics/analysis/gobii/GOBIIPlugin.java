@@ -8,6 +8,7 @@ package net.maizegenetics.analysis.gobii;
 import java.awt.Frame;
 import java.sql.Connection;
 import javax.swing.ImageIcon;
+import net.maizegenetics.analysis.data.GenotypeSummaryPlugin;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
@@ -34,7 +35,7 @@ public class GOBIIPlugin extends AbstractPlugin {
             .guiName("Dataset Name")
             .build();
 
-    private final PluginParameter<String> myDatabaseLabel = PluginParameter.getLabelInstance("Database Properties");
+    private final PluginParameter<String> myDatabaseLabel = PluginParameter.getLabelInstance("GOBII Postgres Database Properties");
 
     private PluginParameter<String> myDBName = new PluginParameter.Builder<>("db", null, String.class)
             .required(true)
@@ -48,6 +49,31 @@ public class GOBIIPlugin extends AbstractPlugin {
             .build();
 
     private PluginParameter<String> myPassword = new PluginParameter.Builder<>("password", "", String.class)
+            .description("Password")
+            .password()
+            .build();
+
+    private final PluginParameter<String> myBMSLabel = PluginParameter.getLabelInstance("BMS Database Properties");
+
+    private PluginParameter<String> myBMSDBName = new PluginParameter.Builder<>("bmsdb", null, String.class)
+            .required(true)
+            .guiName("BMS Database Name")
+            .description("BMS Database Name")
+            .build();
+
+    private PluginParameter<String> myBMSHost = new PluginParameter.Builder<>("bmshost", "localhost", String.class)
+            .guiName("BMS Host Name")
+            .description("BMS Host Name")
+            .build();
+
+    private PluginParameter<String> myBMSUser = new PluginParameter.Builder<>("bmsuser", null, String.class)
+            .required(true)
+            .guiName("BMS User")
+            .description("BMS User Name")
+            .build();
+
+    private PluginParameter<String> myBMSPassword = new PluginParameter.Builder<>("bmspassword", "", String.class)
+            .guiName("BMS Password")
             .description("Password")
             .password()
             .build();
@@ -70,31 +96,37 @@ public class GOBIIPlugin extends AbstractPlugin {
     protected void postProcessParameters() {
         TasselPrefs.putGOBIIDB(dBName());
         TasselPrefs.putGOBIIUser(user());
+        TasselPrefs.putBMSHost(bmsHost());
+        TasselPrefs.putBMSDB(bmsDBName());
+        TasselPrefs.putBMSUser(bmsUser());
     }
 
     @Override
     public DataSet processData(DataSet input) {
 
-        Connection conneciton = GOBIIPostgresConnection.connection("localhost", user(), myPassword.value(), dBName());
+        Connection postgres = GOBIIPostgresConnection.connection("localhost", user(), myPassword.value(), dBName());
 
+        Connection bms = BMSConnection.connection(bmsHost(), bmsUser(), myBMSPassword.value(), bmsDBName());
         String hdf5Filename = null;
         try {
-            hdf5Filename = GOBIIPostgresConnection.hdf5Filename(conneciton, dataset());
+            hdf5Filename = GOBIIPostgresConnection.hdf5Filename(postgres, dataset());
         } catch (Exception e) {
-            GOBIIPostgresConnection.printAvailableDatasets(conneciton);
+            GOBIIPostgresConnection.printAvailableDatasets(postgres);
             throw e;
         }
 
-        TaxaList taxa = GOBIIPostgresConnection.taxaList(conneciton, dataset());
+        TaxaList taxa = GOBIIPostgresConnection.taxaList(postgres, dataset(), bms);
         myLogger.info("Number of Taxa: " + taxa.numberOfTaxa());
 
-        PositionList positions = GOBIIPostgresConnection.positionList(conneciton, dataset());
+        PositionList positions = GOBIIPostgresConnection.positionList(postgres, dataset());
         myLogger.info("Number of Positions: " + positions.numberOfSites());
 
         GOBIIGenotypeCallTable genotypes = GOBIIGenotypeCallTable.getInstance(taxa.numberOfTaxa(), positions.numberOfSites(), false, hdf5Filename);
 
         GenotypeTable genotypeTable = GenotypeTableBuilder.getInstance(genotypes, positions, taxa);
-        return new DataSet(new Datum("gobii:" + dataset(), genotypeTable, null), this);
+        DataSet result = new DataSet(new Datum("gobii:" + dataset(), genotypeTable, null), this);
+        GenotypeSummaryPlugin.printSimpleSummary(result);
+        return result;
 
     }
 
@@ -170,6 +202,81 @@ public class GOBIIPlugin extends AbstractPlugin {
      */
     public GOBIIPlugin password(String value) {
         myPassword = new PluginParameter<>(myPassword, value);
+        return this;
+    }
+
+    /**
+     * Database Name
+     *
+     * @return Database Name
+     */
+    public String bmsDBName() {
+        return myBMSDBName.value();
+    }
+
+    /**
+     * Set Database Name. Database Name
+     *
+     * @param value Database Name
+     *
+     * @return this plugin
+     */
+    public GOBIIPlugin bmsDBName(String value) {
+        myBMSDBName = new PluginParameter<>(myBMSDBName, value);
+        return this;
+    }
+
+    /**
+     * BMS Host Name
+     *
+     * @return BMS Host Name
+     */
+    public String bmsHost() {
+        return myBMSHost.value();
+    }
+
+    /**
+     * Set BMS Host Name. BMS Host Name
+     *
+     * @param value BMS Host Name
+     *
+     * @return this plugin
+     */
+    public GOBIIPlugin bmsHost(String value) {
+        myBMSHost = new PluginParameter<>(myBMSHost, value);
+        return this;
+    }
+
+    /**
+     * User Name
+     *
+     * @return BMS User
+     */
+    public String bmsUser() {
+        return myBMSUser.value();
+    }
+
+    /**
+     * Set BMS User. User Name
+     *
+     * @param value BMS user
+     *
+     * @return this plugin
+     */
+    public GOBIIPlugin bmsUser(String value) {
+        myBMSUser = new PluginParameter<>(myBMSUser, value);
+        return this;
+    }
+
+    /**
+     * Set BMS Password. Password
+     *
+     * @param value BMS Password
+     *
+     * @return this plugin
+     */
+    public GOBIIPlugin bmsPassword(String value) {
+        myBMSPassword = new PluginParameter<>(myBMSPassword, value);
         return this;
     }
 

@@ -90,9 +90,9 @@ public class GOBIIPostgresConnection {
 
     }
 
-    public static TaxaList taxaList(Connection connection, String datasetName) {
+    public static TaxaList taxaList(Connection postgres, String datasetName, Connection bms) {
 
-        if (connection == null) {
+        if (postgres == null) {
             throw new IllegalArgumentException("GOBIIPostgresConnection: taxaList: Must specify database connection.");
         }
 
@@ -105,32 +105,42 @@ public class GOBIIPostgresConnection {
         // and dataset_dnarun.dataset_id = dataset.dataset_id
         // and dnarun.dnarun_id = dataset_dnarun.dnarun_id
         // and dnarun.dnasample_id = dnasample.dnasample_id
-        // and dnasample.germplasm_id = germplasm.germplasm_id;
+        // and dnasample.germplasm_id = germplasm.germplasm_id
+        // order by dataset_dnarun.dnarun_idx;
         //
         StringBuilder builder = new StringBuilder();
-        builder.append("select distinct(germplasm.external_code) from dataset, dataset_dnarun, dnarun, dnasample, germplasm ");
+        builder.append("select germplasm.external_code from dataset, dataset_dnarun, dnarun, dnasample, germplasm ");
         builder.append("where dataset.name='");
         builder.append(datasetName);
         builder.append("'");
         builder.append(" and dataset_dnarun.dataset_id = dataset.dataset_id");
         builder.append(" and dnarun.dnarun_id = dataset_dnarun.dnarun_id");
         builder.append(" and dnarun.dnasample_id = dnasample.dnasample_id");
-        builder.append(" and dnasample.germplasm_id = germplasm.germplasm_id;");
+        builder.append(" and dnasample.germplasm_id = germplasm.germplasm_id");
+        builder.append(" order by dataset_dnarun.dnarun_idx;");
 
         String query = builder.toString();
         myLogger.info("taxaList: query statement: " + query);
 
-        try (ResultSet rs = connection.createStatement().executeQuery(query)) {
-            TaxaListBuilder taxa = new TaxaListBuilder();
+        Map<String, Taxon.Builder> gids = new LinkedHashMap<>();
+        try (ResultSet rs = postgres.createStatement().executeQuery(query)) {
+
             while (rs.next()) {
-                Taxon current = new Taxon(rs.getString("external_code"));
-                taxa.add(current);
+                String externalCode = rs.getString("external_code");
+                gids.put(externalCode, null);
             }
-            return taxa.build();
+
         } catch (Exception se) {
             myLogger.debug(se.getMessage(), se);
             throw new IllegalStateException("GOBIIPostgresConnection: taxaList: Problem querying the database: " + se.getMessage());
         }
+
+        BMSConnection.taxaList(bms, gids);
+        TaxaListBuilder taxa = new TaxaListBuilder();
+        for (Map.Entry<String, Taxon.Builder> current : gids.entrySet()) {
+            taxa.add(current.getValue().build());
+        }
+        return taxa.build();
 
     }
 
@@ -159,8 +169,8 @@ public class GOBIIPostgresConnection {
         builder.append(" and dataset.dataset_id=dataset_marker.dataset_id");
         builder.append(" and dataset_marker.marker_id=marker.marker_id");
         builder.append(" and marker.marker_id=marker_linkage_group.marker_id");
-        builder.append(" and marker_linkage_group.linkage_group_id=linkage_group.linkage_group_id;");
-        //builder.append(" order by dataset_marker.marker_idx;");
+        builder.append(" and marker_linkage_group.linkage_group_id=linkage_group.linkage_group_id");
+        builder.append(" order by dataset_marker.marker_idx;");
 
         String query = builder.toString();
         myLogger.info("positionList: query statement: " + query);
