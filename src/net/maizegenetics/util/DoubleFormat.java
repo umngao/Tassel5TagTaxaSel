@@ -2,6 +2,7 @@ package net.maizegenetics.util;
 
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
+import java.util.Locale;
 
 public class DoubleFormat {
 
@@ -17,13 +18,13 @@ public class DoubleFormat {
             return "Infinity";
         }
         if (nfe == null) {
-            nfe = NumberFormat.getInstance();
+            nfe = NumberFormat.getInstance(Locale.ROOT);
             if (nfe instanceof DecimalFormat) {
                 ((DecimalFormat) nfe).applyPattern("0.0###E0");
             }
         }
         if (nf == null) {
-            nf = NumberFormat.getInstance();
+            nf = NumberFormat.getInstance(Locale.ROOT);
             if (nf instanceof DecimalFormat) {
                 ((DecimalFormat) nf).applyPattern("0.#####");
             }
