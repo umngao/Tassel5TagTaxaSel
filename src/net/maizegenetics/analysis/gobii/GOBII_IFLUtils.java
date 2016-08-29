@@ -76,11 +76,11 @@ public class GOBII_IFLUtils {
         } else {
             strand = mline.substring(tabPos[3]+1,tabPos[4]);
             if (strand.equals("+")) {
-                strand = "forward";
+                strand = "Forward";
             } else if (strand.equals("-")) {
-                strand = "reverse";
+                strand = "Reverse";
             } else {
-                strand = "unknown";
+                strand = "Unknown";
             }
         }
         return strand;

@@ -190,6 +190,8 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
         DataOutputStream writerDSMarker = null;
         DataOutputStream writerVariants = null;
         DataOutputStream writerMarkerAlts = null;
+        
+        int marker_idx = 0; // incr by 1 as add in sequence to the marker table.  THis is how GOBII populates the field.
                      
         long totalTime=System.nanoTime();
         // Check if inputFile is file or directory
@@ -484,7 +486,12 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
                     dsMarkerSB.append(markerName);
                     dsMarkerSB.append("\t");
                     dsMarkerSB.append(platformId);
-                    dsMarkerSB.append("\t\t\t\t\t\n"); // skip rest of columns
+                    //dsMarkerSB.append("\t\t\t\t\t\n"); // skip rest of columns
+                    dsMarkerSB.append("\t\t\t\t\t");
+                    dsMarkerSB.append(Integer.toString(marker_idx));       
+                    dsMarkerSB.append("\n");  // end of line
+                    
+                    marker_idx++; // Marker_idx takes values 0-N, incr after each value is added
                     
                     // Create the monetdb variants file with taxa info - no header
                     // This file is one of 3 files used for creating and loading
@@ -670,6 +677,7 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
             HashMap<String,HmpTaxaData> taxaDataMap, boolean isVCF) {
         // create the dnarun and dataset_dnarun IFL files
         System.out.println("LCJ - createDNARunFiles - begin ");
+        int dnarun_idx = 0;
         boolean returnVal = true;
         try {
             // Get experiment id - needed together with name for dataset_dnarun to get dnarun ID
@@ -692,7 +700,8 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
             // create the header line dnasample_name,num,project_id (previously used platename vs num field - IFL changed)
             // NOTE:  BL doesn't use "num" and it has been removed from our copy of the loading scripts.  The null values
             // would not compare in postges (need IS NULL, GOBII IFL scripts hard to add for general query)
-            dnaRunSB.append("experiment_name\tdnasample_name\tnum\tproject_id\tname\tcode\n");
+           // dnaRunSB.append("experiment_name\tdnasample_name\tnum\tproject_id\tname\tcode\n");
+            dnaRunSB.append("experiment_name\tdnasample_name\tproject_id\tname\tcode\n");
             writerDNARun.writeBytes(dnaRunSB.toString());
             
             // create header line for dataset_dnarun
@@ -723,7 +732,7 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
                 // LCJ - not appending getNum() as postgres does not consider "" to be equivalent to NULL
                 // SO these fields don't match when running the IFL scripts and no data is loaded.
                 //dnaRunSB.append(taxaData.getNum()); // should be "" - BL doesn't use this.  
-                dnaRunSB.append("\t");
+                //dnaRunSB.append("\t"); // took out column and data now! don't need extra \t
                 dnaRunSB.append(projectId);
                 dnaRunSB.append("\t");
                 // Programmer's meeting on 7/7/16: decided dnarun name is just library prep ID, NOT TAXA
@@ -742,7 +751,14 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
                 dsDNArunSB.append(dnarun_name); // IFL maps name to dnarun_id
                 dsDNArunSB.append("\t");
                 dsDNArunSB.append(experiment_id);
-                dsDNArunSB.append("\t\n"); // skip the last field
+                //dsDNArunSB.append("\t\n"); // skip the last field
+                // add the dnarun_idx value
+                dsDNArunSB.append("\t");
+                dsDNArunSB.append(Integer.toString(dnarun_idx));
+                dsDNArunSB.append("\n"); // end of line - add new line
+                
+                dnarun_idx++; // next dnarun_idx
+                
                 writerDSdnaRun.writeBytes(dsDNArunSB.toString());                
             }
             writerDNARun.close();
@@ -755,12 +771,12 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
         }
         System.out.println("LCJ - successful creation of DNARun and dataset_dnarun files");
         //return true; // successful processing
-        if (returnVal == false) {
-            System.out.println("LCJ - hdrline has these taxa: ");
-            System.out.println(hdrLine);
-        }
-       // return returnVal;
-        return false;  // LCJ - RETURN LINE ABOVE !! _ This is just to force quit after creating dnarun tables.
+//        if (returnVal == false) {
+//            System.out.println("LCJ - hdrline has these taxa: ");
+//            System.out.println(hdrLine);
+//        }
+        return returnVal;
+        //return false;  // LCJ - RETURN LINE ABOVE !! _ This is just to force quit after creating dnarun tables.
     }
     public static void main(String[] args) {
         GeneratePluginCode.generate(MarkerDNARun_IFLFilePlugin.class);
@@ -1031,7 +1047,7 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
             this.libraryID = libraryID;
             this.plateName = plateName;
             // THis will be changed to extraction_id.  That will be passed in
-            //this.dnasampleName = GID + ":" + plateName + ":" + well;
+            // this.dnasampleName = GID + ":" + plateName + ":" + well;
             // because it keeps changing, we now have a SampleName column, the value of which is passed in here.
             this.dnasampleName = sampleName;
             this.num = ""; // Currently, BL doesn't use this field but is needed for GOBII IFL mapping file
