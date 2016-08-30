@@ -52,6 +52,13 @@ import net.maizegenetics.util.Utils;
  *       distinct library prep id.  Compare to libraryPrepIds from the mapping file.  IF there
  *       are duplicate, write to a file to show the biologist.
  *       
+ * NOTES:  GOBII uses dnasample.name and dnasample.num to determine duplicates
+ *    BL is not populating dnasample.num.  "num" has been removed from the dnasample.dupmap
+ *    file when running this.  For some reason, with it present, but all values "null", the
+ *    script believed the values were different and I ended up duplicating all dnasamples when
+ *    sending the file through the GOBII scripts.  When I removed this line, the scripts only
+ *    checked the "name" field and project id and it worked.
+ *    
  * For step 3:  The intermediate files are created by the MarkerDNARunMGID_fromHMPIFIFIlePLugin.java.
  * Note the dnasample and germplasm entries must be loaded to the db before loading the marker/
  * dnarun intermediate files or the necssary db ids will not be found..  
@@ -116,7 +123,7 @@ public class PreProcessGOBIIMappingFilePlugin extends AbstractPlugin {
                 System.out.println("Could not find datasetId from datasetName " + datasetName() + " please check name and try again !!");
                 return null;
             }
-            
+            System.out.println("LCJ - processing dataset number " + datasetId);
             String germplasmFile = outputDir() + "DS_" + datasetId + ".germplasm"; // the outputDir should include the DS_<dataset_id>
             String dnasampleFile = outputDir() + "DS_" + datasetId + ".dnasample";
             String dupLibIDFile = outputDir() + "DS_" + datasetId + ".dup_libraryPrepIds";
@@ -190,6 +197,8 @@ public class PreProcessGOBIIMappingFilePlugin extends AbstractPlugin {
             germplasmSB.append("name\texternal_code\tspecies_name\ttype_name\tcreated_by\tcreated_date\tmodified_by\tmodified_date\tstatus\tcode\n");
             writergp.write(germplasmSB.toString());
             
+            // THis doesn't work without all columns.  In order to ignore "num" as a duplicate column,
+            // the dnasample.dupmap file was changed:  the "num" entry was removed.
             dnasampleSB.append("name\tcode\tplatename\tnum\twell_row\twell_col\tproject_name\texternal_code\tcreated_by\tcreated_date\tmodified_by\tmodified_date\tstatus\n");
             writerdna.write(dnasampleSB.toString());
             

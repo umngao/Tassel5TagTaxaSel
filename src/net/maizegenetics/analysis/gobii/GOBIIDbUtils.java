@@ -56,7 +56,7 @@ public class GOBIIDbUtils {
         String user = props.getProperty("user");
         String password = props.getProperty("password");
         String dbName = props.getProperty("DB");
-        System.out.println("\nLCJ - connectToDB, props values are: " + props.toString());
+       // System.out.println("\nLCJ - connectToDB, props values are: " + props.toString()); // NOTE - this prints out the password
 //        String port = props.getProperty("port");
         if (user == null) {
             errorMessage = "ERROR: Please provide a line with the user name (user=<userName>) in the DB connection config file (" + configFile + ")";

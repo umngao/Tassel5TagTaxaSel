@@ -48,6 +48,13 @@ import net.maizegenetics.util.Utils;
  * be consistent.  THis will need to be queried from the db before
  * running this plugin.  If the dataset name is known, this is a simple
  * query.
+ * 
+ * AUgust2016 UPDATE:  The list of markers in the marker_id, and dnarun_ids in
+ * dnarun_id file must be in proper order.  They must be in the order the markers
+ * are stored in the monetdb table, ie in the order they are stored in the
+ * variant file.  TO achieve this, the DB query orders the output by
+ * marker_idx  (marker query) and dnarun_idx (dnarun query).  These idx values
+ * were created sequentially when the marker and dnarun tables were created.
  *   
  * @author lcj34
  *  
@@ -112,7 +119,7 @@ public class MonetDB_IFLFilePlugin extends AbstractPlugin {
             builder.append("select dnarun_id from dataset_dnarun, dataset where dataset.name = '");
             builder.append(datasetName());
             builder.append("'");
-            builder.append(" and dataset.dataset_id = dataset_dnarun.dataset_id;");
+            builder.append(" and dataset.dataset_id = dataset_dnarun.dataset_id order by dnarun_idx;"); // lcj - added "Order by" Aug 26,2016
             
             String query = builder.toString();
             myLogger.info("processData: query statement: " + query);
@@ -139,7 +146,11 @@ public class MonetDB_IFLFilePlugin extends AbstractPlugin {
             builder.append("select marker_id from dataset_marker, dataset where dataset.name = '");
             builder.append(datasetName());
             builder.append("'");
-            builder.append(" and dataset.dataset_id = dataset_marker.dataset_id;");
+            builder.append(" and dataset.dataset_id = dataset_marker.dataset_id order by marker_idx;"); // lcj - added order by 8/26/16
+//            builder.append("select marker_id from dataset_marker, dataset where dataset.name = '");
+//            builder.append(datasetName());
+//            builder.append("'");
+//            builder.append(" and dataset.dataset_id = dataset_marker.dataset_id order by marker_id;"); // lcj - added order by 8/26/16
             
             query = builder.toString();
             myLogger.info("processData: query statement: " + query);
