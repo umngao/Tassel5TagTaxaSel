@@ -28,6 +28,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import net.maizegenetics.dna.snp.FilterGenotypeTable;
 
 /**
  *
@@ -183,7 +184,7 @@ public class FilterAlignmentPlugin extends AbstractPlugin {
         }
 
         if ((myStart != 0) || (myEnd < (naa.numberOfSites() - 1))) {
-            naa = GenotypeTableUtils.removeSitesOutsideRange(naa, myStart, myEnd);
+            naa = FilterGenotypeTable.getInstance(naa, myStart, myEnd);
         }
         if (myExtractIndels) {
             //naa = AnnotatedAlignmentUtils.removeSitesBasedOnFreqIgnoreMissing(naa, myMinFreq, myMinCount);

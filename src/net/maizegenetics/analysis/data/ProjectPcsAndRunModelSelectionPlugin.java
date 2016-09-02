@@ -11,8 +11,8 @@ import net.maizegenetics.analysis.association.AssociationUtils;
 import net.maizegenetics.analysis.numericaltransform.ImputationPlugin;
 import net.maizegenetics.analysis.numericaltransform.NumericalGenotypePlugin;
 import net.maizegenetics.dna.map.Chromosome;
+import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.genotypecall.ProjectionGenotypeCallTable;
 import net.maizegenetics.dna.snp.io.ProjectionGenotypeIO;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
@@ -205,7 +205,7 @@ public class ProjectPcsAndRunModelSelectionPlugin extends AbstractPlugin {
 
         for (int i = 0; i < chr.length; i++) {
             chrStartAndStop = theGenotypesForCalculatingPCs.firstLastSiteOfChromosome(chr[i]);
-            theGenotypesForCalculatingPCsOneChr = GenotypeTableUtils.removeSitesOutsideRange(theGenotypesForCalculatingPCs, chrStartAndStop[0], chrStartAndStop[1]);
+            theGenotypesForCalculatingPCsOneChr = FilterGenotypeTable.getInstance(theGenotypesForCalculatingPCs, chrStartAndStop[0], chrStartAndStop[1]);
 
             int[] positions = theGenotypesForCalculatingPCsOneChr.physicalPositions();
             for (int j = 0; j < positions.length; j += increment) {
@@ -223,7 +223,7 @@ public class ProjectPcsAndRunModelSelectionPlugin extends AbstractPlugin {
                 int myEnd = theGenotypesForCalculatingPCsOneChr.siteOfPhysicalPosition(endPos, chr[i]);
 
                 GenotypeTable theGenotypesForCalculatingPCsReduced = theGenotypesForCalculatingPCs;
-                theGenotypesForCalculatingPCsReduced = GenotypeTableUtils.removeSitesOutsideRange(theGenotypesForCalculatingPCsReduced, myStart, myEnd);
+                theGenotypesForCalculatingPCsReduced = FilterGenotypeTable.getInstance(theGenotypesForCalculatingPCsReduced, myStart, myEnd);
 
                 Datum test1 = new Datum("Reduced", theGenotypesForCalculatingPCsReduced, null);
                 DataSet test1s = new DataSet(test1, this);
@@ -418,7 +418,7 @@ public class ProjectPcsAndRunModelSelectionPlugin extends AbstractPlugin {
         Chromosome testedChromosome = new Chromosome(chrVector.get(site));
         int[] chrStartAndStop = theGenotypesForCalculatingPCs.firstLastSiteOfChromosome(testedChromosome);
         GenotypeTable theGenotypesForCalculatingPCsOneChr = theGenotypesForCalculatingPCs;
-        theGenotypesForCalculatingPCsOneChr = GenotypeTableUtils.removeSitesOutsideRange(theGenotypesForCalculatingPCsOneChr, chrStartAndStop[0], chrStartAndStop[1]);
+        theGenotypesForCalculatingPCsOneChr = FilterGenotypeTable.getInstance(theGenotypesForCalculatingPCsOneChr, chrStartAndStop[0], chrStartAndStop[1]);
 
         //********************Get the flaking sites on right and left
         // Note: positive distance means the marker is to the right; negative distance means

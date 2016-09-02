@@ -848,24 +848,6 @@ public class GenotypeTableUtils {
     }
 
     /**
-     * Remove sites based on site position (excluded sites are <firstSite and
-     * >lastSite) This not effect any prior exclusions.
-     *
-     * @param aa the AnnotatedAlignment to filter
-     * @param firstSite first site to keep in the range
-     * @param lastSite last site to keep in the range
-     */
-    public static GenotypeTable removeSitesOutsideRange(GenotypeTable aa, int firstSite, int lastSite) {
-        if ((firstSite < 0) || (firstSite > lastSite)) {
-            return null;
-        }
-        if (lastSite > aa.numberOfSites() - 1) {
-            return null;
-        }
-        return FilterGenotypeTable.getInstance(aa, firstSite, lastSite);
-    }
-
-    /**
      * Returns whether diploid allele values are heterozygous. First 4 bits in
      * byte is one allele value. Second 4 bits is other allele value.
      *

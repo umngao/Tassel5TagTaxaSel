@@ -434,6 +434,13 @@ public class FilterGenotypeTable implements GenotypeTable {
      */
     public static FilterGenotypeTable getInstance(GenotypeTable a, int startSite, int endSite) {
 
+        if ((startSite < 0) || (startSite > endSite)) {
+            throw new IllegalArgumentException("FilterGenotypeTable: getInstance: startSite: " + startSite + " less than zero or greater than end site.");
+        }
+        if (endSite >= a.numberOfSites()) {
+            throw new IllegalArgumentException("FilterGenotypeTable: getInstance: end site: " + endSite + " greater than or equal to number of sites: " + a.numberOfSites());
+        }
+
         if (a instanceof FilterGenotypeTable) {
             FilterGenotypeTable original = (FilterGenotypeTable) a;
             GenotypeTable baseAlignment = ((FilterGenotypeTable) a).getBaseAlignment();
