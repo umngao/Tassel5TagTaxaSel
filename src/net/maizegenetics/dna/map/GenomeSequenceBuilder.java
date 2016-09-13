@@ -191,9 +191,13 @@ class HalfByteGenomeSequence implements GenomeSequence{
     }
 
     @Override
+    // Code assumes 1-based coordinates have been passed.  It will catch and return
+    // null if the startSite is 0.  Otherwise, the user is on their own to ensure
+    // input is 1-based.
     public byte[] chromosomeSequence(Chromosome chrom, int startSite, int lastSite) {
         startSite--;  //shift over to zero base
         lastSite--;   //shift over to zero base
+        if (startSite < 0) return null; // method needs 1-based coordinates.
         byte[] packedBytes = chromPositionMap.get(chrom);
         if (packedBytes == null) return null; // chromosome not found
         if (startSite > packedBytes.length*2 || lastSite > packedBytes.length*2 ) {
