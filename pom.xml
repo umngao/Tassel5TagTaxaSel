@@ -42,6 +42,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.19.1</version>
                 <configuration>
+                    <argLine>-Xmx8g</argLine>
                     <testFailureIgnore>true</testFailureIgnore>
                     <workingDirectory>${project.basedir}/../tassel-5-test/</workingDirectory>
                     <excludes>
@@ -53,8 +54,9 @@
                         <exclude>**/ThinSitesByPositionPluginTest.java</exclude>
                         <exclude>**/LDKNNiImputationPluginTest.java</exclude>
                         <exclude>**/GenomeFeatureBuilderTest.java</exclude>
-                        <exclude>**/GenomeSequenceBuilderTest.java</exclude>
                         <exclude>**/BasicGenotypeMergeRuleTest.java</exclude>
+                        <exclude>**/DistanceMatrixHDF5Test.java</exclude>
+                        <exclude>**/TagsOnPhysMapHDF5Test.java</exclude>
                         <exclude>**/FastMultithreadedAssociationPluginTest.java</exclude>
                         <exclude>**/BuildUnfinishedHDF5GenotypesPluginTest.java</exclude>
                         <exclude>**/GenomeAnnosDBQueryToPositionListPluginTest.java</exclude>
@@ -62,8 +64,40 @@
                     </excludes>
                 </configuration>
             </plugin>
+            <plugin>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.0.0</version>
+                <configuration>
+                    <filesets>
+                        <fileset>
+                            <directory>${project.basedir}/../tassel-5-test/tempDir</directory>
+                        </fileset>
+                    </filesets>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>1.4</version>
+                <executions>
+                    <execution>
+                        <phase>generate-test-resources</phase>
+                        <configuration>
+
+                            <tasks>
+                                <mkdir dir="${project.basedir}/../tassel-5-test/tempDir"/>
+                            </tasks>
+
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+    
     <repositories>
         <repository>
             <id>repo</id>
