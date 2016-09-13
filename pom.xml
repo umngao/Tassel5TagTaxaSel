@@ -43,11 +43,12 @@
                 <version>2.19.1</version>
                 <configuration>
                     <testFailureIgnore>true</testFailureIgnore>
-                    <workingDirectory>${project.basedir}/../maizegenetics5_test/</workingDirectory>
+                    <workingDirectory>${project.basedir}/../tassel-5-test/</workingDirectory>
                     <excludes>
                         <exclude>**/analysis/gbs/*Test.java</exclude>
                         <exclude>**/analysis/gbs/v2/*Test.java</exclude>
                         <exclude>**/analysis/monetdb/*Test.java</exclude>
+                        <exclude>**/LowLevelCopyOfHDF5Test.java</exclude>
                         <exclude>**/FastMultithreadedAssociationPluginTest.java</exclude>
                         <exclude>**/BuildUnfinishedHDF5GenotypesPluginTest.java</exclude>
                         <exclude>**/GenomeAnnosDBQueryToPositionListPluginTest.java</exclude>
