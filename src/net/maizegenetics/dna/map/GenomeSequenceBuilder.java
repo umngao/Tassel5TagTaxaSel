@@ -197,11 +197,11 @@ class HalfByteGenomeSequence implements GenomeSequence{
     public byte[] chromosomeSequence(Chromosome chrom, int startSite, int lastSite) {
         startSite--;  //shift over to zero base
         lastSite--;   //shift over to zero base
-        if (startSite < 0) return null; // method needs 1-based coordinates.
+        if (startSite < 0) throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: starting parameter is less than 1 for 1-based method");; // method needs 1-based coordinates.
         byte[] packedBytes = chromPositionMap.get(chrom);
-        if (packedBytes == null) return null; // chromosome not found
+        if (packedBytes == null) throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: chromosome not found"); // chromosome not found
         if (startSite > packedBytes.length*2 || lastSite > packedBytes.length*2 ) {
-            return null; // requested sequence is out of range
+            throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: requested sequence is out of range"); // requested sequence is out of range
         }
         byte[] fullBytes = new byte[lastSite - startSite + 1];
         for (int i = startSite; i <= lastSite; i++) {
