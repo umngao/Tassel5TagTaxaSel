@@ -49,6 +49,12 @@
                         <exclude>**/analysis/gbs/v2/*Test.java</exclude>
                         <exclude>**/analysis/monetdb/*Test.java</exclude>
                         <exclude>**/LowLevelCopyOfHDF5Test.java</exclude>
+                        <exclude>**/SplitHDF5ByChromosomePluginTest.java</exclude>
+                        <exclude>**/ThinSitesByPositionPluginTest.java</exclude>
+                        <exclude>**/LDKNNiImputationPluginTest.java</exclude>
+                        <exclude>**/GenomeFeatureBuilderTest.java</exclude>
+                        <exclude>**/GenomeSequenceBuilderTest.java</exclude>
+                        <exclude>**/BasicGenotypeMergeRuleTest.java</exclude>
                         <exclude>**/FastMultithreadedAssociationPluginTest.java</exclude>
                         <exclude>**/BuildUnfinishedHDF5GenotypesPluginTest.java</exclude>
                         <exclude>**/GenomeAnnosDBQueryToPositionListPluginTest.java</exclude>
