@@ -16,6 +16,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
@@ -63,6 +64,7 @@ import net.maizegenetics.util.Utils;
  *   platform_name: name of platform needed for marker table, (IFL maps to ID)
  *   reference_name: name of reference table (IFL maps to ID)
  *   dataset_name: needed for dataset_dnarun and dataset_marker tables (IFL Maps to ID)
+ *   samplename: will be used for table dnasample.name field
  *   
  *   The mapping file needs an entry for all taxa that may appear in the data input file.
  *   It is ok if multiple taxa names appear with the same MGID/GID/etc.  These are
@@ -206,9 +208,14 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
         if (dataFile.isDirectory()) {
             System.out.println("LCJ - input file is a directory");
             directoryFiles= DirectoryCrawler.listPaths(inputFileGlob, Paths.get(inputFile.value()).toAbsolutePath());
+            Collections.sort(directoryFiles);
         } else {
             Path inputPath= Paths.get(inputFile()).toAbsolutePath();
             directoryFiles.add(inputPath);
+        }
+        System.out.println("LCJ - postProcessParamers: size of DirectoryFiles is " + directoryFiles.size());
+        for (int idx = 0;idx<directoryFiles.size();idx++) {
+            System.out.println("File " + idx +": " + directoryFiles.get(idx));
         }
         
         // Get db connection.  needed to query for table ids based on name
@@ -295,7 +302,7 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
             dsMarkerSB.append("dataset_name\tmarker_name\tplatform_id\tcall_rate\tmaf\treproducibility\tscores\tmarker_idx\n");
             writerDSMarker.writeBytes(dsMarkerSB.toString());
             markerAltsSB.append("name\tplatform_id\talts\n");
-            writerMarkerAlts.writeBytes(markerAltsSB.toString());
+            //writerMarkerAlts.writeBytes(markerAltsSB.toString());
             
             // reset lengths to 0 after writing string
             markerSB.setLength(0);
@@ -311,6 +318,7 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
             int[] tabPos = new int[11]; // there are many values, we care about the first 10           
             // Process all input files.  We could have 1 hmp.txt file, or there could be
             // a directory of them (generally split by chromosome).  Process all files on the list
+            System.out.println("LCJ - size of directoryFiles: " + directoryFiles);
             for (int idx = 0; idx < directoryFiles.size(); idx++) {
                 int totalLines = 0;
                 long time=System.nanoTime();
@@ -344,6 +352,7 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
                             writerMarkerLink.close();
                             writerDSMarker.close(); 
                             writerVariants.close();
+                            writerMarkerAlts.close();
                             return null;
                         } 
                         wroteHeader = true;
@@ -365,6 +374,7 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
                     if (curChrom < 1 || curChrom > 10) continue; // skipping all but chroms 1-10
                     if (curChrom != prevChrom) {
                         // get reference for this chromosome
+                        System.out.println("LCJ - processing chromosome : " + curChrom);
                         Chromosome newChrom = new Chromosome(Integer.toString(curChrom));
                         try {
                             refChromBytes = myRefSequence.chromosomeSequence(newChrom);
@@ -389,8 +399,18 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
                     markerSB.append("\t");
                     markerSB.append("\t"); //skip variant field
                     int position = GOBII_IFLUtils.getPosFromLine(mline, isVCF, tabPos);
-                    String markerName = GOBII_IFLUtils.getMarkerNameFromLine(mline,isVCF,tabPos);
-                   // String markerName = mline.substring(0, tabPos[0]); // store rs# as name
+                    String markerName = GOBII_IFLUtils.getMarkerNameFromLine(mline,isVCF,tabPos,mapsetName());
+                    if (markerName == null) {
+                        System.out.println("LCJ - failure from call to Gobii_IFLUtils.getMarkerNameFromLine !!!");
+                        writerMarker.close();
+                        writerMarkerProp.close();
+                        writerMarkerLink.close();
+                        writerDSMarker.close(); 
+                        writerVariants.close();
+                        writerMarkerAlts.close();
+                        return null;
+                    }
+
                     markerSB.append(markerName); // name field
                     markerSB.append("\t");
                     markerSB.append("dummycode\t"); // code field
@@ -523,7 +543,7 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
                         writerMarkerLink.writeBytes(markerLinkageSB.toString());
                         writerDSMarker.writeBytes(dsMarkerSB.toString());
                         writerVariants.writeBytes(variantsSB.toString()); 
-                        writerMarkerAlts.writeBytes(markerAltsSB.toString());
+                        //writerMarkerAlts.writeBytes(markerAltsSB.toString());
                         
                         // Reset strings to null before processing next batch
                         markerSB.setLength(0);
@@ -542,7 +562,7 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
                     writerMarkerLink.writeBytes(markerLinkageSB.toString());
                     writerDSMarker.writeBytes(dsMarkerSB.toString());
                     writerVariants.writeBytes(variantsSB.toString()); 
-                    writerMarkerAlts.writeBytes(markerAltsSB.toString());
+                   // writerMarkerAlts.writeBytes(markerAltsSB.toString());
                     
                     // Reset strings to null before processing next batch
                     markerSB.setLength(0);
@@ -620,11 +640,17 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
                 }
                 idx++;
             }
+            // LCJ _ return this when files are fixed to include sample name - WGS is not fixed!!
             if (taxaIdx == -1 || nameIdx == -1 || sourceIdx == -1 || mgidIdx == -1 || gidIdx == -1 || libIdx == -1 ||
                     plateIdx == -1 || wellIdx == -1 || speciesIdx == -1 || typeIdx == -1 || projectIdx == -1 || sampleIdx == -1) {
                    System.out.println("Mappingfile is missing required header line.  Expecting columns: TaxaColumn, name, source, MGID, GID, libraryID, plate_code, well, species, type, project, SampleName");
                    return null;
             }
+//            if (taxaIdx == -1 || nameIdx == -1 || sourceIdx == -1 || mgidIdx == -1 || gidIdx == -1 || libIdx == -1 ||
+//                    plateIdx == -1 || wellIdx == -1 || speciesIdx == -1 || typeIdx == -1 || projectIdx == -1 ) {
+//                   System.out.println("Mappingfile is missing required header line.  Expecting columns: TaxaColumn, name, source, MGID, GID, libraryID, plate_code, well, species, type, project, SampleName");
+//                   return null;
+//            }
             boolean first = true;
             while ((mappingLine = mappingbr.readLine()) != null) {
                 String[] data = mappingLine.split("\\t");
@@ -645,7 +671,18 @@ public class MarkerDNARun_IFLFilePlugin extends AbstractPlugin {
                 String plateName = data[plateIdx].trim();
                 String well = data[wellIdx].trim();
                 String gid = data[gidIdx].trim();
-                String sampleName = data[sampleIdx].trim();
+                String sampleName = null;                
+                if (sampleIdx == -1 || data[sampleIdx].trim().equals("")) {                   
+                    sampleName = data[gidIdx].trim() + ":" + data[plateIdx].trim() + ":" + data[wellIdx].trim();
+                } else {
+                    sampleName = data[sampleIdx].trim();
+                }
+//                if (sampleIdx == -1) {
+//                    sampleName = data[gidIdx].trim() + ":" + data[plateIdx].trim() + ":" + data[wellIdx].trim();
+//                } else {
+//                    sampleName = data[sampleIdx].trim();
+//                }
+                
                 HmpTaxaData taxaDataItem = new HmpTaxaData(mgid, gid, libID,plateName,well,sampleName);
                 taxaDataMap.put(taxa, taxaDataItem);           
             }

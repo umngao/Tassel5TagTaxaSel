@@ -34,21 +34,36 @@ public class GOBII_IFLUtils {
         return chrom;
     }
     
-    public static String getMarkerNameFromLine(String mline, boolean isVCF, int[] tabPos){
+    public static String getMarkerNameFromLine(String mline, boolean isVCF, int[] tabPos, String mapsetname){
         String name = null;
         if (isVCF) {
             name = mline.substring(tabPos[1]+1,tabPos[2]);
             if (name.equals(".")) { // "." is used in vcf for unknown. 
                 // Marker name becomes S<chr>_<pos>, e.g. S10_20 for position 20 on chrom 10
+                // Marker name becomes PZ.V.chrom.position, e.g. PZ.2.9.123132
                 String pos = mline.substring(tabPos[0]+1,tabPos[1]);
                 String chrom = mline.substring(0,tabPos[0]);
-                name = "S" + chrom + "_" + pos;
+               // name = "S" + chrom + "_" + pos;
+                String mapset = "";
+                if (mapsetname.toUpperCase().equals("AGPV2")){
+                    mapset = "2";
+                } else if (mapsetname.toUpperCase().equals("AGPV3")) {
+                    mapset = "3";
+                } else if (mapsetname.toUpperCase().equals("AGPV4")) {
+                    mapset = "4";
+                } else {
+                    System.out.println("WARNING: getMarkerNameFromLine - bad mapset name: " + mapsetname);
+                }
+                name = "PZ." + mapset + "." + chrom + "." + pos;
             }
             // There COULD have multiple identifiers.  If so, they are separated
             // by colons with no white space.  Will this be encountered in our files??
 
         } else {
             name = mline.substring(0, tabPos[0]); // store rs# as name
+            if (name == null) {
+                System.out.println("WARNING: getMarkerNameFromLine: hmp name rs field is NULL");
+            }
         }
         return name;
     }
@@ -72,7 +87,7 @@ public class GOBII_IFLUtils {
         String strand = null;
         // for hmp, strand is column 5
         if (isVCF) {
-            strand = "unknown";
+            strand = "Unknown";
         } else {
             strand = mline.substring(tabPos[3]+1,tabPos[4]);
             if (strand.equals("+")) {
@@ -87,6 +102,7 @@ public class GOBII_IFLUtils {
     }
 
     public static String addMonetdbVariantData(String ref, String altsOrig, String mline, boolean isVCF, int[]tabPos){
+           // boolean isVCF, int[]tabPos,String platformName){ // add this when do illumina
         StringBuilder variantsSB = new StringBuilder();
         if (isVCF) {
             // The VCF shows the allele call for each taxa as x/y
@@ -155,6 +171,19 @@ public class GOBII_IFLUtils {
                 } else {
                     firstTaxa = false;
                 }
+                // The illumina code below needs testing!
+//                if (platformName.toUpperCase().equals("ILLUMINA")) {
+//                    // Illumina 50K has double letter values, need to be translated
+//                    // to IUPAC values. 
+//                    String nextTaxa = taxaValues.nextToken();
+//                    byte highbyte = NucleotideAlignmentConstants.getNucleotideAlleleByte(nextTaxa.charAt(0));
+//                    byte lowbyte = NucleotideAlignmentConstants.getNucleotideAlleleByte(nextTaxa.charAt(1));
+//                    String iupacByte = NucleotideAlignmentConstants.getNucleotideIUPAC((byte)((highbyte << 4) | lowbyte));
+//                    variantsSB.append(iupacByte);  
+//                } else {
+//                    variantsSB.append(taxaValues.nextToken());
+//                }
+                // COMMENT LINE BELOW when add support for Illumina
                 variantsSB.append(taxaValues.nextToken());
             }
             variantsSB.append("\n");

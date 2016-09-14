@@ -249,7 +249,9 @@ public class PreProcessGOBIIMappingFilePlugin extends AbstractPlugin {
                 return null;
             }
  
+            // LCJ ***** FIx the use of SampleName whenvery ou get a good xcel sheet.  I HATE EXCeL !!
             if (taxaIdx == -1 || nameIdx == -1 || sourceIdx == -1 || mgidIdx == -1 || gidIdx == -1 || libIdx == -1 ||
+                  //  plateIdx == -1 || wellIdx == -1 || speciesIdx == -1 || typeIdx == -1 || projectIdx == -1 ) {
                  plateIdx == -1 || wellIdx == -1 || speciesIdx == -1 || typeIdx == -1 || projectIdx == -1 || sampleNameIdx == -1) {
                 System.out.println("\nMappingfile is missing required header line.  Expecting columns: TaxaColumn, name, source, MGID, GID, libraryID, plate_code, well, species, type, project, SampleName\n");
                 return null;
@@ -259,6 +261,7 @@ public class PreProcessGOBIIMappingFilePlugin extends AbstractPlugin {
             int dnaNotAdded = 0;
             int germplasmNotAdded = 0;
             int totalLines = 0;
+            List<String> addedGermplasm = new ArrayList<String>();
             while ((mline = germplasmBR.readLine()) != null) {
                 String[] data = mline.split("\\t");
                 totalLines++;
@@ -266,17 +269,33 @@ public class PreProcessGOBIIMappingFilePlugin extends AbstractPlugin {
                 // There shoudl only be entries in this file that have assigned GIDs. Sometimes there
                 // is a problem, and Robert didn't get something merged.  However, I don't want these
                 // in the file.  Should not need the check for data[gidIdx] != null
-                if (data[gidIdx].trim() != null && !(existingGermplasm.contains(data[gidIdx].trim()))) {
+                if (data[gidIdx].trim() != null && 
+                        !(existingGermplasm.contains(data[gidIdx].trim())) &&
+                        !(addedGermplasm.contains(data[gidIdx].trim()))) {
                     // tab over fields not filled in, add values for others.  Name is skipped (first column)
                     // external_code (2nd column) is now GID
                     String gpentry = "\t" + data[gidIdx].trim() + "\t" + data[speciesIdx].trim() + "\t" + data[typeIdx].trim() + "\t\t\t\t\t1\t0\n";
                     writergp.write(gpentry);
+                    addedGermplasm.add(data[gidIdx].trim()); // record that we already have this GID - don't want dups!
                 } else {
                     System.out.println("LCJ - not adding " + data[nameIdx].trim() + " to germplasm file");
                     germplasmNotAdded++;
                 }
                 //System.out.println("\n");
-                String sampleName = data[sampleNameIdx].trim();
+                
+                // LCJ **** Replace sampleName = sampleNameIdx line when excel file is fixed !!
+                String sampleName = null;
+                if (sampleNameIdx == -1 || data[sampleNameIdx].trim().equals("")) {                   
+                    sampleName = data[gidIdx].trim() + ":" + data[plateIdx].trim() + ":" + data[wellIdx].trim();
+                } else {
+                    sampleName = data[sampleNameIdx].trim();
+                }
+                // These were 2 original values of sampleName.  We want the value from sampleNameIdx from
+                // the mapping file.  BUt if the sampleName column doesn't exist, or the value is null
+                // (Cinta had a file will some missing values) then use the gid with plate and well.  Could
+                // be that some of those columns are null as well ....
+                //String sampleName = data[sampleNameIdx].trim();    
+               // String sampleName = data[gidIdx].trim() + ":" + data[plateIdx].trim() + ":" + data[wellIdx].trim();
                 if (data[gidIdx] != null && !(existingDNASample.contains(sampleName))) {
                     // tab over fields not filled in, add values for others, 
                     // "dummycode" is stored for code.  format is:

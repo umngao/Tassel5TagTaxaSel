@@ -80,7 +80,7 @@ public class SplitFile_IFLFilePlugin extends AbstractPlugin {
                     if (totalLines == maxSize()) {
                         // close the writer, get new one for next set
                         bw.close();
-                        System.out.println("Wrote file " + outfile + " with lines " + linecount);
+                        System.out.println("Wrote file " + outfile + " with lines " + totalLines);
                         outfile = outputDir() + fileparts[0] + "_" + fileCount + "." + fileparts[1]; // filecount is different
                         bw = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outfile)));
                         bw.writeBytes(headerLine);
