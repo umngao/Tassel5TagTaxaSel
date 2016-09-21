@@ -374,6 +374,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
             seqInBytes = myRefSequence.chromosomeSequence(myChrom, seqStart, seqEnd );
         } catch (IllegalArgumentException iae) {
             String msg = "Error creating reference tag at position " + cutPosition + " with length " + longestTagLen
+                    + ", seqStart " + seqStart + " seqEnd " + seqEnd + " isForwardStrand " + forwardStrand
                     + ". Position not found in reference file.  " 
                     + ". Please verify the reference file used for the plugin matches the reference file used for the aligner.";
             myLogger.error(msg);
