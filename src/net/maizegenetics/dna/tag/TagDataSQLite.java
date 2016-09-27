@@ -1462,27 +1462,29 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
         }       
     }
     
+
     // This method is called from GBSSeqToTagDBPlugin when a user wishes to append data.
     // The map created must NOT be a fixed taxaDist map.  We intend to increment the values
     @Override
     public Map<Tag, TaxaDistribution> getAllTagsTaxaMap() {
-        Map <Tag, TaxaDistribution> tagTaxaDistMap = new HashMap<Tag, TaxaDistribution>();       
+        ImmutableMap.Builder<Tag,TaxaDistribution> tagTDBuilder = ImmutableMap.builder();
         loadTagHash(); // get updated tag map
         try {
             ResultSet rs = connection.createStatement().executeQuery("select tagid, depthsRLE from tagtaxadistribution");
             while(rs.next()) {
-                Tag myTag = tagTagIDMap.inverse().get(rs.getInt("tagid"));               
-                //TaxaDistribution myTD = TaxaDistBuilder.create(rs.getBytes("depthsRLE")); // this gives a TaxaDistFixed - cannot append to it
-                int[][] decodedTD=TaxaDistBuilder.getDepthMatrixForEncodedDepths(rs.getBytes("depthsRLE"));
-                TaxaDistribution myTD = TaxaDistBuilder.create(decodedTD[2][0],decodedTD[1]);
-                tagTaxaDistMap.put(myTag, myTD);
+                Tag myTag = tagTagIDMap.inverse().get(rs.getInt("tagid"));
+                TaxaDistribution myTD = TaxaDistBuilder.create(rs.getBytes("depthsRLE"));
+                TaxaDistribution myTDIncr = TaxaDistBuilder.create(myTD); // convert to incrementable version
+                tagTDBuilder.put(myTag, myTDIncr);
             }
+            return tagTDBuilder.build();
         } catch (SQLException exc) {
             System.out.println("getAllTaxaMap: caught SQLException attempting to grab taxa Distribution ");
             exc.printStackTrace();
         }
-        return tagTaxaDistMap;
+        return tagTDBuilder.build();
     }
+
     
     @Override
     public boolean putAllTissue(ArrayList<String> tissues) {
