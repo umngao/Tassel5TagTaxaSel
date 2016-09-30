@@ -1407,9 +1407,12 @@ public class TagDataSQLite implements TagDataWriter, AutoCloseable {
 
     @Override
     public void clearTagTaxaDistributionData() {
-        // Clear table populated from GBSSeqToTagDBPlugin
+        // Clear tags and tagtaxadist tables populated from GBSSeqToTagDBPlugin
         try {
-            boolean rs = connection.createStatement().execute("delete FROM tagtaxadistribution");         
+            boolean rs = connection.createStatement().execute("delete FROM tagtaxadistribution"); 
+            rs = connection.createStatement().execute("delete FROM tag");
+            tagTagIDMap = null;
+            loadTagHash();
         } catch (SQLException exc) {
             System.out.println("ERROR - problem deleting tagtaxadistribution data");
             exc.printStackTrace();
