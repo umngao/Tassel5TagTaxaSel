@@ -128,13 +128,13 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
     //should this be converted to a stream?
     private Tuple<Tag,Optional<Position>> parseRow(String inputLine) {
         final int name = 0, flag = 1, chr = 2, pos = 3, cigar = 5, tagS = 9; // column indices in inputLine
-        String[] s=inputLine.split("\\s");
+        String[] s=inputLine.split("\\s+");
         // Use the tag we stored in the header field.  This handles forward vs
         // reverse strand (no longer need to reverse complement to our original)
         // and it contains seqments that were "clipped" by the aligner.
-                 
+        
         String origSeq = s[0].split("=")[1]; //s[0] is tagSeg=<original sequence here
-        Tag tag = TagBuilder.instance(origSeq).build();
+        Tag tag = TagBuilder.instance(origSeq).build();        
         int mapq = Integer.parseInt(s[4]);
         if (mapq < minMAPQ()) {
             // Dropping anything with quality less than user specified mapQ. 
@@ -166,9 +166,15 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
         // reference.  For example:  the .sam file says the leftmost mapping position of 
         // the first matched bp is 1 (ie "pos" = 1), but the cigar is 32S32M (32 soft clipped,
         // then 32 match).  Drop these alignments.
-        if (cutPos < 1) {
+        
+        // These alignments should be dropped whenever alignSpan[0] is < 0.
+        // FOr a forward strand, that is the start and it should be dropped as agreed to
+        // above.  For a reverse strand, when we hit DiscoverySNPCallerPluginV2, we will translate
+        // the reverse strands into a forward strand.  The strand end becomes the strand start, and
+        // we can't have a negative start position.
+        if (alignSpan[0] < 0 || alignSpan[1] < 0){
             return new Tuple<>(tag,Optional.<Position>empty());
-        }
+        }            
 
         if (!hasAlignment(s[flag])) return new Tuple<>(tag,Optional.<Position>empty());
         // Check for minimum alignment length and proportion
