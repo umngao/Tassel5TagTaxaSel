@@ -122,6 +122,8 @@ public class HapBreakpoints_IFLFilePlugin extends AbstractPlugin {
             .description("Name to be given to this set of breakpoints.  This name will be stored in the breakpointSet table.").build();
     private PluginParameter<String> mapset = new PluginParameter.Builder<>("mapset",null,String.class).guiName("mapset").required(true)
             .description("Name of the mapset to which these breakpoints refer.  Must match an existing name in the mapset table, e.g AGPV3").build();
+    private PluginParameter<String> src_dataset = new PluginParameter.Builder<>("src_dataset",null,String.class).guiName("Source Data Set").required(true)
+            .description("Name of the dataset from which these breakpoints were created.  Must match an existing name in the dataset table").build();
     private PluginParameter<String> outputDir= new PluginParameter.Builder<>("outputDir",null,String.class).guiName("Path of output directory").required(true)
             .description("Full path name of directory to which output files will be written, must end with a /").build();
     private PluginParameter<String> method= new PluginParameter.Builder<>("method",null,String.class).guiName("Breakpoint Method").required(true)
@@ -212,7 +214,7 @@ public class HapBreakpoints_IFLFilePlugin extends AbstractPlugin {
 
                 String gid = data[gidIdx].trim();
                 if (printTaxa)
-                   System.out.println("   creatNameGIDMap, adding taxa:" + taxaname + " with gid " + gid);
+                   System.out.println("   createNameGIDMap, adding taxa:" + taxaname + " with gid " + gid);
                 taxaMapArray.put(taxaname, gid);
             }
         } catch (IOException e) {
@@ -280,19 +282,21 @@ public class HapBreakpoints_IFLFilePlugin extends AbstractPlugin {
             // write header lines: NOTE: breakpoint_set_name is for IFL to grab breakpoint_set_id value
             // this needs to appear in a hap_breakpoint.nmap file
             // also need to define the duplicate files
-            hapSB.append("taxa_gid\tchr\tposition_range\tdonor1\tdonor2\tstatus\tbreakpoint_set_name\n");
+            hapSB.append("taxa\tchr\tposition_range\tdonor1\tdonor2\tstatus\tbreakpoint_set_name\n");
             writerhap.write(hapSB.toString());
             hapSB.setLength(0);
             
             // breakpoint_set table intermediate file. NOTE: mapset_name should be used by IFL to grab mapset_id
             // this means we don't really need to connect to DB - let IFL do it.
             // This also means don't need dbconfig parameter.  Remove it when verify is good without.
-            brksetSB.append("name\tmethod\tmapset_name\tstatus\n"); // header line
+            brksetSB.append("name\tmethod\tmapset_name\tsource_dataset_name\tstatus\n"); // header line
             brksetSB.append(setName()); // begin data line
             brksetSB.append("\t");
             brksetSB.append(method());
             brksetSB.append("\t");
             brksetSB.append(mapset());
+            brksetSB.append("\t");
+            brksetSB.append(src_dataset());
             brksetSB.append("\t1\n"); // status and newline          
             writerbrkset.write(brksetSB.toString()); // file has header and just this one line
             writerbrkset.close();
@@ -540,6 +544,28 @@ public class HapBreakpoints_IFLFilePlugin extends AbstractPlugin {
          return this;
      }
 
+     /**
+      * Name of the dataset from which these breakpoints were created.
+      *  Must match an existing name in the dataset table.
+      *
+      * @return dataset
+      */
+     public String src_dataset() {
+         return src_dataset.value();
+     }
+
+     /**
+      * Set src_dataset. Name of the dataset from which these breakpoints
+      * were created.  Must match an existing name in the dataset table,
+      *
+      * @param value src_dataset
+      *
+      * @return this plugin
+      */
+     public HapBreakpoints_IFLFilePlugin src_dataset(String value) {
+         src_dataset = new PluginParameter<>(src_dataset, value);
+         return this;
+     }
      /**
       * Full path name of directory to which output files will
       * be written, must end with a /
