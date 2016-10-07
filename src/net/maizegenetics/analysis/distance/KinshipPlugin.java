@@ -58,6 +58,7 @@ public class KinshipPlugin extends AbstractPlugin {
 
     private PluginParameter<ALGORITHM_VARIATION> myAlgorithmVariation = new PluginParameter.Builder<>("algorithmVariation", ALGORITHM_VARIATION.Observed_Allele_Freq, ALGORITHM_VARIATION.class)
             .description("")
+            .range(ALGORITHM_VARIATION.values())
             .dependentOnParameter(myMethod, new Object[]{KINSHIP_METHOD.Dominance_Centered_IBS})
             .build();
 
@@ -146,6 +147,11 @@ public class KinshipPlugin extends AbstractPlugin {
 
         return new DataSet(result, this);
 
+    }
+
+    @Override
+    public String pluginUserManualURL() {
+        return "https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/Kinship/Kinship";
     }
 
     @Override
