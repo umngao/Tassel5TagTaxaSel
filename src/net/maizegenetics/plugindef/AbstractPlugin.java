@@ -997,11 +997,10 @@ abstract public class AbstractPlugin implements Plugin {
         dialog.getContentPane().add(tabbedPane, BorderLayout.CENTER);
         dialog.getContentPane().add(pnlButtons, BorderLayout.SOUTH);
 
-        JTextArea helpText = new JTextArea(getUsage());
-        helpText.setLineWrap(true);
-        helpText.setWrapStyleWord(true);
+        JTextPane helpText = new JTextPane();
         helpText.setMargin(new Insets(10, 10, 10, 10));
         helpText.setEditable(false);
+        helpText.setContentType("text/html");
         tabbedPane.add(new JScrollPane(helpText), "Help");
         dialog.pack();
         if (show_citation) {
@@ -1009,9 +1008,12 @@ abstract public class AbstractPlugin implements Plugin {
             dialog.setMinimumSize(null);
             dialog.pack();
         }
+        helpText.setText(getUsageHTML());
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         if (screenSize.getHeight() - 125 < dialog.getHeight()) {
-            dialog.setSize(dialog.getWidth(), (int) screenSize.getHeight() - 125);
+            dialog.setSize(Math.max(dialog.getWidth(), 550), (int) screenSize.getHeight() - 125);
+        } else {
+            dialog.setSize(Math.max(dialog.getWidth(), 550), Math.max(dialog.getHeight(), 250));
         }
         dialog.setResizable(false);
         dialog.setLocationRelativeTo(getParentFrame());
@@ -1084,6 +1086,81 @@ abstract public class AbstractPlugin implements Plugin {
                 builder.append(citation.charAt(i));
             }
         }
+        builder.append("</center></html>");
+        return builder.toString();
+    }
+
+    public String getUsageHTML() {
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("<html><center><strong>");
+        builder.append(Utils.getBasename(getClass().getName()));
+        builder.append("</strong>");
+        String description = pluginDescription();
+        if (description != null) {
+            builder.append("<br><br><strong>Description:</strong> ");
+            builder.append(description);
+        }
+        builder.append("<br><br>");
+        builder.append("<table border='1'>");
+        builder.append("<tr><th>Parameter</th><th>Description</th><th>Values</th><th>Default</th></tr>");
+        for (PluginParameter<?> current : getParameterInstances()) {
+            if (current.parameterType() == PluginParameter.PARAMETER_TYPE.LABEL) {
+                continue;
+            }
+            builder.append("<tr>");
+
+            builder.append("<th>");
+            if (current.required()) {
+                builder.append("<font color='red'>");
+            }
+            builder.append(current.guiName());
+            if (current.required()) {
+                builder.append("</font>");
+            }
+            builder.append("</th>");
+
+            builder.append("<td>");
+            builder.append(current.description());
+            builder.append("</td>");
+
+            builder.append("<td>");
+            if (current.hasRange()) {
+                String range = current.rangeToString();
+                if ((range.charAt(0) == '[') && (range.charAt(range.length() - 1) == ']')) {
+                    range = range.substring(1, range.length() - 1);
+                }
+                StringBuilder buildRange = new StringBuilder();
+                for (char rangeChr : range.toCharArray()) {
+                    if (rangeChr == '_') {
+                        buildRange.append("\n");
+                    }
+                    buildRange.append(rangeChr);
+                }
+                builder.append(buildRange.toString());
+            } else if (current.valueType().isAssignableFrom(Boolean.class)) {
+                builder.append("true, false");
+            }
+            builder.append("</td>");
+
+            builder.append("<td>");
+            if (current.defaultValue() != null) {
+                String defaultValue = current.defaultValue().toString();
+                StringBuilder buildDefault = new StringBuilder();
+                for (char defaultChr : defaultValue.toCharArray()) {
+                    if (defaultChr == '_') {
+                        buildDefault.append("\n");
+                    }
+                    buildDefault.append(defaultChr);
+                }
+                builder.append(buildDefault.toString());
+            }
+            builder.append("</td>");
+
+            builder.append("</tr>");
+        }
+        builder.append("</table>");
+
         builder.append("</center></html>");
         return builder.toString();
     }
