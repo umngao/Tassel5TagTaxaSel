@@ -19,6 +19,7 @@ import java.awt.event.WindowEvent;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.net.URI;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -699,6 +700,21 @@ abstract public class AbstractPlugin implements Plugin {
             }
         });
 
+        JButton userManualButton = new JButton();
+        userManualButton.setText("User Manual");
+        userManualButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    Desktop desktop = Desktop.getDesktop();
+                    URI uri = new URI(pluginUserManualURL());
+                    desktop.browse(uri);
+                } catch (Exception ex) {
+                    myLogger.debug(ex.getMessage(), ex);
+                }
+            }
+        });
+
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -977,6 +993,7 @@ abstract public class AbstractPlugin implements Plugin {
         pnlButtons.add(okButton);
         pnlButtons.add(cancelButton);
         pnlButtons.add(defaultsButton);
+        pnlButtons.add(userManualButton);
         dialog.getContentPane().add(tabbedPane, BorderLayout.CENTER);
         dialog.getContentPane().add(pnlButtons, BorderLayout.SOUTH);
 
@@ -1634,6 +1651,11 @@ abstract public class AbstractPlugin implements Plugin {
     @Override
     public String pluginDescription() {
         return null;
+    }
+
+    @Override
+    public String pluginUserManualURL() {
+        return "https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual";
     }
 
     //

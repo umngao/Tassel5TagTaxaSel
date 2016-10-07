@@ -189,6 +189,13 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
      * @return description
      */
     public String pluginDescription();
+    
+    /**
+     * Returns URL to User Manual.
+     * 
+     * @return URL 
+     */
+    public String pluginUserManualURL();
 
     /**
      * Gets the Usage Statement for this Plugin.
