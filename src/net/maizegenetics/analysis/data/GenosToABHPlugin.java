@@ -25,15 +25,16 @@ import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 
 /**
- * Plugin to convert genotypes to parental comparisons and store them in an output file.
- * The user can get outputs as A/H/B, 0/1/2, or 0/0.5/1 for a genotype matching
- * parent A's genotype, heterozygous, or parent B's genotype respectively.  If the genotype is neither A or
- * B or a het combination of A/B (B/A) then it is coded as "NA".
+ * Plugin to convert genotypes to parental comparisons and store them in an
+ * output file. The user can get outputs as A/H/B, 0/1/2, or 0/0.5/1 for a
+ * genotype matching parent A's genotype, heterozygous, or parent B's genotype
+ * respectively. If the genotype is neither A or B or a het combination of A/B
+ * (B/A) then it is coded as "NA".
  *
  * @author Stefan Reuscher
  * @author jeff Glaubitz
  * @author lynn Johnson
- * @author Josh Guy 
+ * @author Josh Guy
  *
  */
 public class GenosToABHPlugin extends AbstractPlugin {
@@ -41,7 +42,10 @@ public class GenosToABHPlugin extends AbstractPlugin {
     private static final Logger myLogger = Logger.getLogger(GenosToABHPlugin.class);
     private ArrayList<Integer> parentAIndices = null;
     private ArrayList<Integer> parentBIndices = null;
-    public static enum OUTPUT_CHECK{c, i, r}
+
+    public static enum OUTPUT_CHECK {
+        c, i, r
+    }
 
     private PluginParameter<String> outfile = new PluginParameter.Builder<>("o", null, String.class)
             .required(true).outFile().guiName("Output file").description("Output genotype file").build();
@@ -80,11 +84,13 @@ public class GenosToABHPlugin extends AbstractPlugin {
     }
 
     /**
-     * The main method.  Plugin to convert genotypes to parental comparisons and store them in an output file.
-     * The user can get outputs as A/H/B, 0/1/2, or 0/0.5/1 for a genotype matching
-     * parent A's genotype, heterozygous, or parent B's genotype respectively.  If the genotype is neither A or
-     * B or a het combination of A/B (B/A) then it is coded as "NA".
+     * The main method. Plugin to convert genotypes to parental comparisons and
+     * store them in an output file. The user can get outputs as A/H/B, 0/1/2,
+     * or 0/0.5/1 for a genotype matching parent A's genotype, heterozygous, or
+     * parent B's genotype respectively. If the genotype is neither A or B or a
+     * het combination of A/B (B/A) then it is coded as "NA".
      */
+    @Override
     public DataSet processData(DataSet input) {
 
         parentAIndices = getParentIndex(myInput, parentA());
@@ -252,9 +258,9 @@ public class GenosToABHPlugin extends AbstractPlugin {
                         continue;
                     }
                     byte geno = genos.genotype(taxon, site);
-                    
+
                     //Check desired output and append the corresponding value
-                    if (outputFormat.value()== OUTPUT_CHECK.c || outputFormat == null) {
+                    if (outputFormat.value() == OUTPUT_CHECK.c || outputFormat == null) {
                         if (geno == parentAGenos[site]) {
                             strB.append(",A");
                         } else if (geno == parentBGenos[site]) {
@@ -264,7 +270,7 @@ public class GenosToABHPlugin extends AbstractPlugin {
                         } else {
                             strB.append(",NA");
                         }
-                    } else if (outputFormat.value()== OUTPUT_CHECK.i) {
+                    } else if (outputFormat.value() == OUTPUT_CHECK.i) {
                         if (geno == parentAGenos[site]) {
                             strB.append(",0");
                         } else if (geno == parentBGenos[site]) {
@@ -274,7 +280,7 @@ public class GenosToABHPlugin extends AbstractPlugin {
                         } else {
                             strB.append(",NA");
                         }
-                    } else if (outputFormat.value()== OUTPUT_CHECK.r) {
+                    } else if (outputFormat.value() == OUTPUT_CHECK.r) {
                         if (geno == parentAGenos[site]) {
                             strB.append(",0");
                         } else if (geno == parentBGenos[site]) {
@@ -304,10 +310,12 @@ public class GenosToABHPlugin extends AbstractPlugin {
         }
     }
 
+    @Override
     public String getToolTipText() {
         return "Convert Genotypes to A/B/H";
     }
 
+    @Override
     public ImageIcon getIcon() {
         URL imageURL = GenosToABHPlugin.class.getResource("/net/maizegenetics/analysis/images/homozygous.gif");
         if (imageURL == null) {
@@ -317,6 +325,7 @@ public class GenosToABHPlugin extends AbstractPlugin {
         }
     }
 
+    @Override
     public String getButtonName() {
         return "ABH Genotype";
     }
@@ -399,16 +408,16 @@ public class GenosToABHPlugin extends AbstractPlugin {
         parentB = new PluginParameter<>(parentB, value);
         return this;
     }
-    
+
     /**
      * The output format enum
      *
      * @return Output Format
-     */  
+     */
     public OUTPUT_CHECK outputFormat() {
         return outputFormat.value();
     }
-    
+
     /**
      * Set Output Format. The output format enum
      *
@@ -425,4 +434,10 @@ public class GenosToABHPlugin extends AbstractPlugin {
     public String getCitation() {
         return "Stefan Reuscher, Jeff Glaubitz, Lynn Johnson (2015) First Annual TASSEL Hackathon";
     }
+
+    @Override
+    public String pluginUserManualURL() {
+        return "https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/GenosToABH/GenosToABHPlugin";
+    }
+
 }
