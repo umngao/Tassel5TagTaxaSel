@@ -10,6 +10,7 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.InputStreamReader;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -644,7 +645,12 @@ public class VCAPScanPlugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        return null;
+        URL imageURL = VCAPScanPlugin.class.getResource("/net/maizegenetics/analysis/images/VCAP.png");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
     }
 
     @Override
@@ -654,7 +660,12 @@ public class VCAPScanPlugin extends AbstractPlugin {
 
     @Override
     public String getToolTipText() {
-        return "VCAP Scan";
+        return "Variance Component Annotation Pipeline Scan";
+    }
+
+    @Override
+    public String pluginUserManualURL() {
+        return "https://bitbucket.org/tasseladmin/tassel-5-source/wiki/Home";
     }
 
 }
