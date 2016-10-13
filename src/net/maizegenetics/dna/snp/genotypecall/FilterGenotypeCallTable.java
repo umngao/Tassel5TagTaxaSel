@@ -108,6 +108,15 @@ class FilterGenotypeCallTable extends AbstractGenotypeCallTable {
     }
 
     @Override
+    public byte[] genotypeForAllSites(int taxon) {
+        if (!myIsSiteFilterByRange && !myIsSiteFilter) {
+            return myBaseGenotype.genotypeForAllSites(translateTaxon(taxon));
+        } else {
+            return super.genotypeForAllSites(taxon);
+        }
+    }
+
+    @Override
     public int[][] allelesSortedByFrequency(int site) {
         if (!myIsTaxaFilter) {
             return myBaseGenotype.allelesSortedByFrequency(translateSite(site));
