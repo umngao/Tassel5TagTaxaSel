@@ -48,7 +48,11 @@ public class FilterHDF5AlleleDepth extends AlleleDepth {
      */
     @Override
     public byte[][] valuesForTaxonByte(int taxon) {
-        return myBase.valuesForTaxonByte(myFilter.translateTaxon(taxon));
+        if (!myFilter.isSiteFilterByRange() && !myFilter.isSiteFilter()) {
+            return myBase.valuesForTaxonByte(myFilter.translateTaxon(taxon));
+        } else {
+            return super.valuesForTaxonByte(taxon);
+        }
     }
 
     /**
