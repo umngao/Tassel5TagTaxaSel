@@ -93,8 +93,12 @@ import net.maizegenetics.analysis.data.MaskGenotypePlugin;
 import net.maizegenetics.analysis.data.SetLowDepthGenosToMissingPlugin;
 import net.maizegenetics.analysis.data.SortGenotypeFilePlugin;
 import net.maizegenetics.analysis.distance.AMatrixPlugin;
+import net.maizegenetics.analysis.distance.AddDistanceMatrixPlugin;
 import net.maizegenetics.analysis.distance.DistanceMatrixPlugin;
 import net.maizegenetics.analysis.distance.HMatrixPlugin;
+import net.maizegenetics.analysis.distance.RemoveNaNFromDistanceMatrixPlugin;
+import net.maizegenetics.analysis.distance.SubtractDistanceMatrixPlugin;
+import net.maizegenetics.analysis.distance.VCAPScanPlugin;
 import net.maizegenetics.analysis.filter.FilterSiteBuilderPlugin;
 import net.maizegenetics.analysis.gbs.BinaryToTextPlugin;
 import net.maizegenetics.analysis.gbs.DiscoverySNPCallerPlugin;
@@ -421,6 +425,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new MaskGenotypePlugin(this, true)));
         result.add(createMenuItem(new FindInversionsPlugin(this, true)));
         result.add(createMenuItem(new CreateHybridGenotypesPlugin(this, true)));
+        result.add(createMenuItem(new GenotypeSummaryPlugin(this, true)));
         result.addSeparator();
 
         JMenuItem delete = new JMenuItem("Delete Dataset");
@@ -468,24 +473,60 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
         JMenu result = new JMenu("Analysis");
         result.setMnemonic(KeyEvent.VK_A);
+        
+        result.add(getPopGenMenu());
+        result.add(getDistanceMenu());
+        result.add(getAssociationMenu());
+        
+        return result;
+        
+    }
+    
+    private JMenu getPopGenMenu() {
+        
+        JMenu result = new JMenu("Diversity");
+        result.setMnemonic(KeyEvent.VK_D);
 
         result.add(createMenuItem(new SequenceDiversityPlugin(this, true)));
         result.add(createMenuItem(new LinkageDisequilibriumPlugin(this, true)));
+        return result;
+        
+    }
+    
+    private JMenu getDistanceMenu() {
+
+        JMenu result = new JMenu("Relatedness");
+        result.setMnemonic(KeyEvent.VK_R);
+        
         result.add(createMenuItem(new DistanceMatrixPlugin(this, true)));
-        result.add(createMenuItem(new CreateTreePlugin(this, true)));
         result.add(createMenuItem(new KinshipPlugin(this, true)));
+        result.add(createMenuItem(new CreateTreePlugin(this, true)));
         result.add(createMenuItem(new AMatrixPlugin(this, true)));
         result.add(createMenuItem(new HMatrixPlugin(this, true)));
-        result.add(createMenuItem(new PrincipalComponentsPlugin(this, true)));
         result.add(createMenuItem(new MultiDimensionalScalingPlugin(this, true)));
+        result.add(createMenuItem(new PrincipalComponentsPlugin(this, true)));
+        result.addSeparator();
+        result.add(createMenuItem(new RemoveNaNFromDistanceMatrixPlugin(this, true)));
+        result.add(createMenuItem(new SubtractDistanceMatrixPlugin(this, true)));
+        result.add(createMenuItem(new AddDistanceMatrixPlugin(this, true)));
+        return result;
+        
+    }
+    
+    private JMenu getAssociationMenu() {
+
+        JMenu result = new JMenu("Genotype / Phenotype Association");
+        result.setMnemonic(KeyEvent.VK_A);
+
         result.add(createMenuItem(new FixedEffectLMPlugin(this, true)));
         result.add(createMenuItem(new MLMPlugin(this, true)));
         result.add(createMenuItem(new WeightedMLMPlugin(this, true)));
         result.add(createMenuItem(new GenomicSelectionPlugin(this, true)));
-        result.add(createMenuItem(new GenotypeSummaryPlugin(this, true)));
         result.add(createMenuItem(new StepwiseOLSModelFitterPlugin(this, true)));
         result.add(createMenuItem(new EqtlAssociationPlugin(this, true)));
+        result.add(createMenuItem(new VCAPScanPlugin(this, true)));
         return result;
+        
     }
 
     private JMenu getResultsMenu() {
@@ -548,6 +589,9 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
     private JMenu getGBSMenu() {
 
         JMenu result = new JMenu("GBS");
+        Map attributes = result.getFont().getAttributes();
+        attributes.put(TextAttribute.STRIKETHROUGH, TextAttribute.STRIKETHROUGH_ON);
+        result.setFont(new Font(attributes));
 
         addMenuItemDeprecated(result, createMenuItem(new BinaryToTextPlugin(this, true), false));
         addMenuItemDeprecated(result, createMenuItem(new FastqToTagCountPlugin(this, true), false));
