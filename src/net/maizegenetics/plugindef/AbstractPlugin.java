@@ -1160,8 +1160,13 @@ abstract public class AbstractPlugin implements Plugin {
             builder.append("</tr>");
         }
         builder.append("</table>");
+        
+        builder.append("</center>");
+        
+        builder.append("<br><font color='red'>* parameters in red are required</font>");
 
-        builder.append("</center></html>");
+        builder.append("</html>");
+        
         return builder.toString();
     }
 
