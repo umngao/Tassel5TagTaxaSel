@@ -23,7 +23,6 @@ import javax.swing.ImageIcon;
 import net.maizegenetics.analysis.distance.IBSDistanceMatrix;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Chromosome;
-import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.dna.snp.ExportUtils;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
@@ -180,7 +179,7 @@ public class FILLINFindHaplotypesPlugin extends net.maizegenetics.plugindef.Abst
     
     private GenotypeTable createHaplotypeAlignment(int startSite, int endSite, GenotypeTable baseAlign,
             int minSites, double maxDistance) {
-        FilterGenotypeTable fa=FilterGenotypeTable.getInstance(baseAlign, startSite, endSite);
+        GenotypeTable fa=FilterGenotypeTable.getInstance(baseAlign, startSite, endSite);
         GenotypeTable inAlign=GenotypeTableBuilder.getGenotypeCopyInstance(fa);
         int sites=inAlign.numberOfSites();
         if(verboseOutput) System.out.printf("SubInAlign Locus:%s StartPos:%d taxa:%d sites:%d %n",inAlign.chromosome(0),

@@ -1,6 +1,5 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * FindMergeHaplotypesPlugin
  */
 package net.maizegenetics.analysis.imputation;
 
@@ -114,7 +113,7 @@ public class FindMergeHaplotypesPlugin extends AbstractPlugin {
     
     private GenotypeTable createHaplotypeAlignment(int startSite, int endSite, GenotypeTable baseAlign,
             int minSites, double maxDistance) {
-        FilterGenotypeTable fa=FilterGenotypeTable.getInstance(baseAlign, startSite, endSite);
+        GenotypeTable fa=FilterGenotypeTable.getInstance(baseAlign, startSite, endSite);
         GenotypeTable inAlign=GenotypeTableBuilder.getGenotypeCopyInstance(fa);
         int sites=inAlign.numberOfSites();
         System.out.printf("SubInAlign Locus:%s StartPos:%d taxa:%d sites:%d %n",inAlign.chromosome(0),

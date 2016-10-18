@@ -392,11 +392,11 @@ public class FilterGenotypeTable implements GenotypeTable {
 
     }
 
-    public static FilterGenotypeTable getInstance(GenotypeTable a, String chromosome, int startPhysicalPos, int endPhysicalPos) {
+    public static GenotypeTable getInstance(GenotypeTable a, String chromosome, int startPhysicalPos, int endPhysicalPos) {
         return getInstance(a, a.chromosome(chromosome), startPhysicalPos, endPhysicalPos);
     }
 
-    public static FilterGenotypeTable getInstance(GenotypeTable a, Chromosome chromosome, int startPhysicalPos, int endPhysicalPos) {
+    public static GenotypeTable getInstance(GenotypeTable a, Chromosome chromosome, int startPhysicalPos, int endPhysicalPos) {
 
         int startSite = a.siteOfPhysicalPosition(startPhysicalPos, chromosome);
         if (startSite < 0) {
@@ -417,7 +417,7 @@ public class FilterGenotypeTable implements GenotypeTable {
 
     }
 
-    public static FilterGenotypeTable getInstance(GenotypeTable a, Chromosome chromosome) {
+    public static GenotypeTable getInstance(GenotypeTable a, Chromosome chromosome) {
         int[] endStart = a.firstLastSiteOfChromosome(chromosome);
         return getInstance(a, endStart[0], endStart[1]);
     }
@@ -432,8 +432,11 @@ public class FilterGenotypeTable implements GenotypeTable {
      *
      * @return Filter Alignment
      */
-    public static FilterGenotypeTable getInstance(GenotypeTable a, int startSite, int endSite) {
+    public static GenotypeTable getInstance(GenotypeTable a, int startSite, int endSite) {
 
+        if ((startSite == 0) && (endSite == a.numberOfSites() - 1)) {
+            return a;
+        }
         if ((startSite < 0) || (startSite > endSite)) {
             throw new IllegalArgumentException("FilterGenotypeTable: getInstance: startSite: " + startSite + " less than zero or greater than end site.");
         }
