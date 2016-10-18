@@ -48,7 +48,7 @@ public class GetTagSequenceFromDBPlugin extends AbstractPlugin {
     private PluginParameter<String> myDBFile = new PluginParameter.Builder<String>("db", null, String.class).guiName("Input DB").required(true).inFile()
             .description("Input database file with tags").build();
     private PluginParameter<String> myOutputFile = new PluginParameter.Builder<String>("o", null, String.class).guiName("Output File").required(true).outFile()
-            .description("Output txt file that can be unimported to Excel").build();
+            .description("Output txt file that can be imported to Excel").build();
     private PluginParameter<String> myTagSequence = new PluginParameter.Builder<String>("tagSequence", null, String.class).guiName("Tag Sequence")
             .description("Enter specific tag sequence to verify existence in database.  If no sequence is provided, all tags from the DB will be printed").build();
 
