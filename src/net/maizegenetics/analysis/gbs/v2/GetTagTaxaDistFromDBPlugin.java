@@ -33,7 +33,7 @@ import net.maizegenetics.taxa.TaxaList;
  * @author lcj34
  *
  */
-public class GetTagTaxaDistFromDB extends AbstractPlugin {
+public class GetTagTaxaDistFromDBPlugin extends AbstractPlugin {
     private static final Logger myLogger = Logger.getLogger(GetTagSequenceFromDBPlugin.class);
 
     private PluginParameter<String> myDBFile = new PluginParameter.Builder<String>("db", null, String.class).guiName("Input DB").required(true).inFile()
@@ -41,15 +41,15 @@ public class GetTagTaxaDistFromDB extends AbstractPlugin {
     private PluginParameter<String> myOutputFile = new PluginParameter.Builder<String>("o", null, String.class).guiName("Output File").required(true).outFile()
             .description("Output txt file that can be imported to Excel").build();
 
-    public GetTagTaxaDistFromDB() {
+    public GetTagTaxaDistFromDBPlugin() {
         super(null, false);
     }
 
-    public GetTagTaxaDistFromDB(Frame parentFrame) {
+    public GetTagTaxaDistFromDBPlugin(Frame parentFrame) {
         super(parentFrame, false);
     }
 
-    public GetTagTaxaDistFromDB(Frame parentFrame, boolean isInteractive) {
+    public GetTagTaxaDistFromDBPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
 
@@ -138,7 +138,7 @@ public class GetTagTaxaDistFromDB extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public GetTagTaxaDistFromDB inputDB(String value) {
+    public GetTagTaxaDistFromDBPlugin inputDB(String value) {
         myDBFile = new PluginParameter<>(myDBFile, value);
         return this;
     }
@@ -162,7 +162,7 @@ public class GetTagTaxaDistFromDB extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public GetTagTaxaDistFromDB outputFile(String value) {
+    public GetTagTaxaDistFromDBPlugin outputFile(String value) {
         myOutputFile = new PluginParameter<>(myOutputFile, value);
         return this;
     }
