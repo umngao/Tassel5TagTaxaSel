@@ -108,6 +108,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
     private boolean customSNPLogging = true;  // a custom SNP log that collects useful info for filtering SNPs through machine learning criteria
 //    private CustomSNPLog myCustomSNPLog = null;
     private boolean customFiltering = false;
+    private int refTagsNotAdded = 0;
 
     public DiscoverySNPCallerPluginV2() {
         super(null, false);
@@ -193,6 +194,7 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                     }
             );
         ConcurrencyTools.shutdown();
+        //System.out.println("DIscoverySNPCaller - number of referencd tags created but not added: " + refTagsNotAdded);
         try{
             ((TagDataSQLite)tagDataWriter).close();
         } catch (Exception ex) {ex.printStackTrace();}
@@ -312,14 +314,37 @@ public class DiscoverySNPCallerPluginV2 extends AbstractPlugin {
                 .collect(Collectors.toList());
         //todo convert to stream
         Multimap<Tag,Allele> tagAllelemap= HashMultimap.create();
+        
         for (Position position: positionToKeep) {
             for (Map.Entry<Byte, List<TagTaxaDistribution>> entry : tAlign.row(position).entrySet()) {
                 Allele allele=new SimpleAllele(entry.getKey(),position);
                 for (TagTaxaDistribution tagTaxaDistribution : entry.getValue()) {
                 	Tag currentTag = tagTaxaDistribution.tag();
-//                	if (currentTag.isReference() && myRefSequence != null) ; //don't add ref tag from ref genome to map
+                	TaxaDistribution td = tagTaxaDistribution.taxaDist();
+                	// Address the problem of adding more tags than should be in the db.
+                	// don't want to add the reference tag if it wasn't already there.
+                	// Don't want to skip it if it was in the DB.
+                	// Total depth should distinguish those that were previously present
+                	// from those tags that were not.  The problem with adding it is there
+                	// is no taxa distribution for it, meaning we created and empty TD, with
+                	// total depth of null.  Storing this in the db can cause problems
+                	// down the line if a method attempts to grab the td values.
+                	// Jira tasks for this were TAS-761 (added), TAS-1006 (removed),
+                	// TAS-1138 (changed to totalDepth check)
+                	if (td.totalDepth() == 0) {                	    
+                	    refTagsNotAdded++;
+                	} 
+                	else
+                	    tagAllelemap.put(currentTag, allele);   
+                	//The code below has been in and out. It is replaced by the
+                	// code above, which is a better way of determining which
+                	// tags were created just for aligning with a reference.
+
+//                	if (currentTag.isReference() && myRefSequence != null) {
+//                	    refTagsNotAdded++;
+//                	} //don't add ref tag from ref genome to map
 //                	else
-                        tagAllelemap.put(currentTag,allele);
+//                        tagAllelemap.put(currentTag,allele);
                 }
             }
         }
