@@ -141,4 +141,9 @@ public class RemoveNaNFromDistanceMatrixPlugin extends AbstractPlugin {
         return "Remove NaN From Distance Matrix";
     }
 
+    @Override
+    public String pluginUserManualURL() {
+        return "https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/RemoveNaN/RemoveNaN";
+    }
+
 }
