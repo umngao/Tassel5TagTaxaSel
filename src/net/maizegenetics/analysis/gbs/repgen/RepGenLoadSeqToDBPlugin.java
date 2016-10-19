@@ -1,7 +1,8 @@
-package net.maizegenetics.analysis.gbs.v2;
+package net.maizegenetics.analysis.gbs.repgen;
 
 import com.google.common.collect.Multimap;
 import net.maizegenetics.analysis.gbs.Barcode;
+import net.maizegenetics.analysis.gbs.v2.GBSUtils;
 import net.maizegenetics.dna.BaseEncoder;
 import net.maizegenetics.dna.tag.*;
 import net.maizegenetics.plugindef.AbstractPlugin;
@@ -42,9 +43,9 @@ import java.util.stream.IntStream;
  *
  * @author Ed Buckler
  */
-public class rGBSSeqToTagDBPlugin extends AbstractPlugin {
+public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
 
-    private static final Logger myLogger = Logger.getLogger(rGBSSeqToTagDBPlugin.class);
+    private static final Logger myLogger = Logger.getLogger(RepGenLoadSeqToDBPlugin.class);
 
     private PluginParameter<String> myInputDir = new PluginParameter.Builder<>("i", null, String.class).guiName("Input Directory").required(true).inDir()
             .description("Input directory containing FASTQ files in text or gzipped text.\n"
@@ -75,11 +76,11 @@ public class rGBSSeqToTagDBPlugin extends AbstractPlugin {
     protected static int readEndCutSiteRemnantLength;
     String[] likelyReadEndStrings;
 
-    public rGBSSeqToTagDBPlugin() {
+    public RepGenLoadSeqToDBPlugin() {
         super(null, false);
     }
 
-    public rGBSSeqToTagDBPlugin(Frame parentFrame, boolean isInteractive) {
+    public RepGenLoadSeqToDBPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
 
@@ -369,7 +370,7 @@ public class rGBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public rGBSSeqToTagDBPlugin inputDirectory(String value) {
+    public RepGenLoadSeqToDBPlugin inputDirectory(String value) {
         myInputDir = new PluginParameter<>(myInputDir, value);
         return this;
     }
@@ -391,7 +392,7 @@ public class rGBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public rGBSSeqToTagDBPlugin keyFile(String value) {
+    public RepGenLoadSeqToDBPlugin keyFile(String value) {
         myKeyFile = new PluginParameter<>(myKeyFile, value);
         return this;
     }
@@ -413,7 +414,7 @@ public class rGBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public rGBSSeqToTagDBPlugin kmerLength(Integer value) {
+    public RepGenLoadSeqToDBPlugin kmerLength(Integer value) {
         myKmerLength = new PluginParameter<>(myKmerLength, value);
         return this;
     }
@@ -434,7 +435,7 @@ public class rGBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public rGBSSeqToTagDBPlugin minimumKmerLength(Integer value) {
+    public RepGenLoadSeqToDBPlugin minimumKmerLength(Integer value) {
         myMinKmerLength = new PluginParameter<>(myMinKmerLength, value);
         return this;
     }
@@ -455,7 +456,7 @@ public class rGBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public rGBSSeqToTagDBPlugin minKmerCount(Integer value) {
+    public RepGenLoadSeqToDBPlugin minKmerCount(Integer value) {
         myMinKmerCount = new PluginParameter<>(myMinKmerCount, value);
         return this;
     }
@@ -476,7 +477,7 @@ public class rGBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public rGBSSeqToTagDBPlugin outputDatabaseFile(String value) {
+    public RepGenLoadSeqToDBPlugin outputDatabaseFile(String value) {
         myOutputDB = new PluginParameter<>(myOutputDB, value);
         return this;
     }
@@ -499,7 +500,7 @@ public class rGBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public rGBSSeqToTagDBPlugin minimumQualityScore(Integer value) {
+    public RepGenLoadSeqToDBPlugin minimumQualityScore(Integer value) {
         myMinQualScore = new PluginParameter<>(myMinQualScore, value);
         return this;
     }
@@ -509,7 +510,7 @@ public class rGBSSeqToTagDBPlugin extends AbstractPlugin {
      * @param value
      * @return
      */
-    public rGBSSeqToTagDBPlugin maximumKmerNumber(Integer value) {
+    public RepGenLoadSeqToDBPlugin maximumKmerNumber(Integer value) {
         myMaxKmerNumber = new PluginParameter<>(myMaxKmerNumber, value);
         return this;
     }
@@ -519,7 +520,7 @@ public class rGBSSeqToTagDBPlugin extends AbstractPlugin {
      * @param value
      * @return
      */
-    public rGBSSeqToTagDBPlugin batchSize(Integer value) {
+    public RepGenLoadSeqToDBPlugin batchSize(Integer value) {
         myBatchSize = new PluginParameter<>(myBatchSize, value);
         return this;
     }
@@ -540,7 +541,7 @@ public class rGBSSeqToTagDBPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public rGBSSeqToTagDBPlugin deleteOldData(Boolean value) {
+    public RepGenLoadSeqToDBPlugin deleteOldData(Boolean value) {
         myDeleteOldData = new PluginParameter<>(myDeleteOldData, value);
         return this;
     }
