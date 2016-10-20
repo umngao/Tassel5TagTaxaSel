@@ -649,9 +649,8 @@ abstract public class AbstractPlugin implements Plugin {
                                 String input = ((JTextField) component).getText().trim();
                                 setParameter(current.cmdLineName(), input);
                             }
-                        } else if ((current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_MULTIPLE_SELECT)
-                                || (current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_SINGLE_SELECT)) {
-                            List<?> selectedObjects = ((JList<?>) component).getSelectedValuesList();
+                        } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_SINGLE_SELECT) {
+                            Object selectedObjects = ((JComboBox<?>) component).getSelectedItem();
                             setParameter(current.cmdLineName(), selectedObjects);
                         } else if (component instanceof JTextField) {
                             String input = ((JTextField) component).getText().trim();
@@ -818,31 +817,13 @@ abstract public class AbstractPlugin implements Plugin {
                     parameterFields.put(current.cmdLineName(), field);
                 }
             } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_SINGLE_SELECT) {
-                JPanel listPanel = new JPanel();
-                listPanel.setLayout(new BorderLayout());
-                listPanel.add(new JLabel(current.guiName()), BorderLayout.NORTH);
-
-                JList<?> list = new JList<>(current.possibleValues().toArray());
-                list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-                list.setVisibleRowCount(Math.min(10, current.possibleValues().size()));
+                JPanel listPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                listPanel.add(new JLabel(current.guiName()));
+                JComboBox<?> list = new JComboBox<>(current.possibleValues().toArray());
+                list.setSelectedIndex(0);
                 createEnableDisableAction(current, parameterFields, list);
-                JScrollPane scrollPane = new JScrollPane(list);
-                scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-                listPanel.add(scrollPane, BorderLayout.CENTER);
-                panel.add(listPanel);
-                parameterFields.put(current.cmdLineName(), list);
-            } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.OBJECT_LIST_MULTIPLE_SELECT) {
-                JPanel listPanel = new JPanel();
-                listPanel.setLayout(new BorderLayout());
-                listPanel.add(new JLabel(current.guiName()), BorderLayout.NORTH);
-
-                JList<?> list = new JList<>(current.possibleValues().toArray());
-                list.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-                list.setVisibleRowCount(Math.min(10, current.possibleValues().size()));
-                createEnableDisableAction(current, parameterFields, list);
-                JScrollPane scrollPane = new JScrollPane(list);
-                scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-                listPanel.add(scrollPane, BorderLayout.CENTER);
+                listPanel.add(list);
+                listPanel.setToolTipText(getToolTip(current));
                 panel.add(listPanel);
                 parameterFields.put(current.cmdLineName(), list);
             } else if (current.valueType().isEnum()) {
@@ -1125,8 +1106,21 @@ abstract public class AbstractPlugin implements Plugin {
             builder.append("</td>");
 
             builder.append("<td>");
-            if (current.hasRange()) {
-                String range = current.rangeToString();
+            if (current.hasPossibleValues()) {
+                String range = current.possibleValuesString(true);
+                if ((range.charAt(0) == '[') && (range.charAt(range.length() - 1) == ']')) {
+                    range = range.substring(1, range.length() - 1);
+                }
+                StringBuilder buildRange = new StringBuilder();
+                for (char rangeChr : range.toCharArray()) {
+                    if (rangeChr == '_') {
+                        buildRange.append("\n");
+                    }
+                    buildRange.append(rangeChr);
+                }
+                builder.append(buildRange.toString());
+            } else if (current.hasRange()) {
+                String range = current.rangeToString(true);
                 if ((range.charAt(0) == '[') && (range.charAt(range.length() - 1) == ']')) {
                     range = range.substring(1, range.length() - 1);
                 }

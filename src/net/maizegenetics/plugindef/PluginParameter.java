@@ -33,12 +33,12 @@ public final class PluginParameter<T> {
     private final Class<T> myClass;
     private final PluginParameter<?> myDependentOnParameter;
     private final Object[] myDependentOnParameterValue;
-    private final List<?> myPossibleValues;
+    private final List<T> myPossibleValues;
 
     public enum PARAMETER_TYPE {
 
         NA, IN_FILE, OUT_FILE, IN_DIR, OUT_DIR, GENOTYPE_TABLE, TAXA_NAME_LIST, SITE_NAME_LIST,
-        OBJECT_LIST_SINGLE_SELECT, OBJECT_LIST_MULTIPLE_SELECT, POSITION_LIST, DISTANCE_MATRIX,
+        OBJECT_LIST_SINGLE_SELECT, POSITION_LIST, DISTANCE_MATRIX,
         LABEL, PASSWORD
     };
     private final PARAMETER_TYPE myParameterType;
@@ -47,7 +47,7 @@ public final class PluginParameter<T> {
             String description, List<Range<Comparable<T>>> ranges, T defaultValue,
             T value, boolean required, PARAMETER_TYPE fileType,
             PluginParameter<?> dependentOnParameter, Object[] dependentOnParameterValue,
-            List<?> possibleValues, Class<T> type) {
+            List<T> possibleValues, Class<T> type) {
         myGuiName = guiName;
         myUnits = guiUnits;
         myCmdLineName = cmdLineName;
@@ -98,8 +98,15 @@ public final class PluginParameter<T> {
                 oldParameter.dependentOnParameterValue(), oldParameter.possibleValues(), oldParameter.myClass);
     }
 
-    public static PluginParameter<List> getInstance(PluginParameter<List> oldParameter, List<?> possibleValues) {
-        return new PluginParameter<>(oldParameter.myGuiName, oldParameter.myUnits, oldParameter.myCmdLineName,
+    /**
+     * Use this to change the possible values of a PluginParameter built as
+     * objectListSingleSelect().
+     *
+     * @param oldParameter old plugin parameter
+     * @param possibleValues new values
+     */
+    public PluginParameter(PluginParameter<T> oldParameter, List<T> possibleValues) {
+        this(oldParameter.myGuiName, oldParameter.myUnits, oldParameter.myCmdLineName,
                 oldParameter.myDescription, oldParameter.myRanges, oldParameter.myDefaultValue, oldParameter.value(),
                 oldParameter.myRequired, oldParameter.myParameterType, oldParameter.dependentOnParameter(),
                 oldParameter.dependentOnParameterValue(), possibleValues, oldParameter.myClass);
@@ -134,6 +141,10 @@ public final class PluginParameter<T> {
     }
 
     public String rangeToString() {
+        return rangeToString(false);
+    }
+
+    public String rangeToString(boolean friendly) {
         if (hasRange()) {
             StringBuilder builder = new StringBuilder();
 
@@ -142,7 +153,11 @@ public final class PluginParameter<T> {
                 if ((current.hasLowerBound() && current.hasUpperBound())
                         && (current.lowerEndpoint().equals(current.upperEndpoint()))) {
                     builder.append("[");
-                    builder.append(current.lowerEndpoint().toString());
+                    if (!friendly && (current.lowerEndpoint() instanceof Enum)) {
+                        builder.append(((Enum) current.lowerEndpoint()).name());
+                    } else {
+                        builder.append(current.lowerEndpoint().toString());
+                    }
                     builder.append("]");
                 } else {
                     builder.append(current.toString());
@@ -159,7 +174,49 @@ public final class PluginParameter<T> {
 
                     if ((current.hasLowerBound() && current.hasUpperBound())
                             && (current.lowerEndpoint().equals(current.upperEndpoint()))) {
-                        builder.append(current.lowerEndpoint().toString());
+                        if (!friendly && (current.lowerEndpoint() instanceof Enum)) {
+                            builder.append(((Enum) current.lowerEndpoint()).name());
+                        } else {
+                            builder.append(current.lowerEndpoint().toString());
+                        }
+                    } else {
+                        builder.append(current.toString());
+                    }
+                }
+                builder.append("]");
+            }
+
+            return builder.toString();
+        } else {
+            return "";
+        }
+    }
+
+    public String possibleValuesString(boolean friendly) {
+        if (hasPossibleValues()) {
+            StringBuilder builder = new StringBuilder();
+
+            if (myPossibleValues.size() == 1) {
+                T current = myPossibleValues.get(0);
+                builder.append("[");
+                if (!friendly && (current instanceof Enum)) {
+                    builder.append(((Enum) current).name());
+                } else {
+                    builder.append(current.toString());
+                }
+                builder.append("]");
+            } else {
+                boolean first = true;
+                builder.append("[");
+                for (T current : myPossibleValues) {
+                    if (!first) {
+                        builder.append(", ");
+                    } else {
+                        first = false;
+                    }
+
+                    if (!friendly && (current instanceof Enum)) {
+                        builder.append(((Enum) current).name());
                     } else {
                         builder.append(current.toString());
                     }
@@ -224,7 +281,11 @@ public final class PluginParameter<T> {
         return myDependentOnParameterValue;
     }
 
-    public List<?> possibleValues() {
+    public boolean hasPossibleValues() {
+        return myPossibleValues != null;
+    }
+
+    public List<T> possibleValues() {
         return myPossibleValues;
     }
 
@@ -245,7 +306,7 @@ public final class PluginParameter<T> {
         private PARAMETER_TYPE myParameterType = PARAMETER_TYPE.NA;
         private PluginParameter<?> myDependentOnParameter = null;
         private Object[] myDependentOnParameterValue = null;
-        private List<?> myPossibleValues = null;
+        private List<T> myPossibleValues = null;
 
         public Builder(String cmdLineName, T defaultValue, Class<T> type) {
             myCmdLineName = cmdLineName;
@@ -339,11 +400,6 @@ public final class PluginParameter<T> {
             return this;
         }
 
-        public Builder<T> objectListMultipleSelect() {
-            myParameterType = PARAMETER_TYPE.OBJECT_LIST_MULTIPLE_SELECT;
-            return this;
-        }
-
         public Builder<T> password() {
             myParameterType = PARAMETER_TYPE.PASSWORD;
             return this;
@@ -371,7 +427,7 @@ public final class PluginParameter<T> {
             return this;
         }
 
-        public Builder<T> possibleValues(List<?> possibleValues) {
+        public Builder<T> possibleValues(List<T> possibleValues) {
             myPossibleValues = possibleValues;
             return this;
         }

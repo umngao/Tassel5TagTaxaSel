@@ -2,9 +2,7 @@ package net.maizegenetics.analysis.modelfitter;
 
 import com.google.common.collect.Range;
 
-import net.maizegenetics.phenotype.CategoricalAttribute;
 import net.maizegenetics.phenotype.GenotypePhenotype;
-import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.plugindef.*;
 import net.maizegenetics.util.TableReport;
@@ -62,8 +60,8 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
                     .guiName("Nest markers")
                     .description("Should markers be nested within a model factor")
                     .build();
-    private PluginParameter<List> nestingFactor =
-            new PluginParameter.Builder<>("nestFactor", null, List.class)
+    private PluginParameter<String> nestingFactor =
+            new PluginParameter.Builder<>("nestFactor", null, String.class)
                     .guiName("Nesting factor")
                     .description("Nest markers within this factor.")
                     .dependentOnParameter(nestMarkers)
@@ -129,9 +127,9 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
 
         if (myFactorList.isEmpty()) {
             List<String> noneList = Arrays.asList(NONE);
-            nestingFactor = PluginParameter.getInstance(nestingFactor, noneList);
+            nestingFactor = new PluginParameter(nestingFactor, noneList);
         } else {
-            nestingFactor = PluginParameter.getInstance(nestingFactor, myFactorList);
+            nestingFactor = new PluginParameter(nestingFactor, myFactorList);
         }
     }
 
@@ -139,7 +137,7 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
     protected void postProcessParameters() {
         if (nestMarkers.value() && nestingFactor.value().isEmpty()) {
             if (myFactorList.size() == 1) {
-                nestingFactor(myFactorList);
+                nestingFactor(myFactorList.get(0));
             } else if (myFactorList.size() > 1) {
                 throw new IllegalArgumentException("Nest markers was checked (set to true), but a single factor was not selected to nest markers within. This must be corrected before the analysis will run.");
             }
@@ -154,7 +152,7 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
         modelFitter.setMaxNumberOfMarkers(maxNumberOfMarkers.value());
         modelFitter.setNested(nestMarkers.value());
         if (nestMarkers.value()) {
-            int ndx = myGenoPheno.phenotype().attributeIndexForName((String) nestingFactor.value().get(0));
+            int ndx = myGenoPheno.phenotype().attributeIndexForName(nestingFactor.value());
             if (ndx < 0)
                 modelFitter.setNested(false);
             else
@@ -353,7 +351,7 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
      *
      * @return Nesting factor
      */
-    public List nestingFactor() {
+    public String nestingFactor() {
         return nestingFactor.value();
     }
 
@@ -364,7 +362,7 @@ public class StepwiseOLSModelFitterPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public StepwiseOLSModelFitterPlugin nestingFactor(List value) {
+    public StepwiseOLSModelFitterPlugin nestingFactor(String value) {
         nestingFactor = new PluginParameter<>(nestingFactor, value);
         return this;
     }

@@ -4,16 +4,13 @@ import java.awt.Frame;
 import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import javax.swing.ImageIcon;
 
 import org.apache.log4j.Logger;
 
-import com.google.common.collect.Range;
 
 import net.maizegenetics.analysis.modelfitter.AdditiveSite.CRITERION;
 import net.maizegenetics.dna.snp.GenotypeTable;
@@ -26,9 +23,7 @@ import net.maizegenetics.phenotype.PhenotypeUtils;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
-import net.maizegenetics.util.LoggingUtils;
 import net.maizegenetics.util.TableReport;
 import net.maizegenetics.util.TableReportUtils;
 
@@ -107,8 +102,8 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
                     .guiName("")
                     .build();
 
-    private PluginParameter<List> nestingFactor =
-            new PluginParameter.Builder<>("nestFactor", null, List.class)
+    private PluginParameter<String> nestingFactor =
+            new PluginParameter.Builder<>("nestFactor", null, String.class)
                     .guiName("Nesting factor")
                     .description("Nest markers within this factor. This parameter cannot be set from the command line. Instead, the first factor in the data set will be used.")
                     .dependentOnParameter(isNested)
@@ -189,7 +184,7 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
                         .collect(Collectors.toList());
 
         if (myFactorNameList.isEmpty()) myFactorNameList.add("None");
-        nestingFactor = PluginParameter.getInstance(nestingFactor, myFactorNameList);
+        nestingFactor = new PluginParameter<>(nestingFactor, myFactorNameList);
     }
 
     @Override
@@ -223,16 +218,16 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
 
         if (isNested.value()) {
             if (isInteractive()) {
-                List nestingList = nestingFactor.value();
+                String nestingList = nestingFactor.value();
                 if (nestingList.isEmpty()) {
                     if (myFactorNameList.get(0).equals("None")) {
                         stamFitter.isNested(false);
                     } else {
                         stamFitter.isNested(true);
-                        stamFitter.nestingEffectName((String) nestingList.get(0));
+                        stamFitter.nestingEffectName(nestingList);
                     }
                 } else {
-                    String factorName = (String) nestingList.get(0);
+                    String factorName = nestingList;
                     if (factorName.equals("None"))
                         stamFitter.isNested(false);
                     else {
@@ -610,7 +605,7 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
       *
       * @return Nesting factor
       */
-     public List nestingFactor() {
+     public String nestingFactor() {
          return nestingFactor.value();
      }
 
@@ -623,7 +618,7 @@ public class StepwiseAdditiveModelFitterPlugin extends AbstractPlugin {
       *
       * @return this plugin
       */
-     public StepwiseAdditiveModelFitterPlugin nestingFactor(List value) {
+     public StepwiseAdditiveModelFitterPlugin nestingFactor(List<String> value) {
          nestingFactor = new PluginParameter<>(nestingFactor, value);
          return this;
      }
