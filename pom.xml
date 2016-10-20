@@ -46,8 +46,10 @@
                     <testFailureIgnore>true</testFailureIgnore>
                     <workingDirectory>${project.basedir}/../tassel-5-test/</workingDirectory>
                     <excludes>
+                        <exclude>**/analysis/gobii/*Test.java</exclude>
                         <exclude>**/analysis/gbs/*Test.java</exclude>
                         <exclude>**/analysis/gbs/v2/*Test.java</exclude>
+                        <exclude>**/analysis/gbs/repgen/*Test.java</exclude>
                         <exclude>**/analysis/monetdb/*Test.java</exclude>
                         <exclude>**/LowLevelCopyOfHDF5Test.java</exclude>
                         <exclude>**/SplitHDF5ByChromosomePluginTest.java</exclude>
