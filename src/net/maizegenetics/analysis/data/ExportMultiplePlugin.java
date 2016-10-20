@@ -14,7 +14,6 @@ import java.util.List;
 
 import javax.swing.ImageIcon;
 
-import net.maizegenetics.dna.snp.score.SiteScore;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -95,9 +94,9 @@ public class ExportMultiplePlugin extends AbstractPlugin {
             if ((myFileTypes == null) || (myFileTypes.length == 0)) {
                 // do nothing
             } else if (myFileTypes.length == 1) {
-                myExportPlugin.setAlignmentFileType(myFileTypes[0]);
+                myExportPlugin.fileType(myFileTypes[0]);
             } else {
-                myExportPlugin.setAlignmentFileType(myFileTypes[i]);
+                myExportPlugin.fileType(myFileTypes[i]);
             }
 
             DataSet filename = myExportPlugin.performFunction(current);
@@ -156,10 +155,7 @@ public class ExportMultiplePlugin extends AbstractPlugin {
     }
 
     public void setIncludeAnnotations(boolean include) {
-        myExportPlugin.setIncludeAnnotations(include);
+        myExportPlugin.includeTaxaAnnotations(include);
     }
 
-    public void setSiteScoreType(SiteScore.SITE_SCORE_TYPE type) {
-        myExportPlugin.setSiteScoreType(type);
-    }
 }

@@ -40,7 +40,6 @@ import net.maizegenetics.analysis.tree.ArchaeopteryxPlugin;
 import net.maizegenetics.analysis.association.RidgeRegressionEmmaPlugin;
 import net.maizegenetics.dna.map.TagsOnPhysMapHDF5;
 import net.maizegenetics.dna.map.TagsOnPhysicalMap;
-import net.maizegenetics.dna.snp.score.SiteScore;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibriumComponent;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibrium.HetTreatment;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibrium.testDesign;
@@ -1142,11 +1141,7 @@ public class TasselPipeline implements PluginListener {
                     try {
                         plugin.setAlignmentFileType(FileLoadPlugin.TasselFileType.valueOf(type));
                     } catch (Exception e) {
-                        try {
-                            plugin.setSiteScoreType(SiteScore.SITE_SCORE_TYPE.valueOf(type));
-                        } catch (Exception ex) {
-                            throw new IllegalArgumentException("TasselPipeline: parseArgs: -exportType: Unknown type: " + type + "  Should be: " + Arrays.toString(FileLoadPlugin.TasselFileType.values()) + " or " + "ReferenceProbablity");
-                        }
+                        throw new IllegalArgumentException("TasselPipeline: parseArgs: -exportType: Unknown type: " + type + "  Should be: " + Arrays.toString(FileLoadPlugin.TasselFileType.values()));
                     }
 
                 } else if (current.equalsIgnoreCase("-exportIncludeAnno")) {
