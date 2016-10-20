@@ -110,7 +110,9 @@ public class ExportPlugin extends AbstractPlugin {
             myFileType = new PluginParameter<>(myFileType, temp);
         } else if (data instanceof Phenotype) {
             myFileType = new PluginParameter<>(myFileType,
-                    Arrays.asList(new FileLoadPlugin.TasselFileType[]{FileLoadPlugin.TasselFileType.Phenotype}));
+                    Arrays.asList(new FileLoadPlugin.TasselFileType[]{
+                FileLoadPlugin.TasselFileType.Phenotype,
+                FileLoadPlugin.TasselFileType.PlinkPhenotype}));
         } else if (data instanceof FilterList) {
             myFileType = new PluginParameter<>(myFileType,
                     Arrays.asList(new FileLoadPlugin.TasselFileType[]{FileLoadPlugin.TasselFileType.Filter}));
@@ -219,7 +221,11 @@ public class ExportPlugin extends AbstractPlugin {
 
     public String performFunctionForPhenotype(Phenotype input) {
         String filename = Utils.addSuffixIfNeeded(saveFile(), ".txt");
-        PhenotypeUtils.write(input, filename);
+        if (fileType() == FileLoadPlugin.TasselFileType.Phenotype) {
+            PhenotypeUtils.write(input, filename);
+        } else if (fileType() == FileLoadPlugin.TasselFileType.PlinkPhenotype) {
+            PhenotypeUtils.writePlink(input, filename);
+        }
         return new File(filename).getAbsolutePath();
     }
 
