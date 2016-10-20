@@ -1158,10 +1158,29 @@ public class TasselPipeline implements PluginListener {
                     } else if (temp.equalsIgnoreCase("true")) {
                         value = true;
                     } else {
-                        throw new IllegalArgumentException("TasselPipeline: parseArgs: -exportIncludeAnno must be true or false: " + value);
+                        throw new IllegalArgumentException("TasselPipeline: parseArgs: -exportIncludeAnno must be true or false: " + temp);
                     }
 
                     plugin.setIncludeAnnotations(value);
+
+                } else if (current.equalsIgnoreCase("-exportIncludeDepth")) {
+
+                    ExportMultiplePlugin plugin = (ExportMultiplePlugin) findLastPluginFromCurrentPipe(new Class[]{ExportMultiplePlugin.class});
+                    if (plugin == null) {
+                        throw new IllegalArgumentException("TasselPipeline: parseArgs: No Export step defined: " + current);
+                    }
+
+                    String temp = args[index++].trim();
+                    boolean value = true;
+                    if (temp.equalsIgnoreCase("false")) {
+                        value = false;
+                    } else if (temp.equalsIgnoreCase("true")) {
+                        value = true;
+                    } else {
+                        throw new IllegalArgumentException("TasselPipeline: parseArgs: -exportIncludeDepth must be true or false: " + temp);
+                    }
+
+                    plugin.setIncludeDepth(value);
 
                 } else if (current.equalsIgnoreCase("-filterTaxaNames")) {
                     FilterTaxaAlignmentPlugin plugin = new FilterTaxaAlignmentPlugin(myMainFrame, myIsInteractive);

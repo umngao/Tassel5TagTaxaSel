@@ -66,7 +66,7 @@ public class ExportMultiplePlugin extends AbstractPlugin {
             DataSet current = new DataSet(datum, input.getCreator());
 
             if (numSaveFiles == 0) {
-                myExportPlugin.setSaveFile(datum.getName());
+                myExportPlugin.saveFile(datum.getName());
             } else if (numSaveFiles == 1) {
                 String temp;
                 if (data.size() == 1) {
@@ -86,9 +86,9 @@ public class ExportMultiplePlugin extends AbstractPlugin {
                         temp = directory + "/" + temp;
                     }
                 }
-                myExportPlugin.setSaveFile(temp);
+                myExportPlugin.saveFile(temp);
             } else {
-                myExportPlugin.setSaveFile(mySaveFiles[i]);
+                myExportPlugin.saveFile(mySaveFiles[i]);
             }
 
             if ((myFileTypes == null) || (myFileTypes.length == 0)) {
@@ -99,11 +99,11 @@ public class ExportMultiplePlugin extends AbstractPlugin {
                 myExportPlugin.fileType(myFileTypes[i]);
             }
 
-            DataSet filename = myExportPlugin.performFunction(current);
-            myLogger.info("Datum: " + datum.getName() + " Written to: " + filename.getDataOfType(String.class).get(0).getData());
+            myExportPlugin.performFunction(current);
 
         }
 
+        fireProgress(100);
         return null;
 
     }
@@ -135,7 +135,7 @@ public class ExportMultiplePlugin extends AbstractPlugin {
      */
     @Override
     public String getToolTipText() {
-        return "Export multiple data sets to files on your computer.";
+        return "Export multiple data sets to files.";
     }
 
     public String[] getSaveFiles() {
@@ -156,6 +156,10 @@ public class ExportMultiplePlugin extends AbstractPlugin {
 
     public void setIncludeAnnotations(boolean include) {
         myExportPlugin.includeTaxaAnnotations(include);
+    }
+
+    public void setIncludeDepth(boolean include) {
+        myExportPlugin.keepDepth(include);
     }
 
 }
