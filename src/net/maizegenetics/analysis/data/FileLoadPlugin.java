@@ -63,10 +63,29 @@ public class FileLoadPlugin extends AbstractPlugin {
 
     public enum TasselFileType {
 
-        SqrMatrix, Sequence, Unknown, Fasta, Hapmap, HapmapLIX,
-        Plink, Phenotype, ProjectionAlignment, ProjectPCsandRunModelSelection, Phylip_Seq, Phylip_Inter, Table,
-        Serial, HapmapDiploid, Text, VCF, HDF5, TOPM, HDF5Schema, Filter, NumericGenotype, TaxaList, PositionList, SqrMatrixRaw, SqrMatrixBin
+        SqrMatrix("Square Matrix"), Sequence("Sequence"), Unknown("Unknown"),
+        Fasta("Fasta"), Hapmap("Hapmap"), HapmapLIX("Hapmap LIX"),
+        Plink("Plink"), Phenotype("Phenotype"), ProjectionAlignment("Projection Genotype"),
+        ProjectPCsandRunModelSelection("Project PCs"),
+        Phylip_Seq("Phylip (Sequential)"), Phylip_Inter("Phylip (Interleaved)"), Table("Table"),
+        Serial("Serial"), HapmapDiploid("Hapmap Diploid"), Text("Text"), VCF("VCF"),
+        HDF5("HDF5"), TOPM("TOPM"), HDF5Schema("HDF5 Schema"), Filter("Filter"),
+        NumericGenotype("Numeric Genotype"), TaxaList("Taxa List"), PositionList("Position List"),
+        SqrMatrixRaw("Raw MultiBLUP Matrix"), SqrMatrixBin("Binary MultiBLUP Matrix"),
+        GOBII("GOBII"), Depth("Depth"), ReferenceProbability("Reference Probability"), Report("Report");
+
+        private final String myText;
+
+        TasselFileType(String text) {
+            myText = text;
+        }
+
+        @Override
+        public String toString() {
+            return myText;
+        }
     };
+
     public static final String FILE_EXT_HAPMAP = ".hmp.txt";
     public static final String FILE_EXT_HAPMAP_GZ = ".hmp.txt.gz";
     public static final String FILE_EXT_HAPMAP_GZ_LIX = FILE_EXT_HAPMAP_GZ + LineIndexBuilder.LINE_INDEX_FILE_EXTENSION;
