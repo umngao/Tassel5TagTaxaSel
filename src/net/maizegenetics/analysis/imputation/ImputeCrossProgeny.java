@@ -283,8 +283,8 @@ public class ImputeCrossProgeny {
 		List<Taxon> myProgenyTaxaList = progenyStateGeno.taxa();
 		int ntaxa = myProgenyTaxaList.size();
 		byte[][] states = new byte[ntaxa][nsites];
-		for (int t = 0; t < ntaxa; t++) {
-			for (int s = 0; s < nsites; s++) {
+		for (int s = 0; s < nsites; s++) {
+			for (int t = 0; t < ntaxa; t++) {
 				states[t][s] = stateMap.get(progenyStateGeno.genotype(t, s));
 			}
 		}

@@ -28,7 +28,7 @@ public class ImputeProgenyStatesPlugin extends AbstractPlugin {
 	private PluginParameter<String> parentHaplotypeFilename = new PluginParameter.Builder<>("parentHap", null, String.class)
 			.guiName("Parent Haplotypes Input File")
 			.inFile()
-			.description("The input file containing the parent haplotypes expressed as nucleotides. Only needed when \"Use Haplotype Probabilities\" (-prob) = false.")
+			.description("The input file containing the parent haplotypes expressed as nucleotides. ")
 			.build();
 	private PluginParameter<String> progenyFile = new PluginParameter.Builder<>("progeny", null, String.class)
 			.dependentOnParameter(rephase)
