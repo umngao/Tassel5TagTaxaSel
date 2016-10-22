@@ -103,7 +103,7 @@ public class PhaseHighCoverage {
 		
 		for (String parent : parentSet) {
 			System.out.printf("Phasing %s\n", parent);
-			byte[][] phase = phaseParentUsingSelfAndCrossProgeny(parent, myGenotypeTable, minEigenRatio);
+			byte[][] phase = phaseParentUsingSelfAndCrossProgeny(parent, myGenotypeTable, minEigenRatio, plotInfo);
 			if (phase == null) {
 				System.out.println("Too few phased haplotypes, skipping.");
 				System.out.println();
@@ -131,12 +131,11 @@ public class PhaseHighCoverage {
 
 	}
 	
-	public byte[][] phaseParentUsingSelfAndCrossProgeny(String parent, GenotypeTable myGeno, double minEigenRatio) {
+	public byte[][] phaseParentUsingSelfAndCrossProgeny(String parent, GenotypeTable myGeno, double minEigenRatio, List<String[]> plotInfo) {
 		//set the min chisquare statistic
 		double alpha = 0.0001;
 		double chisqLimit = new ChiSquaredDistribution(1).inverseCumulativeProbability(1 - alpha);
 		
-		List<String[]> plotInfo = loadPlotInfo();
 		List<byte[]> phasedHaplotypes = new ArrayList<>();
 		int parentIndex = myGeno.taxa().indexOf(parent);
 		byte[] parentGeno = myGeno.genotypeAllSites(parentIndex);

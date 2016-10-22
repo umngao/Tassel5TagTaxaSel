@@ -163,19 +163,28 @@ public class SelfedHaplotypeFinder {
 					//if there is only one haplotype left, is it good?
 					boolean goodCluster = false;
 					boolean inChrOrder = true;
-					if (clusterList.size() == 2 ) {
+					
+					if (clusterList.size() == 2 && clusterList.get(0).getSize() > 1 && clusterList.get(1).getSize() > 1) {
 						goodCluster = true;
-						if (sameOrder(previousChr0clusters, previousChr1clusters, clusterList)) {
+						if (previousChr0clusters == null || previousChr1clusters == null) {
 							previousChr0clusters = chr0clusters = clusterList.get(0);
 							previousChr1clusters = chr1clusters = clusterList.get(1);
 						} else {
-							previousChr0clusters = chr0clusters = clusterList.get(1);
-							previousChr1clusters = chr1clusters = clusterList.get(0);
-							inChrOrder = false;
+							int order = sameOrder(previousChr0clusters, previousChr1clusters, clusterList);
+							if (order == 1 || order == 0) {
+								previousChr0clusters = chr0clusters = clusterList.get(0);
+								previousChr1clusters = chr1clusters = clusterList.get(1);
+							} else {
+								previousChr0clusters = chr0clusters = clusterList.get(1);
+								previousChr1clusters = chr1clusters = clusterList.get(0);
+								inChrOrder = false;
+							}
 						}
+						
 					} else if ((clusterList.size() == 1 && clusterList.get(0).getSize() > minClusterSize)) {
 						goodCluster = true;
-						if (sameOrder(previousChr0clusters, previousChr1clusters, clusterList)) {
+						int order = sameOrder(previousChr0clusters, previousChr1clusters, clusterList);
+						if (order > -1) {
 							chr0clusters = clusterList.get(0);
 							if (previousChr0clusters == null) previousChr0clusters = chr0clusters;
 							chr1clusters = null;
@@ -272,19 +281,24 @@ public class SelfedHaplotypeFinder {
     	return hc;
     }
 
-    private boolean sameOrder(HaplotypeCluster chr0, HaplotypeCluster chr1, List<HaplotypeCluster> next) {
+    private int sameOrder(HaplotypeCluster chr0, HaplotypeCluster chr1, List<HaplotypeCluster> next) {
+    	//1 : same order, -1 : opposite order, 0 : diff=same, inconclusive
     	int nhaps = next.size();
     	if (nhaps == 1) {
     		int count0 = taxaInCommon(chr0, next.get(0));
     		int count1  = taxaInCommon(chr1, next.get(0));
-    		if (count1 > count0) return false;
-    		return true;
+    		if (count1 > count0) return -1;
+    		if (count0 > count1) return 1;
+    		return 0;
     	}
+    	
+    	//if chr0 = null or chr1 = null, same = 0, diff = 0 and method will return true
     	int same = taxaInCommon(chr0, next.get(0)) + taxaInCommon(chr1, next.get(1));
     	int diff = taxaInCommon(chr0, next.get(1)) + taxaInCommon(chr1, next.get(0));
 
-    	if (diff > same) return false;
-    	return true;
+    	if (same > diff) return 1;
+    	if (diff > same) return -1;
+    	return 0;
     }
 
     private int taxaInCommon(HaplotypeCluster hc0, HaplotypeCluster hc1) {
