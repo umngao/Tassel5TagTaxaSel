@@ -258,6 +258,9 @@ public class GBSSeqToTagDBPlugin extends AbstractPlugin {
                     this.roughTagCnt.add(tagCntMap.size());
                 } else {
                     System.out.println("WARNING: Current tagcntmap size is 0 after processing batch " + String.valueOf(i/batchSize+1) );
+                    System.out.println("  This could happen if your total number of good barcoded reads is 0, or if there are no kmers that contain the min specified count");
+                    System.out.println("  If your good barcoded reads are 0, your reads may contain something other than ACGT or your minimum tag length may not be met.");
+                    System.out.println("  Adjust your minimum kmer count paramter,  adjust your minimum tag length, and/or inspect your fastQ files.");
                 }
 
                 System.out.println("Total memory: "+ String.valueOf((double)(Runtime.getRuntime().totalMemory()/1024/1024/1024))+" Gb");
