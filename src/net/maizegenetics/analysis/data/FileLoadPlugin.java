@@ -43,6 +43,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import net.maizegenetics.analysis.gobii.GOBIIPlugin;
 import net.maizegenetics.taxa.distance.DistanceMatrixBuilder;
 import net.maizegenetics.taxa.distance.DistanceMatrixUtils;
 
@@ -59,6 +60,7 @@ public class FileLoadPlugin extends AbstractPlugin {
     private PlinkLoadPlugin myPlinkLoadPlugin = null;
     private ProjectionLoadPlugin myProjectionLoadPlugin = null;
     private ProjectPcsAndRunModelSelectionPlugin myProjectPcsAndRunModelSelectionPlugin = null;
+    private GOBIIPlugin myGOBIIPlugin = null;
     private final JFileChooser myOpenFileChooser;
 
     public enum TasselFileType {
@@ -158,6 +160,17 @@ public class FileLoadPlugin extends AbstractPlugin {
                     }
                     return myProjectPcsAndRunModelSelectionPlugin.performFunction(input);
                 }
+
+                if (myFileType == TasselFileType.GOBII) {
+                    if (myGOBIIPlugin == null) {
+                        myGOBIIPlugin = new GOBIIPlugin(getParentFrame(), isInteractive());
+                        for (PluginListener current : getListeners()) {
+                            myGOBIIPlugin.addListener(current);
+                        }
+                    }
+                    return myGOBIIPlugin.performFunction(input);
+                }
+
                 setOpenFiles(getOpenFilesByChooser());
                 theDialog.dispose();
             }
@@ -680,6 +693,7 @@ class FileLoadPluginDialog extends JDialog {
     JRadioButton projectPCsandRunModelSelectionRadioButton = new JRadioButton("Load Files for Projecting PCs onto NAM");
     JRadioButton tableReportRadioButton = new JRadioButton("Load a Table Report");
     JRadioButton topmRadioButton = new JRadioButton("Load a TOPM (Tags on Physical Map)");
+    JRadioButton gobiiRadioButton = new JRadioButton("Load GOBII");
 
     public FileLoadPluginDialog() {
         super((Frame) null, "File Loader", true);
@@ -714,6 +728,7 @@ class FileLoadPluginDialog extends JDialog {
         conversionButtonGroup.add(projectionAlignmentRadioButton);
         conversionButtonGroup.add(projectPCsandRunModelSelectionRadioButton);
         conversionButtonGroup.add(hapMapRadioButton);
+        conversionButtonGroup.add(gobiiRadioButton);
         conversionButtonGroup.add(hdf5RadioButton);
         conversionButtonGroup.add(hdf5SchemaRadioButton);
         conversionButtonGroup.add(vcfRadioButton);
@@ -777,6 +792,7 @@ class FileLoadPluginDialog extends JDialog {
         result.setAlignmentX(JPanel.CENTER_ALIGNMENT);
         result.setBorder(BorderFactory.createEtchedBorder());
 
+        result.add(gobiiRadioButton);
         result.add(hapMapRadioButton);
         result.add(hdf5RadioButton);
         result.add(hdf5SchemaRadioButton);
@@ -828,6 +844,9 @@ class FileLoadPluginDialog extends JDialog {
     }
 
     public FileLoadPlugin.TasselFileType getTasselFileType() {
+        if (gobiiRadioButton.isSelected()) {
+            return FileLoadPlugin.TasselFileType.GOBII;
+        }
         if (hapMapRadioButton.isSelected()) {
             return FileLoadPlugin.TasselFileType.Hapmap;
         }
