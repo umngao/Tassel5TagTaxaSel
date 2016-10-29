@@ -331,7 +331,7 @@ public class FileLoadPlugin extends AbstractPlugin {
 
     private DataSet guessAtUnknowns(String filename) {
 
-        TasselFileType guess = TasselFileType.Unknown;
+        TasselFileType guess = TasselFileType.Table;
         DataSet tds = null;
 
         try (BufferedReader br = Utils.getBufferedReader(filename)) {
