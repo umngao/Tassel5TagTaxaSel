@@ -122,6 +122,7 @@ import net.maizegenetics.analysis.gbs.v2.TagExportToFastqPlugin;
 import net.maizegenetics.analysis.gbs.v2.UpdateSNPPositionQualityPlugin;
 import net.maizegenetics.analysis.numericaltransform.ImputationPlugin;
 import net.maizegenetics.analysis.workflow.WorkflowPlugin;
+import net.maizegenetics.gui.DialogUtils;
 
 /**
  * TASSELMainFrame
@@ -405,7 +406,34 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         JMenu result = new JMenu("Data");
         result.setMnemonic(KeyEvent.VK_D);
 
-        result.add(createMenuItem(new FileLoadPlugin(this, true), KeyEvent.VK_L));
+        FileLoadPlugin autoGuessPlugin = new FileLoadPlugin(this, true);
+        ImageIcon loadIcon = autoGuessPlugin.getIcon();
+        JMenuItem menuItem = new JMenuItem("Load", loadIcon);
+        menuItem.setMnemonic(KeyEvent.VK_L);
+        int loadPixels = ICON_WIDTH_PLUS_GAP;
+        if (loadIcon != null) {
+            loadPixels -= loadIcon.getIconWidth();
+            loadPixels /= 2;
+        }
+        menuItem.setIconTextGap(loadPixels);
+        menuItem.setBackground(Color.white);
+        menuItem.setMargin(new Insets(2, 2, 2, 2));
+        menuItem.setToolTipText(autoGuessPlugin.getToolTipText());
+        menuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    autoGuessPlugin.processData(null);
+                } catch (Exception ex) {
+                    myLogger.debug(ex.getMessage(), ex);
+                    DialogUtils.showError(ex.getMessage() + "\n", autoGuessPlugin.getParentFrame());
+                }
+            }
+        });
+        autoGuessPlugin.addListener(myDataTreePanel);
+        result.add(menuItem);
+
+        result.add(createMenuItem(new FileLoadPlugin(this, true)));
         result.add(createMenuItem(new ExportPlugin(this, true)));
         result.add(createMenuItem(new GetTaxaListPlugin(this, true)));
         result.add(createMenuItem(new GetPositionListPlugin(this, true)));

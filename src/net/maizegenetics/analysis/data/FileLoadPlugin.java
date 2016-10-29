@@ -8,44 +8,41 @@ package net.maizegenetics.analysis.data;
 
 import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
-import net.maizegenetics.gui.DialogUtils;
-import net.maizegenetics.dna.snp.ImportUtils;
-import net.maizegenetics.phenotype.Phenotype;
-import net.maizegenetics.phenotype.PhenotypeBuilder;
-import net.maizegenetics.dna.snp.ReadSequenceAlignmentUtils;
-import net.maizegenetics.dna.snp.io.ReadNumericMarkerUtils;
-import net.maizegenetics.dna.snp.io.BuilderFromHapMapLIX;
-import net.maizegenetics.dna.snp.io.LineIndexBuilder;
-import net.maizegenetics.taxa.distance.ReadDistanceMatrix;
-import net.maizegenetics.util.*;
-import net.maizegenetics.plugindef.AbstractPlugin;
-import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.PluginEvent;
-import net.maizegenetics.plugindef.PluginListener;
-import net.maizegenetics.prefs.TasselPrefs;
-import net.maizegenetics.dna.map.TOPMUtils;
-import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.io.JSONUtils;
-import net.maizegenetics.dna.snp.io.FilterJSONUtils;
-
-import org.apache.log4j.Logger;
-
-import javax.swing.*;
-
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.*;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
+import javax.swing.*;
 import net.maizegenetics.analysis.gobii.GOBIIPlugin;
+import net.maizegenetics.dna.map.TOPMUtils;
+import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.ImportUtils;
+import net.maizegenetics.dna.snp.ReadSequenceAlignmentUtils;
+import net.maizegenetics.dna.snp.io.BuilderFromHapMapLIX;
+import net.maizegenetics.dna.snp.io.FilterJSONUtils;
+import net.maizegenetics.dna.snp.io.JSONUtils;
+import net.maizegenetics.dna.snp.io.LineIndexBuilder;
+import net.maizegenetics.dna.snp.io.ReadNumericMarkerUtils;
+import net.maizegenetics.gui.DialogUtils;
+import net.maizegenetics.phenotype.Phenotype;
+import net.maizegenetics.phenotype.PhenotypeBuilder;
+import net.maizegenetics.plugindef.AbstractPlugin;
+import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.plugindef.PluginEvent;
+import net.maizegenetics.plugindef.PluginListener;
+import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.taxa.distance.DistanceMatrixBuilder;
 import net.maizegenetics.taxa.distance.DistanceMatrixUtils;
+import net.maizegenetics.taxa.distance.ReadDistanceMatrix;
+import net.maizegenetics.util.*;
+import org.apache.log4j.Logger;
 
 /**
  *
@@ -55,8 +52,14 @@ import net.maizegenetics.taxa.distance.DistanceMatrixUtils;
 public class FileLoadPlugin extends AbstractPlugin {
 
     private static final Logger myLogger = Logger.getLogger(FileLoadPlugin.class);
+
+    private PluginParameter<TasselFileType> myFileType = new PluginParameter.Builder<>("format", TasselFileType.Unknown, TasselFileType.class)
+            .description("Import file format")
+            .objectListSingleSelect()
+            .range(TasselFileType.values())
+            .build();
+
     private String[] myOpenFiles = null;
-    private TasselFileType myFileType = TasselFileType.Unknown;
     private PlinkLoadPlugin myPlinkLoadPlugin = null;
     private ProjectionLoadPlugin myProjectionLoadPlugin = null;
     private ProjectPcsAndRunModelSelectionPlugin myProjectPcsAndRunModelSelectionPlugin = null;
@@ -65,7 +68,7 @@ public class FileLoadPlugin extends AbstractPlugin {
 
     public enum TasselFileType {
 
-        SqrMatrix("Square Matrix"), Sequence("Sequence"), Unknown("Unknown"),
+        SqrMatrix("Square Matrix"), Sequence("Sequence"), Unknown("Make Best Guess"),
         Fasta("Fasta"), Hapmap("Hapmap"), HapmapLIX("Hapmap LIX"),
         Plink("Plink"), Phenotype("Phenotype"), ProjectionAlignment("Projection Genotype"),
         ProjectPCsandRunModelSelection("Project PCs"),
@@ -75,7 +78,7 @@ public class FileLoadPlugin extends AbstractPlugin {
         NumericGenotype("Numeric Genotype"), TaxaList("Taxa List"), PositionList("Position List"),
         SqrMatrixRaw("Raw MultiBLUP Matrix"), SqrMatrixBin("Binary MultiBLUP Matrix"),
         GOBII("GOBII"), Depth("Depth"), ReferenceProbability("Reference Probability"), Report("Report"),
-        PlinkPhenotype("Plink Phenotype");
+        PlinkPhenotype("Plink Phenotype"), SqrMatrixDARwinDIS("DARwin DIS");
 
         private final String myText;
 
@@ -102,6 +105,7 @@ public class FileLoadPlugin extends AbstractPlugin {
     public static final String FILE_EXT_TOPM_BIN = ".topm.bin";
     public static final String FILE_EXT_TOPM_TEXT = ".topm.txt";
     public static final String FILE_EXT_FASTA = ".fasta";
+    public static final String FILE_EXT_PHYLIP = ".phy";
 
     /**
      * Creates a new instance of FileLoadPlugin
@@ -116,213 +120,211 @@ public class FileLoadPlugin extends AbstractPlugin {
         }
     }
 
-    public DataSet performFunction(DataSet input) {
+    @Override
+    protected void preProcessParameters(DataSet input) {
 
-        myWasCancelled = true;
+        List<TasselFileType> temp = new ArrayList<>();
+        temp.addAll(Arrays.asList(new FileLoadPlugin.TasselFileType[]{
+            TasselFileType.Unknown,
+            TasselFileType.Hapmap,
+            TasselFileType.VCF,
+            TasselFileType.Plink,
+            TasselFileType.ProjectionAlignment,
+            TasselFileType.Sequence,
+            TasselFileType.Fasta,
+            TasselFileType.SqrMatrix,
+            TasselFileType.Table,
+            TasselFileType.TOPM,
+            TasselFileType.HDF5,
+            TasselFileType.HDF5Schema}));
+        myFileType = new PluginParameter<>(myFileType, temp);
 
-        try {
-
-            if (isInteractive()) {
-                FileLoadPluginDialog theDialog = new FileLoadPluginDialog();
-                theDialog.setLocationRelativeTo(getParentFrame());
-                theDialog.setVisible(true);
-                if (theDialog.isCancel()) {
-                    return null;
-                }
-                myFileType = theDialog.getTasselFileType();
-
-                if (myFileType == TasselFileType.Plink) {
-                    if (myPlinkLoadPlugin == null) {
-                        myPlinkLoadPlugin = new PlinkLoadPlugin(getParentFrame(), isInteractive());
-                        for (PluginListener current : getListeners()) {
-                            myPlinkLoadPlugin.addListener(current);
-                        }
-                    }
-                    return myPlinkLoadPlugin.performFunction(null);
-                }
-
-                if (myFileType == TasselFileType.ProjectionAlignment) {
-                    if (myProjectionLoadPlugin == null) {
-                        myProjectionLoadPlugin = new ProjectionLoadPlugin(getParentFrame(), isInteractive());
-                        for (PluginListener current : getListeners()) {
-                            myProjectionLoadPlugin.addListener(current);
-                        }
-                    }
-                    return myProjectionLoadPlugin.performFunction(input);
-                }
-
-                if (myFileType == TasselFileType.ProjectPCsandRunModelSelection) {
-                    if (myProjectPcsAndRunModelSelectionPlugin == null) {
-                        myProjectPcsAndRunModelSelectionPlugin = new ProjectPcsAndRunModelSelectionPlugin(getParentFrame(), isInteractive());
-                        for (PluginListener current : getListeners()) {
-                            myProjectPcsAndRunModelSelectionPlugin.addListener(current);
-                        }
-                    }
-                    return myProjectPcsAndRunModelSelectionPlugin.performFunction(input);
-                }
-
-                if (myFileType == TasselFileType.GOBII) {
-                    if (myGOBIIPlugin == null) {
-                        myGOBIIPlugin = new GOBIIPlugin(getParentFrame(), isInteractive());
-                        for (PluginListener current : getListeners()) {
-                            myGOBIIPlugin.addListener(current);
-                        }
-                    }
-                    return myGOBIIPlugin.performFunction(input);
-                }
-
-                setOpenFiles(getOpenFilesByChooser());
-                theDialog.dispose();
-            }
-
-            if ((myOpenFiles == null) || (myOpenFiles.length == 0)) {
-                return null;
-            }
-
-            List result = new ArrayList();
-            ArrayList<String> alreadyLoaded = new ArrayList<>();
-            for (int i = 0; i < myOpenFiles.length; i++) {
-
-                if (alreadyLoaded.contains(myOpenFiles[i])) {
-                    continue;
-                }
-
-                LocalDateTime time = LocalDateTime.now();
-                String timeStr = time.format(DateTimeFormatter.ofPattern("MMM d, uuuu H:mm:s"));
-                myLogger.info("Start Loading File: " + myOpenFiles[i] + " time: " + timeStr);
-
-                DataSet tds = null;
-                try {
-
-                    if (myFileType == TasselFileType.Unknown) {
-                        if (myOpenFiles[i].endsWith(FILE_EXT_HAPMAP_GZ)) {
-                            String theIndex = myOpenFiles[i].replaceFirst(FILE_EXT_HAPMAP_GZ, FILE_EXT_HAPMAP_GZ_LIX);
-                            if (new File(theIndex).isFile()) {
-                                myLogger.info("guessAtUnknowns: type: " + TasselFileType.HapmapLIX);
-                                alreadyLoaded.add(myOpenFiles[i]);
-                                alreadyLoaded.add(theIndex);
-                                GenotypeTable hapmap = BuilderFromHapMapLIX.build(myOpenFiles[i], theIndex);
-                                tds = new DataSet(new Datum(Utils.getFilename(myOpenFiles[i], FileLoadPlugin.FILE_EXT_HAPMAP_GZ), hapmap, null), this);
-                            } else {
-                                myLogger.info("guessAtUnknowns: type: " + TasselFileType.Hapmap);
-                                alreadyLoaded.add(myOpenFiles[i]);
-                                tds = processDatum(myOpenFiles[i], TasselFileType.Hapmap);
-                            }
-                        } else if (myOpenFiles[i].endsWith(FILE_EXT_HAPMAP_GZ_LIX)) {
-                            String theHapmap = myOpenFiles[i].replaceFirst(FILE_EXT_HAPMAP_GZ_LIX, FILE_EXT_HAPMAP_GZ);
-                            if (new File(theHapmap).isFile()) {
-                                myLogger.info("guessAtUnknowns: type: " + TasselFileType.HapmapLIX);
-                                alreadyLoaded.add(myOpenFiles[i]);
-                                alreadyLoaded.add(theHapmap);
-                                GenotypeTable hapmap = BuilderFromHapMapLIX.build(theHapmap, myOpenFiles[i]);
-                                tds = new DataSet(new Datum(Utils.getFilename(theHapmap, FileLoadPlugin.FILE_EXT_HAPMAP_GZ), hapmap, null), this);
-                            } else {
-                                throw new IllegalStateException("FileLoadPlugin: Can't find file matching: " + myOpenFiles[i]);
-                            }
-                        } else if (myOpenFiles[i].endsWith(FILE_EXT_HAPMAP)) {
-                            myLogger.info("guessAtUnknowns: type: " + TasselFileType.Hapmap);
-                            alreadyLoaded.add(myOpenFiles[i]);
-                            tds = processDatum(myOpenFiles[i], TasselFileType.Hapmap);
-                        } else if ((myOpenFiles[i].endsWith(FILE_EXT_TOPM_H5)) || (myOpenFiles[i].endsWith(FILE_EXT_TOPM))
-                                || (myOpenFiles[i].endsWith(FILE_EXT_TOPM_BIN)) || (myOpenFiles[i].endsWith(FILE_EXT_TOPM_TEXT))) {
-                            myLogger.info("guessAtUnknowns: type: " + TasselFileType.TOPM);
-                            alreadyLoaded.add(myOpenFiles[i]);
-                            tds = processDatum(myOpenFiles[i], TasselFileType.TOPM);
-                        } else if ((myOpenFiles[i].endsWith(".grm.N.bin")) || (myOpenFiles[i].endsWith(".grm.bin"))
-                                || (myOpenFiles[i].endsWith(".grm.id"))) {
-                            String[] grmFiles = DistanceMatrixUtils.getGRMFilenames(myOpenFiles[i]);
-                            if (new File(grmFiles[0]).isFile() && new File(grmFiles[1]).isFile() && new File(grmFiles[2]).isFile()) {
-                                myLogger.info("guessAtUnknowns: type: " + TasselFileType.SqrMatrixBin);
-                                alreadyLoaded.add(grmFiles[0]);
-                                alreadyLoaded.add(grmFiles[1]);
-                                alreadyLoaded.add(grmFiles[2]);
-                                tds = processDatum(myOpenFiles[i], TasselFileType.SqrMatrixBin);
-                            } else if (myOpenFiles[i].endsWith(".grm.N.bin") && new File(grmFiles[4]).isFile() && new File(myOpenFiles[i]).isFile()) {
-                                myLogger.info("guessAtUnknowns: type: " + TasselFileType.SqrMatrix);
-                                alreadyLoaded.add(myOpenFiles[i]);
-                                alreadyLoaded.add(grmFiles[4]);
-                                tds = processDatum(grmFiles[4], TasselFileType.SqrMatrix);
-                            }
-                        } else if (myOpenFiles[i].endsWith(FILE_EXT_PLINK_PED)) {
-                            myLogger.info("guessAtUnknowns: type: " + TasselFileType.Plink);
-                            String theMapFile = myOpenFiles[i].replaceFirst(FILE_EXT_PLINK_PED, FILE_EXT_PLINK_MAP);
-                            alreadyLoaded.add(myOpenFiles[i]);
-                            alreadyLoaded.add(theMapFile);
-                            GenotypeTable plink = ImportUtils.readFromPLink(myOpenFiles[i], theMapFile, this);
-                            tds = new DataSet(new Datum(Utils.getFilename(myOpenFiles[i], FileLoadPlugin.FILE_EXT_PLINK_PED), plink, null), this);
-                        } else if (myOpenFiles[i].endsWith(FILE_EXT_PLINK_MAP)) {
-                            myLogger.info("guessAtUnknowns: type: " + TasselFileType.Plink);
-                            String thePedFile = myOpenFiles[i].replaceFirst(FILE_EXT_PLINK_MAP, FILE_EXT_PLINK_PED);
-                            alreadyLoaded.add(myOpenFiles[i]);
-                            alreadyLoaded.add(thePedFile);
-                            GenotypeTable plink = ImportUtils.readFromPLink(thePedFile, myOpenFiles[i], this);
-                            tds = new DataSet(new Datum(Utils.getFilename(thePedFile, FileLoadPlugin.FILE_EXT_PLINK_PED), plink, null), this);
-                        } else if (myOpenFiles[i].endsWith(FILE_EXT_SERIAL_GZ)) {
-                            myLogger.info("guessAtUnknowns: type: " + TasselFileType.Serial);
-                            alreadyLoaded.add(myOpenFiles[i]);
-                            tds = processDatum(myOpenFiles[i], TasselFileType.Serial);
-                        } else if (myOpenFiles[i].endsWith(FILE_EXT_HDF5)) {
-                            myLogger.info("guessAtUnknowns: type: " + TasselFileType.HDF5);
-                            alreadyLoaded.add(myOpenFiles[i]);
-                            tds = processDatum(myOpenFiles[i], TasselFileType.HDF5);
-                        } else if (myOpenFiles[i].endsWith(FILE_EXT_VCF) || myOpenFiles[i].endsWith(FILE_EXT_VCF + ".gz")) {
-                            myLogger.info("guessAtUnknowns: type: " + TasselFileType.VCF);
-                            alreadyLoaded.add(myOpenFiles[i]);
-                            tds = processDatum(myOpenFiles[i], TasselFileType.VCF);
-                        } else if (myOpenFiles[i].endsWith(FILE_EXT_FASTA) || myOpenFiles[i].endsWith(FILE_EXT_FASTA + ".gz")) {
-                            myLogger.info("guessAtUnknowns: type: " + TasselFileType.Fasta);
-                            alreadyLoaded.add(myOpenFiles[i]);
-                            tds = processDatum(myOpenFiles[i], TasselFileType.Fasta);
-                        } else {
-                            alreadyLoaded.add(myOpenFiles[i]);
-                            tds = guessAtUnknowns(myOpenFiles[i]);
-                        }
-                    } else {
-                        alreadyLoaded.add(myOpenFiles[i]);
-                        tds = processDatum(myOpenFiles[i], myFileType);
-                    }
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    StringBuilder builder = new StringBuilder();
-                    builder.append("Error loading: ");
-                    builder.append(myOpenFiles[i]);
-                    builder.append("\n");
-                    builder.append(Utils.shortenStrLineLen(ExceptionUtils.getExceptionCauses(e), 50));
-                    String str = builder.toString();
-                    if (isInteractive()) {
-                        DialogUtils.showError(str, getParentFrame());
-                    } else {
-                        myLogger.error(str);
-                    }
-                }
-
-                time = LocalDateTime.now();
-                timeStr = time.format(DateTimeFormatter.ofPattern("MMM d, uuuu H:mm:s"));
-                if (tds != null) {
-                    myLogger.info("Finished Loading File: " + myOpenFiles[i] + " time: " + timeStr);
-                    GenotypeSummaryPlugin.printSimpleSummary(tds);
-                    myWasCancelled = false;
-                    result.add(tds);
-                    fireDataSetReturned(new PluginEvent(tds, FileLoadPlugin.class));
-                } else {
-                    myLogger.info("Nothing Loaded for File: " + myOpenFiles[i] + " time: " + timeStr);
-                }
-
-            }
-
-            return DataSet.getDataSet(result, this);
-
-        } catch (Exception e) {
-            showError(e, null);
-            return null;
-        } finally {
-            fireProgress(100);
+        if (!isInteractive() && myFileType.isEmpty() && myFileType.hasPossibleValues()) {
+            fileType(TasselFileType.Unknown);
         }
 
     }
 
-    public DataSet guessAtUnknowns(String filename) {
+    @Override
+    public DataSet processData(DataSet input) {
+
+        myWasCancelled = true;
+
+        if (isInteractive()) {
+
+            if (fileType() == TasselFileType.Plink) {
+                if (myPlinkLoadPlugin == null) {
+                    myPlinkLoadPlugin = new PlinkLoadPlugin(getParentFrame(), isInteractive());
+                    for (PluginListener current : getListeners()) {
+                        myPlinkLoadPlugin.addListener(current);
+                    }
+                }
+                return myPlinkLoadPlugin.performFunction(null);
+            }
+
+            if (fileType() == TasselFileType.ProjectionAlignment) {
+                if (myProjectionLoadPlugin == null) {
+                    myProjectionLoadPlugin = new ProjectionLoadPlugin(getParentFrame(), isInteractive());
+                    for (PluginListener current : getListeners()) {
+                        myProjectionLoadPlugin.addListener(current);
+                    }
+                }
+                return myProjectionLoadPlugin.performFunction(input);
+            }
+
+            if (fileType() == TasselFileType.ProjectPCsandRunModelSelection) {
+                if (myProjectPcsAndRunModelSelectionPlugin == null) {
+                    myProjectPcsAndRunModelSelectionPlugin = new ProjectPcsAndRunModelSelectionPlugin(getParentFrame(), isInteractive());
+                    for (PluginListener current : getListeners()) {
+                        myProjectPcsAndRunModelSelectionPlugin.addListener(current);
+                    }
+                }
+                return myProjectPcsAndRunModelSelectionPlugin.performFunction(input);
+            }
+
+            if (fileType() == TasselFileType.GOBII) {
+                if (myGOBIIPlugin == null) {
+                    myGOBIIPlugin = new GOBIIPlugin(getParentFrame(), isInteractive());
+                    for (PluginListener current : getListeners()) {
+                        myGOBIIPlugin.addListener(current);
+                    }
+                }
+                return myGOBIIPlugin.performFunction(input);
+            }
+
+            setOpenFiles(getOpenFilesByChooser());
+
+        }
+
+        if ((myOpenFiles == null) || (myOpenFiles.length == 0)) {
+            return null;
+        }
+
+        List<DataSet> result = new ArrayList<>();
+        ArrayList<String> alreadyLoaded = new ArrayList<>();
+        for (int i = 0; i < myOpenFiles.length; i++) {
+
+            if (alreadyLoaded.contains(myOpenFiles[i])) {
+                continue;
+            }
+
+            LocalDateTime time = LocalDateTime.now();
+            String timeStr = time.format(DateTimeFormatter.ofPattern("MMM d, uuuu H:mm:s"));
+            myLogger.info("Start Loading File: " + myOpenFiles[i] + " time: " + timeStr);
+
+            DataSet tds = null;
+
+            if (fileType() == TasselFileType.Unknown) {
+                if (myOpenFiles[i].endsWith(FILE_EXT_HAPMAP_GZ)) {
+                    String theIndex = myOpenFiles[i].replaceFirst(FILE_EXT_HAPMAP_GZ, FILE_EXT_HAPMAP_GZ_LIX);
+                    if (new File(theIndex).isFile()) {
+                        myLogger.info("guessAtUnknowns: type: " + TasselFileType.HapmapLIX);
+                        alreadyLoaded.add(myOpenFiles[i]);
+                        alreadyLoaded.add(theIndex);
+                        GenotypeTable hapmap = BuilderFromHapMapLIX.build(myOpenFiles[i], theIndex);
+                        tds = new DataSet(new Datum(Utils.getFilename(myOpenFiles[i], FileLoadPlugin.FILE_EXT_HAPMAP_GZ), hapmap, null), this);
+                    } else {
+                        myLogger.info("guessAtUnknowns: type: " + TasselFileType.Hapmap);
+                        alreadyLoaded.add(myOpenFiles[i]);
+                        tds = processDatum(myOpenFiles[i], TasselFileType.Hapmap);
+                    }
+                } else if (myOpenFiles[i].endsWith(FILE_EXT_HAPMAP_GZ_LIX)) {
+                    String theHapmap = myOpenFiles[i].replaceFirst(FILE_EXT_HAPMAP_GZ_LIX, FILE_EXT_HAPMAP_GZ);
+                    if (new File(theHapmap).isFile()) {
+                        myLogger.info("guessAtUnknowns: type: " + TasselFileType.HapmapLIX);
+                        alreadyLoaded.add(myOpenFiles[i]);
+                        alreadyLoaded.add(theHapmap);
+                        GenotypeTable hapmap = BuilderFromHapMapLIX.build(theHapmap, myOpenFiles[i]);
+                        tds = new DataSet(new Datum(Utils.getFilename(theHapmap, FileLoadPlugin.FILE_EXT_HAPMAP_GZ), hapmap, null), this);
+                    } else {
+                        throw new IllegalStateException("Can't find genotype file for index: " + myOpenFiles[i]);
+                    }
+                } else if (myOpenFiles[i].endsWith(FILE_EXT_HAPMAP)) {
+                    myLogger.info("guessAtUnknowns: type: " + TasselFileType.Hapmap);
+                    alreadyLoaded.add(myOpenFiles[i]);
+                    tds = processDatum(myOpenFiles[i], TasselFileType.Hapmap);
+                } else if ((myOpenFiles[i].endsWith(FILE_EXT_TOPM_H5)) || (myOpenFiles[i].endsWith(FILE_EXT_TOPM))
+                        || (myOpenFiles[i].endsWith(FILE_EXT_TOPM_BIN)) || (myOpenFiles[i].endsWith(FILE_EXT_TOPM_TEXT))) {
+                    myLogger.info("guessAtUnknowns: type: " + TasselFileType.TOPM);
+                    alreadyLoaded.add(myOpenFiles[i]);
+                    tds = processDatum(myOpenFiles[i], TasselFileType.TOPM);
+                } else if ((myOpenFiles[i].endsWith(".grm.N.bin")) || (myOpenFiles[i].endsWith(".grm.bin"))
+                        || (myOpenFiles[i].endsWith(".grm.id"))) {
+                    String[] grmFiles = DistanceMatrixUtils.getGRMFilenames(myOpenFiles[i]);
+                    if (new File(grmFiles[0]).isFile() && new File(grmFiles[1]).isFile() && new File(grmFiles[2]).isFile()) {
+                        myLogger.info("guessAtUnknowns: type: " + TasselFileType.SqrMatrixBin);
+                        alreadyLoaded.add(grmFiles[0]);
+                        alreadyLoaded.add(grmFiles[1]);
+                        alreadyLoaded.add(grmFiles[2]);
+                        tds = processDatum(myOpenFiles[i], TasselFileType.SqrMatrixBin);
+                    } else if (myOpenFiles[i].endsWith(".grm.N.bin") && new File(grmFiles[4]).isFile() && new File(myOpenFiles[i]).isFile()) {
+                        myLogger.info("guessAtUnknowns: type: " + TasselFileType.SqrMatrix);
+                        alreadyLoaded.add(myOpenFiles[i]);
+                        alreadyLoaded.add(grmFiles[4]);
+                        tds = processDatum(grmFiles[4], TasselFileType.SqrMatrix);
+                    }
+                } else if (myOpenFiles[i].endsWith(FILE_EXT_PLINK_PED) || myOpenFiles[i].endsWith(FILE_EXT_PLINK_PED + ".gz")) {
+                    myLogger.info("guessAtUnknowns: type: " + TasselFileType.Plink);
+                    String theMapFile = myOpenFiles[i].replaceFirst(FILE_EXT_PLINK_PED, FILE_EXT_PLINK_MAP);
+                    alreadyLoaded.add(myOpenFiles[i]);
+                    alreadyLoaded.add(theMapFile);
+                    GenotypeTable plink = ImportUtils.readFromPLink(myOpenFiles[i], theMapFile, this);
+                    tds = new DataSet(new Datum(Utils.getFilename(myOpenFiles[i], FileLoadPlugin.FILE_EXT_PLINK_PED), plink, null), this);
+                } else if (myOpenFiles[i].endsWith(FILE_EXT_PLINK_MAP) || myOpenFiles[i].endsWith(FILE_EXT_PLINK_MAP + ".gz")) {
+                    myLogger.info("guessAtUnknowns: type: " + TasselFileType.Plink);
+                    String thePedFile = myOpenFiles[i].replaceFirst(FILE_EXT_PLINK_MAP, FILE_EXT_PLINK_PED);
+                    alreadyLoaded.add(myOpenFiles[i]);
+                    alreadyLoaded.add(thePedFile);
+                    GenotypeTable plink = ImportUtils.readFromPLink(thePedFile, myOpenFiles[i], this);
+                    tds = new DataSet(new Datum(Utils.getFilename(thePedFile, FileLoadPlugin.FILE_EXT_PLINK_PED), plink, null), this);
+                } else if (myOpenFiles[i].endsWith(FILE_EXT_SERIAL_GZ)) {
+                    myLogger.info("guessAtUnknowns: type: " + TasselFileType.Serial);
+                    alreadyLoaded.add(myOpenFiles[i]);
+                    tds = processDatum(myOpenFiles[i], TasselFileType.Serial);
+                } else if (myOpenFiles[i].endsWith(FILE_EXT_HDF5)) {
+                    myLogger.info("guessAtUnknowns: type: " + TasselFileType.HDF5);
+                    alreadyLoaded.add(myOpenFiles[i]);
+                    tds = processDatum(myOpenFiles[i], TasselFileType.HDF5);
+                } else if (myOpenFiles[i].endsWith(FILE_EXT_VCF) || myOpenFiles[i].endsWith(FILE_EXT_VCF + ".gz")) {
+                    myLogger.info("guessAtUnknowns: type: " + TasselFileType.VCF);
+                    alreadyLoaded.add(myOpenFiles[i]);
+                    tds = processDatum(myOpenFiles[i], TasselFileType.VCF);
+                } else if (myOpenFiles[i].endsWith(FILE_EXT_PHYLIP) || myOpenFiles[i].endsWith(FILE_EXT_PHYLIP + ".gz")) {
+                    myLogger.info("guessAtUnknowns: type: " + TasselFileType.Sequence);
+                    alreadyLoaded.add(myOpenFiles[i]);
+                    tds = processDatum(myOpenFiles[i], TasselFileType.Sequence);
+                } else if (myOpenFiles[i].endsWith(FILE_EXT_FASTA) || myOpenFiles[i].endsWith(FILE_EXT_FASTA + ".gz")) {
+                    myLogger.info("guessAtUnknowns: type: " + TasselFileType.Fasta);
+                    alreadyLoaded.add(myOpenFiles[i]);
+                    tds = processDatum(myOpenFiles[i], TasselFileType.Fasta);
+                } else {
+                    alreadyLoaded.add(myOpenFiles[i]);
+                    tds = guessAtUnknowns(myOpenFiles[i]);
+                }
+            } else {
+                alreadyLoaded.add(myOpenFiles[i]);
+                tds = processDatum(myOpenFiles[i], fileType());
+            }
+
+            time = LocalDateTime.now();
+            timeStr = time.format(DateTimeFormatter.ofPattern("MMM d, uuuu H:mm:s"));
+            if (tds != null) {
+                myLogger.info("Finished Loading File: " + myOpenFiles[i] + " time: " + timeStr);
+                GenotypeSummaryPlugin.printSimpleSummary(tds);
+                myWasCancelled = false;
+                result.add(tds);
+                fireDataSetReturned(new PluginEvent(tds, FileLoadPlugin.class));
+            } else {
+                myLogger.info("Nothing Loaded for File: " + myOpenFiles[i] + " time: " + timeStr);
+            }
+
+        }
+
+        return DataSet.getDataSet(result, this);
+
+    }
+
+    private DataSet guessAtUnknowns(String filename) {
 
         TasselFileType guess = TasselFileType.Unknown;
         DataSet tds = null;
@@ -420,7 +422,7 @@ public class FileLoadPlugin extends AbstractPlugin {
                 } else {
                     myLogger.warn("Line1: " + line1);
                     myLogger.warn("Line2: " + line2);
-                    throw new IOException("Improperly formatted header. Data will not be imported.");
+                    throw new IOException("Improperly formatted header. Data will not be imported for file: " + filename);
                 }
             } else if ((line1.startsWith(">")) || (line1.startsWith(";"))) {
                 guess = TasselFileType.Fasta;
@@ -435,7 +437,8 @@ public class FileLoadPlugin extends AbstractPlugin {
             tds = processDatum(filename, guess);
 
         } catch (Exception e) {
-            showError(e, filename);
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("FileLoadPlugin: Problem loading file: " + filename + ".  Error: " + e.getMessage());
         }
 
         return tds;
@@ -443,6 +446,7 @@ public class FileLoadPlugin extends AbstractPlugin {
     }
 
     private DataSet processDatum(String inFile, TasselFileType theFT) {
+
         Object result = null;
         String suffix = null;
         try {
@@ -550,37 +554,17 @@ public class FileLoadPlugin extends AbstractPlugin {
                     throw new IllegalStateException("Unknown Format: " + theFT + ".\n  Please check file format or select specific format.");
                 }
             }
-        } catch (Exception e) {
-            showError(e, inFile);
-        }
-        if (result != null) {
-            String name = Utils.getFilename(inFile, suffix);
 
-            Datum td = new Datum(name, result, null);
-            //todo need to add logic of directories.
-            DataSet tds = new DataSet(td, this);
-            return tds;
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("Problem loading file: " + inFile + ".\n  Error: " + e.getMessage());
+        }
+
+        if (result != null) {
+            Datum td = new Datum(Utils.getFilename(inFile, suffix), result, null);
+            return new DataSet(td, this);
         }
         return null;
-    }
-
-    private void showError(Exception e, String filename) {
-
-        myLogger.error(e.getMessage(), e);
-        StringBuilder builder = new StringBuilder();
-        if ((filename != null) && (filename.length() != 0)) {
-            builder.append("Error loading: ");
-            builder.append(filename);
-            builder.append("\n");
-        }
-        builder.append(Utils.shortenStrLineLen(ExceptionUtils.getExceptionCauses(e), 50));
-        String str = builder.toString();
-        myLogger.debug(e.getMessage(), e);
-        if (isInteractive()) {
-            DialogUtils.showError(str, getParentFrame());
-        } else {
-            myLogger.error(str);
-        }
 
     }
 
@@ -625,12 +609,34 @@ public class FileLoadPlugin extends AbstractPlugin {
         }
     }
 
+    /**
+     * Export file format (Default format depends on data being exported)
+     *
+     * @return Format
+     */
+    public TasselFileType fileType() {
+        return myFileType.value();
+    }
+
+    /**
+     * Set Format. Export file format (Default format depends on data being
+     * exported)
+     *
+     * @param value Format
+     *
+     * @return this plugin
+     */
+    public FileLoadPlugin fileType(TasselFileType value) {
+        myFileType = new PluginParameter<>(myFileType, value);
+        return this;
+    }
+
     public TasselFileType getTheFileType() {
-        return myFileType;
+        return fileType();
     }
 
     public void setTheFileType(TasselFileType theFileType) {
-        myFileType = theFileType;
+        fileType(theFileType);
     }
 
     /**
@@ -638,6 +644,7 @@ public class FileLoadPlugin extends AbstractPlugin {
      *
      * @return ImageIcon
      */
+    @Override
     public ImageIcon getIcon() {
         URL imageURL = FileLoadPlugin.class.getResource("/net/maizegenetics/analysis/images/LoadFile.gif");
         if (imageURL == null) {
@@ -652,8 +659,9 @@ public class FileLoadPlugin extends AbstractPlugin {
      *
      * @return String
      */
+    @Override
     public String getButtonName() {
-        return "Load";
+        return "Load As...";
     }
 
     /**
@@ -661,245 +669,8 @@ public class FileLoadPlugin extends AbstractPlugin {
      *
      * @return String
      */
+    @Override
     public String getToolTipText() {
-        return "Load data from files on your computer.";
-    }
-}
-
-/**
- * <p>Title: TASSEL</p>
- * <p>Description: </p>
- * <p>Copyright: Copyright (c) 2005</p>
- * <p>Company: USDA-ARS</p>
- *
- * @author Edward Buckler
- * @version 1.0
- */
-class FileLoadPluginDialog extends JDialog {
-
-    boolean isCancel = true;
-    ButtonGroup conversionButtonGroup = new ButtonGroup();
-    JRadioButton hapMapRadioButton = new JRadioButton("Load Hapmap");
-    JRadioButton hdf5RadioButton = new JRadioButton("Load HDF5");
-    JRadioButton hdf5SchemaRadioButton = new JRadioButton("Load HDF5 Schema");
-    JRadioButton vcfRadioButton = new JRadioButton("Load VCF");
-    JRadioButton plinkRadioButton = new JRadioButton("Load Plink");
-    JRadioButton sequenceAlignRadioButton = new JRadioButton("Load Phylip");
-    JRadioButton fastaRadioButton = new JRadioButton("Load FASTA File");
-    JRadioButton numericalRadioButton = new JRadioButton("Load Numerical (trait, covariates, or factors)");
-    JRadioButton loadMatrixRadioButton = new JRadioButton("Load Square Numerical Matrix (i.e. kinship)");
-    JRadioButton guessRadioButton = new JRadioButton("Make Best Guess");
-    JRadioButton projectionAlignmentRadioButton = new JRadioButton("Load Projection Alignment");
-    JRadioButton projectPCsandRunModelSelectionRadioButton = new JRadioButton("Load Files for Projecting PCs onto NAM");
-    JRadioButton tableReportRadioButton = new JRadioButton("Load a Table Report");
-    JRadioButton topmRadioButton = new JRadioButton("Load a TOPM (Tags on Physical Map)");
-    JRadioButton gobiiRadioButton = new JRadioButton("Load GOBII");
-
-    public FileLoadPluginDialog() {
-        super((Frame) null, "File Loader", true);
-        try {
-            jbInit();
-            pack();
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-    }
-
-    private void jbInit() throws Exception {
-
-        setTitle("File Loader");
-        setDefaultCloseOperation(JDialog.HIDE_ON_CLOSE);
-        setUndecorated(false);
-        getRootPane().setWindowDecorationStyle(JRootPane.NONE);
-
-        Container contentPane = getContentPane();
-
-        BoxLayout layout = new BoxLayout(contentPane, BoxLayout.Y_AXIS);
-        contentPane.setLayout(layout);
-
-        JPanel main = getMain();
-
-        contentPane.add(main);
-
-        pack();
-
-        setResizable(false);
-
-        conversionButtonGroup.add(projectionAlignmentRadioButton);
-        conversionButtonGroup.add(projectPCsandRunModelSelectionRadioButton);
-        conversionButtonGroup.add(hapMapRadioButton);
-        conversionButtonGroup.add(gobiiRadioButton);
-        conversionButtonGroup.add(hdf5RadioButton);
-        conversionButtonGroup.add(hdf5SchemaRadioButton);
-        conversionButtonGroup.add(vcfRadioButton);
-        conversionButtonGroup.add(plinkRadioButton);
-        conversionButtonGroup.add(sequenceAlignRadioButton);
-        conversionButtonGroup.add(fastaRadioButton);
-        conversionButtonGroup.add(loadMatrixRadioButton);
-        conversionButtonGroup.add(numericalRadioButton);
-        conversionButtonGroup.add(tableReportRadioButton);
-        conversionButtonGroup.add(topmRadioButton);
-        conversionButtonGroup.add(guessRadioButton);
-        guessRadioButton.setSelected(true);
-
-    }
-
-    private JPanel getMain() {
-
-        JPanel inputs = new JPanel();
-        BoxLayout layout = new BoxLayout(inputs, BoxLayout.Y_AXIS);
-        inputs.setLayout(layout);
-        inputs.setAlignmentX(JPanel.CENTER_ALIGNMENT);
-
-        inputs.add(Box.createRigidArea(new Dimension(1, 10)));
-
-        inputs.add(getLabel());
-
-        inputs.add(Box.createRigidArea(new Dimension(1, 10)));
-
-        inputs.add(getOptionPanel());
-
-        inputs.add(Box.createRigidArea(new Dimension(1, 10)));
-
-        inputs.add(getButtons());
-
-        inputs.add(Box.createRigidArea(new Dimension(1, 10)));
-
-        return inputs;
-
-    }
-
-    private JPanel getLabel() {
-
-        JPanel result = new JPanel();
-        BoxLayout layout = new BoxLayout(result, BoxLayout.Y_AXIS);
-        result.setLayout(layout);
-        result.setAlignmentX(JPanel.CENTER_ALIGNMENT);
-
-        JLabel jLabel1 = new JLabel("Choose File Type to Load.");
-        jLabel1.setFont(new Font("Dialog", Font.BOLD, 18));
-        result.add(jLabel1);
-
-        return result;
-
-    }
-
-    private JPanel getOptionPanel() {
-
-        JPanel result = new JPanel();
-        BoxLayout layout = new BoxLayout(result, BoxLayout.Y_AXIS);
-        result.setLayout(layout);
-        result.setAlignmentX(JPanel.CENTER_ALIGNMENT);
-        result.setBorder(BorderFactory.createEtchedBorder());
-
-        result.add(gobiiRadioButton);
-        result.add(hapMapRadioButton);
-        result.add(hdf5RadioButton);
-        result.add(hdf5SchemaRadioButton);
-        result.add(vcfRadioButton);
-        result.add(plinkRadioButton);
-        result.add(projectionAlignmentRadioButton);
-        //result.add(projectPCsandRunModelSelectionRadioButton);
-        result.add(sequenceAlignRadioButton);
-        result.add(fastaRadioButton);
-        result.add(numericalRadioButton);
-        result.add(loadMatrixRadioButton);
-        result.add(tableReportRadioButton);
-        result.add(topmRadioButton);
-        result.add(guessRadioButton);
-
-        result.add(Box.createRigidArea(new Dimension(1, 20)));
-
-        return result;
-
-    }
-
-    private JPanel getButtons() {
-
-        JButton okButton = new JButton();
-        JButton cancelButton = new JButton();
-
-        cancelButton.setText("Cancel");
-        cancelButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                cancelButton_actionPerformed(e);
-            }
-        });
-
-        okButton.setText("OK");
-        okButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                okButton_actionPerformed(e);
-            }
-        });
-
-        JPanel result = new JPanel(new FlowLayout(FlowLayout.CENTER));
-
-        result.add(okButton);
-
-        result.add(cancelButton);
-
-        return result;
-
-    }
-
-    public FileLoadPlugin.TasselFileType getTasselFileType() {
-        if (gobiiRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.GOBII;
-        }
-        if (hapMapRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.Hapmap;
-        }
-        if (hdf5RadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.HDF5;
-        }
-        if (hdf5SchemaRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.HDF5Schema;
-        }
-        if (vcfRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.VCF;
-        }
-        if (plinkRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.Plink;
-        }
-        if (projectionAlignmentRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.ProjectionAlignment;
-        }
-        if (projectPCsandRunModelSelectionRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.ProjectPCsandRunModelSelection;
-        }
-        if (sequenceAlignRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.Sequence;
-        }
-        if (fastaRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.Fasta;
-        }
-        if (loadMatrixRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.SqrMatrix;
-        }
-        if (numericalRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.Unknown;
-        }
-        if (tableReportRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.Table;
-        }
-        if (topmRadioButton.isSelected()) {
-            return FileLoadPlugin.TasselFileType.TOPM;
-        }
-        return FileLoadPlugin.TasselFileType.Unknown;
-    }
-
-    public void okButton_actionPerformed(ActionEvent e) {
-        isCancel = false;
-        setVisible(false);
-    }
-
-    public void cancelButton_actionPerformed(ActionEvent e) {
-        isCancel = true;
-        setVisible(false);
-    }
-
-    public boolean isCancel() {
-        return isCancel;
+        return "Load data from filesystem.";
     }
 }
