@@ -107,17 +107,17 @@ public class ImportUtils {
 
     public static GenotypeTable readFromVCF(final String filename, ProgressListener listener, boolean keepDepth) {
         if (keepDepth) {
-            return BuilderFromVCF.getBuilder(filename,listener).keepDepth().build();
+            return BuilderFromVCF.getBuilder(filename, listener).keepDepth().build();
         }
-        return BuilderFromVCF.getBuilder(filename,listener).build();
+        return BuilderFromVCF.getBuilder(filename, listener).build();
     }
 
     public static GenotypeTable readFromVCF(final String filename, ProgressListener listener) {
         return readFromVCF(filename, listener, true);
     }
-    
+
     public static GenotypeTable readFromVCF(final String filename) {
-        return readFromVCF(filename,null);
+        return readFromVCF(filename, null);
     }
 
     /**
@@ -143,6 +143,14 @@ public class ImportUtils {
 
     public static GenotypeTable readFromPLink(final String pedFilename, final String mapFilename, ProgressListener listener) {
         return BuilderFromPLINK.getBuilder(pedFilename, mapFilename, listener).build();
+    }
+
+    public static GenotypeTable readFromPLink(final String pedFilename, final String mapFilename, ProgressListener listener, boolean sortPositions) {
+        if (sortPositions) {
+            return BuilderFromPLINK.getBuilder(pedFilename, mapFilename, listener).sortPositions().build();
+        } else {
+            return BuilderFromPLINK.getBuilder(pedFilename, mapFilename, listener).build();
+        }
     }
 
     public static GenotypeTable readFasta(String filename) throws FileNotFoundException, IOException {

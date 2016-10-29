@@ -34,6 +34,9 @@ public class PlinkLoadPlugin extends AbstractPlugin {
             .description("Ped File").build();
     private PluginParameter<String> myMapFile = new PluginParameter.Builder<>("mapFile", null, String.class).required(true).inFile()
             .description("Map File").build();
+    private PluginParameter<Boolean> mySortPositions = new PluginParameter.Builder<>("sortPositions", false, Boolean.class)
+            .description("Whether to sort genotype positions.")
+            .build();
 
     /**
      * Creates a new instance of PlinkLoadPlugin
@@ -42,16 +45,11 @@ public class PlinkLoadPlugin extends AbstractPlugin {
         super(parentFrame, isInteractive);
     }
 
+    @Override
     public DataSet processData(DataSet input) {
-        return loadFile(pedFile(), mapFile());
+        return loadFile(pedFile(), mapFile(), sortPositions());
     }
 
-    // The following getters and setters were auto-generated.
-    // Please use this method to re-generate.
-    //
-    // public static void main(String[] args) {
-    //     GeneratePluginCode.generate(PlinkLoadPlugin.class);
-    // }
     /**
      * Convenience method to run plugin with one return object.
      */
@@ -102,6 +100,27 @@ public class PlinkLoadPlugin extends AbstractPlugin {
     }
 
     /**
+     * Whether to sort genotype positions.
+     *
+     * @return Sort Positions
+     */
+    public Boolean sortPositions() {
+        return mySortPositions.value();
+    }
+
+    /**
+     * Set Sort Positions. Whether to sort genotype positions.
+     *
+     * @param value Sort Positions
+     *
+     * @return this plugin
+     */
+    public PlinkLoadPlugin sortPositions(Boolean value) {
+        mySortPositions = new PluginParameter<>(mySortPositions, value);
+        return this;
+    }
+
+    /**
      * Icon for this plugin to be used in buttons, etc.
      *
      * @return ImageIcon
@@ -128,9 +147,9 @@ public class PlinkLoadPlugin extends AbstractPlugin {
         return "Load Plink Files";
     }
 
-    public DataSet loadFile(String thePedFile, String theMapFile) {
+    private DataSet loadFile(String thePedFile, String theMapFile, boolean sortPositions) {
 
-        GenotypeTable result = ImportUtils.readFromPLink(thePedFile, theMapFile, this);
+        GenotypeTable result = ImportUtils.readFromPLink(thePedFile, theMapFile, this, sortPositions);
         Datum td = new Datum(Utils.getFilename(thePedFile, FileLoadPlugin.FILE_EXT_PLINK_PED), result, null);
         DataSet tds = new DataSet(td, this);
         fireDataSetReturned(new PluginEvent(tds, PlinkLoadPlugin.class));

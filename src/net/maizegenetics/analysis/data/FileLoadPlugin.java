@@ -59,6 +59,10 @@ public class FileLoadPlugin extends AbstractPlugin {
             .range(TasselFileType.values())
             .build();
 
+    private PluginParameter<Boolean> mySortPositions = new PluginParameter.Builder<>("sortPositions", false, Boolean.class)
+            .description("Whether to sort genotype positions if that's possible.")
+            .build();
+
     private String[] myOpenFiles = null;
     private PlinkLoadPlugin myPlinkLoadPlugin = null;
     private ProjectionLoadPlugin myProjectionLoadPlugin = null;
@@ -159,6 +163,7 @@ public class FileLoadPlugin extends AbstractPlugin {
                         myPlinkLoadPlugin.addListener(current);
                     }
                 }
+                myPlinkLoadPlugin.sortPositions(sortPositions());
                 return myPlinkLoadPlugin.performFunction(null);
             }
 
@@ -268,14 +273,14 @@ public class FileLoadPlugin extends AbstractPlugin {
                     String theMapFile = myOpenFiles[i].replaceFirst(FILE_EXT_PLINK_PED, FILE_EXT_PLINK_MAP);
                     alreadyLoaded.add(myOpenFiles[i]);
                     alreadyLoaded.add(theMapFile);
-                    GenotypeTable plink = ImportUtils.readFromPLink(myOpenFiles[i], theMapFile, this);
+                    GenotypeTable plink = ImportUtils.readFromPLink(myOpenFiles[i], theMapFile, this, sortPositions());
                     tds = new DataSet(new Datum(Utils.getFilename(myOpenFiles[i], FileLoadPlugin.FILE_EXT_PLINK_PED), plink, null), this);
                 } else if (myOpenFiles[i].endsWith(FILE_EXT_PLINK_MAP) || myOpenFiles[i].endsWith(FILE_EXT_PLINK_MAP + ".gz")) {
                     myLogger.info("guessAtUnknowns: type: " + TasselFileType.Plink);
                     String thePedFile = myOpenFiles[i].replaceFirst(FILE_EXT_PLINK_MAP, FILE_EXT_PLINK_PED);
                     alreadyLoaded.add(myOpenFiles[i]);
                     alreadyLoaded.add(thePedFile);
-                    GenotypeTable plink = ImportUtils.readFromPLink(thePedFile, myOpenFiles[i], this);
+                    GenotypeTable plink = ImportUtils.readFromPLink(thePedFile, myOpenFiles[i], this, sortPositions());
                     tds = new DataSet(new Datum(Utils.getFilename(thePedFile, FileLoadPlugin.FILE_EXT_PLINK_PED), plink, null), this);
                 } else if (myOpenFiles[i].endsWith(FILE_EXT_SERIAL_GZ)) {
                     myLogger.info("guessAtUnknowns: type: " + TasselFileType.Serial);
@@ -637,6 +642,28 @@ public class FileLoadPlugin extends AbstractPlugin {
 
     public void setTheFileType(TasselFileType theFileType) {
         fileType(theFileType);
+    }
+
+    /**
+     * Whether to sort genotype positions if that's possible.
+     *
+     * @return Sort Positions
+     */
+    public Boolean sortPositions() {
+        return mySortPositions.value();
+    }
+
+    /**
+     * Set Sort Positions. Whether to sort genotype positions if that's
+     * possible.
+     *
+     * @param value Sort Positions
+     *
+     * @return this plugin
+     */
+    public FileLoadPlugin sortPositions(Boolean value) {
+        mySortPositions = new PluginParameter<>(mySortPositions, value);
+        return this;
     }
 
     /**
