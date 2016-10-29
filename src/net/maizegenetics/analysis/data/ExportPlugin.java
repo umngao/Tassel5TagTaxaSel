@@ -121,7 +121,8 @@ public class ExportPlugin extends AbstractPlugin {
                     Arrays.asList(new FileLoadPlugin.TasselFileType[]{
                 FileLoadPlugin.TasselFileType.SqrMatrix,
                 FileLoadPlugin.TasselFileType.SqrMatrixBin,
-                FileLoadPlugin.TasselFileType.SqrMatrixRaw}));
+                FileLoadPlugin.TasselFileType.SqrMatrixRaw,
+                FileLoadPlugin.TasselFileType.SqrMatrixDARwinDIS}));
         } else if (data instanceof TaxaList) {
             myFileType = new PluginParameter<>(myFileType,
                     Arrays.asList(new FileLoadPlugin.TasselFileType[]{FileLoadPlugin.TasselFileType.TaxaList}));
@@ -191,7 +192,7 @@ public class ExportPlugin extends AbstractPlugin {
 
     public String performFunctionForDistanceMatrix(DistanceMatrix input) {
 
-        if (fileType() != FileLoadPlugin.TasselFileType.SqrMatrixRaw && fileType() != FileLoadPlugin.TasselFileType.SqrMatrixBin) {
+        if (fileType() == FileLoadPlugin.TasselFileType.SqrMatrix) {
             String filename = Utils.addSuffixIfNeeded(saveFile(), ".txt", new String[]{".txt", ".txt.gz"});
             WriteDistanceMatrix.saveDelimitedDistanceMatrix(input, filename);
             return filename;
@@ -203,6 +204,10 @@ public class ExportPlugin extends AbstractPlugin {
             String[] grmFiles = DistanceMatrixUtils.getGRMFilenames(saveFile());
             WriteDistanceMatrix.saveBinMultiBlupMatrix(input, grmFiles[0], grmFiles[1], grmFiles[2]);
             return grmFiles[1];
+        } else if (fileType() == FileLoadPlugin.TasselFileType.SqrMatrixDARwinDIS) {
+            String filename = Utils.addSuffixIfNeeded(saveFile(), ".dis");
+            WriteDistanceMatrix.saveDARwinMatrix(input, filename);
+            return filename;
         } else {
             throw new IllegalArgumentException("ExportPlugin: performFunctionForDistanceMatrix: Unknown file type: " + fileType());
         }

@@ -71,6 +71,31 @@ public class DistanceMatrixUtils {
     }
 
     /**
+     * Get DARwin file names.
+     *
+     * @param base filename base
+     *
+     * @return array of file names. Index 0 is the id filename (.don); Index 1
+     * is the dissimilarity matrix (.dis)
+     */
+    public static String[] getDARwinFilenames(String base) {
+
+        String[] result = new String[2];
+        int index = base.lastIndexOf(".");
+        if (index == -1) {
+            result[0] = base + ".don";
+            result[1] = base + ".dis";
+            return result;
+        } else {
+            String temp = base.substring(0, index);
+            result[0] = temp + ".don";
+            result[1] = temp + ".dis";
+            return result;
+        }
+
+    }
+
+    /**
      * compute squared distance to second distance matrix. If both matrices have
      * the same size it is assumed that the order of the taxa is identical.
      */

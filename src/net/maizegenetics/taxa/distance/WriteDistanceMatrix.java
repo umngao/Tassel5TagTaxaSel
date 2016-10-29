@@ -124,7 +124,6 @@ public class WriteDistanceMatrix {
 
                 for (int i = 1; i < r + 2; i++) {
 
-                    //ByteBuffer kinsBuffer = ByteBuffer.allocate(4).order(ByteOrder.nativeOrder());
                     ByteBuffer kinsBuffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
 
                     kinsBuffer.putFloat(Float.parseFloat(theRow[i].toString()));
@@ -196,6 +195,74 @@ public class WriteDistanceMatrix {
             }
 
         }
+
+    }
+
+    public static void saveDARwinMatrix(DistanceMatrix matrix, String saveFile) {
+        String[] filenames = DistanceMatrixUtils.getDARwinFilenames(saveFile);
+        saveDARwinMatrix(matrix, filenames[0], filenames[1]);
+    }
+
+    public static void saveDARwinMatrix(DistanceMatrix matrix, String donFile, String disFile) {
+
+        if ((disFile == null) || (donFile == null)) {
+            throw new IllegalArgumentException("WriteDistanceMatrix: saveDARwinMatrix: No file specified.");
+        }
+
+        saveDARwinIDs(donFile, matrix.getTaxaList());
+
+        int numTaxa = matrix.numberOfTaxa();
+
+        try (BufferedWriter writer = Utils.getBufferedWriter(disFile)) {
+
+            writer.write("@DARwin 5.0 - DIS\n");
+            writer.write(String.valueOf(numTaxa));
+            writer.write("\n");
+
+            for (int t = 0; t < numTaxa - 1; t++) {
+                writer.write("\t");
+                writer.write(String.valueOf(t + 1));
+            }
+            writer.write("\n");
+
+            for (int t = 1; t < numTaxa; t++) {
+                writer.write(String.valueOf(t + 1));
+                for (int t2 = 0; t2 < t; t2++) {
+                    writer.write("\t");
+                    writer.write(String.valueOf(matrix.getDistance(t, t2)));
+                }
+                writer.write("\n");
+            }
+
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("WriteDistanceMatrix: saveDARwinMatrix: problem writing: " + disFile);
+        }
+        
+        myLogger.info("saveDARwinIDs: wrote file: " + disFile);
+
+    }
+
+    public static void saveDARwinIDs(String filename, TaxaList taxa) {
+
+        try (BufferedWriter writer = Utils.getBufferedWriter(filename)) {
+            writer.write("@DARwin 5.0 - DON\n");
+            writer.write(String.valueOf(taxa.numberOfTaxa()));
+            writer.write("\t1\n");
+            writer.write("Unit\tTaxa\n");
+            int index = 1;
+            for (Taxon taxon : taxa) {
+                writer.write(String.valueOf(index++));
+                writer.write("\t");
+                writer.write(taxon.getName());
+                writer.write("\n");
+            }
+        } catch (Exception e) {
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("WriteDistanceMatrix: saveDARwinIDs: Problem writing: " + filename + ".  " + e.getMessage());
+        }
+        
+        myLogger.info("saveDARwinIDs: wrote file: " + filename);
 
     }
 
