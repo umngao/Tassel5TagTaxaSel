@@ -273,5 +273,11 @@
             <version>9.4-1201-jdbc41</version>
         </dependency>
 
+        
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
+            <version>1.8.1</version>
+        </dependency>
     </dependencies>
 </project>
