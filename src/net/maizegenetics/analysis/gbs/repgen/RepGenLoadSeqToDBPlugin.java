@@ -124,15 +124,19 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
                     .peek(path -> System.out.println(path.getFileName().toString()))
                     .filter(path -> fileTaxaMap.containsKey(path.getFileName().toString()))
                     .collect(Collectors.toList());
-            if (inputSeqFiles.size() == 0) return null; // no files in this directory to process
+            if (inputSeqFiles.size() == 0) {
+                System.out.println("RepGenLoadSeqToDB:processData - found NO files represented in key file.");
+                System.out.println("Please verify your file names are formatted correctly and that your key file contains the required headers.");
+                return null; // no files in this directory to process
+            }
+            System.out.println("Found " + inputSeqFiles.size() + " files to process");
             //Files in a batch have roughly the same size
             //inputSeqFiles = this.sortFastqBySize(inputSeqFiles);
             int batchNum = inputSeqFiles.size()/batchSize;
             if (inputSeqFiles.size()%batchSize != 0) batchNum++;
 
-
             // Check if user wants to clear existing db.
-            TagDataWriter tdw = null;
+            RepGenDataWriter tdw = null;
             if (Files.exists(Paths.get(myOutputDB.value()))) {
                 if (deleteOldData()) {
                     try {
@@ -144,7 +148,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
                     }
                 } else {
                  // We'll append data to new DB if all new taxa are contained in db
-                    tdw=new TagDataSQLite(myOutputDB.value());
+                    tdw=new RepGenSQLite(myOutputDB.value());
                     TaxaList oldTaxaList = tdw.getTaxaList();
                     boolean sameMasterTaxaList = true;
                     Taxon badTaxon = null;
@@ -167,7 +171,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
                     tdw.clearTagTaxaDistributionData(); // clear old data - it will be re-added at the end.
                 }
             }
-            if (tdw == null) tdw=new TagDataSQLite(myOutputDB.value());
+            if (tdw == null) tdw=new RepGenSQLite(myOutputDB.value());
             taglenException = false;
             for (int i = 0; i < inputSeqFiles.size(); i+=batchSize) {
                 int end = i+batchSize;
@@ -222,13 +226,10 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
             tagCntMap.removeTagByCount(myMinKmerCount.value());
             System.out.println("By removing kmers with minCount of " + myMinKmerCount.value() + "Kmer number is reduced to " + tagCntMap.size()+"\n");
 
-            // now done in processFastQ
-            //removeSecondCutSitesFromMap(new GBSEnzyme(enzyme()));
-
             tdw.putTaxaList(masterTaxaList);
             tdw.putAllTag(tagCntMap.keySet());
             tdw.putTaxaDistribution(tagCntMap);
-            ((TagDataSQLite)tdw).close();  //todo autocloseable should do this but it is not working.
+            ((RepGenSQLite)tdw).close();  //todo autocloseable should do this but it is not working.
         } catch(Exception e) {
             e.printStackTrace();
         }
@@ -249,7 +250,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
 
             while ((seqAndQual=GBSUtils.readFastQBlock(br,allReads)) != null) {
                 allReads++;
-                //After quality score is read, decode barcode using the current sequence & quality  score
+                // Check for and toss low quality reads
                 if(minQual>0) {
                     //todo move getFirstLowQualityPos into this class?
                     if(BaseEncoder.getFirstLowQualityPos(seqAndQual[1],minQual, qualityScoreBase)<(preferredTagLength)){
@@ -266,11 +267,9 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
                 			"Re-run your files with either a shorter mxKmerL value or a higher minimum quality score.\n";
                 	throw new StringIndexOutOfBoundsException(errMsg);
                 }
-                // This one has best performance
+                
                 Tag tag = TagBuilder.instance(seqAndQual[0].substring(0,preferredTagLength)).build();
 
-                //Tag tag = removeSecondCutSiteAhoC(seqAndQual[0].substring(barcodeLen),preferredTagLength);
-                //Tag tag=TagBuilder.instance(seqAndQual[0].substring(barcodeLen, barcodeLen + preferredTagLength)).build();
                 if(tag==null) continue;   //null occurs when any base was not A, C, G, T
                 goodBarcodedReads++;
                 TaxaDistribution taxaDistribution=masterTagTaxaMap.get(tag);
