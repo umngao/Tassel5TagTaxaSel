@@ -1,7 +1,7 @@
 /*
- *  BuildSchema
+ *  ExportAvro
  * 
- *  Created on Aug 31, 2016
+ *  Created on Nov 3, 2016
  */
 package net.maizegenetics.analysis.avro;
 
@@ -9,6 +9,7 @@ import java.io.File;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.ImportUtils;
 import net.maizegenetics.util.LoggingUtils;
+import net.maizegenetics.util.Utils;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.file.CodecFactory;
@@ -16,20 +17,26 @@ import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumWriter;
+import org.apache.log4j.Logger;
 
 /**
  *
  * @author Terry Casstevens
  */
-public class BuildSchema {
+public class ExportAvro {
 
-    public static void main(String[] args) {
+    private static final Logger myLogger = Logger.getLogger(ExportAvro.class);
 
-        LoggingUtils.setupDebugLogging();
+    private ExportAvro() {
+        // utility
+    }
+
+    public static void write(GenotypeTable genotype, String datasetName) {
+
+        String filename = Utils.addSuffixIfNeeded(datasetName, ".avro");
 
         try {
 
-            GenotypeTable genotype = ImportUtils.read("mdp_genotype.hmp.txt");
             int numTaxa = genotype.numberOfTaxa();
             int numSites = genotype.numberOfSites();
 
@@ -56,25 +63,24 @@ public class BuildSchema {
                     .name("genotype").type(genotypeSchema).noDefault()
                     .endRecord();
 
-            System.out.println("Genotype Schema...");
-            System.out.println(genotypeSchema.toString(true));
-            System.out.println("Tassel Schema...");
-            System.out.println(tasselSchema.toString(true));
-            System.out.println("schema name: " + tasselSchema.getName());
-            System.out.println("schema type: " + tasselSchema.getType());
-            //System.out.println("schema namespace: " + tasselSchema.getNamespace());
-            System.out.println("schema fullname: " + tasselSchema.getFullName());
-
             DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<>(tasselSchema);
             try (DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<>(datumWriter)) {
                 dataFileWriter.setCodec(CodecFactory.snappyCodec());
-                dataFileWriter.create(tasselSchema, new File("DS_1.avro"));
+                dataFileWriter.create(tasselSchema, new File(filename));
                 dataFileWriter.append(new GenericRecordGenotypeTable(tasselSchema, genotype));
             }
+
         } catch (Exception e) {
-            e.printStackTrace();
+            myLogger.debug(e.getMessage(), e);
+            throw new IllegalStateException("ExportAvro: write: problem writing file: " + filename + ". " + e.getMessage());
         }
-        
+
     }
     
+    public static void main(String[] args) {
+        LoggingUtils.setupDebugLogging();
+        GenotypeTable genotype = ImportUtils.read("mdp_genotype.hmp.txt");
+        write(genotype, "test");
+    }
+
 }

@@ -33,10 +33,12 @@ public class GenericRecordGenotypeTable implements GenericRecord {
         switch (key) {
             case "taxa":
                 return new GenericArrayTaxa(myTable.taxa());
+            case "positions":
+                return new GenericArrayPositions(myTable.positions());
             case "genotype":
                 return new GenericRecordGenotype(mySchema.getField("genotype").schema(), myTable);
             default:
-                throw new IllegalStateException();
+                throw new IllegalStateException("GenericRecordGenotypeTable: get: Unknown key: " + key);
         }
     }
 

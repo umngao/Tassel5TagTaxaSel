@@ -26,7 +26,11 @@ public class GenericMapAnnotations implements Map<String, String> {
 
     @Override
     public int size() {
-        return myAnnotations.numAnnotations();
+        if (myAnnotations == null) {
+            return 0;
+        } else {
+            return myAnnotations.numAnnotations();
+        }
     }
 
     @Override
@@ -81,7 +85,11 @@ public class GenericMapAnnotations implements Map<String, String> {
 
     @Override
     public Set<Entry<String, String>> entrySet() {
-        return new HashSet<>(Arrays.asList(myAnnotations.getAllAnnotationEntries()));
+        if (myAnnotations == null) {
+            return null;
+        } else {
+            return new HashSet<>(Arrays.asList(myAnnotations.getAllAnnotationEntries()));
+        }
     }
 
 }

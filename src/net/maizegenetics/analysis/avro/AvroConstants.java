@@ -75,24 +75,14 @@ public class AvroConstants {
             .builder("net.maizegenetics")
             .array().items(POSITION_SCHEMA);
 
-//    .name(POSITION_INDICES.strand.name()).type().booleanType().noDefault()
-//            .name(POSITION_INDICES.cm.name()).type().floatType().noDefault()
-//            .name(POSITION_INDICES.is_nucleotide.name()).type().booleanType().noDefault()
-//            .name(POSITION_INDICES.is_indel.name()).type().booleanType().noDefault()
-//            .name(POSITION_INDICES.maf.name()).type().floatType().noDefault()
-//            .name(POSITION_INDICES.site_coverage.name()).type().floatType().noDefault()
-//            .name(POSITION_INDICES.allele_value.name()).type().longType().noDefault()
-//    private final Chromosome myChromosome;
-//    private final int myPosition;
-//    private final byte myStrand;
-//    private final float myCM;
-//    private final boolean isNucleotide;
-//    private final boolean isIndel;
-//    private final float myMAF;
-//    private final float mySiteCoverage;
-//    private final long myAlleleValue;
-//    private final byte[] mySNPIDAsBytes;
-//    private final GeneralAnnotation myVariantsAndAnno;
+    public static final String POSITION_STRAND = "strand";
+    public static final String POSITION_CM = "cm";
+    public static final String POSITION_IS_NUCLEOTIDE = "isNucleotide";
+    public static final String POSITION_IS_INDEL = "isIndel";
+    public static final String POSITION_MAF = "maf";
+    public static final String POSITION_SITE_COVERAGE = "siteCoverage";
+    public static final String POSITION_ALLELE_VALUE = "alleleValue";
+
     public static enum GENOTYPE_TABLE_COMPONENTS {
         taxa, positions, genotype
     };
