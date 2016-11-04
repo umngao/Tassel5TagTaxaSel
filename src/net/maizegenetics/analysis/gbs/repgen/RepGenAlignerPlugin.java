@@ -38,6 +38,15 @@ import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.PluginParameter;
 
 /**
+ * This plugin takes an existing repGen db, grabs the tags
+ * whose depth meets that specified in the minCount parameter,
+ * and makes a best guess at each tag's alignment against a
+ * reference genome.
+ * 
+ * kmer seeds are created from the stored tags.  The ref genome
+ * is walked with a sliding window of 1.  Smith Waterman is used
+ * to determine alignment score.
+ * 
  * @author lcj34
  *
  */
@@ -91,10 +100,8 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         // if kmer seed matches, attempt alignment of tag at this position
         // store best alignment for each tag, load data into TagMapping and
         // PhysicalMapPosition
-        try {
-            
-            System.out.println("RepGenAlignerPlugin:processData begin");
- 
+        try {           
+            System.out.println("RepGenAlignerPlugin:processData begin"); 
             RepGenDataWriter repGenData=new RepGenSQLite(inputDB());
                        
             Multimap<String,Tag> kmerTagMap = HashMultimap.create();
@@ -139,11 +146,9 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                         chromIdx += badValue+1; // returned value was at bad base - move beyond it
                         continue;
                     }
-                    
-                    
+                                       
                     // Convert back to allele string
                     String chromKmerString = NucleotideAlignmentConstants.nucleotideBytetoString(chromSeedBytes);
-                    //String chromKmerString = new String(chromSeedBytes);
                     // chromKmerBytes were good - check if this kmer exists among our seeds
                     if (kmerTagMap.containsKey(chromKmerString)){
                         kmersFound++;
@@ -215,7 +220,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             myLogger.info("Catch in reading TagCount file e=" + e);
             e.printStackTrace();
         }
-        System.out.println("Process took " + (System.nanoTime() - time)/1e9 + " seconds.\n");
+        System.out.println("Process took " + (System.nanoTime() - totalTime)/1e9 + " seconds.\n");
         return null;
     }
     
@@ -254,7 +259,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
     private void calculateAlignmentInfo(byte[] refTagSequence,List<Tag> tags, 
             Multimap<Tag,AlignmentInfo> tagAlignInfoMap, String chrom, int position){
         // For each tag on the tags list, run SW against it and the refTagSequence
-        // Store alignment info in the map.  We need the position
+        // Store alignment info in the map.
         
         for (Tag tagToMatch : tags) {
             SmithWaterman mySM = new SmithWaterman(refTagSequence, tagToMatch.sequence().getBytes());
@@ -444,8 +449,8 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         kmerLen = new PluginParameter<>(kmerLen, value);
         return this;
     }
-
 }
+
 class AlignmentInfo implements Comparable<AlignmentInfo>{
     private final String refSequence;
     private  final String myChromosome;
