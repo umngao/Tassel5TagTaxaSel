@@ -36,17 +36,17 @@ public class GetPhenotypeFromB4RPlugin extends net.maizegenetics.plugindef.Abstr
             .build();
     
     
-    private PluginParameter<String> myStudyName = new PluginParameter.Builder<>("studyName",null,
+    private PluginParameter<String> myStudyName = new PluginParameter.Builder<>("studyName","",
             String.class)
                         .description("Name of the study")
                         .guiName("Study Name")
                         .build();
-    private PluginParameter<String> myTaxaName = new PluginParameter.Builder<>("taxaName",null,
+    private PluginParameter<String> myTaxaName = new PluginParameter.Builder<>("taxaName","",
             String.class)
                         .description("Name of the taxa")
                         .guiName("Taxa Name")
                         .build();
-    private PluginParameter<String> myVariableName = new PluginParameter.Builder<>("varName",null,
+    private PluginParameter<String> myVariableName = new PluginParameter.Builder<>("varName","",
             String.class)
                         .description("Name of the variable")
                         .guiName("Variable Name")
