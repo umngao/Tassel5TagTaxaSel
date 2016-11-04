@@ -3,6 +3,7 @@
  */
 package net.maizegenetics.dna.tag;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -41,14 +42,21 @@ public interface RepGenDataWriter extends RepGenData {
     void putTaxaDistribution(Map<Tag, TaxaDistribution> tagTaxaDistributionMap);
 
 
+//    /**
+//     * Associates the specified Tag (key) with the specified cut site Position (value).  Multiple associations are allowed, as
+//     * Tags can map to multiple locations.  Each tag should only have one best annotation.
+//     * @param tagAnnotatedPositionMap Map of specific tag with Annotated Position of the tag cut site.
+//     *                                Annotations should be cigarAlignment, isBest, alignmentApproach, forward, and supportValue
+//     */
+//    void putTagAlignments(Multimap<Tag, Position> tagAnnotatedPositionMap);
+    
     /**
      * Associates the specified Tag (key) with the specified cut site Position (value).  Multiple associations are allowed, as
-     * Tags can map to multiple locations.  Each tag should only have one best annotation.
-     * @param tagAnnotatedPositionMap Map of specific tag with Annotated Position of the tag cut site.
-     *                                Annotations should be cigarAlignment, isBest, alignmentApproach, forward, and supportValue
+     * Tags can map to multiple locations.  
+     * @param tagAnnotatedPositionMap Map of specific tag with Annotated Position of the tag alignment site.
+     *                                Annotations may be isBest, alignmentApproach, and forward
      */
-    void putTagAlignments(Multimap<Tag, Position> tagAnnotatedPositionMap);
-
+    void putTagAlignments(Multimap<Tag, Position> tagAnnotatedPositionMap, String referenceGenome);
     /*
     Set the specified Tag and Position combination to best, and all others were set to false.
      */
@@ -99,5 +107,18 @@ public interface RepGenDataWriter extends RepGenData {
      * Removes all data from the snpQuality table
      */
     void clearSNPQualityData();
+
+    /**
+     * Adds a mapping approach strategy to the mappingApproach table
+     * @param name
+     */
+    void addMappingApproach(String name);
+
+    /**
+     * Adds a mapping approach strategy to the mappingApproach table
+     * @param name
+     * @throws SQLException
+     */
+    void addReferenceGenome(String refGenome);
 
 }

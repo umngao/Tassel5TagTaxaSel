@@ -9,8 +9,8 @@ CREATE TABLE tag (
     UNIQUE (sequence, seqlen)
 );
 
--- Table: tagPhysicalPosition
--- Junction (link) table between tag, and physicalposition
+-- Table: tagMapping
+-- Junction (link) table between tag, and physicalMapPosition
 CREATE TABLE tagMapping (
     tagid       INTEGER NOT NULL,
     position_id  INTEGER NOT NULL,

@@ -69,7 +69,8 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
      */
     private BiMap<Tag,Integer> tagTagIDMap;
     private Map<String,Integer> mappingApproachToIDMap;
-    private SortedMap<Position,Integer> tagMappingToIDMap;
+    private Map<String,Integer> referenceGenomeToIDMap;
+    private SortedMap<Position,Integer> physicalMapPositionToIDMap;
     public BiMap<Position,Integer> snpPosToIDMap;
     private BiMap<Allele,Integer> alleleToIDMap;
 
@@ -80,6 +81,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     PreparedStatement posTagInsertPS;
     PreparedStatement taxaDistWhereTagMappingIDPS;
     PreparedStatement snpPositionsForChromosomePS;
+    
     PreparedStatement alleleTaxaDistForSnpidPS;
     PreparedStatement allAlleleTaxaDistForSnpidPS;
     PreparedStatement snpQualityInsertPS;
@@ -110,6 +112,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             initPreparedStatements();
             loadTagHash();
             loadMappingApproachHash();
+            loadReferenceGenomeHash();
             loadTaxaList();
         }
         catch(Exception e)
@@ -130,8 +133,8 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     private void initPreparedStatements() {
         try{
             posTagInsertPS=connection.prepareStatement(
-                    "INSERT OR IGNORE into TagMapping (tagid, position_id, method_id, estimate_dist_bp, bp_error, estimate_dist_cm, cm_error)" +
-                    " values(?,?,?,?,?,?,?)");
+                    "INSERT OR IGNORE into TagMapping (tagid, position_id, method_id, bp_error, cm_error)" +
+                    " values(?,?,?,?,?)");
             tagTaxaDistPS=connection.prepareStatement("select depthsRLE from tagtaxadistribution where tagid=?");
             allelePairWithTagid1PS=connection.prepareStatement("select * from allelepair where tagid_1=?");
             taxaDistWhereTagMappingIDPS=connection.prepareStatement(
@@ -171,20 +174,20 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         }
     }
 
-    private void loadTagMappingHash() { // LCJ - was loadTagMappingHash
+    private void loadPhysicalMapPositionHash() {
         try{
-            ResultSet rs=connection.createStatement().executeQuery("select count(*) from tagMapping");
+            ResultSet rs=connection.createStatement().executeQuery("select count(*) from physicalmapposition");
             int size=rs.getInt(1);
-            System.out.println("size of all positions in tagMapping table="+size);
-            if(tagMappingToIDMap==null) {tagMappingToIDMap=new TreeMap<>();}
-            else if(size==tagMappingToIDMap.size()) return;
-            rs=connection.createStatement().executeQuery("select * from tagMapping");
+            System.out.println("size of all positions in physicalMapPosiiton table="+size);
+            if(physicalMapPositionToIDMap==null) {physicalMapPositionToIDMap=new TreeMap<>();}
+            else if(size==physicalMapPositionToIDMap.size()) return;
+            rs=connection.createStatement().executeQuery("select * from physicalMapPosition");
             while(rs.next()) {
                 Position p=new GeneralPosition
-                        .Builder(new Chromosome(rs.getString("chromosome")),rs.getInt("physical_posid"))
+                        .Builder(new Chromosome(rs.getString("chromosome")),rs.getInt("physical_position"))
                         .strand(rs.getByte("strand"))
                         .build();
-                tagMappingToIDMap.putIfAbsent(p, rs.getInt("physical_posid"));
+                physicalMapPositionToIDMap.putIfAbsent(p, rs.getInt("posid"));
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -239,11 +242,30 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         }
     }
 
+    private void loadReferenceGenomeHash() {
+        try{
+            ResultSet rs=connection.createStatement().executeQuery("select count(*) from referenceGenome");
+            int size=rs.getInt(1);
+            System.out.println("size of all references in referenceGenome table="+size);
+            if(size==0) {
+                connection.createStatement().executeUpdate("insert into referenceGenome (refname) " +
+                        "values('unknown')");
+                size=1;
+            }
+            referenceGenomeToIDMap=new HashMap<>(size);
+            rs=connection.createStatement().executeQuery("select * from referenceGenome");
+            while(rs.next()) {
+                referenceGenomeToIDMap.put(rs.getString("refname"), rs.getInt("refid"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
     private void loadMappingApproachHash() {
         try{
             ResultSet rs=connection.createStatement().executeQuery("select count(*) from mappingApproach");
             int size=rs.getInt(1);
-            System.out.println("size of all tags in mappingApproach table="+size);
+            System.out.println("size of all approaches in mappingApproach table="+size);
             if(size==0) {
                 connection.createStatement().executeUpdate("insert into mappingApproach (approach, software, protocols) " +
                         "values('unknown','unknown','unknown')");
@@ -412,50 +434,22 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     }
 
     @Override
-    public void putTagAlignments(Multimap<Tag, Position> tagAnnotatedPositionMap) {
+    public void putTagAlignments(Multimap<Tag, Position> tagAnnotatedPositionMap, String refGenome) {
         int batchCount=0;
         try {
             putAllTag(tagAnnotatedPositionMap.keySet());
-            putCutPositionsIfAbsent(tagAnnotatedPositionMap.values());
+            putPhysicalMapPositionsIfAbsent(tagAnnotatedPositionMap.values(),refGenome);
             connection.setAutoCommit(false);
             for (Map.Entry<Tag, Position> entry : tagAnnotatedPositionMap.entries()) {
-                Position p=entry.getValue();
-                GeneralAnnotation annotation = p.getAnnotation();
+                Position entrypos=entry.getValue();
+                GeneralAnnotation annotation = entrypos.getAnnotation();
                 int ind=1;
                 posTagInsertPS.setInt(ind++, tagTagIDMap.get(entry.getKey()));
-                posTagInsertPS.setInt(ind++, tagMappingToIDMap.get(p));
-                posTagInsertPS.setInt(ind++, getMappingApproachID(p));
-                posTagInsertPS.setBoolean(ind++, true);  //todo this needs to be derived from the position or set later.
-                boolean forward=true;
-                try{
-                    if(annotation.getTextAnnotation("forward")[0].toLowerCase().equals("false")) forward=false;
-                } catch (Exception e) {
-                    System.err.println(p.toString());
-                    System.err.println("Error with forward annotation");
-                    //no valid cigarValue
-                }
-                posTagInsertPS.setBoolean(ind++,forward);
-                String cigarValue="";
-                try{
-                    cigarValue=annotation.getTextAnnotation("cigar")[0];
-                } catch (Exception e) {
-                    System.err.println(p.toString());
-                    System.err.println("Error with cigar");
-                    //no valid cigarValue
-                }
-                posTagInsertPS.setString(ind++, cigarValue);
-                short supportVal=0;
-                try{
-                    String[] svS=annotation.getTextAnnotation("supportvalue");
-                    if(svS.length>0) {
-                        supportVal=Short.parseShort(svS[0]);
-                    }
-                } catch (Exception e) {
-                    System.err.println("Error with supportVal");
-                    //no valid supportVal
-                }
-                posTagInsertPS.setByte(ind++, (byte) supportVal);
-                //System.out.println(posTagInsertPS.toString());
+                posTagInsertPS.setInt(ind++, physicalMapPositionToIDMap.get(entrypos));
+                posTagInsertPS.setInt(ind++, getMappingApproachID(entrypos));
+                posTagInsertPS.setInt(ind++, 0);  //todo this needs to be input data (bp_error)
+                posTagInsertPS.setFloat(ind++, 0);  //todo this needs to be input data (cm_error)
+
                 posTagInsertPS.addBatch();
                 batchCount++;
                 if(batchCount>10000) {
@@ -467,32 +461,32 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             posTagInsertPS.executeBatch();
             connection.setAutoCommit(true);
             // print some metrics for debugging
-            ResultSet rs = connection.createStatement().executeQuery("select count (DISTINCT positionid) as numCutSites from tagCutPosition");
+            ResultSet rs = connection.createStatement().executeQuery("select count (DISTINCT physical_position) as numPhysicalSites from physicalMapPOsitionPosition");
             if (rs.next()) {
-                System.out.println("Total number of cut sites: " + rs.getInt("numCutSites"));
+                System.out.println("Total number of physical position sites: " + rs.getInt("numPhysicalSites"));
             }
             PreparedStatement cutSiteNumFromTCPPS = connection.prepareStatement(
-                    "select count(*) as numSites from (select count(*) as tgcnt,positionid from tagCutPosition " +
+                    "select count(*) as numSites from (select count(*) as tgcnt,physical_position from physicalMapPosition " +
                     "GROUP BY positionid) where tgcnt=?");
             cutSiteNumFromTCPPS.setInt(1, 1);// having 1 tag
             rs = cutSiteNumFromTCPPS.executeQuery();
 
             if (rs.next()) {
-                System.out.println("Number of cut sites with 1 tag: " + rs.getInt("numSites"));
+                System.out.println("Number of physical position sites with 1 tag: " + rs.getInt("numSites"));
             }
             cutSiteNumFromTCPPS.setInt(1, 2);// having 2 tag
             rs = cutSiteNumFromTCPPS.executeQuery();
             if (rs.next()) {
-                System.out.println("Number of cut sites with 2 tags: " + rs.getInt("numSites"));
+                System.out.println("Number of physical position sites with 2 tags: " + rs.getInt("numSites"));
             }
             cutSiteNumFromTCPPS.setInt(1, 3);// having 3 tags
             rs = cutSiteNumFromTCPPS.executeQuery();
             if (rs.next()) {
-                System.out.println("Number of cut sites with 3 tags: " + rs.getInt("numSites"));
+                System.out.println("Number of physical position sites with 3 tags: " + rs.getInt("numSites"));
             }
 
             PreparedStatement cutSiteGreaterThanPS = connection.prepareStatement(
-                    "select count(*) as numSites from (select count(*) as tgcnt,positionid from tagCutPosition " +
+                    "select count(*) as numSites from (select count(*) as tgcnt,physical_position from tagCutPosition " +
                     "GROUP BY positionid) where tgcnt>?");
             cutSiteGreaterThanPS.setInt(1, 3);// having > 3 tags
             rs = cutSiteGreaterThanPS.executeQuery();
@@ -504,7 +498,6 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         }
 
     }
-
 
     //@Override
     public void putSNPQualityProfile(Map<Position, Map<String,Double>> tagAnnotatedPositionMap, String taxaSubset) {
@@ -625,6 +618,37 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         } else return val;
     }
 
+    
+    @Override
+    public void addReferenceGenome(String name) {
+        Integer val=mappingApproachToIDMap.get(name);
+        if(val==null) {
+            try {
+                connection.createStatement().executeUpdate("insert into referenceGenome (refname) " +
+                        "values('"+name+"')");
+            } catch (SQLException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            loadReferenceGenomeHash();
+        } 
+    }
+    
+    @Override
+    public void addMappingApproach(String name) {
+        Integer val=mappingApproachToIDMap.get(name);
+        if(val==null) {
+            try {
+                connection.createStatement().executeUpdate("insert into mappingApproach (approach, software, protocols) " +
+                        "values('"+name+"','unknown','unknown')");
+            } catch (SQLException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            loadMappingApproachHash();
+        } 
+    }
+    
     @Override
     public void setTagAlignmentBest(Tag tag, Position position, boolean isBest) {
 
@@ -803,7 +827,23 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     public Set<Tag> getTags() {
         return tagTagIDMap.keySet();
     }
+    @Override
+    public PositionList getPhysicalMapPositions(boolean onlyBest) {
+        if(physicalMapPositionToIDMap == null) loadPhysicalMapPositionHash();
+        PositionListBuilder plb=new PositionListBuilder();
+        physicalMapPositionToIDMap.keySet().stream()
+                //.filter(p -> p.isAnnotatedWithValue("isbest","true"))
+                .forEach(p -> plb.add(p));  //todo only best not implemented here
+        plb.sortPositions();
+        return plb.build();
+    }
 
+    @Override
+    public PositionList getPhysicalMapPositions(Chromosome chromosome, int firstPosition, int lastPosition, boolean onlyBest) {
+        PositionListBuilder plb=new PositionListBuilder();
+        plb.addAll(getPositionSubMap(chromosome,firstPosition,lastPosition).keySet());  //todo only best not implemented here
+        return plb.build();
+    }
     @Override
     public PositionList getSNPPositions() {
         if(snpPosToIDMap==null) loadSNPPositionHash(false);
@@ -871,16 +911,16 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         return tagBuilder.build();
     }
 
-    @Override
-    public PositionList getTagCutPositions(boolean onlyBest) {
-        if(tagMappingToIDMap == null) loadTagMappingHash();
-        PositionListBuilder plb=new PositionListBuilder();
-        tagMappingToIDMap.keySet().stream()
-        //.filter(p -> p.isAnnotatedWithValue("isbest","true"))
-        .forEach(p -> plb.add(p));  //todo only best not implemented here
-        plb.sortPositions();
-        return plb.build();
-    }
+//    @Override
+//    public PositionList getTagCutPositions(boolean onlyBest) {
+//        if(physicalMapPositionToIDMap == null) loadTagMappingHash();
+//        PositionListBuilder plb=new PositionListBuilder();
+//        physicalMapPositionToIDMap.keySet().stream()
+//        //.filter(p -> p.isAnnotatedWithValue("isbest","true"))
+//        .forEach(p -> plb.add(p));  //todo only best not implemented here
+//        plb.sortPositions();
+//        return plb.build();
+//    }
 
     @Override
     public PositionList getTagCutPositions(Chromosome chromosome, int firstPosition, int lastPosition, boolean onlyBest) {
@@ -922,11 +962,11 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     }
 
     private Map<Position,Integer> getPositionSubMap(Chromosome chromosome, int firstPosition, int lastPosition) {
-        if(tagMappingToIDMap==null) loadTagMappingHash();
+        if(physicalMapPositionToIDMap==null) loadPhysicalMapPositionHash();
         Position startPos=new GeneralPosition.Builder(chromosome,firstPosition).build();
         if(lastPosition<0) lastPosition=Integer.MAX_VALUE;
         Position lastPos=new GeneralPosition.Builder(chromosome,lastPosition).build();
-        return tagMappingToIDMap.subMap(startPos,lastPos);
+        return physicalMapPositionToIDMap.subMap(startPos,lastPos);
     }
 
     @Override
@@ -1041,9 +1081,9 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     @Override
     public Map<Tag, TaxaDistribution> getTagsTaxaMap(Position cutPosition) {
         ImmutableMap.Builder<Tag, TaxaDistribution> tagTaxaDistributionBuilder=new ImmutableMap.Builder<>();
-        if(tagMappingToIDMap==null) loadTagMappingHash();
+        if(physicalMapPositionToIDMap==null) loadPhysicalMapPositionHash();
         try{
-            taxaDistWhereTagMappingIDPS.setInt(1,tagMappingToIDMap.get(cutPosition));
+            taxaDistWhereTagMappingIDPS.setInt(1,physicalMapPositionToIDMap.get(cutPosition));
             ResultSet rs=taxaDistWhereTagMappingIDPS.executeQuery();
             while(rs.next()) {
                 tagTaxaDistributionBuilder.put(tagTagIDMap.inverse().get(rs.getInt("tagid")), TaxaDistBuilder.create(rs.getBytes("depthsRLE")));
@@ -1054,34 +1094,32 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         return tagTaxaDistributionBuilder.build();
     }
 
-    // LCJ - change to putTagMappingPositionsIfAbsent
-    private void putCutPositionsIfAbsent(Collection<Position> positions) {
+    private void putPhysicalMapPositionsIfAbsent(Collection<Position> positions, String refGenome) {
         try {
             int batchCount=0;
-            if(tagMappingToIDMap==null) loadTagMappingHash();
+            if(physicalMapPositionToIDMap==null) loadPhysicalMapPositionHash();
             connection.setAutoCommit(false);
             PreparedStatement posInsertPS=connection.prepareStatement(
-                    "INSERT OR IGNORE into cutposition (chromosome, position, strand) values(?,?,?)");
+                    "INSERT OR IGNORE into physicalMapPosition (chromosome, position, strand) values(?,?,?)");
             for (Position p : positions) {
-                if(tagMappingToIDMap.containsKey(p)) continue;
+                if(physicalMapPositionToIDMap.containsKey(p)) continue;
                 posInsertPS.setString(1, p.getChromosome().toString());
                 posInsertPS.setInt(2, p.getPosition());
                 posInsertPS.setByte(3, p.getStrand());
                 posInsertPS.addBatch();
                 batchCount++;
                 if(batchCount>10000) {
-                    System.out.println("putCutPositionsIfAbsent next"+batchCount);
+                    System.out.println("putPhysicalMapPositionsIfAbsent next"+batchCount);
                     posInsertPS.executeBatch();
                     batchCount=0;
                 }
             }
             posInsertPS.executeBatch();
-            if(batchCount>0) loadTagMappingHash();
+            if(batchCount>0) loadPhysicalMapPositionHash();
             connection.setAutoCommit(true);
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
     }
 
     private void putSNPPositionsIfAbsent(Collection<Position> positions) {
@@ -1291,9 +1329,10 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             boolean rs = connection.createStatement().execute("delete FROM tagCutPosition");
             rs = connection.createStatement().execute("delete FROM cutPosition");
             rs = connection.createStatement().execute("delete FROM mappingApproach");
-            tagMappingToIDMap = null;
+            physicalMapPositionToIDMap = null;
             mappingApproachToIDMap = null;
             loadMappingApproachHash(); // this adds "unknown" to mappingApproachToIDMap
+            loadReferenceGenomeHash();
         } catch (SQLException exc) {
             System.out.println("ERROR - problem deleting alignment data");
             exc.printStackTrace();
@@ -1351,5 +1390,11 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             exc.printStackTrace();
         }
         return tagTDBuilder.build();
+    }
+
+    @Override
+    public PositionList getTagCutPositions(boolean onlyBest) {
+        // TODO Auto-generated method stub
+        return null;
     }
 }

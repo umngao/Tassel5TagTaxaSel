@@ -205,4 +205,8 @@ public interface RepGenData {
       */
      Map<Tag, TaxaDistribution> getAllTagsTaxaMap();
 
+    PositionList getPhysicalMapPositions(boolean onlyBest);
+
+    PositionList getPhysicalMapPositions(Chromosome chromosome, int firstPosition, int lastPosition, boolean onlyBest);
+
 }

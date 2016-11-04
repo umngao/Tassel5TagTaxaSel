@@ -132,9 +132,9 @@ public class SmithWaterman {
             //      maxScore=computeMatrix();
             maxScore = computeScore();
         }
-        System.out.println(Arrays.deepToString(matrix));
-        System.out.println("MaxScore:" + maxScore);
-        System.out.println("time:" + (System.currentTimeMillis() - time));
+       // System.out.println(Arrays.deepToString(matrix));
+       //System.out.println("MaxScore:" + maxScore);
+        //System.out.println("time:" + (System.currentTimeMillis() - time));
     }
 
     public SmithWaterman(int rows, int cols) {
@@ -146,6 +146,14 @@ public class SmithWaterman {
         //          else{array = new int [this.cols];}
     }
 
+    public SmithWaterman(byte[] b1, byte[] b2) {
+        bseq1 = b1;
+        bseq2 = b2;
+        this.rows = b1.length + 1;
+        this.cols = b2.length + 1;
+        int max = (rows > cols) ? rows : cols;
+        array = new int[max];
+    }
     int computeScore(byte[] b1, byte[] b2) {
         bseq1 = b1;
         bseq2 = b2;
@@ -162,7 +170,7 @@ public class SmithWaterman {
      */
     protected int computeMatrix() {
         int r, c, ins, sub, del, max_score;
-
+        long time = System.currentTimeMillis();
         // initiate first row
         for (c = 0; c < cols; c++) {
             matrix[0][c] = 0;
@@ -197,7 +205,10 @@ public class SmithWaterman {
                 }
             }
         }
-//        System.out.println("MaxSore:"+max_score);
+
+       
+        System.out.println("MaxScore:" + max_score);
+        System.out.println("time:" + (System.currentTimeMillis() - time));
         return max_score;
     }
 
@@ -210,11 +221,11 @@ public class SmithWaterman {
      * @return the score of the best local alignment between the loaded sequences
      * with the loaded sequences.
      */
-    protected int computeScore() {
+    public int computeScore() {
 //		int[]	array;
 //		int 	rows = seq1.length()+1, cols = seq2.length()+1;
         int r, c, tmp, ins, del, sub, max_score;
-
+        long time = System.currentTimeMillis();
         // keep track of the maximum score
         max_score = 0;
 
@@ -292,7 +303,8 @@ public class SmithWaterman {
                 array[cols - 1] = tmp;
             }
         }
-
+        
+       // System.out.println("SmithWaterman: MaxScore:" + max_score + " time:" + (System.currentTimeMillis() - time));
         return max_score;
     }
 
