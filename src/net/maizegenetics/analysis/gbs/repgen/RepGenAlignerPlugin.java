@@ -108,11 +108,22 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             int window = 20;
             
             Map<Tag, Integer> tagsWithDepth = repGenData.getTagsWithDepth(minCount());
+            if (tagsWithDepth.isEmpty()) {
+                System.out.println("\nNo tags found with minimum depth " + minCount() + ". Halting Run.\n");
+                return null;
+            }
             
             System.out.println("Calling createKmerSeedsFromDBTags");
            // Create map of kmer seeds from db tags
             createKmerSeedsFromDBTags(tagsWithDepth, kmerTagMap,  window);
-            System.out.printf("TotalTime for createKmerSeedsFromDBTags was %g sec%n", (double) (System.nanoTime() - time) / 1e9);
+            System.out.println("TotalTime for createKmerSeedsFromDBTags was " + (System.nanoTime() - time) / 1e9 + " seconds");
+ 
+            System.out.println("Size of tagsWithDepth: " + tagsWithDepth.size());
+            System.out.println("Size of kmerTagMap keyset: " + kmerTagMap.keySet().size());
+            // LCJ - this is for debug
+            
+            int[] minMaxKmerTagCount = getMaxValueAtKey(kmerTagMap);
+            System.out.println("Max number of tags at a kmer: " + minMaxKmerTagCount[1] + ", Min number of tags at kmer: " + minMaxKmerTagCount[0]);
             
             time = System.nanoTime();
             // get reference genome
@@ -128,6 +139,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             for (Chromosome chrom : chromsInRef){
                 // LCJ - remove this code - is for skipping scaffolds when using zea maize full ref genome
                 if (chrom.getChromosomeNumber() == Integer.MAX_VALUE) continue; // skipping scaffolds
+                if (chrom.getChromosomeNumber() != 9) continue; // just for initial testing !!! - remove
                 // LCJ - end skip code
                 int kmersForChrom = 0;
                 int chromLength = myRefSequence.chromosomeSize(chrom);
@@ -158,9 +170,10 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                         String chromTagAlleles = NucleotideAlignmentConstants.nucleotideBytetoString(chromTagBytes);
                         
                         // for all tags containing this kmer, run SMith Waterman to align.
-                        // return values in TagAlignmentMap                       
+                        // return values in TagAlignmentMap  
+                        //int tagCountForKey = kmerTagMap.get(chromKmerString).size(); // get number of tags having this key
                         Collection<Tag> tagsToAlign = kmerTagMap.get(chromKmerString);
-                        List tagsList = new ArrayList(tagsToAlign);
+                        List<Tag> tagsList = new ArrayList<Tag>(tagsToAlign);
                         calculateAlignmentInfo(chromTagAlleles.getBytes(),tagsList,tagAlignInfoMap,chrom.getName(),chromIdx+1); // position is 1 based
                     }
                     // after processing, slide up by 1                  
@@ -213,7 +226,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             // Add tags and alignment to db
             repGenData.putTagAlignments(kmerPositionMap, refGenome());
             
-            ((TagDataSQLite)repGenData).close();  //todo autocloseable should do this but it is not working.
+            ((RepGenSQLite)repGenData).close();  //todo autocloseable should do this but it is not working.
 
             myLogger.info("Finished RepGenAlignerPlugin\n");
         } catch (Exception e) {
@@ -222,6 +235,16 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         }
         System.out.println("Process took " + (System.nanoTime() - totalTime)/1e9 + " seconds.\n");
         return null;
+    }
+    
+    private int[] getMaxValueAtKey(Multimap<String,Tag>kmerTagMap){
+       int[] minMaxTagCounts = {10000,0};
+       for(String key: kmerTagMap.keySet()) {
+           int count = kmerTagMap.get(key).size();
+           if (count > minMaxTagCounts[1]) minMaxTagCounts[1] = count;
+           if (count < minMaxTagCounts[0]) minMaxTagCounts[0] = count;
+       }
+       return minMaxTagCounts;
     }
     
     private void createKmerSeedsFromDBTags(Map<Tag, Integer> tagWithDepth,

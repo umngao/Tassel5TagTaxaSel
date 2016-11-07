@@ -461,13 +461,13 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             posTagInsertPS.executeBatch();
             connection.setAutoCommit(true);
             // print some metrics for debugging
-            ResultSet rs = connection.createStatement().executeQuery("select count (DISTINCT physical_position) as numPhysicalSites from physicalMapPOsitionPosition");
+            ResultSet rs = connection.createStatement().executeQuery("select count (DISTINCT physical_position) as numPhysicalSites from physicalMapPosition");
             if (rs.next()) {
                 System.out.println("Total number of physical position sites: " + rs.getInt("numPhysicalSites"));
             }
             PreparedStatement cutSiteNumFromTCPPS = connection.prepareStatement(
                     "select count(*) as numSites from (select count(*) as tgcnt,physical_position from physicalMapPosition " +
-                    "GROUP BY positionid) where tgcnt=?");
+                    "GROUP BY physical_position) where tgcnt=?");
             cutSiteNumFromTCPPS.setInt(1, 1);// having 1 tag
             rs = cutSiteNumFromTCPPS.executeQuery();
 
@@ -486,8 +486,8 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             }
 
             PreparedStatement cutSiteGreaterThanPS = connection.prepareStatement(
-                    "select count(*) as numSites from (select count(*) as tgcnt,physical_position from tagCutPosition " +
-                    "GROUP BY positionid) where tgcnt>?");
+                    "select count(*) as numSites from (select count(*) as tgcnt,physical_position from physicalMapPosition " +
+                    "GROUP BY physical_position) where tgcnt>?");
             cutSiteGreaterThanPS.setInt(1, 3);// having > 3 tags
             rs = cutSiteGreaterThanPS.executeQuery();
             if (rs.next()) {
@@ -1100,7 +1100,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             if(physicalMapPositionToIDMap==null) loadPhysicalMapPositionHash();
             connection.setAutoCommit(false);
             PreparedStatement posInsertPS=connection.prepareStatement(
-                    "INSERT OR IGNORE into physicalMapPosition (chromosome, position, strand) values(?,?,?)");
+                    "INSERT OR IGNORE into physicalMapPosition (chromosome, physical_position, strand) values(?,?,?)");
             for (Position p : positions) {
                 if(physicalMapPositionToIDMap.containsKey(p)) continue;
                 posInsertPS.setString(1, p.getChromosome().toString());
