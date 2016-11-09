@@ -124,6 +124,17 @@ public class FileLoadPlugin extends AbstractPlugin {
         }
     }
 
+    public static Object runPlugin(String filename) {
+        return runPluginDataSet(filename).getData(0).getData();
+    }
+
+    public static DataSet runPluginDataSet(String filename) {
+        FileLoadPlugin flp = new FileLoadPlugin(null, false);
+        flp.setTheFileType(TasselFileType.Unknown);
+        flp.setOpenFiles(filename);
+        return flp.performFunction(null);
+    }
+
     @Override
     protected void preProcessParameters(DataSet input) {
 
@@ -604,6 +615,14 @@ public class FileLoadPlugin extends AbstractPlugin {
             myOpenFiles[i] = openFiles[i].getPath();
         }
 
+    }
+
+    public void setOpenFiles(String openFile) {
+        if ((openFile == null) || openFile.isEmpty()) {
+            myOpenFiles = null;
+        } else {
+            myOpenFiles = new String[]{openFile};
+        }
     }
 
     public void setOpenFiles(String[] openFiles) {
