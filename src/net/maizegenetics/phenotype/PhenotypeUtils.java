@@ -16,6 +16,10 @@ import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.TableReportUtils;
 import net.maizegenetics.util.Utils;
 
+import org.apache.commons.math3.distribution.NormalDistribution;
+import org.apache.commons.math3.stat.descriptive.moment.Mean;
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
+import org.apache.commons.math3.stat.inference.KolmogorovSmirnovTest;
 import org.apache.log4j.Logger;
 
 import com.google.common.collect.ArrayListMultimap;
@@ -259,4 +263,82 @@ public class PhenotypeUtils {
         
         return new CorePhenotype(attributes, types, "B4R_Phenotype");
     }
+    
+    //Method to compute the BoxCox Transformation on a Phenotype Column for normalization
+    public static double[] computeBoxCox(PhenotypeAttribute phenoAttribute) {
+        double[] transformedValues = new double[phenoAttribute.size()];
+        
+        //double lambda = 1;
+        for(double lambda = -5; lambda < 5; lambda += .1) {
+            for(int i = 0; i < phenoAttribute.size(); i++) {
+                transformedValues[i] = boxCoxTransform((double)phenoAttribute.value(i), lambda);
+            }
+            
+            StandardDeviation sdev = new StandardDeviation();
+            
+            double sampleStandardDev = sdev.evaluate(transformedValues);
+            
+            //calculate the mean
+            Mean meanObj = new Mean();
+            double meanVal = meanObj.evaluate(transformedValues);
+            //Compute z-score for both max and min
+            NormalDistribution normDist = new NormalDistribution(meanVal, sampleStandardDev);
+            KolmogorovSmirnovTest kst = new KolmogorovSmirnovTest();
+            
+            boolean rejNull = kst.kolmogorovSmirnovTest(normDist, transformedValues, .001);
+            
+            if(rejNull) {
+                System.out.println("Found lambda:"+lambda);
+                return transformedValues;
+            }
+        }
+        
+        return null;
+    }
+    
+    private static double boxCoxTransform(double value, double lambda) {
+        if(lambda == 0) {
+            //do the natural log
+            return Math.log(value);
+        }
+        else {
+            //Compute (value^lamdba - 1)/lambda
+            return (Math.pow(value, lambda) - 1)/lambda;
+        }
+    }
+    
+    //Helper method to make a Phenotype from a list of taxaNames, variableNames and the 2-D dataset
+    public static Phenotype createPhenotypeFromTransform(ArrayList<String> taxaListNames, ArrayList<String> variableNames, ArrayList<ArrayList<Double>> data) throws Exception {
+        //TODO check to make sure the dimensions of the phneotype match
+        if(taxaListNames.size() != data.size()) {
+            throw new Exception("Error: Number of Taxa Names and Number of samples does not match: Number of taxa: "+taxaListNames.size() + " Number of samples: "+data.size());
+        }
+        if(variableNames.size() != data.get(0).size()) {
+            throw new Exception("Error: Number of Variable Names and Number of columns does not match: Number of variables: "+variableNames.size() + " Number of columns: "+data.get(0).size()); 
+        }
+        //Create a new List of Taxon objects
+        ArrayList<Taxon> taxaList = (ArrayList<Taxon>)taxaListNames.stream().map((name) -> new Taxon(name)).collect(Collectors.toList());
+        
+        ArrayList<PhenotypeAttribute> attributes = new ArrayList<>(variableNames.size()+1);
+        ArrayList<ATTRIBUTE_TYPE> types = new ArrayList<>(variableNames.size()+1);
+        
+        attributes.add(new TaxaAttribute(taxaList));
+        types.add(ATTRIBUTE_TYPE.taxa);
+        
+        for(int col = 0; col < data.get(0).size(); col++) {
+            double[] currentColumnValues = new double[data.size()];
+            for(int row = 0; row < data.size(); row++) {
+                currentColumnValues[row] = data.get(row).get(col);
+            }
+            
+            attributes.add(new NumericAttribute(variableNames.get(col), currentColumnValues));
+            types.add(ATTRIBUTE_TYPE.data);
+        }
+        
+        System.out.println("Number of Taxa: "+taxaListNames.size()+" Number of attributes: "+attributes.size());
+        
+        return new CorePhenotype(attributes, types, "B4R_Phenotype");
+       
+    }
+    
 }
