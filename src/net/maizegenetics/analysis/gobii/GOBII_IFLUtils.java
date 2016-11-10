@@ -54,7 +54,9 @@ public class GOBII_IFLUtils {
                 } else {
                     System.out.println("WARNING: getMarkerNameFromLine - bad mapset name: " + mapsetname);
                 }
+                
                 name = "PZ." + mapset + "." + chrom + "." + pos;
+                //System.out.println("LCJ GOBII_IFLUtils.getMarkerNameFromLine- creatwed marker name : " + name);
             }
             // There COULD have multiple identifiers.  If so, they are separated
             // by colons with no white space.  Will this be encountered in our files??
@@ -113,10 +115,12 @@ public class GOBII_IFLUtils {
             // strip the "{" off of alts
             String alts = altsOrig.substring(1,altsOrig.length()-1);
             // Create alleles array
-            char[] alleles = new char[alts.split("/").length + 1]; // length of alleles string plus 1 for ref
+            String[] altsTokens = alts.split("/"); // need to split to get rid of the /'s !!!
+            char[] alleles = new char[altsTokens.length + 1]; // length of alleles string plus 1 for ref
             alleles[0] = ref.charAt(0); // should just be 1
             for (int idx = 1,altsIdx=0; idx < alleles.length; idx++,altsIdx++) {
-                alleles[idx]=alts.charAt(altsIdx);
+                //alleles[idx]=alts.charAt(altsIdx); //
+                alleles[idx] = altsTokens[altsIdx].charAt(0); // 
             }
             
             String taxaString = mline.substring(tabPos[8]+1); // skip non-taxa headers
@@ -139,19 +143,33 @@ public class GOBII_IFLUtils {
                     
                 } else {
                     int end = nextTaxa.indexOf(":");
-                    nextTaxa = nextTaxa.substring(0,end); // grab just the first part, e.g. 0/0 or 0/1 or ./. etc
+                    if (end != -1) {
+                        // nothing beyond the x/x, ie there is no :
+                        // Robert has removed this data in some of the files.
+                        nextTaxa = nextTaxa.substring(0,end); // grab just the first part, e.g. 0/0 or 0/1 or ./. etc
+                    }
+                    
                     // get index into list alleles array
                     int a1 = nextTaxa.charAt(0) - '0';
                     int a2 = nextTaxa.charAt(2) - '0';
                     
                     if (a1 < 0 || a2 < 0) {
-                        System.out.println("LCJ - OOPS negative values!! set to N");
+                        // THis is same as above, when there is . or ./.
+                        // It is seen in maize chrom 10 where ref is N and allt is ./1 (vs ./. above)
+                        // this makes a1 be negative.  MarkerDNARun_IFLFilePlugin only allows for 1 ref,
+                        // and that is the ref from the genome fasta file.  I notice in vcf format 4.3, you
+                        // can have multiple values for the ref, e.g. Ref=GTC, ALTs = G,GTCT.   We many
+                        // need to handle this.  FOr now, this is catching the "." in the ref spot.
+                        // SHould be ok to continue processing with these notices.:w!
+                        
+                        System.out.println("LCJ - OOPS negative values!! set to N  for nextTaxa " + nextTaxa);
+                        System.out.println("  mline: " + mline.substring(0, tabPos[8]));
                         variantsSB.append(NucleotideAlignmentConstants.getNucleotideIUPAC((byte)(0xFF)));
                     } else {
                         // get bytes, set IUPAC values
                         byte highbyte = NucleotideAlignmentConstants.getNucleotideAlleleByte(alleles[a1]);
                         byte lowbyte = NucleotideAlignmentConstants.getNucleotideAlleleByte(alleles[a2]);
-                        String iupacByte = NucleotideAlignmentConstants.getNucleotideIUPAC((byte)((highbyte << 4) | lowbyte));
+                        String iupacByte = NucleotideAlignmentConstants.getNucleotideIUPAC((byte)((highbyte << 4) | lowbyte));                       
                         variantsSB.append(iupacByte);   
                     }
                 }                   
