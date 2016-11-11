@@ -4,6 +4,7 @@ CREATE TABLE tag (
     tagName VARCHAR,
     sequence BLOB NOT NULL,
     seqlen INTEGER NOT NULL,
+    isReference BOOLEAN,
     qualityScore INTEGER,
     numTagInstances,
     UNIQUE (sequence, seqlen)
@@ -26,7 +27,7 @@ CREATE TABLE referenceGenome (
 	refid	INTEGER PRIMARY KEY,
 	refname	TEXT
 );
-
+ 
 -- Table: physicalMapPosition
 CREATE TABLE physicalMapPosition (
     posid INTEGER   PRIMARY KEY,
