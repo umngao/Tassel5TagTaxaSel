@@ -2,7 +2,9 @@ package net.maizegenetics.analysis.numericaltransform;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Random;
 import java.util.stream.Collectors;
+import java.util.stream.DoubleStream;
 
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 
@@ -14,7 +16,7 @@ import net.maizegenetics.taxa.Taxon;
 
 public class AvgPhenotype {
 
-    public Phenotype averagePheno(Phenotype pheno) throws Exception {
+    public Phenotype averagePheno(Phenotype pheno, boolean addSmallValue) throws Exception {
         //Get the variable names and put it into a list
         ArrayList<PhenotypeAttribute> attributes = (ArrayList<PhenotypeAttribute>)pheno.attributeListOfType(ATTRIBUTE_TYPE.data);
         ArrayList<String> phenoNames = (ArrayList<String>)attributes.stream().map((phenoAttr) -> phenoAttr.name()).collect(Collectors.toList());
@@ -32,6 +34,8 @@ public class AvgPhenotype {
             ArrayList<ArrayList<Double>> list = new ArrayList<ArrayList<Double>>();
             rowMapByTaxa.put(taxaName, list);
         }
+        double minValue = Double.MAX_VALUE;
+        
         //Go through all taxon and use the name to associate duplicates together
         for(int i = 0; i < taxonList.size(); i++) {
             //Make a Container to hold the values
@@ -39,10 +43,25 @@ public class AvgPhenotype {
             for(String varName : phenoNames) {
                 //Add this to the duplicate list
                 currentRow.add(((Float)pheno.value(i,pheno.attributeIndexForName(varName))).doubleValue());
+                
+                if(((Float)pheno.value(i,pheno.attributeIndexForName(varName))).doubleValue() < minValue && 
+                        ((Float)pheno.value(i,pheno.attributeIndexForName(varName))).doubleValue() > 0) {
+                    minValue = ((Float)pheno.value(i,pheno.attributeIndexForName(varName))).doubleValue();
+                }
             }
             //Add the duplicate row(by taxa name) to the mapping
             rowMapByTaxa.get(taxonList.get(i)).add(currentRow);
         }
+        
+        //Select a random small value where 0<randVal<.5*minValue
+        //Doing this by finding a random double between 0 and 1 then multiplying against .5*minValue
+        Random rand = new Random();
+        double currentRand = 1.0;
+        while((currentRand = rand.nextDouble())== 0.0) {
+            //Do nothing but skip over rands which equal 0.0
+        }
+        System.out.println("MinimumVal Observed: "+minValue);
+        double transformValue = currentRand * 0.5 * minValue;
         
         //Create 2-D ArrayList to store all of the averaged values
         ArrayList<ArrayList<Double>> avgValues = new ArrayList<ArrayList<Double>>();
@@ -60,6 +79,11 @@ public class AvgPhenotype {
                 Mean meanObj = new Mean();
                 for(int row = 0; row < currentValues.size(); row++) {
                    values[row] = currentValues.get(row).get(col);
+                   //if we need to add in small values do it here.  will shift the average by the small val amount
+                   if(addSmallValue) {
+                       values[row] = values[row] + transformValue;
+                       
+                   }
                 }
                 //Add the averaged value to the finished current row
                 currentAverages.add(meanObj.evaluate(values));

@@ -9,8 +9,14 @@ import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.plugindef.GeneratePluginCode;
+import net.maizegenetics.plugindef.PluginParameter;
 
 public class SubtractPhenotypeByTaxaPlugin extends AbstractPlugin{
+    private PluginParameter<Boolean> useAbsoluteDifference =
+            new PluginParameter.Builder<>("useAbsDiff", false, Boolean.class)
+            .build();
+    
     public SubtractPhenotypeByTaxaPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
@@ -29,7 +35,7 @@ public class SubtractPhenotypeByTaxaPlugin extends AbstractPlugin{
         Phenotype myPhenotype2 = (Phenotype) datumList.get(1).getData();
         
         try {
-        Phenotype subtractedPhenotype = subPheno.subtractPhenotype(myPhenotype1, myPhenotype2);
+        Phenotype subtractedPhenotype = subPheno.subtractPhenotype(myPhenotype1, myPhenotype2,useAbsoluteDifference.value());
         if (myPhenotype1 != null) {
             String name = "PhenotypeTransformed";
 
@@ -71,5 +77,42 @@ public class SubtractPhenotypeByTaxaPlugin extends AbstractPlugin{
     public String pluginUserManualURL() {
         return "https://bitbucket.org/tasseladmin/tassel­5­source/wiki/UserManual/Kinship/Kinship"; 
     }   
+    
+    // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(SubtractPhenotypeByTaxaPlugin.class);
+    // }
+
+    /**
+     * Convenience method to run plugin with one return object.
+     */
+    // TODO: Replace <Type> with specific type.
+    public Phenotype runPlugin(DataSet input) {
+        return (Phenotype) performFunction(input).getData(0).getData();
+    }
+
+    /**
+     * Use Abs Diff
+     *
+     * @return Use Abs Diff
+     */
+    public Boolean useAbsoluteDifference() {
+        return useAbsoluteDifference.value();
+    }
+
+    /**
+     * Set Use Abs Diff. Use Abs Diff
+     *
+     * @param value Use Abs Diff
+     *
+     * @return this plugin
+     */
+    public SubtractPhenotypeByTaxaPlugin useAbsoluteDifference(Boolean value) {
+        useAbsoluteDifference = new PluginParameter<>(useAbsoluteDifference, value);
+        return this;
+    }
+
 
 }

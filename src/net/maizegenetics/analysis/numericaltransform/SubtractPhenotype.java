@@ -11,7 +11,7 @@ import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 
 public class SubtractPhenotype {
     //Method to subtract phenotypes where the taxa Names correspond
-    public Phenotype subtractPhenotype(Phenotype pheno1, Phenotype pheno2) throws Exception {
+    public Phenotype subtractPhenotype(Phenotype pheno1, Phenotype pheno2,boolean useAbsDiff) throws Exception {
         //TODO verify no duplicate taxa otherwise it will take the last taxa in the list for subtraction
         
         //Get the intersection of taxa names between pheno1 and pheno2
@@ -55,7 +55,12 @@ public class SubtractPhenotype {
                 //Get the value from the second phenotype object
                 double secondVal = ((Float)pheno2.value(pheno2NameToIndexMap.get(intersectionTaxaList.get(row)), 
                         pheno2.attributeIndexForName(intersectionPhenoList.get(col)))).doubleValue();
-                currentRow.add(firstVal - secondVal);
+                if(useAbsDiff) {
+                    currentRow.add(Math.abs(firstVal-secondVal));
+                }
+                else {
+                    currentRow.add(firstVal - secondVal);
+                }
             }
             data.add(currentRow);
         }

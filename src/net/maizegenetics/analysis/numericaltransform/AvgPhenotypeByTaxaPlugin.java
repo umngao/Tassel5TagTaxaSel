@@ -10,10 +10,14 @@ import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.plugindef.GeneratePluginCode;
+import net.maizegenetics.plugindef.PluginParameter;
 
 public class AvgPhenotypeByTaxaPlugin extends AbstractPlugin{
     
-    
+    private PluginParameter<Boolean> addSmallValue =
+            new PluginParameter.Builder<>("addSmallValue", false, Boolean.class)
+            .build();
     
     public AvgPhenotypeByTaxaPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
@@ -30,7 +34,7 @@ public class AvgPhenotypeByTaxaPlugin extends AbstractPlugin{
         
         AvgPhenotype avgPheno = new AvgPhenotype();
         try {
-        Phenotype myPhenotype = avgPheno.averagePheno((Phenotype) datumList.get(0).getData());
+        Phenotype myPhenotype = avgPheno.averagePheno((Phenotype) datumList.get(0).getData(),addSmallValue.value());
         
         if (myPhenotype != null) {
             String name = "PhenotypeTransformed";
@@ -73,5 +77,41 @@ public class AvgPhenotypeByTaxaPlugin extends AbstractPlugin{
     @Override
     public String pluginUserManualURL() {
         return "https://bitbucket.org/tasseladmin/tassel­5­source/wiki/UserManual/Kinship/Kinship"; 
-    }   
+    } 
+    
+ // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+    // public static void main(String[] args) {
+    //     GeneratePluginCode.generate(AvgPhenotypeByTaxaPlugin.class);
+    // }
+
+    /**
+     * Convenience method to run plugin with one return object.
+     */
+    // TODO: Replace <Type> with specific type.
+    public Phenotype runPlugin(DataSet input) {
+        return (Phenotype) performFunction(input).getData(0).getData();
+    }
+
+    /**
+     * Add Small Value
+     *
+     * @return Add Small Value
+     */
+    public Boolean addSmallValue() {
+        return addSmallValue.value();
+    }
+
+    /**
+     * Set Add Small Value. Add Small Value
+     *
+     * @param value Add Small Value
+     *
+     * @return this plugin
+     */
+    public AvgPhenotypeByTaxaPlugin addSmallValue(Boolean value) {
+        addSmallValue = new PluginParameter<>(addSmallValue, value);
+        return this;
+    }
 }
