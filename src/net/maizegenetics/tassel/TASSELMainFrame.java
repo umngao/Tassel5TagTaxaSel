@@ -406,7 +406,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         JMenu result = new JMenu("Data");
         result.setMnemonic(KeyEvent.VK_D);
 
-        FileLoadPlugin autoGuessPlugin = new FileLoadPlugin(this, true);
+        FileLoadPlugin autoGuessPlugin = new FileLoadPlugin(this, true, true);
         ImageIcon loadIcon = autoGuessPlugin.getIcon();
         JMenuItem menuItem = new JMenuItem("Load", loadIcon);
         menuItem.setMnemonic(KeyEvent.VK_L);

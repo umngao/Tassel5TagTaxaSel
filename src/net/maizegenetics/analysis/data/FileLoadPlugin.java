@@ -69,6 +69,7 @@ public class FileLoadPlugin extends AbstractPlugin {
     private ProjectPcsAndRunModelSelectionPlugin myProjectPcsAndRunModelSelectionPlugin = null;
     private GOBIIPlugin myGOBIIPlugin = null;
     private final JFileChooser myOpenFileChooser;
+    private final boolean myHeadless;
 
     public enum TasselFileType {
 
@@ -112,9 +113,12 @@ public class FileLoadPlugin extends AbstractPlugin {
     public static final String FILE_EXT_PHYLIP = ".phy";
 
     /**
-     * Creates a new instance of FileLoadPlugin
+     * Creates a new instance of FileLoadPlugin. This only used by TASSEL GUI to
+     * bypass dialog and go straight to file browser. Bypassing the dialog
+     * causes it to bypass adding to Data Tree. This constructor tells
+     * FileLoadPlugin to add it to the Data Tree Manually.
      */
-    public FileLoadPlugin(Frame parentFrame, boolean isInteractive) {
+    public FileLoadPlugin(Frame parentFrame, boolean isInteractive, boolean headless) {
         super(parentFrame, isInteractive);
         if (isInteractive) {
             myOpenFileChooser = new JFileChooser(TasselPrefs.getOpenDir());
@@ -122,6 +126,14 @@ public class FileLoadPlugin extends AbstractPlugin {
         } else {
             myOpenFileChooser = null;
         }
+        myHeadless = headless;
+    }
+
+    /**
+     * Creates a new instance of FileLoadPlugin.
+     */
+    public FileLoadPlugin(Frame parentFrame, boolean isInteractive) {
+        this(parentFrame, isInteractive, false);
     }
 
     public static Object runPlugin(String filename) {
@@ -329,7 +341,9 @@ public class FileLoadPlugin extends AbstractPlugin {
                 GenotypeSummaryPlugin.printSimpleSummary(tds);
                 myWasCancelled = false;
                 result.add(tds);
-                fireDataSetReturned(new PluginEvent(tds, FileLoadPlugin.class));
+                if (myHeadless) {
+                    fireDataSetReturned(new PluginEvent(tds, FileLoadPlugin.class));
+                }
             } else {
                 myLogger.info("Nothing Loaded for File: " + myOpenFiles[i] + " time: " + timeStr);
             }
