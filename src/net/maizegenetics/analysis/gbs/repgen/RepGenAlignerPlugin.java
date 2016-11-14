@@ -190,19 +190,11 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                                                
                         // set position in the bitmap
                         chromBits.fastSet(chromIdx);
-                        // for all tags containing this kmer, run SMith Waterman to align.
-                        // return values in TagAlignmentMap  
-                        //int tagCountForKey = kmerTagMap.get(chromKmerString).size(); // get number of tags having this key
-                        Collection<Tag> tagsToAlign = kmerTagMap.get(chromKmerString);
-                        List<Tag> tagsList = new ArrayList<Tag>(tagsToAlign);
-                        // Aligning will go elsewhere - not here
-                        //calculateAlignmentInfo(chromTagAlleles.getBytes(),tagsList,tagAlignInfoMap,chrom.getName(),chromIdx+1); // position is 1 based
                     }
                     // after processing, slide up by 1                                  
                     chromIdx++;
                 }
                 chromBitMaps[chrom.getChromosomeNumber()-1] = chromBits;
-                System.out.println("Aligning to reference chrom " + chrom.getName() + " took " + (System.nanoTime() - time)/1e9 + " seconds");
                 System.out.println("Total tag seeds matching to kmers in chrom " + chrom.getName() + ": " 
                     + kmersForChrom + ", total fastBits set via cardinality: " + chromBits.cardinality());
             }
@@ -232,24 +224,14 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
  
                 System.out.println("LCJ - size of OpenBiSet for chrom " + chrom + ": " 
                 + chromSize + ", cardiality is: " + chromHits.cardinality());
-                int firstBitSet = chromHits.nextSetBit(0); // find first set bit
-                
+ 
                 // loop through the chromoseom.  Start position is ref
                 int rangeSize = refKmerLen();               
                 // THis is hte position where we store the first kmer
-                int firstRange = rangeSize/2; // refKmerLen shoudl be even number, but is ok if it isn't
-                
-                short[] hitsForChromPos = new short[(int)chromSize];
+                int firstRange = rangeSize/2; // refKmerLen shoudl be even number, but is ok if it isn't                
                 short firstRangeCount = calculateFirstRangeCount(rangeSize,chromHits);
                 System.out.println("LCJ - firstRangeCount: " + firstRangeCount);
-                // The counts are stored for each range at the midpoint of the range.
-                // so the first ranges have 0 stored up to rangeSize/2
                 
-                // DO I WANT THIS ??
-//                for (int idx = 0; idx < firstRange; idx++) {
-//                    hitsForChromPos[idx] = 0;
-//                }
-                hitsForChromPos[firstRange] = firstRangeCount;
                 short currentTotal = firstRangeCount;
                 
                 // If the range is 10, and we have 20 values.  The last range has indices 10-19,
@@ -272,17 +254,12 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                     int posToAdd = idx + (rangeSize/2) -1;
                     if (chromHits.fastGet(posToDrop)) currentTotal--;
                     if (chromHits.fastGet(posToAdd)) currentTotal++;
-                   // hitsForChromPos[idx] = currentTotal;
-                    
+
                     // Only store positions with hit counts where the hit count meets our minimum
                     if (currentTotal >= minCount()) {
                         movingSumMap.put(currentTotal, idx);
                     }
                 }   
-                // fill in the last ones
-//                for (int idx = lastRange; idx < chromSize; idx++) {
-//                    hitsForChromPos[idx] = 0;
-//                }
                 
                 // Now find the maximas
                 // Get the keys from movingSumMap.  Sort them
