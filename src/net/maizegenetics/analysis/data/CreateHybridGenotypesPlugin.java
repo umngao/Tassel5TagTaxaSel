@@ -159,4 +159,10 @@ public class CreateHybridGenotypesPlugin extends AbstractPlugin {
     public String getButtonName() {
         return "Create Hybrid Genotypes";
     }
+
+    @Override
+    public String pluginUserManualURL() {
+        return "https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/CreateHybridGenotypes/CreateHybridGenotypes";
+    }
+
 }
