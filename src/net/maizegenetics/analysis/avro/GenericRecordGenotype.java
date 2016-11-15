@@ -54,10 +54,11 @@ public class GenericRecordGenotype implements GenericRecord {
         System.out.println("tSize: " + tSize + "  sSize: " + sSize + "   taxon: " + taxonSite[0] + "  site: " + taxonSite[1]);
         GenericData.Array<ByteBuffer> result = new GenericData.Array<>(sSize, AvroConstants.BYTE_BLOCK_SCHEMA);
         for (int s = 0; s < sSize; s++) {
+            byte[] genotype = myGenotype.genotypeAllTaxa(taxonSite[1] + s);
             ByteBuffer temp = ByteBuffer.allocateDirect(tSize);
             temp.rewind();
             for (int t = 0; t < tSize; t++) {
-                temp.put(myGenotype.genotype(taxonSite[0] + t, taxonSite[1] + s));
+                temp.put(genotype[taxonSite[0] + t]);
             }
             temp.rewind();
             result.add(temp);

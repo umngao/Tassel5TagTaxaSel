@@ -31,9 +31,9 @@ public class ExportAvro {
         // utility
     }
 
-    public static void write(GenotypeTable genotype, String datasetName) {
+    public static String write(GenotypeTable genotype, String filename) {
 
-        String filename = Utils.addSuffixIfNeeded(datasetName, ".avro");
+        filename = Utils.addSuffixIfNeeded(filename, ".avro");
 
         try {
 
@@ -74,6 +74,8 @@ public class ExportAvro {
             myLogger.debug(e.getMessage(), e);
             throw new IllegalStateException("ExportAvro: write: problem writing file: " + filename + ". " + e.getMessage());
         }
+        
+        return filename;
 
     }
     
