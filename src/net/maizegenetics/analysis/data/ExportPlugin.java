@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import javax.swing.*;
+import net.maizegenetics.analysis.avro.ExportAvro;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.PositionListTableReport;
 import net.maizegenetics.dna.snp.ExportUtils;
@@ -95,6 +96,7 @@ public class ExportPlugin extends AbstractPlugin {
             temp.addAll(Arrays.asList(new FileLoadPlugin.TasselFileType[]{
                 FileLoadPlugin.TasselFileType.Hapmap,
                 FileLoadPlugin.TasselFileType.HapmapDiploid,
+                FileLoadPlugin.TasselFileType.Avro,
                 FileLoadPlugin.TasselFileType.HDF5,
                 FileLoadPlugin.TasselFileType.VCF,
                 FileLoadPlugin.TasselFileType.Plink,
@@ -272,6 +274,8 @@ public class ExportPlugin extends AbstractPlugin {
             resultFile = ExportUtils.writeGenotypeHDF5(inputAlignment, saveFile(), keepDepth());
         } else if (fileType() == FileLoadPlugin.TasselFileType.VCF) {
             resultFile = ExportUtils.writeToVCF(inputAlignment, saveFile(), keepDepth(), this);
+        } else if (fileType() == FileLoadPlugin.TasselFileType.Avro) {
+            resultFile = ExportAvro.write(inputAlignment, saveFile());
         } else {
             throw new IllegalStateException("ExportPlugin: performFunction: Unknown Genotype File Format: " + fileType());
         }

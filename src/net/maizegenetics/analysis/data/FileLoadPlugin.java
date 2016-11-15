@@ -83,7 +83,7 @@ public class FileLoadPlugin extends AbstractPlugin {
         NumericGenotype("Numeric Genotype"), TaxaList("Taxa List"), PositionList("Position List"),
         SqrMatrixRaw("Raw MultiBLUP Matrix"), SqrMatrixBin("Binary MultiBLUP Matrix"),
         GOBII("GOBII"), Depth("Depth"), ReferenceProbability("Reference Probability"), Report("Report"),
-        PlinkPhenotype("Plink Phenotype"), SqrMatrixDARwinDIS("DARwin DIS");
+        PlinkPhenotype("Plink Phenotype"), SqrMatrixDARwinDIS("DARwin DIS"), Avro("Avro");
 
         private final String myText;
 
