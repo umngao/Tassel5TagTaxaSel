@@ -336,7 +336,7 @@ public class ExportPlugin extends AbstractPlugin {
      */
     @Override
     public String getButtonName() {
-        return "Export";
+        return "Save As...";
     }
 
     /**
@@ -346,7 +346,7 @@ public class ExportPlugin extends AbstractPlugin {
      */
     @Override
     public String getToolTipText() {
-        return "Export data to files.";
+        return "Save data to files.";
     }
 
     @Override

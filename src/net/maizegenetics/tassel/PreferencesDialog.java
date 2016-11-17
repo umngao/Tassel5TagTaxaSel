@@ -1,6 +1,7 @@
 package net.maizegenetics.tassel;
 
 import java.awt.Frame;
+import java.net.URL;
 import javax.swing.*;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
@@ -55,7 +56,12 @@ public class PreferencesDialog extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        return null;
+        URL imageURL = TasselLogging.class.getResource("/net/maizegenetics/analysis/images/preferences.gif");
+        if (imageURL == null) {
+            return null;
+        } else {
+            return new ImageIcon(imageURL);
+        }
     }
 
     @Override
