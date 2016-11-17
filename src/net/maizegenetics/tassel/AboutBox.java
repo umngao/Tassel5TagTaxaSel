@@ -53,14 +53,11 @@ public class AboutBox extends JDialog implements ActionListener {
     FlowLayout flowLayout1 = new FlowLayout();
     FlowLayout flowLayout2 = new FlowLayout();
     GridLayout gridLayout1 = new GridLayout();
-    private String product = "TASSEL";
     private String version;
-    private String comments = "Trait Analysis by Association, Evolution and Linkage";
-    private String contact = "Contacts...";
-    private String contact1 = "General Questions / Pipeline - Terry Casstevens (tmc46@cornell.edu)";
-    private String contact2 = "Analysis Tools / MLM / GLM - Peter Bradbury (pjb39@cornell.edu), Zhiwu Zhang (zz19@cornell.edu)";
-    private String contact3 = "Overall Project Lead - Ed Buckler (esb33@cornell.edu)";
-    private String programmers = "Produced by Edward Buckler, Peter Bradbury, Dallas Kroon, Yogesh Ramdoss, AJ Fink, Zhiwu Zhang, and Terry Casstevens";
+    private String comments = "TASSEL (Trait Analysis by Association, Evolution and Linkage)";
+    private String contact = "Contact: TASSEL User Group (tassel@googlegroups.com)";
+    private String programmers = "Produced by Edward Buckler, Peter Bradbury, Dallas Kroon, Yogesh Ramdoss,";
+    private String programmers1 = "AJ Fink, Zhiwu Zhang, Lynn Johnson, Zack Miller, and Terry Casstevens";
     private String acknowledgements = "Libraries used: PAL, Batik, COLT, JFreeChart, and others";
     private String copyright = "Copyright 2004 (c) by Edward Buckler";
 
@@ -82,7 +79,7 @@ public class AboutBox extends JDialog implements ActionListener {
     }
 
     private void jbInit() throws Exception {
-        URL imageURL = getClass().getResource("images/Tassel_Logo.png");
+        URL imageURL = getClass().getResource("/net/maizegenetics/analysis/images/Tassel_Logo.png");
 
         if (imageURL != null) {
             imageIcon = new ImageIcon(imageURL);
@@ -99,10 +96,8 @@ public class AboutBox extends JDialog implements ActionListener {
         JLabel label1 = new JLabel(version);
         JLabel label2 = new JLabel(comments);
         JLabel contactLabel = new JLabel(contact);
-        JLabel contact1Label = new JLabel(contact1);
-        JLabel contact2Label = new JLabel(contact2);
-        JLabel contact3Label = new JLabel(contact3);
         JLabel label3 = new JLabel(programmers);
+        JLabel label31 = new JLabel(programmers1);
         JLabel label4 = new JLabel(acknowledgements);
         JLabel label5 = new JLabel(copyright);
 
@@ -113,13 +108,11 @@ public class AboutBox extends JDialog implements ActionListener {
         insetsPanel2.add(imageControl1, null);
         panel2.add(insetsPanel2, BorderLayout.WEST);
         this.getContentPane().add(panel1, null);
-        textPanel.add(label1, null);
         textPanel.add(label2, null);
+        textPanel.add(label1, null);
         textPanel.add(contactLabel, null);
-        textPanel.add(contact1Label, null);
-        textPanel.add(contact2Label, null);
-        textPanel.add(contact3Label, null);
         textPanel.add(label3, null);
+        textPanel.add(label31, null);
         textPanel.add(label4, null);
         textPanel.add(label5, null);
         panel2.add(textPanel, BorderLayout.CENTER);
@@ -128,20 +121,18 @@ public class AboutBox extends JDialog implements ActionListener {
         panel1.add(panel2, BorderLayout.NORTH);
     }
 
+    @Override
     protected void processWindowEvent(WindowEvent e) {
         if (e.getID() == WindowEvent.WINDOW_CLOSING) {
-            cancel();
+            dispose();
         }
         super.processWindowEvent(e);
     }
 
-    void cancel() {
-        dispose();
-    }
-
+    @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == button1) {
-            cancel();
+            dispose();
         }
     }
 }
