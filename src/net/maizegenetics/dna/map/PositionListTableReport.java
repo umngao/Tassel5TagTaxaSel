@@ -68,7 +68,12 @@ public class PositionListTableReport implements TableReport {
 
     @Override
     public Object[] getRow(long row) {
-        throw new UnsupportedOperationException("Not supported.");
+        int numColumns = getColumnCount();
+        Object[] result = new Object[numColumns];
+        for (int i = 0; i < numColumns; i++) {
+            result[i] = getValueAt(row, i);
+        }
+        return result;
     }
 
     @Override
@@ -92,7 +97,7 @@ public class PositionListTableReport implements TableReport {
                 }
         }
     }
-    
+
     public PositionList getPositionList() {
         return myPositionList;
     }
