@@ -5,7 +5,6 @@ import java.util.List;
 
 import javax.swing.ImageIcon;
 
-import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.phenotype.Phenotype;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
@@ -13,10 +12,25 @@ import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 
-public class AvgPhenotypeByTaxaPlugin extends AbstractPlugin{
+public class BoxCoxTransformationPlugin extends AbstractPlugin{
     
+    private PluginParameter<Double> startLambda = 
+            new PluginParameter.Builder<>("startLambda",-5.0,Double.class)
+            .description("Parameter to set the starting point for the Lambda search in Box Cox.  "
+                    + "The algorithm will start at this value and iterate by Lambda Step until it reaches End Lambda.")
+            .build();
+    private PluginParameter<Double> endLambda = 
+            new PluginParameter.Builder<>("endLambda",5.0,Double.class)
+            .description("Parameter to set the ending point for the Lambda search in Box Cox. "
+                    + "The algorithm will start at Start Lambda and iterate by Lambda Step until it reaches this value.")
+            .build();
+    private PluginParameter<Double> stepLambda = 
+            new PluginParameter.Builder<>("LambdaStep",0.2,Double.class)
+            .description("Parameter to set the iteration step for the Lambda search in Box Cox. "
+                    + "The algorithm will start at Start Lambda and iterate by this value until it reaches the End Lambda.")
+            .build();
     private PluginParameter<Boolean> addSmallValue =
-            new PluginParameter.Builder<>("addSmallValue", false, Boolean.class)
+            new PluginParameter.Builder<>("addSmallValue", true, Boolean.class)
             .description("Boolean to allow for a small random value to be added to each observed value. The value is calculated by the following:\n"
                     + "rand(0:1) * .5 * minObservedValue")
             .build();
@@ -24,9 +38,10 @@ public class AvgPhenotypeByTaxaPlugin extends AbstractPlugin{
             new PluginParameter.Builder<>("randomSeed",12345l,Long.class)
             .description("Random Seed to be used in the Random Small Number Generation")
             .dependentOnParameter(addSmallValue)
-            .build(); 
+            .build();
     
-    public AvgPhenotypeByTaxaPlugin(Frame parentFrame, boolean isInteractive) {
+    
+    public BoxCoxTransformationPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
     
@@ -36,12 +51,16 @@ public class AvgPhenotypeByTaxaPlugin extends AbstractPlugin{
 
         //check size of datumList, throw error if not equal to one
         if (datumList.size() != 1){
-            throw new IllegalArgumentException("AvgPhenotypeByTaxaPlugin: select exactly one phenotype dataset to average.");
+            throw new IllegalArgumentException("BoxCoxTransformationPluging: select exactly one phenotype dataset to average.");
+        }
+        if(startLambda.value()>endLambda.value()) {
+            throw new IllegalArgumentException("Start Lambda must be smaller than End Lambda");
         }
         
-        AvgPhenotype avgPheno = new AvgPhenotype();
+        BoxCoxTransformation boxCoxPheno = new BoxCoxTransformation();
         try {
-        Phenotype myPhenotype = avgPheno.averagePheno((Phenotype) datumList.get(0).getData(),addSmallValue.value(),randomSeed.value());
+        Phenotype myPhenotype = boxCoxPheno.applyBoxCox((Phenotype) datumList.get(0).getData(),addSmallValue.value(),randomSeed.value(),
+                startLambda.value(),endLambda.value(),stepLambda.value());
         
         if (myPhenotype != null) {
             String name = myPhenotype.name();
@@ -57,7 +76,6 @@ public class AvgPhenotypeByTaxaPlugin extends AbstractPlugin{
             throw new IllegalArgumentException(e.getMessage());
         }
         return null;  // Note: this can return null
-        //return myPhenotype;  // Note: this can return null
     }
     
     @Override
@@ -66,11 +84,11 @@ public class AvgPhenotypeByTaxaPlugin extends AbstractPlugin{
     }
     @Override
     public String getButtonName() {
-        return "Average Phenotypes By Taxa";
+        return "Box Cox Transformation";
     }
     @Override
     public String getToolTipText() {
-        return "Averages Phenotypes for Duplicate Taxa.";
+        return "Box Cox Transformation.";
     }
     
     @Override
@@ -82,6 +100,7 @@ public class AvgPhenotypeByTaxaPlugin extends AbstractPlugin{
     
     @Override
     public String pluginUserManualURL() {
+        //TODO add in the documentation link once it is written up
         return "https://bitbucket.org/tasseladmin/tassel­5­source/wiki/UserManual/Kinship/Kinship"; 
     } 
     
@@ -89,7 +108,7 @@ public class AvgPhenotypeByTaxaPlugin extends AbstractPlugin{
     // Please use this method to re-generate.
     //
     // public static void main(String[] args) {
-    //     GeneratePluginCode.generate(AvgPhenotypeByTaxaPlugin.class);
+    //     GeneratePluginCode.generate(BoxCoxTransformationPlugin.class);
     // }
 
     /**
@@ -116,7 +135,7 @@ public class AvgPhenotypeByTaxaPlugin extends AbstractPlugin{
      *
      * @return this plugin
      */
-    public AvgPhenotypeByTaxaPlugin addSmallValue(Boolean value) {
+    public BoxCoxTransformationPlugin addSmallValue(Boolean value) {
         addSmallValue = new PluginParameter<>(addSmallValue, value);
         return this;
     }
@@ -137,8 +156,71 @@ public class AvgPhenotypeByTaxaPlugin extends AbstractPlugin{
      *
      * @return this plugin
      */
-    public AvgPhenotypeByTaxaPlugin randomSeed(Long value) {
+    public BoxCoxTransformationPlugin randomSeed(Long value) {
         randomSeed = new PluginParameter<>(randomSeed, value);
+        return this;
+    }
+
+    /**
+     * Start Lambda
+     *
+     * @return Start Lambda
+     */
+    public Double startLambda() {
+        return startLambda.value();
+    }
+
+    /**
+     * Set Start Lambda. Start Lambda
+     *
+     * @param value Start Lambda
+     *
+     * @return this plugin
+     */
+    public BoxCoxTransformationPlugin startLambda(Double value) {
+        startLambda = new PluginParameter<>(startLambda, value);
+        return this;
+    }
+
+    /**
+     * End Lambda
+     *
+     * @return End Lambda
+     */
+    public Double endLambda() {
+        return endLambda.value();
+    }
+
+    /**
+     * Set End Lambda. End Lambda
+     *
+     * @param value End Lambda
+     *
+     * @return this plugin
+     */
+    public BoxCoxTransformationPlugin endLambda(Double value) {
+        endLambda = new PluginParameter<>(endLambda, value);
+        return this;
+    }
+
+    /**
+     * Step Lambda
+     *
+     * @return Step Lambda
+     */
+    public Double stepLambda() {
+        return stepLambda.value();
+    }
+
+    /**
+     * Set Step Lambda. Step Lambda
+     *
+     * @param value Step Lambda
+     *
+     * @return this plugin
+     */
+    public BoxCoxTransformationPlugin stepLambda(Double value) {
+        stepLambda = new PluginParameter<>(stepLambda, value);
         return this;
     }
 

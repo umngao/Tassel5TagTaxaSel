@@ -15,6 +15,7 @@ import net.maizegenetics.plugindef.PluginParameter;
 public class SubtractPhenotypeByTaxaPlugin extends AbstractPlugin{
     private PluginParameter<Boolean> useAbsoluteDifference =
             new PluginParameter.Builder<>("useAbsDiff", false, Boolean.class)
+            .description("Boolean to allow the user to use Absolute Difference when doing the subtraction.")
             .build();
     
     public SubtractPhenotypeByTaxaPlugin(Frame parentFrame, boolean isInteractive) {
@@ -37,7 +38,7 @@ public class SubtractPhenotypeByTaxaPlugin extends AbstractPlugin{
         try {
         Phenotype subtractedPhenotype = subPheno.subtractPhenotype(myPhenotype1, myPhenotype2,useAbsoluteDifference.value());
         if (myPhenotype1 != null) {
-            String name = "PhenotypeTransformed";
+            String name = subtractedPhenotype.name();
 
             Datum td = new Datum(name, subtractedPhenotype, null);
             
@@ -47,8 +48,9 @@ public class SubtractPhenotypeByTaxaPlugin extends AbstractPlugin{
         }
         }
         catch(Exception e) {
-            throw new IllegalArgumentException("Error building Phenotype Object.  "
-                    + "Check to make sure the dimensions of your data match the number of taxa and the number of attributes.");
+//            throw new IllegalArgumentException("Error building Phenotype Object.  "
+//                    + "Check to make sure the dimensions of your data match the number of taxa and the number of attributes.");
+            throw new IllegalArgumentException(e.getMessage());
         }
         return null;  // Note: this can return null
     }

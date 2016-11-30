@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
@@ -265,126 +266,38 @@ public class PhenotypeUtils {
         return new CorePhenotype(attributes, types, "B4R_Phenotype");
     }
     
-    //Method to compute the BoxCox Transformation on a Phenotype Column for normalization
-    public static double[] computeBoxCox(PhenotypeAttribute phenoAttribute) {
-        //Check attribute to make sure we have variation
-        if(!attributeHasVariation(phenoAttribute)) {
-            System.out.println("No Variation on Pheno:"+phenoAttribute.name());
-            double[] valuesToReturn = new double[phenoAttribute.size()];
-            for(int i = 0; i < phenoAttribute.size(); i++) {
-                valuesToReturn[i] = ((Float)phenoAttribute.value(i)).doubleValue();
-            }
-            return valuesToReturn;
-        }
-        
-        double[] transformedValues = new double[phenoAttribute.size()];
-        
-        double currentLambda = -5.0;
-        double[] currentValues = new double[phenoAttribute.size()];
-        double bestTestStat = Double.MAX_VALUE;
-        
-        double bestMean = 0.0;
-        double bestStDev = 0.0;
-        
-        boolean foundASingleLambda = false;
-        
-        //double lambda = 1;
-        for(double lambda = -5; lambda < 10; lambda += .1) {
-            for(int i = 0; i < phenoAttribute.size(); i++) {
-                transformedValues[i] = boxCoxTransform(((Float)phenoAttribute.value(i)).doubleValue(), lambda);
-            }
-            
-            boolean hasInf = false;
-            //Loop through and make sure that we dont have any infinities in transformedValues
-            for(double transformedVal : transformedValues) {
-                if(transformedVal == Double.NEGATIVE_INFINITY || transformedVal == Double.POSITIVE_INFINITY || transformedVal == Double.MIN_VALUE || transformedVal == Double.MAX_VALUE) {
-                   hasInf = true; 
-                }
-            }
-            
-            if(hasInf) {
-                continue;
-            }
-            
-            //System.out.println(Arrays.toString(transformedValues));
-            StandardDeviation sdev = new StandardDeviation();
-            
-            double sampleStandardDev = sdev.evaluate(transformedValues);
-//            if(sampleStandardDev<=0.0 || sampleStandardDev == Double.NaN ) {
-//                //System.out.println("Throwing out Lambda: "+lambda);
-//                continue;
-//            }
-            //calculate the mean
-            Mean meanObj = new Mean();
-            double meanVal = meanObj.evaluate(transformedValues);
-            
-            if(sampleStandardDev<=0.0 || sampleStandardDev == Double.NaN  || meanVal == Double.NaN) {
-                //System.out.println("Throwing out Lambda: "+lambda);
-                continue;
-            }
-            //Compute z-score for both max and min
-            NormalDistribution normDist = new NormalDistribution(meanVal, sampleStandardDev);
-            KolmogorovSmirnovTest kst = new KolmogorovSmirnovTest();
-            
-            double testStat = kst.kolmogorovSmirnovStatistic(normDist, transformedValues);
-            
-            if(testStat < bestTestStat) {
-                foundASingleLambda = true;
-//                System.out.println("Found new Lambda: "+lambda+"\tKS-TestStat: "+testStat);
-                currentLambda = lambda;
-                currentValues = transformedValues;
-                bestTestStat = testStat;
-                bestMean = meanVal;
-                bestStDev = sampleStandardDev;
-            }
-            
-//            boolean rejNull = kst.kolmogorovSmirnovTest(normDist, transformedValues, .001);
-//            
-//            if(rejNull) {
-//                System.out.println("Found lambda:"+lambda);
-//                return transformedValues;
-//            }
-        }
-        System.out.println("Final Values for Phenotype:"+phenoAttribute.name());
-        System.out.println("Lambda: "+currentLambda);
-        System.out.println("KS-TestStat: "+bestTestStat);
-        System.out.println("Mean: "+bestMean);
-        System.out.println("Standard Dev: "+bestStDev);
-        if(!foundASingleLambda) {
-            System.out.println(Arrays.toString(transformedValues));
-//            System.out.println(Arrays.toString(a))
-        }
-        return transformedValues;
-    }
-    
-    private static double boxCoxTransform(double value, double lambda) {
-        if(lambda == 0) {
-            //do the natural log
-            return Math.log(value);
-        }
-        else {
-            //Compute (value^lamdba - 1)/lambda
-            return (Math.pow(value, lambda) - 1.0)/lambda;
-        }
-    }
+   
     
     //Helper method to make a Phenotype from a list of taxaNames, variableNames and the 2-D dataset
-    public static Phenotype createPhenotypeFromTransform(ArrayList<String> taxaListNames, ArrayList<String> variableNames, ArrayList<ArrayList<Double>> data) throws Exception {
-        //TODO check to make sure the dimensions of the phneotype match
+    public static Phenotype createPhenotypeFromTransform(ArrayList<String> taxaListNames, ArrayList<String> variableNames, List<ArrayList<Double>> data, String outputObjectName, ArrayList<ATTRIBUTE_TYPE> types) throws Exception {
+        //TODO check to make sure the dimensions of the phenotype match
+        boolean taxaCorrectSize = true;
+        boolean variableCorrectSize = true;
         if(taxaListNames.size() != data.size()) {
-            throw new Exception("Error: Number of Taxa Names and Number of samples does not match: Number of taxa: "+taxaListNames.size() + " Number of samples: "+data.size());
+            taxaCorrectSize = false;
         }
         if(variableNames.size() != data.get(0).size()) {
+            variableCorrectSize = false;
+        }
+        //Throw the appropriate Exception to the user if the phenotype object does not have the correct dimensions of the data
+        if(!taxaCorrectSize && !variableCorrectSize) {
+            throw new Exception("Error Size of Taxa names and Variable names do not match:\nNumber of taxa: "+taxaListNames.size() + " Number of samples: "+data.size() + "\nNumber of variables: "+variableNames.size() + " Number of columns: "+data.get(0).size());
+        }
+        if(!taxaCorrectSize) {
+            throw new Exception("Error: Number of Taxa Names and Number of samples does not match: Number of taxa: "+taxaListNames.size() + " Number of samples: "+data.size()); 
+        }
+        if(!variableCorrectSize) {
             throw new Exception("Error: Number of Variable Names and Number of columns does not match: Number of variables: "+variableNames.size() + " Number of columns: "+data.get(0).size()); 
         }
+        
         //Create a new List of Taxon objects
         ArrayList<Taxon> taxaList = (ArrayList<Taxon>)taxaListNames.stream().map((name) -> new Taxon(name)).collect(Collectors.toList());
         
         ArrayList<PhenotypeAttribute> attributes = new ArrayList<>(variableNames.size()+1);
-        ArrayList<ATTRIBUTE_TYPE> types = new ArrayList<>(variableNames.size()+1);
+//        ArrayList<ATTRIBUTE_TYPE> types = new ArrayList<>(variableNames.size()+1);
         
         attributes.add(new TaxaAttribute(taxaList));
-        types.add(ATTRIBUTE_TYPE.taxa);
+//        types.add(ATTRIBUTE_TYPE.taxa);
         
         for(int col = 0; col < data.get(0).size(); col++) {
             double[] currentColumnValues = new double[data.size()];
@@ -393,34 +306,15 @@ public class PhenotypeUtils {
             }
             
             attributes.add(new NumericAttribute(variableNames.get(col), currentColumnValues));
-            types.add(ATTRIBUTE_TYPE.data);
+//            types.add(ATTRIBUTE_TYPE.data);
         }
         
         System.out.println("Number of Taxa: "+taxaListNames.size()+" Number of attributes: "+attributes.size());
         
-        return new CorePhenotype(attributes, types, "B4R_Phenotype");
+        return new CorePhenotype(attributes, types, outputObjectName);
        
     }
     
-    private static boolean attributeHasVariation(PhenotypeAttribute phenoAttribute) {
-        double prevVal = ((Float)phenoAttribute.value(0)).doubleValue();
-//        ArrayList<Double> listOfVals = new ArrayList<Double>();
-//        
-//        for(int i = 0; i < phenoAttribute.size(); i++) {
-//            if(listOfVals.contains(((Float)phenoAttribute.value(0)).doubleValue())) {
-//                return false;
-//            }
-//            else {
-//                listOfVals.add(((Float)phenoAttribute.value(0)).doubleValue());
-//            }
-//        }
-        
-        for(int i = 1; i < phenoAttribute.size(); i++) { 
-            if(((Float)phenoAttribute.value(0)).doubleValue() != prevVal) {
-                return false;
-            }
-        }
-        return true;
-    }
+   
     
 }

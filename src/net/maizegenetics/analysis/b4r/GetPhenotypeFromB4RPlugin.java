@@ -1,6 +1,8 @@
 package net.maizegenetics.analysis.b4r;
 
 import java.awt.Frame;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 import javax.swing.ImageIcon;
 
@@ -68,7 +70,20 @@ public class GetPhenotypeFromB4RPlugin extends net.maizegenetics.plugindef.Abstr
             throw new IllegalArgumentException("Could not create Phenotype Object");
         }
         if (result != null) {
-            String name = "B4R Phenotype";
+            
+            ArrayList<String> outputNameList = new ArrayList<String>();
+            outputNameList.add("B4R_Phenotype");
+            if(!myStudyName.value().equals("")) {
+                outputNameList.add("Study_"+myStudyName.value());
+            }
+            if(!myTaxaName.value().equals("")) {
+                outputNameList.add("Taxa_"+myTaxaName.value());
+            }
+            if(!myVariableName.value().equals("")) {
+                outputNameList.add("Var_"+myVariableName.value());
+            }
+            
+            String name = outputNameList.stream().collect(Collectors.joining("_"));
 
             Datum td = new Datum(name, result, null);
             
