@@ -34,7 +34,6 @@ import net.maizegenetics.analysis.gbs.neobio.PairwiseAlignment;
 import net.maizegenetics.analysis.gbs.neobio.PairwiseAlignmentAlgorithm;
 import net.maizegenetics.analysis.gbs.neobio.ScoringScheme;
 import net.maizegenetics.analysis.gbs.neobio.SmithWaterman;
-import net.maizegenetics.analysis.gobii.HapBreakpoints_IFLFilePlugin;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.GeneralPosition;
 import net.maizegenetics.dna.map.GenomeSequence;
@@ -56,12 +55,10 @@ import net.maizegenetics.util.Utils;
 /**
  * This plugin takes an existing repGen db, grabs the tags
  * whose depth meets that specified in the minCount parameter,
- * and makes a best guess at each tag's alignment against a
- * reference genome.
+ * makes kmer seeds from these tags.  Window for kmer seeds is 50.
  * 
- * kmer seeds are created from the stored tags.  The ref genome
- * is walked with a sliding window of 1. Reference tags are created
- * based on peaks were kmer seeds align.  
+ * The ref genome is walked with a sliding window of 1. Reference tags are created
+ * based on peaks where kmer seeds align.  
  * 
  *  The kmerLen field should match the length of the kmers stored
  *  as tags during the RepGenLoadSeqToDBPlugin step.  The default is 150.
@@ -70,15 +67,14 @@ import net.maizegenetics.util.Utils;
  *  tags, but can be longer.  Our defaults are 150 for kmer tags, and
  *  twice this length (300) for the refKmerLen.  
  *  
- *  The tags from the fastQ files were stored in the db during the
- *  RepGenLoadSeqToDBPlugin() run.  This creates and stores the reference
+ *  This plugin creates and stores the reference
  *  tags in the database.  The reference tags will be stored with the isReference
  *  tag set. Both the tag table and the physicalMapPosition table will
  *  we populated with the reference tag information.
  *  
  *  Once the tables have been populated with the reference information,
- *  Smith Waterman will be run to align all the non=reference tags in the db 
- *  against each other and against the reference tags.
+ *  Smith Waterman will be run to align all the nonreference tags in the db 
+ *  against each other, and then each non-reference tag against the reference tags.
  *  
  *  WHere should this data be stored?
  * 
@@ -141,24 +137,19 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
     public DataSet processData(DataSet input) {
         long totalTime = System.nanoTime();
         long time=System.nanoTime();
-        // Make seeds from the tags with minimum counts in the db
-        // Keep map of kmer/tags, align the kmers to the reference genome
-        // if kmer seed matches, attempt alignment of tag at this position
-        // store best alignment for each tag, load data into TagMapping and
-        // PhysicalMapPosition
+ 
         try {           
             System.out.println("RepGenAlignerPlugin:processData begin"); 
             RepGenDataWriter repGenData=new RepGenSQLite(inputDB());
-                       
-            Multimap<String,Tag> kmerTagMap = HashMultimap.create();
-            int window = 20;
-            
             Map<Tag, Integer> tagsWithDepth = repGenData.getTagsWithDepth(minCount());
             if (tagsWithDepth.isEmpty()) {
                 System.out.println("\nNo tags found with minimum depth " + minCount() + ". Halting Run.\n");
+                ((RepGenSQLite)repGenData).close();
                 return null;
             }
             
+            Multimap<String,Tag> kmerTagMap = HashMultimap.create();
+            int window = 20;                      
             System.out.println("Calling createKmerSeedsFromDBTags");
            // Create map of kmer seeds from db tags
             createKmerSeedsFromDBTags(tagsWithDepth, kmerTagMap,  window);
@@ -170,8 +161,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             time = System.nanoTime();
             // get reference genome
             myRefSequence = GenomeSequenceBuilder.instance(refGenome());            
-            
- 
+  
             Set<Chromosome> chromsInRef = myRefSequence.chromosomes();
             int kmersFound = 0;
             
@@ -180,11 +170,11 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             
             System.out.println("Start making array of chrom bitmaps ");
             // For each chrom in refSequence, walk the refSequence looking for kmers
-            // matching those in the kmerTagMap.  When kmer found, align the tags for that
-            // kmer against the reference. 
+            // matching those in the kmerTagMap.  Store hit positions in per-chromosome
+            // bitmaps to be used for creating ref tags for aligning.
             chromsInRef.parallelStream().forEach(chrom -> { 
                   // Turn this on/off for debug purposes
-                 // if (chrom.getChromosomeNumber() != 9) return; // just for initial testing !!! - remove
+                  //if (chrom.getChromosomeNumber() != 9) return; // just for initial testing !!! - remove
                                     
                   int kmersForChrom = 0;
                   int chromLength = myRefSequence.chromosomeSize(chrom);
@@ -193,7 +183,6 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                   // create bitmap for this chrom
                   OpenBitSet chromBits = new OpenBitSet(chromLength);
                   
-                  long chromTime = System.nanoTime();
                   for (int chromIdx = 0; chromIdx < chromLength;) {                                       
                       // chromosomeSequence:  start and end are inclusive and 1-based, adjust for this in call below
                       int end = Math.min(chromLength, chromIdx+seedLen());
@@ -222,8 +211,8 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
               });
                        
             // The bitmaps of positions matching a kmer seed start have been calculated for each chrom.
-            // Take these maps and find where hits are clustered.  Determine a start positions for these
-            // and attempt to align the tags.  We are aligning a matrix of full tags to chrom positions.
+            // Take these maps and find where hits are clustered.  Find the maxima in each cluster,
+            // use the maxima to determine a start position for the reference tag to be created.
             
             // Hashmap holds start positions, on each chromosome, where clusters
             // of hits occur, ie kmers map to these regions.  THe map is keyed by chromosome name,
@@ -231,95 +220,13 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             
             System.out.println("Entering loop to find clusters" );
             Multimap<String,Integer> chromMaximaMap = HashMultimap.create(); // holds chrom/positions for creating refTag
+            // should refTagPositionMap be created as an immutable map within storeChromToMaximaMap?
             Multimap<Tag,Position> refTagPositionMap =  HashMultimap.create(); // holds ref tags and positions
+           // ImmutableMultimap.Builder<Tag,Position> refTagPosBuilder = ImmutableMultimap.builder();
 
             for (String chrom : chromBitMaps.keySet()) {
                 OpenBitSet chromHits = chromBitMaps.get(chrom);
-                // This doesn't give same value as myRefSequence.chromosomeSize(chrom)
-                // FOr chrom 9, myRefSequence.chromosomeSize(9) says 159769782
-                // but this code below says size is 159769792, which is 10 more. WHY?
-                // oh - it returns the capacity of the set, which might be more than
-                // the size I set it to if we're storing bits in words.
-                long chromSize = chromHits.size(); 
-                
-                // This holds the moving sums for specific positions.  The key is
-                // the sum amount.  Only sums that are equal or greater than the minCount()
-                // parameter are stored. 
-                Multimap<Short,Integer> movingSumMap = HashMultimap.create();
- 
-                System.out.println("Size of OpenBitSet for chrom " + chrom + ": " 
-                + chromSize + ", cardiality is: " + chromHits.cardinality());
- 
-                // loop through the chromosome. 
-                int rangeSize = refKmerLen();               
-                // THis is the position where we store the first kmer
-                int firstRange = rangeSize/2; // refKmerLen should be even number, but is ok if it isn't                
-                short firstRangeCount = calculateFirstRangeCount(rangeSize,chromHits);
-                System.out.println("firstRangeCount: " + firstRangeCount);
-                
-                short currentTotal = firstRangeCount;
-                int lastRange = (int)chromSize - firstRange ;
-                // calculate the rest of the values
-                short peak_num = 0;
-                boolean belowMin = true;
-                for (int idx = firstRange+1; idx < lastRange; idx++) {
-                    // we move up one.  If the bitMap was set for the position
-                    // we drop, then drop one from the count.  If the bitMap
-                    // is set for the position we add, add 1 to the count.
-                    // if our range is 10, the first range is 0-9
-                    // We want to store the value in the middle, which is range/2 = 5
-                    // That was done above.  Here, we start writing to position 6.
-                    // We want the totals now in range 1-10.  We dropped position 0,
-                    // which is 6 - (10/2) -1 = 6-5-1 = 0.
-                    // We want to add position 10, which is 6 + (10/2) -1,
-                    // which is 6 + 5 - 1 = 10
-                    int posToDrop = idx - (rangeSize/2) - 1;
-                    int posToAdd = idx + (rangeSize/2) -1;
-                    if (chromHits.fastGet(posToDrop)) currentTotal--;
-                    if (chromHits.fastGet(posToAdd)) currentTotal++;
-
-                    // Only store positions with hit counts where the hit count meets our minimum
-                    // May make sense to create the tag here.  Would mean we don't have to
-                    // traverse this map later to find positions to create the tags                                       
-                    if (currentTotal >= minCount()) {
-                        if (belowMin) {
-                            // We dropped out of minimum, but
-                            // now the counts are back up. So start a new peak
-                            peak_num++;
-                            belowMin = false;
-                        }
-                        // This stores the middle position of a range
-                        // of positions where the total kmerhit count is >= minCount()
-                        movingSumMap.put(peak_num,idx);
-                    } else {
-                        belowMin = true;
-                    }                    
-                }   
-                
-                // Find the peak maximas
-                
-                // Algorithm to find maximas (per Peter):
-                //  Only store the positions that have at least the minCount number of hits.
-                //  Whenever the hit count drops below the min, we stop adding positions for this
-                //  peak
-                //  When the hit count get back up to min count, we start a new peak and
-                //  add positions again until the hit count at a position drops below minCount
-                //  Store the peak number and its positions in the movingSumMap.
-                //  
-                
-                Set<Short> peaks = movingSumMap.keySet();
-                System.out.println("Total number of peaks calculated for chrom: " + chrom + ": "+ peaks.size());
-                
-                List<Short> sumList = new ArrayList<Short>(peaks); // does this need to be sorted?
-                sumList.stream().forEach(peak-> {
-                    Collection<Integer> values = movingSumMap.get(peak);
-                    List<Integer> positionsInPeak = new ArrayList<Integer>(values);
-                    Collections.sort(positionsInPeak);
-                    storeToChromMaximaMap( peak,positionsInPeak, chromMaximaMap, chrom,chromSize,refTagPositionMap);
-                });
-                         
-                // write out to a file for debug
-                //writeToFile( chrom, chromMaximaMap); // writes to Lynn's directory 
+                createRefTagsForAlignment(chromHits, chrom, chromMaximaMap, refTagPositionMap);
             }
             
             System.out.println("\nNumber of refTags to be loaded into db: " + refTagPositionMap.keySet().size());
@@ -328,7 +235,6 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             repGenData.addReferenceGenome(refGenome());
             repGenData.putTagAlignments(refTagPositionMap, refGenome());
             
-            // Now that we have the positions, get the tags and run SW 
             // Get initial tags, before the ref tags are added.        
             Set<Tag> tagsToAlign = repGenData.getTags();
             List<Tag> tagList = new ArrayList<Tag>(tagsToAlign);
@@ -348,7 +254,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             // Next, align the tags against the reference
             // Output of this is stored in both allelepair and physicalMapPosition tables
             tagTagAlignMap.clear();
-            Multimap<Tag,Position> tagPositionAlignMap =  HashMultimap.create(); // holds ref tags and positions
+ 
             System.out.println("LCJ _ calling calculateTagRefTagALignment for tags WITH ref");
             calculateTagRefTagAlignment(tagList,refTagPositionMap,tagTagAlignMap,tagRefAlignInfoMap);
             // Add the tag-refTag info to the allelepair table.
@@ -367,7 +273,10 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             System.out.println("\nAlignments are finished, total number of kmers matched in all chromosomes:" + kmersFound);
             System.out.println("\n Start loop to select best alignments");
             
-            // tagAlignInfoMap is not populated until I do the alignment code.
+            // tagRefAlignInfoMap was populated in calculateTagRefTagaAlignment() above
+            // THe map contains ALL the alignments for each tag.  Here we grab the best on
+            // and store it.  If a tie, currently the first "best" encountered is stored.
+            
             while (tagIterator.hasNext()) {
                 Tag tag = (Tag)tagIterator.next();               
                 Collection<AlignmentInfo>  alignments = tagRefAlignInfoMap.get(tag);
@@ -385,18 +294,16 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                 Position position=new GeneralPosition
                         .Builder(chromosome,bestAlignment.position())
                         .strand((byte)1) // default to forward for now
-                        //.strand((byte)1)
                         .addAnno("mappingapproach", "SmithWaterman")
                         .build();
                 // create Position object from alignment data
                 kmerPositionMap.put(tag, position);
-            }
-            
+            }            
             System.out.println("\n Calling put TagAlignments to add to DB");
  
             // Add tags and alignment to db
             repGenData.putTagAlignments(kmerPositionMap, refGenome());            
-            ((RepGenSQLite)repGenData).close();  //todo autocloseable should do this but it is not working.
+            ((RepGenSQLite)repGenData).close();
 
             myLogger.info("Finished RepGenAlignerPlugin\n");
         } catch (Exception e) {
@@ -420,7 +327,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
     //  From that list, we find the maxima,  create the reference tag and its position information
     // This is stored in a data structure that will be used to populate the DB.  We store a position
     // so the physical site, and any annotations can be used.
-    private void storeToChromMaximaMap(int peaknum,List<Integer> positionsInPeak,Multimap<String,Integer> chromMaximaMap, 
+    private void storeRefTagPositions(int peaknum,List<Integer> positionsInPeak,Multimap<String,Integer> chromMaximaMap, 
             String chrom, long chromSize, Multimap<Tag, Position> refTagPositionMap) {
         
         // positionsInPeak is a sorted list.
@@ -448,7 +355,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         // Convert to allele string
         String refString = NucleotideAlignmentConstants.nucleotideBytetoString(refTagBytes);
         if (refString.contains("N") || refString.contains("null")) {
-            System.out.println("LCJ - store... refString contains N or null: " + refString); 
+            System.out.println("LCJ - storeRefTagPositions... refString contains N or null: " + refString); 
             // If the ref string has N's in it, cut it back to the same size as 
             // the kmer and re-grab it.  if it still has N's, discard
             lowpos = maxima - (kmerLen()/2);
@@ -457,14 +364,14 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             refTagBytes = myRefSequence.chromosomeSequence(chromObject,startRefPos, endpos);
             refString = NucleotideAlignmentConstants.nucleotideBytetoString(refTagBytes);
             if (refString.contains("N") || refString.contains("null")) {
-                System.out.println("LCJ - after adjusting, refString still contains N, drop this one");
+                System.out.println(" - after adjusting, refString still contains N, drop this one");
             } else {
-                System.out.println("LCJ - new refTag after adjusting, len=" + refString.length() + ", " + refString);
+                System.out.println(" - new refTag after adjusting, len=" + refString.length() + ", " + refString);
             }
         }
         // RefString could be null for some other reason - e.g. start/end pos is bad
         if (refString == null || refString.length() == 0) {
-            System.out.println("LCJ - storeToChromMaxMap - refString is NULL");
+            System.out.println(" storeRefTagPositions - refString is NULL");
         } else {
             Tag refTag = TagBuilder.instance(refString).reference().build();
             if (refTag != null ) {
@@ -474,13 +381,13 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                         .addAnno("mappingapproach", "SmithWaterman") // this wasn't done with SW !!  Is just a reference
                         .addAnno("forward", "true") // reference, so always forward strand.
                         .build();
-                // This is a multimap becasue it is possible for a tag sequence to
+                // This is a multimap because it is possible for a tag sequence to
                 // show up in multiple places in the genome.  If multiple places with
                 // this tag are at maxima sites, then the multimap has all positions
                 // for this tag.
                 refTagPositionMap.put(refTag, refPos);
             } else {
-                System.out.println("LCJ =- refTag is NULL for refString: " + refString);
+                System.out.println("- refTag is NULL for refString: " + refString);
             } 
         }       
     }
@@ -519,6 +426,97 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         }
     }
 
+    private void createRefTagsForAlignment(OpenBitSet chromHits, String chrom,
+            Multimap<String,Integer> chromMaximaMap, Multimap<Tag,Position> refTagPositionMap) {
+        // This doesn't give same value as myRefSequence.chromosomeSize(chrom)
+        // FOr chrom 9, myRefSequence.chromosomeSize(9) says 159769782
+        // but this code below says size is 159769792, which is 10 more. WHY?
+        // oh - it returns the capacity of the set, which might be more than
+        // the size I set it to if we're storing bits in words.
+        
+        long chromSize = chromHits.size(); 
+        
+        // This holds the moving sums for specific positions.  The key is
+        // the sum amount.  Only sums that are equal or greater than the minCount()
+        // parameter are stored. 
+        Multimap<Short,Integer> movingSumMap = HashMultimap.create();
+
+        System.out.println("Size of OpenBitSet for chrom " + chrom + ": " 
+        + chromSize + ", cardiality is: " + chromHits.cardinality());
+
+        // loop through the chromosome. 
+        int rangeSize = refKmerLen();               
+        // THis is the position where we store the first kmer
+        int firstRange = rangeSize/2; // refKmerLen should be even number, but is ok if it isn't                
+        short firstRangeCount = calculateFirstRangeCount(rangeSize,chromHits);
+        System.out.println("firstRangeCount: " + firstRangeCount);
+        
+        short currentTotal = firstRangeCount;
+        int lastRange = (int)chromSize - firstRange ;
+        // calculate the rest of the values
+        short peak_num = 0;
+        boolean belowMin = true;
+        for (int idx = firstRange+1; idx < lastRange; idx++) {
+            // we move up one.  If the bitMap was set for the position
+            // we drop, then drop one from the count.  If the bitMap
+            // is set for the position we add, add 1 to the count.
+            // if our range is 10, the first range is 0-9
+            // We want to store the value in the middle, which is range/2 = 5
+            // That was done above.  Here, we start writing to position 6.
+            // We want the totals now in range 1-10.  We dropped position 0,
+            // which is 6 - (10/2) -1 = 6-5-1 = 0.
+            // We want to add position 10, which is 6 + (10/2) -1,
+            // which is 6 + 5 - 1 = 10
+            int posToDrop = idx - (rangeSize/2) - 1;
+            int posToAdd = idx + (rangeSize/2) -1;
+            if (chromHits.fastGet(posToDrop)) currentTotal--;
+            if (chromHits.fastGet(posToAdd)) currentTotal++;
+
+            // Only store positions with hit counts where the hit count meets our minimum
+            // May make sense to create the tag here.  Would mean we don't have to
+            // traverse this map later to find positions to create the tags                                       
+            if (currentTotal >= minCount()) {
+                if (belowMin) {
+                    // We dropped out of minimum, but
+                    // now the counts are back up. So start a new peak
+                    peak_num++;
+                    belowMin = false;
+                }
+                // This stores the middle position of a range
+                // of positions where the total kmerhit count is >= minCount()
+                movingSumMap.put(peak_num,idx);
+            } else {
+                belowMin = true;
+            }                    
+        }   
+        
+        // Algorithm to find maximas (per Peter):
+        //  Only store the positions that have at least the minCount number of hits.
+        //  Whenever the hit count drops below the min, we stop adding positions for this
+        //  peak
+        //  When the hit count get back up to min count, we start a new peak and
+        //  add positions again until the hit count at a position drops below minCount
+        //  Store the peak number and its positions in the movingSumMap.
+        //  
+        
+        Set<Short> peaks = movingSumMap.keySet();
+        System.out.println("Total number of peaks calculated for chrom: " + chrom + ": "+ peaks.size());
+        
+        List<Short> sumList = new ArrayList<Short>(peaks); // does this need to be sorted?
+        
+        // Create reference tag for each peak on this chromosome
+        // NOTE: chromMaximaMap is used for nothing other than debug at the end of this for loop.
+        // It could be removed.
+        sumList.stream().forEach(peak-> {
+            Collection<Integer> values = movingSumMap.get(peak);
+            List<Integer> positionsInPeak = new ArrayList<Integer>(values);
+            Collections.sort(positionsInPeak);
+            storeRefTagPositions( peak,positionsInPeak, chromMaximaMap, chrom,chromSize,refTagPositionMap);
+        });
+                 
+        // write out to a file for debug
+        //writeToFile( chrom, chromMaximaMap); // writes to Lynn's directory 
+    }
     // this one calculates tag against tag alignment from the tags in the DB
     // BEFORE the ref tags were added.
     private void calculateTagTagAlignment(List<Tag> tags, Multimap<Tag,Tuple<Tag,Integer>> tagTagAlignMap){
