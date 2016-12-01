@@ -15,6 +15,7 @@ import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.Allele;
 import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.util.Tuple;
 
 /**
  * @author lcj34
@@ -120,5 +121,12 @@ public interface RepGenDataWriter extends RepGenData {
      * @throws SQLException
      */
     void addReferenceGenome(String refGenome);
+    
+    /**
+     * Adds entries to the allelepair table
+     * @param name
+     * @throws SQLException
+     */
+    void putAllelePairs(Multimap<Tag,Tuple<Tag,Integer>> tagTagAlignMap);
 
 }

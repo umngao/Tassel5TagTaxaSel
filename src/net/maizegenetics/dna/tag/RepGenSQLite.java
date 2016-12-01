@@ -85,6 +85,8 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     PreparedStatement alleleTaxaDistForSnpidPS;
     PreparedStatement allAlleleTaxaDistForSnpidPS;
     PreparedStatement snpQualityInsertPS;
+    
+    PreparedStatement allelePairInsertPS;
 
     public RepGenSQLite(String filename) {
         try{
@@ -136,6 +138,9 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                     "INSERT OR IGNORE into TagMapping (tagid, position_id, method_id, bp_error, cm_error)" +
                     " values(?,?,?,?,?)");
             tagTaxaDistPS=connection.prepareStatement("select depthsRLE from tagtaxadistribution where tagid=?");
+            allelePairInsertPS = connection.prepareStatement(
+                    "INSERT into allelepair (tagid_1,tagid_2,qualityscore)" + 
+                    " values(?,?,?)");
             allelePairWithTagid1PS=connection.prepareStatement("select * from allelepair where tagid_1=?");
             taxaDistWhereTagMappingIDPS=connection.prepareStatement(
                     "select tagtaxadistribution.* from tagMapping, tagtaxadistribution where tagMapping.position_id=? and " +
@@ -256,6 +261,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             rs=connection.createStatement().executeQuery("select * from referenceGenome");
             while(rs.next()) {
                 referenceGenomeToIDMap.put(rs.getString("refname"), rs.getInt("refid"));
+                System.out.println("LCJ - refence from referenceGenome: " + rs.getString("refname"));
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -325,16 +331,17 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         int batchCount=0, totalCount=0;
         try {
             connection.setAutoCommit(false);
-            PreparedStatement tagInsertPS=connection.prepareStatement("insert into tag (sequence, seqlen) values(?,?)");
+            PreparedStatement tagInsertPS=connection.prepareStatement("insert into tag (sequence, seqlen,isReference) values(?,?,?)");
             for (Tag tag : tags) {
                 if(tagTagIDMap.containsKey(tag)) continue;  //it is already in the DB skip
                 tagInsertPS.setBytes(1, tag.seq2BitAsBytes());
                 tagInsertPS.setShort(2, tag.seqLength());
+                tagInsertPS.setBoolean(3, tag.isReference());
                 tagInsertPS.addBatch();
                 batchCount++;
                 totalCount++;
                 if(batchCount>100000) {
-                    System.out.println("tagInsertPS.executeBatch() "+batchCount);
+                   // System.out.println("tagInsertPS.executeBatch() "+batchCount);
                     tagInsertPS.executeBatch();
                     //connection.commit();
                     batchCount=0;
@@ -433,6 +440,9 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         }
     }
 
+    //THis method is called from RepGenAlignerPlugin to add reference kmers
+    // to the db.  This method adds data to the tag, physicalMapPosition, and
+    // tagMapping tables.
     @Override
     public void putTagAlignments(Multimap<Tag, Position> tagAnnotatedPositionMap, String refGenome) {
         int batchCount=0;
@@ -446,14 +456,14 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                 int ind=1;
                 posTagInsertPS.setInt(ind++, tagTagIDMap.get(entry.getKey()));
                 posTagInsertPS.setInt(ind++, physicalMapPositionToIDMap.get(entrypos));
-                posTagInsertPS.setInt(ind++, getMappingApproachID(entrypos));
+                posTagInsertPS.setInt(ind++, getMappingApproachID(entrypos)); // method_id
                 posTagInsertPS.setInt(ind++, 0);  //todo this needs to be input data (bp_error)
                 posTagInsertPS.setFloat(ind++, 0);  //todo this needs to be input data (cm_error)
 
                 posTagInsertPS.addBatch();
                 batchCount++;
-                if(batchCount>10000) {
-                    System.out.println("putTagAlignments next"+batchCount);
+                if(batchCount>100000) {
+                   // System.out.println("putTagAlignments next"+batchCount);
                     posTagInsertPS.executeBatch();
                     batchCount=0;
                 }
@@ -465,22 +475,22 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             if (rs.next()) {
                 System.out.println("Total number of physical position sites: " + rs.getInt("numPhysicalSites"));
             }
-            PreparedStatement cutSiteNumFromTCPPS = connection.prepareStatement(
+            PreparedStatement physMapNumFromTCPMP = connection.prepareStatement(
                     "select count(*) as numSites from (select count(*) as tgcnt,physical_position from physicalMapPosition " +
                     "GROUP BY physical_position) where tgcnt=?");
-            cutSiteNumFromTCPPS.setInt(1, 1);// having 1 tag
-            rs = cutSiteNumFromTCPPS.executeQuery();
+            physMapNumFromTCPMP.setInt(1, 1);// having 1 tag
+            rs = physMapNumFromTCPMP.executeQuery();
 
             if (rs.next()) {
                 System.out.println("Number of physical position sites with 1 tag: " + rs.getInt("numSites"));
             }
-            cutSiteNumFromTCPPS.setInt(1, 2);// having 2 tag
-            rs = cutSiteNumFromTCPPS.executeQuery();
+            physMapNumFromTCPMP.setInt(1, 2);// having 2 tag
+            rs = physMapNumFromTCPMP.executeQuery();
             if (rs.next()) {
                 System.out.println("Number of physical position sites with 2 tags: " + rs.getInt("numSites"));
             }
-            cutSiteNumFromTCPPS.setInt(1, 3);// having 3 tags
-            rs = cutSiteNumFromTCPPS.executeQuery();
+            physMapNumFromTCPMP.setInt(1, 3);// having 3 tags
+            rs = physMapNumFromTCPMP.executeQuery();
             if (rs.next()) {
                 System.out.println("Number of physical position sites with 3 tags: " + rs.getInt("numSites"));
             }
@@ -618,6 +628,15 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         } else return val;
     }
 
+    private int getReferenceGenomeID(String refGenome) throws SQLException{                
+        Integer val=referenceGenomeToIDMap.get(refGenome);
+        if(val==null) {
+            connection.createStatement().executeUpdate("insert into referenceGenome (refname) " +
+                    "values('"+refGenome+"')");
+            loadReferenceGenomeHash();
+            return referenceGenomeToIDMap.get(refGenome);
+        } else return val;
+    }
     
     @Override
     public void addReferenceGenome(String name) {
@@ -1100,12 +1119,13 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             if(physicalMapPositionToIDMap==null) loadPhysicalMapPositionHash();
             connection.setAutoCommit(false);
             PreparedStatement posInsertPS=connection.prepareStatement(
-                    "INSERT OR IGNORE into physicalMapPosition (chromosome, physical_position, strand) values(?,?,?)");
+                    "INSERT OR IGNORE into physicalMapPosition (reference_genome_id, chromosome, physical_position, strand) values(?,?,?,?)");
             for (Position p : positions) {
                 if(physicalMapPositionToIDMap.containsKey(p)) continue;
-                posInsertPS.setString(1, p.getChromosome().toString());
-                posInsertPS.setInt(2, p.getPosition());
-                posInsertPS.setByte(3, p.getStrand());
+                posInsertPS.setInt(1, getReferenceGenomeID(refGenome)); 
+                posInsertPS.setString(2, p.getChromosome().toString());
+                posInsertPS.setInt(3, p.getPosition());
+                posInsertPS.setByte(4, p.getStrand());
                 posInsertPS.addBatch();
                 batchCount++;
                 if(batchCount>10000) {
@@ -1396,5 +1416,38 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     public PositionList getTagCutPositions(boolean onlyBest) {
         // TODO Auto-generated method stub
         return null;
+    }
+
+    @Override
+    public void putAllelePairs(Multimap<Tag, Tuple<Tag, Integer>> tagTagAlignMap) {
+        
+        int batchCount=0;
+        try {
+            // Add any tags not currently in the db
+            putAllTag(tagTagAlignMap.keySet());
+            
+            connection.setAutoCommit(false);
+            for (Map.Entry<Tag, Tuple<Tag,Integer>> entry : tagTagAlignMap.entries()) {
+                Tag tag1 = entry.getKey();
+                Tag tag2=entry.getValue().x;
+                int score = entry.getValue().y;
+                
+                int ind=1;
+                allelePairInsertPS.setInt(ind++, tagTagIDMap.get(tag1));
+                allelePairInsertPS.setInt(ind++, tagTagIDMap.get(tag2));
+                allelePairInsertPS.setInt(ind++, score);
+                allelePairInsertPS.addBatch();
+                batchCount++;
+                if(batchCount>10000) {
+                   // System.out.println("putAllelePairs next"+batchCount);
+                    allelePairInsertPS.executeBatch();
+                    batchCount=0;
+                }
+            }
+            allelePairInsertPS.executeBatch();
+            connection.setAutoCommit(true);
+        } catch (Exception exc) {
+            exc.printStackTrace();
+        }
     }
 }
