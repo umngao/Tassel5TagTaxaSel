@@ -9,6 +9,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ForkJoinPool;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
+import net.maizegenetics.util.Tuple;
 
 /**
  * Cache for allele frequency statistics. Allele frequency can be expensive to
@@ -107,6 +108,85 @@ public class AlleleFreqCache {
         }
 
         return alleleCounts;
+    }
+
+    public static Tuple<int[][], int[]> allelesSortedByFrequencyAndCountsNucleotide(byte[] data) {
+        return alleleFreqCounts(data, DEFAULT_MAX_NUM_ALLELES);
+    }
+
+    public static final int UNKNOWN_COUNT = 0;
+    public static final int UNKNOWN_GAMETE_COUNT = 1;
+    public static final int HETEROZYGOUS_COUNT = 2;
+    public static final int HOMOZYGOUS_COUNT = 3;
+
+    private static final byte UNKNOWN_COUNT_BIT = 0x1;
+    private static final byte UNKNOWN_SINGLE_GAMETE_COUNT_BIT = 0x2;
+    private static final byte HETEROZYGOUS_COUNT_BIT = 0x4;
+    private static final byte HOMOZYGOUS_COUNT_BIT = 0x8;
+
+    private static final byte[] OTHER_COUNTS = new byte[256];
+
+    static {
+        for (int i = 0; i < 256; i++) {
+
+            if (((byte) i) == GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+                OTHER_COUNTS[i] = UNKNOWN_COUNT_BIT;
+                continue;
+            }
+
+            byte[] alleles = GenotypeTableUtils.getDiploidValues((byte) i);
+
+            if (alleles[0] == GenotypeTable.UNKNOWN_ALLELE) {
+                OTHER_COUNTS[i] = UNKNOWN_SINGLE_GAMETE_COUNT_BIT;
+            } else if (alleles[1] == GenotypeTable.UNKNOWN_ALLELE) {
+                OTHER_COUNTS[i] = UNKNOWN_SINGLE_GAMETE_COUNT_BIT;
+            } else if (alleles[0] == alleles[1]) {
+                OTHER_COUNTS[i] = HOMOZYGOUS_COUNT_BIT;
+            } else {
+                OTHER_COUNTS[i] = HETEROZYGOUS_COUNT_BIT;
+            }
+        }
+    }
+
+    private static Tuple<int[][], int[]> alleleFreqCounts(byte[] data, int maxNumAlleles) {
+
+        int numGenotypes = data.length;
+        int[] alleleFreq = new int[maxNumAlleles];
+        int[] otherCounts = new int[4];
+        for (int i = 0; i < numGenotypes; i++) {
+
+            int index = Byte.toUnsignedInt(data[i]);
+            otherCounts[UNKNOWN_COUNT] += OTHER_COUNTS[index] & UNKNOWN_COUNT_BIT;
+            // << 1 is times 2
+            otherCounts[UNKNOWN_GAMETE_COUNT] += (OTHER_COUNTS[index] & UNKNOWN_COUNT_BIT) << 1;
+            // this is zero if both gametes where Unknown
+            otherCounts[UNKNOWN_GAMETE_COUNT] += (OTHER_COUNTS[index] & UNKNOWN_SINGLE_GAMETE_COUNT_BIT) >>> 1;
+            otherCounts[HETEROZYGOUS_COUNT] += (OTHER_COUNTS[index] & HETEROZYGOUS_COUNT_BIT) >>> 2;
+            otherCounts[HOMOZYGOUS_COUNT] += (OTHER_COUNTS[index] & HOMOZYGOUS_COUNT_BIT) >>> 3;
+
+            if (((data[i] >>> 4) & 0xf) < maxNumAlleles) {
+                alleleFreq[((data[i] >>> 4) & 0xf)]++;
+            }
+            if ((data[i] & 0xf) < maxNumAlleles) {
+                alleleFreq[(data[i] & 0xf)]++;
+            }
+
+        }
+
+        for (byte i = 0; i < maxNumAlleles; i++) {
+            // size | allele (the 5-i is to get the sort right, so if case of ties A is first)
+            alleleFreq[i] = (alleleFreq[i] << 4) | (maxNumAlleles - 1 - i);
+        }
+
+        int numAlleles = sort(alleleFreq, maxNumAlleles);
+        int[][] alleleCounts = new int[2][numAlleles];
+        for (int i = 0; i < numAlleles; i++) {
+            alleleCounts[0][i] = (byte) (5 - (0xF & alleleFreq[i]));
+            alleleCounts[1][i] = alleleFreq[i] >>> 4;
+        }
+
+        return new Tuple<>(alleleCounts, otherCounts);
+
     }
 
     private static int sort(int[] data, int maxNumAlleles) {
