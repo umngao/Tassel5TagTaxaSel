@@ -21,11 +21,11 @@ public final class NucleotideAlignmentConstants {
     public static final byte INSERT_ALLELE = (byte) 0x4;
     public static final byte GAP_ALLELE = (byte) 0x5;
     public static final byte UNDEFINED_ALLELE = (byte) 0x6;
-    
+
     // Diploid Byte Values for Nucleotide Alleles
     public static final byte GAP_DIPLOID_ALLELE = (byte) 0x55;
     public static final byte UNDEFINED_DIPLOID_ALLELE = (byte) 0x66;
-    
+
     // String Values for Nucleotide Alleles
     public static final String INSERT_ALLELE_STR = "+";
     public static final String GAP_ALLELE_STR = "-";
@@ -169,7 +169,7 @@ public final class NucleotideAlignmentConstants {
         } else if (str.length() == 2) {
             return ((((str.charAt(1) << shift) ^ (byte) mask2)) ^ (str.charAt(0) & (byte) mask)) & 0xFF;
         } else {
-            throw new IllegalStateException("NucleotideAlignmentConstants: getIndex: str length: " + str.length());
+            throw new IllegalStateException("NucleotideAlignmentConstants: getNucleotideDiploidArrayIndex: illegal str: " + str);
         }
 
     }
@@ -255,13 +255,13 @@ public final class NucleotideAlignmentConstants {
 
     static {
         Arrays.fill(NUCLEOTIDE_IUPAC_ARRAY, UNDEFINED_ALLELE_STR);
-        Arrays.fill(NUCLEOTIDE_IUPAC_CHARARRAY,UNDEFINED_ALLELE_STR.charAt(0));
-        Arrays.fill(NUCLEOTIDE_IUPAC_CHARCOMPLEMENT_ARRAY,UNDEFINED_ALLELE_STR.charAt(0));
+        Arrays.fill(NUCLEOTIDE_IUPAC_CHARARRAY, UNDEFINED_ALLELE_STR.charAt(0));
+        Arrays.fill(NUCLEOTIDE_IUPAC_CHARCOMPLEMENT_ARRAY, UNDEFINED_ALLELE_STR.charAt(0));
         for (Byte temp : NUCLEOTIDE_IUPAC_HASH.keySet()) {
             NUCLEOTIDE_IUPAC_ARRAY[temp & 0xFF] = NUCLEOTIDE_IUPAC_HASH.get(temp);
             NUCLEOTIDE_IUPAC_CHARARRAY[temp & 0xFF] = NUCLEOTIDE_IUPAC_HASH.get(temp).charAt(0);
-            byte compByte=getNucleotideDiploidComplement(temp);
-            NUCLEOTIDE_IUPAC_CHARCOMPLEMENT_ARRAY[ NUCLEOTIDE_IUPAC_HASH.get(temp).charAt(0)]=NUCLEOTIDE_IUPAC_HASH.get(compByte).charAt(0);
+            byte compByte = getNucleotideDiploidComplement(temp);
+            NUCLEOTIDE_IUPAC_CHARCOMPLEMENT_ARRAY[NUCLEOTIDE_IUPAC_HASH.get(temp).charAt(0)] = NUCLEOTIDE_IUPAC_HASH.get(compByte).charAt(0);
         }
     }
     private static final Map<String, Byte> NUCLEOTIDE_ALLELE_HASH = new HashMap<String, Byte>();
@@ -309,8 +309,8 @@ public final class NucleotideAlignmentConstants {
     }
 
     /**
-     * Returns char allele for allele byte encoding.  THis is called
-     * from junit tests in ReferenceGenomeSequenceTest.java
+     * Returns char allele for allele byte encoding. THis is called from junit
+     * tests in ReferenceGenomeSequenceTest.java
      *
      * @param value haploid allele byte value
      *
@@ -318,17 +318,17 @@ public final class NucleotideAlignmentConstants {
      */
     public static Object getNucleotideAlleleValue(byte value) {
         try {
-        	for (Object alleleObject: NUCLEOTIDE_ALLELE_HASH.keySet() ) {
-        		if (NUCLEOTIDE_ALLELE_HASH.get(alleleObject).equals(value))
-        			return alleleObject;
-        	}
+            for (Object alleleObject : NUCLEOTIDE_ALLELE_HASH.keySet()) {
+                if (NUCLEOTIDE_ALLELE_HASH.get(alleleObject).equals(value)) {
+                    return alleleObject;
+                }
+            }
             return null;
         } catch (NullPointerException e) {
             throw new IllegalArgumentException("NucleotideAlignmentConstants: getNucleotideAlleleByte: unknown allele value: " + value);
         }
     }
- 
-    
+
     /**
      * Returns haploid byte value for given nucleotide value. Only right-most
      * four bits used.
@@ -463,7 +463,9 @@ public final class NucleotideAlignmentConstants {
      * @return Nucleotide Complement in IUPAC
      */
     public static char getNucleotideDiploidIUPACComplement(char diploidAllele) {
-        if(diploidAllele>256) return UNDEFINED_ALLELE_STR.charAt(0);
+        if (diploidAllele > 256) {
+            return UNDEFINED_ALLELE_STR.charAt(0);
+        }
         return NUCLEOTIDE_IUPAC_CHARCOMPLEMENT_ARRAY[diploidAllele];
     }
 
@@ -494,33 +496,39 @@ public final class NucleotideAlignmentConstants {
     }
 
     /**
-     * Convert a haploid (allele) string (e.g. ACGTA) to arrays of allele bytes (e.g. {0,1,2,3,0})
+     * Convert a haploid (allele) string (e.g. ACGTA) to arrays of allele bytes
+     * (e.g. {0,1,2,3,0})
+     *
      * @param haploString haploid allele string
      * @return encoded array of bytes
      */
     public static byte[] convertHaplotypeStringToAlleleByteArray(String haploString) {
-        byte[] haplosBytes=new byte[haploString.length()];
+        byte[] haplosBytes = new byte[haploString.length()];
         for (int i = 0; i < haplosBytes.length; i++) {
-            haplosBytes[i]=getNucleotideAlleleByte(haploString.charAt(i));
+            haplosBytes[i] = getNucleotideAlleleByte(haploString.charAt(i));
         }
         return haplosBytes;
     }
 
     /**
-     * Convert a haploid (allele) string (e.g. {0,1,2,3,0}) to its reverse complement (e.g. {3,0,1,2,3})
+     * Convert a haploid (allele) string (e.g. {0,1,2,3,0}) to its reverse
+     * complement (e.g. {3,0,1,2,3})
+     *
      * @param alleles haploid allele byte
      * @return encoded array of bytes
      */
     public static byte[] reverseComplementAlleleByteArray(byte[] alleles) {
-        byte[] reverseCompBytes=new byte[alleles.length];
-        int allelesIndex=alleles.length-1;
+        byte[] reverseCompBytes = new byte[alleles.length];
+        int allelesIndex = alleles.length - 1;
         for (int i = 0; i < reverseCompBytes.length; i++) {
-            reverseCompBytes[i]=getNucleotideComplement(alleles[allelesIndex--]);
+            reverseCompBytes[i] = getNucleotideComplement(alleles[allelesIndex--]);
         }
         return reverseCompBytes;
     }
+
     /**
      * Convert a nucleotide byte array to a string
+     *
      * @param b the array of nucleotide bytes to convert
      * @return a string representing the nucleotide bytes
      */
@@ -531,5 +539,5 @@ public final class NucleotideAlignmentConstants {
         }
         return result.toString();
     }
-    
+
 }

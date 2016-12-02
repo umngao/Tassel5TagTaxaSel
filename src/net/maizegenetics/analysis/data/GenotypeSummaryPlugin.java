@@ -13,6 +13,7 @@ import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
+import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -34,6 +35,7 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
     private static final int ZERO_INT = 0;
     private long myNumGametesMissing = 0;
     private long myNumHeterozygous = 0;
+    private double myAveMinorAlleleFreq = 0.0;
 
     private PluginParameter<Boolean> myOverview = new PluginParameter.Builder<>("overview", true, Boolean.class)
             .description("Get Overview Report").build();
@@ -74,6 +76,7 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
 
             myNumGametesMissing = 0;
             myNumHeterozygous = 0;
+            myAveMinorAlleleFreq = 0.0;
 
             List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
             Datum current = alignInList.get(0);
@@ -139,7 +142,9 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
                 myNumGametesMissing = myNumGametesMissing + (long) totalGametesMissing;
                 int numHeterozygous = alignment.heterozygousCount(i);
                 myNumHeterozygous = myNumHeterozygous + (long) numHeterozygous;
+                myAveMinorAlleleFreq += alignment.minorAlleleFrequency(i);
             }
+            myAveMinorAlleleFreq /= numSites;
         }
 
         long totalGametes = numSites * numTaxa * 2L;
@@ -157,7 +162,7 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
         long totalDiploidsNotMissing = totalDiploids - numDiploidsMissing;
         int count = 0;
 
-        Object[][] data = new Object[14][firstColumnNames.length];
+        Object[][] data = new Object[15][firstColumnNames.length];
 
         data[count][0] = "Number of Taxa";
         data[count++][1] = (double) numTaxa;
@@ -200,6 +205,9 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
 
         data[count][0] = "Proportion Heterozygous";
         data[count++][1] = (double) myNumHeterozygous / (double) totalDiploids;
+
+        data[count][0] = "Average Minor Allele Frequency";
+        data[count++][1] = myAveMinorAlleleFreq;
 
         Object[][] majorMinorDiploidValueCounts = alignment.majorMinorCounts();
         int numMajorMinorAlleles = majorMinorDiploidValueCounts[0].length;
@@ -297,12 +305,8 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
         Object[][] data = new Object[numSites][columnNames.size()];
         int totalGametes = numTaxa * 2;
 
-        //int[] physicalPositions = alignment.physicalPositions();
-        //boolean hasPhysicalPositions = ((physicalPositions != null) && (physicalPositions.length != 0));
         for (int i = 0; i < numSites; i++) {
 
-            int totalNotMissing = alignment.totalNonMissingForSite(i);
-            int totalGametesNotMissing = alignment.totalGametesNonMissingForSite(i);
             int count = 0;
 
             data[i][count++] = i;
@@ -313,12 +317,18 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
 
             int[][] alleles = alignment.allelesSortedByFrequency(i);
             int numAlleles = alleles[0].length;
+            int totalNotMissing = alignment.totalNonMissingForSite(i);
+            int totalGametesNotMissing = AlleleFreqCache.totalGametesNonMissingForSite(alleles);
 
             for (int a = 0; a < numAlleles; a++) {
                 data[i][count++] = alignment.genotypeAsString(i, (byte) alleles[0][a]);
                 data[i][count++] = alleles[1][a];
                 data[i][count++] = (double) alleles[1][a] / (double) totalGametes;
-                data[i][count++] = (double) alleles[1][a] / (double) totalGametesNotMissing;
+                double alleleFreq = (double) alleles[1][a] / (double) totalGametesNotMissing;
+                data[i][count++] = alleleFreq;
+                if (a == 1) {
+                    myAveMinorAlleleFreq += alleleFreq;
+                }
             }
 
             for (int b = 0; b < (maxAlleles - numAlleles); b++) {
@@ -342,6 +352,8 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
             data[i][count++] = "TBD";
 
         }
+
+        myAveMinorAlleleFreq /= numSites;
 
         String[] columnNameStrings = new String[columnNames.size()];
         columnNames.toArray(columnNameStrings);

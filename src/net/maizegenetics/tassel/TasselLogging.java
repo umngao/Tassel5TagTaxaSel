@@ -175,7 +175,7 @@ public class TasselLogging extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        URL imageURL = TasselLogging.class.getResource("/net/maizegenetics/tassel/images/log.gif");
+        URL imageURL = TasselLogging.class.getResource("/net/maizegenetics/analysis/images/log.gif");
         if (imageURL == null) {
             return null;
         } else {

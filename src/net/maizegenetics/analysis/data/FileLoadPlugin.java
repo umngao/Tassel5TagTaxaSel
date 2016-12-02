@@ -721,7 +721,7 @@ public class FileLoadPlugin extends AbstractPlugin {
      */
     @Override
     public String getButtonName() {
-        return "Load As...";
+        return "Open As...";
     }
 
     /**
@@ -731,6 +731,6 @@ public class FileLoadPlugin extends AbstractPlugin {
      */
     @Override
     public String getToolTipText() {
-        return "Load data from filesystem.";
+        return "Open data from filesystem.";
     }
 }

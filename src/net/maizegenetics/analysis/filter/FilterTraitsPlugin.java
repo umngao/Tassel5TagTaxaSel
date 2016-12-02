@@ -1,11 +1,8 @@
 package net.maizegenetics.analysis.filter;
 
 import java.awt.Frame;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
@@ -41,7 +38,7 @@ public class FilterTraitsPlugin extends AbstractPlugin {
 
 	@Override
 	public ImageIcon getIcon() {
-        URL imageURL = FilterTraitsPlugin.class.getResource("/net/maizegenetics/analysis/images/Filter.gif");
+            URL imageURL = FilterTraitsPlugin.class.getResource("/net/maizegenetics/analysis/images/FilterNew.gif");
         if (imageURL == null) {
             return null;
         } else {

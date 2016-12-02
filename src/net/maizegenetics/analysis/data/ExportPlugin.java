@@ -127,16 +127,24 @@ public class ExportPlugin extends AbstractPlugin {
                 FileLoadPlugin.TasselFileType.SqrMatrixDARwinDIS}));
         } else if (data instanceof TaxaList) {
             myFileType = new PluginParameter<>(myFileType,
-                    Arrays.asList(new FileLoadPlugin.TasselFileType[]{FileLoadPlugin.TasselFileType.TaxaList}));
+                    Arrays.asList(new FileLoadPlugin.TasselFileType[]{
+                FileLoadPlugin.TasselFileType.TaxaList,
+                FileLoadPlugin.TasselFileType.Table}));
         } else if (data instanceof TaxaListTableReport) {
             myFileType = new PluginParameter<>(myFileType,
-                    Arrays.asList(new FileLoadPlugin.TasselFileType[]{FileLoadPlugin.TasselFileType.TaxaList}));
+                    Arrays.asList(new FileLoadPlugin.TasselFileType[]{
+                FileLoadPlugin.TasselFileType.TaxaList,
+                FileLoadPlugin.TasselFileType.Table}));
         } else if (data instanceof PositionList) {
             myFileType = new PluginParameter<>(myFileType,
-                    Arrays.asList(new FileLoadPlugin.TasselFileType[]{FileLoadPlugin.TasselFileType.PositionList}));
+                    Arrays.asList(new FileLoadPlugin.TasselFileType[]{
+                FileLoadPlugin.TasselFileType.PositionList,
+                FileLoadPlugin.TasselFileType.Table}));
         } else if (data instanceof PositionListTableReport) {
             myFileType = new PluginParameter<>(myFileType,
-                    Arrays.asList(new FileLoadPlugin.TasselFileType[]{FileLoadPlugin.TasselFileType.PositionList}));
+                    Arrays.asList(new FileLoadPlugin.TasselFileType[]{
+                FileLoadPlugin.TasselFileType.PositionList,
+                FileLoadPlugin.TasselFileType.Table}));
         } else if (data instanceof TableReport) {
             myFileType = new PluginParameter<>(myFileType,
                     Arrays.asList(new FileLoadPlugin.TasselFileType[]{FileLoadPlugin.TasselFileType.Table}));
@@ -307,11 +315,27 @@ public class ExportPlugin extends AbstractPlugin {
     }
 
     public String performFunctionForTaxaList(TaxaList input) {
-        return JSONUtils.exportTaxaListToJSON(input, saveFile());
+        if (fileType() == FileLoadPlugin.TasselFileType.TaxaList) {
+            return JSONUtils.exportTaxaListToJSON(input, saveFile());
+        } else if (fileType() == FileLoadPlugin.TasselFileType.Table) {
+            File theFile = new File(Utils.addSuffixIfNeeded(saveFile(), ".txt"));
+            TableReportUtils.saveDelimitedTableReport(new TaxaListTableReport(input), "\t", theFile);
+            return theFile.getAbsolutePath();
+        } else {
+            throw new IllegalStateException("ExportPlugin: performFunctionForTaxaList: Can't export TaxaList as: " + fileType());
+        }
     }
 
     public String performFunctionForPositionList(PositionList input) {
-        return JSONUtils.exportPositionListToJSON(input, saveFile());
+        if (fileType() == FileLoadPlugin.TasselFileType.PositionList) {
+            return JSONUtils.exportPositionListToJSON(input, saveFile());
+        } else if (fileType() == FileLoadPlugin.TasselFileType.Table) {
+            File theFile = new File(Utils.addSuffixIfNeeded(saveFile(), ".txt"));
+            TableReportUtils.saveDelimitedTableReport(new PositionListTableReport(input), "\t", theFile);
+            return theFile.getAbsolutePath();
+        } else {
+            throw new IllegalStateException("ExportPlugin: performFunctionForPositionList: Can't export PositionList as: " + fileType());
+        }
     }
 
     /**
@@ -336,7 +360,7 @@ public class ExportPlugin extends AbstractPlugin {
      */
     @Override
     public String getButtonName() {
-        return "Export";
+        return "Save As...";
     }
 
     /**
@@ -346,7 +370,7 @@ public class ExportPlugin extends AbstractPlugin {
      */
     @Override
     public String getToolTipText() {
-        return "Export data to files.";
+        return "Save data to files.";
     }
 
     @Override

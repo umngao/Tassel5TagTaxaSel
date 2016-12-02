@@ -68,7 +68,14 @@ public class FilterJSONUtils {
     }
 
     private static void filterToJSON(FilterTaxa filter, JsonGenerator generator) {
-
+        generator.writeStartObject();
+        generator.writeStartObject("FilterTaxa");
+        Map<FilterTaxa.FILTER_TAXA_ATTRIBUTES, Object> attributes = filter.attributes();
+        for (FilterTaxa.FILTER_TAXA_ATTRIBUTES current : attributes.keySet()) {
+            generator.write(current.name(), attributes.get(current).toString());
+        }
+        generator.writeEnd();
+        generator.writeEnd();
     }
 
     public static FilterList importJSONToFilter(String filename) {

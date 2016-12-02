@@ -66,6 +66,7 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
             .build();
     private PluginParameter<SITE_RANGE_FILTER_TYPES> mySiteFilter = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.siteRangeFilterType.name(), SITE_RANGE_FILTER_TYPES.NONE, SITE_RANGE_FILTER_TYPES.class)
             .description("True if filtering by site numbers. False if filtering by chromosome and position")
+            .range(SITE_RANGE_FILTER_TYPES.values())
             .build();
     private PluginParameter<Integer> myStartSite = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.startSite.name(), 0, Integer.class)
             .range(Range.atLeast(0))

@@ -13,9 +13,14 @@ import java.util.*;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
+import net.maizegenetics.dna.map.PositionListBuilder;
 
 import static net.maizegenetics.dna.snp.GenotypeTable.*;
 import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
+import net.maizegenetics.taxa.TaxaList;
+import net.maizegenetics.taxa.TaxaListBuilder;
+import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.Tuple;
 import net.maizegenetics.util.Utils;
 
 import org.apache.log4j.Logger;
@@ -441,9 +446,76 @@ public class GenotypeTableUtils {
     }
 
     public static GenotypeTable filter(FilterTaxa filter, GenotypeTable genotype) {
-        GenotypeTable result = genotype;
 
-        return result;
+        int numSites = genotype.numberOfSites();
+        int numTaxa = genotype.numberOfTaxa();
+        TaxaList taxa = genotype.taxa();
+
+        List<String> taxaNamesFromFilter = filter.taxaNames();
+        HashSet<String> taxaNames = null;
+        if (taxaNamesFromFilter != null) {
+            taxaNames = new HashSet<>(taxaNamesFromFilter);
+        }
+
+        TaxaList taxaList = filter.taxaList();
+        if (taxaList != null) {
+            if (taxaNames == null) {
+                taxaNames = new HashSet<>();
+            }
+            for (Taxon current : taxaList) {
+                taxaNames.add(current.getName());
+            }
+        }
+
+        TaxaListBuilder keepTaxaList = new TaxaListBuilder();
+        for (int t = 0; t < numTaxa; t++) {
+
+            Taxon taxon = taxa.get(t);
+
+            if (taxaNames != null) {
+                if (filter.includeTaxa()) {
+                    if (!taxaNames.remove(taxon.getName())) {
+                        continue;
+                    }
+                } else if (taxaNames.remove(taxon.getName())) {
+                    continue;
+                }
+            }
+
+            Tuple<int[][], int[]> alleleFreqCounts = null;
+
+            if (filter.minNotMissing() != 0.0) {
+                alleleFreqCounts = AlleleFreqCache.allelesSortedByFrequencyAndCountsNucleotide(genotype.genotypeAllSites(t));
+                int[] counts = alleleFreqCounts.y;
+                double percentNotMissing = (double) (numSites - counts[AlleleFreqCache.UNKNOWN_COUNT]) / (double) numSites;
+                if (percentNotMissing < filter.minNotMissing()) {
+                    continue;
+                }
+            }
+
+            if ((filter.minHeterozygous() != 0.0) || (filter.maxHeterozygous() != 1.0)) {
+                if (alleleFreqCounts == null) {
+                    alleleFreqCounts = AlleleFreqCache.allelesSortedByFrequencyAndCountsNucleotide(genotype.genotypeAllSites(t));
+                }
+                int[] counts = alleleFreqCounts.y;
+                double percentHets = (double) counts[AlleleFreqCache.HETEROZYGOUS_COUNT] / (double) counts[AlleleFreqCache.UNKNOWN_COUNT];
+                if ((percentHets < filter.minHeterozygous()) || (percentHets > filter.maxHeterozygous())) {
+                    continue;
+                }
+            }
+
+            keepTaxaList.add(taxa.get(t));
+
+        }
+
+        if (keepTaxaList.numberOfTaxa() == 0) {
+            return null;
+        } else if (keepTaxaList.numberOfTaxa() == taxa.numberOfTaxa()) {
+            return genotype;
+        } else {
+            return FilterGenotypeTable.getInstance(genotype, keepTaxaList.build(), false);
+        }
+
     }
 
     public static GenotypeTable filter(FilterSite filter, GenotypeTable genotype) {
@@ -856,11 +928,7 @@ public class GenotypeTableUtils {
      * @return true if allele values different; false if values the same.
      */
     public static boolean isHeterozygous(byte diploidAllele) {
-        if (((diploidAllele >>> 4) & 0xf) == (diploidAllele & 0xf)) {
-            return false;
-        } else {
-            return true;
-        }
+        return ((diploidAllele >>> 4) & 0xf) != (diploidAllele & 0xf);
     }
 
     /**

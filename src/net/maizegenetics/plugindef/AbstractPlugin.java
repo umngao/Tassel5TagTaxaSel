@@ -59,6 +59,7 @@ abstract public class AbstractPlugin implements Plugin {
     public static final String DEFAULT_CITATION = "Bradbury PJ, Zhang Z, Kroon DE, Casstevens TM, Ramdoss Y, Buckler ES. (2007) TASSEL: Software for association mapping of complex traits in diverse samples. Bioinformatics 23:2633-2635.";
 
     public static final String POSITION_LIST_NONE = "None";
+    public static final String TAXA_LIST_NONE = "None";
 
     private final List<PluginListener> myListeners = new ArrayList<>();
     private final List<Plugin> myInputs = new ArrayList<>();
@@ -230,6 +231,11 @@ abstract public class AbstractPlugin implements Plugin {
                     return null;
                 }
                 return (T) JSONUtils.importPositionListFromJSON(input);
+            } else if (outputClass.isAssignableFrom(TaxaList.class)) {
+                if ((input == null) || (input.length() == 0)) {
+                    return null;
+                }
+                return (T) JSONUtils.importTaxaListFromJSON(input);
             } else if (outputClass.isAssignableFrom(DistanceMatrix.class)) {
                 if ((input == null) || (input.length() == 0)) {
                     return null;
@@ -637,6 +643,18 @@ abstract public class AbstractPlugin implements Plugin {
                                 String input = ((JTextField) component).getText().trim();
                                 setParameter(current.cmdLineName(), input);
                             }
+                        } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.TAXA_LIST) {
+                            if (component instanceof JComboBox) {
+                                Object temp = ((JComboBox) component).getSelectedItem();
+                                if (temp == TAXA_LIST_NONE) {
+                                    setParameter(current.cmdLineName(), null);
+                                } else {
+                                    setParameter(current.cmdLineName(), ((Datum) temp).getData());
+                                }
+                            } else {
+                                String input = ((JTextField) component).getText().trim();
+                                setParameter(current.cmdLineName(), input);
+                            }
                         } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.DISTANCE_MATRIX) {
                             if (component instanceof JComboBox) {
                                 Object temp = ((JComboBox) component).getSelectedItem();
@@ -776,6 +794,28 @@ abstract public class AbstractPlugin implements Plugin {
                 if (datum != null) {
                     JComboBox menu = new JComboBox();
                     menu.addItem(POSITION_LIST_NONE);
+                    menu.addItem(datum);
+                    menu.setSelectedIndex(0);
+                    createEnableDisableAction(current, parameterFields, menu);
+                    JPanel temp = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                    temp.add(new JLabel(current.guiName()));
+                    temp.add(menu);
+                    temp.setToolTipText(getToolTip(current));
+                    panel.add(temp);
+                    parameterFields.put(current.cmdLineName(), menu);
+                } else {
+                    JTextField field = new JTextField(TEXT_FIELD_WIDTH - 8);
+                    JButton browse = getOpenFile(dialog, field);
+                    JPanel line = getLine(current.guiName(), field, browse, getToolTip(current));
+                    createEnableDisableAction(current, parameterFields, new JComponent[]{field, browse}, field);
+                    panel.add(line);
+                    parameterFields.put(current.cmdLineName(), field);
+                }
+            } else if (current.parameterType() == PluginParameter.PARAMETER_TYPE.TAXA_LIST) {
+                Datum datum = getTaxaListDatum();
+                if (datum != null) {
+                    JComboBox menu = new JComboBox();
+                    menu.addItem(TAXA_LIST_NONE);
                     menu.addItem(datum);
                     menu.setSelectedIndex(0);
                     createEnableDisableAction(current, parameterFields, menu);
@@ -1501,6 +1541,20 @@ abstract public class AbstractPlugin implements Plugin {
         taxaList = myCurrentInputData.getDataOfType(TaxaList.class);
         if (!taxaList.isEmpty()) {
             return (TaxaList) taxaList.get(0).getData();
+        }
+
+        return null;
+    }
+
+    private Datum getTaxaListDatum() {
+
+        if (myCurrentInputData == null) {
+            return null;
+        }
+
+        List<Datum> taxaList = myCurrentInputData.getDataOfType(TaxaList.class);
+        if (!taxaList.isEmpty()) {
+            return taxaList.get(0);
         }
 
         return null;

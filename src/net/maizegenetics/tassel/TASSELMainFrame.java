@@ -100,6 +100,7 @@ import net.maizegenetics.analysis.distance.RemoveNaNFromDistanceMatrixPlugin;
 import net.maizegenetics.analysis.distance.SubtractDistanceMatrixPlugin;
 import net.maizegenetics.analysis.distance.VCAPScanPlugin;
 import net.maizegenetics.analysis.filter.FilterSiteBuilderPlugin;
+import net.maizegenetics.analysis.filter.FilterTaxaBuilderPlugin;
 import net.maizegenetics.analysis.gbs.BinaryToTextPlugin;
 import net.maizegenetics.analysis.gbs.DiscoverySNPCallerPlugin;
 import net.maizegenetics.analysis.gbs.FastqToTagCountPlugin;
@@ -390,14 +391,14 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         JMenu result = new JMenu("Filter");
         result.setMnemonic(KeyEvent.VK_F);
         result.add(createMenuItem(new FilterSiteBuilderPlugin(this, true)));
-        result.add(createMenuItem("Filter Genotype Table Taxa (Coming)", false));
-        result.add(createMenuItem(new FilterTaxaAlignmentPlugin(this, true)));
-        result.add(createMenuItem(new FilterTaxaPropertiesPlugin(this, true)));
+        result.add(createMenuItem(new FilterTaxaBuilderPlugin(this, true)));
         result.add(createMenuItem(new FilterTraitsPlugin(this, true)));
         result.addSeparator();
         result.add(createMenuItem("Deprecated", false));
         result.add(createMenuItem(new FilterAlignmentPlugin(this, true)));
         result.add(createMenuItem(new FilterSiteNamePlugin(this, true)));
+        result.add(createMenuItem(new FilterTaxaAlignmentPlugin(this, true)));
+        result.add(createMenuItem(new FilterTaxaPropertiesPlugin(this, true)));
         return result;
     }
 
@@ -406,35 +407,37 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         JMenu result = new JMenu("Data");
         result.setMnemonic(KeyEvent.VK_D);
 
-        FileLoadPlugin autoGuessPlugin = new FileLoadPlugin(this, true, true);
-        ImageIcon loadIcon = autoGuessPlugin.getIcon();
-        JMenuItem menuItem = new JMenuItem("Load", loadIcon);
-        menuItem.setMnemonic(KeyEvent.VK_L);
-        int loadPixels = ICON_WIDTH_PLUS_GAP;
-        if (loadIcon != null) {
-            loadPixels -= loadIcon.getIconWidth();
-            loadPixels /= 2;
-        }
-        menuItem.setIconTextGap(loadPixels);
-        menuItem.setBackground(Color.white);
-        menuItem.setMargin(new Insets(2, 2, 2, 2));
-        menuItem.setToolTipText(autoGuessPlugin.getToolTipText());
-        menuItem.addActionListener(new ActionListener() {
+        FileLoadPlugin load = new FileLoadPlugin(this, true);
+        load.addListener(myDataTreePanel);
+        JMenuItem loadMenu = createMenuItem(new AbstractAction("Load", load.getIcon()) {
             @Override
             public void actionPerformed(ActionEvent e) {
-                try {
-                    autoGuessPlugin.processData(null);
-                } catch (Exception ex) {
-                    myLogger.debug(ex.getMessage(), ex);
-                    DialogUtils.showError(ex.getMessage() + "\n", autoGuessPlugin.getParentFrame());
-                }
+                load.performFunction(null);
             }
-        });
-        autoGuessPlugin.addListener(myDataTreePanel);
-        result.add(menuItem);
+        }, -1);
+        loadMenu.setToolTipText("Please use File Menu. This is going away.");
+        Map attributes = loadMenu.getFont().getAttributes();
+        attributes.put(TextAttribute.STRIKETHROUGH, TextAttribute.STRIKETHROUGH_ON);
+        loadMenu.setFont(new Font(attributes));
+        result.add(loadMenu);
 
-        result.add(createMenuItem(new FileLoadPlugin(this, true)));
-        result.add(createMenuItem(new ExportPlugin(this, true)));
+        ExportPlugin export = new ExportPlugin(this, true);
+        JMenuItem exportMenu = createMenuItem(new AbstractAction("Export", export.getIcon()) {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                PluginEvent event = new PluginEvent(myDataTreePanel.getSelectedTasselDataSet());
+                ProgressPanel progressPanel = getProgressPanel();
+                progressPanel.addPlugin(export);
+                ThreadedPluginListener thread = new ThreadedPluginListener(export, event);
+                thread.start();
+            }
+        }, -1);
+        exportMenu.setToolTipText("Please use File Menu. This is going away.");
+        attributes = exportMenu.getFont().getAttributes();
+        attributes.put(TextAttribute.STRIKETHROUGH, TextAttribute.STRIKETHROUGH_ON);
+        exportMenu.setFont(new Font(attributes));
+        result.add(exportMenu);
+
         result.add(createMenuItem(new GetTaxaListPlugin(this, true)));
         result.add(createMenuItem(new GetPositionListPlugin(this, true)));
         result.add(createMenuItem(new SortGenotypeFilePlugin(this, true)));
@@ -454,34 +457,10 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new FindInversionsPlugin(this, true)));
         result.add(createMenuItem(new CreateHybridGenotypesPlugin(this, true)));
         result.add(createMenuItem(new GenotypeSummaryPlugin(this, true)));
-        result.addSeparator();
-
-        JMenuItem delete = new JMenuItem("Delete Dataset");
-        delete.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                myDataTreePanel.deleteSelectedNodes();
-            }
-        });
-        delete.setToolTipText("Delete Dataset");
-        URL imageURL = TASSELMainFrame.class.getResource("images/trash.gif");
-        if (imageURL == null) {
-            delete.setIconTextGap(ICON_WIDTH_PLUS_GAP);
-        } else {
-            int pixels = ICON_WIDTH_PLUS_GAP;
-            ImageIcon icon = new ImageIcon(imageURL);
-            if (icon != null) {
-                pixels -= icon.getIconWidth();
-                pixels /= 2;
-            }
-            delete.setIcon(icon);
-            delete.setIconTextGap(pixels);
-        }
-        delete.setIconTextGap(6);
-        result.add(delete);
 
         return result;
     }
-    
+
     private JMenu getImputeMenu() {
 
         JMenu result = new JMenu("Impute");
@@ -501,31 +480,31 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
         JMenu result = new JMenu("Analysis");
         result.setMnemonic(KeyEvent.VK_A);
-        
+
         result.add(getPopGenMenu());
         result.add(getDistanceMenu());
         result.add(getAssociationMenu());
-        
+
         return result;
-        
+
     }
-    
+
     private JMenu getPopGenMenu() {
-        
+
         JMenu result = new JMenu("Diversity");
         result.setMnemonic(KeyEvent.VK_D);
 
         result.add(createMenuItem(new SequenceDiversityPlugin(this, true)));
         result.add(createMenuItem(new LinkageDisequilibriumPlugin(this, true)));
         return result;
-        
+
     }
-    
+
     private JMenu getDistanceMenu() {
 
         JMenu result = new JMenu("Relatedness");
         result.setMnemonic(KeyEvent.VK_R);
-        
+
         result.add(createMenuItem(new DistanceMatrixPlugin(this, true)));
         result.add(createMenuItem(new KinshipPlugin(this, true)));
         result.add(createMenuItem(new CreateTreePlugin(this, true)));
@@ -538,9 +517,9 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new SubtractDistanceMatrixPlugin(this, true)));
         result.add(createMenuItem(new AddDistanceMatrixPlugin(this, true)));
         return result;
-        
+
     }
-    
+
     private JMenu getAssociationMenu() {
 
         JMenu result = new JMenu("Genotype / Phenotype Association");
@@ -554,7 +533,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new EqtlAssociationPlugin(this, true)));
         result.add(createMenuItem(new VCAPScanPlugin(this, true)));
         return result;
-        
+
     }
 
     private JMenu getResultsMenu() {
@@ -573,10 +552,40 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
     }
 
     private JMenu getFileMenu() {
+
         JMenu fileMenu = new JMenu();
         fileMenu.setText("File");
 
-        fileMenu.add(createMenuItem(new PreferencesDialog(this, true), false));
+        FileLoadPlugin autoGuessPlugin = new FileLoadPlugin(this, true, true);
+        autoGuessPlugin.addListener(myDataTreePanel);
+        fileMenu.add(createMenuItem(new AbstractAction("Open", autoGuessPlugin.getIcon()) {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    autoGuessPlugin.processData(null);
+                } catch (Exception ex) {
+                    myLogger.debug(ex.getMessage(), ex);
+                    DialogUtils.showError(ex.getMessage() + "\n", autoGuessPlugin.getParentFrame());
+                }
+            }
+        }, KeyEvent.VK_O));
+
+        fileMenu.add(createMenuItem(new FileLoadPlugin(this, true)));
+        fileMenu.add(createMenuItem(new ExportPlugin(this, true)));
+
+        URL deleteImageURL = TASSELMainFrame.class.getResource("/net/maizegenetics/analysis/images/trash.gif");
+        Icon deleteIcon = null;
+        if (deleteImageURL != null) {
+            deleteIcon = new ImageIcon(deleteImageURL);
+        }
+        fileMenu.add(createMenuItem(new AbstractAction("Delete Dataset", deleteIcon) {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                myDataTreePanel.deleteSelectedNodes();
+            }
+        }, -1));
+
+        fileMenu.add(createMenuItem(new PreferencesDialog(this, true), true));
 
         fileMenu.addSeparator();
 
@@ -590,6 +599,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         fileMenu.add(exitMenuItem);
 
         return fileMenu;
+
     }
 
     private JMenu getGBSv2Menu() {
@@ -684,7 +694,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         helpMenu.setMnemonic(KeyEvent.VK_H);
         helpMenu.setText("Help");
 
-        URL infoImageURL = TASSELMainFrame.class.getResource("images/info.gif");
+        URL infoImageURL = TASSELMainFrame.class.getResource("/net/maizegenetics/analysis/images/info.gif");
         Icon infoIcon = null;
         if (infoImageURL != null) {
             infoIcon = new ImageIcon(infoImageURL);
@@ -704,7 +714,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
             }
         }, -1));
 
-        URL aboutImageURL = TASSELMainFrame.class.getResource("images/Tassel_Logo16.png");
+        URL aboutImageURL = TASSELMainFrame.class.getResource("/net/maizegenetics/analysis/images/Tassel_Logo16.png");
         Icon aboutIcon = null;
         if (aboutImageURL != null) {
             aboutIcon = new ImageIcon(aboutImageURL);

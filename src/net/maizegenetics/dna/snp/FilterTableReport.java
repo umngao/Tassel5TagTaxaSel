@@ -6,8 +6,9 @@
 package net.maizegenetics.dna.snp;
 
 import java.util.Map;
-import net.maizegenetics.util.TableReport;
 import net.maizegenetics.dna.snp.FilterSite.FILTER_SITES_ATTRIBUTES;
+import net.maizegenetics.dna.snp.FilterTaxa.FILTER_TAXA_ATTRIBUTES;
+import net.maizegenetics.util.TableReport;
 
 /**
  *
@@ -42,7 +43,11 @@ public class FilterTableReport implements TableReport {
                     count++;
                 }
             } else if (filter instanceof FilterTaxa) {
-
+                for (Map.Entry<FILTER_TAXA_ATTRIBUTES, Object> current : ((FilterTaxa) filter).attributes().entrySet()) {
+                    myRowHeaders[count] = current.getKey().name();
+                    myFilterAttributes[count] = current.getValue();
+                    count++;
+                }
             }
 
             count++;
