@@ -771,7 +771,13 @@ public class StepwiseAdditiveModelFitter {
 
             double[] ssdf = mySweepFast.getMarginalSSdf(i);
             double F = ssdf[0] / ssdf[1] / errorMS;
-            double p = 1 - (new FDistribution(ssdf[1], errorSSdf[1]).cumulativeProbability(F));
+            double p;
+            try {
+            	p = 1 - (new FDistribution(ssdf[1], errorSSdf[1]).cumulativeProbability(F));
+            } catch (Exception e) {
+            	p = Double.NaN;
+            }
+            
             row[col++] = new Integer((int) ssdf[1]);
             row[col++] = new Double(ssdf[0] / ssdf[1]);
             row[col++] = new Double(F);
