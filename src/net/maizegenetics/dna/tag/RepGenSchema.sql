@@ -5,8 +5,8 @@ CREATE TABLE tag (
     sequence BLOB NOT NULL,
     seqlen INTEGER NOT NULL,
     isReference BOOLEAN,
-    qualityScore INTEGER,
-    numTagInstances,
+    qualityScore TEXT,
+    numTagInstances INTEGER,
     UNIQUE (sequence, seqlen)
 );
 

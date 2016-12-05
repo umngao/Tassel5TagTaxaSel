@@ -27,7 +27,7 @@ public interface RepGenDataWriter extends RepGenData {
      * @return true if this set did not already contain the specified element
      * @param tags
      */
-    boolean putAllTag(Set<Tag> tags);
+    boolean putAllTag(Set<Tag> tags,Map<Tag,Tuple<Integer,String>> tagInstanceAverageQS);
 
     /**
      * Add a tag to list of known tags with their associated names (good for named contigs)

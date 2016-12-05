@@ -261,7 +261,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             rs=connection.createStatement().executeQuery("select * from referenceGenome");
             while(rs.next()) {
                 referenceGenomeToIDMap.put(rs.getString("refname"), rs.getInt("refid"));
-                System.out.println("LCJ - refence from referenceGenome: " + rs.getString("refname"));
+                System.out.println("refence name from referenceGenome: " + rs.getString("refname"));
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -324,36 +324,76 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         return null;
     }
 
-    // LCJ - needs to be updated to include quality score
-    // numTagInstances.  How will those be used?  Can defer initially
+    // Only when called from RepGEnLoadSeqToDBPLugin do we have the number of instances
+    // and the quality score.  Other places (from within this file) don't have that data.
+    // Populate table based on information sent in.
     @Override
-    public boolean putAllTag(Set<Tag> tags) {
+    public boolean putAllTag(Set<Tag>tags,Map<Tag,Tuple<Integer,String>> tagInstanceAverageQS) {
+    //public boolean putAllTag(Set<Tag> tags) {
         int batchCount=0, totalCount=0;
-        try {
-            connection.setAutoCommit(false);
-            PreparedStatement tagInsertPS=connection.prepareStatement("insert into tag (sequence, seqlen,isReference) values(?,?,?)");
-            for (Tag tag : tags) {
-                if(tagTagIDMap.containsKey(tag)) continue;  //it is already in the DB skip
-                tagInsertPS.setBytes(1, tag.seq2BitAsBytes());
-                tagInsertPS.setShort(2, tag.seqLength());
-                tagInsertPS.setBoolean(3, tag.isReference());
-                tagInsertPS.addBatch();
-                batchCount++;
-                totalCount++;
-                if(batchCount>100000) {
-                   // System.out.println("tagInsertPS.executeBatch() "+batchCount);
-                    tagInsertPS.executeBatch();
-                    //connection.commit();
-                    batchCount=0;
+        if (tagInstanceAverageQS != null) {
+            try {
+                connection.setAutoCommit(false);
+                PreparedStatement tagInsertPS=
+                        connection.prepareStatement("insert into tag (sequence, seqlen,isReference,qualityScore,numTagInstances) values(?,?,?,?,?)");
+                for (Map.Entry<Tag, Tuple<Integer,String>> entry : tagInstanceAverageQS.entrySet()) {
+                    Tag tag = entry.getKey();
+                    if(tagTagIDMap.containsKey(tag)) continue;  //it is already in the DB skip
+                    int numInstances = entry.getValue().x;
+                    String qscore = entry.getValue().y;
+                    tagInsertPS.setBytes(1, tag.seq2BitAsBytes());
+                    tagInsertPS.setShort(2, tag.seqLength());
+                    tagInsertPS.setBoolean(3, tag.isReference());
+                    tagInsertPS.setString(4, qscore);
+                    tagInsertPS.setInt(5, numInstances);
+                    tagInsertPS.addBatch();
+                    batchCount++;
+                    totalCount++;
+                    if(batchCount>100000) {
+                       // System.out.println("tagInsertPS.executeBatch() "+batchCount);
+                        tagInsertPS.executeBatch();
+                        //connection.commit();
+                        batchCount=0;
+                    }
                 }
+                tagInsertPS.executeBatch();
+                connection.setAutoCommit(true);
+            } catch (SQLException e) {
+                e.printStackTrace();
+                return false;
             }
-            tagInsertPS.executeBatch();
-            connection.setAutoCommit(true);
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
+        } else {
+            try {
+                connection.setAutoCommit(false);
+                PreparedStatement tagInsertPS=
+                        connection.prepareStatement("insert into tag (sequence, seqlen,isReference) values(?,?,?)");
+                for (Tag tag: tags) {                
+                    if(tagTagIDMap.containsKey(tag)) continue;  //it is already in the DB skip                    
+                    tagInsertPS.setBytes(1, tag.seq2BitAsBytes());
+                    tagInsertPS.setShort(2, tag.seqLength());
+                    tagInsertPS.setBoolean(3, tag.isReference());                   
+                    tagInsertPS.addBatch();
+                    batchCount++;
+                    totalCount++;
+                    if(batchCount>100000) {
+                       // System.out.println("tagInsertPS.executeBatch() "+batchCount);
+                        tagInsertPS.executeBatch();
+                        //connection.commit();
+                        batchCount=0;
+                    }
+                }
+                tagInsertPS.executeBatch();
+                connection.setAutoCommit(true);
+            } catch (SQLException e) {
+                e.printStackTrace();
+                return false;
+            }
         }
-        if(totalCount>0) loadTagHash();
+
+        if(totalCount>0) {
+            System.out.println("RepGenSQLite:putAllTag, totalCount=" + totalCount + ",loadingHash");
+            loadTagHash();
+        } 
         return true;
     }
 
@@ -447,7 +487,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     public void putTagAlignments(Multimap<Tag, Position> tagAnnotatedPositionMap, String refGenome) {
         int batchCount=0;
         try {
-            putAllTag(tagAnnotatedPositionMap.keySet());
+            putAllTag(tagAnnotatedPositionMap.keySet(),null);
             putPhysicalMapPositionsIfAbsent(tagAnnotatedPositionMap.values(),refGenome);
             connection.setAutoCommit(false);
             for (Map.Entry<Tag, Position> entry : tagAnnotatedPositionMap.entries()) {
@@ -679,7 +719,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         try {
             PreparedStatement alleleTagInsertPS=connection.prepareStatement(
                     "INSERT OR IGNORE into tagallele (alleleid, tagid) values(?,?)");
-            putAllTag(tagAlleleMap.keySet());
+            putAllTag(tagAlleleMap.keySet(),null);
             loadSNPPositionHash(false);
             putSNPPositionsIfAbsent(tagAlleleMap.values().stream()
                     .map(a -> a.position())
@@ -1424,7 +1464,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         int batchCount=0;
         try {
             // Add any tags not currently in the db
-            putAllTag(tagTagAlignMap.keySet());
+            putAllTag(tagTagAlignMap.keySet(),null);
             
             connection.setAutoCommit(false);
             for (Map.Entry<Tag, Tuple<Tag,Integer>> entry : tagTagAlignMap.entries()) {

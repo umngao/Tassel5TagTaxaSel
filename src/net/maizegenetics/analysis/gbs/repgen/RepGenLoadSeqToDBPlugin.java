@@ -1,10 +1,33 @@
 package net.maizegenetics.analysis.gbs.repgen;
 
-import com.google.common.collect.Multimap;
-import net.maizegenetics.analysis.gbs.Barcode;
+import java.awt.Frame;
+import java.io.BufferedReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.LongAdder;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import javax.swing.ImageIcon;
+
+import org.apache.log4j.Logger;
+
 import net.maizegenetics.analysis.gbs.v2.GBSUtils;
 import net.maizegenetics.dna.BaseEncoder;
-import net.maizegenetics.dna.tag.*;
+import net.maizegenetics.dna.tag.RepGenDataWriter;
+import net.maizegenetics.dna.tag.RepGenSQLite;
+import net.maizegenetics.dna.tag.Tag;
+import net.maizegenetics.dna.tag.TagBuilder;
+import net.maizegenetics.dna.tag.TagDataSQLite;
+import net.maizegenetics.dna.tag.TaxaDistBuilder;
+import net.maizegenetics.dna.tag.TaxaDistribution;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -13,23 +36,8 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListIOUtils;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.DirectoryCrawler;
+import net.maizegenetics.util.Tuple;
 import net.maizegenetics.util.Utils;
-import org.ahocorasick.trie.Emit;
-import org.ahocorasick.trie.Trie;
-import org.apache.log4j.Logger;
-
-import javax.swing.*;
-import java.awt.*;
-import java.io.BufferedReader;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.*;
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.LongAdder;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * Develops a discovery rGBS database based on a folder of sequencing files
@@ -67,15 +75,17 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
             .description("Maximum number of kmers").build();
     private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 8, Integer.class).guiName("Batch size of fastq files").required(false)
             .description("Number of flow cells being processed simultaneously").build();
-    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",false,Boolean.class).guiName("Delete Old Data")
-            .description("Delete existing SNP quality data from db tables").build();
+//    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",true,Boolean.class).guiName("Delete Old Data")
+//            .description("Delete existing SNP quality data from db tables").build();
     LongAdder roughTagCnt = new LongAdder();
 
     private TagDistributionMap tagCntMap;
+    private TagCountQualityScoreMap tagCntQSMap;
     private boolean taglenException;
     protected static int readEndCutSiteRemnantLength;
+    protected static int qualityScoreBase;
     String[] likelyReadEndStrings;
-
+    
     public RepGenLoadSeqToDBPlugin() {
         super(null, false);
     }
@@ -109,6 +119,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
         int batchSize = myBatchSize.value();
         float loadFactor = 0.95f;
         tagCntMap = new TagDistributionMap (myMaxKmerNumber.value(),loadFactor, 128, this.minKmerCount());
+        tagCntQSMap = new TagCountQualityScoreMap(myMaxKmerNumber.value(),loadFactor, 128, this.minKmerCount()); // must add Collections.synchonizedList<String> as the list! 
         try {
             TaxaList masterTaxaList= TaxaListIOUtils.readTaxaAnnotationFile(keyFile(), GBSUtils.sampleNameField, new HashMap<>(), true);
             Map<String,Taxon> fileTaxaMap=TaxaListIOUtils.getUniqueMapOfTaxonByAnnotation(masterTaxaList,GBSUtils.fileNameField)
@@ -135,54 +146,58 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
             int batchNum = inputSeqFiles.size()/batchSize;
             if (inputSeqFiles.size()%batchSize != 0) batchNum++;
 
-            // Check if user wants to clear existing db.
+            // ALways deleting old DB - need to work on code to re-create
+            // array of tag quality scores if we add to old DB.
             RepGenDataWriter tdw = null;
             if (Files.exists(Paths.get(myOutputDB.value()))) {
-                if (deleteOldData()) {
-                    try {
-                        Files.delete(Paths.get(myOutputDB.value()));
-                    } catch (Exception exc){
-                        System.out.println("Error when trying to delete database file: " + myOutputDB.value());
-                        System.out.println("File delete error: " + exc.getMessage());
-                        return null;
-                    }
-                } else {
-                 // We'll append data to new DB if all new taxa are contained in db
-                    tdw=new RepGenSQLite(myOutputDB.value());
-                    TaxaList oldTaxaList = tdw.getTaxaList();
-                    boolean sameMasterTaxaList = true;
-                    Taxon badTaxon = null;
-                    for (Taxon taxa : masterTaxaList) {
-                        if (!oldTaxaList.contains(taxa)) {
-                            sameMasterTaxaList = false;
-                            badTaxon = taxa;
-                            break;
-                        }
-                    }
-                    if (!sameMasterTaxaList) {
-                        myLogger.error("Taxa list in keyfile contains taxa not in db:  " + badTaxon +
-                            ".\nEither delete existing DB, use a new DB output file, or use keyfile with entries matching existing taxa list.\n");
-                        ((TagDataSQLite)tdw).close();
-                        return null;
-                    }
-                    // Grab existing data from db, append to empty tagCntMap
-                    Map<Tag, TaxaDistribution> existingTDM = tdw.getAllTagsTaxaMap();
-                    tagCntMap.putAll(existingTDM);
-                    tdw.clearTagTaxaDistributionData(); // clear old data - it will be re-added at the end.
+                try {
+                    Files.delete(Paths.get(myOutputDB.value()));
+                } catch (Exception exc){
+                    System.out.println("Error when trying to delete database file: " + myOutputDB.value());
+                    System.out.println("File delete error: " + exc.getMessage());
+                    return null;
                 }
             }
+
+//                if (deleteOldData()) {
+// 
+//                }
+//                } else {
+//                 // We'll append data to new DB if all new taxa are contained in db
+//                    tdw=new RepGenSQLite(myOutputDB.value());
+//                    TaxaList oldTaxaList = tdw.getTaxaList();
+//                    boolean sameMasterTaxaList = true;
+//                    Taxon badTaxon = null;
+//                    for (Taxon taxa : masterTaxaList) {
+//                        if (!oldTaxaList.contains(taxa)) {
+//                            sameMasterTaxaList = false;
+//                            badTaxon = taxa;
+//                            break;
+//                        }
+//                    }
+//                    if (!sameMasterTaxaList) {
+//                        myLogger.error("Taxa list in keyfile contains taxa not in db:  " + badTaxon +
+//                            ".\nEither delete existing DB, use a new DB output file, or use keyfile with entries matching existing taxa list.\n");
+//                        ((TagDataSQLite)tdw).close();
+//                        return null;
+//                    }
+//                    // Grab existing data from db, append to empty tagCntMap
+//                    Map<Tag, TaxaDistribution> existingTDM = tdw.getAllTagsTaxaMap();
+//                    tagCntMap.putAll(existingTDM);
+//                    tdw.clearTagTaxaDistributionData(); // clear old data - it will be re-added at the end.
+//                }
+//            }
             if (tdw == null) tdw=new RepGenSQLite(myOutputDB.value());
             taglenException = false;
             for (int i = 0; i < inputSeqFiles.size(); i+=batchSize) {
                 int end = i+batchSize;
                 if (end > inputSeqFiles.size()) end = inputSeqFiles.size();
-                ArrayList<Path> sub = new ArrayList();
+                ArrayList<Path> sub = new ArrayList<Path>();
                 for (int j = i; j < end; j++) sub.add(inputSeqFiles.get(j));
                 System.out.println("\nStart processing batch " + String.valueOf(i/batchSize+1));
                 sub//.parallelStream()
                     .forEach(inputSeqFile -> {
                         try {
-                            //processFastQFile(masterTaxaList,keyPath, inputSeqFile, minimumQualityScore(), tagCntMap, kmerLength());
                             int taxaIndex=masterTaxaList.indexOf(fileTaxaMap.get(inputSeqFile.getFileName().toString()));
                             processFastQ(inputSeqFile, taxaIndex, masterTaxaList, tagCntMap, kmerLength(), minimumQualityScore());
                         } catch (StringIndexOutOfBoundsException oobe) {
@@ -192,7 +207,10 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
                             return;
                         }
                 });
-                if (taglenException == true) return null; // Tag length failure from processFastQ - halt processing
+                if (taglenException == true) {
+                    ((TagDataSQLite)tdw).close();
+                    return null; // Tag length failure from processFastQ - halt processing
+                }
 
                 System.out.println("\nKmers are added from batch "+String.valueOf(i/batchSize+1) + ". Total batch number: " + batchNum);
                 int currentSize = tagCntMap.size();
@@ -203,13 +221,15 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
                     this.calcTagMapStats(tagCntMap);
                     System.out.println();
                     //make sure don't lose rare ones, need to set maxTagNumber large enough
-                    removeTagsWithoutReplication(tagCntMap);
+                    System.out.println("BEFORE removeTagsWihtoutReplication, tagCntMap.size= " + tagCntMap.keySet().size()
+                      + ", tagCntQSMap.size= " + tagCntQSMap.keySet().size());
+                    removeTagsWithoutReplication(tagCntMap,tagCntQSMap);
                     if (tagCntMap.size() == 0) {
                         System.out.println("WARNING:  After removing tags without replication, there are NO  tags left in the database");
                     } else {
                         this.calcTagMapStats(tagCntMap);
                         System.out.println();
-                        System.out.println("Kmer number is reduced to " + tagCntMap.size()+"\n");
+                        System.out.println("After removeTagsWithoutReplication: Kmer number is reduced to " + tagCntMap.size()+"\n");
                     }
                     this.roughTagCnt.reset();
                     this.roughTagCnt.add(tagCntMap.size());
@@ -224,10 +244,28 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
             }
             System.out.println("\nAll the batch are processed");
             tagCntMap.removeTagByCount(myMinKmerCount.value());
+            tagCntQSMap.removeTagByCount(myMinKmerCount.value()); // should remove the same tags as in call above
             System.out.println("By removing kmers with minCount of " + myMinKmerCount.value() + "Kmer number is reduced to " + tagCntMap.size()+"\n");
 
+            // Now create map of count/qualityString
+            // THis must have the same number of keys as does tagCntMap.
+            
+            if (tagCntMap.keySet().size() != tagCntQSMap.keySet().size()) {
+                System.out.println("Mismatch between size of tagCntMap " + tagCntMap.keySet().size() 
+                        + ", and tagCntQSMap " + tagCntQSMap.keySet().size());
+                System.out.println("quitting - nothing added to DB!");
+                ((RepGenSQLite)tdw).close();
+                return null;    
+            } else {
+                System.out.println("\ntagCntMap and tagCntQSMap have same size: " + tagCntMap.keySet().size());
+            }
+            
+            Map<Tag,Tuple<Integer,String>> tagInstanceAverageQS = calculateTagAveQS(tagCntQSMap,qualityScoreBase);
+            System.out.println("Before add to DB: sizeof tagInstanceAverageQS.keySet = " + tagInstanceAverageQS.keySet().size());
             tdw.putTaxaList(masterTaxaList);
-            tdw.putAllTag(tagCntMap.keySet());
+            // 2 fields to putALlTag as some callers of this method don't hvae the qs/num-instances data
+            //tdw.putAllTag(tagCntMap.keySet(), null);
+            tdw.putAllTag(tagCntMap.keySet(),tagInstanceAverageQS); // includes tag, the number of instances of this tag, and the average quality string
             tdw.putTaxaDistribution(tagCntMap);
             ((RepGenSQLite)tdw).close();  //todo autocloseable should do this but it is not working.
         } catch(Exception e) {
@@ -243,7 +281,8 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
         int checkSize = 10000000;
         myLogger.info("processing file " + fastqFile.toString());
         try {
-            int qualityScoreBase=GBSUtils.determineQualityScoreBase(fastqFile);
+            //int qualityScoreBase=GBSUtils.determineQualityScoreBase(fastqFile);
+            qualityScoreBase=GBSUtils.determineQualityScoreBase(fastqFile);
             BufferedReader br = Utils.getBufferedReader(fastqFile.toString(), 1 << 22);
             long time=System.nanoTime();
             String[] seqAndQual;
@@ -279,6 +318,17 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
                 } else {
                     taxaDistribution.increment(taxaIndex);
                 }
+                // add to qualityScoreMap
+                String tagQS = seqAndQual[1].substring(0,preferredTagLength);
+                List<String> tagScores = tagCntQSMap.get(tag);
+                if (tagScores==null) {
+                    // create new synchronizedList
+                    tagScores =  Collections.synchronizedList(new ArrayList<String>());
+                    tagScores.add(tagQS);
+                    tagCntQSMap.put(tag, tagScores);
+                } else {
+                    tagScores.add(tagQS);
+                }
                 if (allReads % checkSize == 0) {
                     myLogger.info("Total Reads:" + allReads + " Reads with barcode and cut site overhang:" + goodBarcodedReads
                             + " rate:" + (System.nanoTime()-time)/allReads +" ns/read. Current tag count:" + this.roughTagCnt);
@@ -306,8 +356,10 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
      * This method removes all tags are are never repeated in a single sample (taxa).  The concept is that
      * all biologically real tag should show up twice somewhere.  This could be called at the end of every
      * flowcell to test all the novel tags.
+     * 
+     * In addition, it removes the corresponding entry from the tag-qualityscore map.  They must remain in synch
      */
-    private static void removeTagsWithoutReplication (TagDistributionMap masterTagTaxaMap) {
+    private static void removeTagsWithoutReplication (TagDistributionMap masterTagTaxaMap, TagCountQualityScoreMap tagCntQSMap) {
         int currentSize = masterTagTaxaMap.size();
         int minTaxa=2;
         System.out.println("Starting removeTagsWithoutReplication. Current tag number: " + currentSize);
@@ -316,10 +368,12 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
             TaxaDistribution td = t.getValue();
             if(td.totalDepth()<2*minTaxa) {
                 masterTagTaxaMap.remove(t.getKey());
+                tagCntQSMap.remove(t.getKey());
                 tagsRemoved.increment();
             }
             else if(IntStream.of(td.depths()).filter(depth -> depth>1).count()<minTaxa) {
                 masterTagTaxaMap.remove(t.getKey());
+                tagCntQSMap.remove(t.getKey());
                 tagsRemoved.increment();
             }
         });
@@ -328,6 +382,42 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
 
     public void setTagLenException() {
     	taglenException = true;
+    }
+    
+    public static Map<Tag,Tuple<Integer,String>> calculateTagAveQS(TagCountQualityScoreMap tagCntQSMap, int qualityScoreBase) {
+        Map<Tag,Tuple<Integer,String>> tagInstanceAverageQS = new ConcurrentHashMap<Tag,Tuple<Integer,String>>();
+        
+        // the number of instances for each tag equals the number of values on the arraylist
+        // iterate through the list, add values to the tagInstanceAverageQS map
+        tagCntQSMap.entrySet().parallelStream().forEach(entry -> {
+            Tag tag = entry.getKey();
+            List<String> scores = entry.getValue();
+            // add all the scores, divide by number of stores, convert back to string
+            int numInstances = scores.size();
+            int scoreLen = scores.get(0).length();
+            // the scores should all be the same length as the tag
+            int[] scoreArray = new int[scoreLen];
+            
+            for (int idx = 0; idx < numInstances; idx++) {
+                String currentScore = scores.get(idx);
+                for (int jdx = 0; jdx < scoreLen; jdx++) {
+                    scoreArray[jdx] += (currentScore.charAt(jdx) - qualityScoreBase);
+                }
+            }
+            // positions for all scores are added.  now divide by number of scores to get
+            // the average, translate value back to string
+            StringBuilder sb = new StringBuilder();
+            for (int jdx = 0; jdx < scoreLen; jdx++) {
+                scoreArray[jdx] /= numInstances;
+                char ch = (char)(scoreArray[jdx] + qualityScoreBase);
+                sb.append(ch);
+            }
+            // Store to map
+            Tuple<Integer,String> instanceScore = new Tuple<Integer,String>(numInstances,sb.toString());
+            tagInstanceAverageQS.put(tag, instanceScore);           
+        });
+        
+        return tagInstanceAverageQS;
     }
 
 // The following getters and setters were auto-generated.
@@ -523,27 +613,27 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
         myBatchSize = new PluginParameter<>(myBatchSize, value);
         return this;
     }
-    /**
-     * Delete exisiting  DB
-     *
-     * @return deleteOldData
-     */
-    public Boolean deleteOldData() {
-        return myDeleteOldData.value();
-    }
-
-    /**
-     * Set Delete old data flag.  True indicates we want the
-     * db tables cleared
-     *
-     * @param value true/false - whether to delete data
-     *
-     * @return this plugin
-     */
-    public RepGenLoadSeqToDBPlugin deleteOldData(Boolean value) {
-        myDeleteOldData = new PluginParameter<>(myDeleteOldData, value);
-        return this;
-    }
+//    /**
+//     * Delete exisiting  DB
+//     *
+//     * @return deleteOldData
+//     */
+//    public Boolean deleteOldData() {
+//        return myDeleteOldData.value();
+//    }
+//
+//    /**
+//     * Set Delete old data flag.  True indicates we want the
+//     * db tables cleared
+//     *
+//     * @param value true/false - whether to delete data
+//     *
+//     * @return this plugin
+//     */
+//    public RepGenLoadSeqToDBPlugin deleteOldData(Boolean value) {
+//        myDeleteOldData = new PluginParameter<>(myDeleteOldData, value);
+//        return this;
+//    }
     @Override
     public ImageIcon getIcon() {
         return null;
@@ -611,6 +701,41 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
             return base2bins;
         }
     }
+    
+    // LCJ - THe easiest and fastest method is to keep track of all the
+    // quality strings seen for each iteration of the tag.  SOme of these
+    // tags will be dropped when we removeTagWIthoutReplication() and other
+    // methods.  Those need to be synced up with this list.
+    
+    //If we create a hashmap of tag/list-of-quality-strings, then after
+    // culling the list at the end, we can create the average score.  The
+    // number of strings on the list give us the number of tag instances.
+    
+    // THe map itself is a concurrent hashmap, but the list also must
+    // be concurrently.  It can be defined as "List<Sting>" but the value
+    // added must be a synchonizedList
+    
+    // the list that is added needs to be a synchonized list.  
+    // http://stackoverflow.com/questions/5923405/concurrenthashmap-with-arraylist-as-value
+    // Cannot make this a multimap as multimap will not store duplicate quality scores,
+    public static class TagCountQualityScoreMap extends ConcurrentHashMap<Tag,List<String>> {
+        private  int tagCount;
+
+        TagCountQualityScoreMap (int maxTagNumber, float loadFactor, int concurrencyLevel, int minCount) {
+            super((maxTagNumber*2), loadFactor, concurrencyLevel);
+
+        }
+
+        public synchronized void removeTagByCount(int minCnt) {
+            // remove tags which are not represented a minimum number of times
+            // THis is determimed by how many quality strings occur for the tag
+            // should be consistent with removeTagByCount for TagDistributionMap
+            entrySet().parallelStream()
+                    .filter(e -> e.getValue().size() <minCnt)
+                    .forEach(e -> remove(e.getKey()));
+        }
+    }
+    
 }
 
 
