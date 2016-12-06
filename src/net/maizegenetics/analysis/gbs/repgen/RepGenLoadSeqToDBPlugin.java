@@ -385,6 +385,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
     }
     
     public static Map<Tag,Tuple<Integer,String>> calculateTagAveQS(TagCountQualityScoreMap tagCntQSMap, int qualityScoreBase) {
+        
         Map<Tag,Tuple<Integer,String>> tagInstanceAverageQS = new ConcurrentHashMap<Tag,Tuple<Integer,String>>();
         
         // the number of instances for each tag equals the number of values on the arraylist
@@ -392,7 +393,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
         tagCntQSMap.entrySet().parallelStream().forEach(entry -> {
             Tag tag = entry.getKey();
             List<String> scores = entry.getValue();
-            // add all the scores, divide by number of stores, convert back to string
+            // add all the scores, divide by number of scores, convert back to string
             int numInstances = scores.size();
             int scoreLen = scores.get(0).length();
             // the scores should all be the same length as the tag

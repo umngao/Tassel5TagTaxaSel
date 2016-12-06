@@ -11,6 +11,7 @@ import java.util.Set;
 
 import com.google.common.collect.Multimap;
 
+import net.maizegenetics.analysis.gbs.repgen.AlignmentInfo;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.Allele;
@@ -26,6 +27,7 @@ public interface RepGenDataWriter extends RepGenData {
      * Add a tag to list of known tags
      * @return true if this set did not already contain the specified element
      * @param tags
+     * @param tagInstanceAverageQS map showing number of tags, and average quality score for each tag
      */
     boolean putAllTag(Set<Tag> tags,Map<Tag,Tuple<Integer,String>> tagInstanceAverageQS);
 
@@ -35,6 +37,14 @@ public interface RepGenDataWriter extends RepGenData {
      * @param tagNameMap
      */
     boolean putAllNamesTag(Map<Tag,String> tagNameMap);
+    
+    /**
+     * Add a reference tag to list of known reference tags
+     * @return true if this set did not already contain the specified element
+     * @param refTagPositionap  map containing refTag sequence and all chrom/positions where it occurs
+     * @param referenceGenome  name of reference genome
+     */
+    boolean putAllRefTag(Multimap<Tag,Position> refTagPositionMap, String refGenome);
 
     /**
      * Associates a map full of the specified Tag (key) with the specified TaxaDistribution (value).
@@ -43,21 +53,24 @@ public interface RepGenDataWriter extends RepGenData {
     void putTaxaDistribution(Map<Tag, TaxaDistribution> tagTaxaDistributionMap);
 
 
-//    /**
-//     * Associates the specified Tag (key) with the specified cut site Position (value).  Multiple associations are allowed, as
-//     * Tags can map to multiple locations.  Each tag should only have one best annotation.
-//     * @param tagAnnotatedPositionMap Map of specific tag with Annotated Position of the tag cut site.
-//     *                                Annotations should be cigarAlignment, isBest, alignmentApproach, forward, and supportValue
-//     */
-//    void putTagAlignments(Multimap<Tag, Position> tagAnnotatedPositionMap);
+    /**
+     * Associates the specified Reference Tag with the specified site Position (value). 
+     * @param tagAnnotatedPositionMap Map of specific tag with chrom/positions specified.
+     *       
+     */
+    void putRefTagMapping(Multimap<Tag, Position> tagAnnotatedPositionMap, String refGenome);
     
     /**
-     * Associates the specified Tag (key) with the specified cut site Position (value).  Multiple associations are allowed, as
-     * Tags can map to multiple locations.  
-     * @param tagAnnotatedPositionMap Map of specific tag with Annotated Position of the tag alignment site.
-     *                                Annotations may be isBest, alignmentApproach, and forward
+     * Stores the Smith Waterman score from2 tag alignments. 
+     * tag2 chrom/pos comes from the AlignmentInfo object.  tag1 chrom/pos are separate parameters
+     * @param tagAlignInfoMap Map of specific tag to tag2 alignment data
+     * @param tag1_isref  boolean indicating if 1st tag is a reference
+     * @param tag2_isref  boolean indicating if 2nd tag is a reference
+     * @param tag1chrom   String chromosome for tag1.  Will be null if tag isn't reference
+     * @param tag1pos     int starting position on ref for tag 2.  Will be null if tag isn't a reference tag.
+     * @param refGeome    String used to determine refernce genome if one of the tags is a reference
      */
-    void putTagAlignments(Multimap<Tag, Position> tagAnnotatedPositionMap, String referenceGenome);
+    void putTagAlignments(Multimap<Tag,AlignmentInfo> tagAlignInfoMap, boolean tag1_isref, boolean tag2_isref,String tag1chrom, int tag1pos,String refGenome);
     /*
     Set the specified Tag and Position combination to best, and all others were set to false.
      */
@@ -128,5 +141,4 @@ public interface RepGenDataWriter extends RepGenData {
      * @throws SQLException
      */
     void putAllelePairs(Multimap<Tag,Tuple<Tag,Integer>> tagTagAlignMap);
-
 }
