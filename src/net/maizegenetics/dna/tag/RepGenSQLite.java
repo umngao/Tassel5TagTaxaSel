@@ -584,7 +584,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                     tagAlignmentInsertPS.setInt(ind++, tagTagIDMap.get(entry.getKey()));
                 }
                 if (tag2_isref) {
-                    RefTagData rtd = new RefTagData(entry.getKey(),ai.tag2chrom(),ai.tag2pos(),refGenomeID);
+                    RefTagData rtd = new RefTagData(ai.tag2(),ai.tag2chrom(),ai.tag2pos(),refGenomeID);
                     tagAlignmentInsertPS.setInt(ind++, reftagReftagIDMap.get(rtd));
                 } else {
                     tagAlignmentInsertPS.setInt(ind++, tagTagIDMap.get(ai.tag2()));
@@ -629,7 +629,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                 AlignmentInfo ai=entry.getValue();
                 int ind=1;
                 tagAlignmentInsertPS.setInt(ind++, reftagReftagIDMap.get(entry.getKey()));
-                RefTagData rtd = new RefTagData(entry.getKey().tag(),ai.tag2chrom(),ai.tag2pos(),refGenomeID);
+                RefTagData rtd = new RefTagData(ai.tag2(),ai.tag2chrom(),ai.tag2pos(),refGenomeID);
                 tagAlignmentInsertPS.setInt(ind++, reftagReftagIDMap.get(rtd));
 
                 tagAlignmentInsertPS.setBoolean(ind++, true); // both are reference tags

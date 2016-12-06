@@ -243,19 +243,23 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             // First align the tags against each other
             // Output of this is stored in db table tagAlignments
             System.out.println("Calling calculateTagTagAlignment for tags without refs");
+            
             calculateTagTagAlignment( tagList, tagAlignInfoMap);
             // neither tag is reference, null and -1 for tag1 chrom/pos
             repGenData.putTagAlignments(tagAlignInfoMap, false,false, null,-1,refGenome());
  
             System.out.println("Calling calculateTagRefTagALignment for tags WITH ref");
-            calculateTagRefTagAlignment(tagList,refTagPositionMap,tagAlignInfoMap);
+            Set<RefTagData> refTags = repGenData.getRefTags();
+            List<RefTagData> refTagList = new ArrayList<RefTagData>(refTags);
+            
+            tagAlignInfoMap.clear(); // remove old data
+            calculateTagRefTagAlignment(tagList,refTagList,tagAlignInfoMap);
             // Add the tag-refTag info to the tagAlignments table.           
             // tag1=nonref, tag2=ref, null and -1 for tag1 
             repGenData.putTagAlignments(tagAlignInfoMap,false,true,null,-1,refGenome());
             
             System.out.println("Calling calculateRefRefAlignment");
-            Set<RefTagData> refTags = repGenData.getRefTags();
-            List<RefTagData> refTagList = new ArrayList<RefTagData>(refTags);
+            
             calculateRefRefAlignment(refTagList,refTagPositionMap,refTagAlignInfoMap);
             repGenData.putRefRefAlignments(refTagAlignInfoMap, refGenome()); // CREATE putRefRefAlignments -  different parameters
             ((RepGenSQLite)repGenData).close();
@@ -514,65 +518,61 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
     
     // This calculates alignment of each tag against each reference tag.
     // We done separately 
-    private void calculateTagRefTagAlignment(List<Tag> tags, Multimap<Tag,Position> refTagPosMap,
+    private void calculateTagRefTagAlignment(List<Tag> tags, List<RefTagData> refTagDataList,
             Multimap<Tag,AlignmentInfo> tagAlignInfoMap){
         long totalTime = System.nanoTime();
         // For each tag on the tags list, run SW against it and store in tagAlignInfoMap  
         tags.parallelStream().forEach(tag1 -> {          
-            for (Tag tag2 : refTagPosMap.keySet()) {
-                Collection<Position> positions = refTagPosMap.get(tag2);
+            for (RefTagData rtd : refTagDataList) {
+                Tag tag2 = rtd.tag();
                 
-                for (Position pos: positions) {
-                    // Check all positions, but the alignment should be the same
-                    // as the sequence is the same.  GIven this, why run SW multiple
-                    // times vs calculating once and storing that score for all positions.
-                    String seq1 = tag1.sequence();
-                    String seq2 = tag2.sequence();
-                    Reader reader1 = new StringReader(seq1);
-                    Reader reader2 = new StringReader(seq2);
+                String seq1 = tag1.sequence();
+                String seq2 = tag2.sequence();
+                Reader reader1 = new StringReader(seq1);
+                Reader reader2 = new StringReader(seq2);
 
-                    PairwiseAlignmentAlgorithm  algorithm;
-                    ScoringScheme  scoring;
-                    PairwiseAlignment alignment;
+                PairwiseAlignmentAlgorithm  algorithm;
+                ScoringScheme  scoring;
+                PairwiseAlignment alignment;
 
-                    algorithm = new SmithWaterman();
-                    scoring = new BasicScoringScheme(match_reward(),mismatch_penalty(),gap_penalty());
-                    algorithm.setScoringScheme(scoring);
-                    int score;
-                    int refAlignStartPos = pos.getPosition();
-                    int tagAlignOffset = 0; // ajust incase SW sligns from somewhere in the middle of the tag
-                    try {
-                        algorithm.loadSequences(reader1, reader2);
-                        score = algorithm.getScore(); // get score
-                        alignment = algorithm.getPairwiseAlignment(); // compute alignment
-                      
-                        // The first sequence given in loadSequences() is loaded into rows. THis is non-refTag
-                        // The second is loaded into columns (matrix[seq1][seq2] - this is the refTag
-                        tagAlignOffset = alignment.getRowStart();
-                        refAlignStartPos += alignment.getColStart();
-                        
-                        if (tagAlignOffset > 0) {
-                            // Tag was not aligned from the beginning,
-                            // add back the bps that were skipped so alignment begins at start of the tag
-                            refAlignStartPos -= tagAlignOffset;
-                        }
-                        // If clipping has dropped us below the start of the reference genome, skip it
-                        if (refAlignStartPos < 0) continue;
-                        
-                        // The ref tag start position is needed in RepGenSQLite to create a
-                        // RefTagData object.  This is stored in the BiMap and used along with chrom to distinguish
-                        // one tag from another.  The actual alignment position is also needed (refAlignStartPos)
-                        // for the tagAlignments table.
-                        AlignmentInfo tagAI = new AlignmentInfo(tag2,pos.getChromosome().getName(),pos.getPosition(),refAlignStartPos,score);
-                        tagAlignInfoMap.put(tag1, tagAI); // data to be stored into tagAlignments table
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    } catch (InvalidSequenceException e) {
-                        e.printStackTrace();
-                    } catch (IncompatibleScoringSchemeException e) {
-                        e.printStackTrace();
-                    }                                        
-                } 
+                algorithm = new SmithWaterman();
+                scoring = new BasicScoringScheme(match_reward(),mismatch_penalty(),gap_penalty());
+                algorithm.setScoringScheme(scoring);
+                int score;
+                int refAlignStartPos = rtd.position();
+                int tagAlignOffset = 0; // ajust incase SW sligns from somewhere in the middle of the tag
+                try {
+                    algorithm.loadSequences(reader1, reader2);
+                    score = algorithm.getScore(); // get score
+                    alignment = algorithm.getPairwiseAlignment(); // compute alignment
+                  
+                    // The first sequence given in loadSequences() is loaded into rows. THis is non-refTag
+                    // The second is loaded into columns (matrix[seq1][seq2] - this is the refTag
+                    tagAlignOffset = alignment.getRowStart();
+                    refAlignStartPos += alignment.getColStart();
+                    
+                    if (tagAlignOffset > 0) {
+                        // Tag was not aligned from the beginning,
+                        // add back the bps that were skipped so alignment begins at start of the tag
+                        refAlignStartPos -= tagAlignOffset;
+                    }
+                    // If clipping has dropped us below the start of the reference genome, skip it
+                    if (refAlignStartPos < 0) continue;
+                    
+                    // The ref tag start position is needed in RepGenSQLite to create a
+                    // RefTagData object.  This is stored in the BiMap and used along with chrom to distinguish
+                    // one tag from another.  The actual alignment position is also needed (refAlignStartPos)
+                    // for the tagAlignments table.
+                    AlignmentInfo tagAI = new AlignmentInfo(tag2,rtd.chromosome(),rtd.position(),refAlignStartPos,score);
+                    tagAlignInfoMap.put(tag1, tagAI); // data to be stored into tagAlignments table
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } catch (InvalidSequenceException e) {
+                    e.printStackTrace();
+                } catch (IncompatibleScoringSchemeException e) {
+                    e.printStackTrace();
+                }                                        
+
             } 
         });
         System.out.println("TotalTime for calculateTagRefTagAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
