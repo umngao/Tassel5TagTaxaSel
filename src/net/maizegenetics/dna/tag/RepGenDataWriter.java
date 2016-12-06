@@ -12,6 +12,7 @@ import java.util.Set;
 import com.google.common.collect.Multimap;
 
 import net.maizegenetics.analysis.gbs.repgen.AlignmentInfo;
+import net.maizegenetics.analysis.gbs.repgen.RefTagData;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.Allele;
@@ -141,4 +142,12 @@ public interface RepGenDataWriter extends RepGenData {
      * @throws SQLException
      */
     void putAllelePairs(Multimap<Tag,Tuple<Tag,Integer>> tagTagAlignMap);
+
+    /**
+     * Adds entries to the tagAlignments table for ref-ref alignments
+     * @param tagAlignInfoMap holds alignment info for each reftag-reftag pair
+     * @param refGenome  name of the reference genome
+     * @throws SQLException
+     */
+    void putRefRefAlignments(Multimap<RefTagData, AlignmentInfo> tagAlignInfoMap, String refGenome);
 }

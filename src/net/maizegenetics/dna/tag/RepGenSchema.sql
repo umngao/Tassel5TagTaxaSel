@@ -16,10 +16,10 @@ CREATE TABLE reftag (
     tagName VARCHAR,
     sequence BLOB NOT NULL,
     seqlen INTEGER NOT NULL,
-    chrom TEXT,
+    chromosome TEXT,
     position INTEGER,
     refGenomeID INTEGER,
-    UNIQUE (sequence, chrom, seqlen, position, refGenomeID)
+    UNIQUE (sequence, chromosome, seqlen, position, refGenomeID)
 );
 -- Table: tagMapping
 -- Junction (link) table between tag, and physicalMapPosition

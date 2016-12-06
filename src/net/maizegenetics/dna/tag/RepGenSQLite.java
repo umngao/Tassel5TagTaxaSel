@@ -444,7 +444,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             connection.setAutoCommit(false);
             int refGenomeID = referenceGenomeToIDMap.get(refGenome);
             PreparedStatement refTagInsertPS=
-                    connection.prepareStatement("insert into reftag (sequence, seqlen, chrom,position,refGenomeID) values(?,?,?,?,?)");
+                    connection.prepareStatement("insert into reftag (sequence, seqlen, chromosome,position,refGenomeID) values(?,?,?,?,?)");
             for (Map.Entry<Tag, Position> entry : refTagPositionMap.entries()) {
                 Tag tag = entry.getKey();
                 Position pos =  entry.getValue();
@@ -476,8 +476,8 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         }
 
         if(totalCount>0) {
-            System.out.println("RepGenSQLite:putAllTag, totalCount=" + totalCount + ",loadingHash");
-            loadTagHash();
+            System.out.println("RepGenSQLite:putAllRefTag, totalCount=" + totalCount + ",loadingHash\n");
+            loadRefTagHash();
         } 
         return true;
     }
@@ -592,7 +592,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                 tagAlignmentInsertPS.setBoolean(ind++, tag1_isref);
                 tagAlignmentInsertPS.setBoolean(ind++, tag2_isref); 
                 tagAlignmentInsertPS.setInt(ind++, ai.score());  // alignment score
-                // These last 2 values are only valid when we have tag to refTag alignments
+                // The last value is only valid for tag to refTag alignments
                 tagAlignmentInsertPS.setInt(ind++,ai.alignmentPos()); // will be -1 for tag-tag and refTag-refTag
 
                 tagAlignmentInsertPS.addBatch();
@@ -608,7 +608,50 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             // print some metrics for debugging
             ResultSet rs = connection.createStatement().executeQuery("select count (*) as numAlignments from tagAlignments");
             if (rs.next()) {
-                System.out.println("Total number of tag alignments: " + rs.getInt("numAlignments"));
+                System.out.println("Total alignments in tagAlignments table: " + rs.getInt("numAlignments"));
+            }
+ 
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+    }
+    
+    //This method is called from RepGenAlignerPlugin to add reftag-reftag alignments
+    @Override
+    public void putRefRefAlignments(Multimap<RefTagData,AlignmentInfo> tagAlignInfoMap, String refGenome) {
+        int batchCount=0;
+        int refGenomeID =  referenceGenomeToIDMap.get(refGenome);
+        try {
+            connection.setAutoCommit(false);
+            for (Map.Entry<RefTagData, AlignmentInfo> entry : tagAlignInfoMap.entries()) {
+                // Put tag alignments into the tagAlignments table
+                AlignmentInfo ai=entry.getValue();
+                int ind=1;
+                tagAlignmentInsertPS.setInt(ind++, reftagReftagIDMap.get(entry.getKey()));
+                RefTagData rtd = new RefTagData(entry.getKey().tag(),ai.tag2chrom(),ai.tag2pos(),refGenomeID);
+                tagAlignmentInsertPS.setInt(ind++, reftagReftagIDMap.get(rtd));
+
+                tagAlignmentInsertPS.setBoolean(ind++, true); // both are reference tags
+                tagAlignmentInsertPS.setBoolean(ind++, true); 
+                tagAlignmentInsertPS.setInt(ind++, ai.score());  // alignment score
+                // This last value is only valid for tag to refTag alignments
+                tagAlignmentInsertPS.setInt(ind++,ai.alignmentPos()); // will be -1 for tag-tag and refTag-refTag
+
+                tagAlignmentInsertPS.addBatch();
+                batchCount++;
+                if(batchCount>100000) {
+                   // System.out.println("putTagAlignments next"+batchCount);
+                    tagAlignmentInsertPS.executeBatch();
+                    batchCount=0;
+                }
+            }
+            tagAlignmentInsertPS.executeBatch();
+            connection.setAutoCommit(true);
+            // print some metrics for debugging
+            ResultSet rs = connection.createStatement().executeQuery("select count (*) as numAlignments from tagAlignments");
+            if (rs.next()) {
+                System.out.println("Total number of alignments in tagAlignments table: " + rs.getInt("numAlignments"));
             }
  
         } catch (SQLException e) {
@@ -623,6 +666,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     @Override
     public void putRefTagMapping(Multimap<Tag, Position> refTagPositionMap, String refGenome) {
         int batchCount=0;
+        loadReferenceGenomeHash();
         int refGenomeID =  referenceGenomeToIDMap.get(refGenome);
         try {
             putAllRefTag(refTagPositionMap,refGenome);
