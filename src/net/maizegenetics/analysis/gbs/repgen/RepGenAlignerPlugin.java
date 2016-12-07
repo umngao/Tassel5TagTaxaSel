@@ -56,7 +56,7 @@ import net.maizegenetics.util.Utils;
  * makes kmer seeds from these tags.  Window for kmer seeds is 50.
  * 
  * The ref genome is walked with a sliding window of 1. Reference tags are created
- * based on peaks where kmer seeds align.  
+ * based on peaks within clusters where kmer seeds align.  
  * 
  *  The kmerLen field should match the length of the kmers stored
  *  as tags during the RepGenLoadSeqToDBPlugin step.  The default is 150.
@@ -65,19 +65,31 @@ import net.maizegenetics.util.Utils;
  *  tags, but can be longer.  Our defaults are 150 for kmer tags, and
  *  twice this length (300) for the refKmerLen.  
  *  
- *  This plugin creates and stores the reference
- *  tags in the database.  The reference tags will be stored with the isReference
- *  tag set. Both the tag table and the physicalMapPosition table will
+ *  There are 2 count parameters:  minTagCount specifies the minimum depth
+ *  of a tag for it to be used when creating seed kmers.
+ *  
+ *  minHitCount specifies the number of "hits" that must occur within a sliding 
+ *  window (window size = refKmerLen) for the window to remain part of a cluser.
+ *  When sliding, if the hit count drops below the minhitCount threshold, the
+ *  cluster ends.  A new cluster does not begin until the hit count is back up
+ *  to threshold.  See createRefTagsForAlignment() and storeRefTagPositions()
+ *  for specifics.
+ *  
+ *  This plugin creates and stores the reference tags in the refTag table
+ *  in the database.   Both the tagMapping and the physicalMapPosition table will
  *  we populated with the reference tag information.
  *  
  *  Once the tables have been populated with the reference information,
- *  Smith Waterman will be run to align all the nonreference tags in the db 
- *  against each other, and then each non-reference tag against the reference tags.
+ *  Smith Waterman is run to align all the nonreference tags in the db 
+ *  against each other; each non-reference tag against the reference tags;
+ *  finally each refTag against all other refTags.
  *  
- *  WHere should this data be stored?
+ * ALignment data is stored in the tagAlignments table.
  * 
- * Smith Waterman is used
- * to determine alignment score.
+ * Smith Waterman from SourceForge neobio project is used
+ * to determine alignment score.  Settings for match rewards, mismatch penalty
+ * and gap penalty may be changed by user via plugin parameters.
+ * 
  * 
  * @author lcj34
  *
@@ -89,9 +101,11 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             .description("Input database file with tags and taxa distribution").build();
     private PluginParameter<String> refGenome = new PluginParameter.Builder<String>("ref", null, String.class).guiName("Reference Genome File").required(true)
             .description("Referemce Genome File for aligning against ").build();
-    private PluginParameter<Integer> myMinCount = new PluginParameter.Builder<Integer>("minCount", 1, Integer.class).guiName("Min Count")
+    private PluginParameter<Integer> minTagCount = new PluginParameter.Builder<Integer>("minTagCount", 1, Integer.class).guiName("Min Tag Count")
             .description("Minimum count of reads for a tag to be aligned").build();
-    private PluginParameter<Integer> seedLen = new PluginParameter.Builder<Integer>("seedLen", 16, Integer.class).guiName("Seed Kmer Length")
+    private PluginParameter<Integer> minHitCount = new PluginParameter.Builder<Integer>("minHitCount", 5, Integer.class).guiName("Minimum Hit Count")
+            .description("Minimum number of hits in a cluster for a reference tag to be created from that location.").build();
+    private PluginParameter<Integer> seedLen = new PluginParameter.Builder<Integer>("seedLen", 17, Integer.class).guiName("Seed Kmer Length")
             .description("Length of kmer seed created from DB tags and used as seeds for aligning against the reference genome.").build();
     private PluginParameter<Integer> kmerLen = new PluginParameter.Builder<Integer>("kmerLen", 150, Integer.class).guiName("Kmer Length")
             .description("Length of kmer from fastq reads stored as the tag sequence in the DB.").build();
@@ -139,9 +153,9 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         try {           
             System.out.println("RepGenAlignerPlugin:processData begin"); 
             RepGenDataWriter repGenData=new RepGenSQLite(inputDB());
-            Map<Tag, Integer> tagsWithDepth = repGenData.getTagsWithDepth(minCount());
+            Map<Tag, Integer> tagsWithDepth = repGenData.getTagsWithDepth(minTagCount());
             if (tagsWithDepth.isEmpty()) {
-                System.out.println("\nNo tags found with minimum depth " + minCount() + ". Halting Run.\n");
+                System.out.println("\nNo tags found with minimum depth " + minTagCount() + ". Halting Run.\n");
                 ((RepGenSQLite)repGenData).close();
                 return null;
             }
@@ -245,6 +259,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             System.out.println("Calling calculateTagTagAlignment for tags without refs");
             
             calculateTagTagAlignment( tagList, tagAlignInfoMap);
+            System.out.println("Number of tag-tag alignments: " + tagAlignInfoMap.size() + ", store to db.");
             // neither tag is reference, null and -1 for tag1 chrom/pos
             repGenData.putTagAlignments(tagAlignInfoMap, false,false, null,-1,refGenome());
  
@@ -256,11 +271,13 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             calculateTagRefTagAlignment(tagList,refTagList,tagAlignInfoMap);
             // Add the tag-refTag info to the tagAlignments table.           
             // tag1=nonref, tag2=ref, null and -1 for tag1 
+            System.out.println("Number of tag-refTag alignments: " + tagAlignInfoMap.size() + ", store to db.");
             repGenData.putTagAlignments(tagAlignInfoMap,false,true,null,-1,refGenome());
             
             System.out.println("Calling calculateRefRefAlignment");
             
             calculateRefRefAlignment(refTagList,refTagPositionMap,refTagAlignInfoMap);
+            System.out.println("Number of reftag-reftag alignments: " + refTagAlignInfoMap.size() + ", store to db.");
             repGenData.putRefRefAlignments(refTagAlignInfoMap, refGenome()); // CREATE putRefRefAlignments -  different parameters
             ((RepGenSQLite)repGenData).close();
 
@@ -292,8 +309,8 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         // positionsInPeak is a sorted list.
         int size = positionsInPeak.size();
         
-        if (size < minCount()) {
-            System.out.println("streRefTagPosition: dropping peak number " + peaknum + ", only " + size + " positions in peak.");
+        if (size < minHitCount()) {
+            System.out.println("storeRefTagPosition: dropping peak number " + peaknum + ", only " + size + " positions in cluster.");
             return;
         }
         int start = positionsInPeak.get(0);
@@ -434,7 +451,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             // Only store positions with hit counts where the hit count meets our minimum
             // May make sense to create the tag here.  Would mean we don't have to
             // traverse this map later to find positions to create the tags                                       
-            if (currentTotal >= minCount()) {
+            if (currentTotal >= minHitCount()) {
                 if (belowMin) {
                     // We dropped out of minimum, but
                     // now the counts are back up. So start a new peak
@@ -450,7 +467,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         }   
         
         // Algorithm to find maximas (per Peter):
-        //  Only store the positions that have at least the minCount number of hits.
+        //  Only store the positions that have at least the minHitCount number of hits.
         //  Whenever the hit count drops below the min, we stop adding positions for this
         //  peak
         //  When the hit count get back up to min count, we start a new peak and
@@ -473,8 +490,11 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             storeRefTagPositions( peak,positionsInPeak, chromMaximaMap, chrom,chromSize,refTagPositionMap);
         });
                  
-        // write out to a file for debug
-        //writeToFile( chrom, chromMaximaMap); // writes to Lynn's directory 
+        // write out to a file for debug.  The cluster maxima positions are printed
+        // for each cluster.  These used to create ref tags.  File output shows  the 
+        // number of reference tags created for each chromosome, as well as the spacing 
+        // between them. 
+        //writeToFile( chrom, chromMaximaMap, minHitCount()); // writes to Lynn's directory 
     }
     
     // this calculates tag against tag alignment from the tags in the DB
@@ -513,11 +533,10 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                 tagAlignInfoMap.put(tag1,tagAI);
             }
         });
-        System.out.println("TotalTime for calculateTagTagAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
+        System.out.println("Number of tags: " + tags.size() + ", TotalTime for calculateTagTagAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
     }
     
     // This calculates alignment of each tag against each reference tag.
-    // We done separately 
     private void calculateTagRefTagAlignment(List<Tag> tags, List<RefTagData> refTagDataList,
             Multimap<Tag,AlignmentInfo> tagAlignInfoMap){
         long totalTime = System.nanoTime();
@@ -575,17 +594,14 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
 
             } 
         });
-        System.out.println("TotalTime for calculateTagRefTagAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
+        System.out.println("Num tags: " + tags.size() + ", Num refTags: " + refTagDataList.size() + ", TotalTime for calculateTagRefTagAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
     }
     
     // This calculates alignment of  reference tags against each other.
-    // Check this - is copied from above.  Are we getting all tags and all positions
-    // foreach tag?  This must be stored into a different object.  Need chrom/pos
-    // for every tag1 and tag2 in each pair.
     private void calculateRefRefAlignment(List<RefTagData> refTags, Multimap<Tag,Position> refTagPosMap,
             Multimap<RefTagData,AlignmentInfo> refTagAlignInfoMap){
         long totalTime = System.nanoTime();
-        // For each tag on the tags list, run SW against all other tags in the list
+        // For each tag on the reftags list, run SW against all other tags in the list
        refTags.parallelStream().forEach(tag1 -> {
             for (RefTagData tag2: refTags) {
                 if (tag1.equals(tag2)) continue; // don't align against yourself
@@ -603,7 +619,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
 
                 try {
                     algorithm.loadSequences(reader1, reader2);
-                    // for tag-tag alignment, we are only computing the score
+                    // for reftag-reftag alignment, we are only computing the score
                     score = algorithm.getScore();
                 } catch (IOException ioe) {
                     ioe.printStackTrace();
@@ -612,12 +628,12 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                 } catch (IncompatibleScoringSchemeException isse) {
                     isse.printStackTrace();
                 }
-                // for reftag/reftag, we have alignmnet position .  Store -1
+                // for reftag/reftag, we have no alignment position .  Store -1
                 AlignmentInfo tagAI = new AlignmentInfo(tag2.tag(),tag2.chromosome(),tag2.position(),-1,score);
                 refTagAlignInfoMap.put(tag1,tagAI);
             }
         }); 
-        System.out.println("TotalTime for calculateREfRefAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
+        System.out.println("Number of refTags: " + refTags.size() + ", TotalTime for calculateREfRefAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
     }
     // Checks for non ACGT character in kmer.  If found, returns the deviate
     // position in the array.  If not found, -1 is returned. -1 is good return
@@ -637,8 +653,9 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
 
     
     // write to a file for debug
-    public static void writeToFile(String chrom, Multimap<String,Integer> chromMaximaMap) {
-        String outFile = "/Users/lcj34/notes_files/repgen/junit_out/chrom" + chrom + "peakMaximaPositions.txt";
+    public static void writeToFile(String chrom, Multimap<String,Integer> chromMaximaMap, int minCount) {
+        String outFile = "/Users/lcj34/notes_files/repgen/junit_out/chrom" + chrom + "_peakMaximaPositions_minCount"
+                    + minCount + ".txt";
         BufferedWriter bw = Utils.getBufferedWriter(outFile);
         // Print the positions for this chrom
         Collection<Integer> maximaForChrom = chromMaximaMap.get(chrom);
@@ -745,8 +762,8 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
      *
      * @return Min Count
      */
-    public Integer minCount() {
-        return myMinCount.value();
+    public Integer minTagCount() {
+        return minTagCount.value();
     }
 
     /**
@@ -757,11 +774,33 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public RepGenAlignerPlugin minCount(Integer value) {
-        myMinCount = new PluginParameter<>(myMinCount, value);
+    public RepGenAlignerPlugin minTagCount(Integer value) {
+        minTagCount = new PluginParameter<>(minTagCount, value);
         return this;
     }
     
+    /**
+     * Minimum count of hits in a cluster for a reference tag
+     * to be created for this cluster
+     *
+     * @return Min Count
+     */
+    public Integer minHitCount() {
+        return minHitCount.value();
+    }
+
+    /**
+     * Set Min Count. Minimum count of hits in a cluster for a 
+     * reference tag to be created fro this cluster
+     *
+     * @param value Min Count
+     *
+     * @return this plugin
+     */
+    public RepGenAlignerPlugin minHitCount(Integer value) {
+        minHitCount = new PluginParameter<>(minHitCount, value);
+        return this;
+    }
     /**
      * Length of seed kmers
      *
