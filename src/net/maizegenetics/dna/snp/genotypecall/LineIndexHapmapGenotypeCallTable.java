@@ -9,7 +9,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import htsjdk.samtools.util.BlockCompressedInputStream;
 import java.io.File;
-import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -18,7 +17,6 @@ import java.util.concurrent.ForkJoinPool;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.dna.snp.io.LineIndex;
-import net.maizegenetics.util.Tuple;
 import org.apache.log4j.Logger;
 
 /**
@@ -35,12 +33,12 @@ public class LineIndexHapmapGenotypeCallTable extends AbstractGenotypeCallTable 
     private final LineIndex myIndex;
     private final boolean myIsOneLetter;
     private final int myNumLinesPerInterval;
-    private final int myMaxCacheSize;
     private final ConcurrentLinkedQueue<BlockCompressedInputStream> myReaders = new ConcurrentLinkedQueue<>();
     private final CopyOnWriteArraySet<Integer> myCurrentlyProcessingBlocks = new CopyOnWriteArraySet<>();
-    private final WeakHashMap<Thread, Tuple<Integer, byte[]>> myLastSite = new WeakHashMap<>();
 
     private final Cache<Integer, byte[][]> myGenoCache;
+
+    private final Cache<Integer, byte[]> mySmallGenoCache;
 
     private final ConcurrentHashMap<Integer, CompletableFuture<byte[]>> myFutureQueue = new ConcurrentHashMap<>();
 
@@ -53,14 +51,21 @@ public class LineIndexHapmapGenotypeCallTable extends AbstractGenotypeCallTable 
         myNumLinesPerInterval = index.numLinesPerInterval();
         myFilename = filename;
 
-        long oneThirdMemory = Runtime.getRuntime().maxMemory() / (numTaxa * 3);
-        myMaxCacheSize = (int) Math.min((long) (110 * Runtime.getRuntime().availableProcessors()), oneThirdMemory);
+        long oneThirdMemory = Runtime.getRuntime().maxMemory() / (numTaxa * myNumLinesPerInterval * 3);
+        int maxCacheSize = (int) Math.min((long) (110 * Runtime.getRuntime().availableProcessors()), oneThirdMemory);
 
         myGenoCache = CacheBuilder.newBuilder()
-                .initialCapacity(myMaxCacheSize)
-                .maximumSize(myMaxCacheSize)
+                .initialCapacity(maxCacheSize)
+                .maximumSize(maxCacheSize)
                 .build();
+
+        mySmallGenoCache = CacheBuilder.newBuilder()
+                .initialCapacity(1000)
+                .maximumSize(1000)
+                .build();
+
         myThreadPool = new ForkJoinPool();
+
     }
 
     public static LineIndexHapmapGenotypeCallTable getInstance(int numTaxa, int numSites, boolean phased, boolean isOneLetter, LineIndex index, String filename) {
@@ -118,18 +123,12 @@ public class LineIndexHapmapGenotypeCallTable extends AbstractGenotypeCallTable 
     @Override
     public byte genotype(int taxon, int site) {
         try {
-            Tuple<Integer, byte[]> temp = myLastSite.get(Thread.currentThread());
-            if (temp != null) {
-                if (temp.x == site) {
-                    return temp.y[taxon];
-                } else {
-                    byte[] result = getFromCache(site);
-                    myLastSite.put(Thread.currentThread(), new Tuple<>(site, result));
-                    return result[taxon];
-                }
+            byte[] result = mySmallGenoCache.getIfPresent(site);
+            if (result != null) {
+                return result[taxon];
             } else {
-                byte[] result = getFromCache(site);
-                myLastSite.put(Thread.currentThread(), new Tuple<>(site, result));
+                result = getFromCache(site);
+                mySmallGenoCache.put(site, result);
                 return result[taxon];
             }
         } catch (Exception ex) {
@@ -159,7 +158,7 @@ public class LineIndexHapmapGenotypeCallTable extends AbstractGenotypeCallTable 
     public void transposeData(boolean siteInnerLoop) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
-    
+
     @Override
     public boolean isSiteOptimized() {
         return true;
