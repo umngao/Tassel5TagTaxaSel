@@ -171,7 +171,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             // bitmaps to be used for creating ref tags for aligning.
             chromsInRef.parallelStream().forEach(chrom -> { 
                   // Turn this on/off for debug purposes
-                  if (chrom.getChromosomeNumber() != 9) return; // just for initial testing !!! - remove
+                  //if (chrom.getChromosomeNumber() != 9) return; // just for initial testing !!! - remove
                                     
                   int kmersForChrom = 0;
                   int chromLength = myRefSequence.chromosomeSize(chrom);
