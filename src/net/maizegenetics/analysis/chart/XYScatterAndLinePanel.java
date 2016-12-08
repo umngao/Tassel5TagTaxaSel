@@ -92,8 +92,12 @@ public class XYScatterAndLinePanel extends BasicChartPanel {
                 true,
                 true,
                 false);
+        
+        chart.setBackgroundPaint(new Color(238, 238, 238));
+
+        chart.getXYPlot().setBackgroundPaint(Color.WHITE);
         chart.getXYPlot().setForegroundAlpha(0.75f);
-        chart.getXYPlot().getRenderer().setToolTipGenerator(new XYAndLineToolTipGenerator());
+        chart.getXYPlot().getRenderer().setBaseToolTipGenerator(new XYAndLineToolTipGenerator());
         return chart;
     }
 

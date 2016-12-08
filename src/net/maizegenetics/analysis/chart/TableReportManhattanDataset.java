@@ -3,40 +3,43 @@
  */
 package net.maizegenetics.analysis.chart;
 
-import net.maizegenetics.util.TableReport;
-import net.maizegenetics.analysis.association.AssociationConstants;
-
-import org.jfree.data.xy.DefaultTableXYDataset;
-
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import net.maizegenetics.analysis.association.AssociationConstants;
+import net.maizegenetics.util.TableReport;
+import org.jfree.data.Range;
+import org.jfree.data.xy.DefaultTableXYDataset;
 
 /**
  *
  * @author yz79
+ * @author Terry Casstevens
  */
 public class TableReportManhattanDataset extends DefaultTableXYDataset {
 
-    double[][] theData;
-    String[] seriesNames;
-    String xName;
-    String myTrait;
-    int numberYAxes;
-    String[] myChromNames;
-    Object[] myColumnNames;
-    double[] myPValues;
-    double[] myLogPValues;
-    long[] myPositions;
-    String[] myMarkers;
-    HashMap myLookupTable;
-    int myPValueColumnIndex = -1;
-    int myChromColumnIndex = -1;
-    int myPositionColumnIndex = -1;
-    int myMarkerColumnIndex = -1;
-    int myTraitColumnIndex = -1;
-    int myNumRows;
-    int myStartIndex;
-    int myEndIndex;
-    boolean myNumericChromNames = true;
+    private String[] seriesNames;
+    private int[] seriesOffsets;
+    private String myTrait;
+    private int numberYAxes;
+    private String[] myChromNames;
+    private Object[] myColumnNames;
+    private double[] myPValues;
+    private double[] myLogPValues;
+    private double myMaxLogValue;
+    private long[] myPositions;
+    private String[] myMarkers;
+    private HashMap<Double, Integer> myLookupTable;
+    private int myPValueColumnIndex = -1;
+    private int myChromColumnIndex = -1;
+    private int myPositionColumnIndex = -1;
+    private int myMarkerColumnIndex = -1;
+    private int myTraitColumnIndex = -1;
+    private final int myNumRows;
+    private final int myStartIndex;
+    private final int myEndIndex;
+    private boolean myNumericChromNames = true;
+    private final List<Long> myActualPositions = new ArrayList<>();
 
     public TableReportManhattanDataset(TableReport theTable, int start, int end) {
         numberYAxes = 0;
@@ -46,34 +49,60 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
         setTableReport(theTable);
     }
 
+    @Override
+    public Range getDomainBounds(boolean includeInterval) {
+        return new Range(getDomainLowerBound(includeInterval), getDomainUpperBound(includeInterval));
+    }
+
+    @Override
+    public double getDomainUpperBound(boolean includeInterval) {
+        return myPositions[myNumRows - 1];
+    }
+
+    @Override
+    public double getDomainLowerBound(boolean includeInterval) {
+        return myPositions[0];
+    }
+
+    public Range getRangeBounds() {
+        return new Range(0.0, myMaxLogValue);
+    }
+
+    @Override
     public int getItemCount(int parm1) {
-        return theData.length;
+        return seriesOffsets[parm1 + 1] - seriesOffsets[parm1];
     }
 
+    @Override
     public Number getX(int series, int item) {
-        Double x = theData[item][0];
-        return x;
+        return myPositions[seriesOffsets[series] + item];
     }
 
+    @Override
     public int getSeriesCount() {
         return numberYAxes;
     }
 
+    @Override
     public Number getY(int series, int item) {
-        Double y = theData[item][1 + series];
-        return y;
+        return myLogPValues[seriesOffsets[series] + item];
     }
 
     public String getSeriesName(int series) {
         return seriesNames[series];
     }
 
+    @Override
     public String getSeriesKey(int series) {
         return seriesNames[series];
     }
 
     public String getXName() {
-        return xName;
+        return "Position";
+    }
+
+    public List<Long> getActualPostions() {
+        return myActualPositions;
     }
 
     private void setTraitColumnIndex() {
@@ -147,7 +176,7 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
         Object temp = myTableReport.getValueAt(myStartIndex, myPValueColumnIndex);
         if (temp instanceof Double) {
             for (int i = 0; i < myPValues.length; i++) {
-                myPValues[i] = ((Double) myTableReport.getValueAt(myStartIndex + i, myPValueColumnIndex)).doubleValue();
+                myPValues[i] = ((Double) myTableReport.getValueAt(myStartIndex + i, myPValueColumnIndex));
                 if (myPValues[i] == 0) {
                     myPValues[i] = Double.MIN_VALUE;
                 }
@@ -172,7 +201,9 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
         int currentPosition = 0;
         int previousPosition = 0;
         String currentChrom = "";
+        List<Integer> offsets = new ArrayList<>();
         // GLM positions formated as int
+        boolean isNewChromosome = true;
         for (int i = 0; i < myNumRows; i++) {
 
             currentPosition = Integer.valueOf((myTableReport.getValueAt(myStartIndex + i, myPositionColumnIndex)).toString());
@@ -181,14 +212,27 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
             if (!currentChrom.equals(myChromNames[i])) {
                 numberYAxes++;
                 currentChrom = myChromNames[i];
-                previousPosition = currentPosition;
+                previousPosition = 0;
+                offsets.add(i);
+                isNewChromosome = true;
             }
 
             myPositions[i] = currentPosition - previousPosition + offset;
+            if (isNewChromosome) {
+                myActualPositions.add(myPositions[i] - currentPosition);
+                isNewChromosome = false;
+            }
             previousPosition = currentPosition;
             offset = myPositions[i];
 
         }
+
+        offsets.add(myNumRows);
+        seriesOffsets = new int[numberYAxes + 1];
+        for (int i = 0; i < numberYAxes + 1; i++) {
+            seriesOffsets[i] = offsets.get(i);
+        }
+
     }
 
     private void setTrait(TableReport table) {
@@ -210,6 +254,9 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
     private void setLogPValues() {
         for (int i = 0; i < myLogPValues.length; i++) {
             myLogPValues[i] = -Math.log10(myPValues[i]);
+            if (myLogPValues[i] > myMaxLogValue) {
+                myMaxLogValue = myLogPValues[i];
+            }
         }
     }
 
@@ -225,7 +272,7 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
         myChromNames = new String[myNumRows];
         myPositions = new long[myNumRows];
         myMarkers = new String[myNumRows];
-        myLookupTable = new HashMap(myNumRows);
+        myLookupTable = new HashMap<>(myNumRows);
         setPValues(theTable);
         setLogPValues();
         setPositions(theTable);
@@ -237,35 +284,21 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
 
         String currentChrom = myChromNames[0];
         int chromIndex = 1;
-        theData = new double[myNumRows][1 + numberYAxes];
-        for (int i = 0; i < theData.length; i++) {
-            for (int j = 0; j < theData[0].length; j++) {
-                theData[i][j] = Double.NaN;
-            }
-        }
+
         for (int i = 0; i < myNumRows; i++) {
-            try {
-                theData[i][0] = myPositions[i];
-                if (!myNumericChromNames) {
-                    if (!currentChrom.equals(myChromNames[i])) {
-                        chromIndex++;
-                        currentChrom = myChromNames[i];
-                        seriesNames[chromIndex - 1] = currentChrom;
-                    }
-                    theData[i][chromIndex] = myLogPValues[i];
-                } else {
-
-                    for (int j = 0; j < numberYAxes; j++) {
-                        seriesNames[j] = Integer.toString(j + 1);
-                    }
-
-                    theData[i][Integer.parseInt(myChromNames[i])] = myLogPValues[i];
-
+            if (!myNumericChromNames) {
+                if (!currentChrom.equals(myChromNames[i])) {
+                    chromIndex++;
+                    currentChrom = myChromNames[i];
+                    seriesNames[chromIndex - 1] = currentChrom;
                 }
-            } catch (NumberFormatException ex) {
-                System.out.println("throw new NumberFormatException();");
+            } else {
+
+                for (int j = 0; j < numberYAxes; j++) {
+                    seriesNames[j] = Integer.toString(j + 1);
+                }
+
             }
         }
-        xName = "Position";
     }
 }
