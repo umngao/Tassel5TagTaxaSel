@@ -96,7 +96,7 @@ import net.maizegenetics.util.Utils;
  */
 public class RepGenAlignerPlugin extends AbstractPlugin {
     private static final Logger myLogger = Logger.getLogger(RepGenAlignerPlugin.class);
- // match_reward, mismatch_penalty, gap_cost
+    
     private PluginParameter<String> myDBFile = new PluginParameter.Builder<String>("db", null, String.class).guiName("Input DB").required(true).inFile()
             .description("Input database file with tags and taxa distribution").build();
     private PluginParameter<String> refGenome = new PluginParameter.Builder<String>("ref", null, String.class).guiName("Reference Genome File").required(true)
