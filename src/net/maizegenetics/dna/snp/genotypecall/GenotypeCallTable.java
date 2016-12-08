@@ -4,6 +4,7 @@
 package net.maizegenetics.dna.snp.genotypecall;
 
 import java.util.stream.Stream;
+import net.maizegenetics.util.Tuple;
 
 /**
  * Interface for genotype calls for a table of taxa and sites. GenotypeCallTable
@@ -496,6 +497,8 @@ public interface GenotypeCallTable {
      * @return genotypes
      */
     public byte[] genotypeForAllTaxa(int site);
+    
+    public Tuple<int[][], int[]> siteStats(int site);
 
     /**
      * Tells this Genotype to transpose it's data to optimize performance for

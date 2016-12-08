@@ -25,7 +25,8 @@ final public class FilterSite implements Filter {
         siteMinCount, siteMinAlleleFreq, siteMaxAlleleFreq, siteRangeFilterType,
         startSite, endSite, startChr, startPos, endChr,
         endPos, includeSites, siteNames, chrPosFile,
-        positionList, removeMinorSNPStates, bedFile;
+        positionList, removeMinorSNPStates, bedFile,
+        minHeterozygous, maxHeterozygous;
     };
 
     public static enum SITE_RANGE_FILTER_TYPES {
@@ -113,6 +114,24 @@ final public class FilterSite implements Filter {
 
     public double siteMaxAlleleFreq() {
         Double value = (Double) myAttributes.get(FILTER_SITES_ATTRIBUTES.siteMaxAlleleFreq);
+        if (value == null) {
+            return 1.0;
+        } else {
+            return value;
+        }
+    }
+    
+    public double minHeterozygous() {
+        Double value = (Double) myAttributes.get(FILTER_SITES_ATTRIBUTES.minHeterozygous);
+        if (value == null) {
+            return 0.0;
+        } else {
+            return value;
+        }
+    }
+
+    public double maxHeterozygous() {
+        Double value = (Double) myAttributes.get(FILTER_SITES_ATTRIBUTES.maxHeterozygous);
         if (value == null) {
             return 1.0;
         } else {

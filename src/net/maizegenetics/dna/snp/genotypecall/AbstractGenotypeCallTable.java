@@ -20,6 +20,7 @@ import static java.util.Spliterator.SUBSIZED;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import net.maizegenetics.util.Tuple;
 
 /**
  * Abstract implementation of methods of GenotypeCallTable.
@@ -117,11 +118,7 @@ abstract class AbstractGenotypeCallTable implements GenotypeCallTable {
     @Override
     public boolean isHeterozygous(int taxon, int site) {
         byte[] values = genotypeArray(taxon, site);
-        if (values[0] == values[1]) {
-            return false;
-        } else {
-            return true;
-        }
+        return values[0] != values[1];
     }
 
     @Override
@@ -657,6 +654,11 @@ abstract class AbstractGenotypeCallTable implements GenotypeCallTable {
             result[i] = genotype(i, site);
         }
         return result;
+    }
+    
+    @Override
+    public Tuple<int[][], int[]> siteStats(int site) {
+        return AlleleFreqCache.allelesSortedByFrequencyAndCountsNucleotide(site, genotypeForAllTaxa(site));
     }
 
     @Override

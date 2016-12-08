@@ -485,7 +485,7 @@ public class GenotypeTableUtils {
             Tuple<int[][], int[]> alleleFreqCounts = null;
 
             if (filter.minNotMissing() != 0.0) {
-                alleleFreqCounts = AlleleFreqCache.allelesSortedByFrequencyAndCountsNucleotide(genotype.genotypeAllSites(t));
+                alleleFreqCounts = AlleleFreqCache.allelesSortedByFrequencyAndCountsNucleotide(t, genotype.genotypeAllSites(t));
                 int[] counts = alleleFreqCounts.y;
                 double percentNotMissing = (double) (numSites - counts[AlleleFreqCache.UNKNOWN_COUNT]) / (double) numSites;
                 if (percentNotMissing < filter.minNotMissing()) {
@@ -495,7 +495,7 @@ public class GenotypeTableUtils {
 
             if ((filter.minHeterozygous() != 0.0) || (filter.maxHeterozygous() != 1.0)) {
                 if (alleleFreqCounts == null) {
-                    alleleFreqCounts = AlleleFreqCache.allelesSortedByFrequencyAndCountsNucleotide(genotype.genotypeAllSites(t));
+                    alleleFreqCounts = AlleleFreqCache.allelesSortedByFrequencyAndCountsNucleotide(t, genotype.genotypeAllSites(t));
                 }
                 int[] counts = alleleFreqCounts.y;
                 double percentHets = (double) counts[AlleleFreqCache.HETEROZYGOUS_COUNT] / (double) counts[AlleleFreqCache.UNKNOWN_COUNT];
@@ -524,16 +524,6 @@ public class GenotypeTableUtils {
 
         int numSites = genotype.numberOfSites();
 
-        // List<String> taxa = filter.taxa();
-        // if (taxa != null) {
-        //     TaxaListBuilder taxaBuilder = new TaxaListBuilder();
-        //     TaxaList taxaList = taxaBuilder.addAll(taxa).build();
-        //     if (filter.includeTaxa()) {
-        //         result = FilterGenotypeTable.getInstance(result, taxaList, false);
-        //     } else {
-        //         result = FilterGenotypeTable.getInstanceRemoveIDs(result, taxaList);
-        //     }
-        // }
         if (filter.siteFilterType() == FilterSite.SITE_RANGE_FILTER_TYPES.SITES) {
             int start = filter.startSite();
             int end = filter.endSite();
@@ -601,11 +591,6 @@ public class GenotypeTableUtils {
             result = GenotypeTableBuilder.getInstanceOnlyMajorMinor(result);
         }
 
-        //naa = GenotypeTableUtils.removeSitesBasedOnFreqIgnoreMissing(naa, myMinFreq, myMaxFreq, myMinCount);
-        // String chrPosFile = filter.chrPosFile();
-        // if ((chrPosFile != null) && (chrPosFile.length() != 0)) {
-        //     result = keepSitesChrPos(result, chrPosFile);
-        // }
         return result;
     }
 

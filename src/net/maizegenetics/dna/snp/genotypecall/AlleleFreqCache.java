@@ -110,14 +110,15 @@ public class AlleleFreqCache {
         return alleleCounts;
     }
 
-    public static Tuple<int[][], int[]> allelesSortedByFrequencyAndCountsNucleotide(byte[] data) {
-        return alleleFreqCounts(data, DEFAULT_MAX_NUM_ALLELES);
+    public static Tuple<int[][], int[]> allelesSortedByFrequencyAndCountsNucleotide(int index, byte[] data) {
+        return alleleFreqCounts(index, data, DEFAULT_MAX_NUM_ALLELES);
     }
 
-    public static final int UNKNOWN_COUNT = 0;
-    public static final int UNKNOWN_GAMETE_COUNT = 1;
-    public static final int HETEROZYGOUS_COUNT = 2;
-    public static final int HOMOZYGOUS_COUNT = 3;
+    public static final int INDEX = 0;
+    public static final int UNKNOWN_COUNT = 1;
+    public static final int UNKNOWN_GAMETE_COUNT = 2;
+    public static final int HETEROZYGOUS_COUNT = 3;
+    public static final int HOMOZYGOUS_COUNT = 4;
 
     private static final byte UNKNOWN_COUNT_BIT = 0x1;
     private static final byte UNKNOWN_SINGLE_GAMETE_COUNT_BIT = 0x2;
@@ -148,21 +149,22 @@ public class AlleleFreqCache {
         }
     }
 
-    private static Tuple<int[][], int[]> alleleFreqCounts(byte[] data, int maxNumAlleles) {
+    private static Tuple<int[][], int[]> alleleFreqCounts(int index, byte[] data, int maxNumAlleles) {
 
         int numGenotypes = data.length;
         int[] alleleFreq = new int[maxNumAlleles];
-        int[] otherCounts = new int[4];
+        int[] otherCounts = new int[5];
+        otherCounts[INDEX] = index;
         for (int i = 0; i < numGenotypes; i++) {
 
-            int index = Byte.toUnsignedInt(data[i]);
-            otherCounts[UNKNOWN_COUNT] += OTHER_COUNTS[index] & UNKNOWN_COUNT_BIT;
+            int count = Byte.toUnsignedInt(data[i]);
+            otherCounts[UNKNOWN_COUNT] += OTHER_COUNTS[count] & UNKNOWN_COUNT_BIT;
             // << 1 is times 2
-            otherCounts[UNKNOWN_GAMETE_COUNT] += (OTHER_COUNTS[index] & UNKNOWN_COUNT_BIT) << 1;
+            otherCounts[UNKNOWN_GAMETE_COUNT] += (OTHER_COUNTS[count] & UNKNOWN_COUNT_BIT) << 1;
             // this is zero if both gametes where Unknown
-            otherCounts[UNKNOWN_GAMETE_COUNT] += (OTHER_COUNTS[index] & UNKNOWN_SINGLE_GAMETE_COUNT_BIT) >>> 1;
-            otherCounts[HETEROZYGOUS_COUNT] += (OTHER_COUNTS[index] & HETEROZYGOUS_COUNT_BIT) >>> 2;
-            otherCounts[HOMOZYGOUS_COUNT] += (OTHER_COUNTS[index] & HOMOZYGOUS_COUNT_BIT) >>> 3;
+            otherCounts[UNKNOWN_GAMETE_COUNT] += (OTHER_COUNTS[count] & UNKNOWN_SINGLE_GAMETE_COUNT_BIT) >>> 1;
+            otherCounts[HETEROZYGOUS_COUNT] += (OTHER_COUNTS[count] & HETEROZYGOUS_COUNT_BIT) >>> 2;
+            otherCounts[HOMOZYGOUS_COUNT] += (OTHER_COUNTS[count] & HOMOZYGOUS_COUNT_BIT) >>> 3;
 
             if (((data[i] >>> 4) & 0xf) < maxNumAlleles) {
                 alleleFreq[((data[i] >>> 4) & 0xf)]++;
@@ -266,6 +268,10 @@ public class AlleleFreqCache {
             result += alleles[1][i];
         }
         return result;
+    }
+
+    public static double proportionHeterozygous(int[] counts, int totalCount) {
+        return counts[HETEROZYGOUS_COUNT] / (double) totalCount;
     }
 
     public static double proportionHeterozygous(byte[] data) {

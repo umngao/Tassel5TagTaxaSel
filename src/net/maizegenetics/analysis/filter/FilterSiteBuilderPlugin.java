@@ -26,7 +26,6 @@ import net.maizegenetics.dna.snp.FilterSite;
 import net.maizegenetics.dna.snp.FilterSite.SITE_RANGE_FILTER_TYPES;
 import net.maizegenetics.dna.snp.FilterSite.FILTER_SITES_ATTRIBUTES;
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.gui.DialogUtils;
 import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.phenotype.GenotypePhenotypeBuilder;
@@ -60,6 +59,10 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
             .range(Range.closed(0.0, 1.0))
             .description("Site Maximum Minor Allele Frequency")
             .build();
+    private PluginParameter<Double> myMinHeterozygous = new PluginParameter.Builder<Double>(FILTER_SITES_ATTRIBUTES.minHeterozygous.name(), 0.0, Double.class)
+            .guiName("Min Heterozygous Proportion").range(Range.closed(0.0, 1.0)).build();
+    private PluginParameter<Double> myMaxHeterozygous = new PluginParameter.Builder<Double>(FILTER_SITES_ATTRIBUTES.maxHeterozygous.name(), 1.0, Double.class)
+            .guiName("Max Heterozygous Proportion").range(Range.closed(0.0, 1.0)).build();
     private PluginParameter<Boolean> myRemoveMinorSNPStates = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.removeMinorSNPStates.name(), false, Boolean.class)
             .guiName("Remove Minor SNP States")
             .description("")
@@ -260,7 +263,7 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
         if (genotypeTableList.size() >= 1) {
             for (Datum datum : genotypeTableList) {
                 GenotypeTable current = (GenotypeTable) datum.getData();
-                GenotypeTable filteredGenotype = GenotypeTableUtils.filter(filter, current);
+                GenotypeTable filteredGenotype = FilterBySites.filter(current, filter);
                 if ((filteredGenotype == null) || filteredGenotype.numberOfSites() == 0) {
                     DialogUtils.showWarning("No genotype data remained after filtering: " + datum.getName(), getParentFrame());
                 } else if (filteredGenotype != current) {
@@ -279,7 +282,7 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
             for (Datum datum : phenoGenoTableList) {
                 GenotypePhenotype pheno = (GenotypePhenotype) datum.getData();
                 GenotypeTable current = pheno.genotypeTable();
-                GenotypeTable filteredGenotype = GenotypeTableUtils.filter(filter, current);
+                GenotypeTable filteredGenotype = FilterBySites.filter(current, filter);
                 if ((filteredGenotype == null) || filteredGenotype.numberOfSites() == 0) {
                     DialogUtils.showWarning("No genotype data remained after filtering: " + datum.getName(), getParentFrame());
                 } else if (filteredGenotype != current) {
@@ -484,6 +487,48 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
      */
     public FilterSiteBuilderPlugin siteMaxAlleleFreq(Double value) {
         mySiteMaxAlleleFreq = new PluginParameter<>(mySiteMaxAlleleFreq, value);
+        return this;
+    }
+
+    /**
+     * Min Heterozygous Proportion
+     *
+     * @return Min Heterozygous Proportion
+     */
+    public Double minHeterozygous() {
+        return myMinHeterozygous.value();
+    }
+
+    /**
+     * Set Min Heterozygous Proportion. Min Heterozygous Proportion
+     *
+     * @param value Min Heterozygous Proportion
+     *
+     * @return this plugin
+     */
+    public FilterSiteBuilderPlugin minHeterozygous(Double value) {
+        myMinHeterozygous = new PluginParameter<>(myMinHeterozygous, value);
+        return this;
+    }
+
+    /**
+     * Max Heterozygous Proportion
+     *
+     * @return Max Heterozygous Proportion
+     */
+    public Double maxHeterozygous() {
+        return myMaxHeterozygous.value();
+    }
+
+    /**
+     * Set Max Heterozygous Proportion. Max Heterozygous Proportion
+     *
+     * @param value Max Heterozygous Proportion
+     *
+     * @return this plugin
+     */
+    public FilterSiteBuilderPlugin maxHeterozygous(Double value) {
+        myMaxHeterozygous = new PluginParameter<>(myMaxHeterozygous, value);
         return this;
     }
 
