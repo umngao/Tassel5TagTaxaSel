@@ -192,7 +192,7 @@ public class FILLINImputationAccuracy {
                     return false;
                 }
             }
-            FilterGenotypeTable filter= FilterGenotypeTable.getInstance(this.maskKey, keepSites.toArray(new String[keepSites.size()]));
+            GenotypeTable filter= FilterGenotypeTable.getInstance(this.maskKey, keepSites.toArray(new String[keepSites.size()]));
             this.maskKey= filter;//GenotypeTableBuilder.getGenotypeCopyInstance(filter); //Change this back when GenotypeCopyInstance fixed
             if (verboseOutput) System.out.println("Sites in new mask: "+this.maskKey.numberOfSites());
             
@@ -224,7 +224,7 @@ public class FILLINImputationAccuracy {
                     }
                 }
             }
-            FilterGenotypeTable filter= FilterGenotypeTable.getInstance(this.maskKey, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));
+            GenotypeTable filter= FilterGenotypeTable.getInstance(this.maskKey, ArrayUtils.toPrimitive(keepSites.toArray(new Integer[keepSites.size()])));
             this.maskKey= filter;//GenotypeTableBuilder.getGenotypeCopyInstance(filter);//Change this back when GenotypeCopyInstance fixed
             if (verboseOutput) System.out.println(this.maskKey.numberOfSites()+" sites retained after chromsome filter");
             return true;

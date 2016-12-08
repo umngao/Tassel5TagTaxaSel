@@ -290,8 +290,6 @@ public class SmithWaterman extends PairwiseAlignmentAlgorithm
 
             r = r - 1;
         }
-
-        System.out.println("LCJ - buildOptimalAlignment:, r=" + r + ", c=" + c);
  
         return new PairwiseAlignment (gapped_seq1.toString(), score_tag_line.toString(),
                 gapped_seq2.toString(), max_score,r,c);

@@ -5,11 +5,22 @@ CREATE TABLE tag (
     sequence BLOB NOT NULL,
     seqlen INTEGER NOT NULL,
     isReference BOOLEAN,
-    qualityScore INTEGER,
-    numTagInstances,
+    qualityScore TEXT,
+    numTagInstances INTEGER,
     UNIQUE (sequence, seqlen)
 );
 
+-- Table: reftag
+CREATE TABLE reftag (
+    reftagid    INTEGER PRIMARY KEY,
+    tagName VARCHAR,
+    sequence BLOB NOT NULL,
+    seqlen INTEGER NOT NULL,
+    chromosome TEXT,
+    position INTEGER,
+    refGenomeID INTEGER,
+    UNIQUE (sequence, chromosome, seqlen, position, refGenomeID)
+);
 -- Table: tagMapping
 -- Junction (link) table between tag, and physicalMapPosition
 CREATE TABLE tagMapping (
@@ -38,6 +49,21 @@ CREATE TABLE physicalMapPosition (
 );
 CREATE UNIQUE INDEX physpos_idx ON physicalMapPosition(chromosome,physical_position,strand);
 CREATE INDEX phychrpos_idx ON physicalMapPosition(chromosome);
+
+-- Table: tagAlignments
+-- The ref_align_pos value is where tag1 aligned to tag2 when tag1=non-ref and tag2=ref
+-- With non-ref/ref tag comparisons, tag1 is always the non-ref and tag2 is the ref
+-- ref_align_position is oftn NOT the start of tag2 as tag2 may have differing
+-- length from tag1
+CREATE TABLE tagAlignments (
+    tagAlignId INTEGER   PRIMARY KEY,
+    tag1id	INTEGER,
+    tag2id  INTEGER,
+    tag1_isref  BOOLEAN,
+    tag2_isref  BOOLEAN,
+    score INTEGER,
+    ref_align_position  INTEGER
+);
 
 -- Table: mappingApproach
 CREATE TABLE mappingApproach (

@@ -11,6 +11,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 
+import net.maizegenetics.analysis.gbs.repgen.RefTagData;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
@@ -208,5 +209,10 @@ public interface RepGenData {
     PositionList getPhysicalMapPositions(boolean onlyBest);
 
     PositionList getPhysicalMapPositions(Chromosome chromosome, int firstPosition, int lastPosition, boolean onlyBest);
+    
+    /**
+     * Set of all reference tags
+     */
+    Set<RefTagData> getRefTags();
 
 }

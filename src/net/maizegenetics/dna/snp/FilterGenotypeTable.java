@@ -262,9 +262,9 @@ public class FilterGenotypeTable implements GenotypeTable {
         if ((subSites == null) || (subSites.length == 0)) {
             mySiteRedirect = new int[0];
         } else {
-            mySiteRedirect = new int[subSites.length];
-            Arrays.sort(subSites);
-            System.arraycopy(subSites, 0, mySiteRedirect, 0, subSites.length);
+            // Not copied because this constructor can only be called by this class
+            mySiteRedirect = subSites;
+            Arrays.sort(mySiteRedirect);
         }
         myRangeStart = -1;
         myRangeEnd = -1;
@@ -286,7 +286,13 @@ public class FilterGenotypeTable implements GenotypeTable {
 
     }
 
-    public static FilterGenotypeTable getInstance(GenotypeTable a, int[] subSites) {
+    public static GenotypeTable getInstance(GenotypeTable a, int[] subSites) {
+        
+        if (subSites.length > a.numberOfSites()) {
+            throw new IllegalArgumentException("FilterGenotypeTable: getInstance: subset of sites: " + subSites.length + " can't be more than original sites: " + a.numberOfSites());
+        } else if (subSites.length == a.numberOfSites()) {
+            return a;
+        }
 
         if (a instanceof FilterGenotypeTable) {
             FilterGenotypeTable original = (FilterGenotypeTable) a;
@@ -304,21 +310,25 @@ public class FilterGenotypeTable implements GenotypeTable {
                 }
                 return new FilterGenotypeTable(baseAlignment, newSubSites, original);
             } else if (original.isTaxaFilter()) {
-                return new FilterGenotypeTable(baseAlignment, subSites, original);
+                int[] newSubSites = new int[subSites.length];
+                System.arraycopy(subSites, 0, newSubSites, 0, subSites.length);
+                return new FilterGenotypeTable(baseAlignment, newSubSites, original);
             } else {
                 throw new IllegalStateException("FilterGenotypeTable: getInstance: original not in known state.");
             }
         } else {
-            return new FilterGenotypeTable(a, subSites, null);
+            int[] newSubSites = new int[subSites.length];
+            System.arraycopy(subSites, 0, newSubSites, 0, subSites.length);
+            return new FilterGenotypeTable(a, newSubSites, null);
         }
 
     }
 
-    public static FilterGenotypeTable getInstance(GenotypeTable a, List<String> siteNamesToKeep) {
+    public static GenotypeTable getInstance(GenotypeTable a, List<String> siteNamesToKeep) {
         return getInstance(a, siteNamesToKeep.toArray(new String[siteNamesToKeep.size()]));
     }
 
-    public static FilterGenotypeTable getInstance(GenotypeTable a, String[] siteNamesToKeep) {
+    public static GenotypeTable getInstance(GenotypeTable a, String[] siteNamesToKeep) {
 
         Arrays.sort(siteNamesToKeep);
         int[] temp = new int[siteNamesToKeep.length];
@@ -343,11 +353,11 @@ public class FilterGenotypeTable implements GenotypeTable {
 
     }
 
-    public static FilterGenotypeTable getInstanceRemoveSiteNames(GenotypeTable a, List<String> siteNamesToRemove) {
+    public static GenotypeTable getInstanceRemoveSiteNames(GenotypeTable a, List<String> siteNamesToRemove) {
         return getInstanceRemoveSiteNames(a, siteNamesToRemove.toArray(new String[siteNamesToRemove.size()]));
     }
 
-    public static FilterGenotypeTable getInstanceRemoveSiteNames(GenotypeTable a, String[] siteNamesToRemove) {
+    public static GenotypeTable getInstanceRemoveSiteNames(GenotypeTable a, String[] siteNamesToRemove) {
 
         Arrays.sort(siteNamesToRemove);
         int[] temp = new int[a.numberOfSites()];
@@ -369,7 +379,7 @@ public class FilterGenotypeTable implements GenotypeTable {
 
     }
 
-    public static FilterGenotypeTable getInstance(GenotypeTable a, PositionList subPositionList) {
+    public static GenotypeTable getInstance(GenotypeTable a, PositionList subPositionList) {
 
         int[] temp = new int[subPositionList.size()];
         int count = 0;

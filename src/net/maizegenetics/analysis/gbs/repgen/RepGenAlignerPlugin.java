@@ -13,7 +13,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,7 +48,6 @@ import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.util.OpenBitSet;
-import net.maizegenetics.util.Tuple;
 import net.maizegenetics.util.Utils;
 
 /**
@@ -58,7 +56,7 @@ import net.maizegenetics.util.Utils;
  * makes kmer seeds from these tags.  Window for kmer seeds is 50.
  * 
  * The ref genome is walked with a sliding window of 1. Reference tags are created
- * based on peaks where kmer seeds align.  
+ * based on peaks within clusters where kmer seeds align.  
  * 
  *  The kmerLen field should match the length of the kmers stored
  *  as tags during the RepGenLoadSeqToDBPlugin step.  The default is 150.
@@ -67,19 +65,31 @@ import net.maizegenetics.util.Utils;
  *  tags, but can be longer.  Our defaults are 150 for kmer tags, and
  *  twice this length (300) for the refKmerLen.  
  *  
- *  This plugin creates and stores the reference
- *  tags in the database.  The reference tags will be stored with the isReference
- *  tag set. Both the tag table and the physicalMapPosition table will
+ *  There are 2 count parameters:  minTagCount specifies the minimum depth
+ *  of a tag for it to be used when creating seed kmers.
+ *  
+ *  minHitCount specifies the number of "hits" that must occur within a sliding 
+ *  window (window size = refKmerLen) for the window to remain part of a cluser.
+ *  When sliding, if the hit count drops below the minhitCount threshold, the
+ *  cluster ends.  A new cluster does not begin until the hit count is back up
+ *  to threshold.  See createRefTagsForAlignment() and storeRefTagPositions()
+ *  for specifics.
+ *  
+ *  This plugin creates and stores the reference tags in the refTag table
+ *  in the database.   Both the tagMapping and the physicalMapPosition table will
  *  we populated with the reference tag information.
  *  
  *  Once the tables have been populated with the reference information,
- *  Smith Waterman will be run to align all the nonreference tags in the db 
- *  against each other, and then each non-reference tag against the reference tags.
+ *  Smith Waterman is run to align all the nonreference tags in the db 
+ *  against each other; each non-reference tag against the reference tags;
+ *  finally each refTag against all other refTags.
  *  
- *  WHere should this data be stored?
+ * ALignment data is stored in the tagAlignments table.
  * 
- * Smith Waterman is used
- * to determine alignment score.
+ * Smith Waterman from SourceForge neobio project is used
+ * to determine alignment score.  Settings for match rewards, mismatch penalty
+ * and gap penalty may be changed by user via plugin parameters.
+ * 
  * 
  * @author lcj34
  *
@@ -91,9 +101,11 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             .description("Input database file with tags and taxa distribution").build();
     private PluginParameter<String> refGenome = new PluginParameter.Builder<String>("ref", null, String.class).guiName("Reference Genome File").required(true)
             .description("Referemce Genome File for aligning against ").build();
-    private PluginParameter<Integer> myMinCount = new PluginParameter.Builder<Integer>("minCount", 1, Integer.class).guiName("Min Count")
+    private PluginParameter<Integer> minTagCount = new PluginParameter.Builder<Integer>("minTagCount", 1, Integer.class).guiName("Min Tag Count")
             .description("Minimum count of reads for a tag to be aligned").build();
-    private PluginParameter<Integer> seedLen = new PluginParameter.Builder<Integer>("seedLen", 16, Integer.class).guiName("Seed Kmer Length")
+    private PluginParameter<Integer> minHitCount = new PluginParameter.Builder<Integer>("minHitCount", 5, Integer.class).guiName("Minimum Hit Count")
+            .description("Minimum number of hits in a cluster for a reference tag to be created from that location.").build();
+    private PluginParameter<Integer> seedLen = new PluginParameter.Builder<Integer>("seedLen", 17, Integer.class).guiName("Seed Kmer Length")
             .description("Length of kmer seed created from DB tags and used as seeds for aligning against the reference genome.").build();
     private PluginParameter<Integer> kmerLen = new PluginParameter.Builder<Integer>("kmerLen", 150, Integer.class).guiName("Kmer Length")
             .description("Length of kmer from fastq reads stored as the tag sequence in the DB.").build();
@@ -141,9 +153,9 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         try {           
             System.out.println("RepGenAlignerPlugin:processData begin"); 
             RepGenDataWriter repGenData=new RepGenSQLite(inputDB());
-            Map<Tag, Integer> tagsWithDepth = repGenData.getTagsWithDepth(minCount());
+            Map<Tag, Integer> tagsWithDepth = repGenData.getTagsWithDepth(minTagCount());
             if (tagsWithDepth.isEmpty()) {
-                System.out.println("\nNo tags found with minimum depth " + minCount() + ". Halting Run.\n");
+                System.out.println("\nNo tags found with minimum depth " + minTagCount() + ". Halting Run.\n");
                 ((RepGenSQLite)repGenData).close();
                 return null;
             }
@@ -163,7 +175,6 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             myRefSequence = GenomeSequenceBuilder.instance(refGenome());            
   
             Set<Chromosome> chromsInRef = myRefSequence.chromosomes();
-            int kmersFound = 0;
             
             // Create hash of bitmaps for the chromosomes:
             Map<String, OpenBitSet> chromBitMaps = new ConcurrentHashMap<String,OpenBitSet>();
@@ -220,9 +231,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             
             System.out.println("Entering loop to find clusters" );
             Multimap<String,Integer> chromMaximaMap = HashMultimap.create(); // holds chrom/positions for creating refTag
-            // should refTagPositionMap be created as an immutable map within storeChromToMaximaMap?
             Multimap<Tag,Position> refTagPositionMap =  HashMultimap.create(); // holds ref tags and positions
-           // ImmutableMultimap.Builder<Tag,Position> refTagPosBuilder = ImmutableMultimap.builder();
 
             for (String chrom : chromBitMaps.keySet()) {
                 OpenBitSet chromHits = chromBitMaps.get(chrom);
@@ -233,81 +242,48 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             // add ref and mapping approach to db, then reference tags
             repGenData.addMappingApproach("SmithWaterman");
             repGenData.addReferenceGenome(refGenome());
-            repGenData.putTagAlignments(refTagPositionMap, refGenome());
             
-            // Get initial tags, before the ref tags are added.        
+            // Add ref tag and tags separately. Add to tagAlignment map,
+            repGenData.putRefTagMapping(refTagPositionMap, refGenome());
+            
+            // Get tags stored from RepGenLoadSeqToDB        
             Set<Tag> tagsToAlign = repGenData.getTags();
             List<Tag> tagList = new ArrayList<Tag>(tagsToAlign);
             
-            // These 2 need to be synchronized as they are accessed from within a parallel stream
-            Multimap<Tag,Tuple<Tag,Integer>> tagTagAlignMap = Multimaps.synchronizedMultimap(HashMultimap.<Tag,Tuple<Tag,Integer>>create());
-            Multimap<Tag,AlignmentInfo> tagRefAlignInfoMap = Multimaps.synchronizedMultimap(HashMultimap.<Tag,AlignmentInfo>create());
+            // Create synchronized map for use in parallel streams 
+            Multimap<Tag,AlignmentInfo> tagAlignInfoMap = Multimaps.synchronizedMultimap(HashMultimap.<Tag,AlignmentInfo>create());
+            Multimap<RefTagData,AlignmentInfo> refTagAlignInfoMap = Multimaps.synchronizedMultimap(HashMultimap.<RefTagData,AlignmentInfo>create());
             
             // First align the tags against each other
-            // Output of this is stored in db table allelepair
-            // Output is NOT stored in tagMapping o physicalMap table as this set
-            // is not aligned against the reference.  That code is below
-            System.out.println("LCJ _ calling calculateTagTagALignment for tags without refs");
-            calculateTagTagAlignment( tagList, tagTagAlignMap);
-            repGenData.putAllelePairs(tagTagAlignMap); // storing the tag/tag alignments into the allelePair table
-                       
-            // Next, align the tags against the reference
-            // Output of this is stored in both allelepair and physicalMapPosition tables
-            tagTagAlignMap.clear();
+            // Output of this is stored in db table tagAlignments
+            System.out.println("Calling calculateTagTagAlignment for tags without refs");
+            
+            calculateTagTagAlignment( tagList, tagAlignInfoMap);
+            System.out.println("Number of tag-tag alignments: " + tagAlignInfoMap.size() + ", store to db.");
+            // neither tag is reference, null and -1 for tag1 chrom/pos
+            repGenData.putTagAlignments(tagAlignInfoMap, false,false, null,-1,refGenome());
  
-            System.out.println("LCJ _ calling calculateTagRefTagALignment for tags WITH ref");
-            calculateTagRefTagAlignment(tagList,refTagPositionMap,tagTagAlignMap,tagRefAlignInfoMap);
-            // Add the tag-refTag info to the allelepair table.
-            // The refTag physical map positions are added below when repGenData.putTagAlignments is called
-            repGenData.putAllelePairs(tagTagAlignMap);
+            System.out.println("Calling calculateTagRefTagALignment for tags WITH ref");
+            Set<RefTagData> refTags = repGenData.getRefTags();
+            List<RefTagData> refTagList = new ArrayList<RefTagData>(refTags);
             
-            // map of tag/positions to store in the db
-            // Ed's notes show a multimap, but I thought each tag got 1 position best
-            // on the physical map.  Here, we run through  each tag's ALignmentInfo data and
-            // store the one with the best score.
-            Multimap<Tag,Position> kmerPositionMap =  HashMultimap.create();
-           
-            Set<Tag> tagSet= tagRefAlignInfoMap.keySet();
-            Iterator<Tag> tagIterator = tagSet.iterator();
+            tagAlignInfoMap.clear(); // remove old data
+            calculateTagRefTagAlignment(tagList,refTagList,tagAlignInfoMap);
+            // Add the tag-refTag info to the tagAlignments table.           
+            // tag1=nonref, tag2=ref, null and -1 for tag1 
+            System.out.println("Number of tag-refTag alignments: " + tagAlignInfoMap.size() + ", store to db.");
+            repGenData.putTagAlignments(tagAlignInfoMap,false,true,null,-1,refGenome());
             
-            System.out.println("\nAlignments are finished, total number of kmers matched in all chromosomes:" + kmersFound);
-            System.out.println("\n Start loop to select best alignments");
+            System.out.println("Calling calculateRefRefAlignment");
             
-            // tagRefAlignInfoMap was populated in calculateTagRefTagaAlignment() above
-            // THe map contains ALL the alignments for each tag.  Here we grab the best on
-            // and store it.  If a tie, currently the first "best" encountered is stored.
-            
-            while (tagIterator.hasNext()) {
-                Tag tag = (Tag)tagIterator.next();               
-                Collection<AlignmentInfo>  alignments = tagRefAlignInfoMap.get(tag);
-                List<AlignmentInfo> alignmentList = new ArrayList<AlignmentInfo>(alignments);
-                
-                AlignmentInfo bestAlignment = alignmentList.get(0);
-                int bestScore = -1;
-                for (AlignmentInfo ai : alignmentList) {
-                    if (ai.score() > bestScore) {
-                        bestAlignment = ai;
-                        bestScore = bestAlignment.score();
-                    }
-                }
-                Chromosome chromosome = new Chromosome(bestAlignment.chromosome());
-                Position position=new GeneralPosition
-                        .Builder(chromosome,bestAlignment.position())
-                        .strand((byte)1) // default to forward for now
-                        .addAnno("mappingapproach", "SmithWaterman")
-                        .build();
-                // create Position object from alignment data
-                kmerPositionMap.put(tag, position);
-            }            
-            System.out.println("\n Calling put TagAlignments to add to DB");
- 
-            // Add tags and alignment to db
-            repGenData.putTagAlignments(kmerPositionMap, refGenome());            
+            calculateRefRefAlignment(refTagList,refTagPositionMap,refTagAlignInfoMap);
+            System.out.println("Number of reftag-reftag alignments: " + refTagAlignInfoMap.size() + ", store to db.");
+            repGenData.putRefRefAlignments(refTagAlignInfoMap, refGenome()); // CREATE putRefRefAlignments -  different parameters
             ((RepGenSQLite)repGenData).close();
 
             myLogger.info("Finished RepGenAlignerPlugin\n");
         } catch (Exception e) {
-            myLogger.info("Catch in reading TagCount file e=" + e);
+            myLogger.info("Catch in prcessing REpGEnALignerPlugin file e=" + e);
             e.printStackTrace();
         }
         System.out.println("Process took " + (System.nanoTime() - totalTime)/1e9 + " seconds.\n");
@@ -333,8 +309,8 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         // positionsInPeak is a sorted list.
         int size = positionsInPeak.size();
         
-        if (size < minCount()) {
-            System.out.println("LCJ - dropping peak number " + peaknum + ", only " + size + " positions in peak.");
+        if (size < minHitCount()) {
+            System.out.println("storeRefTagPosition: dropping peak number " + peaknum + ", only " + size + " positions in cluster.");
             return;
         }
         int start = positionsInPeak.get(0);
@@ -355,7 +331,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         // Convert to allele string
         String refString = NucleotideAlignmentConstants.nucleotideBytetoString(refTagBytes);
         if (refString.contains("N") || refString.contains("null")) {
-            System.out.println("LCJ - storeRefTagPositions... refString contains N or null: " + refString); 
+            System.out.println("StoreRefTagPositions... refString contains N or null: " + refString); 
             // If the ref string has N's in it, cut it back to the same size as 
             // the kmer and re-grab it.  if it still has N's, discard
             lowpos = maxima - (kmerLen()/2);
@@ -475,7 +451,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             // Only store positions with hit counts where the hit count meets our minimum
             // May make sense to create the tag here.  Would mean we don't have to
             // traverse this map later to find positions to create the tags                                       
-            if (currentTotal >= minCount()) {
+            if (currentTotal >= minHitCount()) {
                 if (belowMin) {
                     // We dropped out of minimum, but
                     // now the counts are back up. So start a new peak
@@ -491,7 +467,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         }   
         
         // Algorithm to find maximas (per Peter):
-        //  Only store the positions that have at least the minCount number of hits.
+        //  Only store the positions that have at least the minHitCount number of hits.
         //  Whenever the hit count drops below the min, we stop adding positions for this
         //  peak
         //  When the hit count get back up to min count, we start a new peak and
@@ -514,14 +490,18 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             storeRefTagPositions( peak,positionsInPeak, chromMaximaMap, chrom,chromSize,refTagPositionMap);
         });
                  
-        // write out to a file for debug
-        //writeToFile( chrom, chromMaximaMap); // writes to Lynn's directory 
+        // write out to a file for debug.  The cluster maxima positions are printed
+        // for each cluster.  These used to create ref tags.  File output shows  the 
+        // number of reference tags created for each chromosome, as well as the spacing 
+        // between them. 
+        //writeToFile( chrom, chromMaximaMap, minHitCount()); // writes to Lynn's directory 
     }
-    // this one calculates tag against tag alignment from the tags in the DB
-    // BEFORE the ref tags were added.
-    private void calculateTagTagAlignment(List<Tag> tags, Multimap<Tag,Tuple<Tag,Integer>> tagTagAlignMap){
+    
+    // this calculates tag against tag alignment from the tags in the DB
+    // from the tag table (not the refTag table)
+    private void calculateTagTagAlignment(List<Tag> tags, Multimap<Tag,AlignmentInfo> tagAlignInfoMap){
         long totalTime = System.nanoTime();
-        // For each tag on the tags list, run SW against it and store in allelePair table 
+        // For each tag on the tags list, run SW against it and store in tagTagAlignMap 
         tags.parallelStream().forEach(tag1 -> {
             for (Tag tag2: tags) {
                 if (tag1.equals(tag2)) continue; // don't aligne against yourself
@@ -548,82 +528,113 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                 } catch (IncompatibleScoringSchemeException isse) {
                     isse.printStackTrace();
                 }
-                Tuple<Tag,Integer> tagAI = new Tuple<Tag,Integer>(tag2,score);
-                tagTagAlignMap.put(tag1,tagAI);
+                // for tag/tag, we have no chrom or position or alignment position.  Store "null" and -1
+                AlignmentInfo tagAI = new AlignmentInfo(tag2,null,-1,-1,score);
+                tagAlignInfoMap.put(tag1,tagAI);
             }
         });
-        System.out.println("TotalTime for calculateTagTagAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
+        System.out.println("Number of tags: " + tags.size() + ", TotalTime for calculateTagTagAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
     }
     
-    // This calculates alignment of each tag against the reference tags.
-    // We do this separately as these values need to be added to both the allelepair
-    // and the physicalMapPosition tables.  This is also done separately to avoid
-    // aligning reference tag against reference tag.
-    private void calculateTagRefTagAlignment(List<Tag> tags, Multimap<Tag,Position> refTagPosMap,
-            Multimap<Tag,Tuple<Tag,Integer>> tagTagAlignMap,Multimap<Tag,AlignmentInfo> tagAlignInfoMap){
+    // This calculates alignment of each tag against each reference tag.
+    private void calculateTagRefTagAlignment(List<Tag> tags, List<RefTagData> refTagDataList,
+            Multimap<Tag,AlignmentInfo> tagAlignInfoMap){
         long totalTime = System.nanoTime();
-        // For each tag on the tags list, run SW against it and store in allelePair table  
+        // For each tag on the tags list, run SW against it and store in tagAlignInfoMap  
         tags.parallelStream().forEach(tag1 -> {          
-            for (Tag tag2 : refTagPosMap.keySet()) {
-                Collection<Position> positions = refTagPosMap.get(tag2);
-                // The tags will all be the same, so the score will be the same
-                // if the same ref tag sequence occurs in multiple places.  SO how to choose??
- 
-                for (Position pos: positions) {
-                    // Check all positions, but the alignment should be the same
-                    // if all are the same, which one to store?
-                    // Notes from Ed say to toss if the tag physically maps to
-                    // more than 1 chromosome.  keep if it physically maps to
-                    // more than 1 place on same chromosome.
- 
-                    String seq1 = tag1.sequence();
-                    String seq2 = tag2.sequence();
-                    Reader reader1 = new StringReader(seq1);
-                    Reader reader2 = new StringReader(seq2);
+            for (RefTagData rtd : refTagDataList) {
+                Tag tag2 = rtd.tag();
+                
+                String seq1 = tag1.sequence();
+                String seq2 = tag2.sequence();
+                Reader reader1 = new StringReader(seq1);
+                Reader reader2 = new StringReader(seq2);
 
-                    PairwiseAlignmentAlgorithm  algorithm;
-                    ScoringScheme  scoring;
-                    PairwiseAlignment alignment;
+                PairwiseAlignmentAlgorithm  algorithm;
+                ScoringScheme  scoring;
+                PairwiseAlignment alignment;
 
-                    algorithm = new SmithWaterman();
-                    scoring = new BasicScoringScheme(match_reward(),mismatch_penalty(),gap_penalty());
-                    algorithm.setScoringScheme(scoring);
-                    int score;
-                    int refAlignStartPos = pos.getPosition();
-                    int tagAlignOffset = 0; // ajust incase SW sligns from somewhere in the middle of the tag
-                    try {
-                        algorithm.loadSequences(reader1, reader2);
-                        score = algorithm.getScore(); // get score
-                        alignment = algorithm.getPairwiseAlignment(); // compute alignment
-                      
-                        // The first sequence given in loadSequences() is loaded into rows.
-                        // The second is loaded into columns (matrix[seq1][seq2]
-                        tagAlignOffset = alignment.getRowStart();
-                        refAlignStartPos += alignment.getColStart();
-                        
-                        if (tagAlignOffset > 0) {
-                            refAlignStartPos -= tagAlignOffset;
-                        }
-                        // If clipping has dropped us below the start of the reference genome, skip it
-                        if (refAlignStartPos < 0) continue;
-                        Tuple<Tag,Integer> tagAllelePairInfo = new Tuple<Tag,Integer>(tag2,score);
-                        tagTagAlignMap.put(tag1,tagAllelePairInfo); // Data to be stored in allelepair table
-                        
-                        AlignmentInfo tagAI = new AlignmentInfo(tag2,pos.getChromosome().getName(),refAlignStartPos,score);
-                        tagAlignInfoMap.put(tag1, tagAI); // data to be stored into physialMapPosition table
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    } catch (InvalidSequenceException e) {
-                        e.printStackTrace();
-                    } catch (IncompatibleScoringSchemeException e) {
-                        e.printStackTrace();
-                    }                                        
-                } 
+                algorithm = new SmithWaterman();
+                scoring = new BasicScoringScheme(match_reward(),mismatch_penalty(),gap_penalty());
+                algorithm.setScoringScheme(scoring);
+                int score;
+                int refAlignStartPos = rtd.position();
+                int tagAlignOffset = 0; // ajust incase SW sligns from somewhere in the middle of the tag
+                try {
+                    algorithm.loadSequences(reader1, reader2);
+                    score = algorithm.getScore(); // get score
+                    alignment = algorithm.getPairwiseAlignment(); // compute alignment
+                  
+                    // The first sequence given in loadSequences() is loaded into rows. THis is non-refTag
+                    // The second is loaded into columns (matrix[seq1][seq2] - this is the refTag
+                    tagAlignOffset = alignment.getRowStart();
+                    refAlignStartPos += alignment.getColStart();
+                    
+                    if (tagAlignOffset > 0) {
+                        // Tag was not aligned from the beginning,
+                        // add back the bps that were skipped so alignment begins at start of the tag
+                        refAlignStartPos -= tagAlignOffset;
+                    }
+                    // If clipping has dropped us below the start of the reference genome, skip it
+                    if (refAlignStartPos < 0) continue;
+                    
+                    // The ref tag start position is needed in RepGenSQLite to create a
+                    // RefTagData object.  This is stored in the BiMap and used along with chrom to distinguish
+                    // one tag from another.  The actual alignment position is also needed (refAlignStartPos)
+                    // for the tagAlignments table.
+                    AlignmentInfo tagAI = new AlignmentInfo(tag2,rtd.chromosome(),rtd.position(),refAlignStartPos,score);
+                    tagAlignInfoMap.put(tag1, tagAI); // data to be stored into tagAlignments table
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } catch (InvalidSequenceException e) {
+                    e.printStackTrace();
+                } catch (IncompatibleScoringSchemeException e) {
+                    e.printStackTrace();
+                }                                        
+
             } 
         });
-        System.out.println("TotalTime for calculateTagRefTagAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
+        System.out.println("Num tags: " + tags.size() + ", Num refTags: " + refTagDataList.size() + ", TotalTime for calculateTagRefTagAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
     }
     
+    // This calculates alignment of  reference tags against each other.
+    private void calculateRefRefAlignment(List<RefTagData> refTags, Multimap<Tag,Position> refTagPosMap,
+            Multimap<RefTagData,AlignmentInfo> refTagAlignInfoMap){
+        long totalTime = System.nanoTime();
+        // For each tag on the reftags list, run SW against all other tags in the list
+       refTags.parallelStream().forEach(tag1 -> {
+            for (RefTagData tag2: refTags) {
+                if (tag1.equals(tag2)) continue; // don't align against yourself
+                String seq1 = tag1.tag().sequence();
+                String seq2 = tag2.tag().sequence();
+                Reader reader1 = new StringReader(seq1);
+                Reader reader2 = new StringReader(seq2);
+
+                PairwiseAlignmentAlgorithm  algorithm;
+                ScoringScheme  scoring;
+                algorithm = new SmithWaterman();
+                scoring = new BasicScoringScheme(match_reward(),mismatch_penalty(),gap_penalty());
+                algorithm.setScoringScheme(scoring);
+                int score = 0;
+
+                try {
+                    algorithm.loadSequences(reader1, reader2);
+                    // for reftag-reftag alignment, we are only computing the score
+                    score = algorithm.getScore();
+                } catch (IOException ioe) {
+                    ioe.printStackTrace();
+                } catch (InvalidSequenceException ise) {
+                    ise.printStackTrace();
+                } catch (IncompatibleScoringSchemeException isse) {
+                    isse.printStackTrace();
+                }
+                // for reftag/reftag, we have no alignment position .  Store -1
+                AlignmentInfo tagAI = new AlignmentInfo(tag2.tag(),tag2.chromosome(),tag2.position(),-1,score);
+                refTagAlignInfoMap.put(tag1,tagAI);
+            }
+        }); 
+        System.out.println("Number of refTags: " + refTags.size() + ", TotalTime for calculateREfRefAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
+    }
     // Checks for non ACGT character in kmer.  If found, returns the deviate
     // position in the array.  If not found, -1 is returned. -1 is good return
     private int checkForN(byte[] kmer) {
@@ -642,8 +653,9 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
 
     
     // write to a file for debug
-    public static void writeToFile(String chrom, Multimap<String,Integer> chromMaximaMap) {
-        String outFile = "/Users/lcj34/notes_files/repgen/junit_out/chrom" + chrom + "peakMaximaPositions.txt";
+    public static void writeToFile(String chrom, Multimap<String,Integer> chromMaximaMap, int minCount) {
+        String outFile = "/Users/lcj34/notes_files/repgen/junit_out/chrom" + chrom + "_peakMaximaPositions_minCount"
+                    + minCount + ".txt";
         BufferedWriter bw = Utils.getBufferedWriter(outFile);
         // Print the positions for this chrom
         Collection<Integer> maximaForChrom = chromMaximaMap.get(chrom);
@@ -750,8 +762,8 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
      *
      * @return Min Count
      */
-    public Integer minCount() {
-        return myMinCount.value();
+    public Integer minTagCount() {
+        return minTagCount.value();
     }
 
     /**
@@ -762,11 +774,33 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public RepGenAlignerPlugin minCount(Integer value) {
-        myMinCount = new PluginParameter<>(myMinCount, value);
+    public RepGenAlignerPlugin minTagCount(Integer value) {
+        minTagCount = new PluginParameter<>(minTagCount, value);
         return this;
     }
     
+    /**
+     * Minimum count of hits in a cluster for a reference tag
+     * to be created for this cluster
+     *
+     * @return Min Count
+     */
+    public Integer minHitCount() {
+        return minHitCount.value();
+    }
+
+    /**
+     * Set Min Count. Minimum count of hits in a cluster for a 
+     * reference tag to be created fro this cluster
+     *
+     * @param value Min Count
+     *
+     * @return this plugin
+     */
+    public RepGenAlignerPlugin minHitCount(Integer value) {
+        minHitCount = new PluginParameter<>(minHitCount, value);
+        return this;
+    }
     /**
      * Length of seed kmers
      *
@@ -903,89 +937,3 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         return this;
     }
 }
-
-class RefTagData {
-    private final String sequence;
-    private final String chromosome;
-    private final int mappedPosition;
-    private final int maximaPosition;
-    
-    public RefTagData (String sequence, String chromosome, int mappedPosition, int maximaPosition) {
-        this.sequence = sequence;
-        this.chromosome = chromosome;
-        this.mappedPosition = mappedPosition;
-        this.maximaPosition = maximaPosition;
-    }
-    public String sequence() {
-        return sequence;
-    }
-    public String chromosome() {
-        return chromosome;
-    }
-
-    public int mappedPosition() {
-        return mappedPosition;
-    }
-    
-    public  int maximaPosition() {
-        return maximaPosition;
-    }
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder("RefTagData:");
-        sb.append("\tSequence:").append(sequence);
-        sb.append("\tChr:").append(chromosome);
-        sb.append("\tStarting or Mapped Pos:").append(mappedPosition);
-        sb.append("\tCalculated Maxima Pos:").append(maximaPosition);
-        sb.append("\n");
-        return sb.toString();
-    }
-}
-
-// Use this class when aligning tags against each other.
-// The info will be kept
-class AlignmentInfo implements Comparable<AlignmentInfo>{
-    private final Tag tag2;
-    private  final String myChromosome;
-    private  final int myPosition;
-    private  final int myScore;
-
-    public AlignmentInfo(Tag tag2, String chromosome, int position, int score) {
-        this.tag2 = tag2;
-        this.myChromosome = chromosome;
-        this.myPosition = position;
-        this.myScore = score;
-    }
-
-    public Tag tag2() {
-        return tag2;
-    }
-    public String chromosome() {
-        return myChromosome;
-    }
-
-    public int position() {
-        return myPosition;
-    }
-    
-    public  int score() {
-        return myScore;
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder("Alignment:");
-        sb.append("\tTag2:").append(tag2.sequence());
-        sb.append("\tChr:").append(myChromosome);
-        sb.append("\tPos:").append(myPosition);
-        sb.append("\tScore:").append(myScore);
-        sb.append("\n");
-        return sb.toString();
-    }
-    @Override
-    public int compareTo(AlignmentInfo other) {
-        // TODO Auto-generated method stub
-        return this.myScore > other.score() ? 1: this.myScore < other.score() ? -1 : 0;
-    }
-}
-
