@@ -53,7 +53,7 @@ import net.maizegenetics.util.Utils;
 /**
  * This plugin takes an existing repGen db, grabs the tags
  * whose depth meets that specified in the minCount parameter,
- * makes kmer seeds from these tags.  Window for kmer seeds is 50.
+ * makes kmer seeds from these tags.  Window for kmer seeds is default 50.
  * 
  * The ref genome is walked with a sliding window of 1. Reference tags are created
  * based on peaks within clusters where kmer seeds align.  
@@ -103,10 +103,12 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             .description("Referemce Genome File for aligning against ").build();
     private PluginParameter<Integer> minTagCount = new PluginParameter.Builder<Integer>("minTagCount", 1, Integer.class).guiName("Min Tag Count")
             .description("Minimum count of reads for a tag to be aligned").build();
-    private PluginParameter<Integer> minHitCount = new PluginParameter.Builder<Integer>("minHitCount", 5, Integer.class).guiName("Minimum Hit Count")
+    private PluginParameter<Integer> minHitCount = new PluginParameter.Builder<Integer>("minHitCount", 4, Integer.class).guiName("Minimum Hit Count")
             .description("Minimum number of hits in a cluster for a reference tag to be created from that location.").build();
     private PluginParameter<Integer> seedLen = new PluginParameter.Builder<Integer>("seedLen", 17, Integer.class).guiName("Seed Kmer Length")
             .description("Length of kmer seed created from DB tags and used as seeds for aligning against the reference genome.").build();
+    private PluginParameter<Integer> seedWindow = new PluginParameter.Builder<Integer>("seedWindow", 20, Integer.class).guiName("Window Length for Seed Creation")
+            .description("Length of window between positions when creating seed from DB tags.").build();
     private PluginParameter<Integer> kmerLen = new PluginParameter.Builder<Integer>("kmerLen", 150, Integer.class).guiName("Kmer Length")
             .description("Length of kmer from fastq reads stored as the tag sequence in the DB.").build();
     private PluginParameter<Integer> refKmerLen = new PluginParameter.Builder<Integer>("refKmerLen", 300, Integer.class).guiName("Reference Kmer Length")
@@ -161,11 +163,12 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             }
             
             Multimap<String,Tag> kmerTagMap = HashMultimap.create();
-            int window = 20;                      
-            System.out.println("Calling createKmerSeedsFromDBTags");
+                          
+            System.out.println("Calling createKmerSeedsFromDBTags with window size: " + seedWindow());
            // Create map of kmer seeds from db tags
-            createKmerSeedsFromDBTags(tagsWithDepth, kmerTagMap,  window);
-            System.out.println("TotalTime for createKmerSeedsFromDBTags was " + (System.nanoTime() - time) / 1e9 + " seconds");
+            createKmerSeedsFromDBTags(tagsWithDepth, kmerTagMap,  seedWindow());
+            System.out.println("Num distinct kmerSeeds created: " + kmerTagMap.keySet().size() + 
+                    ", kmerTagMap size is:" + kmerTagMap.size() + ",TotalTime for createKmerSeedsFromDBTags was " + (System.nanoTime() - time) / 1e9 + " seconds");
  
             System.out.println("Size of tagsWithDepth: " + tagsWithDepth.size());
             System.out.println("Size of kmerTagMap keyset: " + kmerTagMap.keySet().size());
@@ -183,6 +186,10 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             // For each chrom in refSequence, walk the refSequence looking for kmers
             // matching those in the kmerTagMap.  Store hit positions in per-chromosome
             // bitmaps to be used for creating ref tags for aligning.
+            
+            // LCJ _ remove this map and the writing of it !!
+            List<Integer> chrom9hits = new ArrayList<Integer>();
+            // LCJ - end remove - look for writing it below
             chromsInRef.parallelStream().forEach(chrom -> { 
                   // Turn this on/off for debug purposes
                   //if (chrom.getChromosomeNumber() != 9) return; // just for initial testing !!! - remove
@@ -213,9 +220,18 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                       if (kmerTagMap.containsKey(chromKmerString)){
                           kmersForChrom++;                         
                           chromBits.fastSet(chromIdx);  // set position in the bitmap
-                      }                                                     
+                          // LCJ - debug - comment out before committing!!"
+//                          if (chrom.getChromosomeNumber() == 9) {
+//                              chrom9hits.add(chromIdx);
+//                          } 
+                          // LCJ - end comment out
+                      }                                                 
                       chromIdx++; // after processing, slide up by 1  
                   }
+                  // LCJ -  below is debug !!!!  Comment out before committing !!
+                  //System.out.println("LCJ - calling writeChrom9Bits");
+                  //writeChrom9Bits(chrom9hits);
+                  // LCJ - end comment out !!
                   chromBitMaps.put(chrom.getName(), chromBits); 
                   System.out.println("Total tag seeds matching to kmers in chrom " + chrom.getName() + ": " 
                       + kmersForChrom + ", total fastBits set via cardinality: " + chromBits.cardinality());             
@@ -238,7 +254,8 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                 createRefTagsForAlignment(chromHits, chrom, chromMaximaMap, refTagPositionMap);
             }
             
-            System.out.println("\nNumber of refTags to be loaded into db: " + refTagPositionMap.keySet().size());
+            System.out.println("\nNumber of distinct refTags to be loaded into db: " 
+              + refTagPositionMap.keySet().size() + " total refTags: " + refTagPositionMap.size());
             // add ref and mapping approach to db, then reference tags
             repGenData.addMappingApproach("SmithWaterman");
             repGenData.addReferenceGenome(refGenome());
@@ -269,13 +286,14 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             
             tagAlignInfoMap.clear(); // remove old data
             calculateTagRefTagAlignment(tagList,refTagList,tagAlignInfoMap);
+            
             // Add the tag-refTag info to the tagAlignments table.           
-            // tag1=nonref, tag2=ref, null and -1 for tag1 
-            System.out.println("Number of tag-refTag alignments: " + tagAlignInfoMap.size() + ", store to db.");
+            // tag1=nonref, tag2=ref, null and -1 for tag1 .  Alignment will be
+            // done twice:  once for tag/refTag-fwd, once for tag/refTag-reverse
+            System.out.println("Number of tag-refTag alignments, includes aligning to ref fwd and reverse strands: " + tagAlignInfoMap.size() + ", store to db.");
             repGenData.putTagAlignments(tagAlignInfoMap,false,true,null,-1,refGenome());
             
-            System.out.println("Calling calculateRefRefAlignment");
-            
+            System.out.println("Calling calculateRefRefAlignment");            
             calculateRefRefAlignment(refTagList,refTagPositionMap,refTagAlignInfoMap);
             System.out.println("Number of reftag-reftag alignments: " + refTagAlignInfoMap.size() + ", store to db.");
             repGenData.putRefRefAlignments(refTagAlignInfoMap, refGenome()); // CREATE putRefRefAlignments -  different parameters
@@ -305,7 +323,6 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
     // so the physical site, and any annotations can be used.
     private void storeRefTagPositions(int peaknum,List<Integer> positionsInPeak,Multimap<String,Integer> chromMaximaMap, 
             String chrom, long chromSize, Multimap<Tag, Position> refTagPositionMap) {
-        
         // positionsInPeak is a sorted list.
         int size = positionsInPeak.size();
         
@@ -365,7 +382,9 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             } else {
                 System.out.println("- refTag is NULL for refString: " + refString);
             } 
-        }       
+        } 
+        // DEBUG - COMMENT THIS OUT !!!
+        //writePeakPositions(chrom,peaknum,positionsInPeak);
     }
     
     private void createKmerSeedsFromDBTags(Map<Tag, Integer> tagWithDepth,
@@ -528,8 +547,8 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                 } catch (IncompatibleScoringSchemeException isse) {
                     isse.printStackTrace();
                 }
-                // for tag/tag, we have no chrom or position or alignment position.  Store "null" and -1
-                AlignmentInfo tagAI = new AlignmentInfo(tag2,null,-1,-1,score);
+                // for tag/tag, we have no chrom or position or strand or alignment position.  Store "null" and -1
+                AlignmentInfo tagAI = new AlignmentInfo(tag2, null, -1, -1, -1, score);
                 tagAlignInfoMap.put(tag1,tagAI);
             }
         });
@@ -543,6 +562,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         // For each tag on the tags list, run SW against it and store in tagAlignInfoMap  
         tags.parallelStream().forEach(tag1 -> {          
             for (RefTagData rtd : refTagDataList) {
+                // Create alignment against both refTag and reverse complement of refTag
                 Tag tag2 = rtd.tag();
                 
                 String seq1 = tag1.sequence();
@@ -576,14 +596,37 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                         refAlignStartPos -= tagAlignOffset;
                     }
                     // If clipping has dropped us below the start of the reference genome, skip it
-                    if (refAlignStartPos < 0) continue;
+                    if (refAlignStartPos >= 0) {
+                        // The ref tag start position is needed in RepGenSQLite to create a
+                        // RefTagData object.  This is stored in the BiMap and used along with chrom to distinguish
+                        // one tag from another.  The actual alignment position is also needed (refAlignStartPos)
+                        // for the tagAlignments table.
+                        AlignmentInfo tagAI = new AlignmentInfo(tag2,rtd.chromosome(),rtd.position(),refAlignStartPos, 1,score);
+                        tagAlignInfoMap.put(tag1, tagAI); // data to be stored into tagAlignments table
+                    }
+                                       
+                    // Now align against the reverse complement of the refTag
+                    reader1 = new StringReader(seq1); // readers must be reset
+                    seq2 = tag2.toReverseComplement();
+                    reader2 = new StringReader(seq2);
+                    algorithm.unloadSequences(); 
+                    algorithm.loadSequences(reader1, reader2);
+                    score = algorithm.getScore(); // get score
+                    alignment = algorithm.getPairwiseAlignment(); // compute alignment                 
+                    tagAlignOffset = alignment.getRowStart();
+                    refAlignStartPos += alignment.getColStart();
                     
-                    // The ref tag start position is needed in RepGenSQLite to create a
-                    // RefTagData object.  This is stored in the BiMap and used along with chrom to distinguish
-                    // one tag from another.  The actual alignment position is also needed (refAlignStartPos)
-                    // for the tagAlignments table.
-                    AlignmentInfo tagAI = new AlignmentInfo(tag2,rtd.chromosome(),rtd.position(),refAlignStartPos,score);
-                    tagAlignInfoMap.put(tag1, tagAI); // data to be stored into tagAlignments table
+                    if (tagAlignOffset > 0) {
+                        // Tag was not aligned from the beginning,
+                        // add back the bps that were skipped so alignment begins at start of the tag
+                        refAlignStartPos -= tagAlignOffset;
+                    }
+                    // If clipping has dropped us below the start of the reference genome, skip it
+                    if (refAlignStartPos >= 0) {
+                        AlignmentInfo tagAI = new AlignmentInfo(tag2,rtd.chromosome(),rtd.position(),refAlignStartPos, 0,score);
+                        tagAlignInfoMap.put(tag1, tagAI); // data to be stored into tagAlignments table
+                    }
+                                       
                 } catch (IOException e) {
                     e.printStackTrace();
                 } catch (InvalidSequenceException e) {
@@ -628,8 +671,10 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                 } catch (IncompatibleScoringSchemeException isse) {
                     isse.printStackTrace();
                 }
-                // for reftag/reftag, we have no alignment position .  Store -1
-                AlignmentInfo tagAI = new AlignmentInfo(tag2.tag(),tag2.chromosome(),tag2.position(),-1,score);
+                // for reftag/reftag, we have no alignment position .  Store -1.  
+                // both alignment positions and reference strand (which is 1 for both) are ignored params
+                // for ref-ref alignment.
+                AlignmentInfo tagAI = new AlignmentInfo(tag2.tag(),tag2.chromosome(),tag2.position(),-1, 1,score);
                 refTagAlignInfoMap.put(tag1,tagAI);
             }
         }); 
@@ -668,6 +713,71 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             int count = 0;
             for (int idx = 0; idx < chromValues.size(); idx++) {
                 String hits = Integer.toString(chromValues.get(idx));
+                sb.append(hits);
+                sb.append("\n");
+                count++;
+                if (count > 100000) {
+                    bw.write(sb.toString());
+                    count = 0;
+                    sb.setLength(0);
+                }                       
+            }
+            if (count > 0) {
+                // write last lines
+                bw.write(sb.toString());
+            }
+            bw.close();
+        } catch (IOException ioe) {
+            System.out.println("LCJ - exception writing file " + outFile);
+            ioe.printStackTrace();
+        } 
+    }
+    
+    public static void writePeakPositions(String chrom, int peak, List<Integer> peakPositions) {
+        String outFile = "/Users/lcj34/notes_files/repgen/junit_out/chrom" + chrom + "_peak" + peak + "_positions.txt";
+                    
+        BufferedWriter bw = Utils.getBufferedWriter(outFile);
+        // Print the positions for this chrom
+        
+        System.out.println("Total number of  positions for peak " + peak
+                + " is " + peakPositions.size() + ". Writing them to file " + outFile + " .... ");                              
+        try {
+            StringBuilder sb = new StringBuilder();
+            int count = 0;
+            for (int idx = 0; idx < peakPositions.size(); idx++) {
+                String hits = Integer.toString(peakPositions.get(idx));
+                sb.append(hits);
+                sb.append("\n");
+                count++;
+                if (count > 100000) {
+                    bw.write(sb.toString());
+                    count = 0;
+                    sb.setLength(0);
+                }                       
+            }
+            if (count > 0) {
+                // write last lines
+                bw.write(sb.toString());
+            }
+            bw.close();
+        } catch (IOException ioe) {
+            System.out.println("LCJ - exception writing file " + outFile);
+            ioe.printStackTrace();
+        } 
+    }
+
+    public static void writeChrom9Bits(List<Integer> peakPositions) {
+        String outFile = "/Users/lcj34/notes_files/repgen/junit_out/chrom9bit_positions.txt";
+                    
+        BufferedWriter bw = Utils.getBufferedWriter(outFile);
+        // Print the positions for this chrom
+        
+        System.out.println("Total number of  positions for chrom9: " + peakPositions.size());                            
+        try {
+            StringBuilder sb = new StringBuilder();
+            int count = 0;
+            for (int idx = 0; idx < peakPositions.size(); idx++) {
+                String hits = Integer.toString(peakPositions.get(idx));
                 sb.append(hits);
                 sb.append("\n");
                 count++;
@@ -820,6 +930,29 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
      */
     public RepGenAlignerPlugin seedLen(Integer value) {
         seedLen = new PluginParameter<>(seedLen, value);
+        return this;
+    }
+    
+    /**
+     * Length of window between positions 
+     * when creating seed from DB tags
+     *
+     * @return seed window
+     */
+    public Integer seedWindow() {
+        return seedWindow.value();
+    }
+
+    /**
+     * Set Seed window length. Length of window 
+     * between positions when creating seed from DB tags
+     *
+     * @param value seed length
+     *
+     * @return this plugin
+     */
+    public RepGenAlignerPlugin seedWindow(Integer value) {
+        seedWindow = new PluginParameter<>(seedWindow, value);
         return this;
     }
     /**

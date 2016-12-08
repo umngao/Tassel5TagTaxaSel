@@ -17,13 +17,15 @@ public class AlignmentInfo implements Comparable<AlignmentInfo>{
     private  final String tag2chrom;
     private  final int tag2pos;
     private  final int alignmentPos;
+    private final int ref_strand; // forward/plus=1, reverse/minus=0, unknown = -1,(mostly) as per Position interface
     private  final int myScore;
 
-    public AlignmentInfo(Tag tag2, String chromosome, int position, int alignmentpos, int score) {
+    public AlignmentInfo(Tag tag2, String chromosome, int position, int alignmentpos, int ref_strand, int score) {
         this.tag2 = tag2;
         this.tag2chrom = chromosome;
         this.tag2pos = position;
         this.alignmentPos = alignmentpos;
+        this.ref_strand = ref_strand;
         this.myScore = score;
     }
 
@@ -40,6 +42,9 @@ public class AlignmentInfo implements Comparable<AlignmentInfo>{
     
     public int alignmentPos() {
         return alignmentPos;
+    }
+    public int ref_strand() {
+        return ref_strand;
     }
     public  int score() {
         return myScore;

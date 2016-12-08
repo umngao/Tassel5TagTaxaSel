@@ -165,8 +165,8 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             //                                " values(?,?)");
             
             tagAlignmentInsertPS=connection.prepareStatement(
-                    "INSERT into tagAlignments (tag1id, tag2id, tag1_isref, tag2_isref, score, ref_align_position )" +
-                    " values(?,?,?,?,?,?)");
+                    "INSERT into tagAlignments (tag1id, tag2id, tag1_isref, tag2_isref, score, ref_align_start_pos, ref_align_strand )" +
+                    " values(?,?,?,?,?,?,?)");
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -592,8 +592,13 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                 tagAlignmentInsertPS.setBoolean(ind++, tag1_isref);
                 tagAlignmentInsertPS.setBoolean(ind++, tag2_isref); 
                 tagAlignmentInsertPS.setInt(ind++, ai.score());  // alignment score
-                // The last value is only valid for tag to refTag alignments
+                
+                // The last 2 values are mostly relevant for tag to refTag alignments
+                // the tag was aligned against both the reference and the reverse-complement of the reference tag.
+                // both are stored.  WHen retrieving data and the ref_strand is 0, user should
+                // reverse-complement the refTag sequence to see the alignment.
                 tagAlignmentInsertPS.setInt(ind++,ai.alignmentPos()); // will be -1 for tag-tag and refTag-refTag
+                tagAlignmentInsertPS.setInt(ind++, ai.ref_strand()); // will be -1 for tag-tag, mostly relevant for tag-refTag
 
                 tagAlignmentInsertPS.addBatch();
                 batchCount++;
@@ -635,8 +640,9 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                 tagAlignmentInsertPS.setBoolean(ind++, true); // both are reference tags
                 tagAlignmentInsertPS.setBoolean(ind++, true); 
                 tagAlignmentInsertPS.setInt(ind++, ai.score());  // alignment score
-                // This last value is only valid for tag to refTag alignments
+                // The last 2 values are mostly relevant for tag to refTag alignments
                 tagAlignmentInsertPS.setInt(ind++,ai.alignmentPos()); // will be -1 for tag-tag and refTag-refTag
+                tagAlignmentInsertPS.setInt(ind++,ai.ref_strand());
 
                 tagAlignmentInsertPS.addBatch();
                 batchCount++;

@@ -62,7 +62,8 @@ CREATE TABLE tagAlignments (
     tag1_isref  BOOLEAN,
     tag2_isref  BOOLEAN,
     score INTEGER,
-    ref_align_position  INTEGER
+    ref_align_start_pos  INTEGER,
+    ref_align_strand INTEGER
 );
 
 -- Table: mappingApproach
