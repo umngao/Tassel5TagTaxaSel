@@ -95,7 +95,7 @@ public class FastMultithreadedAssociationPlugin extends AbstractPlugin {
     @Override
     protected void preProcessParameters(DataSet input) {
         List<Datum> inData = input.getDataOfType(GenotypePhenotype.class);
-        if (inData.size() != 1) throw new IllegalArgumentException("Fast Association requires exactly on joined genotype-phenotype data set.");
+        if (inData.size() != 1) throw new IllegalArgumentException("Fast Association requires exactly one joined genotype-phenotype data set.");
     }
 
     @Override
