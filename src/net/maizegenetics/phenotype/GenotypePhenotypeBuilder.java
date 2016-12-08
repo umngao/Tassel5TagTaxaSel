@@ -1,6 +1,6 @@
 package net.maizegenetics.phenotype;
 
-import net.maizegenetics.dna.snp.FilterGenotypeTableBuilder;
+import net.maizegenetics.analysis.filter.FilterTaxaBuilderPlugin;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListUtils;
@@ -75,7 +75,7 @@ public class GenotypePhenotypeBuilder {
 		if (!isUnion) {
 			TaxaList commonTaxa = TaxaListUtils.getCommonTaxa(myGenotype.taxa(), myPhenotype.taxa());
 			if (myGenotype.taxa().numberOfTaxa() > commonTaxa.numberOfTaxa()) {
-				myGenotype = FilterGenotypeTableBuilder.getInstance(myGenotype).taxaToKeep(commonTaxa).build();
+                                myGenotype = new FilterTaxaBuilderPlugin().taxaList(commonTaxa).runPlugin(myGenotype);
 			}
 			if (myPhenotype.taxa().numberOfTaxa() > commonTaxa.numberOfTaxa()) {
 				myPhenotype = new PhenotypeBuilder().fromPhenotype(myPhenotype).keepTaxa(commonTaxa).build().get(0);
