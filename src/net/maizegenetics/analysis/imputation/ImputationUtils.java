@@ -12,6 +12,7 @@ import net.maizegenetics.util.BitSet;
 import org.apache.log4j.Logger;
 
 import java.io.*;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -1149,6 +1150,29 @@ public class ImputationUtils {
 		return taxaList;
 	}
 	
+	public static void serializePhasedHaplotypes(Map<String, byte[][]> phasedHaps, String filename) {
+		try {
+			FileOutputStream fos = new FileOutputStream(new File(filename));
+			ObjectOutputStream oos = new ObjectOutputStream(fos);
+			oos.writeObject(phasedHaps);
+			oos.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 	
+    public static Map<String, byte[][]> restorePhasedHaplotypes(Path restorePath) {
+    	try {
+    		FileInputStream fis = new FileInputStream(restorePath.toFile());
+            ObjectInputStream ois = new ObjectInputStream(fis);
+            Map<String, byte[][]> phasedHaps = (Map<String, byte[][]>) ois.readObject();
+            ois.close();
+            return phasedHaps;
+		} catch (IOException | ClassNotFoundException e) {
+			e.printStackTrace();
+		}
+    	
+    	return null;
+    }
 }
 

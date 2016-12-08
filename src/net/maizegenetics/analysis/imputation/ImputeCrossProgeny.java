@@ -194,7 +194,8 @@ public class ImputeCrossProgeny {
 				} else if (hap0[0][originalSite] == hap0[1][originalSite] && hap0[0][originalSite] == hap1[0][originalSite] && hap0[0][originalSite] == hap1[1][originalSite]) {
 					isMissing.fastSet(s);
 					if (geno[s] != GenotypeTableUtils.getDiploidValue(hap0[0][originalSite], hap0[0][originalSite])) numberInconsistent++;
-				} else if (hap0[0][originalSite] == hap0[1][originalSite] && hap1[0][originalSite] == hap1[1][originalSite] && hap0[0][originalSite] != hap1[1][originalSite]) {
+//				} else if (hap0[0][originalSite] == hap0[1][originalSite] && hap1[0][originalSite] == hap1[1][originalSite] && hap0[0][originalSite] != hap1[1][originalSite]) {
+				} else if (hap0[0][originalSite] == hap0[1][originalSite] && hap1[0][originalSite] == hap1[1][originalSite]) {
 					isMissing.fastSet(s);  //this site is  not informative
 				} else {
 					nonMissingPositions[numberNotMissing] = pos;

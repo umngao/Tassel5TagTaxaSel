@@ -71,6 +71,7 @@ public class SelfedHaplotypeFinder {
 		//process selfs
 		Map<String, byte[][]> phasedHaplotypes = new HashMap<>();
 		for (String parent : parentSet) {
+			
 			System.out.printf("Starting %s at %d ms.\n", parent, System.currentTimeMillis() - startTime);
 			TaxaListBuilder taxaBuilder = new TaxaListBuilder();
 			for (String[] plot : plotList) {
@@ -105,7 +106,7 @@ public class SelfedHaplotypeFinder {
 			//phase by chromosome
 			int ntaxa = familyGeno.numberOfTaxa();
 			Chromosome[] myChromosomes = myGenotype.chromosomes();
-			for (int c = 0;c < myChromosomes.length; c++) { 
+			for (int c = 0;c < myChromosomes.length; c++) {
 				Chromosome myChr = myChromosomes[c];
 				fsb.startChr(myChr);
 				fsb.endChr(myChr);
@@ -161,42 +162,56 @@ public class SelfedHaplotypeFinder {
 					}
 
 					//if there is only one haplotype left, is it good?
-					boolean goodCluster = false;
+					boolean twoGoodClusters = false;
+					boolean oneGoodCluster = false;
 					boolean inChrOrder = true;
 					
-					if (clusterList.size() == 2 && clusterList.get(0).getSize() > 1 && clusterList.get(1).getSize() > 1) {
-						goodCluster = true;
-						if (previousChr0clusters == null || previousChr1clusters == null) {
-							previousChr0clusters = chr0clusters = clusterList.get(0);
-							previousChr1clusters = chr1clusters = clusterList.get(1);
-						} else {
-							int order = sameOrder(previousChr0clusters, previousChr1clusters, clusterList);
-							if (order == 1 || order == 0) {
+					//test for total clusters
+					int[] clusterSizes = new int[2];
+					int totalSize = 0;
+					int limit = Math.min(2, clusterList.size());
+					for (int i = 0; i < limit; i++) {
+						if (clusterList.get(i) != null) {
+							clusterSizes[i] = clusterList.get(i).getSize();
+							totalSize += clusterSizes[i];
+						}
+					}
+					
+					if (totalSize >= minClusterSize) {
+						if (clusterList.size() == 2 && clusterSizes[0] > 1 && clusterSizes[1] > 1) {
+							twoGoodClusters = true;
+							if (previousChr0clusters == null || previousChr1clusters == null) {
 								previousChr0clusters = chr0clusters = clusterList.get(0);
 								previousChr1clusters = chr1clusters = clusterList.get(1);
 							} else {
-								previousChr0clusters = chr0clusters = clusterList.get(1);
-								previousChr1clusters = chr1clusters = clusterList.get(0);
+								int order = sameOrder(previousChr0clusters, previousChr1clusters, clusterList);
+								if (order == 1 || order == 0) {
+									previousChr0clusters = chr0clusters = clusterList.get(0);
+									previousChr1clusters = chr1clusters = clusterList.get(1);
+								} else {
+									previousChr0clusters = chr0clusters = clusterList.get(1);
+									previousChr1clusters = chr1clusters = clusterList.get(0);
+									inChrOrder = false;
+								}
+							}
+
+						} else if ((clusterList.size() == 1 && clusterSizes[0] > minClusterSize) || (clusterList.size() == 2 && clusterSizes[1] == 1 && clusterList.get(0).getSize() > minClusterSize)) {
+							oneGoodCluster = true;
+							int order = sameOrder(previousChr0clusters, previousChr1clusters, clusterList);
+							if (order > -1) {
+								chr0clusters = clusterList.get(0);
+								previousChr0clusters = chr0clusters;
+								chr1clusters = null;
+							} else {
+								chr0clusters = null;
+								chr1clusters = clusterList.get(0);
+								previousChr1clusters = chr1clusters;
 								inChrOrder = false;
 							}
 						}
-						
-					} else if ((clusterList.size() == 1 && clusterList.get(0).getSize() > minClusterSize)) {
-						goodCluster = true;
-						int order = sameOrder(previousChr0clusters, previousChr1clusters, clusterList);
-						if (order > -1) {
-							chr0clusters = clusterList.get(0);
-							if (previousChr0clusters == null) previousChr0clusters = chr0clusters;
-							chr1clusters = null;
-						} else {
-							chr0clusters = null;
-							chr1clusters = clusterList.get(0);
-							if (previousChr1clusters == null) previousChr1clusters = chr0clusters;
-							inChrOrder = false;
-						}
 					}
-
-					if (goodCluster && clusterList.size() == 2) {
+					
+					if (twoGoodClusters) {
 						//for each site
 						//if both haplotypes are in (A,C,G,T) then assign alleles to myPhasedHap
 						//map chrGeno position to original geno site number
@@ -216,7 +231,7 @@ public class SelfedHaplotypeFinder {
 								polyCount++;
 							}
 						}
-					} else if (goodCluster && clusterList.size() == 1) {
+					} else if (oneGoodCluster) {
 						int ndx;
 						byte[] hap;
 						if (chr0clusters != null) {

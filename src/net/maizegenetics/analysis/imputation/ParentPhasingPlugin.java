@@ -44,6 +44,16 @@ public class ParentPhasingPlugin extends AbstractPlugin {
 			.guiName("Phase Parents")
 			.description("Phase parents")
 			.build();
+	private PluginParameter<Boolean> rephaseParents = new PluginParameter.Builder<>("rephase", false, Boolean.class)
+			.guiName("Re-Phase Parents")
+			.description("Rephase parents")
+			.build();
+	private PluginParameter<String> parentageFile = new PluginParameter.Builder<>("parentage", null, String.class)
+			.guiName("Parentage File")
+			.inFile()
+			.description("The file containing the parentage which lists the parents of each progeny and whether they were derived by self or outcross.")
+			.build();
+
 	//dependent on phaseParents
 	private PluginParameter<Boolean> selfonly = new PluginParameter.Builder<>("self", false, Boolean.class)
 			.dependentOnParameter(phaseParents)
@@ -62,12 +72,6 @@ public class ParentPhasingPlugin extends AbstractPlugin {
 			.description("Maximum allowable proportion of missing data for a site.")
 			.build();
 	
-	private PluginParameter<String> parentageFile = new PluginParameter.Builder<>("parentage", null, String.class)
-			.dependentOnParameter(phaseParents)
-			.guiName("Parentage File")
-			.inFile()
-			.description("The file containing the parentage which lists the parents of each progeny and whether they were derived by self or outcross.")
-			.build();
 	private PluginParameter<String> outputFile = new PluginParameter.Builder<>("out", null, String.class)
 			.dependentOnParameter(phaseParents)
 			.guiName("Output File")
@@ -76,12 +80,36 @@ public class ParentPhasingPlugin extends AbstractPlugin {
 			.build();
 	
 	
-	private PluginParameter<String> separator1 = PluginParameter.getLabelInstance("Combine phased data ------------------------------");
+	private PluginParameter<String> separator1 = PluginParameter.getLabelInstance("Files  ------------------------------");
+	
+	//dependent on rephase
+	//need progeny parentcalls, parent haplotypes, and output filename
+	private PluginParameter<String> parentCallFilename = new PluginParameter.Builder<>("parentcalls", null, String.class)
+			.dependentOnParameter(rephaseParents)
+			.guiName("Progeny States (parentcalls)")
+			.inFile()
+			.description("The genotype file containing the imputed progeny states, probably identified as parentcalls.")
+			.build();
+	private PluginParameter<String> parentHaplotypeFilename = new PluginParameter.Builder<>("parentHaplotypes", null, String.class)
+			.dependentOnParameter(rephaseParents)
+			.guiName("Parent Haplotype File")
+			.inFile()
+			.description("The file containing the haplotypes of the parents. Rephasing parents uses the progeny states to improve these haplotype calls.")
+			.build();
+	private PluginParameter<String> rephaseOutFile = new PluginParameter.Builder<>("rephaseOut", null, String.class)
+			.dependentOnParameter(rephaseParents)
+			.guiName("Rephase Output File")
+			.outFile()
+			.description("The file that will contain the rephased, improved parent haplotype calls.")
+			.build();
+	
+	//dependent on combine
+	private PluginParameter<String> separator2 = PluginParameter.getLabelInstance("Combine phased data ------------------------------");
 	private PluginParameter<Boolean> combine = new PluginParameter.Builder<>("combine", false, Boolean.class)
 			.guiName("Combine Phasing")
 			.description("Combines two methods of phasing parents. Any sites that disagree are set to missing. Uses binary files as input. A report comparing the sites in common between the files will be generated.")
 			.build();
-	//dependent on combine
+
 	private PluginParameter<String> phased1 = new PluginParameter.Builder<>("phased1", null, String.class)
 			.dependentOnParameter(combine)
 			.guiName("First Phased File")
@@ -102,17 +130,17 @@ public class ParentPhasingPlugin extends AbstractPlugin {
 			.build();
 
 
-	private PluginParameter<String> separator2 = PluginParameter.getLabelInstance("Convert binary haplotypes to text ------------------------------");
+	private PluginParameter<String> separator3 = PluginParameter.getLabelInstance("Convert binary haplotypes to text ------------------------------");
 	private PluginParameter<Boolean> convert = new PluginParameter.Builder<>("convert", false, Boolean.class)
 			.guiName("Convert Phasing")
 			.description("Converts a binary phasing results file to text.")
 			.build();
 	//dependent on convert
-	private PluginParameter<String> phasedIn = new PluginParameter.Builder<>("phased", null, String.class)
+	private PluginParameter<String> phasedIn = new PluginParameter.Builder<>("binaryinput", null, String.class)
 			.dependentOnParameter(convert)
-			.guiName("Second Phased File")
+			.guiName("File to convert")
 			.inFile()
-			.description("The other binary phased parent haplotype file.")
+			.description("The name of the binary file to be converted.")
 			.build();
 	private PluginParameter<String> convertOut = new PluginParameter.Builder<>("convertout", null, String.class)
 			.dependentOnParameter(convert)
@@ -131,6 +159,7 @@ public class ParentPhasingPlugin extends AbstractPlugin {
 	protected void preProcessParameters(DataSet input) {
 		
 		if (phaseParents.value()) {
+			if (rephaseParents.value()) throw new IllegalArgumentException("Both phase and rephase cannot be chosen. Check at most one of those.");
 			if (input.getDataOfType(GenotypeTable.class).size() != 1) throw new IllegalArgumentException("Phasing parents requires exactly one genotype dataset as input.");
 			if (outputFile.value() == null || outputFile.value().length() < 1) throw new IllegalArgumentException("No output file name for phaseParents.");
 			if (parentageFile.value() == null || parentageFile.value().length() < 1) throw new IllegalArgumentException("No parentage file name for phaseParents.");
@@ -147,6 +176,13 @@ public class ParentPhasingPlugin extends AbstractPlugin {
 			if (convertOut.value() == null || convertOut.value().trim().length() < 1) throw new IllegalArgumentException("Converting binary to text requires exactly one output file.");
 		}
 		
+		if (rephaseParents.value()) {
+			if (parentageFile.value() == null || parentageFile.value().length() < 1) throw new IllegalArgumentException("No parentage file name for rephaseParents.");
+			if (parentCallFilename.value() == null || parentCallFilename.value().length() < 1) throw new IllegalArgumentException("No parent call file name for rephaseParents.");
+			if (parentHaplotypeFilename.value() == null || parentHaplotypeFilename.value().length() < 1) throw new IllegalArgumentException("No parent haplotype input file name for rephaseParents.");
+			if (rephaseOutFile.value() == null || rephaseOutFile.value().length() < 1) throw new IllegalArgumentException("No parent haplotype output file name for rephaseParents.");
+			
+		}
 	}
 
 	@Override
@@ -169,6 +205,11 @@ public class ParentPhasingPlugin extends AbstractPlugin {
 				phc.setParentage(parentageFile.value());
 				phc.phaseParentsUsingAllAvailableProgeny(2.0, savepath);
 			}
+		}
+		
+		if(rephaseParents.value()) {
+			RephaseParents rp = new RephaseParents(myGeno, parentCallFilename.value(),parentageFile.value(), parentHaplotypeFilename.value());
+			  ImputationUtils.serializePhasedHaplotypes(rp.rephaseUsingCrossProgeny(), rephaseOutFile.value());
 		}
 		
 		if (combine.value()) {
