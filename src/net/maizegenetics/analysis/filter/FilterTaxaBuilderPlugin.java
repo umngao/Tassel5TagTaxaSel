@@ -363,7 +363,7 @@ public class FilterTaxaBuilderPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FilterTaxaBuilderPlugin positionList(TaxaList value) {
+    public FilterTaxaBuilderPlugin taxaList(TaxaList value) {
         myTaxaList = new PluginParameter<>(myTaxaList, value);
         return this;
     }
