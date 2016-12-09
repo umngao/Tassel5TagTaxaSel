@@ -166,7 +166,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                           
             System.out.println("Calling createKmerSeedsFromDBTags with window size: " + seedWindow());
            // Create map of kmer seeds from db tags
-            createKmerSeedsFromDBTags(tagsWithDepth, kmerTagMap,  seedWindow());
+            createKmerSeedsFromDBTags(tagsWithDepth.keySet(), kmerTagMap,  seedWindow());
             System.out.println("Num distinct kmerSeeds created: " + kmerTagMap.keySet().size() + 
                     ", kmerTagMap size is:" + kmerTagMap.size() + ",TotalTime for createKmerSeedsFromDBTags was " + (System.nanoTime() - time) / 1e9 + " seconds");
  
@@ -387,9 +387,9 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         //writePeakPositions(chrom,peaknum,positionsInPeak);
     }
     
-    private void createKmerSeedsFromDBTags(Map<Tag, Integer> tagWithDepth,
+    private void createKmerSeedsFromDBTags(Set<Tag> tagWithDepth,
             Multimap<String,Tag> kmerTagMap, int window) {
-        for (Tag tag : tagWithDepth.keySet()) {
+        for (Tag tag : tagWithDepth) {
             String tagSequence = tag.sequence();
             int maxIdx = tagSequence.length() - window;
             for (int seqIdx = 0; seqIdx < maxIdx;) {

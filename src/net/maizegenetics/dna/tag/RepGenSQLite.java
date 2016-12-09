@@ -90,11 +90,12 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     PreparedStatement posTagMappingInsertPS;
     PreparedStatement taxaDistWhereTagMappingIDPS;
     PreparedStatement snpPositionsForChromosomePS;
-    
+        
     PreparedStatement snpQualityInsertPS;
     
     PreparedStatement allelePairInsertPS;
     PreparedStatement tagAlignmentInsertPS;
+    PreparedStatement tagAlignForNonRefTagPS;
 
     public RepGenSQLite(String filename) {
         try{
@@ -168,6 +169,13 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             tagAlignmentInsertPS=connection.prepareStatement(
                     "INSERT into tagAlignments (tag1id, tag2id, tag1_isref, tag2_isref, score, ref_align_start_pos, ref_align_strand )" +
                     " values(?,?,?,?,?,?,?)");
+            // because there can be a tagID X in both tag and refTag table, you must
+            // specify that this query only wants the values where tag1 is NOT a ref
+            // A separate query will be performed to get ref tag alignments.
+            // NOTE: SQLite has no real boolean field.  The values are stored as 0 and 1
+            tagAlignForNonRefTagPS= connection.prepareStatement(
+                    "select tag2id, tag2_isref, score, ref_align_start_pos, ref_align_strand " +
+                    "from tagAlignments where tag1_isref = 0 and tag1id=?");
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -1298,6 +1306,8 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         return positionTagTaxaMap;
     }
 
+    // LCJ - check this - the names don't make sense
+    // was updated from GBS sql
     @Override
     public Map<Tag, TaxaDistribution> getTagsTaxaMap(Position cutPosition) {
         ImmutableMap.Builder<Tag, TaxaDistribution> tagTaxaDistributionBuilder=new ImmutableMap.Builder<>();
@@ -1658,5 +1668,55 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     public Multimap<Allele, Map<Tag, TaxaDistribution>> getAllelesTagTaxaDistForSNP(Position position) {
         // TODO Auto-generated method stub
         return null;
+    }
+
+    @Override
+    public Multimap<Tag, AlignmentInfo> getTagAlignments() {
+        // Returns all tags and their alignments
+
+        return null;
+    }
+
+    @Override
+    public Multimap<Tag, AlignmentInfo> getAlignmentsForTags(List<Tag> tags) {
+        // This method gets non-ref and refTag alignments for a list of non-ref tags
+        ImmutableMultimap.Builder<Tag,AlignmentInfo> tagAIBuilder = ImmutableMultimap.builder();
+        loadTagHash(); // get updated tag map
+        loadRefTagHash();
+ 
+        try {
+            for (Tag tag: tags){
+                // For each tag on the list, get all its alignments
+                Integer tagID = tagTagIDMap.get(tag);
+                if (tagID == null) {
+                    // what is best to print out here?
+                    System.out.println("getAlignmentsForTag: no tagID in alignments table for tag: " + tag.sequence());
+                    continue;
+                }
+                // This tagId needs to specify that tag1ref is false!
+                tagAlignForNonRefTagPS.setInt(1,tagID);
+                ResultSet rs = tagAlignForNonRefTagPS.executeQuery();
+                while (rs.next()) {
+                    boolean tag2ref = rs.getBoolean("tag2_isref");
+                    int alignPos = rs.getInt("ref_align_start_pos");
+                    int ref_strand = rs.getInt("ref_align_strand");
+                    int score = rs.getInt("score");
+                    
+                    AlignmentInfo ai = null;
+                    if (tag2ref) {
+                        RefTagData tag2data = reftagReftagIDMap.inverse().get(rs.getInt("tag2id"));
+                        ai = new AlignmentInfo(tag2data.tag(),tag2data.chromosome(),tag2data.position(),alignPos,ref_strand,score);
+                    } else {
+                        Tag tag2 = tagTagIDMap.inverse().get(rs.getInt("tag2id"));
+                        ai = new AlignmentInfo(tag2,null,-1,alignPos, ref_strand, score);
+                    }
+                    tagAIBuilder.put(tag,ai);
+                }              
+            }
+        } catch (SQLException exc) {
+            System.out.println("getAllTaxaMap: caught SQLException attempting to grab taxa Distribution ");
+            exc.printStackTrace();
+        }
+        return tagAIBuilder.build();       
     }
 }

@@ -11,6 +11,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 
+import net.maizegenetics.analysis.gbs.repgen.AlignmentInfo;
 import net.maizegenetics.analysis.gbs.repgen.RefTagData;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.Position;
@@ -214,5 +215,16 @@ public interface RepGenData {
      * Set of all reference tags
      */
     Set<RefTagData> getRefTags();
+    
+    /**
+     * Map of all tags and alignments
+     * @return
+     */
+    Multimap<Tag,AlignmentInfo> getTagAlignments();
 
+    /**
+     * Map of all alignments for specified tags
+     * @return
+     */
+    Multimap<Tag,AlignmentInfo> getAlignmentsForTags(List<Tag> tags);
 }
