@@ -394,7 +394,8 @@ public abstract class AbstractFixedEffectLM implements FixedEffectLM {
 		int numberOfObservations = myGenoPheno.phenotype().numberOfObservations();
 		int numberOfTaxa = myGenoPheno.genotypeTable().numberOfTaxa();
 		if (numberOfTaxa < numberOfObservations) {
-			String msg = "Taxa are duplicated in the phenotype data set. Tassel version 5 will not run GLM when that is the case.";
+//			String msg = "Taxa are duplicated in the phenotype data set. Tassel version 5 will not run GLM when that is the case.";
+			String msg = "There are more phenotype observations than taxa with genotypes. Either some taxa have multiple phenotypes or some taxa do not have genotypes. Tassel version 5 will not run GLM when that is the case. Be sure to use an intersect join to merge genotypes and phenotypes.";
 //			myLogger.error(msg);
 			throw new RuntimeException(msg);
 		}
