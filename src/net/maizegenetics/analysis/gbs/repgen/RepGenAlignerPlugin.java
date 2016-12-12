@@ -193,7 +193,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             // LCJ - end remove - look for writing it below
             chromsInRef.parallelStream().forEach(chrom -> { 
                   // Turn this on/off for debug purposes
-                  if (chrom.getChromosomeNumber() != 9) return; // just for initial testing !!! - remove
+                  //if (chrom.getChromosomeNumber() != 9) return; // just for initial testing !!! - remove
                                     
                   int kmersForChrom = 0;
                   int chromLength = myRefSequence.chromosomeSize(chrom);
@@ -333,7 +333,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
         }
         int start = positionsInPeak.get(0);
         int end = positionsInPeak.get(size-1);
-        int maxima = start + (end-start)/2 + 8; // add 8 as the kmerseed is len 16, we want to store the midpoint of the kmer
+        int maxima = start + (end-start)/2 + seedLen()/2; // add half the kmer seed len, we want to store the midpoint of the kmer
 
         chromMaximaMap.put(chrom, maxima);
         // Create the reference tag, add to tag/position list for adding to db.
