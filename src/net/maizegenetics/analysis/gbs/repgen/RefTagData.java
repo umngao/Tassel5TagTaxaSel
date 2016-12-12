@@ -15,13 +15,13 @@ public class RefTagData {
     private final Tag myTag;
     private final String chromosome;
     private final int position;
-    private final int refGenomeID;
+    private final String refGenome;
 
-    public RefTagData(Tag myTag, String chromosome,int position, int refGenomeID) {
+    public RefTagData(Tag myTag, String chromosome,int position, String refGenome) {
         this.myTag = myTag;
         this.chromosome = chromosome;
         this.position = position;
-        this.refGenomeID = refGenomeID;
+        this.refGenome = refGenome;
     }
 
     public Tag tag() {
@@ -34,8 +34,8 @@ public class RefTagData {
     public int position() {
         return position;
     }
-    public int refGenomeID() {
-        return refGenomeID;
+    public String refGenome() {
+        return refGenome;
     }
     
     @Override
@@ -48,7 +48,7 @@ public class RefTagData {
         if (!(tag().equals(that.tag()))) return false;
         if (!(chromosome().equals(that.chromosome()))) return false;
         if (position() != that.position()) return false;
-        if (refGenomeID() != that.refGenomeID()) return false;
+        if (!(refGenome().equals(that.refGenome()))) return false;
 
         return true;
     }
@@ -57,14 +57,9 @@ public class RefTagData {
     public int hashCode() {
         int hash = 7;
         hash = 37 * hash + this.myTag.hashCode();
-        try {
-            hash = 37 * hash + Integer.parseInt(chromosome);
-        } catch (NumberFormatException nfe) {
-            // add nothing for chromsome if not int
-        }
+        hash = 37 * hash + this.chromosome().hashCode();
         hash = 37 * hash + this.position;
-        hash = 37 * hash + this.refGenomeID;
+        hash = 37 * hash + this.refGenome.hashCode();
         return hash;
     }
-
 }

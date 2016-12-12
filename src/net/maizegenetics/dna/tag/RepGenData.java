@@ -216,15 +216,34 @@ public interface RepGenData {
      */
     Set<RefTagData> getRefTags();
     
-    /**
-     * Map of all tags and alignments
-     * @return
-     */
-    Multimap<Tag,AlignmentInfo> getTagAlignments();
 
     /**
-     * Map of all alignments for specified tags
+     * Map of all alignments for specified non-ref tags.
+     * For this to make sense, all tags on the list must ge
+     * consistently reftag or non-ref tag, as the tagID is
+     * pulled from either the tagTagIDMap or the reftagReftagIDMap.
+     * If the refChrom value of AlignmentInfo is non-null,
+     * and the tag2pos field is > -1,
+     * then the alignment is to a reference tag.
      * @return
      */
     Multimap<Tag,AlignmentInfo> getAlignmentsForTags(List<Tag> tags);
+    
+    /**
+     * Map of all non-ref tags and their alignments
+     * If the refChrom value of AlignmentInfo is non-null,
+     * and the tag2pos field is > -1,
+     * then the alignment is to a reference tag.
+     * @return
+     */
+    Multimap<Tag,AlignmentInfo> getAllNonRefTagAlignments();
+    
+    /**
+     * Map of all alignments for reference tags
+     * This returns reftag to reftag alignments.
+     * 
+     * @return
+     */
+    Multimap<RefTagData,AlignmentInfo> getAllRefTagAlignments();    
+
 }

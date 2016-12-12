@@ -36,7 +36,8 @@ CREATE TABLE tagMapping (
 -- Identifies reference genomes for physicalMapPosition table
 CREATE TABLE referenceGenome (
 	refid	INTEGER PRIMARY KEY,
-	refname	TEXT
+	refname	TEXT,
+	UNIQUE (refname)
 );
  
 -- Table: physicalMapPosition

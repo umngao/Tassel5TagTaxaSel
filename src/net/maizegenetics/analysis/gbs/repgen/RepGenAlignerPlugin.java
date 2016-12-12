@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -192,7 +193,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             // LCJ - end remove - look for writing it below
             chromsInRef.parallelStream().forEach(chrom -> { 
                   // Turn this on/off for debug purposes
-                  //if (chrom.getChromosomeNumber() != 9) return; // just for initial testing !!! - remove
+                  if (chrom.getChromosomeNumber() != 9) return; // just for initial testing !!! - remove
                                     
                   int kmersForChrom = 0;
                   int chromLength = myRefSequence.chromosomeSize(chrom);
@@ -285,7 +286,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             List<RefTagData> refTagList = new ArrayList<RefTagData>(refTags);
             
             tagAlignInfoMap.clear(); // remove old data
-            calculateTagRefTagAlignment(tagList,refTagList,tagAlignInfoMap);
+            calculateTagRefTagAlignment(tagList,refTagList,tagAlignInfoMap,refGenome());
             
             // Add the tag-refTag info to the tagAlignments table.           
             // tag1=nonref, tag2=ref, null and -1 for tag1 .  Alignment will be
@@ -548,7 +549,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                     isse.printStackTrace();
                 }
                 // for tag/tag, we have no chrom or position or strand or alignment position.  Store "null" and -1
-                AlignmentInfo tagAI = new AlignmentInfo(tag2, null, -1, -1, -1, score);
+                AlignmentInfo tagAI = new AlignmentInfo(tag2, null, -1, -1, -1, refGenome(),score);
                 tagAlignInfoMap.put(tag1,tagAI);
             }
         });
@@ -557,7 +558,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
     
     // This calculates alignment of each tag against each reference tag.
     private void calculateTagRefTagAlignment(List<Tag> tags, List<RefTagData> refTagDataList,
-            Multimap<Tag,AlignmentInfo> tagAlignInfoMap){
+            Multimap<Tag,AlignmentInfo> tagAlignInfoMap, String refGenome){
         long totalTime = System.nanoTime();
         // For each tag on the tags list, run SW against it and store in tagAlignInfoMap  
         tags.parallelStream().forEach(tag1 -> {          
@@ -601,7 +602,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                         // RefTagData object.  This is stored in the BiMap and used along with chrom to distinguish
                         // one tag from another.  The actual alignment position is also needed (refAlignStartPos)
                         // for the tagAlignments table.
-                        AlignmentInfo tagAI = new AlignmentInfo(tag2,rtd.chromosome(),rtd.position(),refAlignStartPos, 1,score);
+                        AlignmentInfo tagAI = new AlignmentInfo(tag2,rtd.chromosome(),rtd.position(),refAlignStartPos, 1,refGenome,score);
                         tagAlignInfoMap.put(tag1, tagAI); // data to be stored into tagAlignments table
                     }
                                        
@@ -614,16 +615,16 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                     score = algorithm.getScore(); // get score
                     alignment = algorithm.getPairwiseAlignment(); // compute alignment                 
                     tagAlignOffset = alignment.getRowStart();
-                    refAlignStartPos += alignment.getColStart();
-                    
+                    refAlignStartPos += alignment.getColStart();                    
+                            
                     if (tagAlignOffset > 0) {
-                        // Tag was not aligned from the beginning,
+                        // Tag1 was not aligned from the beginning,
                         // add back the bps that were skipped so alignment begins at start of the tag
                         refAlignStartPos -= tagAlignOffset;
                     }
                     // If clipping has dropped us below the start of the reference genome, skip it
                     if (refAlignStartPos >= 0) {
-                        AlignmentInfo tagAI = new AlignmentInfo(tag2,rtd.chromosome(),rtd.position(),refAlignStartPos, 0,score);
+                        AlignmentInfo tagAI = new AlignmentInfo(tag2,rtd.chromosome(),rtd.position(),refAlignStartPos, 0, refGenome(),score);
                         tagAlignInfoMap.put(tag1, tagAI); // data to be stored into tagAlignments table
                     }
                                        
@@ -674,7 +675,7 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                 // for reftag/reftag, we have no alignment position .  Store -1.  
                 // both alignment positions and reference strand (which is 1 for both) are ignored params
                 // for ref-ref alignment.
-                AlignmentInfo tagAI = new AlignmentInfo(tag2.tag(),tag2.chromosome(),tag2.position(),-1, 1,score);
+                AlignmentInfo tagAI = new AlignmentInfo(tag2.tag(),tag2.chromosome(),tag2.position(),-1, 1,refGenome(),score);
                 refTagAlignInfoMap.put(tag1,tagAI);
             }
         }); 
