@@ -1728,15 +1728,11 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         List<Tag> tagList = new ArrayList<Tag>(tagsToAlign);
         return getAlignmentsForTags(tagList);       
     }
-
+    
     @Override
-    public Multimap<RefTagData, AlignmentInfo> getAllRefTagAlignments() {
-        // for each tag on the refTag list, grab all it's alignments.
-        // This gets all alignments where refTag is tag1.
+    public Multimap<RefTagData, AlignmentInfo> getAlignmentsForRefTags(List<RefTagData> refTags) {
         ImmutableMultimap.Builder<RefTagData,AlignmentInfo> tagAIBuilder = ImmutableMultimap.builder();
         loadRefTagHash();
- 
-        Set<RefTagData> refTags = getRefTags();
         try {
             for (RefTagData tag: refTags){
                 // For each tag on the list, get all its alignments
@@ -1774,5 +1770,17 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             exc.printStackTrace();
         }
         return tagAIBuilder.build();       
+        
+    }
+
+    @Override
+    public Multimap<RefTagData, AlignmentInfo> getAllRefTagAlignments() {
+        // for each tag on the refTag list, grab all it's alignments.
+        // This gets all alignments where refTag is tag1.
+        loadRefTagHash(); // get updated list of refTags
+ 
+        Set<RefTagData> refTags = getRefTags();
+        List<RefTagData> refTagList = new ArrayList<RefTagData>(refTags);
+        return getAlignmentsForRefTags(refTagList);           
     }
 }
