@@ -13,6 +13,7 @@ import com.google.common.collect.Multimap;
 
 import net.maizegenetics.analysis.gbs.repgen.AlignmentInfo;
 import net.maizegenetics.analysis.gbs.repgen.RefTagData;
+import net.maizegenetics.analysis.gbs.repgen.TagCorrelationInfo;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.Allele;
@@ -150,4 +151,11 @@ public interface RepGenDataWriter extends RepGenData {
      * @throws SQLException
      */
     void putRefRefAlignments(Multimap<RefTagData, AlignmentInfo> tagAlignInfoMap, String refGenome);
+    
+    /**
+     * Adds entries to the tagCorrelations table for tag-tag correlation data 
+     * @param tagCorrelationMap holds correltaions info for each tag/taxa-depth to tag/taxa-depth vector pair
+     * @throws SQLException
+     */
+    void putTagTagCorrelationMatrix(Multimap<Tag,TagCorrelationInfo> tagCorrelationMap);
 }

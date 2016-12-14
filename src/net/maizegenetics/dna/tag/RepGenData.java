@@ -172,7 +172,6 @@ public interface RepGenData {
      */
     Map<Tag,TaxaDistribution> getTagsTaxaMap(Position cutPosition);
 
-
     /**
      * Returns the taxa list associated with taxa distribution
      * @return TaxaList or null if not available.

@@ -44,6 +44,7 @@ import com.google.common.io.CharStreams;
 
 import net.maizegenetics.analysis.gbs.repgen.AlignmentInfo;
 import net.maizegenetics.analysis.gbs.repgen.RefTagData;
+import net.maizegenetics.analysis.gbs.repgen.TagCorrelationInfo;
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.GeneralPosition;
@@ -97,6 +98,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     PreparedStatement tagAlignmentInsertPS;
     PreparedStatement tagAlignForNonRefTagPS;
     PreparedStatement tagAlignForRefTagPS;
+    PreparedStatement tagTagCorrelationInsertPS;
 
     public RepGenSQLite(String filename) {
         try{
@@ -170,6 +172,9 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             tagAlignmentInsertPS=connection.prepareStatement(
                     "INSERT into tagAlignments (tag1id, tag2id, tag1_isref, tag2_isref, score, ref_align_start_pos, ref_align_strand )" +
                     " values(?,?,?,?,?,?,?)");
+            tagTagCorrelationInsertPS=connection.prepareStatement(
+                    "INSERT into tagCorrelations (tag1id, tag2id, t1t2_pearson, t1t2_spearman, t1pt2p_pearson, t1pt2p_r2 )" +
+                    " values(?,?,?,?,?,?)");
             // because there can be a tagID X in both tag and refTag table, you must
             // specify that this query only wants the values where tag1 is NOT a ref
             // (IE tag1ID comes from the tagTagIDMap)
@@ -1607,7 +1612,9 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         }       
     }
 
-    // This method is called from GBSSeqToTagDBPlugin when a user wishes to append data.
+    // This method is called  when a user wishes to append data to an existing db from
+    // RegGenLoadSeqToDBPlugin;  also called from RepGenLDAnalysis for use in matrix
+    // correlation calculations.
     // The map created must NOT be a fixed taxaDist map.  We intend to increment the values
     @Override
     public Map<Tag, TaxaDistribution> getAllTagsTaxaMap() {
@@ -1782,5 +1789,44 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         Set<RefTagData> refTags = getRefTags();
         List<RefTagData> refTagList = new ArrayList<RefTagData>(refTags);
         return getAlignmentsForRefTags(refTagList);           
+    }
+    
+    @Override
+    public void  putTagTagCorrelationMatrix(Multimap<Tag,TagCorrelationInfo> tagCorrelationMap){
+        int batchCount=0;
+        loadTagHash(); // get updated list of tags
+        try {
+            connection.setAutoCommit(false);
+            for (Map.Entry<Tag, TagCorrelationInfo> entry : tagCorrelationMap.entries()) {
+                // Put tag alignments into the tagAlignments table
+                TagCorrelationInfo tci=entry.getValue();
+                int ind=1;
+ 
+                tagTagCorrelationInsertPS.setInt(ind++, tagTagIDMap.get(entry.getKey()));
+                tagTagCorrelationInsertPS.setInt(ind++, tagTagIDMap.get(tci.getTag2()));
+                tagTagCorrelationInsertPS.setDouble(ind++, tci.getT1t2_pearson());
+                tagTagCorrelationInsertPS.setDouble(ind++, tci.getT1t2_spearman()); 
+                tagTagCorrelationInsertPS.setDouble(ind++, tci.getT1pt2p_pearson());  // presense/absence vector matrix Pearson result
+                tagTagCorrelationInsertPS.setDouble(ind++, tci.r2()); // presence/absence vector matrix r-squared results
+                
+                tagTagCorrelationInsertPS.addBatch();
+                batchCount++;
+                if(batchCount>100000) {
+                   // System.out.println("putTagAlignments next"+batchCount);
+                    tagTagCorrelationInsertPS.executeBatch();
+                    batchCount=0;
+                }
+            }
+            tagTagCorrelationInsertPS.executeBatch();
+            connection.setAutoCommit(true);
+            // print some metrics for debugging
+            ResultSet rs = connection.createStatement().executeQuery("select count (*) as numCorrelations from tagCorrelations");
+            if (rs.next()) {
+                System.out.println("Total tag-tag correlations in tagCorrelations table: " + rs.getInt("numCorrelations"));
+            }
+ 
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 }
