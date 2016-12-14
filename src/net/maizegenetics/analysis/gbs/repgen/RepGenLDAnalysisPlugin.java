@@ -30,6 +30,7 @@ import net.maizegenetics.dna.tag.Tag;
 import net.maizegenetics.dna.tag.TaxaDistribution;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 
 /**
@@ -41,7 +42,8 @@ public class RepGenLDAnalysisPlugin extends AbstractPlugin {
     
     private PluginParameter<String> myDBFile = new PluginParameter.Builder<String>("db", null, String.class).guiName("Input DB").required(true).inFile()
             .description("Input database file with tags and taxa distribution").build();
-    
+    private PluginParameter<Integer> minTaxa = new PluginParameter.Builder<>("minTaxa", 20, Integer.class).guiName("Min Taxa for RSquared")
+            .description("Minimum number of taxa that must be present for R-squared to be calculated.").build();    
     public RepGenLDAnalysisPlugin() {
         super(null, false);
     }
@@ -133,12 +135,23 @@ public class RepGenLDAnalysisPlugin extends AbstractPlugin {
                     
                     double p2 = Pearsons.correlation(depthsPrime1, depthsPrime2);
                     
-                    // TODO LCJ Need to create r2 - This is from analysis.popgen.LinkageDisequilibrium
-                    // calculateRSqr() is static so can be called directly, but with what parameters ??
+                    // Count number of times both tags appeared in a taxa, number
+                    // of times neither tag appeared in a taxa, number of times
+                    // tag1 appeared but not tag2, and number of times tag2 appeared by not tag1
+                    int t1Nott2 = 0;
+                    int t2Nott1 = 0;
+                    int neither = 0;
+                    int both = 0;
                     
-                    // LCJ - what does into this ??
-                   // LinkageDisequilibrium.calculateRSqr(contig[0][0], contig[1][0], contig[0][1], contig[1][1], minCnt);
-                    TagCorrelationInfo tci = new TagCorrelationInfo(tag2,p1,spearval,p2,0);
+                    for (int didx = 0; didx < depthsPrime2.length; didx++) {
+                        if (depthsPrime1[didx] > 0 && depthsPrime2[didx] > 0) both++;
+                        if (depthsPrime1[didx] == 0 && depthsPrime2[didx] == 0) neither++;
+                        if (depthsPrime1[didx] > 0 && depthsPrime2[didx] == 0) t1Nott2++;
+                        if (depthsPrime1[didx] == 0 && depthsPrime2[didx] > 0) t2Nott1++;
+                    }
+                    // Calculate r-squared based on presence/absence of tags at each taxa.
+                    double r2 = LinkageDisequilibrium.calculateRSqr(neither, t1Nott2, t2Nott1, both, minTaxa());
+                    TagCorrelationInfo tci = new TagCorrelationInfo(tag2,p1,spearval,p2,r2);
                     tagTagCorrelations.put(tag1, tci);
                 });
                 
@@ -157,19 +170,11 @@ public class RepGenLDAnalysisPlugin extends AbstractPlugin {
             System.out.println("Size of tagTagCorrelations: " + tagTagCorrelations.size() + ", num tags in db: " 
               + tagTaxaMap.keySet().size() + ", num Tags in tagTagCorrelations map: " + tagTagCorrelations.keySet().size());
             
-            // LCJ - this is debug
-            Set<Tag> tags = tagTaxaMap.keySet();
-            List<Tag> tagsAsList = new ArrayList<Tag>(tags);
-            Collection<TagCorrelationInfo> tci = tagTagCorrelations.get(tagsAsList.get(0));
-            System.out.println("LCJ - size of first tags correlation set: " + tci.size() + "\n");
-            // end debug
-            
             // Load to database     
             System.out.println("Loading correlation matrix to the database ...");
             repGenData.putTagTagCorrelationMatrix(tagTagCorrelations);
             ((RepGenSQLite)repGenData).close();
             
-            System.out.println("Full RepGenLDAnalysis Process took " + (System.nanoTime() - totalTime)/1e9 + " seconds.\n");
         } catch (Exception exc) {
             System.out.println("RepGenLDAnalysis:process_data:  processing error");
             exc.printStackTrace();
@@ -190,6 +195,12 @@ public class RepGenLDAnalysisPlugin extends AbstractPlugin {
         return null;
     }
 
+    // The following getters and setters were auto-generated.
+    // Please use this method to re-generate.
+    //
+     public static void main(String[] args) {
+         GeneratePluginCode.generate(RepGenLDAnalysisPlugin.class);
+     }
     @Override
     public String getToolTipText() {
         // TODO Auto-generated method stub
@@ -214,6 +225,29 @@ public class RepGenLDAnalysisPlugin extends AbstractPlugin {
      */
     public RepGenLDAnalysisPlugin inputDB(String value) {
         myDBFile = new PluginParameter<>(myDBFile, value);
+        return this;
+    }
+    
+    /**
+     * Minimum number of taxa that must be present for R-squared
+     * to be calculated.
+     *
+     * @return Min Taxa for RSquared
+     */
+    public Integer minTaxa() {
+        return minTaxa.value();
+    }
+
+    /**
+     * Set Min Taxa for RSquared. Minimum number of taxa that
+     * must be present for R-squared to be calculated.
+     *
+     * @param value Min Taxa for RSquared
+     *
+     * @return this plugin
+     */
+    public RepGenLDAnalysisPlugin minTaxa(Integer value) {
+        minTaxa = new PluginParameter<>(minTaxa, value);
         return this;
     }
 }
