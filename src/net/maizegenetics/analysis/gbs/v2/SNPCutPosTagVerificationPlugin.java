@@ -88,12 +88,27 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
             Position pos = new GeneralPosition.Builder(myChr, cutOrSnpPosition()).strand(strand()).build();      	        	
             TaxaList taxaList = tdw.getTaxaList(); // Used for printing taxon column headers
             if (positionType().equals("cut")) {
-                // Get tag/taxon map, print to tab-delimited file 
+                // Get tag/taxon map, print to tab-delimited file
+                try {
+                    
+                } catch (Exception exc) {
+                    System.out.println("\nError attempting to grab Cut position data for chrom " + chrom() + ", pos " + cutOrSnpPosition());
+                    System.out.println("Please verify, via a database manager tool or other method, that the position requested is stored as a Cut position in the input database.\n");
+                    return null;
+                }
                 cutPositionMap = tdw.getTagsTaxaMap(pos);
                 writeCutPositionTagTaxonFile(taxaList, cutPositionMap);
             } else if (positionType().equals("snp")) {
                 // create map with alleles, tag and taxon, print to tab-delimited file
-                snpPositionMap = tdw.getAllelesTagTaxaDistForSNP(pos);
+                try {
+                    snpPositionMap = tdw.getAllelesTagTaxaDistForSNP(pos);
+                } catch (Exception exc) {
+                    System.out.println("\nError attempting to grab SNP position data for chrom " + chrom() + ", pos " + cutOrSnpPosition());
+                    System.out.println("Please verify the position is stored as a SNP position in the input database.");
+                    System.out.println("Use a database manager tool to check your db, or run the SNPQualityProfilerPlugin to check for SNP positions.\n");
+                    return null;
+                }
+                
                 //            	snpPositionMap.entries().forEach( entry-> {
                 //            		System.out.println("LCJ - Allele call is: " + entry.getKey().alleleAsString());
                 //            	});
@@ -102,7 +117,7 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
                 snpPositionMap.entries().forEach(entry -> {
                     Set<Tag> tags= entry.getValue().keySet();
                     fullTagList.addAll(tags);
-                });;
+                });
                 tagCutPosMap = tdw.getTagCutPosition(fullTagList);
                 writeSNPPositionTagTaxonFile(taxaList, snpPositionMap, tagCutPosMap);
             } else {
@@ -170,7 +185,8 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
         if(outputFile()!=null) {
             // taxanumber from TaxaDistribution is in the depths - they are ordered
             // by the taxalist numbers.  Is the TaxaList order alphabetically ???
-            strB.append("Chr\tSNPPos\tAllele\tTag\tForwardStrand\tTagAsForwardStrand\tCutPos-SNPOffset"); // first column, ie row header
+            strB.append("Chr\tSNPPos\tAllele\tTag\tForwardStrand\tTagAsForwardStrand\tCutPos:SNPOffset");
+           // strB.append("Chr\tSNPPos\tAllele\tTag\tForwardStrand\tTagAsForwardStrand\tCutPos-SNPOffset"); // first column, ie row header
             taxaList.stream().forEach(item -> { // column names are the taxon names
                 strB.append("\t");
                 strB.append(item.getName());
@@ -203,8 +219,12 @@ public class SNPCutPosTagVerificationPlugin extends AbstractPlugin {
                     }
                     strB.append("\t");
                     strB.append(cutPos.getPosition());
-                    strB.append("-");
-                    int offSetVal = cutPos.getPosition() - cutOrSnpPosition();
+                    //strB.append("-"); 
+                    strB.append(":");
+                    //int offSetVal = isForward ? (cutOrSnpPosition() - cutPos.getPosition()) : ()
+                    int offSetVal = cutPos.getPosition() - cutOrSnpPosition(); // why is this a minus ??
+                    System.out.println("LCJ: writeSNPPosition: cutPos: " + cutPos.getPosition()
+                    + ", cutOrSNPPosition: " + cutOrSnpPosition() + " offsetVal: " + offSetVal + " strand:" + isForward);
                     strB.append(offSetVal);
 
                     int[] depths = tagTD.depths(); // gives us the depths for each taxon
