@@ -23,6 +23,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 
+import net.maizegenetics.analysis.popgen.LinkageDisequilibrium;
 import net.maizegenetics.dna.tag.RepGenDataWriter;
 import net.maizegenetics.dna.tag.RepGenSQLite;
 import net.maizegenetics.dna.tag.Tag;
@@ -133,10 +134,10 @@ public class RepGenLDAnalysisPlugin extends AbstractPlugin {
                     double p2 = Pearsons.correlation(depthsPrime1, depthsPrime2);
                     
                     // TODO LCJ Need to create r2 - This is from analysis.popgen.LinkageDisequilibrium
-                    // Need to understand how to munge the data into the form it wants, how to 
-                    // create genotype table.
+                    // calculateRSqr() is static so can be called directly, but with what parameters ??
                     
-                    
+                    // LCJ - what does into this ??
+                   // LinkageDisequilibrium.calculateRSqr(contig[0][0], contig[1][0], contig[0][1], contig[1][1], minCnt);
                     TagCorrelationInfo tci = new TagCorrelationInfo(tag2,p1,spearval,p2,0);
                     tagTagCorrelations.put(tag1, tci);
                 });
