@@ -107,12 +107,13 @@ public class RepGenLDAnalysisPlugin extends AbstractPlugin {
                     else depthsPrime1[idx] = 0;
                 }
                 tagTaxaMap.keySet().parallelStream().forEach(tag2 -> {
-                    // don't skip if tag1= tag2?
+                    if (tag2.equals(tag1)) return;  // don't do analysis for tag against itself
                     TaxaDistribution tag2TD = tagTaxaMap.get(tag2);
                     if (tag2TD == null) {                       
                         System.out.println("GetTagTaxaDist: got null tagTD for sequence " + tag2.sequence());
                         return ;
                     }
+                    
                     // I need doubles below !!
                     int[] depths2 = tag2TD.depths(); // gives us the depths for each taxon
                     double[] ddepths2 = new double[depths2.length];
@@ -156,7 +157,8 @@ public class RepGenLDAnalysisPlugin extends AbstractPlugin {
                 });
                 
                 if (tagcount > 1000) {
-                    System.out.println("Finished processing " + processedTags + " tags");
+                    // comment out when run for real!
+                    System.out.println("Finished processing " + processedTags + " tags" );
                     tagcount = 0;
                 }
             
@@ -164,15 +166,17 @@ public class RepGenLDAnalysisPlugin extends AbstractPlugin {
             if (tagcount > 0 ) {
                 System.out.println("Finished processing last tags");
             }
-            System.out.println("Total number of tags processed: " + processedTags);
+            System.out.println("Total number of tags processed: " + processedTags + ", time to process: "+ (System.nanoTime() - time)/1e9 + " seconds.\n");
 
             
             System.out.println("Size of tagTagCorrelations: " + tagTagCorrelations.size() + ", num tags in db: " 
               + tagTaxaMap.keySet().size() + ", num Tags in tagTagCorrelations map: " + tagTagCorrelations.keySet().size());
             
             // Load to database     
-            System.out.println("Loading correlation matrix to the database ...");
+            System.out.println("\nLoading correlation matrix to the database ...");
+            time = System.nanoTime();
             repGenData.putTagTagCorrelationMatrix(tagTagCorrelations);
+            System.out.println("Loading DB took " + (System.nanoTime() - time)/1e9 + " seconds.\n");
             ((RepGenSQLite)repGenData).close();
             
         } catch (Exception exc) {
