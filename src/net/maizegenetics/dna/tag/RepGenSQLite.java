@@ -173,7 +173,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                     "INSERT into tagAlignments (tag1id, tag2id, tag1_isref, tag2_isref, score, ref_align_start_pos, ref_align_strand )" +
                     " values(?,?,?,?,?,?,?)");
             tagTagCorrelationInsertPS=connection.prepareStatement(
-                    "INSERT into tagCorrelations (tag1id, tag2id, t1t2_pearson, t1t2_spearman, t1pt2p_pearson, t1pt2p_r2 )" +
+                    "INSERT into tagCorrelations (tag1id, tag2id, t1t2_pearson, t1t2_spearman, pres_abs_pearson, r2 )" +
                     " values(?,?,?,?,?,?)");
             // because there can be a tagID X in both tag and refTag table, you must
             // specify that this query only wants the values where tag1 is NOT a ref
@@ -1803,10 +1803,10 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                 int ind=1;
  
                 tagTagCorrelationInsertPS.setInt(ind++, tagTagIDMap.get(entry.getKey()));
-                tagTagCorrelationInsertPS.setInt(ind++, tagTagIDMap.get(tci.getTag2()));
-                tagTagCorrelationInsertPS.setDouble(ind++, tci.getT1t2_pearson());
-                tagTagCorrelationInsertPS.setDouble(ind++, tci.getT1t2_spearman()); 
-                tagTagCorrelationInsertPS.setDouble(ind++, tci.getT1pt2p_pearson());  // presense/absence vector matrix Pearson result
+                tagTagCorrelationInsertPS.setInt(ind++, tagTagIDMap.get(tci.tag2()));
+                tagTagCorrelationInsertPS.setDouble(ind++, tci.t1t2_pearson());
+                tagTagCorrelationInsertPS.setDouble(ind++, tci.t1t2_spearman()); 
+                tagTagCorrelationInsertPS.setDouble(ind++, tci.pres_abs_pearson());  // presence/absence vector matrix Pearson result
                 tagTagCorrelationInsertPS.setDouble(ind++, tci.r2()); // presence/absence vector matrix r-squared results
                 
                 tagTagCorrelationInsertPS.addBatch();

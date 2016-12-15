@@ -78,8 +78,8 @@ CREATE TABLE tagCorrelations (
     tag2id  INTEGER,
     t1t2_pearson  real,
     t1t2_spearman  real,
-    t1pt2p_pearson real,
-    t1pt2p_r2  real
+    pres_abs_pearson real,
+    r2  real
 );
 
 -- Table: mappingApproach

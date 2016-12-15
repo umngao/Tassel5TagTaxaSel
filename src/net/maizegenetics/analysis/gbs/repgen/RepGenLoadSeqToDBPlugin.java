@@ -31,6 +31,7 @@ import net.maizegenetics.dna.tag.TaxaDistribution;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListIOUtils;
@@ -424,9 +425,9 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
 // The following getters and setters were auto-generated.
     // Please use this method to re-generate.
     //
-    // public static void main(String[] args) {
-    //     GeneratePluginCode.generate(GBSSeqToTagDBPlugin.class);
-    // }
+//     public static void main(String[] args) {
+//         GeneratePluginCode.generate(RepGenLoadSeqToDBPlugin.class);
+//     }
 
     /**
      * Convenience method to run plugin with one return object.
