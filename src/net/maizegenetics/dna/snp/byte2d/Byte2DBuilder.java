@@ -113,6 +113,13 @@ public class Byte2DBuilder {
 
     }
 
+    public void reorderPositions(int[] newIndices) {
+        if (myValues == null) {
+            throw new IllegalStateException("Byte2DBuilder: reorderPositions: this is not an in-memory builder.");
+        }
+        myValues.reorderColumns(newIndices);
+    }
+
     public Byte2D build() {
         if (myIsHDF5) {
             IHDF5Reader reader = myHDF5Writer;

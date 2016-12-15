@@ -104,12 +104,21 @@ public class ImportUtils {
         return null;
 
     }
+    
+    public static GenotypeTable readFromVCF(final String filename, ProgressListener listener, boolean keepDepth, boolean sortPositions) {
+        BuilderFromVCF builder = BuilderFromVCF.getBuilder(filename, listener);
+        if (keepDepth) {
+            builder.keepDepth();
+        }
+        if (sortPositions) {
+            return builder.buildAndSortInMemory();
+        } else {
+            return builder.build();
+        }
+    }
 
     public static GenotypeTable readFromVCF(final String filename, ProgressListener listener, boolean keepDepth) {
-        if (keepDepth) {
-            return BuilderFromVCF.getBuilder(filename, listener).keepDepth().build();
-        }
-        return BuilderFromVCF.getBuilder(filename, listener).build();
+        return readFromVCF(filename, listener, keepDepth, false);
     }
 
     public static GenotypeTable readFromVCF(final String filename, ProgressListener listener) {

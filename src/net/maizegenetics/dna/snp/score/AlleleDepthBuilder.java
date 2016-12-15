@@ -145,6 +145,12 @@ public class AlleleDepthBuilder {
         return this;
 
     }
+    
+    public void reorderPositions(int[] newIndices) {
+        for (int i = 0; i < AlleleDepth.NUM_ALLELE_DEPTH_TYPES; i++) {
+            myBuilders[i].reorderPositions(newIndices);
+        }
+    }
 
     public AlleleDepth build() {
         Byte2D[] input = new Byte2D[AlleleDepth.NUM_ALLELE_DEPTH_TYPES];

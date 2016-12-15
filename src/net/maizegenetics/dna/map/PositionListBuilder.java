@@ -294,7 +294,7 @@ public class PositionListBuilder {
         return this;
     }
 
-    private int[] sort() {
+    public int[] sort() {
 
         int numPositions = myPositions.size();
 

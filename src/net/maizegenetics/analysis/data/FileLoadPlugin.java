@@ -529,7 +529,7 @@ public class FileLoadPlugin extends AbstractPlugin {
                     if (inFile.endsWith(".gz")) {
                         suffix = FILE_EXT_VCF + ".gz";
                     }
-                    result = ImportUtils.readFromVCF(inFile, this);
+                    result = ImportUtils.readFromVCF(inFile, this, true, sortPositions());
                     break;
                 }
                 case Sequence: {

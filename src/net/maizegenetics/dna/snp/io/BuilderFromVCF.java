@@ -299,7 +299,11 @@ public class BuilderFromVCF {
         //Check that result is in correct order. If not, either try to sort or just throw an error (determined by what was passed to fullSort)
         if (posBuild.validateOrdering()==false) {
             if(fullSort) {
-                posBuild.sortPositions(gb);
+                int[] siteRedirect = posBuild.sort();
+                gb.reorderPositions(siteRedirect);
+                if (includeDepth) {
+                    db.reorderPositions(siteRedirect);
+                }
                 if (posBuild.validateOrdering()==false) {   //Double-check post-sort ordering. Should never happen, but just to be safe
                     throw new IllegalStateException("BuilderFromVCF: Ordering of VCF file held in memory failed.");
                 }
