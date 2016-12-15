@@ -486,7 +486,7 @@ public class FileLoadPlugin extends AbstractPlugin {
                     if (inFile.endsWith(".gz")) {
                         suffix = FILE_EXT_HAPMAP_GZ;
                     }
-                    result = ImportUtils.readFromHapmap(inFile, this);
+                    result = ImportUtils.readFromHapmap(inFile, this, sortPositions());
                     break;
                 }
                 case HDF5: {

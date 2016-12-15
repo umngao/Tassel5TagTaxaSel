@@ -147,7 +147,23 @@ public class ImportUtils {
      * @return a genotype table
      */
     public static GenotypeTable readFromHapmap(final String filename, ProgressListener listener) {
-        return BuilderFromHapMap.getBuilder(filename, listener).build();
+        return readFromHapmap(filename, listener, false);
+    }
+    
+    /**
+     * Read GenotypeTable from HapMap file
+     *
+     * @param filename input HapMap file name
+     * @param listener progress listener to track reading rate
+     * @param sortPositions whether to sort positions
+     * @return 
+     */
+    public static GenotypeTable readFromHapmap(final String filename, ProgressListener listener, boolean sortPositions) {
+        BuilderFromHapMap builder = BuilderFromHapMap.getBuilder(filename, listener);
+        if (sortPositions) {
+            builder.sortPositions();
+        }
+        return builder.build();
     }
 
     public static GenotypeTable readFromPLink(final String pedFilename, final String mapFilename, ProgressListener listener) {
