@@ -3,22 +3,31 @@
  */
 package net.maizegenetics.util;
 
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.BinaryOperator;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collector;
+
 /**
  *
- * @author terry
+ * @author Terry Casstevens
  */
 public interface BitSet {
 
     /**
      * Returns capacity.
-     * 
+     *
      * @return capacity
      */
     public long capacity();
 
     /**
-     * Returns the current capacity of this set.  Included for
-     * compatibility.  This is *not* equal to {@link #cardinality}
+     * Returns the current capacity of this set. Included for compatibility.
+     * This is *not* equal to {@link #cardinality}
      */
     public long size();
 
@@ -31,12 +40,12 @@ public interface BitSet {
      * Expert: returns the long[] storing the bits
      */
     public long[] getBits();
-    
+
     /**
      * Expert: returns the long[] storing the bits from start to end
      */
     public long[] getBits(int startWord, int endWord);
-    
+
     /**
      * Expert: returns 64 bits at index.
      */
@@ -46,10 +55,10 @@ public interface BitSet {
      * Expert: sets a new long[] to use as the bit storage
      */
     public void setBits(long[] bits);
-    
+
     /**
      * Expert: sets specified word with given bits.
-     * 
+     *
      * @param wordNum word index
      * @param bits bits
      */
@@ -71,8 +80,8 @@ public interface BitSet {
     public boolean get(int index);
 
     /**
-     * Returns true or false for the specified bit index.
-     * The index should be less than the BitSet size
+     * Returns true or false for the specified bit index. The index should be
+     * less than the BitSet size
      */
     public boolean fastGet(int index);
 
@@ -82,14 +91,14 @@ public interface BitSet {
     public boolean get(long index);
 
     /**
-     * Returns true or false for the specified bit index.
-     * The index should be less than the BitSet size.
+     * Returns true or false for the specified bit index. The index should be
+     * less than the BitSet size.
      */
     public boolean fastGet(long index);
 
     /**
-     * Returns 1 if the bit is set, 0 if not.
-     * The index should be less than the BitSet size
+     * Returns 1 if the bit is set, 0 if not. The index should be less than the
+     * BitSet size
      */
     public int getBit(int index);
 
@@ -99,14 +108,14 @@ public interface BitSet {
     public void set(long index);
 
     /**
-     * Sets the bit at the specified index.
-     * The index should be less than the BitSet size.
+     * Sets the bit at the specified index. The index should be less than the
+     * BitSet size.
      */
     public void fastSet(int index);
 
     /**
-     * Sets the bit at the specified index.
-     * The index should be less than the BitSet size.
+     * Sets the bit at the specified index. The index should be less than the
+     * BitSet size.
      */
     public void fastSet(long index);
 
@@ -119,24 +128,24 @@ public interface BitSet {
     public void set(long startIndex, long endIndex);
 
     /**
-     * Clears a bit.
-     * The index should be less than the BitSet size.
+     * Clears a bit. The index should be less than the BitSet size.
      */
     public void fastClear(int index);
 
     /**
-     * Clears a bit.
-     * The index should be less than the BitSet size.
+     * Clears a bit. The index should be less than the BitSet size.
      */
     public void fastClear(long index);
 
     /**
-     * Clears a bit, allowing access beyond the current set size without changing the size.
+     * Clears a bit, allowing access beyond the current set size without
+     * changing the size.
      */
     public void clear(long index);
 
     /**
-     * Clears a range of bits.  Clearing past the end does not change the size of the set.
+     * Clears a range of bits. Clearing past the end does not change the size of
+     * the set.
      *
      * @param startIndex lower index
      * @param endIndex one-past the last bit to clear
@@ -144,7 +153,8 @@ public interface BitSet {
     public void clear(int startIndex, int endIndex);
 
     /**
-     * Clears a range of bits.  Clearing past the end does not change the size of the set.
+     * Clears a range of bits. Clearing past the end does not change the size of
+     * the set.
      *
      * @param startIndex lower index
      * @param endIndex one-past the last bit to clear
@@ -152,32 +162,30 @@ public interface BitSet {
     public void clear(long startIndex, long endIndex);
 
     /**
-     * Sets a bit and returns the previous value.
-     * The index should be less than the BitSet size.
+     * Sets a bit and returns the previous value. The index should be less than
+     * the BitSet size.
      */
     public boolean getAndSet(int index);
-    
+
     /**
-     * Clears a bit and returns the previous value.
-     * The index should be less than the BitSet size.
+     * Clears a bit and returns the previous value. The index should be less
+     * than the BitSet size.
      */
     public boolean getAndClear(int index);
 
     /**
-     * Sets a bit and returns the previous value.
-     * The index should be less than the BitSet size.
+     * Sets a bit and returns the previous value. The index should be less than
+     * the BitSet size.
      */
     public boolean getAndSet(long index);
 
     /**
-     * Flips a bit.
-     * The index should be less than the BitSet size.
+     * Flips a bit. The index should be less than the BitSet size.
      */
     public void fastFlip(int index);
 
     /**
-     * Flips a bit.
-     * The index should be less than the BitSet size.
+     * Flips a bit. The index should be less than the BitSet size.
      */
     public void fastFlip(long index);
 
@@ -187,14 +195,14 @@ public interface BitSet {
     public void flip(long index);
 
     /**
-     * Flips a bit and returns the resulting bit value.
-     * The index should be less than the BitSet size.
+     * Flips a bit and returns the resulting bit value. The index should be less
+     * than the BitSet size.
      */
     public boolean flipAndGet(int index);
 
     /**
-     * Flips a bit and returns the resulting bit value.
-     * The index should be less than the BitSet size.
+     * Flips a bit and returns the resulting bit value. The index should be less
+     * than the BitSet size.
      */
     public boolean flipAndGet(long index);
 
@@ -210,13 +218,12 @@ public interface BitSet {
      * @return the number of set bits
      */
     public long cardinality();
-    
+
     /**
-     * Return number of set bits up to and including
-     * bit at given index.
-     * 
+     * Return number of set bits up to and including bit at given index.
+     *
      * @param index index
-     * 
+     *
      * @return the number of set bits
      */
     public long cardinality(int index);
@@ -234,16 +241,18 @@ public interface BitSet {
     public long nextSetBit(long index);
 
     /**
-     * Returns the index of the previous set bit starting at the index specified.
-     * If the bit at index is set, index is returned, otherwise the next lower numbered set bit is returned.
-     * -1 is returned if there are no more set bits.
+     * Returns the index of the previous set bit starting at the index
+     * specified. If the bit at index is set, index is returned, otherwise the
+     * next lower numbered set bit is returned. -1 is returned if there are no
+     * more set bits.
      */
     public int previousSetBit(int index);
 
     /**
-     * Returns the index of the previous set bit starting at the index specified.
-     * If the bit at index is set, index is returned, otherwise the next lower numbered set bit is returned.
-     * -1 is returned if there are no more set bits.
+     * Returns the index of the previous set bit starting at the index
+     * specified. If the bit at index is set, index is returned, otherwise the
+     * next lower numbered set bit is returned. -1 is returned if there are no
+     * more set bits.
      */
     public long previousSetBit(long index);
 
@@ -290,20 +299,20 @@ public interface BitSet {
     public boolean intersects(BitSet other);
 
     /**
-     * Expand the long[] with the size given as a number of words (64 bit longs).
-     * getNumWords() is unchanged by this call.
+     * Expand the long[] with the size given as a number of words (64 bit
+     * longs). getNumWords() is unchanged by this call.
      */
     public void ensureCapacityWords(int numWords);
 
     /**
-     * Ensure that the long[] is big enough to hold numBits, expanding it if necessary.
-     * getNumWords() is unchanged by this call.
+     * Ensure that the long[] is big enough to hold numBits, expanding it if
+     * necessary. getNumWords() is unchanged by this call.
      */
     public void ensureCapacity(long numBits);
 
     /**
-     * Lowers numWords, the number of words in use,
-     * by checking for trailing zero words.
+     * Lowers numWords, the number of words in use, by checking for trailing
+     * zero words.
      */
     public void trimTrailingZeros();
 
@@ -322,4 +331,56 @@ public interface BitSet {
      * @return indices
      */
     public int[] getIndicesOfSetBits();
+
+    /**
+     * Returns BitSet Collector.
+     *
+     * @param numBits number of bits
+     * 
+     * @return collector
+     */
+    public static Collector<Long, ?, BitSet> collect(long numBits) {
+        return new BitSetListCollector(numBits);
+    }
+
+    public static class BitSetListCollector implements Collector<Long, BitSet, BitSet> {
+
+        private final long myNumBits;
+
+        public BitSetListCollector(long numBits) {
+            myNumBits = numBits;
+        }
+
+        @Override
+        public Supplier<BitSet> supplier() {
+            return () -> new OpenBitSet(myNumBits);
+        }
+
+        @Override
+        public BiConsumer<BitSet, Long> accumulator() {
+            return (BitSet t, Long u) -> {
+                t.fastSet(u);
+            };
+        }
+
+        @Override
+        public BinaryOperator<BitSet> combiner() {
+            return (BitSet t, BitSet u) -> {
+                t.or(u);
+                return t;
+            };
+        }
+
+        @Override
+        public Function<BitSet, BitSet> finisher() {
+            return (BitSet t) -> t;
+        }
+
+        @Override
+        public Set<Characteristics> characteristics() {
+            return Collections.unmodifiableSet(EnumSet.of(Collector.Characteristics.IDENTITY_FINISH));
+        }
+
+    }
+
 }
