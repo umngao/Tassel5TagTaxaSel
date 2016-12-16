@@ -93,16 +93,16 @@ public class ExportPlugin extends AbstractPlugin {
         if (data instanceof GenotypeTable) {
             GenotypeTable genotype = (GenotypeTable) data;
             List<FileLoadPlugin.TasselFileType> temp = new ArrayList<>();
-            temp.addAll(Arrays.asList(new FileLoadPlugin.TasselFileType[]{
-                FileLoadPlugin.TasselFileType.Hapmap,
-                FileLoadPlugin.TasselFileType.HapmapDiploid,
-                FileLoadPlugin.TasselFileType.Avro,
-                FileLoadPlugin.TasselFileType.HDF5,
-                FileLoadPlugin.TasselFileType.VCF,
-                FileLoadPlugin.TasselFileType.Plink,
-                FileLoadPlugin.TasselFileType.Phylip_Seq,
-                FileLoadPlugin.TasselFileType.Phylip_Inter,
-                FileLoadPlugin.TasselFileType.Table}));
+            if (genotype.hasGenotype()) {
+                temp.add(FileLoadPlugin.TasselFileType.Hapmap);
+                temp.add(FileLoadPlugin.TasselFileType.HapmapDiploid);
+                temp.add(FileLoadPlugin.TasselFileType.HDF5);
+                temp.add(FileLoadPlugin.TasselFileType.VCF);
+                temp.add(FileLoadPlugin.TasselFileType.Plink);
+                temp.add(FileLoadPlugin.TasselFileType.Phylip_Seq);
+                temp.add(FileLoadPlugin.TasselFileType.Phylip_Inter);
+                temp.add(FileLoadPlugin.TasselFileType.Table);
+            }
             if (genotype.hasDepth()) {
                 temp.add(FileLoadPlugin.TasselFileType.Depth);
             }
