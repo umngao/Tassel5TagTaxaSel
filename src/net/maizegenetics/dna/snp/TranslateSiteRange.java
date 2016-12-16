@@ -21,19 +21,24 @@ public class TranslateSiteRange extends TranslateSite {
      * @param end end site (exclusive)
      */
     TranslateSiteRange(int start, int end) {
-        super(end - start);
+        super(end - start + 1);
         myRangeStart = start;
         myRangeEnd = end;
     }
 
     @Override
-    public int translateSite(int site) {
+    public int translate(int site) {
         return site + myRangeStart;
     }
 
     @Override
     public int reverseTranslateSite(int site) {
         return site - myRangeStart;
+    }
+    
+    @Override
+    public boolean hasTranslations() {
+        return true;
     }
 
 }

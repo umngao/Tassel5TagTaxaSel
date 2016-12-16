@@ -31,8 +31,13 @@ public class TranslateTaxaRedirect extends TranslateTaxa {
      * @return translated taxon
      */
     @Override
-    public int translateTaxon(int taxon) {
+    public int translate(int taxon) {
         return myTaxaRedirect[taxon];
+    }
+    
+    @Override
+    public boolean hasTranslations() {
+        return true;
     }
 
 }

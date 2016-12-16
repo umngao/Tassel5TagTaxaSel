@@ -8,6 +8,7 @@ package net.maizegenetics.dna.snp;
 import java.util.Arrays;
 
 /**
+ * Translation redirects site to corresponding site in base genotype table.
  *
  * @author Terry Casstevens
  */
@@ -33,7 +34,7 @@ public class TranslateSiteRedirect extends TranslateSite {
      * @return translated base site
      */
     @Override
-    public int translateSite(int site) {
+    public int translate(int site) {
         return mySiteRedirect[site];
     }
 
@@ -47,6 +48,11 @@ public class TranslateSiteRedirect extends TranslateSite {
     @Override
     public int reverseTranslateSite(int site) {
         return Arrays.binarySearch(mySiteRedirect, site);
+    }
+    
+    @Override
+    public boolean hasTranslations() {
+        return true;
     }
 
 }

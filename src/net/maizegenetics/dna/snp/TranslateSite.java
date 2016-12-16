@@ -6,7 +6,8 @@
 package net.maizegenetics.dna.snp;
 
 /**
- *
+ * No translation to site.
+ * 
  * @author Terry Casstevens
  */
 public class TranslateSite {
@@ -28,7 +29,7 @@ public class TranslateSite {
      * @param site site
      * @return translated base site
      */
-    public int translateSite(int site) {
+    public int translate(int site) {
         return site;
     }
 
@@ -50,6 +51,10 @@ public class TranslateSite {
      */
     public int numSites() {
         return myNumSites;
+    }
+    
+    public boolean hasTranslations() {
+        return false;
     }
 
 }
