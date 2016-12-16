@@ -17,6 +17,7 @@ import java.util.regex.Pattern;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
+import net.maizegenetics.dna.snp.Translate;
 import net.maizegenetics.util.SuperByteMatrix;
 import net.maizegenetics.util.SuperByteMatrixBuilder;
 
@@ -86,18 +87,11 @@ public class GenotypeCallTableBuilder {
         return new GenotypeCallTableBuilder(matrix);
     }
 
-    public static GenotypeCallTable getFilteredInstance(GenotypeCallTable genotype, int numTaxa, int[] taxaRedirect, int numSites, int rangeStart, int rangeEnd) {
+    public static GenotypeCallTable getFilteredInstance(GenotypeCallTable genotype, Translate translate) {
         if (genotype == null) {
             return null;
         }
-        return new FilterGenotypeCallTable(genotype, numTaxa, taxaRedirect, numSites, rangeStart, rangeEnd);
-    }
-
-    public static GenotypeCallTable getFilteredInstance(GenotypeCallTable genotype, int numTaxa, int[] taxaRedirect, int numSites, int[] siteRedirect) {
-        if (genotype == null) {
-            return null;
-        }
-        return new FilterGenotypeCallTable(genotype, numTaxa, taxaRedirect, numSites, siteRedirect);
+        return new FilterGenotypeCallTable(genotype, translate);
     }
 
     public static GenotypeCallTableBuilder getInstanceCopy(GenotypeCallTable genotype) {
