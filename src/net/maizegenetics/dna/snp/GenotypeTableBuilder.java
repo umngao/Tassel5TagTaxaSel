@@ -7,32 +7,32 @@ import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import ch.systemsx.cisd.hdf5.IHDF5WriterConfigurator;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.PositionListBuilder;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeMergeRule;
+import net.maizegenetics.dna.snp.genotypecall.MaskGenotypeCallTable;
 import net.maizegenetics.dna.snp.score.AlleleDepth;
-import net.maizegenetics.dna.snp.score.Dosage;
-import net.maizegenetics.dna.snp.score.AlleleProbabilityBuilder;
-import net.maizegenetics.dna.snp.score.AlleleProbability;
-import net.maizegenetics.dna.snp.score.ReferenceProbabilityBuilder;
-import net.maizegenetics.dna.snp.score.ReferenceProbability;
-import net.maizegenetics.dna.snp.score.DosageBuilder;
 import net.maizegenetics.dna.snp.score.AlleleDepthBuilder;
 import net.maizegenetics.dna.snp.score.AlleleDepthUtil;
+import net.maizegenetics.dna.snp.score.AlleleProbability;
+import net.maizegenetics.dna.snp.score.AlleleProbabilityBuilder;
+import net.maizegenetics.dna.snp.score.Dosage;
+import net.maizegenetics.dna.snp.score.DosageBuilder;
+import net.maizegenetics.dna.snp.score.ReferenceProbability;
+import net.maizegenetics.dna.snp.score.ReferenceProbabilityBuilder;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
+import net.maizegenetics.util.GeneralAnnotation;
+import net.maizegenetics.util.GeneralAnnotationStorage;
 import net.maizegenetics.util.HDF5Utils;
 import net.maizegenetics.util.Tassel5HDF5Constants;
-import net.maizegenetics.util.GeneralAnnotationStorage;
-import net.maizegenetics.util.GeneralAnnotation;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 
 /**
  * Builder for GenotypeTables. New genotypeTables are built from a minimum of
@@ -194,19 +194,6 @@ public class GenotypeTableBuilder {
             HDF5Utils.writeHDF5GenotypesCalls(writer, taxon.getName(), missingGenotypes);
         }
 
-        //TODO TAS-315 Create memory efficient VCF to HDF5
-//        TaxaListBuilder   taxaListBuilder=new TaxaListBuilder();
-//        if(HDF5Utils.doesGenotypeModuleExist(writer) && HDF5Utils.isHDF5GenotypeLocked(writer)) {
-//            writer.close();
-//            throw new UnsupportedOperationException("This file is locked for genotypic additions");
-//        }
-//        if(positionList!=null) {
-//            this.positionList=new PositionListBuilder(writer,positionList).build();  //create a new position list
-//            setupGenotypeTaxaInHDF5(writer);
-//        } else {
-//            this.positionList=PositionListBuilder.getInstance(writer);
-//
-//        }
         this.myBuildType = BuildType.SITE_INC;
         isHDF5 = true;
 
@@ -450,39 +437,38 @@ public class GenotypeTableBuilder {
         return GenotypeTableBuilder.getInstance(geno, pL, tL, depth, null, null, null, HDF5Utils.readHDF5Annotation(reader, Tassel5HDF5Constants.ROOT, GenotypeTable.GENOTYPE_TABLE_ANNOTATIONS));
     }
 
-    public static GenotypeTable getInstanceOnlyMajorMinor(GenotypeTable alignment) {
-        int numTaxa = alignment.numberOfTaxa();
-        int numSites = alignment.numberOfSites();
-        GenotypeCallTableBuilder builder = GenotypeCallTableBuilder.getInstance(numTaxa, numSites);
-        byte[] majorAllele = new byte[64];
-        byte[] minorAllele = new byte[64];
-        for (int bigS = 0; bigS < numSites; bigS += 64) {
-            int blockSize = Math.min(64, numSites - bigS);
+    public static GenotypeTable getInstance(GenotypeTable base, MaskMatrix mask) {
 
-            for (int s = 0; s < blockSize; s++) {
-                majorAllele[s] = alignment.majorAllele(s + bigS);
-                minorAllele[s] = alignment.minorAllele(s + bigS);
-            }
-
-            for (int t = 0; t < numTaxa; t++) {
-                for (int s = 0; s < blockSize; s++) {
-                    byte[] currentAlleles = alignment.genotypeArray(t, s + bigS);
-                    if ((currentAlleles[0] != majorAllele[s]) && (currentAlleles[0] != minorAllele[s])) {
-                        builder.setBase(t, s + bigS, GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
-                    } else if ((currentAlleles[1] != majorAllele[s]) && (currentAlleles[1] != minorAllele[s])) {
-                        builder.setBase(t, s + bigS, GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
-                    } else {
-                        builder.setBase(t, s + bigS, GenotypeTableUtils.getDiploidValue(currentAlleles[0], currentAlleles[1]));
-                    }
-                }
-            }
+        AlleleDepth depth = base.depth();
+        if (depth != null) {
+            depth = AlleleDepthBuilder.getMaskInstance(depth, mask);
         }
-        return new CoreGenotypeTable(builder.build(), alignment.positions(), alignment.taxa());
+
+        AlleleProbability alleleProbability = base.alleleProbability();
+        if (alleleProbability != null) {
+            alleleProbability = AlleleProbabilityBuilder.getMaskInstance(alleleProbability, mask);
+        }
+
+        Dosage dosage = base.dosage();
+        if (dosage != null) {
+            dosage = DosageBuilder.getMaskInstance(dosage, mask);
+        }
+
+        ReferenceProbability referenceProbability = base.referenceProbability();
+        if (referenceProbability != null) {
+            referenceProbability = ReferenceProbabilityBuilder.getMaskInstance(referenceProbability, mask);
+        }
+
+        return new CoreGenotypeTable(new MaskGenotypeCallTable(base.genotypeMatrix(), mask), base.positions(), base.taxa(), depth, alleleProbability, referenceProbability, dosage, base.annotations());
+
     }
 
-    public static GenotypeTable getHomozygousInstance(GenotypeTable alignment) {
-        GenotypeCallTableBuilder builder = GenotypeCallTableBuilder.getHomozygousInstance(alignment.genotypeMatrix());
-        return new CoreGenotypeTable(builder.build(), alignment.positions(), alignment.taxa());
+    public static GenotypeTable getInstanceOnlyMajorMinor(GenotypeTable genotype) {
+        return getInstance(genotype, MaskMatrixBuilder.getInstanceMinorSNP(genotype.genotypeMatrix()));
+    }
+
+    public static GenotypeTable getHomozygousInstance(GenotypeTable genotype) {
+        return getInstance(genotype, MaskMatrixBuilder.getInstanceHomozygous(genotype.genotypeMatrix()));
     }
 
     /**
