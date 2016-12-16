@@ -25,7 +25,6 @@ import net.maizegenetics.util.OpenBitSet;
 
 import javax.swing.*;
 
-import java.awt.Dialog;
 import java.awt.Frame;
 import java.net.URL;
 import java.util.ArrayList;
@@ -36,14 +35,15 @@ import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import net.maizegenetics.gui.SelectFromAvailableDialog;
 import net.maizegenetics.gui.SelectFromAvailableSitesDialog;
 import net.maizegenetics.gui.SiteNamesAvailableListModel;
 
 import org.apache.log4j.Logger;
 
 /**
- *
+ * @deprecated 
+ * Please use FilterSiteBuilderPlugin instead
+ * 
  * @author Terry Casstevens
  */
 public class FilterSiteNamePlugin extends AbstractPlugin {
