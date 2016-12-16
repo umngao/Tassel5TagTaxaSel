@@ -5,7 +5,8 @@
  */
 package net.maizegenetics.dna.snp.genotypecall;
 
-import net.maizegenetics.util.BitSet;
+import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.MaskMatrix;
 
 /**
  *
@@ -14,20 +15,18 @@ import net.maizegenetics.util.BitSet;
 public class MaskGenotypeCallTable extends AbstractGenotypeCallTable {
 
     private final GenotypeCallTable myBase;
-    private final byte myMaskValue;
-    private final BitSet[] myBitSets;
+    private final MaskMatrix myMask;
 
-    public MaskGenotypeCallTable(GenotypeCallTable base, byte maskValue, BitSet[] bitSets) {
+    public MaskGenotypeCallTable(GenotypeCallTable base, MaskMatrix mask) {
         super(base.numberOfTaxa(), base.numberOfSites(), base.isPhased(), base.alleleDefinitions());
         myBase = base;
-        myMaskValue = maskValue;
-        myBitSets = bitSets;
+        myMask = mask;
     }
 
     @Override
     public byte genotype(int taxon, int site) {
-        if (myBitSets[taxon].fastGet(site)) {
-            return myMaskValue;
+        if (myMask.get(taxon, site)) {
+            return GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
         } else {
             return myBase.genotype(taxon, site);
         }
@@ -57,5 +56,5 @@ public class MaskGenotypeCallTable extends AbstractGenotypeCallTable {
     public boolean isSiteOptimized() {
         return myBase.isSiteOptimized();
     }
-    
+
 }
