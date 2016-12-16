@@ -230,7 +230,7 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
             BitSet cMn = workingAlignment.allelePresenceForAllTaxa(c, WHICH_ALLELE.Minor);
             LDResult ldr = getLDForSitePair(rMj, rMn, cMj, cMn, 2, myMinTaxaForEstimate, -1.0f, myFisherExact,r,c);
             if (myIsAccumulativeReport) {
-                if (ldr.r2() == Float.NaN) {
+                if (Float.isNaN(ldr.r2())) {
                     myAccumulativeRValueBins[myNumAccumulativeBins]++;
                 } else if (ldr.r2() == 1.0f) {
                     myAccumulativeRValueBins[myNumAccumulativeBins - 1]++;
