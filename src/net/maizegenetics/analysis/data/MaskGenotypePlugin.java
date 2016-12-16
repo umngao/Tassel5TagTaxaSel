@@ -10,13 +10,16 @@ import java.awt.Frame;
 import java.net.URL;
 import javax.swing.*;
 import java.util.List;
-import java.util.Random;
 
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.MaskGenotypeTableBuilder;
+import net.maizegenetics.dna.snp.GenotypeTableBuilder;
+import net.maizegenetics.dna.snp.GenotypeTableUtils;
+import net.maizegenetics.dna.snp.MaskMatrixBuilder;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
+import net.maizegenetics.dna.snp.score.AlleleDepth;
+import net.maizegenetics.gui.DialogUtils;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginParameter;
 import org.apache.log4j.Logger;
@@ -34,8 +37,14 @@ public class MaskGenotypePlugin extends AbstractPlugin {
 
     private PluginParameter<Double> myPercentageMasked
             = new PluginParameter.Builder<>("percentageMasked", 0.01, Double.class)
-            .range(Range.closed(0.0, 1.0))
+            .range(Range.openClosed(0.0, 1.0))
             .description("Percentage of genotypes (not already unknown) to mask.")
+            .build();
+
+    private PluginParameter<Integer> myMinDepth
+            = new PluginParameter.Builder<>("minDepth", 0, Integer.class)
+            .range(Range.atLeast(0))
+            .description("Minimum depth required before masking.")
             .build();
 
     public MaskGenotypePlugin(Frame parentFrame, boolean isInteractive) {
@@ -55,13 +64,24 @@ public class MaskGenotypePlugin extends AbstractPlugin {
 
         Datum inputDatum = input.getDataOfType(GenotypeTable.class).get(0);
         GenotypeTable original = (GenotypeTable) inputDatum.getData();
-        GenotypeCallTable origCalls = original.genotypeMatrix();
 
-        MaskGenotypeTableBuilder builder = new MaskGenotypeTableBuilder(original);
+        if ((minDepth() > 0) && !original.hasDepth()) {
+            throw new IllegalArgumentException("MaskGenotypePlugin: processData: input doesn't have depth information and you set minimum depth to " + minDepth());
+        }
 
-        percentageMask(builder, origCalls);
+        MaskMatrixBuilder builder = MaskMatrixBuilder.getInstance(original.numberOfTaxa(), original.numberOfSites(), true);
 
-        GenotypeTable result = builder.build();
+        long numGenotypesEligibleToMask = markEligibleGenotypes(builder, original);
+
+        if (numGenotypesEligibleToMask == 0) {
+            DialogUtils.showWarning("No Genotypes match your criteria to be masked.", getParentFrame());
+        }
+
+        long numberActuallyMasked = builder.reduceMaskTo(percentageMasked());
+
+        myLogger.info("Number of Genotypes Masked: " + numberActuallyMasked);
+
+        GenotypeTable result = GenotypeTableBuilder.getInstance(original, builder.build());
 
         Datum genotype = new Datum(inputDatum.getName() + "_Masked", result, null);
 
@@ -69,48 +89,115 @@ public class MaskGenotypePlugin extends AbstractPlugin {
 
     }
 
-    private void percentageMask(MaskGenotypeTableBuilder builder, GenotypeCallTable origCalls) {
-        
-        if (percentageMasked() == 0.0) {
-            return;
+    private long markEligibleGenotypes(MaskMatrixBuilder builder, GenotypeTable orig) {
+        if (orig.genotypeMatrix().isSiteOptimized()) {
+            return siteMarkEligibleGenotypes(builder, orig);
+        } else {
+            return taxaMarkEligibleGenotypes(builder, orig);
         }
+    }
 
-        Random random = new Random();
+    private long siteMarkEligibleGenotypes(MaskMatrixBuilder builder, GenotypeTable orig) {
+
+        GenotypeCallTable origCalls = orig.genotypeMatrix();
+
         int numTaxa = origCalls.numberOfTaxa();
         int numSites = origCalls.numberOfSites();
-        long totalGenotypes = numTaxa * numSites;
-        long numKnown = 0;
-        for (int s = 0; s < numSites; s++) {
-            byte[] genotypes = origCalls.genotypeForAllTaxa(s);
-            for (byte current : genotypes) {
-                if (current != GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
-                    numKnown++;
+
+        myLogger.info("Number of taxa: " + numTaxa);
+        myLogger.info("Number of sites: " + numSites);
+        myLogger.info("Number of genotypes: " + ((long) numTaxa * (long) numSites));
+
+        long numGenotypesEligibleToMask = 0;
+
+        if (minDepth() > 0) {
+            AlleleDepth depth = orig.depth();
+            for (int s = 0; s < numSites; s++) {
+                byte[] genotypes = origCalls.genotypeForAllTaxa(s);
+                for (int t = 0; t < numTaxa; t++) {
+                    if (genotypes[t] != GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+                        byte[] alleles = GenotypeTableUtils.getDiploidValues(genotypes[t]);
+                        int currentDepth = 0;
+                        if (alleles[0] < 6) {
+                            currentDepth = depth.value(t, s, AlleleDepth.ALLELE_DEPTH_TYPES[alleles[0]]);
+                        }
+                        if (alleles[1] < 6) {
+                            currentDepth += depth.value(t, s, AlleleDepth.ALLELE_DEPTH_TYPES[alleles[1]]);
+                        }
+                        if (currentDepth >= minDepth()) {
+                            builder.set(t, s);
+                            numGenotypesEligibleToMask++;
+                        }
+                    }
+                }
+            }
+        } else {
+            for (int s = 0; s < numSites; s++) {
+                byte[] genotypes = origCalls.genotypeForAllTaxa(s);
+                for (int t = 0; t < numTaxa; t++) {
+                    if (genotypes[t] != GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+                        builder.set(t, s);
+                        numGenotypesEligibleToMask++;
+                    }
                 }
             }
         }
 
-        long numberMasked = 0;
-        long numberToMask = (long) Math.floor((double) numKnown * percentageMasked());
-        myLogger.info("Number of Genotypes Masked: " + numberToMask);
+        myLogger.info("Number of genotypes eligible to mask: " + numGenotypesEligibleToMask);
 
-        double step = (double) totalGenotypes / (double) numberToMask * 1.8;
-        long index = 0;
-        while (true) {
-            index += (long) (step * random.nextDouble());
-            if (index >= totalGenotypes) {
-                index %= totalGenotypes;
+        return numGenotypesEligibleToMask;
+
+    }
+
+    private long taxaMarkEligibleGenotypes(MaskMatrixBuilder builder, GenotypeTable orig) {
+
+        GenotypeCallTable origCalls = orig.genotypeMatrix();
+
+        int numTaxa = origCalls.numberOfTaxa();
+        int numSites = origCalls.numberOfSites();
+
+        myLogger.info("Number of taxa: " + numTaxa);
+        myLogger.info("Number of sites: " + numSites);
+        myLogger.info("Number of genotypes: " + ((long) numTaxa * (long) numSites));
+
+        long numGenotypesEligibleToMask = 0;
+
+        if (minDepth() > 0) {
+            AlleleDepth depth = orig.depth();
+            for (int t = 0; t < numTaxa; t++) {
+                byte[] genotypes = origCalls.genotypeForAllSites(t);
+                for (int s = 0; s < numSites; s++) {
+                    if (genotypes[s] != GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+                        byte[] alleles = GenotypeTableUtils.getDiploidValues(genotypes[s]);
+                        int currentDepth = 0;
+                        if (alleles[0] < 6) {
+                            currentDepth = depth.value(t, s, AlleleDepth.ALLELE_DEPTH_TYPES[alleles[0]]);
+                        }
+                        if (alleles[1] < 6) {
+                            currentDepth += depth.value(t, s, AlleleDepth.ALLELE_DEPTH_TYPES[alleles[1]]);
+                        }
+                        if (currentDepth >= minDepth()) {
+                            builder.set(t, s);
+                            numGenotypesEligibleToMask++;
+                        }
+                    }
+                }
             }
-            int t = (int) (index % numTaxa);
-            int site = (int) (index / numTaxa);
-            if ((!builder.get(t, site))
-                    && (origCalls.genotype(t, site) != GenotypeTable.UNKNOWN_DIPLOID_ALLELE)) {
-                builder.set(t, site);
-                numberMasked++;
-                if (numberMasked >= numberToMask) {
-                    return;
+        } else {
+            for (int t = 0; t < numTaxa; t++) {
+                byte[] genotypes = origCalls.genotypeForAllSites(t);
+                for (int s = 0; s < numSites; s++) {
+                    if (genotypes[s] != GenotypeTable.UNKNOWN_DIPLOID_ALLELE) {
+                        builder.set(t, s);
+                        numGenotypesEligibleToMask++;
+                    }
                 }
             }
         }
+
+        myLogger.info("Number of genotypes eligible to mask: " + numGenotypesEligibleToMask);
+
+        return numGenotypesEligibleToMask;
 
     }
 
@@ -139,6 +226,27 @@ public class MaskGenotypePlugin extends AbstractPlugin {
      */
     public MaskGenotypePlugin percentageMasked(Double value) {
         myPercentageMasked = new PluginParameter<>(myPercentageMasked, value);
+        return this;
+    }
+
+    /**
+     * Minimum depth required before masking.
+     *
+     * @return Min Depth
+     */
+    public Integer minDepth() {
+        return myMinDepth.value();
+    }
+
+    /**
+     * Set Min Depth. Minimum depth required before masking.
+     *
+     * @param value Min Depth
+     *
+     * @return this plugin
+     */
+    public MaskGenotypePlugin minDepth(Integer value) {
+        myMinDepth = new PluginParameter<>(myMinDepth, value);
         return this;
     }
 
