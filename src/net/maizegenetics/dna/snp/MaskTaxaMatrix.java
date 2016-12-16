@@ -1,7 +1,7 @@
 /*
- *  MaskSiteMatrix
+ *  MaskTaxaMatrix
  * 
- *  Created on May 6, 2016
+ *  Created on Dec 12, 2016
  */
 package net.maizegenetics.dna.snp;
 
@@ -13,13 +13,18 @@ import net.maizegenetics.util.UnmodifiableBitSet;
  *
  * @author Terry Casstevens
  */
-public class MaskSiteMatrix implements MaskMatrix {
+public class MaskTaxaMatrix implements MaskMatrix {
 
     private final BitSet[] myBitSets;
     private final int myNumTaxa;
     private final int myNumSites;
 
-    MaskSiteMatrix(BitSet[] bitSets, int numTaxa, int numSites) {
+    /**
+     * Constructs a MaskMatrix for use with components of a GenotypeTable.
+     *
+     * @param bitSets set bits to indicate which are masked
+     */
+    MaskTaxaMatrix(BitSet[] bitSets, int numTaxa, int numSites) {
         myBitSets = bitSets;
         myNumTaxa = numTaxa;
         myNumSites = numSites;
@@ -27,7 +32,7 @@ public class MaskSiteMatrix implements MaskMatrix {
 
     @Override
     public boolean get(int taxon, int site) {
-        return myBitSets[site].fastGet(taxon);
+        return myBitSets[taxon].fastGet(site);
     }
 
     /**
@@ -42,12 +47,7 @@ public class MaskSiteMatrix implements MaskMatrix {
      */
     @Override
     public boolean isTaxonMaskedHint(int taxon) {
-        for (int s = 0; s < myNumSites; s++) {
-            if (myBitSets[s].fastGet(taxon)) {
-                return true;
-            }
-        }
-        return false;
+        return myBitSets[taxon].cardinality() != 0;
     }
 
     /**
@@ -59,13 +59,7 @@ public class MaskSiteMatrix implements MaskMatrix {
      */
     @Override
     public BitSet maskForTaxon(int taxon) {
-        BitSet result = new OpenBitSet(myNumSites);
-        for (int s = 0; s < myNumSites; s++) {
-            if (myBitSets[s].fastGet(taxon)) {
-                result.fastSet(s);
-            }
-        }
-        return result;
+        return UnmodifiableBitSet.getInstance(myBitSets[taxon]);
     }
 
     /**
@@ -80,7 +74,12 @@ public class MaskSiteMatrix implements MaskMatrix {
      */
     @Override
     public boolean isSiteMaskedHint(int site) {
-        return myBitSets[site].cardinality() != 0;
+        for (int t = 0; t < myNumTaxa; t++) {
+            if (myBitSets[t].fastGet(site)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -92,7 +91,13 @@ public class MaskSiteMatrix implements MaskMatrix {
      */
     @Override
     public BitSet maskForSite(int site) {
-        return UnmodifiableBitSet.getInstance(myBitSets[site]);
+        BitSet result = new OpenBitSet(myNumTaxa);
+        for (int t = 0; t < myNumTaxa; t++) {
+            if (myBitSets[t].fastGet(site)) {
+                result.fastSet(t);
+            }
+        }
+        return result;
     }
 
     @Override
@@ -107,7 +112,7 @@ public class MaskSiteMatrix implements MaskMatrix {
 
     @Override
     public boolean isSiteOptimized() {
-        return true;
+        return false;
     }
 
 }
