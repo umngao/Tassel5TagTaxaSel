@@ -1,7 +1,7 @@
 /*
- *  FilterHDF5AlleleDepth
+ *  FilterAlleleDepth
  * 
- *  Created on May 2, 2016
+ *  Created on Dec 16, 2016
  */
 package net.maizegenetics.dna.snp.score;
 
@@ -11,12 +11,12 @@ import net.maizegenetics.dna.snp.Translate;
  *
  * @author Terry Casstevens
  */
-public class FilterHDF5AlleleDepth extends AlleleDepth {
+public class FilterAlleleDepth extends AlleleDepth {
 
-    private final HDF5AlleleDepth myBase;
+    private final AlleleDepth myBase;
     private final Translate myTranslate;
 
-    FilterHDF5AlleleDepth(HDF5AlleleDepth alleleDepth, Translate translate) {
+    FilterAlleleDepth(AlleleDepth alleleDepth, Translate translate) {
         super(translate.numTaxa(), translate.numSites());
         myBase = alleleDepth;
         myTranslate = translate;
@@ -72,3 +72,4 @@ public class FilterHDF5AlleleDepth extends AlleleDepth {
     }
 
 }
+

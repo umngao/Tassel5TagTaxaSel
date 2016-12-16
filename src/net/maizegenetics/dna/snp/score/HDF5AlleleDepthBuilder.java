@@ -5,7 +5,6 @@ package net.maizegenetics.dna.snp.score;
 
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
-import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.HDF5Utils;
 
@@ -50,10 +49,6 @@ public class HDF5AlleleDepthBuilder extends AlleleDepthBuilder {
             return null;
         }
         return new HDF5AlleleDepth(reader);
-    }
-    
-    public static AlleleDepth getFilteredInstance(HDF5AlleleDepth alleleDepth, FilterGenotypeTable filter) {
-        return new FilterHDF5AlleleDepth(alleleDepth, filter);
     }
 
     /**

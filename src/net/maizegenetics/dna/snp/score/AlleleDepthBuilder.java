@@ -6,12 +6,11 @@ package net.maizegenetics.dna.snp.score;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 
-import java.util.Collection;
-
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
+import net.maizegenetics.dna.snp.MaskMatrix;
+import net.maizegenetics.dna.snp.Translate;
 import net.maizegenetics.dna.snp.byte2d.Byte2D;
 import net.maizegenetics.dna.snp.byte2d.Byte2DBuilder;
-import net.maizegenetics.dna.snp.byte2d.FilterByte2D;
 import net.maizegenetics.taxa.TaxaList;
 
 /**
@@ -71,21 +70,19 @@ public class AlleleDepthBuilder {
      * This creates a filtered AlleleDepth.
      *
      * @param base original AlleleDepth
-     * @param filterGenotypeTable filter
+     * @param translate translate
      *
      * @return filtered AlleleDepth
      */
-    public static AlleleDepth getFilteredInstance(AlleleDepth base, FilterGenotypeTable filterGenotypeTable) {
-        if (base instanceof HDF5AlleleDepth) {
-            return HDF5AlleleDepthBuilder.getFilteredInstance((HDF5AlleleDepth) base, filterGenotypeTable);
+    public static AlleleDepth getFilteredInstance(AlleleDepth base, Translate translate) {
+        if (base instanceof FilterAlleleDepth) {
+            throw new IllegalArgumentException("AlleleDepthBuilder: getFilteredInstance: shouldn't stack filters ");
         }
-        Collection<Byte2D> storage = base.byteStorage();
-        FilterByte2D[] resultStorage = new FilterByte2D[storage.size()];
-        int count = 0;
-        for (Byte2D current : storage) {
-            resultStorage[count] = Byte2DBuilder.getFilteredInstance(current, filterGenotypeTable);
-        }
-        return new AlleleDepth(resultStorage);
+        return new FilterAlleleDepth(base, translate);
+    }
+
+    public static AlleleDepth getMaskInstance(AlleleDepth base, MaskMatrix mask) {
+        return new MaskAlleleDepth(base, mask);
     }
 
     /**
@@ -145,7 +142,7 @@ public class AlleleDepthBuilder {
         return this;
 
     }
-    
+
     public void reorderPositions(int[] newIndices) {
         for (int i = 0; i < AlleleDepth.NUM_ALLELE_DEPTH_TYPES; i++) {
             myBuilders[i].reorderPositions(newIndices);

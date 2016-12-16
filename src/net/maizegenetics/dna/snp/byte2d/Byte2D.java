@@ -13,6 +13,8 @@ public interface Byte2D {
     public byte valueForAllele(int taxon, int site);
 
     public byte[] valuesForAllSites(int taxon);
+    
+    public byte[] valuesForAllTaxa(int site);
 
     public int numTaxa();
 

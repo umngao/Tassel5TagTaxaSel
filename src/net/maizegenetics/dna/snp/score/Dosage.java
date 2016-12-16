@@ -24,6 +24,12 @@ public class Dosage implements SiteScore {
         myNumSites = myStorage.numSites();
     }
 
+    Dosage(int numTaxa, int numSites) {
+        myStorage = null;
+        myNumTaxa = numTaxa;
+        myNumSites = numSites;
+    }
+
     public byte value(int taxon, int site) {
         return myStorage.valueForAllele(taxon, site);
     }

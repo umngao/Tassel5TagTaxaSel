@@ -6,14 +6,13 @@ package net.maizegenetics.dna.snp.score;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.maizegenetics.dna.snp.MaskMatrix;
 
-import net.maizegenetics.dna.snp.FilterGenotypeTable;
+import net.maizegenetics.dna.snp.Translate;
 import net.maizegenetics.dna.snp.byte2d.Byte2D;
 import net.maizegenetics.dna.snp.byte2d.Byte2DBuilder;
-import net.maizegenetics.dna.snp.byte2d.FilterByte2D;
 import net.maizegenetics.taxa.TaxaList;
 
 /**
@@ -47,14 +46,15 @@ public class AlleleProbabilityBuilder {
         return new AlleleProbabilityBuilder(numTaxa, numSites, taxaList);
     }
 
-    public static AlleleProbability getFilteredInstance(AlleleProbability base, FilterGenotypeTable filterGenotypeTable) {
-        Collection<Byte2D> storage = base.byteStorage();
-        FilterByte2D[] resultStorage = new FilterByte2D[storage.size()];
-        int count = 0;
-        for (Byte2D current : storage) {
-            resultStorage[count] = Byte2DBuilder.getFilteredInstance(current, filterGenotypeTable);
+    public static AlleleProbability getFilteredInstance(AlleleProbability base, Translate translate) {
+        if (base instanceof FilterAlleleProbability) {
+            throw new IllegalArgumentException("AlleleProbabilityBuilder: getFilteredInstance: shouldn't stack filters ");
         }
-        return new AlleleProbability(resultStorage);
+        return new FilterAlleleProbability(base, translate);
+    }
+
+    public static AlleleProbability getMaskInstance(AlleleProbability base, MaskMatrix mask) {
+        return new MaskAlleleProbability(base, mask);
     }
 
     public static AlleleProbability getInstance(IHDF5Reader reader) {

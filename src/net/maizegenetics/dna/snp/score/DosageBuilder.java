@@ -5,11 +5,11 @@ package net.maizegenetics.dna.snp.score;
 
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
+import net.maizegenetics.dna.snp.MaskMatrix;
 
-import net.maizegenetics.dna.snp.FilterGenotypeTable;
+import net.maizegenetics.dna.snp.Translate;
 import net.maizegenetics.dna.snp.byte2d.Byte2D;
 import net.maizegenetics.dna.snp.byte2d.Byte2DBuilder;
-import net.maizegenetics.dna.snp.byte2d.FilterByte2D;
 import net.maizegenetics.taxa.TaxaList;
 
 /**
@@ -39,9 +39,15 @@ public class DosageBuilder {
         return new DosageBuilder(numTaxa, numSites, taxaList);
     }
 
-    public static Dosage getFilteredInstance(Dosage base, FilterGenotypeTable filterGenotypeTable) {
-        FilterByte2D resultStorage = Byte2DBuilder.getFilteredInstance(base.byteStorage(), filterGenotypeTable);
-        return new Dosage(resultStorage);
+    public static Dosage getFilteredInstance(Dosage base, Translate translate) {
+        if (base instanceof FilterDosage) {
+            throw new IllegalArgumentException("DosageBuilder: getFilteredInstance: shouldn't stack filters ");
+        }
+        return new FilterDosage(base, translate);
+    }
+    
+    public static Dosage getMaskInstance(Dosage base, MaskMatrix mask) {
+        return new MaskDosage(base, mask);
     }
 
     public static Dosage getInstance(IHDF5Reader reader) {

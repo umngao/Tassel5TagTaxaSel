@@ -23,6 +23,12 @@ public class ReferenceProbability implements SiteScore {
         myNumTaxa = myStorage.numTaxa();
         myNumSites = myStorage.numSites();
     }
+    
+    ReferenceProbability(int numTaxa, int numSites) {
+        myStorage = null;
+        myNumTaxa = numTaxa;
+        myNumSites = numSites;
+    }
 
     public float value(int taxon, int site) {
         return SiteScoreUtil.byteToFloatPercentage(myStorage.valueForAllele(taxon, site));

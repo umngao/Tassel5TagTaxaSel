@@ -31,6 +31,15 @@ public abstract class AbstractByte2D implements Byte2D {
     }
 
     @Override
+    public byte[] valuesForAllTaxa(int site) {
+        byte[] result = new byte[myNumTaxa];
+        for (int taxon = 0; taxon < myNumTaxa; taxon++) {
+            result[site] = valueForAllele(taxon, site);
+        }
+        return result;
+    }
+
+    @Override
     public int numTaxa() {
         return myNumTaxa;
     }
