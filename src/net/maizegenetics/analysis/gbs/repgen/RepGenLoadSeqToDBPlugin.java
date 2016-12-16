@@ -68,13 +68,15 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
             .description("Minimum kmer Length after second cut site is removed").build();
     private PluginParameter<Integer> myMinKmerCount = new PluginParameter.Builder<>("c", 10, Integer.class).guiName("Min Kmer Count")
             .description("Minimum kmer count").build();
+    private PluginParameter<Integer> minTaxa = new PluginParameter.Builder<>("minTaxa", 5, Integer.class).guiName("Min Taxa Represented")
+            .description("Minimum numer of taxa where kmer is found").build();
     private PluginParameter<String> myOutputDB = new PluginParameter.Builder<>("db", null, String.class).guiName("Output Database File").required(true).outFile()
             .description("Output Database File").build();
     private PluginParameter<Integer> myMinQualScore = new PluginParameter.Builder<>("mnQS", 0, Integer.class).guiName("Minimum quality score").required(false)
             .description("Minimum quality score within the barcode and read length to be accepted").build();
     private PluginParameter<Integer> myMaxKmerNumber = new PluginParameter.Builder<>("mxKmerNum", 50000000, Integer.class).guiName("Maximum Kmer Number").required(false)
             .description("Maximum number of kmers").build();
-    private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 8, Integer.class).guiName("Batch size of fastq files").required(false)
+    private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 32, Integer.class).guiName("Batch size of fastq files").required(false)
             .description("Number of flow cells being processed simultaneously").build();
 //    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",true,Boolean.class).guiName("Delete Old Data")
 //            .description("Delete existing SNP quality data from db tables").build();
@@ -188,6 +190,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
 //                    tdw.clearTagTaxaDistributionData(); // clear old data - it will be re-added at the end.
 //                }
 //            }
+
             if (tdw == null) tdw=new RepGenSQLite(myOutputDB.value());
             taglenException = false;
             for (int i = 0; i < inputSeqFiles.size(); i+=batchSize) {
@@ -224,7 +227,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
                     //make sure don't lose rare ones, need to set maxTagNumber large enough
                     System.out.println("BEFORE removeTagsWihtoutReplication, tagCntMap.size= " + tagCntMap.keySet().size()
                       + ", tagCntQSMap.size= " + tagCntQSMap.keySet().size());
-                    removeTagsWithoutReplication(tagCntMap,tagCntQSMap);
+                    removeTagsWithoutReplication(tagCntMap,tagCntQSMap,minTaxa());
                     if (tagCntMap.size() == 0) {
                         System.out.println("WARNING:  After removing tags without replication, there are NO  tags left in the database");
                     } else {
@@ -360,9 +363,9 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
      * 
      * In addition, it removes the corresponding entry from the tag-qualityscore map.  They must remain in synch
      */
-    private static void removeTagsWithoutReplication (TagDistributionMap masterTagTaxaMap, TagCountQualityScoreMap tagCntQSMap) {
+    private static void removeTagsWithoutReplication (TagDistributionMap masterTagTaxaMap, TagCountQualityScoreMap tagCntQSMap,int minTaxa) {
         int currentSize = masterTagTaxaMap.size();
-        int minTaxa=2;
+       // int minTaxa=2;
         System.out.println("Starting removeTagsWithoutReplication. Current tag number: " + currentSize);
         LongAdder tagsRemoved=new LongAdder();
         masterTagTaxaMap.entrySet().parallelStream().forEach(t -> {
@@ -552,6 +555,26 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
         return this;
     }
 
+    /**
+     * Minimum taxa containing tag
+     *
+     * @return Min Taxa Count
+     */
+    public Integer minTaxa() {
+        return minTaxa.value();
+    }
+
+    /**
+     * Set Min Taxa Count. Minimum Taxa count
+     *
+     * @param value Min Taxa containing a tag
+     *
+     * @return this plugin
+     */
+    public RepGenLoadSeqToDBPlugin minTaxa(Integer value) {
+        minTaxa = new PluginParameter<>(minTaxa, value);
+        return this;
+    }
     /**
      * Output Database File
      *

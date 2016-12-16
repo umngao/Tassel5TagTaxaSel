@@ -22,14 +22,14 @@ CREATE TABLE reftag (
     UNIQUE (sequence, chromosome, seqlen, position, refGenomeID)
 );
 -- Table: tagMapping
--- Junction (link) table between tag, and physicalMapPosition
+-- Junction (link) table between reftag, and physicalMapPosition
 CREATE TABLE tagMapping (
-    tagid       INTEGER NOT NULL,
+    reftagid       INTEGER NOT NULL,
     position_id  INTEGER NOT NULL,
     method_id    INTEGER NOT NULL,
     bp_error	INTEGER,
     cm_error	FLOAT(2),
-    PRIMARY KEY (tagid, position_id)
+    PRIMARY KEY (reftagid, position_id)
 );
 
 -- Table: referenceGenome
@@ -70,8 +70,8 @@ CREATE TABLE tagAlignments (
 -- Table: tagCorrelations
 -- t1t2_pearson is the pearson correlation of tag1 depths vector by tag2 depths vector
 -- t1t2_spearman is the spearman correlation of tag1 depths vector by tag2 depths vector
--- t1pt2p_pearson is the pearson correltaion of tag1 prime vec by tag2 prime vec (presence/absence)
--- t1pt2p_r2 is the t1' x t2' r2 value from analysis.popgen.LinkageDisequilibrium.calculateRSqr()
+-- pres_abs_pearson is the pearson correltaion of tag1 prime vec by tag2 prime vec (presence/absence)
+-- r2 is the t1' x t2' r2 value from analysis.popgen.LinkageDisequilibrium.calculateRSqr()
 CREATE TABLE tagCorrelations (
     tagcorrelationsId INTEGER   PRIMARY KEY,
     tag1id	INTEGER,

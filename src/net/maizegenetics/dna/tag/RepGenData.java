@@ -13,6 +13,7 @@ import com.google.common.collect.Multimap;
 
 import net.maizegenetics.analysis.gbs.repgen.AlignmentInfo;
 import net.maizegenetics.analysis.gbs.repgen.RefTagData;
+import net.maizegenetics.analysis.gbs.repgen.TagCorrelationInfo;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
@@ -165,12 +166,6 @@ public interface RepGenData {
      */
     Map<Position, Map<Tag, TaxaDistribution>> getCutPosForStrandTagTaxaMap(Chromosome chromosome, int firstPosition, int lastPosition, boolean strand);
 
-    /**
-     * For a given genomic position returns of the map tags and their distribution.
-     * @param cutPosition Genomic position of the cut site.
-     * @return Map of Tag(key) TaxaDistribution(Value)
-     */
-    Map<Tag,TaxaDistribution> getTagsTaxaMap(Position cutPosition);
 
     /**
      * Returns the taxa list associated with taxa distribution
@@ -189,7 +184,7 @@ public interface RepGenData {
      * Returns a Map of Allele with its associated Tag/TaxaDistribution 
      * @return Map or null if not available.
      */
-        Multimap<Allele, Map<Tag, TaxaDistribution>> getAllelesTagTaxaDistForSNP(
+    Multimap<Allele, Map<Tag, TaxaDistribution>> getAllelesTagTaxaDistForSNP(
                         Position position);     
         
     /**
@@ -206,9 +201,20 @@ public interface RepGenData {
       */
      Map<Tag, TaxaDistribution> getAllTagsTaxaMap();
 
-    PositionList getPhysicalMapPositions(boolean onlyBest);
+     /**
+      * Get all of the physical map positions associated with the ref tags. 
+      * @return iterator of annotated positions
+      */
+    PositionList getPhysicalMapPositions();
 
-    PositionList getPhysicalMapPositions(Chromosome chromosome, int firstPosition, int lastPosition, boolean onlyBest);
+    /**
+     * Get the unique list of positions for ref tags for a specific chromosome within a range.
+     * @param chromosome chromosome
+     * @param firstPosition first physical position in genome (value <0 will return physical >=0)
+     * @param lastPosition inclusive last physical position (value <0 will assume Integer.MAX)
+     * @return List of positions
+     */
+    PositionList getPhysicalMapPositions(Chromosome chromosome, int firstPosition, int lastPosition);
     
     /**
      * Set of all reference tags
@@ -255,6 +261,12 @@ public interface RepGenData {
      * on the "tag1" of the alignment field being a reftag.
      * @return
      */
-    Multimap<RefTagData, AlignmentInfo> getAlignmentsForRefTags(List<RefTagData> refTags);    
+    Multimap<RefTagData, AlignmentInfo> getAlignmentsForRefTags(List<RefTagData> refTags);  
+    
+    /**
+     * Grab correlations for specified tags
+     * @param  List<Tags> List of tags whose correlations will be pulled
+     */
 
+    Multimap<Tag,TagCorrelationInfo> getCorrelationsForTags(List<Tag> tags);
 }

@@ -99,6 +99,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     PreparedStatement tagAlignForNonRefTagPS;
     PreparedStatement tagAlignForRefTagPS;
     PreparedStatement tagTagCorrelationInsertPS;
+    PreparedStatement tagCorrelationsForTagPS;
 
     public RepGenSQLite(String filename) {
         try{
@@ -148,16 +149,17 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     private void initPreparedStatements() {
         try{
             posTagMappingInsertPS=connection.prepareStatement(
-                    "INSERT OR IGNORE into TagMapping (tagid, position_id, method_id, bp_error, cm_error)" +
+                    "INSERT OR IGNORE into TagMapping (reftagid, position_id, method_id, bp_error, cm_error)" +
                     " values(?,?,?,?,?)");
+            
             tagTaxaDistPS=connection.prepareStatement("select depthsRLE from tagtaxadistribution where tagid=?");
             allelePairInsertPS = connection.prepareStatement(
                     "INSERT into allelepair (tagid_1,tagid_2,qualityscore)" + 
                     " values(?,?,?)");
             allelePairWithTagid1PS=connection.prepareStatement("select * from allelepair where tagid_1=?");
-            taxaDistWhereTagMappingIDPS=connection.prepareStatement(
-                    "select tagtaxadistribution.* from tagMapping, tagtaxadistribution where tagMapping.position_id=? and " +
-                    "tagMapping.tagid=tagtaxadistribution.tagid");
+//            taxaDistWhereTagMappingIDPS=connection.prepareStatement(
+//                    "select tagtaxadistribution.* from tagMapping, tagtaxadistribution where tagMapping.position_id=? and " +
+//                    "tagMapping.tagid=tagtaxadistribution.tagid");
             snpPositionsForChromosomePS=connection.prepareStatement(
                     "select position, qualityScore, refAllele from snpposition where chromosome=?");
 
@@ -186,6 +188,9 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             tagAlignForRefTagPS = connection.prepareStatement(
                     "select tag2id, tag2_isref, score, ref_align_start_pos, ref_align_strand " +
                     "from tagAlignments where tag1_isref = 1 and tag1id=?");
+            tagCorrelationsForTagPS = connection.prepareStatement(
+                    "select tag2id, t1t2_pearson, t1t2_spearman, pres_abs_pearson, r2 " +
+                    "from tagCorrelations where tag1id=?");
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -703,7 +708,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                 int ind=1;
                 RefTagData rtd = new RefTagData(entry.getKey(),entrypos.getChromosome().getName(), 
                         entrypos.getPosition(),refGenome);
-             // posTagInsertPS=connection.prepareStatement(
+               // Defined above:  posTagInsertPS=connection.prepareStatement(
                 //"INSERT OR IGNORE into TagMapping (tagid, position_id, method_id, bp_error, cm_error)" +
                 // " values(?,?,?,?,?)");
                 posTagMappingInsertPS.setInt(ind++, reftagReftagIDMap.get(rtd)); // refTagID
@@ -1066,20 +1071,19 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     }
     
     @Override
-    public PositionList getPhysicalMapPositions(boolean onlyBest) {
+    public PositionList getPhysicalMapPositions() {
         if(physicalMapPositionToIDMap == null) loadPhysicalMapPositionHash();
         PositionListBuilder plb=new PositionListBuilder();
         physicalMapPositionToIDMap.keySet().stream()
-                //.filter(p -> p.isAnnotatedWithValue("isbest","true"))
-                .forEach(p -> plb.add(p));  //todo only best not implemented here
+                .forEach(p -> plb.add(p));
         plb.sortPositions();
         return plb.build();
     }
 
     @Override
-    public PositionList getPhysicalMapPositions(Chromosome chromosome, int firstPosition, int lastPosition, boolean onlyBest) {
+    public PositionList getPhysicalMapPositions(Chromosome chromosome, int firstPosition, int lastPosition) {
         PositionListBuilder plb=new PositionListBuilder();
-        plb.addAll(getPositionSubMap(chromosome,firstPosition,lastPosition).keySet());  //todo only best not implemented here
+        plb.addAll(getPositionSubMap(chromosome,firstPosition,lastPosition).keySet());
         return plb.build();
     }
     @Override
@@ -1314,24 +1318,6 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         System.out.println("positionTagTaxaMap size, forwardStrand, " + direction + " size:" + positionTagTaxaMap.size()
         +  " totalTagsAdded:" + totalTagsAdded);
         return positionTagTaxaMap;
-    }
-
-    // LCJ - check this - the names don't make sense
-    // was updated from GBS sql
-    @Override
-    public Map<Tag, TaxaDistribution> getTagsTaxaMap(Position cutPosition) {
-        ImmutableMap.Builder<Tag, TaxaDistribution> tagTaxaDistributionBuilder=new ImmutableMap.Builder<>();
-        if(physicalMapPositionToIDMap==null) loadPhysicalMapPositionHash();
-        try{
-            taxaDistWhereTagMappingIDPS.setInt(1,physicalMapPositionToIDMap.get(cutPosition));
-            ResultSet rs=taxaDistWhereTagMappingIDPS.executeQuery();
-            while(rs.next()) {
-                tagTaxaDistributionBuilder.put(tagTagIDMap.inverse().get(rs.getInt("tagid")), TaxaDistBuilder.create(rs.getBytes("depthsRLE")));
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return tagTaxaDistributionBuilder.build();
     }
 
     private void putPhysicalMapPositionsIfAbsent(Collection<Position> positions, String refGenome) {
@@ -1828,5 +1814,43 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public Multimap<Tag, TagCorrelationInfo> getCorrelationsForTags(List<Tag> tags) {
+        ImmutableMultimap.Builder<Tag,TagCorrelationInfo> tagCorBuilder = ImmutableMultimap.builder();
+        loadTagHash(); // get updated tag map
+ 
+        try {
+            for (Tag tag: tags){
+                // For each tag on the list, get all its alignments
+                Integer tagID = tagTagIDMap.get(tag);
+                if (tagID == null) {
+                    // what is best to print out here?
+                    // should this return a NULL to indicate an error with the tag?
+                    System.out.println("getCorrelationsForTag: no tagID in tagCorrelations table for tag: " + tag.sequence());
+                    continue;
+                }
+                // The query specifies that tag1 is not a reference tag
+                tagCorrelationsForTagPS.setInt(1,tagID);
+                ResultSet rs = tagCorrelationsForTagPS.executeQuery();
+                while (rs.next()) {
+                    int tag2id = rs.getInt("tag2id");
+                    double t1t2_p = rs.getFloat("t1t2_pearson");
+                    double t1t2_s = rs.getFloat("t1t2_spearman");
+                    double pa_pearson = rs.getFloat("pres_abs_pearson");
+                    double r2 = rs.getFloat("r2");
+                    
+                    Tag tag2 = tagTagIDMap.inverse().get(rs.getInt("tag2id"));
+                    TagCorrelationInfo tci = new TagCorrelationInfo(tag2, t1t2_p, t1t2_s, pa_pearson,r2);
+ 
+                    tagCorBuilder.put(tag,tci);
+                }              
+            }
+        } catch (SQLException exc) {
+            System.out.println("getAllTaxaMap: caught SQLException attempting to grab taxa Distribution ");
+            exc.printStackTrace();
+        }
+        return tagCorBuilder.build();       
     }
 }
