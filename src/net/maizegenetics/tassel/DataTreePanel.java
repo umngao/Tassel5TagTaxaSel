@@ -292,15 +292,6 @@ public class DataTreePanel extends JPanel implements PluginListener {
                     if (book.getData() instanceof FilterGenotypeTable) {
                         FilterGenotypeTable a = (FilterGenotypeTable) book.getData();
                         builder.append("FilterAlignment...\n");
-                        if (a.isSiteFilter()) {
-                            builder.append("Site Filter\n");
-                        }
-                        if (a.isSiteFilterByRange()) {
-                            builder.append("Site Range Filter\n");
-                        }
-                        if (a.isTaxaFilter()) {
-                            builder.append("Taxa Filter\n");
-                        }
                         builder.append("Base Type: ");
                         builder.append(Utils.getBasename(a.getBaseAlignment().getClass().getName()));
                         builder.append("\n");
