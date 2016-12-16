@@ -9,6 +9,7 @@ import java.lang.ref.WeakReference;
 import java.util.AbstractList;
 import java.util.HashMap;
 import java.util.Map;
+import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.util.Tuple;
 
 /**
@@ -56,6 +57,56 @@ public class ListSiteStats extends AbstractList<Tuple<int[][], int[]>> {
     @Override
     public int size() {
         return myGenotype.numberOfSites();
+    }
+
+    public byte majorAllele(int site) {
+        int[][] alleles = get(site).x;
+        if (alleles[0].length >= 1) {
+            return (byte) alleles[0][0];
+        } else {
+            return GenotypeTable.UNKNOWN_ALLELE;
+        }
+    }
+
+    public double majorAlleleFrequency(int site) {
+
+        int[][] alleles = get(site).x;
+        int numAlleles = alleles[0].length;
+        if (numAlleles >= 1) {
+            int totalNonMissing = 0;
+            for (int i = 0; i < numAlleles; i++) {
+                totalNonMissing += alleles[1][i];
+            }
+            return (double) alleles[1][0] / (double) totalNonMissing;
+        } else {
+            return 0.0;
+        }
+
+    }
+
+    public byte minorAllele(int site) {
+        int[][] alleles = get(site).x;
+        if (alleles[0].length >= 2) {
+            return (byte) alleles[0][1];
+        } else {
+            return GenotypeTable.UNKNOWN_ALLELE;
+        }
+    }
+
+    public double minorAlleleFrequency(int site) {
+
+        int[][] alleles = get(site).x;
+        int numAlleles = alleles[0].length;
+        if (numAlleles >= 2) {
+            int totalNonMissing = 0;
+            for (int i = 0; i < numAlleles; i++) {
+                totalNonMissing += alleles[1][i];
+            }
+            return (double) alleles[1][1] / (double) totalNonMissing;
+        } else {
+            return 0.0;
+        }
+
     }
 
 }
