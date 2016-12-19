@@ -62,8 +62,8 @@ final public class FilterSite implements Filter {
         }
 
         if (siteFilterType() == SITE_RANGE_FILTER_TYPES.POSITIONS) {
-            if ((startChr() == null) || (startPos() == -1) || (endChr() == null) || (endPos() == -1)) {
-                throw new IllegalArgumentException("Filter: init: start chr, start pos, end chr, and end pos must all be specified.");
+            if (startChr() == null || endChr() == null) {
+                throw new IllegalArgumentException("Filter: init: start chr and end chr must be specified.");
             }
         }
 
@@ -120,7 +120,7 @@ final public class FilterSite implements Filter {
             return value;
         }
     }
-    
+
     public double minHeterozygous() {
         Double value = (Double) myAttributes.get(FILTER_SITES_ATTRIBUTES.minHeterozygous);
         if (value == null) {

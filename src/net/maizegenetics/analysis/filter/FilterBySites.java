@@ -42,19 +42,29 @@ public class FilterBySites {
             result = FilterGenotypeTable.getInstance(result, start, end);
         } else if (filter.siteFilterType() == FilterSite.SITE_RANGE_FILTER_TYPES.POSITIONS) {
 
-            int start = orig.siteOfPhysicalPosition(filter.startPos(), filter.startChr());
-            if (start < 0) {
-                start = -(start + 1);
-                if (start >= numSites) {
-                    start = numSites - 1;
+            int start = 0;
+            if (filter.startPos() == -1) {
+                start = orig.firstLastSiteOfChromosome(filter.startChr())[0];
+            } else {
+                start = orig.siteOfPhysicalPosition(filter.startPos(), filter.startChr());
+                if (start < 0) {
+                    start = -(start + 1);
+                    if (start >= numSites) {
+                        start = numSites - 1;
+                    }
                 }
             }
 
-            int end = orig.siteOfPhysicalPosition(filter.endPos(), filter.endChr());
-            if (end < 0) {
-                end = -end - 2;
-                if (end >= numSites) {
-                    end = numSites - 1;
+            int end = 0;
+            if (filter.endPos() == -1) {
+                end = orig.firstLastSiteOfChromosome(filter.endChr())[1];
+            } else {
+                end = orig.siteOfPhysicalPosition(filter.endPos(), filter.endChr());
+                if (end < 0) {
+                    end = -end - 2;
+                    if (end >= numSites) {
+                        end = numSites - 1;
+                    }
                 }
             }
 

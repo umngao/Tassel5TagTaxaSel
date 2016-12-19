@@ -85,8 +85,9 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
             .dependentOnParameter(mySiteFilter, SITE_RANGE_FILTER_TYPES.POSITIONS)
             .description("")
             .build();
-    private PluginParameter<Integer> myStartPos = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.startPos.name(), 0, Integer.class)
+    private PluginParameter<Integer> myStartPos = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.startPos.name(), null, Integer.class)
             .range(Range.atLeast(0))
+            .nullable()
             .dependentOnParameter(mySiteFilter, SITE_RANGE_FILTER_TYPES.POSITIONS)
             .description("")
             .build();
@@ -94,8 +95,9 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
             .dependentOnParameter(mySiteFilter, SITE_RANGE_FILTER_TYPES.POSITIONS)
             .description("")
             .build();
-    private PluginParameter<Integer> myEndPos = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.endPos.name(), 0, Integer.class)
+    private PluginParameter<Integer> myEndPos = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.endPos.name(), null, Integer.class)
             .range(Range.atLeast(0))
+            .nullable()
             .dependentOnParameter(mySiteFilter, SITE_RANGE_FILTER_TYPES.POSITIONS)
             .description("")
             .build();
@@ -152,9 +154,7 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
                 setParameter(myEndSite.cmdLineName(), lastSite);
                 PositionList positions = genotypeTable.positions();
                 setParameter(myStartChr, positions.chromosome(0));
-                setParameter(myStartPos, positions.get(0).getPosition());
                 setParameter(myEndChr, positions.chromosome(lastSite));
-                setParameter(myEndPos, positions.get(lastSite).getPosition());
                 return;
             }
 
@@ -163,9 +163,7 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
                 PositionList positions = (PositionList) positionLists.get(0).getData();
                 int lastSite = positions.numberOfSites() - 1;
                 setParameter(myStartChr, positions.chromosome(0));
-                setParameter(myStartPos, positions.get(0).getPosition());
                 setParameter(myEndChr, positions.chromosome(lastSite));
-                setParameter(myEndPos, positions.get(lastSite).getPosition());
                 return;
             }
 
@@ -175,25 +173,12 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
                 setParameter(mySiteFilter, SITE_RANGE_FILTER_TYPES.SITES);
             }
 
-            if ((!myStartPos.value().equals(myStartPos.defaultValue()))
+            if ((myStartPos.value() != null)
                     || (myStartChr.value() != null)
-                    || (!myEndPos.value().equals(myEndPos.defaultValue()))
+                    || (myEndPos.value() != null)
                     || (myEndChr.value() != null)) {
 
                 setParameter(mySiteFilter, SITE_RANGE_FILTER_TYPES.POSITIONS);
-
-                List<Datum> genotypeTableList = input.getDataOfType(GenotypeTable.class);
-                if (genotypeTableList.size() == 1) {
-                    GenotypeTable genotype = (GenotypeTable) genotypeTableList.get(0).getData();
-                    if (myStartPos.value().equals(myStartPos.defaultValue()) && myStartChr.value() != null) {
-                        int[] firstLast = genotype.firstLastSiteOfChromosome(myStartChr.value());
-                        setParameter(myStartPos, genotype.positions().get(firstLast[0]).getPosition());
-                    }
-                    if (myEndPos.value().equals(myEndPos.defaultValue()) && myEndChr.value() != null) {
-                        int[] firstLast = genotype.firstLastSiteOfChromosome(myEndChr.value());
-                        setParameter(myEndPos, genotype.positions().get(firstLast[1]).getPosition());
-                    }
-                }
 
             }
 
@@ -238,9 +223,6 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
         } else if (siteFilter() == SITE_RANGE_FILTER_TYPES.POSITIONS) {
             values.remove(FILTER_SITES_ATTRIBUTES.startSite.name());
             values.remove(FILTER_SITES_ATTRIBUTES.endSite.name());
-            if (values.get(FILTER_SITES_ATTRIBUTES.startPos.name()) == null) {
-                values.put(FILTER_SITES_ATTRIBUTES.startPos.name(), 0);
-            }
         } else if (siteFilter() == SITE_RANGE_FILTER_TYPES.NONE) {
             values.remove(FILTER_SITES_ATTRIBUTES.startSite.name());
             values.remove(FILTER_SITES_ATTRIBUTES.endSite.name());

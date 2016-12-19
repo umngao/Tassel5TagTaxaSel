@@ -34,6 +34,7 @@ public final class PluginParameter<T> {
     private final PluginParameter<?> myDependentOnParameter;
     private final Object[] myDependentOnParameterValue;
     private final List<T> myPossibleValues;
+    private final boolean myIsNullable;
 
     public enum PARAMETER_TYPE {
 
@@ -47,7 +48,7 @@ public final class PluginParameter<T> {
             String description, List<Range<Comparable<T>>> ranges, T defaultValue,
             T value, boolean required, PARAMETER_TYPE fileType,
             PluginParameter<?> dependentOnParameter, Object[] dependentOnParameterValue,
-            List<T> possibleValues, Class<T> type) {
+            List<T> possibleValues, boolean isNullable, Class<T> type) {
         myGuiName = guiName;
         myUnits = guiUnits;
         myCmdLineName = cmdLineName;
@@ -82,6 +83,8 @@ public final class PluginParameter<T> {
         } else {
             myPossibleValues = possibleValues;
         }
+
+        myIsNullable = isNullable;
     }
 
     /**
@@ -95,7 +98,7 @@ public final class PluginParameter<T> {
         this(oldParameter.myGuiName, oldParameter.myUnits, oldParameter.myCmdLineName,
                 oldParameter.myDescription, oldParameter.myRanges, oldParameter.myDefaultValue, newValue,
                 oldParameter.myRequired, oldParameter.myParameterType, oldParameter.dependentOnParameter(),
-                oldParameter.dependentOnParameterValue(), oldParameter.possibleValues(), oldParameter.myClass);
+                oldParameter.dependentOnParameterValue(), oldParameter.possibleValues(), oldParameter.myIsNullable, oldParameter.myClass);
     }
 
     /**
@@ -109,11 +112,11 @@ public final class PluginParameter<T> {
         this(oldParameter.myGuiName, oldParameter.myUnits, oldParameter.myCmdLineName,
                 oldParameter.myDescription, oldParameter.myRanges, oldParameter.myDefaultValue, oldParameter.value(),
                 oldParameter.myRequired, oldParameter.myParameterType, oldParameter.dependentOnParameter(),
-                oldParameter.dependentOnParameterValue(), possibleValues, oldParameter.myClass);
+                oldParameter.dependentOnParameterValue(), possibleValues, oldParameter.myIsNullable, oldParameter.myClass);
     }
 
     public static PluginParameter<String> getLabelInstance(String label) {
-        return new PluginParameter<>(label, null, label, "label", null, null, null, false, PARAMETER_TYPE.LABEL, null, null, null, String.class);
+        return new PluginParameter<>(label, null, label, "label", null, null, null, false, PARAMETER_TYPE.LABEL, null, null, null, false, String.class);
     }
 
     public String guiName() {
@@ -232,6 +235,9 @@ public final class PluginParameter<T> {
 
     public boolean acceptsValue(Object value) {
         try {
+            if (value == null) {
+                return myIsNullable;
+            }
             if (hasRange()) {
                 for (Range<Comparable<T>> current : myRanges) {
                     if (current.contains((Comparable<T>) value)) {
@@ -307,6 +313,7 @@ public final class PluginParameter<T> {
         private PluginParameter<?> myDependentOnParameter = null;
         private Object[] myDependentOnParameterValue = null;
         private List<T> myPossibleValues = null;
+        private boolean myIsNullable = false;
 
         public Builder(String cmdLineName, T defaultValue, Class<T> type) {
             myCmdLineName = cmdLineName;
@@ -384,7 +391,7 @@ public final class PluginParameter<T> {
             myParameterType = PARAMETER_TYPE.TAXA_NAME_LIST;
             return this;
         }
-        
+
         public Builder<T> taxaList() {
             myParameterType = PARAMETER_TYPE.TAXA_LIST;
             return this;
@@ -437,6 +444,11 @@ public final class PluginParameter<T> {
             return this;
         }
 
+        public Builder<T> nullable() {
+            myIsNullable = true;
+            return this;
+        }
+
         public PluginParameter<T> build() {
             if ((myGuiName == null) || (myGuiName.isEmpty())) {
                 StringBuilder builder = new StringBuilder();
@@ -456,7 +468,7 @@ public final class PluginParameter<T> {
             return new PluginParameter<>(myGuiName, myUnits, myCmdLineName,
                     myDescription, myRanges, myDefaultValue, null, myIsRequired,
                     myParameterType, myDependentOnParameter,
-                    myDependentOnParameterValue, myPossibleValues, myClass);
+                    myDependentOnParameterValue, myPossibleValues, myIsNullable, myClass);
         }
     }
 }

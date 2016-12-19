@@ -216,7 +216,9 @@ abstract public class AbstractPlugin implements Plugin {
 
     public static <T> T convert(String input, Class<T> outputClass) {
         try {
-            if (outputClass.isEnum()) {
+            if ((input == null) || (input.length() == 0)) {
+                return null;
+            } else if (outputClass.isEnum()) {
                 return (T) Enum.valueOf((Class<Enum>) outputClass, input);
             } else if (outputClass.isAssignableFrom(String.class)) {
                 return (T) input;
@@ -227,22 +229,13 @@ abstract public class AbstractPlugin implements Plugin {
                 input = input.replace(",", "");
                 return (T) new Double(new BigDecimal(input).doubleValue());
             } else if (outputClass.isAssignableFrom(PositionList.class)) {
-                if ((input == null) || (input.length() == 0)) {
-                    return null;
-                }
                 return (T) JSONUtils.importPositionListFromJSON(input);
             } else if (outputClass.isAssignableFrom(TaxaList.class)) {
-                if ((input == null) || (input.length() == 0)) {
-                    return null;
-                }
                 return (T) JSONUtils.importTaxaListFromJSON(input);
             } else if (outputClass.isAssignableFrom(DistanceMatrix.class)) {
-                if ((input == null) || (input.length() == 0)) {
-                    return null;
-                }
                 return (T) ReadDistanceMatrix.readDistanceMatrix(input);
             } else {
-                return input == null ? null : outputClass.getConstructor(String.class).newInstance(input);
+                return outputClass.getConstructor(String.class).newInstance(input);
             }
         } catch (Exception nfe) {
             myLogger.debug(nfe.getMessage(), nfe);
@@ -962,7 +955,12 @@ abstract public class AbstractPlugin implements Plugin {
                                 field.setText(getParameterInstance(current.cmdLineName()).value().toString());
                             }
                             if (Integer.class.isAssignableFrom(current.valueType())) {
-                                field.setText(NumberFormat.getInstance().format(convert(field.getText(), Integer.class).intValue()));
+                                Integer temp = convert(field.getText(), Integer.class);
+                                if (temp == null) {
+                                    field.setText(null);
+                                } else {
+                                    field.setText(NumberFormat.getInstance().format(temp.intValue()));
+                                }
                             }
                         } catch (Exception ex) {
                             myLogger.debug(ex.getMessage(), ex);
