@@ -74,7 +74,6 @@ public class SeqViewerPanel extends JPanel implements ComponentListener, TableMo
     private JButton myLeftButton;
     private JButton myRightButton;
     private final JTable myTable;
-    private final JPopupMenu myMenu = new JPopupMenu();
     private final AlignmentTableModel myTableModel;
     private final GenotypeTable myAlignment;
     private final JScrollPane myScrollPane;
@@ -239,7 +238,8 @@ public class SeqViewerPanel extends JPanel implements ComponentListener, TableMo
 
     private void initMenu() {
 
-        myMenu.setInvoker(this);
+        JPopupMenu menu = new JPopupMenu();
+        menu.setInvoker(this);
 
         JMenuItem useAsReference = new JMenuItem("Use this Taxa as Reference");
         useAsReference.addActionListener(new AbstractAction() {
@@ -250,18 +250,22 @@ public class SeqViewerPanel extends JPanel implements ComponentListener, TableMo
                 myDataTreePanel.addDatum(new Datum(mask.toString(), mask, null));
             }
         });
-        myMenu.add(useAsReference);
+        menu.add(useAsReference);
 
         JMenuItem useAsGeneticDistance = new JMenuItem("Use this Taxa for Genetic Distance");
         useAsGeneticDistance.addActionListener(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
                 int index = myTable.getSelectedRow();
-                GenotypeTableMaskGeneticDistance mask = GenotypeTableMaskGeneticDistance.getInstanceCompareReference(myAlignment, index);
-                myHighlightingComboBox.setSelectedItem(AlignmentTableCellRenderer.RENDERING_TYPE.GeneticDistanceMasks);
+                Tuple<GenotypeTable, double[]> sortedByGeneticDistance = FilterGenotypeTable.getInstanceTaxaOrderedByGeneticDistance(myAlignment, index);
+                DataSet dataSet = new DataSet(new Datum("Genetic Distance with " + myAlignment.taxaName(index), sortedByGeneticDistance.x, null), null);
+                myDataTreePanel.addDataSet(dataSet, null);
+                GenotypeTableMaskGeneticDistance mask = GenotypeTableMaskGeneticDistance.getInstanceCompareReference(sortedByGeneticDistance.x, 0, sortedByGeneticDistance.y);
+                SeqViewerPanel newViewer = getInstance(sortedByGeneticDistance.x, new GenotypeTableMask[]{mask}, myDataTreePanel);
+                newViewer.myHighlightingComboBox.setSelectedItem(AlignmentTableCellRenderer.RENDERING_TYPE.GeneticDistanceMasks);
                 myDataTreePanel.addDatum(new Datum(mask.toString(), mask, null));
             }
         });
-        myMenu.add(useAsGeneticDistance);
+        menu.add(useAsGeneticDistance);
 
         myTable.addMouseListener(new MouseAdapter() {
             @Override
@@ -281,7 +285,7 @@ public class SeqViewerPanel extends JPanel implements ComponentListener, TableMo
 
             private void checkPopup(MouseEvent e) {
                 if (e.isPopupTrigger()) {
-                    myMenu.show(myTable, e.getX(), e.getY());
+                    menu.show(myTable, e.getX(), e.getY());
                 }
             }
         });
