@@ -45,6 +45,7 @@ import javax.swing.plaf.basic.BasicTableUI;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 import net.maizegenetics.dna.map.TOPMInterface;
+import net.maizegenetics.dna.snp.FilterGenotypeTable;
 
 import net.maizegenetics.gui.AlignmentTableCellRenderer;
 import net.maizegenetics.gui.AlignmentTableModel;
@@ -57,6 +58,7 @@ import net.maizegenetics.gui.GenotypeTableMask;
 import net.maizegenetics.gui.GenotypeTableMaskGeneticDistance;
 import net.maizegenetics.gui.GenotypeTableMaskReference;
 import net.maizegenetics.gui.TOPMGenotypeTableCellRenderer;
+import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.util.Tuple;
