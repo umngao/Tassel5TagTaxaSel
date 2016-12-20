@@ -9,6 +9,7 @@ import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.MaskMatrix;
 import net.maizegenetics.dna.snp.Translate;
+import net.maizegenetics.dna.snp.TranslateBuilder;
 import net.maizegenetics.dna.snp.byte2d.Byte2D;
 import net.maizegenetics.dna.snp.byte2d.Byte2DBuilder;
 import net.maizegenetics.taxa.TaxaList;
@@ -76,7 +77,9 @@ public class AlleleDepthBuilder {
      */
     public static AlleleDepth getFilteredInstance(AlleleDepth base, Translate translate) {
         if (base instanceof FilterAlleleDepth) {
-            throw new IllegalArgumentException("AlleleDepthBuilder: getFilteredInstance: shouldn't stack filters ");
+            FilterAlleleDepth filter = (FilterAlleleDepth) base;
+            Translate merged = TranslateBuilder.getInstance(filter.myTranslate, translate);
+            return new FilterAlleleDepth(filter.myBase, merged);
         }
         return new FilterAlleleDepth(base, translate);
     }

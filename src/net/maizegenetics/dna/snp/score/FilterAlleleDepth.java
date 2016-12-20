@@ -13,8 +13,8 @@ import net.maizegenetics.dna.snp.Translate;
  */
 public class FilterAlleleDepth extends AlleleDepth {
 
-    private final AlleleDepth myBase;
-    private final Translate myTranslate;
+    final AlleleDepth myBase;
+    final Translate myTranslate;
 
     FilterAlleleDepth(AlleleDepth alleleDepth, Translate translate) {
         super(translate.numTaxa(), translate.numSites());

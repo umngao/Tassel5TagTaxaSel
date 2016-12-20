@@ -11,6 +11,7 @@ import java.util.Map;
 import net.maizegenetics.dna.snp.MaskMatrix;
 
 import net.maizegenetics.dna.snp.Translate;
+import net.maizegenetics.dna.snp.TranslateBuilder;
 import net.maizegenetics.dna.snp.byte2d.Byte2D;
 import net.maizegenetics.dna.snp.byte2d.Byte2DBuilder;
 import net.maizegenetics.taxa.TaxaList;
@@ -48,7 +49,9 @@ public class AlleleProbabilityBuilder {
 
     public static AlleleProbability getFilteredInstance(AlleleProbability base, Translate translate) {
         if (base instanceof FilterAlleleProbability) {
-            throw new IllegalArgumentException("AlleleProbabilityBuilder: getFilteredInstance: shouldn't stack filters ");
+            FilterAlleleProbability filter = (FilterAlleleProbability) base;
+            Translate merged = TranslateBuilder.getInstance(filter.myTranslate, translate);
+            return new FilterAlleleProbability(filter.myBase, merged);
         }
         return new FilterAlleleProbability(base, translate);
     }

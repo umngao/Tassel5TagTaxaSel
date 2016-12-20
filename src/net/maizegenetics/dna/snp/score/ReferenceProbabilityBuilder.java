@@ -8,6 +8,7 @@ import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import net.maizegenetics.dna.snp.MaskMatrix;
 
 import net.maizegenetics.dna.snp.Translate;
+import net.maizegenetics.dna.snp.TranslateBuilder;
 import net.maizegenetics.dna.snp.byte2d.Byte2D;
 import net.maizegenetics.dna.snp.byte2d.Byte2DBuilder;
 import net.maizegenetics.taxa.TaxaList;
@@ -41,7 +42,9 @@ public class ReferenceProbabilityBuilder {
 
     public static ReferenceProbability getFilteredInstance(ReferenceProbability base, Translate translate) {
         if (base instanceof FilterReferenceProbability) {
-            throw new IllegalArgumentException("ReferenceProbabilityBuilder: getFilteredInstance: shouldn't stack filters ");
+            FilterReferenceProbability filter = (FilterReferenceProbability) base;
+            Translate merged = TranslateBuilder.getInstance(filter.myTranslate, translate);
+            return new FilterReferenceProbability(filter.myBase, merged);
         }
         return new FilterReferenceProbability(base, translate);
     }

@@ -13,8 +13,8 @@ import net.maizegenetics.dna.snp.Translate;
  */
 public class FilterAlleleProbability extends AlleleProbability {
 
-    private final AlleleProbability myBase;
-    private final Translate myTranslate;
+    final AlleleProbability myBase;
+    final Translate myTranslate;
 
     FilterAlleleProbability(AlleleProbability alleleProbability, Translate translate) {
         super(translate.numTaxa(), translate.numSites());

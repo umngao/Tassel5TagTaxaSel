@@ -13,8 +13,8 @@ import net.maizegenetics.dna.snp.Translate;
  */
 public class FilterDosage extends Dosage {
 
-    private final Dosage myBase;
-    private final Translate myTranslate;
+    final Dosage myBase;
+    final Translate myTranslate;
 
     FilterDosage(Dosage dosage, Translate translate) {
         super(translate.numTaxa(), translate.numSites());

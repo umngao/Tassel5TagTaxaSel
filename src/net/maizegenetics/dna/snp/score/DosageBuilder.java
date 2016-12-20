@@ -8,6 +8,7 @@ import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import net.maizegenetics.dna.snp.MaskMatrix;
 
 import net.maizegenetics.dna.snp.Translate;
+import net.maizegenetics.dna.snp.TranslateBuilder;
 import net.maizegenetics.dna.snp.byte2d.Byte2D;
 import net.maizegenetics.dna.snp.byte2d.Byte2DBuilder;
 import net.maizegenetics.taxa.TaxaList;
@@ -41,7 +42,9 @@ public class DosageBuilder {
 
     public static Dosage getFilteredInstance(Dosage base, Translate translate) {
         if (base instanceof FilterDosage) {
-            throw new IllegalArgumentException("DosageBuilder: getFilteredInstance: shouldn't stack filters ");
+            FilterDosage filter = (FilterDosage) base;
+            Translate merged = TranslateBuilder.getInstance(filter.myTranslate, translate);
+            return new FilterDosage(filter.myBase, merged);
         }
         return new FilterDosage(base, translate);
     }

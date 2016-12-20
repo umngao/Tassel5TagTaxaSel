@@ -18,6 +18,7 @@ import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.dna.snp.Translate;
+import net.maizegenetics.dna.snp.TranslateBuilder;
 import net.maizegenetics.util.SuperByteMatrix;
 import net.maizegenetics.util.SuperByteMatrixBuilder;
 
@@ -90,6 +91,11 @@ public class GenotypeCallTableBuilder {
     public static GenotypeCallTable getFilteredInstance(GenotypeCallTable genotype, Translate translate) {
         if (genotype == null) {
             return null;
+        }
+        if (genotype instanceof FilterGenotypeCallTable) {
+            FilterGenotypeCallTable filter = (FilterGenotypeCallTable) genotype;
+            Translate mergedTranslate = TranslateBuilder.getInstance(filter.myTranslate, translate);
+            return new FilterGenotypeCallTable(filter.myBaseGenotype, mergedTranslate);
         }
         return new FilterGenotypeCallTable(genotype, translate);
     }

@@ -13,8 +13,8 @@ import net.maizegenetics.dna.snp.Translate;
  */
 public class FilterReferenceProbability extends ReferenceProbability {
 
-    private final ReferenceProbability myBase;
-    private final Translate myTranslate;
+    final ReferenceProbability myBase;
+    final Translate myTranslate;
 
     FilterReferenceProbability(ReferenceProbability referenceProbability, Translate translate) {
         super(translate.numTaxa(), translate.numSites());

@@ -24,8 +24,8 @@ import net.maizegenetics.dna.snp.Translate;
  */
 class FilterGenotypeCallTable extends AbstractGenotypeCallTable {
 
-    private final GenotypeCallTable myBaseGenotype;
-    private final Translate myTranslate;
+    final GenotypeCallTable myBaseGenotype;
+    final Translate myTranslate;
 
     FilterGenotypeCallTable(GenotypeCallTable genotype, Translate translate) {
         super(translate.numTaxa(), translate.numSites(), genotype.isPhased(), null, genotype.maxNumAlleles());
