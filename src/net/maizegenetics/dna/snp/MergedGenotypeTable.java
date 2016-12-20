@@ -8,7 +8,6 @@ import java.util.stream.Stream;
 
 import net.maizegenetics.dna.WHICH_ALLELE;
 import net.maizegenetics.dna.map.Chromosome;
-import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.snp.bit.BitStorage;
 import net.maizegenetics.dna.snp.score.AlleleDepth;
@@ -19,13 +18,11 @@ import net.maizegenetics.dna.snp.score.Dosage;
 import net.maizegenetics.dna.snp.score.ReferenceProbability;
 import net.maizegenetics.dna.snp.score.SiteScore.SITE_SCORE_TYPE;
 import net.maizegenetics.taxa.TaxaList;
-import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.GeneralAnnotationStorage;
 
 public class MergedGenotypeTable implements GenotypeTable {
 
-    private static final long serialVersionUID = -5197800047652332969L;
     private final GenotypeTable[] myGenotypeTables;
     private final GenotypeCallTable myGenotype;
     private final GenotypeCallTable[] myGenotypes ;
@@ -625,6 +622,16 @@ public class MergedGenotypeTable implements GenotypeTable {
     @Override
     public Stream<Byte> streamGenotype(int taxon) {
         // TODO Auto-generated method stub
+        return null;
+    }
+    
+    @Override
+    public boolean hasSiteTranslations() {
+        return false;
+    }
+
+    @Override
+    public int[] siteTranslations() {
         return null;
     }
 

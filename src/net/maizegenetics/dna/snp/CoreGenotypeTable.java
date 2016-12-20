@@ -49,8 +49,9 @@ public class CoreGenotypeTable implements GenotypeTable {
     private final int mySiteCount;
     private final int myTaxaCount;
     private final GeneralAnnotationStorage myAnnotations;
+    private final Translate myGenotypeTranslate;
 
-    CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, ReferenceProbability referenceProbability, Dosage dosage, GeneralAnnotationStorage annotations) {
+    CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, ReferenceProbability referenceProbability, Dosage dosage, GeneralAnnotationStorage annotations, Translate genotypeTranslate) {
         myPositionList = positionList;
         myTaxaList = taxaList;
         mySiteCount = myPositionList.numberOfSites();
@@ -69,6 +70,11 @@ public class CoreGenotypeTable implements GenotypeTable {
         myReferenceProbabily = referenceProbability;
         myDosage = dosage;
         myAnnotations = annotations;
+        myGenotypeTranslate = genotypeTranslate;
+    }
+
+    CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, AlleleDepth alleleDepth, AlleleProbability alleleProbability, ReferenceProbability referenceProbability, Dosage dosage, GeneralAnnotationStorage annotations) {
+        this(genotype, positionList, taxaList, alleleDepth, alleleProbability, referenceProbability, dosage, annotations, null);
     }
 
     CoreGenotypeTable(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList) {
@@ -578,6 +584,16 @@ public class CoreGenotypeTable implements GenotypeTable {
     @Override
     public Stream<Byte> streamGenotype(int taxon) {
         return myGenotype.stream(taxon);
+    }
+
+    @Override
+    public boolean hasSiteTranslations() {
+        return myGenotypeTranslate.hasSiteTranslations();
+    }
+
+    @Override
+    public int[] siteTranslations() {
+        return myGenotypeTranslate.siteTranslations();
     }
 
 }

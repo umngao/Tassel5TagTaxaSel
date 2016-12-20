@@ -6,9 +6,7 @@
  */
 package net.maizegenetics.analysis.popgen;
 
-import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -39,7 +37,7 @@ public class LinkageDisequilibriumPlugin extends AbstractPlugin {
     private String myTestSiteName = null;
     private int myNumAccumulateIntervals = 100;
     private boolean myIsAccumulateResults = false;
-    private FilterGenotypeTable myPossibleAlignmentForSiteList;
+    private GenotypeTable myPossibleAlignmentForSiteList;
     private String myPossibleAlignmentName;
     private int[] myPossibleSiteList;
     private LinkageDisequilibrium.HetTreatment myHetTreatment = LinkageDisequilibrium.HetTreatment.Homozygous;
@@ -53,9 +51,11 @@ public class LinkageDisequilibriumPlugin extends AbstractPlugin {
 
     /**
      * Workhorse function to actually run LD on a dataset
+     *
      * @param input A DataSet containing one or more GenotypeTable objects
      * @return The input DataSet with the LinkageDisequilibrium object(s) added
      */
+    @Override
     public DataSet performFunction(DataSet input) {
 
         try {
@@ -68,14 +68,12 @@ public class LinkageDisequilibriumPlugin extends AbstractPlugin {
             Datum current = alignInList.get(0);
 
             if (alignInList.size() > 1) {
-                try {
-                    FilterGenotypeTable temp = (FilterGenotypeTable) alignInList.get(1).getData();
-                    if (temp.getBaseAlignment() == current.getData()) {
+                if (alignInList.get(1).getData() instanceof GenotypeTable) {
+                    GenotypeTable temp = (GenotypeTable) alignInList.get(1).getData();
+                    if (temp.hasSiteTranslations()) {
                         myPossibleAlignmentForSiteList = temp;
                         myPossibleAlignmentName = alignInList.get(1).getName();
                     }
-                } catch (Exception e) {
-                    // do nothing
                 }
             }
 
@@ -103,7 +101,7 @@ public class LinkageDisequilibriumPlugin extends AbstractPlugin {
                 }
 
                 if (myLDType == LinkageDisequilibrium.testDesign.SiteList) {
-                    myPossibleSiteList = myPossibleAlignmentForSiteList.getBaseSitesShown();
+                    myPossibleSiteList = myPossibleAlignmentForSiteList.siteTranslations();
 
                 }
 
@@ -129,7 +127,7 @@ public class LinkageDisequilibriumPlugin extends AbstractPlugin {
     private DataSet processDatum(Datum input) {
         GenotypeTable aa = (GenotypeTable) input.getData();
         try {
-            if(myTestSiteName != null){
+            if (myTestSiteName != null) {
                 setTestSiteFromName(aa);
             }
             LinkageDisequilibrium theLD = new LinkageDisequilibrium(aa, myWindowSize, myLDType, myTestSite, this, myIsAccumulateResults, myNumAccumulateIntervals, myPossibleSiteList, myHetTreatment);
@@ -224,17 +222,17 @@ public class LinkageDisequilibriumPlugin extends AbstractPlugin {
         return myHetTreatment;
     }
 
-    private void setTestSiteFromName(GenotypeTable aa){
+    private void setTestSiteFromName(GenotypeTable aa) {
         //Find index of any sites with the given names
         int[] matches = IntStream.range(0, aa.numberOfSites())
                 .filter(i -> aa.siteName(i).equals(myTestSiteName))
                 .toArray();
 
         // Checks
-        if(matches.length == 0){
+        if (matches.length == 0) {
             throw new IllegalArgumentException("Error: No sites match supplied name of " + myTestSiteName);
         }
-        if(matches.length > 1){
+        if (matches.length > 1) {
             throw new IllegalArgumentException("Error: " + matches.length + " sites match supplied name of " + myTestSiteName);
         }
 
@@ -597,7 +595,6 @@ class LinkageDiseqDialog extends JDialog {
         //            permNumberTextField.setText("Set Integer");
         //            return;
         //        }
-
         if (getLDType() == LinkageDisequilibrium.testDesign.SlidingWindow) {
             try {
                 myWindowSize = Integer.parseInt(myWindowSizeTextField.getText());

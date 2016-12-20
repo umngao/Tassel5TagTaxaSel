@@ -942,4 +942,8 @@ public interface GenotypeTable {
     public Stream<Byte> streamGenotype();
 
     public Stream<Byte> streamGenotype(int taxon);
+    
+    public boolean hasSiteTranslations();
+    
+    public int[] siteTranslations();
 }

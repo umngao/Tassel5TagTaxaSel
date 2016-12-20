@@ -222,8 +222,10 @@ public class NucleotideImputationUtils {
 			GenotypeTable a = filterSnpsByTag(popdata.original, minMaf, maxMissing, maxHet);
 			int nFilteredSites = a.numberOfSites();
 			int[] siteTranslationArray = new int[nFilteredSites];
-			FilterGenotypeTable fa = (FilterGenotypeTable) a;
-			for (int s = 0; s < nFilteredSites; s++) siteTranslationArray[s] = fa.translateSite(s);
+			//FilterGenotypeTable fa = (FilterGenotypeTable) a;
+			//for (int s = 0; s < nFilteredSites; s++) siteTranslationArray[s] = fa.translateSite(s);
+                        int[] translateSites = a.siteTranslations();
+                        for (int s = 0; s < nFilteredSites; s++) siteTranslationArray[s] = translateSites[s];
 
 			//find a window with only two distinct haplotype clusters
 			int maxdist = 100;
@@ -350,8 +352,10 @@ public class NucleotideImputationUtils {
 			GenotypeTable a = filterSnpsByTag(popdata.original, minMaf, maxMissing, maxHet);
 			int nFilteredSites = a.numberOfSites();
 			int[] siteTranslationArray = new int[nFilteredSites];
-			FilterGenotypeTable fa = (FilterGenotypeTable) a;
-			for (int s = 0; s < nFilteredSites; s++) siteTranslationArray[s] = fa.translateSite(s);
+			//FilterGenotypeTable fa = (FilterGenotypeTable) a;
+			//for (int s = 0; s < nFilteredSites; s++) siteTranslationArray[s] = fa.translateSite(s);
+                        int[] translateSites = a.siteTranslations();
+                        for (int s = 0; s < nFilteredSites; s++) siteTranslationArray[s] = translateSites[s];
 
 			//iterate through windows
 			int maxsite = nFilteredSites - windowSize - overlap;

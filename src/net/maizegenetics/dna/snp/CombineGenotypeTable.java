@@ -30,7 +30,6 @@ import java.util.stream.Stream;
  */
 public class CombineGenotypeTable implements GenotypeTable {
 
-    private static final long serialVersionUID = -5197800047652332969L;
     private final GenotypeTable[] myGenotypeTables;
     private final GenotypeCallTable myGenotype;
     private final int[] mySiteOffsets;
@@ -983,6 +982,16 @@ public class CombineGenotypeTable implements GenotypeTable {
     @Override
     public Stream<Byte> streamGenotype(int taxon) {
         return myGenotype.stream(taxon);
+    }
+
+    @Override
+    public boolean hasSiteTranslations() {
+        return false;
+    }
+
+    @Override
+    public int[] siteTranslations() {
+        return null;
     }
 
 }

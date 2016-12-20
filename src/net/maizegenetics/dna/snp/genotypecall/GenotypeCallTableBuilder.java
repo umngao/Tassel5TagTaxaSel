@@ -21,6 +21,7 @@ import net.maizegenetics.dna.snp.Translate;
 import net.maizegenetics.dna.snp.TranslateBuilder;
 import net.maizegenetics.util.SuperByteMatrix;
 import net.maizegenetics.util.SuperByteMatrixBuilder;
+import net.maizegenetics.util.Tuple;
 
 import org.apache.log4j.Logger;
 
@@ -88,16 +89,16 @@ public class GenotypeCallTableBuilder {
         return new GenotypeCallTableBuilder(matrix);
     }
 
-    public static GenotypeCallTable getFilteredInstance(GenotypeCallTable genotype, Translate translate) {
+    public static Tuple<GenotypeCallTable, Translate> getFilteredInstance(GenotypeCallTable genotype, Translate translate) {
         if (genotype == null) {
             return null;
         }
         if (genotype instanceof FilterGenotypeCallTable) {
             FilterGenotypeCallTable filter = (FilterGenotypeCallTable) genotype;
             Translate mergedTranslate = TranslateBuilder.getInstance(filter.myTranslate, translate);
-            return new FilterGenotypeCallTable(filter.myBaseGenotype, mergedTranslate);
+            return new Tuple<>(new FilterGenotypeCallTable(filter.myBaseGenotype, mergedTranslate), mergedTranslate);
         }
-        return new FilterGenotypeCallTable(genotype, translate);
+        return new Tuple<>(new FilterGenotypeCallTable(genotype, translate), translate);
     }
 
     public static GenotypeCallTableBuilder getInstanceCopy(GenotypeCallTable genotype) {
