@@ -59,6 +59,7 @@ import net.maizegenetics.gui.GenotypeTableMaskReference;
 import net.maizegenetics.gui.TOPMGenotypeTableCellRenderer;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.util.Tuple;
 
 /**
  *
