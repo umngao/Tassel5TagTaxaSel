@@ -228,6 +228,8 @@ abstract public class AbstractPlugin implements Plugin {
             } else if (outputClass.isAssignableFrom(Double.class)) {
                 input = input.replace(",", "");
                 return (T) new Double(new BigDecimal(input).doubleValue());
+            } else if (outputClass.isAssignableFrom(List.class)) {
+                return (T) getListFromString(input);
             } else if (outputClass.isAssignableFrom(PositionList.class)) {
                 return (T) JSONUtils.importPositionListFromJSON(input);
             } else if (outputClass.isAssignableFrom(TaxaList.class)) {
@@ -246,6 +248,23 @@ abstract public class AbstractPlugin implements Plugin {
                 throw new IllegalArgumentException(message + " Problem converting: " + input + " to " + Utils.getBasename(outputClass.getName()));
             }
         }
+    }
+
+    private static List<String> getListFromString(String str) {
+
+        if ((str == null) || (str.length() == 0)) {
+            return null;
+        }
+        String[] tokens = str.split(",");
+        List<String> result = new ArrayList<>();
+        for (String current : tokens) {
+            current = current.trim();
+            if (current.length() != 0) {
+                result.add(current);
+            }
+        }
+        return result;
+
     }
 
     @Override
