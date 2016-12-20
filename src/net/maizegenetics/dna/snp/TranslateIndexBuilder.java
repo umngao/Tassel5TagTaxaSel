@@ -49,6 +49,38 @@ public class TranslateIndexBuilder {
         }
     }
 
+    public static TranslateIndex merge(TranslateIndex base, TranslateIndex translate) {
+
+        if (base == null || translate == null) {
+            throw new IllegalArgumentException("TranslateIndexBuilder: merge: base and translate can't be null");
+        }
+
+        int numIndices = translate.numIndices();
+        int[] result = new int[numIndices];
+        boolean ordered = true;
+        int last = -1;
+        for (int i = 0; i < numIndices; i++) {
+            int temp = translate.translate(i);
+            if (temp == -1) {
+                result[i] = -1;
+                ordered = false;
+            } else {
+                result[i] = base.translate(temp);
+                if (result[i] <= last) {
+                    ordered = false;
+                }
+                last = result[i];
+            }
+        }
+
+        if (ordered) {
+            return new TranslateIndexRedirect(result);
+        } else {
+            return new TranslateIndexRedirectUnordered(result);
+        }
+
+    }
+
     /**
      * Returns no translation instance.
      *

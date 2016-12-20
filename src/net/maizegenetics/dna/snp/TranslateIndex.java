@@ -57,4 +57,12 @@ public class TranslateIndex {
         return false;
     }
 
+    public int[] getTranslations() {
+        int[] result = new int[numIndices()];
+        for (int i = 0; i < numIndices(); i++) {
+            result[i] = translate(i);
+        }
+        return result;
+    }
+
 }

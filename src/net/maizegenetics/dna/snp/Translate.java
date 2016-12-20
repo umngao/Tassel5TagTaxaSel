@@ -47,11 +47,19 @@ public class Translate {
         return myTranslateTaxa.hasTranslations();
     }
 
-    public TranslateIndex translateTaxa() {
+    public int[] siteTranslations() {
+        return myTranslateSite.getTranslations();
+    }
+
+    public int[] taxaTranslations() {
+        return myTranslateTaxa.getTranslations();
+    }
+
+    TranslateIndex translateTaxa() {
         return myTranslateTaxa;
     }
 
-    public TranslateIndex translateSite() {
+    TranslateIndex translateSite() {
         return myTranslateSite;
     }
 

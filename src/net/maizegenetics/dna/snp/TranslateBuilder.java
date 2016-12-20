@@ -34,5 +34,11 @@ public class TranslateBuilder {
         return new Translate(translateTaxa, translateSite);
 
     }
+    
+    public static Translate getInstance(Translate base, Translate translate) {
+        TranslateIndex translateTaxa = TranslateIndexBuilder.merge(base.translateTaxa(), translate.translateTaxa());
+        TranslateIndex translateSite = TranslateIndexBuilder.merge(base.translateSite(), translate.translateSite());
+        return new Translate(translateTaxa, translateSite);
+    }
 
 }
