@@ -13,13 +13,13 @@ import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.map.GeneralPosition;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.PositionListBuilder;
+import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTableBuilder;
-import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
 import net.maizegenetics.plugindef.PluginParameter;
+import net.maizegenetics.util.Tuple;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 
@@ -125,21 +125,11 @@ public class ConvertAlignmentCoordinatesPlugin extends AbstractPlugin {
 
             myLogger.info("Number Changes: " + numChanges);
 
-            GenotypeCallTableBuilder genotypeBuilder = GenotypeCallTableBuilder.getInstanceCopy(alignment.genotypeMatrix());
-            PositionList positions = posBuilder.build(genotypeBuilder);
-            Datum result = new Datum(datum.getName() + "_NewCoordinates",
-                    GenotypeTableBuilder.getInstance(
-                            genotypeBuilder.build(),
-                            positions,
-                            alignment.taxa(),
-                            alignment.depth(),
-                            alignment.alleleProbability(),
-                            alignment.referenceProbability(),
-                            alignment.dosage(),
-                            alignment.annotations()
-                    ),
-                    null
-            );
+            Tuple<PositionList, int[]> temp = posBuilder.buildWithSiteRedirect();
+            GenotypeTable newGenotypeTable = FilterGenotypeTable.getInstance(alignment, temp.x, temp.y);
+
+            String comment = alignment.positions().genomeVersion() + " converted to " + genomeVersion();
+            Datum result = new Datum(datum.getName() + "_NewCoordinates", newGenotypeTable, comment);
 
             return new DataSet(result, this);
 

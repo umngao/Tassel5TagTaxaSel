@@ -15,6 +15,7 @@ import java.util.*;
 import org.apache.log4j.Logger;
 
 import static net.maizegenetics.dna.WHICH_ALLELE.*;
+import net.maizegenetics.util.Tuple;
 
 /**
  * A builder for creating immutable PositionList. Can be used for either an in
@@ -273,6 +274,12 @@ public class PositionListBuilder {
             Collections.sort(myPositions);
             return new PositionArrayList(myPositions, genomeVersion);
         }
+    }
+
+    public Tuple<PositionList, int[]> buildWithSiteRedirect() {
+        int[] siteRedirect = sort();
+        PositionList positions = new PositionArrayList(myPositions, genomeVersion);
+        return new Tuple<>(positions, siteRedirect);
     }
 
     public PositionList build(GenotypeCallTableBuilder genotypes) {
