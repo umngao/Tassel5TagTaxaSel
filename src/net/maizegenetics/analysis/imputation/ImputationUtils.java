@@ -1,6 +1,9 @@
 package net.maizegenetics.analysis.imputation;
 
+import net.maizegenetics.analysis.data.FileLoadPlugin;
+import net.maizegenetics.analysis.data.FileLoadPlugin.TasselFileType;
 import net.maizegenetics.dna.WHICH_ALLELE;
+import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
@@ -12,7 +15,9 @@ import net.maizegenetics.util.BitSet;
 import org.apache.log4j.Logger;
 
 import java.io.*;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -20,6 +25,13 @@ public class ImputationUtils {
 	private static final Logger myLogger = Logger.getLogger(ImputationUtils.class);
 
 	public static Pattern tab = Pattern.compile("\t");
+	
+	public static void main(String[] args) {
+		if (args.length == 3 && args[0].equals("-xo")) {
+			//args[1] is the parentcall file, args[2] is the output file
+			exportCrossoverPositions(args[1], args[2]);
+		}
+	}
 	
 	public static int[] order(int[] array) {
 		class SortElement implements Comparable<SortElement> {
@@ -1174,5 +1186,56 @@ public class ImputationUtils {
     	
     	return null;
     }
+    
+	public static void exportCrossoverPositions(String parentcallFilename, String outputFilename) {
+		byte NN = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+		System.out.println("Starting exportCrossoverPositions.");
+		File genoFile = new File(parentcallFilename);
+		FileLoadPlugin flp = new FileLoadPlugin(null, false);
+		flp.setTheFileType(TasselFileType.Unknown);
+		flp.setOpenFiles(new File[]{genoFile});
+		GenotypeTable myGeno =  (GenotypeTable) flp.performFunction(null).getData(0).getData();
+
+		int ntaxa = myGeno.numberOfTaxa();
+		int nsites = myGeno.numberOfSites();
+		
+		byte[] prevGeno = myGeno.genotypeAllTaxa(0);
+		Chromosome currChrom = myGeno.chromosome(0);
+		int[] startpos = new int[nsites];
+		
+		try (BufferedWriter bw = Files.newBufferedWriter(Paths.get(outputFilename))) {
+			bw.write("taxon\tchr\tstart\tend\n");
+			for (int s = 1; s < nsites; s++) {
+				if (currChrom != myGeno.chromosome(s)) {
+					currChrom = myGeno.chromosome(s);
+					prevGeno = myGeno.genotypeAllTaxa(s);
+				} else {
+					byte[] siteGeno = myGeno.genotypeAllTaxa(s);
+					for (int t = 0; t < ntaxa; t++) {
+						if (prevGeno[t] == NN) {
+							prevGeno[t] = siteGeno[t];
+							startpos[t] = myGeno.chromosomalPosition(s);
+						}
+						else if (siteGeno[t] == NN) {
+							//do nothing
+						} else {
+							if (siteGeno[t] != prevGeno[t]) {
+								//record a crossover
+								bw.write(String.format("%s\t%s\t%d\t%d\n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s)));
+								prevGeno[t] = siteGeno[t];
+							}
+							startpos[t] = myGeno.chromosomalPosition(s);
+						}
+					}
+				}
+			}			
+		} catch (IOException e) {
+			e.printStackTrace();
+			System.exit(-1);
+		}
+		
+		System.out.println("Finished exporting crossover positions.");
+	}
+
 }
 

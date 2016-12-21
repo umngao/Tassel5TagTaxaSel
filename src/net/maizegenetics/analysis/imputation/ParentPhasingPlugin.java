@@ -149,6 +149,40 @@ public class ParentPhasingPlugin extends AbstractPlugin {
 			.description("The name of the converted output file. A .txt extension will be added if not present.")
 			.build();
 	
+	private PluginParameter<String> separator4 = PluginParameter.getLabelInstance("Correct self phasing ------------------------------");
+	private PluginParameter<Boolean> correct = new PluginParameter.Builder<>("correct", false, Boolean.class)
+			.guiName("Correct Self Phasing")
+			.description("Exchanges sections of chromosomes so that self phase matches cross phase.")
+			.build();
+	private PluginParameter<String> parentname = new PluginParameter.Builder<>("parent", null, String.class)
+			.dependentOnParameter(correct)
+			.guiName("Parent Name")
+			.description("The parent for which phase will be corrected. Required for phase correction.")
+			.build();
+	private PluginParameter<String> chrname = new PluginParameter.Builder<>("chrom", null, String.class)
+			.dependentOnParameter(correct)
+			.guiName("Chromosome Name")
+			.description("The chromosome for which phase will be corrected. Required for phase correction.")
+			.build();
+	private PluginParameter<String> selfPhased = new PluginParameter.Builder<>("selfPhased", null, String.class)
+			.dependentOnParameter(correct)
+			.guiName("Self Phased File")
+			.inFile()
+			.description("Phased parent haplotype files from self progeny.")
+			.build();
+	private PluginParameter<String> crossPhased = new PluginParameter.Builder<>("crossPhased", null, String.class)
+			.dependentOnParameter(correct)
+			.guiName("Cross Phased File")
+			.inFile()
+			.description("Phased parent haplotype files from self progeny.")
+			.build();
+	private PluginParameter<String> selfOut = new PluginParameter.Builder<>("selfOut", null, String.class)
+			.dependentOnParameter(correct)
+			.guiName("Combine Output Filename")
+			.outFile()
+			.description("The name of the corrected self phased output file. A .bin extension will be added. If this is blank, the files will not be combined and only a report comparing the two files will be generated.")
+			.build();
+
 	
 	public ParentPhasingPlugin(Frame parentFrame, boolean isInteractive) {
 		super(parentFrame, isInteractive);
@@ -181,8 +215,16 @@ public class ParentPhasingPlugin extends AbstractPlugin {
 			if (parentCallFilename.value() == null || parentCallFilename.value().length() < 1) throw new IllegalArgumentException("No parent call file name for rephaseParents.");
 			if (parentHaplotypeFilename.value() == null || parentHaplotypeFilename.value().length() < 1) throw new IllegalArgumentException("No parent haplotype input file name for rephaseParents.");
 			if (rephaseOutFile.value() == null || rephaseOutFile.value().length() < 1) throw new IllegalArgumentException("No parent haplotype output file name for rephaseParents.");
-			
 		}
+		
+		if (correct.value()) {
+			if (selfPhased.value() == null || selfPhased.value().trim().length() < 1) throw new IllegalArgumentException("Correcting haplotypes self input filename is missing.");
+			if (crossPhased.value() == null || crossPhased.value().trim().length() < 1) throw new IllegalArgumentException("Correcting haplotypes cross input filename is missing.");
+			if (selfOut.value() == null || selfOut.value().trim().length() < 1) throw new IllegalArgumentException("Correcting haplotypes output filename is missing.");
+			if (parentname.value() == null || parentname.value().trim().length() < 1) throw new IllegalArgumentException("Correcting haplotypes requires a parent name.");
+			if (chrname.value() == null || chrname.value().trim().length() < 1) throw new IllegalArgumentException("Correcting haplotypes requires a chromosome.");
+		}
+
 	}
 
 	@Override
@@ -225,6 +267,12 @@ public class ParentPhasingPlugin extends AbstractPlugin {
 			if (convertOut.value() != null && convertOut.value().trim().length() > 0) {
 				formatPhasedDataAsText(myGeno);
 			}
+		}
+		
+		if (correct.value()) {
+			SelfedHaplotypeFinder shf = new SelfedHaplotypeFinder(50, 1); //parameters are not used for this, so anything works
+			shf.setGenotype(myGeno);
+			shf.correctSelfPhaseUsingCross(selfPhased.value(), crossPhased.value(), parentname.value(), Integer.parseInt(chrname.value()), selfOut.value());
 		}
 		
 		return new DataSet(resultList, this);

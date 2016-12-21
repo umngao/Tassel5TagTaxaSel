@@ -8,6 +8,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -22,6 +23,7 @@ import org.apache.log4j.Logger;
 import net.maizegenetics.analysis.clustering.Haplotype;
 import net.maizegenetics.analysis.clustering.HaplotypeCluster;
 import net.maizegenetics.analysis.clustering.HaplotypeClusterer;
+import net.maizegenetics.analysis.data.FileLoadPlugin;
 import net.maizegenetics.analysis.filter.FilterSiteBuilderPlugin;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
@@ -49,7 +51,17 @@ public class SelfedHaplotypeFinder {
 		minNotMissingProportion = minProportionNotMissing;
 	}
 	
+	public static void main(String[] args) {
+		SelfedHaplotypeFinder shf = new SelfedHaplotypeFinder(1,1);
+		GenotypeTable genoTable = (GenotypeTable) new FileLoadPlugin(null, false).runPlugin("/Users/pbradbury/Documents/projects/landraces/data/Combined_LR13_LR14_parents2_AGPv4.h5");
+		shf.setGenotype(genoTable);
+		shf.correctSelfPhaseUsingCross("/Users/pbradbury/temp/test_phasedSelfParents_lr_agpv4_dec12.bin", 
+				"/Users/pbradbury/Documents/projects/landraces/output/dec12/phaseHighCoverParents_lr_agpv4_dec12.bin", 
+				"165_7_Tuxpeno_El_Aguacatito_Mex_:250358062", 9, "/Users/pbradbury/temp/test_adjusted_phasedSelfParents_lr_agpv4_dec12.bin");
+	}
+	
     public Map<String, byte[][]> phaseSelfedParents(Path parentpath, Path savepath) {
+    	boolean singleParentChrom = false;
     	int minFamilySize = 10;
     	int nsites = myGenotype.numberOfSites();
     	long startTime = System.currentTimeMillis();
@@ -65,8 +77,12 @@ public class SelfedHaplotypeFinder {
     		throw new RuntimeException("Failed to read parentage.", e);
     	}
     	
-//		List<String[]> plotList = allPlots.stream().filter(p -> p[3].equals("self")).collect(Collectors.toList());
 		TreeSet<String> parentSet = plotList.stream().map(p -> p[1]).collect(Collectors.toCollection(TreeSet::new));
+		
+		if (singleParentChrom) {
+			parentSet.clear();
+			parentSet.add("165_7_Tuxpeno_El_Aguacatito_Mex_:250358062");
+		}
 		
 		//process selfs
 		Map<String, byte[][]> phasedHaplotypes = new HashMap<>();
@@ -91,7 +107,7 @@ public class SelfedHaplotypeFinder {
 			//phase polymorphic sites
 			//filter out monomorhpic sites and low coverage sites
 			int polyCount = 0;
-			double minMaf = 0.05;
+			double minMaf = 0.1;
 			int minCount = (int) (0.5 * familyGeno.numberOfTaxa());
 
 			FilterSiteBuilderPlugin fsb = new FilterSiteBuilderPlugin();
@@ -106,14 +122,32 @@ public class SelfedHaplotypeFinder {
 			//phase by chromosome
 			int ntaxa = familyGeno.numberOfTaxa();
 			Chromosome[] myChromosomes = myGenotype.chromosomes();
-			for (int c = 0;c < myChromosomes.length; c++) {
+			int startIndex = 0;
+			int limitIndex = myChromosomes.length;
+			if (singleParentChrom) {
+				startIndex = 8;
+				limitIndex = 9;
+			}
+			
+			for (int c = startIndex;c < limitIndex; c++) {
 				Chromosome myChr = myChromosomes[c];
 				fsb.startChr(myChr);
 				fsb.endChr(myChr);
 				GenotypeTable chrGeno = fsb.runPlugin(familyGeno);
 
-				int minClusterSize = ntaxa /4;
+				int minClusterSize = Math.max(ntaxa/10, 3);
+				int ibdClusterSize = ntaxa/2;
 				int chrSites = chrGeno.numberOfSites();
+				
+				if (singleParentChrom) {
+					//debug
+					System.out.printf("Chr %s has %d sites\n", myChr.getName(), chrSites);
+					System.out.printf("first position %d, last position %d\n", chrGeno.chromosomalPosition(0), chrGeno.chromosomalPosition(chrSites - 1));
+					int[] chrStart = myGenotype.chromosomesOffsets();
+					System.out.printf("myGenotype start pos = %d, end pos = %d\n", myGenotype.chromosomalPosition(chrStart[c]), myGenotype.chromosomalPosition(chrStart[c + 1] - 1) );
+					//end debug
+				}
+				
 				int maxhet = 10;
 				HaplotypeCluster chr0clusters = null;
 				HaplotypeCluster chr1clusters = null;
@@ -142,6 +176,19 @@ public class SelfedHaplotypeFinder {
 					myClusterMaker.moveAllHaplotypesToBiggestCluster(diff); //3
 					
 					myClusterMaker.removeHeterozygousClusters(maxhet);
+					
+					int nclus = 0, pos = 0;
+					if (singleParentChrom) {
+						//debug
+						pos = chrGeno.chromosomalPosition(start);
+						nclus = myClusterMaker.getNumberOfClusters();
+						System.out.printf("at chr %s, %d, %d clusters after remove hets.\n", myChr.getName(), pos, nclus);
+						if (pos > 146000000) {
+							System.out.print("");
+						}
+						//end debug
+					}
+
 					if (myClusterMaker.getNumberOfClusters() == 0) continue; //too many bad sites in window
 					
 					//pick out good haplotypes
@@ -164,7 +211,20 @@ public class SelfedHaplotypeFinder {
 					//if there is only one haplotype left, is it good?
 					boolean twoGoodClusters = false;
 					boolean oneGoodCluster = false;
+					boolean isIbd = false;
 					boolean inChrOrder = true;
+					
+					if (singleParentChrom) {
+						//debug
+						nclus = clusterList.size();
+						System.out.printf("at chr %s, %d, %d clusters: ", myChr.getName(), pos, nclus);
+						for (int i = 0; i < nclus; i++) {
+							System.out.printf(" %d", clusterList.get(i).getSize());
+							System.out.print(" " + clusterTaxa(clusterList.get(i)));
+						}
+						System.out.println();
+						//end debug
+					}
 					
 					//test for total clusters
 					int[] clusterSizes = new int[2];
@@ -194,7 +254,11 @@ public class SelfedHaplotypeFinder {
 									inChrOrder = false;
 								}
 							}
-
+						} else if (clusterList.size() == 1 && clusterSizes[0] > ibdClusterSize) { //the section is ibd, do not update previous clusters
+							oneGoodCluster = true;
+							isIbd = true;
+							chr0clusters = clusterList.get(0);
+							chr1clusters = null;
 						} else if ((clusterList.size() == 1 && clusterSizes[0] > minClusterSize) || (clusterList.size() == 2 && clusterSizes[1] == 1 && clusterList.get(0).getSize() > minClusterSize)) {
 							oneGoodCluster = true;
 							int order = sameOrder(previousChr0clusters, previousChr1clusters, clusterList);
@@ -209,6 +273,10 @@ public class SelfedHaplotypeFinder {
 								inChrOrder = false;
 							}
 						}
+					}
+					
+					if (singleParentChrom) {
+						System.out.printf("twoGoodClusters, oneGoodCluster: %b, %b\n", twoGoodClusters, oneGoodCluster);
 					}
 					
 					if (twoGoodClusters) {
@@ -231,7 +299,7 @@ public class SelfedHaplotypeFinder {
 								polyCount++;
 							}
 						}
-					} else if (oneGoodCluster) {
+					} else if (oneGoodCluster && !isIbd) {
 						int ndx;
 						byte[] hap;
 						if (chr0clusters != null) {
@@ -253,6 +321,20 @@ public class SelfedHaplotypeFinder {
 								polyCount++;
 							}
 						}
+					} else if (oneGoodCluster && !isIbd) {
+						byte[] hap = chr0clusters.getCensoredMajorityHaplotype(0.05, 1);
+						for (int w = 0; w < windowSize; w++) {
+							byte allele = homozygousDiploidToAllele(hap[w]);
+							if (allele > -1) {
+								//get the site number from myGenotype
+								int filterSite = start + w;
+								int mygenoSite = myGenotype.siteOfPhysicalPosition(chrGeno.chromosomalPosition(filterSite), myChr);
+								myPhasedHap[0][mygenoSite] = allele;
+								myPhasedHap[1][mygenoSite] = allele;
+								polyCount++;
+							}
+						}
+						
 					}
 
 				}
@@ -316,6 +398,10 @@ public class SelfedHaplotypeFinder {
     	return 0;
     }
 
+    private String clusterTaxa(HaplotypeCluster hc) {
+    	return hc.getHaplotypeList().stream().map(h -> Integer.toString(h.taxonIndex)).collect(Collectors.joining(",", "(", ")"));
+    }
+    
     private int taxaInCommon(HaplotypeCluster hc0, HaplotypeCluster hc1) {
     	if (hc0 == null || hc1 == null) return 0;
     	int commonCount = 0;
@@ -365,5 +451,103 @@ public class SelfedHaplotypeFinder {
     public void setGenotype(GenotypeTable genotype) {
     	myGenotype = genotype;
     }
+    
+    public void correctSelfPhaseUsingCross(String selfPhaseFilename, String crossPhaseFilename, String parent, int chr, String outfileName) {
+    	Map<String, byte[][]> selfMap = restorePhasedHaplotypes(Paths.get(selfPhaseFilename));
+    	Map<String, byte[][]> crossMap = restorePhasedHaplotypes(Paths.get(crossPhaseFilename));
+    	Map<String, byte[][]> outMap = new HashMap<>();
+    	
+    	int[] chrOffsets = myGenotype.chromosomesOffsets();
+    	int start = chrOffsets[chr - 1];
+    	int end;
+    	
+    	if (chr != 10) {
+    		end = chrOffsets[chr];
+    	} else {
+    		end = myGenotype.numberOfSites();
+    	}
+    	int nchrSites = end - start;
+    	
+    	for (String taxonName : selfMap.keySet()) {
+    		if (taxonName.equals(parent)) {
+    			byte[][] selfhaps = selfMap.get(taxonName);
+    			byte[][] crosshaps = crossMap.get(taxonName);
+    			
+    			// 1 = same phase, -1 = different phase, 0 = cannot tell, missing data
+    			int[] same = new int[nchrSites];
+    			for (int s = start; s < end; s++) {
+    				if (selfhaps[0][s] != N && selfhaps[1][s] != N && crosshaps[0][s] != N && crosshaps[1][s] != N) {
+    					if (selfhaps[0][s] != selfhaps[1][s] && crosshaps[0][s] != crosshaps[1][s]) {
+        					int ndx = s - start;
+        					if (selfhaps[0][s] == crosshaps[0][s]) {
+        						same[ndx] = 1;
+        					}
+        					else {
+//        						if (selfhaps[0][s] == crosshaps[1][s] && selfhaps[1][s] == crosshaps[0][s]) same[ndx] = -1;
+        						same[ndx] = -1;
+        					}
+    					}
+    				}
+    			}
+    			
+    			//Any sites flanked by 1's can be left as is
+    			//Sites flanked by -1, should have haplotypes reversed
+    			//Sites flanked by 1 and -1 should be set to missing
+    			//Treat ends of chromosomes as flanked by first (or last) 1 or -1
+    			
+    			//report counts
+    			int[] sameCount = new int[3];
+    			for (int s = 1; s < nchrSites; s++) {
+    				sameCount[same[s] + 1]++;
+    			}
+    			System.out.printf("For %s chr %d same counts -1: %d, 0: %d, 1: %d\n", parent, chr, sameCount[0], sameCount[1], sameCount[2]);
+    			
+    			//fill gaps in same array
+    			int currentStart = 0;
+    			for (int s = 1; s < nchrSites; s++) {
+    				if (same[s] != 0) {
+    					if (same[currentStart] == 0) {
+    						for (int i = currentStart; i < s; i++) same[i] = same[s];
+    					} else if (same[currentStart] == same[s]) {
+    						for (int i = currentStart + 1; i < s; i++) same[i] = same[s];
+    					}
+    					currentStart = s;
+    				}
+    			}
+    			
+    			//finish filling end of chromosome
+    			for (int i = currentStart + 1; i < nchrSites; i++) same[i] = same[currentStart];
+    			
+    			//report counts
+    			sameCount = new int[3];
+    			for (int s = 1; s < nchrSites; s++) {
+    				sameCount[same[s] + 1]++;
+    			}
+    			System.out.printf("For %s chr %d same counts: -1 -> %d, 0 -> %d, 1 -> %d\n", parent, chr, sameCount[0], sameCount[1], sameCount[2]);
+    			
+    			//flip haplotypes as necessary
+    			for (int s = start; s < end; s++) {
+    				int ndx = s - start;
+    				if (same[ndx] == -1) { //flip haplotypes
+    					byte tmp = selfhaps[0][s];
+    					selfhaps[0][s] = selfhaps[1][s];
+    					selfhaps[1][s] = tmp;
+    				} else if (same[ndx] == 0) { //set to missing
+    					selfhaps[0][s] = selfhaps[1][s] = N;
+    				}
+    			}
+    			outMap.put(taxonName, selfhaps);
+    			
+    			
+    		} else {
+    			outMap.put(taxonName, selfMap.get(taxonName));
+    		}
+    	}
+    	
+    	
+    	//save outMap
+    	serializePhasedHaplotypes(outMap, Paths.get(outfileName));
+    }
+    
     
 }
