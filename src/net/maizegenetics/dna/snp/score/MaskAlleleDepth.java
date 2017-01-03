@@ -20,6 +20,9 @@ public class MaskAlleleDepth extends AlleleDepth {
 
     public MaskAlleleDepth(AlleleDepth depth, MaskMatrix mask) {
         super(depth.numTaxa(), depth.numSites());
+        if (depth.numTaxa() != mask.numTaxa() || depth.numSites() != mask.numSites()) {
+            throw new IllegalArgumentException("MaskAlleleDepth: init: depth and mask dimensions don't match");
+        }
         myDepth = depth;
         myMask = mask;
     }
