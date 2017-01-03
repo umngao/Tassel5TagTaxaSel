@@ -61,6 +61,7 @@ public class FileLoadPlugin extends AbstractPlugin {
 
     private PluginParameter<Boolean> mySortPositions = new PluginParameter.Builder<>("sortPositions", false, Boolean.class)
             .description("Whether to sort genotype positions if that's possible.")
+            .dependentOnParameter(myFileType, new Object[]{TasselFileType.Unknown, TasselFileType.Hapmap, TasselFileType.HapmapDiploid, TasselFileType.VCF, TasselFileType.Plink})
             .build();
 
     private String[] myOpenFiles = null;
