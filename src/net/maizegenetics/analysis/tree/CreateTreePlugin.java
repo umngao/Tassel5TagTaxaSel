@@ -42,6 +42,7 @@ public class CreateTreePlugin extends AbstractPlugin {
 
     private PluginParameter<CLUSTERING_METHOD> myClusteringMethod = new PluginParameter.Builder<>("clusteringMethod", CLUSTERING_METHOD.Neighbor_Joining, CLUSTERING_METHOD.class)
             .description("")
+            .range(CLUSTERING_METHOD.values())
             .build();
     private PluginParameter<Boolean> mySaveDistanceMatrix = new PluginParameter.Builder<>("saveDistanceMatrix", true, Boolean.class)
             .description("")
@@ -102,6 +103,11 @@ public class CreateTreePlugin extends AbstractPlugin {
 
         return new DataSet(results, this);
 
+    }
+
+    @Override
+    public String pluginUserManualURL() {
+        return "https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/Cladogram/Cladogram";
     }
 
     /**
