@@ -499,6 +499,8 @@ public interface GenotypeCallTable {
     public byte[] genotypeForAllTaxa(int site);
     
     public Tuple<int[][], int[]> siteStats(int site);
+    
+    public Tuple<int[][], int[]> taxonStats(int taxon);
 
     /**
      * Tells this Genotype to transpose it's data to optimize performance for

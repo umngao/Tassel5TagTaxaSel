@@ -662,6 +662,11 @@ abstract class AbstractGenotypeCallTable implements GenotypeCallTable {
     }
 
     @Override
+    public Tuple<int[][], int[]> taxonStats(int taxon) {
+        return AlleleFreqCache.allelesSortedByFrequencyAndCountsNucleotide(taxon, genotypeForAllSites(taxon));
+    }
+
+    @Override
     public Stream<Byte> stream() {
         return StreamSupport.stream(spliterator(), true);
     }
