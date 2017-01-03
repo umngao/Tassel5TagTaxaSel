@@ -8,7 +8,7 @@ package net.maizegenetics.dna.snp;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
-import net.maizegenetics.dna.snp.genotypecall.ListSiteStats;
+import net.maizegenetics.dna.snp.genotypecall.ListStats;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
 import net.maizegenetics.util.UnmodifiableBitSet;
@@ -23,13 +23,13 @@ public class MaskMinorSNPMatrix implements MaskMatrix {
     private final int myNumTaxa;
     private final int myNumSites;
     private final Cache<Integer, BitSet> myCache;
-    private final ListSiteStats myStats;
+    private final ListStats myStats;
 
     MaskMinorSNPMatrix(GenotypeCallTable genotype) {
         myGenotype = genotype;
         myNumTaxa = genotype.numberOfTaxa();
         myNumSites = genotype.numberOfSites();
-        myStats = ListSiteStats.getInstance(genotype);
+        myStats = ListStats.getSiteInstance(genotype);
         myCache = CacheBuilder.newBuilder()
                 .initialCapacity(1000)
                 .maximumSize(1000)

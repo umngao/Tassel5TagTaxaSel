@@ -17,7 +17,7 @@ import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import static net.maizegenetics.dna.snp.GenotypeTableUtils.filterSitesByBedFile;
 import static net.maizegenetics.dna.snp.GenotypeTableUtils.filterSitesByChrPos;
 import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
-import net.maizegenetics.dna.snp.genotypecall.ListSiteStats;
+import net.maizegenetics.dna.snp.genotypecall.ListStats;
 import net.maizegenetics.util.Tuple;
 
 /**
@@ -26,11 +26,15 @@ import net.maizegenetics.util.Tuple;
  */
 public class FilterBySites {
 
+    private FilterBySites() {
+    }
+
     public static GenotypeTable filter(GenotypeTable orig, FilterSite filter) {
 
         GenotypeTable result = orig;
 
         int numSites = orig.numberOfSites();
+        int numTaxa = orig.numberOfTaxa();
 
         if (filter.siteFilterType() == FilterSite.SITE_RANGE_FILTER_TYPES.SITES) {
             int start = filter.startSite();
@@ -102,12 +106,10 @@ public class FilterBySites {
             result = filterSitesByChrPos(result, chrPosFile, filter.includeSites());
         }
 
-        ListSiteStats siteStats = ListSiteStats.getInstance(result.genotypeMatrix());
-
-        IntStream intStream = IntStream.range(0, result.numberOfSites()).parallel();
-        Stream<Tuple<int[][], int[]>> stream = intStream.mapToObj((int value) -> siteStats.get(value));
+        Stream<Tuple<int[][], int[]>> stream = null;
 
         if (filter.siteMinCount() != 0) {
+            stream = stream(result, stream);
             stream = stream.filter((Tuple<int[][], int[]> stats) -> {
                 int totalNonMissing = AlleleFreqCache.totalGametesNonMissingForSite(stats.x);
                 return totalNonMissing >= (filter.siteMinCount() * 2);
@@ -115,6 +117,7 @@ public class FilterBySites {
         }
 
         if (filter.siteMinAlleleFreq() != 0.0 || filter.siteMaxAlleleFreq() != 1.0) {
+            stream = stream(result, stream);
             stream = stream.filter((Tuple<int[][], int[]> stats) -> {
                 double maf = AlleleFreqCache.minorAlleleFrequency(stats.x);
                 return filter.siteMinAlleleFreq() <= maf && filter.siteMaxAlleleFreq() >= maf;
@@ -122,21 +125,26 @@ public class FilterBySites {
         }
 
         if (filter.minHeterozygous() != 0.0 || filter.maxHeterozygous() != 1.0) {
+            stream = stream(result, stream);
             stream = stream.filter((Tuple<int[][], int[]> stats) -> {
-                double hetFreq = AlleleFreqCache.proportionHeterozygous(stats.y, numSites);
+                double hetFreq = AlleleFreqCache.proportionHeterozygous(stats.y, numTaxa);
                 return filter.minHeterozygous() <= hetFreq && filter.maxHeterozygous() >= hetFreq;
             });
         }
 
-        List<Integer> sitesToKeep = stream.map((Tuple<int[][], int[]> stats) -> stats.y[AlleleFreqCache.INDEX])
-                .collect(Collectors.toList());
+        if (stream != null) {
 
-        int[] sites = new int[sitesToKeep.size()];
-        for (int i = 0; i < sitesToKeep.size(); i++) {
-            sites[i] = sitesToKeep.get(i);
+            List<Integer> sitesToKeep = stream.map((Tuple<int[][], int[]> stats) -> stats.y[AlleleFreqCache.INDEX])
+                    .collect(Collectors.toList());
+
+            int[] sites = new int[sitesToKeep.size()];
+            for (int i = 0; i < sitesToKeep.size(); i++) {
+                sites[i] = sitesToKeep.get(i);
+            }
+
+            result = FilterGenotypeTable.getInstance(result, sites);
+
         }
-
-        result = FilterGenotypeTable.getInstance(result, sites);
 
         if (filter.removeMinorSNPStates()) {
             result = GenotypeTableBuilder.getInstanceOnlyMajorMinor(result);
@@ -144,6 +152,15 @@ public class FilterBySites {
 
         return result;
 
+    }
+
+    private static Stream<Tuple<int[][], int[]>> stream(GenotypeTable genotypes, Stream<Tuple<int[][], int[]>> stream) {
+        if (stream != null) {
+            return stream;
+        }
+        ListStats siteStats = ListStats.getSiteInstance(genotypes.genotypeMatrix());
+        IntStream intStream = IntStream.range(0, genotypes.numberOfSites()).parallel();
+        return intStream.mapToObj((int value) -> siteStats.get(value));
     }
 
 }
