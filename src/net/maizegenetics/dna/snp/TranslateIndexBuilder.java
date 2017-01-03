@@ -55,6 +55,10 @@ public class TranslateIndexBuilder {
             throw new IllegalArgumentException("TranslateIndexBuilder: merge: base and translate can't be null");
         }
 
+        if (!base.hasTranslations()) {
+            return translate;
+        }
+
         int numIndices = translate.numIndices();
         int[] result = new int[numIndices];
         boolean ordered = true;
@@ -74,7 +78,15 @@ public class TranslateIndexBuilder {
         }
 
         if (ordered) {
-            return new TranslateIndexRedirect(result);
+            if (isNoTranslation(result)) {
+                if (base.numIndices() == numIndices) {
+                    return new TranslateIndex(numIndices, false);
+                } else {
+                    return new TranslateIndex(numIndices, true);
+                }
+            } else {
+                return new TranslateIndexRedirect(result);
+            }
         } else {
             return new TranslateIndexRedirectUnordered(result);
         }
@@ -88,10 +100,10 @@ public class TranslateIndexBuilder {
      * @return no translation instance
      */
     public static TranslateIndex noTranslation(int numIndices) {
-        return new TranslateIndex(numIndices);
+        return new TranslateIndex(numIndices, false);
     }
 
-    public static TranslateIndex orderedTranslation(int[] indexRedirect, TranslateIndex base) {
+    public static TranslateIndex orderedTranslation(int[] indexRedirect, TranslateIndex base, int numBaseIndices) {
 
         int numIndices = indexRedirect.length;
 
@@ -104,8 +116,19 @@ public class TranslateIndexBuilder {
                 result[i] = indexRedirect[i];
             }
             Arrays.sort(result);
-            return new TranslateIndexRedirect(result);
+            if (isNoTranslation(result)) {
+                if (numBaseIndices == numIndices) {
+                    return new TranslateIndex(numIndices, false);
+                } else {
+                    return new TranslateIndex(numIndices, true);
+                }
+            } else {
+                return new TranslateIndexRedirect(result);
+            }
         } else {
+            if (base.numIndices() != numBaseIndices) {
+                throw new IllegalArgumentException("TranslateIndexBuilder: orderedTranslation: number of indices in base translation: " + base.numIndices() + " should equal number of base indices: " + numBaseIndices);
+            }
             int[] result = new int[numIndices];
             for (int i = 0; i < numIndices; i++) {
                 if (indexRedirect[i] < -1) {
@@ -114,7 +137,15 @@ public class TranslateIndexBuilder {
                 result[i] = base.translate(indexRedirect[i]);
             }
             Arrays.sort(result);
-            return new TranslateIndexRedirect(result);
+            if (isNoTranslation(result)) {
+                if (numBaseIndices == numIndices) {
+                    return new TranslateIndex(numIndices, false);
+                } else {
+                    return new TranslateIndex(numIndices, true);
+                }
+            } else {
+                return new TranslateIndexRedirect(result);
+            }
         }
 
     }
@@ -160,18 +191,31 @@ public class TranslateIndexBuilder {
      * @param start start index
      * @param end end index
      * @param base base translation
+     * @param numBaseIndices number of indices in base
      *
      * @return new translation
      */
-    public static TranslateIndex range(int start, int end, TranslateIndex base) {
+    public static TranslateIndex range(int start, int end, TranslateIndex base, int numBaseIndices) {
 
         if (start < 0 || start > end) {
             throw new IllegalArgumentException();
         }
 
         if (base == null) {
-            return new TranslateIndexRange(start, end);
+            if (start == 0) {
+                int len = end + 1;
+                if (len == numBaseIndices) {
+                    return new TranslateIndex(len, false);
+                } else {
+                    return new TranslateIndex(len, true);
+                }
+            } else {
+                return new TranslateIndexRange(start, end);
+            }
         } else {
+            if (base.numIndices() != numBaseIndices) {
+                throw new IllegalArgumentException("TranslateIndexBuilder: range: number of indices in base translation: " + base.numIndices() + " should equal number of base indices: " + numBaseIndices);
+            }
             return new TranslateIndexBuilder(base).keepIndices(start, end).build();
         }
 
@@ -188,7 +232,7 @@ public class TranslateIndexBuilder {
         if (index == -1) {
             myHasNegativeIndices = true;
         } else if (index < 0 || index >= myNumBaseIndices) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("TranslateIndexBuilder: keepIndex: index: " + index + " out of range: " + 0 + " to: " + (myNumBaseIndices - 1));
         }
         myIndicesToKeep.add(index);
         return this;
@@ -223,18 +267,22 @@ public class TranslateIndexBuilder {
         return myIndicesToKeep.size();
     }
 
+    private static boolean isNoTranslation(int[] indices) {
+        int len = indices.length;
+        for (int i = 0; i < len; i++) {
+            if (i != indices[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public TranslateIndex build() {
 
         int numIndicesToKeep = myIndicesToKeep.size();
 
         if (numIndicesToKeep == 0) {
             throw new IllegalStateException("TranslateIndexBuilder: build: no indices to keep.");
-        } else if (numIndicesToKeep == myNumBaseIndices && !myHasNegativeIndices) {
-            if (myBase != null) {
-                return myBase;
-            } else {
-                return new TranslateIndex(myNumBaseIndices);
-            }
         }
 
         int[] indexRedirect = new int[numIndicesToKeep];
@@ -252,7 +300,15 @@ public class TranslateIndexBuilder {
             return new TranslateIndexRedirectUnordered(indexRedirect);
         } else {
             Arrays.sort(indexRedirect);
-            return new TranslateIndexRedirect(indexRedirect);
+            if (isNoTranslation(indexRedirect)) {
+                if (myNumBaseIndices == indexRedirect.length) {
+                    return new TranslateIndex(myNumBaseIndices, false);
+                } else {
+                    return new TranslateIndex(indexRedirect.length, true);
+                }
+            } else {
+                return new TranslateIndexRedirect(indexRedirect);
+            }
         }
 
     }

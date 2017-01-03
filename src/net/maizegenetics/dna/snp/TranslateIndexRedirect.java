@@ -22,7 +22,7 @@ public class TranslateIndexRedirect extends TranslateIndex {
      * @param indexRedirect redirect index to base index. Should be ordered.
      */
     TranslateIndexRedirect(int[] indexRedirect) {
-        super(indexRedirect.length);
+        super(indexRedirect.length, true);
         myIndexRedirect = indexRedirect;
     }
 
@@ -47,11 +47,6 @@ public class TranslateIndexRedirect extends TranslateIndex {
     @Override
     public int reverseTranslateIndex(int index) {
         return Arrays.binarySearch(myIndexRedirect, index);
-    }
-
-    @Override
-    public boolean hasTranslations() {
-        return true;
     }
 
 }

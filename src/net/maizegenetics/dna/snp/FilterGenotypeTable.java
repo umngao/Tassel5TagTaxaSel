@@ -299,8 +299,6 @@ public class FilterGenotypeTable {
 
     public static GenotypeTable getInstance(GenotypeTable genotypes, BitSet subSites, boolean includeSites) {
 
-        int numBaseSites = genotypes.numberOfSites();
-
         int numSites = genotypes.numberOfSites();
         int[] newSubSites = null;
         if (includeSites) {
@@ -460,9 +458,7 @@ public class FilterGenotypeTable {
             throw new IllegalArgumentException("FilterGenotypeTable: getInstance: end site: " + endSite + " greater than or equal to number of sites: " + genotypes.numberOfSites());
         }
 
-        TranslateIndexBuilder builder = TranslateIndexBuilder.getInstance(numBaseSites);
-        builder.keepIndices(startSite, endSite);
-        Translate translate = TranslateBuilder.getInstance(TranslateIndexBuilder.noTranslation(numTaxa), builder.build());
+        Translate translate = TranslateBuilder.getInstance(TranslateIndexBuilder.noTranslation(numTaxa), TranslateIndexBuilder.range(startSite, endSite, null, numBaseSites));
         return getInstance(genotypes, genotypes.taxa(), null, translate);
 
     }

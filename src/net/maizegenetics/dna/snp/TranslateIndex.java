@@ -13,14 +13,16 @@ package net.maizegenetics.dna.snp;
 public class TranslateIndex {
 
     private final int myNumIndices;
+    private final boolean myHasTranslations;
 
     /**
      * Constructor
      *
      * @param numIndices number of sites
      */
-    TranslateIndex(int numIndices) {
+    TranslateIndex(int numIndices, boolean hasTranslations) {
         myNumIndices = numIndices;
+        myHasTranslations = hasTranslations;
     }
 
     /**
@@ -53,10 +55,23 @@ public class TranslateIndex {
         return myNumIndices;
     }
 
+    /**
+     * Indicates whether this index translation has translations. If every index
+     * is translated to itself, there are no translations. If this represents a
+     * subset of the total indices, there are translations even if all indices
+     * in the subset translate to itself.
+     *
+     * @return whether this has translations
+     */
     public boolean hasTranslations() {
-        return false;
+        return myHasTranslations;
     }
 
+    /**
+     * Returns all the translated indices.
+     *
+     * @return all translated indices
+     */
     public int[] getTranslations() {
         int[] result = new int[numIndices()];
         for (int i = 0; i < numIndices(); i++) {

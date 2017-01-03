@@ -21,7 +21,7 @@ public class TranslateIndexRange extends TranslateIndex {
      * @param end end index (inclusive)
      */
     TranslateIndexRange(int start, int end) {
-        super(end - start + 1);
+        super(end - start + 1, true);
         myRangeStart = start;
         myRangeEnd = end;
     }
@@ -34,11 +34,6 @@ public class TranslateIndexRange extends TranslateIndex {
     @Override
     public int reverseTranslateIndex(int index) {
         return index - myRangeStart;
-    }
-
-    @Override
-    public boolean hasTranslations() {
-        return true;
     }
 
 }
