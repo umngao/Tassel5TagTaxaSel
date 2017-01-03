@@ -108,7 +108,7 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
             .positionList()
             .description("Filter based on position list.")
             .build();
-    private PluginParameter<String> mySiteNamesList = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.siteNames.name(), null, String.class)
+    private PluginParameter<List> mySiteNamesList = new PluginParameter.Builder<>(FILTER_SITES_ATTRIBUTES.siteNames.name(), null, List.class)
             .siteNameList()
             .dependentOnParameter(myPositionList, POSITION_LIST_NONE)
             .description("Filter based on site names.")
@@ -234,7 +234,7 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
 
         Object sites = values.get(FILTER_SITES_ATTRIBUTES.siteNames.name());
         if (sites != null) {
-            values.put(FILTER_SITES_ATTRIBUTES.siteNames.name(), getListFromString(sites.toString()));
+            values.put(FILTER_SITES_ATTRIBUTES.siteNames.name(), sites);
         }
 
         List<Datum> result = new ArrayList<>();
@@ -288,51 +288,6 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
 
         return new DataSet(result, this);
 
-    }
-
-    private List<String> getListFromString(String str) {
-
-        if ((str == null) || (str.length() == 0)) {
-            return null;
-        }
-        String[] tokens = str.split(",");
-        List<String> result = new ArrayList<>();
-        for (String current : tokens) {
-            current = current.trim();
-            if (current.length() != 0) {
-                result.add(current);
-            }
-        }
-        return result;
-
-    }
-
-    private String getStringFromList(List<String> list) {
-
-        if ((list == null) || (list.isEmpty())) {
-            return null;
-        }
-
-        StringBuilder builder = new StringBuilder();
-        boolean first = true;
-        for (String current : list) {
-            current = current.trim();
-            if (current.length() != 0) {
-                if (first) {
-                    first = false;
-                } else {
-                    builder.append(",");
-                }
-                builder.append(current);
-            }
-        }
-        return builder.toString();
-
-    }
-
-    public FilterSiteBuilderPlugin siteNamesList(List<String> value) {
-        mySiteNamesList = new PluginParameter<>(mySiteNamesList, getStringFromList(value));
-        return this;
     }
 
     @Override
@@ -731,7 +686,7 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
      *
      * @return Site Names List
      */
-    public String siteNamesList() {
+    public List<String> siteNamesList() {
         return mySiteNamesList.value();
     }
 
@@ -742,7 +697,7 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
      *
      * @return this plugin
      */
-    public FilterSiteBuilderPlugin siteNamesList(String value) {
+    public FilterSiteBuilderPlugin siteNamesList(List<String> value) {
         mySiteNamesList = new PluginParameter<>(mySiteNamesList, value);
         return this;
     }
