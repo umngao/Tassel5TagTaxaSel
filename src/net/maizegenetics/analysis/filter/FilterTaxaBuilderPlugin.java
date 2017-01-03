@@ -19,7 +19,6 @@ import net.maizegenetics.dna.snp.FilterList;
 import net.maizegenetics.dna.snp.FilterTaxa;
 import net.maizegenetics.dna.snp.FilterTaxa.FILTER_TAXA_ATTRIBUTES;
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.gui.DialogUtils;
 import net.maizegenetics.phenotype.GenotypePhenotype;
 import net.maizegenetics.phenotype.GenotypePhenotypeBuilder;
@@ -110,7 +109,7 @@ public class FilterTaxaBuilderPlugin extends AbstractPlugin {
         if (genotypeTableList.size() >= 1) {
             for (Datum datum : genotypeTableList) {
                 GenotypeTable current = (GenotypeTable) datum.getData();
-                GenotypeTable filteredGenotype = GenotypeTableUtils.filter(filter, current);
+                GenotypeTable filteredGenotype = FilterByTaxa.filter(current, filter);
                 if ((filteredGenotype == null) || filteredGenotype.numberOfTaxa() == 0) {
                     DialogUtils.showWarning("No genotype data remained after filtering: " + datum.getName(), getParentFrame());
                 } else if (filteredGenotype != current) {
@@ -129,7 +128,7 @@ public class FilterTaxaBuilderPlugin extends AbstractPlugin {
             for (Datum datum : phenoGenoTableList) {
                 GenotypePhenotype pheno = (GenotypePhenotype) datum.getData();
                 GenotypeTable current = pheno.genotypeTable();
-                GenotypeTable filteredGenotype = GenotypeTableUtils.filter(filter, current);
+                GenotypeTable filteredGenotype = FilterByTaxa.filter(current, filter);
                 if ((filteredGenotype == null) || filteredGenotype.numberOfTaxa() == 0) {
                     DialogUtils.showWarning("No genotype data remained after filtering: " + datum.getName(), getParentFrame());
                 } else if (filteredGenotype != current) {

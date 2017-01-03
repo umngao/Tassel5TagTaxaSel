@@ -49,7 +49,7 @@ public abstract class ListStats extends AbstractList<Tuple<int[][], int[]>> {
                 if (base == null || filter.myTranslate.hasSiteTranslations()) {
                     result = new ListStatsTaxa(genotype);
                 } else {
-                    result = new ListStatsFilterSite(filter, base);
+                    result = new ListStatsFilterTaxa(filter, base);
                 }
             } else {
                 result = new ListStatsTaxa(genotype);
@@ -71,7 +71,6 @@ public abstract class ListStats extends AbstractList<Tuple<int[][], int[]>> {
         }
 
         if (result == null) {
-            System.out.println("result is null");
             if (genotype instanceof FilterGenotypeCallTable) {
                 FilterGenotypeCallTable filter = (FilterGenotypeCallTable) genotype;
                 WeakReference<ListStats> temp1 = SITE_INSTANCES.get(filter.myBaseGenotype);
@@ -79,22 +78,13 @@ public abstract class ListStats extends AbstractList<Tuple<int[][], int[]>> {
                 if (temp1 != null) {
                     base = temp1.get();
                 }
-                if (base == null) {
-                System.out.println("base is null");
-                }
-                if (filter.myTranslate.hasTaxaTranslations()) {
-                    System.out.println("has taxa translations");
-                }
                 if (base == null || filter.myTranslate.hasTaxaTranslations()) {
                     result = new ListStatsSite(genotype);
-                    System.out.println("result is ListStatsSite with Filter");
                 } else {
                     result = new ListStatsFilterSite(filter, base);
-                    System.out.println("result is ListStatsFilterSite");
                 }
             } else {
                 result = new ListStatsSite(genotype);
-                System.out.println("result is ListStatsSite");
             }
             SITE_INSTANCES.put(genotype, new WeakReference<>(result));
         }
