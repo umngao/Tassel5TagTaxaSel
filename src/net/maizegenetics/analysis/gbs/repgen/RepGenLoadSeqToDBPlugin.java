@@ -68,7 +68,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
             .description("Minimum kmer Length after second cut site is removed").build();
     private PluginParameter<Integer> myMinKmerCount = new PluginParameter.Builder<>("c", 10, Integer.class).guiName("Min Kmer Count")
             .description("Minimum kmer count").build();
-    private PluginParameter<Integer> minTaxa = new PluginParameter.Builder<>("minTaxa", 5, Integer.class).guiName("Min Taxa Represented")
+    private PluginParameter<Integer> minTaxa = new PluginParameter.Builder<>("minTaxa",2, Integer.class).guiName("Min Taxa Represented")
             .description("Minimum numer of taxa where kmer is found").build();
     private PluginParameter<String> myOutputDB = new PluginParameter.Builder<>("db", null, String.class).guiName("Output Database File").required(true).outFile()
             .description("Output Database File").build();
@@ -76,7 +76,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
             .description("Minimum quality score within the barcode and read length to be accepted").build();
     private PluginParameter<Integer> myMaxKmerNumber = new PluginParameter.Builder<>("mxKmerNum", 50000000, Integer.class).guiName("Maximum Kmer Number").required(false)
             .description("Maximum number of kmers").build();
-    private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 32, Integer.class).guiName("Batch size of fastq files").required(false)
+    private PluginParameter<Integer> myBatchSize = new PluginParameter.Builder<>("batchSize", 100, Integer.class).guiName("Batch size of fastq files").required(false)
             .description("Number of flow cells being processed simultaneously").build();
 //    private PluginParameter<Boolean> myDeleteOldData = new PluginParameter.Builder<Boolean>("deleteOldData",true,Boolean.class).guiName("Delete Old Data")
 //            .description("Delete existing SNP quality data from db tables").build();

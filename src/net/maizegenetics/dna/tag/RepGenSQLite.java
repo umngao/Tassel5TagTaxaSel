@@ -245,7 +245,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         try{
             ResultSet rs=connection.createStatement().executeQuery("select count(*) from physicalmapposition");
             int size=rs.getInt(1);
-            System.out.println("size of all positions in physicalMapPosiiton table="+size);
+            System.out.println("Before loading new positions, size of all positions in physicalMapPosiiton table="+size);
             if(physicalMapPositionToIDMap==null) {physicalMapPositionToIDMap=new TreeMap<>();}
             else if(size==physicalMapPositionToIDMap.size()) return;
             rs=connection.createStatement().executeQuery("select * from physicalMapPosition");
@@ -256,6 +256,10 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                         .build();
                 physicalMapPositionToIDMap.putIfAbsent(p, rs.getInt("posid"));
             }
+            rs=connection.createStatement().executeQuery("select count(*) from physicalmapposition");
+            size=rs.getInt(1);
+            System.out.println("After loading new positions, size of all positions in physicalMapPosiiton table="
+            +size + ", size of physicalMapPositionToIDMAP: " + physicalMapPositionToIDMap.size());
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -700,6 +704,9 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         loadReferenceGenomeHash();
         try {
             putAllRefTag(refTagPositionMap,refGenome);
+            System.out.println("putREfTagMaping: size of map: " + refTagPositionMap.size()
+              + ", keyset size: " + refTagPositionMap.keySet().size() + ", values size: " 
+                    + refTagPositionMap.values().size());
             putPhysicalMapPositionsIfAbsent(refTagPositionMap.values(),refGenome);
             connection.setAutoCommit(false);
             for (Map.Entry<Tag, Position> entry : refTagPositionMap.entries()) {
@@ -729,6 +736,10 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             connection.setAutoCommit(true);
             // print some metrics for debugging
             ResultSet rs = connection.createStatement().executeQuery("select count (DISTINCT physical_position) as numPhysicalSites from physicalMapPosition");
+            if (rs.next()) {
+                System.out.println("Total number of distinct physical position sites: " + rs.getInt("numPhysicalSites"));
+            }
+            rs = connection.createStatement().executeQuery("select count (*) as numPhysicalSites from physicalMapPosition");
             if (rs.next()) {
                 System.out.println("Total number of physical position sites: " + rs.getInt("numPhysicalSites"));
             }
@@ -1323,14 +1334,21 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     private void putPhysicalMapPositionsIfAbsent(Collection<Position> positions, String refGenome) {
         try {
             int batchCount=0;
+            int positionExists = 0;
+            int newPosition = 0;
             if(physicalMapPositionToIDMap==null) loadPhysicalMapPositionHash();
             connection.setAutoCommit(false);
+            System.out.println("putPhysicalMapPositionsIfAbsent: size of positions: " + positions.size());
             PreparedStatement posInsertPS=connection.prepareStatement(
                     "INSERT OR IGNORE into physicalMapPosition (reference_genome_id, chromosome, physical_position, strand) values(?,?,?,?)");
             for (Position p : positions) {
-                if(physicalMapPositionToIDMap.containsKey(p)) continue;
+                if(physicalMapPositionToIDMap.containsKey(p)) {
+                    positionExists++;
+                    continue;
+                }
+                newPosition++;
                 posInsertPS.setInt(1, getReferenceGenomeID(refGenome)); 
-                posInsertPS.setString(2, p.getChromosome().toString());
+                posInsertPS.setString(2, p.getChromosome().getName());
                 posInsertPS.setInt(3, p.getPosition());
                 posInsertPS.setByte(4, p.getStrand());
                 posInsertPS.addBatch();
@@ -1344,6 +1362,8 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             posInsertPS.executeBatch();
             if(batchCount>0) loadPhysicalMapPositionHash();
             connection.setAutoCommit(true);
+            System.out.println("putPhysicalMapPositionsIfAbsent: end, positionExists: " + positionExists
+                    + ", newPositions: " + newPosition);
         } catch (SQLException e) {
             e.printStackTrace();
         }
