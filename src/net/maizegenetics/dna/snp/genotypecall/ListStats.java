@@ -9,14 +9,12 @@ import java.lang.ref.WeakReference;
 import java.util.AbstractList;
 import java.util.HashMap;
 import java.util.Map;
-import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.util.Tuple;
 
 /**
  *
  * @author Terry Casstevens
  */
-public abstract class ListStats extends AbstractList<Tuple<int[][], int[]>> {
+public abstract class ListStats extends AbstractList<Stats> {
 
     private final static Map<GenotypeCallTable, WeakReference<ListStats>> TAXA_INSTANCES = new HashMap<>();
     private final static Map<GenotypeCallTable, WeakReference<ListStats>> SITE_INSTANCES = new HashMap<>();
@@ -99,53 +97,19 @@ public abstract class ListStats extends AbstractList<Tuple<int[][], int[]>> {
     }
 
     public byte majorAllele(int index) {
-        int[][] alleles = get(index).x;
-        if (alleles[0].length >= 1) {
-            return (byte) alleles[0][0];
-        } else {
-            return GenotypeTable.UNKNOWN_ALLELE;
-        }
+        return get(index).majorAllele();
     }
 
     public double majorAlleleFrequency(int index) {
-
-        int[][] alleles = get(index).x;
-        int numAlleles = alleles[0].length;
-        if (numAlleles >= 1) {
-            int totalNonMissing = 0;
-            for (int i = 0; i < numAlleles; i++) {
-                totalNonMissing += alleles[1][i];
-            }
-            return (double) alleles[1][0] / (double) totalNonMissing;
-        } else {
-            return 0.0;
-        }
-
+        return get(index).majorAlleleFrequency();
     }
 
     public byte minorAllele(int index) {
-        int[][] alleles = get(index).x;
-        if (alleles[0].length >= 2) {
-            return (byte) alleles[0][1];
-        } else {
-            return GenotypeTable.UNKNOWN_ALLELE;
-        }
+        return get(index).minorAllele();
     }
 
     public double minorAlleleFrequency(int index) {
-
-        int[][] alleles = get(index).x;
-        int numAlleles = alleles[0].length;
-        if (numAlleles >= 2) {
-            int totalNonMissing = 0;
-            for (int i = 0; i < numAlleles; i++) {
-                totalNonMissing += alleles[1][i];
-            }
-            return (double) alleles[1][1] / (double) totalNonMissing;
-        } else {
-            return 0.0;
-        }
-
+        return get(index).minorAlleleFrequency();
     }
 
 }

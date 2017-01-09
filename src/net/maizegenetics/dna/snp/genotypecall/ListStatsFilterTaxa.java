@@ -6,7 +6,6 @@
 package net.maizegenetics.dna.snp.genotypecall;
 
 import net.maizegenetics.dna.snp.Translate;
-import net.maizegenetics.util.Tuple;
 
 /**
  *
@@ -16,18 +15,21 @@ public class ListStatsFilterTaxa extends ListStats {
 
     private final ListStats myBase;
     private final Translate myTranslate;
+    private final Stats[] myCache;
 
     ListStatsFilterTaxa(FilterGenotypeCallTable genotype, ListStats base) {
         super(genotype, genotype.numberOfTaxa());
         myBase = base;
         myTranslate = genotype.myTranslate;
+        myCache = new Stats[genotype.numberOfTaxa()];
     }
 
     @Override
-    public Tuple<int[][], int[]> get(int index) {
-        Tuple<int[][], int[]> result = myBase.get(myTranslate.taxon(index));
-        result.y[AlleleFreqCache.INDEX] = index;
-        return result;
+    public Stats get(int index) {
+        if (myCache[index] == null) {
+            myCache[index] = Stats.getInstance(myBase.get(myTranslate.taxon(index)), index);
+        }
+        return myCache[index];
     }
 
 }
