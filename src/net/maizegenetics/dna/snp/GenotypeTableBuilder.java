@@ -464,11 +464,11 @@ public class GenotypeTableBuilder {
     }
 
     public static GenotypeTable getInstanceOnlyMajorMinor(GenotypeTable genotype) {
-        return getInstance(genotype, MaskMatrixBuilder.getInstanceMinorSNP(genotype.genotypeMatrix()));
+        return getInstance(genotype, MaskMatrixBuilder.getInstanceRemoveMinorSNPs(genotype.genotypeMatrix()));
     }
 
     public static GenotypeTable getHomozygousInstance(GenotypeTable genotype) {
-        return getInstance(genotype, MaskMatrixBuilder.getInstanceHomozygous(genotype.genotypeMatrix()));
+        return getInstance(genotype, MaskMatrixBuilder.getInstanceRemoveHeterozygous(genotype.genotypeMatrix()));
     }
 
     /**
