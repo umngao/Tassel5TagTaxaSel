@@ -75,8 +75,10 @@ public class ImputeCrossProgeny {
 		Map<String, byte[]> phasedProgeny = new HashMap<>();
 		Map<String, String[]> parentMap = new HashMap<>();
 		
-		//impute all progeny
+		//impute all progeny in that are in Genotype
 		for (String[] plot : plotList) {
+			int ndx = myGenotype.taxa().indexOf(plot[0]);
+			if (ndx == -1) continue;
 			byte[][] hap0 = haplotypeMap.get(plot[1]);
 			byte[][] hap1 = haplotypeMap.get(plot[2]);
 			if (hap0 != null && hap1 !=null && notMissingHap(hap0) && notMissingHap(hap1)) {
@@ -151,6 +153,7 @@ public class ImputeCrossProgeny {
 
 	public byte[] imputeCrossFromParents(String progeny, byte[][] hap0, byte[][] hap1) {
 		//impute by chromosome
+		int taxonIndex = myGenotype.taxa().indexOf(progeny);
 		int nsites = myGenotype.numberOfSites();
 		byte[] progenyGenotype = new byte[nsites];
 		Arrays.fill(progenyGenotype, missingState);
@@ -170,7 +173,6 @@ public class ImputeCrossProgeny {
 			TransitionProbability tp = new TransitionProbability();
 			
 			//get the taxon genotype
-			int taxonIndex = myGenotype.taxa().indexOf(progeny);
 			byte[] geno = myGenotype.genotypeRange(taxonIndex, chrstart[c], chrend[c]);
 
 			//remove missing values

@@ -28,6 +28,7 @@ import net.maizegenetics.analysis.filter.FilterSiteBuilderPlugin;
 import net.maizegenetics.dna.map.Chromosome;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
@@ -102,17 +103,14 @@ public class SelfedHaplotypeFinder {
 			}
 			
 			myLogger.info(String.format("Phasing %s, %d self progeny.", parent, familyTaxa.numberOfTaxa()));
-			GenotypeTable familyGeno = FilterGenotypeTable.getInstance(myGenotype, familyTaxa);
-
+			GenotypeTable familyGeno = FilterGenotypeTable.getInstance(myGenotype, familyTaxa, false);
+			myLogger.info(String.format("%s, number of sites = %d, number of taxa = %d", parent, familyGeno.numberOfSites(), familyGeno.numberOfTaxa()));
+			
 			//phase polymorphic sites
 			//filter out monomorhpic sites and low coverage sites
 			int polyCount = 0;
 			double minMaf = 0.1;
 			int minCount = (int) (0.5 * familyGeno.numberOfTaxa());
-
-			FilterSiteBuilderPlugin fsb = new FilterSiteBuilderPlugin();
-			fsb.siteMinAlleleFreq(minMaf);
-			fsb.siteMinCount(minCount);
 
 			//create the phasedHaplotype array
 			byte[][] myPhasedHap = new byte[2][nsites];
@@ -131,10 +129,22 @@ public class SelfedHaplotypeFinder {
 			
 			for (int c = startIndex;c < limitIndex; c++) {
 				Chromosome myChr = myChromosomes[c];
-				fsb.startChr(myChr);
-				fsb.endChr(myChr);
-				GenotypeTable chrGeno = fsb.runPlugin(familyGeno);
-
+				
+				GenotypeTable chrGeno = FilterGenotypeTable.getInstance(familyGeno, myChr);
+				
+				myLogger.debug(String.format("%s, chr %s has %d sites before filtering", parent, myChr.getName(), chrGeno.numberOfSites()));
+				int[] sitesToKeep = new int[chrGeno.numberOfSites()];
+				int nSitesKept = 0;
+				for (int s = 0; s < chrGeno.numberOfSites(); s++) {
+					double maf = chrGeno.minorAlleleFrequency(s);
+					if (maf >= minMaf &&  chrGeno.totalNonMissingForSite(s) >= minCount) {
+						sitesToKeep[nSitesKept++] = s;
+					}
+				}
+				sitesToKeep = Arrays.copyOf(sitesToKeep, nSitesKept);
+				myLogger.debug(String.format("%s, chr %s has %d sites retained", parent, myChr.getName(), nSitesKept));
+				chrGeno = FilterGenotypeTable.getInstance(chrGeno, sitesToKeep);
+				
 				int minClusterSize = Math.max(ntaxa/10, 3);
 				int ibdClusterSize = ntaxa/2;
 				int chrSites = chrGeno.numberOfSites();

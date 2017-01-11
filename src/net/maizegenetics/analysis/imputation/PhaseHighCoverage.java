@@ -28,6 +28,7 @@ import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
 import net.maizegenetics.dna.snp.NucleotideAlignmentConstants;
 import net.maizegenetics.stats.PCA.ClassicMds;
+import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
@@ -65,13 +66,16 @@ public class PhaseHighCoverage {
 	
 	public List<String[]> loadPlotInfo() {
     	List<String[]> plotList = new ArrayList<>();
+    	List<String> taxaNames = myGenotypeTable.taxa().stream().map(t -> t.getName()).collect(Collectors.toList());
 		try (BufferedReader br = Files.newBufferedReader(parentagePath)) {
 			br.readLine();
 			String input;
 			while ((input = br.readLine()) != null) {
 				String[] data = input.split("\t");
 				if (data.length > 3) {
-					plotList.add(data);
+					//check to make sure that myGenotypeTable contains the plot name
+					if (taxaNames.contains(data[0]))
+						plotList.add(data);
 				}
 			}
 		} catch (IOException e) {
@@ -95,6 +99,7 @@ public class PhaseHighCoverage {
 //		myGenotypeTable = loadC2TeoGenotype();
 		
 		List<String[]> plotInfo = loadPlotInfo();
+		
 		TreeSet<String> parentSet = new TreeSet<>();
 		for (String[] plot : plotInfo) {
 			parentSet.add(plot[1]);
