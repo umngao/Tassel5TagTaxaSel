@@ -20,7 +20,6 @@ import static java.util.Spliterator.SUBSIZED;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import net.maizegenetics.util.Tuple;
 
 /**
  * Abstract implementation of methods of GenotypeCallTable.
@@ -102,7 +101,7 @@ abstract class AbstractGenotypeCallTable implements GenotypeCallTable {
         byte[] temp = genotypeArray(taxon, site);
         return new String[]{alleleStates[0][temp[0]], alleleStates[0][temp[1]]};
     }
-    
+
     @Override
     public String[] genotypeAsStringArray(int site, byte value) {
         String[][] alleleStates = alleleDefinitions();
@@ -655,14 +654,14 @@ abstract class AbstractGenotypeCallTable implements GenotypeCallTable {
         }
         return result;
     }
-    
+
     @Override
-    public Tuple<int[][], int[]> siteStats(int site) {
+    public Stats siteStats(int site) {
         return AlleleFreqCache.allelesSortedByFrequencyAndCountsNucleotide(site, genotypeForAllTaxa(site));
     }
 
     @Override
-    public Tuple<int[][], int[]> taxonStats(int taxon) {
+    public Stats taxonStats(int taxon) {
         return AlleleFreqCache.allelesSortedByFrequencyAndCountsNucleotide(taxon, genotypeForAllSites(taxon));
     }
 

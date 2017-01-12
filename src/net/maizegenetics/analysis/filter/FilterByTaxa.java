@@ -13,12 +13,11 @@ import java.util.stream.Stream;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.FilterTaxa;
 import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
 import net.maizegenetics.dna.snp.genotypecall.ListStats;
+import net.maizegenetics.dna.snp.genotypecall.Stats;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
-import net.maizegenetics.util.Tuple;
 
 /**
  *
@@ -71,20 +70,19 @@ public class FilterByTaxa {
             }
         }
 
-        Stream<Tuple<int[][], int[]>> stream = null;
+        Stream<Stats> stream = null;
 
         if (filter.minNotMissing() != 0.0) {
             stream = stream(includedTaxa, orig, stream);
-            stream = stream.filter((Tuple<int[][], int[]> stats) -> {
-                double percentNotMissing = (double) (numSites - stats.y[AlleleFreqCache.UNKNOWN_COUNT]) / (double) numSites;
-                return percentNotMissing >= filter.minNotMissing();
+            stream = stream.filter((Stats stats) -> {
+                return stats.percentNotMissing() >= filter.minNotMissing();
             });
         }
 
         if (filter.minHeterozygous() != 0.0 || filter.maxHeterozygous() != 1.0) {
             stream = stream(includedTaxa, orig, stream);
-            stream = stream.filter((Tuple<int[][], int[]> stats) -> {
-                double hetFreq = AlleleFreqCache.proportionHeterozygous(stats.y, numSites);
+            stream = stream.filter((Stats stats) -> {
+                double hetFreq = stats.proportionHeterozygous();
                 return filter.minHeterozygous() <= hetFreq && filter.maxHeterozygous() >= hetFreq;
             });
         }
@@ -99,7 +97,7 @@ public class FilterByTaxa {
             }
             keepTaxa = builder.build();
         } else {
-            keepTaxa = stream.map((Tuple<int[][], int[]> stats) -> taxa.get(stats.y[AlleleFreqCache.INDEX]))
+            keepTaxa = stream.map((Stats stats) -> taxa.get(stats.index()))
                     .collect(TaxaList.collect());
         }
 
@@ -113,7 +111,7 @@ public class FilterByTaxa {
 
     }
 
-    private static Stream<Tuple<int[][], int[]>> stream(List<Integer> includedTaxa, GenotypeTable orig, Stream<Tuple<int[][], int[]>> stream) {
+    private static Stream<Stats> stream(List<Integer> includedTaxa, GenotypeTable orig, Stream<Stats> stream) {
         if (stream != null) {
             return stream;
         }

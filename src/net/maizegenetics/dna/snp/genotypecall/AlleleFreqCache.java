@@ -9,7 +9,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ForkJoinPool;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableUtils;
-import net.maizegenetics.util.Tuple;
 
 /**
  * Cache for allele frequency statistics. Allele frequency can be expensive to
@@ -110,15 +109,14 @@ public class AlleleFreqCache {
         return alleleCounts;
     }
 
-    public static Tuple<int[][], int[]> allelesSortedByFrequencyAndCountsNucleotide(int index, byte[] data) {
+    public static Stats allelesSortedByFrequencyAndCountsNucleotide(int index, byte[] data) {
         return alleleFreqCounts(index, data, DEFAULT_MAX_NUM_ALLELES);
     }
 
-    public static final int INDEX = 0;
-    public static final int UNKNOWN_COUNT = 1;
-    public static final int UNKNOWN_GAMETE_COUNT = 2;
-    public static final int HETEROZYGOUS_COUNT = 3;
-    public static final int HOMOZYGOUS_COUNT = 4;
+    public static final int UNKNOWN_COUNT = 0;
+    public static final int UNKNOWN_GAMETE_COUNT = 1;
+    public static final int HETEROZYGOUS_COUNT = 2;
+    public static final int HOMOZYGOUS_COUNT = 3;
 
     private static final byte UNKNOWN_COUNT_BIT = 0x1;
     private static final byte UNKNOWN_SINGLE_GAMETE_COUNT_BIT = 0x2;
@@ -149,12 +147,11 @@ public class AlleleFreqCache {
         }
     }
 
-    private static Tuple<int[][], int[]> alleleFreqCounts(int index, byte[] data, int maxNumAlleles) {
+    private static Stats alleleFreqCounts(int index, byte[] data, int maxNumAlleles) {
 
         int numGenotypes = data.length;
         int[] alleleFreq = new int[maxNumAlleles];
-        int[] otherCounts = new int[5];
-        otherCounts[INDEX] = index;
+        int[] otherCounts = new int[4];
         for (int i = 0; i < numGenotypes; i++) {
 
             int count = Byte.toUnsignedInt(data[i]);
@@ -187,7 +184,7 @@ public class AlleleFreqCache {
             alleleCounts[1][i] = alleleFreq[i] >>> 4;
         }
 
-        return new Tuple<>(alleleCounts, otherCounts);
+        return Stats.getInstance(alleleCounts, otherCounts, numGenotypes, index);
 
     }
 

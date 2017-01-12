@@ -6,7 +6,10 @@
 package net.maizegenetics.dna.snp;
 
 import java.util.Random;
+import java.util.function.BiPredicate;
+import java.util.function.Predicate;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
+import net.maizegenetics.dna.snp.genotypecall.Stats;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
 
@@ -71,12 +74,32 @@ public class MaskMatrixBuilder {
 
     }
 
-    public static MaskMatrix getInstanceMinorSNP(GenotypeCallTable genotype) {
-        return new MaskMinorSNPMatrix(genotype);
+    public static MaskMatrix getInstanceRemoveMinorSNPs(GenotypeCallTable genotype) {
+        return getInstance(genotype, (Byte t, Stats u) -> {
+            byte major = u.majorAllele();
+            byte minor = u.minorAllele();
+            if (((t & 0xF) != major) && ((t & 0xF) != minor)) {
+                return true;
+            } else {
+                return ((t >>> 4) != major) && ((t >>> 4) != minor);
+            }
+        });
     }
 
-    public static MaskMatrix getInstanceHomozygous(GenotypeCallTable genotype) {
-        return new MaskHomozygousMatrix(genotype);
+    public static MaskMatrix getInstanceRemoveHeterozygous(GenotypeCallTable genotype) {
+        return getInstance(genotype, (Byte t) -> (t & 0xF) != (t >>> 4));
+    }
+    
+    public static MaskMatrix getInstanceRemoveHomozygous(GenotypeCallTable genotype) {
+        return getInstance(genotype, (Byte t) -> (t & 0xF) == (t >>> 4));
+    }
+
+    public static MaskMatrix getInstance(GenotypeCallTable genotype, Predicate<Byte> predicate) {
+        return new MaskGenotypeMatrix(genotype, predicate);
+    }
+
+    public static MaskMatrix getInstance(GenotypeCallTable genotype, BiPredicate<Byte, Stats> predicate) {
+        return new MaskGenotypeStatsMatrix(genotype, predicate);
     }
 
     public boolean get(int taxon, int site) {

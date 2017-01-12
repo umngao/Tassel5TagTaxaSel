@@ -67,7 +67,18 @@ class FilterGenotypeCallTable extends AbstractGenotypeCallTable {
         } else if (!myTranslate.hasTaxaTranslations()) {
             return myBaseGenotype.genotypeForAllTaxa(myTranslate.site(site));
         } else {
-            return super.genotypeForAllTaxa(site);
+            byte[] orig = myBaseGenotype.genotypeForAllTaxa(myTranslate.site(site));
+            int[] translations = myTranslate.taxaTranslations();
+            int numTaxa = myTranslate.numTaxa();
+            byte[] result = new byte[numTaxa];
+            for (int i = 0; i < numTaxa; i++) {
+                if (translations[i] == -1) {
+                    result[i] = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+                } else {
+                    result[i] = orig[translations[i]];
+                }
+            }
+            return result;
         }
     }
 

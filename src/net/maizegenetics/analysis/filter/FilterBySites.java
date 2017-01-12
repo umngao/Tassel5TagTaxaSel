@@ -16,9 +16,8 @@ import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTableBuilder;
 import static net.maizegenetics.dna.snp.GenotypeTableUtils.filterSitesByBedFile;
 import static net.maizegenetics.dna.snp.GenotypeTableUtils.filterSitesByChrPos;
-import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
 import net.maizegenetics.dna.snp.genotypecall.ListStats;
-import net.maizegenetics.util.Tuple;
+import net.maizegenetics.dna.snp.genotypecall.Stats;
 
 /**
  *
@@ -106,35 +105,35 @@ public class FilterBySites {
             result = filterSitesByChrPos(result, chrPosFile, filter.includeSites());
         }
 
-        Stream<Tuple<int[][], int[]>> stream = null;
+        Stream<Stats> stream = null;
 
         if (filter.siteMinCount() != 0) {
             stream = stream(result, stream);
-            stream = stream.filter((Tuple<int[][], int[]> stats) -> {
-                int totalNonMissing = AlleleFreqCache.totalGametesNonMissingForSite(stats.x);
+            stream = stream.filter((Stats stats) -> {
+                int totalNonMissing = stats.totalGametesNonMissingForSite();
                 return totalNonMissing >= (filter.siteMinCount() * 2);
             });
         }
 
         if (filter.siteMinAlleleFreq() != 0.0 || filter.siteMaxAlleleFreq() != 1.0) {
             stream = stream(result, stream);
-            stream = stream.filter((Tuple<int[][], int[]> stats) -> {
-                double maf = AlleleFreqCache.minorAlleleFrequency(stats.x);
+            stream = stream.filter((Stats stats) -> {
+                double maf = stats.minorAlleleFrequency();
                 return filter.siteMinAlleleFreq() <= maf && filter.siteMaxAlleleFreq() >= maf;
             });
         }
 
         if (filter.minHeterozygous() != 0.0 || filter.maxHeterozygous() != 1.0) {
             stream = stream(result, stream);
-            stream = stream.filter((Tuple<int[][], int[]> stats) -> {
-                double hetFreq = AlleleFreqCache.proportionHeterozygous(stats.y, numTaxa);
+            stream = stream.filter((Stats stats) -> {
+                double hetFreq = stats.proportionHeterozygous();
                 return filter.minHeterozygous() <= hetFreq && filter.maxHeterozygous() >= hetFreq;
             });
         }
 
         if (stream != null) {
 
-            List<Integer> sitesToKeep = stream.map((Tuple<int[][], int[]> stats) -> stats.y[AlleleFreqCache.INDEX])
+            List<Integer> sitesToKeep = stream.map((Stats stats) -> stats.index())
                     .collect(Collectors.toList());
 
             int[] sites = new int[sitesToKeep.size()];
@@ -154,7 +153,7 @@ public class FilterBySites {
 
     }
 
-    private static Stream<Tuple<int[][], int[]>> stream(GenotypeTable genotypes, Stream<Tuple<int[][], int[]>> stream) {
+    private static Stream<Stats> stream(GenotypeTable genotypes, Stream<Stats> stream) {
         if (stream != null) {
             return stream;
         }
