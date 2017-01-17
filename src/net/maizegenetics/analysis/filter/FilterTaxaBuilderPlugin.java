@@ -52,12 +52,12 @@ public class FilterTaxaBuilderPlugin extends AbstractPlugin {
             .build();
     private PluginParameter<TaxaList> myTaxaList = new PluginParameter.Builder<>(FILTER_TAXA_ATTRIBUTES.taxaList.name(), null, TaxaList.class)
             .taxaList()
-            .description("Filter based on taxa list.")
+            .description("Filename of taxa list (.json or .json.gz). This is the format created by TASSEL when saving a taxa list.")
             .build();
     private PluginParameter<String> myTaxaNamesList = new PluginParameter.Builder<>(FILTER_TAXA_ATTRIBUTES.taxaNames.name(), null, String.class)
             .taxaNameList()
             .dependentOnParameter(myTaxaList, TAXA_LIST_NONE)
-            .description("Filter based on taxa names.")
+            .description("Comma separated list of taxa names (No spaces in names or around commas) (i.e. D940Y,DE2,DE3).")
             .build();
 
     public FilterTaxaBuilderPlugin(Frame parentFrame, boolean isInteractive) {
@@ -212,6 +212,11 @@ public class FilterTaxaBuilderPlugin extends AbstractPlugin {
     @Override
     public String getToolTipText() {
         return "Filter Genotype Table Taxa";
+    }
+
+    @Override
+    public String pluginUserManualURL() {
+        return "https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/FilterMenu/FilterTaxaBuilderPlugin";
     }
 
     public FilterTaxa build() {

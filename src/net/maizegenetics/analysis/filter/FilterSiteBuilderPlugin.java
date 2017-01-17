@@ -310,6 +310,11 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
         return "Filter Genotype Table Sites";
     }
 
+    @Override
+    public String pluginUserManualURL() {
+        return "https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/FilterMenu/FilterSiteBuilderPlugin";
+    }
+
     public FilterSite build() {
         return (FilterSite) performFunction(null).getData(0).getData();
     }
@@ -322,12 +327,6 @@ public class FilterSiteBuilderPlugin extends AbstractPlugin {
         return this;
     }
 
-    // The following getters and setters were auto-generated.
-    // Please use this method to re-generate.
-    //
-    // public static void main(String[] args) {
-    //     GeneratePluginCode.generate(FilterSiteBuilderPlugin.class);
-    // }
     /**
      * Convenience method to run plugin with one return object.
      */
