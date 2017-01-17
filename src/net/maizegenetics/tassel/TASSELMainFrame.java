@@ -156,8 +156,6 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
             initializeMyFrame();
 
             this.setTitle("TASSEL (Trait Analysis by aSSociation, Evolution, and Linkage) " + version);
-
-            TasselLogging.basicLoggingInfo();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -394,7 +392,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new FilterTaxaBuilderPlugin(this, true)));
         result.add(createMenuItem(new FilterTraitsPlugin(this, true)));
         result.addSeparator();
-        result.add(createMenuItem("Deprecated", false));
+        result.add(createMenuItem("Not Recommended", false));
         result.add(createMenuItem(new FilterAlignmentPlugin(this, true)));
         result.add(createMenuItem(new FilterSiteNamePlugin(this, true)));
         result.add(createMenuItem(new FilterTaxaAlignmentPlugin(this, true)));

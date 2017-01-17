@@ -54,14 +54,22 @@ public class TasselLogging extends AbstractPlugin {
     private final JTextArea myTextArea = new JTextArea();
     private final TextAreaOutputStream myTextAreaOutputStream = new TextAreaOutputStream(myTextArea);
     private final PrintStream myPrintStream = new PrintStream(myTextAreaOutputStream);
-    private boolean myJustCreated = true;
 
     private TasselLogging(Frame parentFrame) {
         super(parentFrame, true);
         createDialog();
+        basicLoggingInfo();
+        LoggingUtils.setupLogging(myPrintStream);
+        myTextAreaOutputStream.clear();
+        if (TasselPrefs.getLogSendToConsole()) {
+            LoggingUtils.setupLogging();
+        }
     }
 
     public static TasselLogging getInstance(Frame parentFrame) {
+        if (parentFrame == null) {
+            return null;
+        }
         if (myInstance == null) {
             myInstance = new TasselLogging(parentFrame);
         }
@@ -78,7 +86,23 @@ public class TasselLogging extends AbstractPlugin {
         TasselPrefs.putLogXDim(myDialog.getWidth());
         TasselPrefs.putLogYDim(myDialog.getHeight());
         myDialog.setVisible(false);
-        LoggingUtils.setupLogging();
+        if (TasselPrefs.getLogSendToConsole()) {
+            LoggingUtils.setupLogging();
+        }
+    }
+
+    public static void updateLoggingLocation() {
+        if (myInstance != null) {
+            myInstance.updateLogging();
+        }
+    }
+
+    private void updateLogging() {
+        if (TasselPrefs.getLogSendToConsole()) {
+            LoggingUtils.setupLogging();
+        } else {
+            LoggingUtils.setupDebugLogging(myPrintStream);
+        }
     }
 
     private void createDialog() {
@@ -162,14 +186,10 @@ public class TasselLogging extends AbstractPlugin {
     }
 
     @Override
-    public DataSet processData(DataSet input) {
+    public DataSet performFunction(DataSet input) {
         LoggingUtils.setupLogging(myPrintStream);
         myDialog.setLocationRelativeTo(getParentFrame());
         myDialog.setVisible(true);
-        if (myJustCreated) {
-            myTextAreaOutputStream.clear();
-            myJustCreated = false;
-        }
         return null;
     }
 

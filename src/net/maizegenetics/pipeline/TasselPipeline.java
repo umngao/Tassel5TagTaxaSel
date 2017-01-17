@@ -137,7 +137,9 @@ public class TasselPipeline implements PluginListener {
             return;
         }
 
-        TasselLogging.basicLoggingInfo();
+        if (frame == null) {
+            TasselLogging.basicLoggingInfo();
+        }
 
         final ExecutorService pool;
         if (myIsInteractive) {
