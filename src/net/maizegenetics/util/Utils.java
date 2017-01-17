@@ -130,7 +130,17 @@ public final class Utils {
      */
     public static String getDirectory(String str) {
 
-        int index = str.lastIndexOf(File.separator);
+        int indexForwardSlash = str.lastIndexOf('/');
+        int indexBackwardSlash = str.lastIndexOf('\\');
+
+        int index = 0;
+        if ((indexForwardSlash == -1) && (indexBackwardSlash == -1)) {
+            index = -1;
+        } else if (indexForwardSlash > indexBackwardSlash) {
+            index = indexForwardSlash;
+        } else {
+            index = indexBackwardSlash;
+        }
 
         if (index == -1) {
             return ".";
