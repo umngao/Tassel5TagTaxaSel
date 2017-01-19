@@ -187,10 +187,14 @@ public class TasselLogging extends AbstractPlugin {
 
     @Override
     public DataSet performFunction(DataSet input) {
-        LoggingUtils.setupLogging(myPrintStream);
-        myDialog.setLocationRelativeTo(getParentFrame());
-        myDialog.setVisible(true);
-        return null;
+        try {
+            LoggingUtils.setupLogging(myPrintStream);
+            myDialog.setLocationRelativeTo(getParentFrame());
+            myDialog.setVisible(true);
+            return null;
+        } finally {
+            fireProgress(100);
+        }
     }
 
     @Override
