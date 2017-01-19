@@ -98,6 +98,8 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     PreparedStatement tagAlignmentInsertPS;
     PreparedStatement tagAlignForNonRefTagPS;
     PreparedStatement tagAlignForRefTagPS;
+    PreparedStatement nonReftagAlignmentsForRefTagPS;
+    PreparedStatement refTagAlignsForNonRefTagPS;
     PreparedStatement tagTagCorrelationInsertPS;
     PreparedStatement tagCorrelationsForTagPS;
 
@@ -183,11 +185,17 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             // NOTE: SQLite has no real boolean field.  The values are stored as 0 and 1
             tagAlignForNonRefTagPS= connection.prepareStatement(
                     "select tag2id, tag2_isref, score, ref_align_start_pos, ref_align_strand " +
-                    "from tagAlignments where tag1_isref = 0 and tag1id=?");
+                    "from tagAlignments where tag1_isref = 0 and tag1id=? and score >= ?");
             // For this query, tag1_isref is true:  the tag1id is a tag from the refTagRefTagIDMap
             tagAlignForRefTagPS = connection.prepareStatement(
                     "select tag2id, tag2_isref, score, ref_align_start_pos, ref_align_strand " +
-                    "from tagAlignments where tag1_isref = 1 and tag1id=?");
+                    "from tagAlignments where tag1_isref = 1 and tag1id=? and score >= ?");
+            nonReftagAlignmentsForRefTagPS = connection.prepareStatement(
+                    "select tag1id, score, ref_align_start_pos, ref_align_strand " +
+                    "from tagAlignments where tag1_isref = 0 and tag2_isref = 1 and tag2id=? and score >= ?");
+            refTagAlignsForNonRefTagPS = connection.prepareStatement(
+                    "select tag2id, score, ref_align_start_pos, ref_align_strand " +
+                    "from tagAlignments where tag1_isref = 0 and tag2_isref = 1 and tag1id=? and score >= ?");
             tagCorrelationsForTagPS = connection.prepareStatement(
                     "select tag2id, t1t2_pearson, t1t2_spearman, pres_abs_pearson, r2 " +
                     "from tagCorrelations where tag1id=?");
@@ -415,7 +423,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                     tagInsertPS.addBatch();
                     batchCount++;
                     totalCount++;
-                    if(batchCount>100000) {
+                    if(batchCount>10000) {
                        // System.out.println("tagInsertPS.executeBatch() "+batchCount);
                         tagInsertPS.executeBatch();
                         //connection.commit();
@@ -675,7 +683,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
 
                 tagAlignmentInsertPS.addBatch();
                 batchCount++;
-                if(batchCount>100000) {
+                if(batchCount>10000) {
                    // System.out.println("putTagAlignments next"+batchCount);
                     tagAlignmentInsertPS.executeBatch();
                     batchCount=0;
@@ -726,7 +734,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
 
                 posTagMappingInsertPS.addBatch();
                 batchCount++;
-                if(batchCount>100000) {
+                if(batchCount>10000) { // LCJ - changed from 100000 - writes are REALLY slow when db is big, 79921 tags
                    // System.out.println("putTagAlignments next"+batchCount);
                     posTagMappingInsertPS.executeBatch();
                     batchCount=0;
@@ -1688,7 +1696,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     }
 
     @Override
-    public Multimap<Tag, AlignmentInfo> getAlignmentsForTags(List<Tag> tags) {
+    public Multimap<Tag, AlignmentInfo> getAlignmentsForTags(List<Tag> tags, int minscore) {
         // This method gets all alignments (ref-tag and non-ref Tag) for a list of non-ref tags
         ImmutableMultimap.Builder<Tag,AlignmentInfo> tagAIBuilder = ImmutableMultimap.builder();
         loadTagHash(); // get updated tag map
@@ -1706,6 +1714,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                 }
                 // The query specifies that tag1 is not a reference tag
                 tagAlignForNonRefTagPS.setInt(1,tagID);
+                tagAlignForNonRefTagPS.setInt(2, minscore);
                 ResultSet rs = tagAlignForNonRefTagPS.executeQuery();
                 while (rs.next()) {
                     boolean tag2ref = rs.getBoolean("tag2_isref");
@@ -1734,16 +1743,18 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     }
 
     @Override
-    public Multimap<Tag, AlignmentInfo> getAllNonRefTagAlignments() {
+    public Multimap<Tag, AlignmentInfo> getAllNonRefTagAlignments(int minscore) {
         ImmutableMultimap.Builder<Tag,AlignmentInfo> tagAIBuilder = ImmutableMultimap.builder();
         loadTagHash(); // get updated tag map
         Set<Tag> tagsToAlign = getTags();
         List<Tag> tagList = new ArrayList<Tag>(tagsToAlign);
-        return getAlignmentsForTags(tagList);       
+        return getAlignmentsForTags(tagList,minscore);   // return tag-tag alignments    
     }
     
     @Override
-    public Multimap<RefTagData, AlignmentInfo> getAlignmentsForRefTags(List<RefTagData> refTags) {
+    // Tag1 is a ref tag.  So this returns just reftag-reftag alignments
+    // Need another query to get all tag alignmnents to refTags.
+    public Multimap<RefTagData, AlignmentInfo> getAlignmentsForRefTags(List<RefTagData> refTags, int minscore) {
         ImmutableMultimap.Builder<RefTagData,AlignmentInfo> tagAIBuilder = ImmutableMultimap.builder();
         loadRefTagHash();
         try {
@@ -1757,6 +1768,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                 }
                 // The query specifies that tag1ID IS a ref tag
                 tagAlignForRefTagPS.setInt(1,tagID);
+                tagAlignForRefTagPS.setInt(2, minscore);
                 ResultSet rs = tagAlignForRefTagPS.executeQuery();
                 while (rs.next()) {
                     boolean tag2ref = rs.getBoolean("tag2_isref");
@@ -1779,7 +1791,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                 }              
             }
         } catch (SQLException exc) {
-            System.out.println("getAllTaxaMap: caught SQLException attempting to grab taxa Distribution ");
+            System.out.println("getAlignmentsForRefTags: caught SQLException attempting to grab taxa Distribution ");
             exc.printStackTrace();
         }
         return tagAIBuilder.build();       
@@ -1787,14 +1799,66 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     }
 
     @Override
-    public Multimap<RefTagData, AlignmentInfo> getAllRefTagAlignments() {
+    public Multimap<RefTagData, AlignmentInfo> getAllRefTagAlignments(int minscore) {
         // for each tag on the refTag list, grab all it's alignments.
-        // This gets all alignments where refTag is tag1.
+        // This gets all alignments where refTag is tag1, so is really just getting
+        // refTag/refTag alignments
         loadRefTagHash(); // get updated list of refTags
  
         Set<RefTagData> refTags = getRefTags();
         List<RefTagData> refTagList = new ArrayList<RefTagData>(refTags);
-        return getAlignmentsForRefTags(refTagList);           
+        return getAlignmentsForRefTags(refTagList,minscore);           
+    }
+    
+    @Override
+    public Multimap<Tag, AlignmentInfo> getRefAlignmentsForTags(List<Tag> tags, int minscore) {
+        // This method gets all ref-tag slignments for each non-ref tag on the list
+        ImmutableMultimap.Builder<Tag,AlignmentInfo> tagAIBuilder = ImmutableMultimap.builder();
+        // DO we need to reload the hashes?  WIll new tags be added after we've loaded the db?
+        loadTagHash(); // get updated tag map
+        loadRefTagHash();
+ 
+        try {
+            for (Tag tag: tags){
+                // For each tag on the list, get all its alignments
+                Integer tagID = tagTagIDMap.get(tag);
+                if (tagID == null) {
+                    // what is best to print out here?
+                    // should this return a NULL to indicate an error with the tag?
+                    System.out.println("getAlignmentsForTag: no tagID in alignments table for tag: " + tag.sequence());
+                    continue;
+                }
+                // The query specifies that tag1 is not a reference tag
+                
+                refTagAlignsForNonRefTagPS.setInt(1,tagID);
+                refTagAlignsForNonRefTagPS.setInt(2, minscore);
+                ResultSet rs = refTagAlignsForNonRefTagPS.executeQuery();
+                while (rs.next()) {
+                    int alignPos = rs.getInt("ref_align_start_pos");
+                    int ref_strand = rs.getInt("ref_align_strand");
+                    int score = rs.getInt("score");
+                    // tag2id identifies the RefTagData object, that object contains the referenceGenome
+                    // name, which is not stored explicitly in the tagAlignments table.
+                    RefTagData tag2data = reftagReftagIDMap.inverse().get(rs.getInt("tag2id"));
+                    AlignmentInfo ai = new AlignmentInfo(tag2data.tag(),tag2data.chromosome(),
+                            tag2data.position(),alignPos,ref_strand,tag2data.refGenome(),score);                   
+                    tagAIBuilder.put(tag,ai);
+                }              
+            }
+        } catch (SQLException exc) {
+            System.out.println("getRefAlignmentsForTags: caught SQLException attempting to reftag alignments ");
+            exc.printStackTrace();
+        }
+        return tagAIBuilder.build();      
+    }
+    
+    @Override
+    public Multimap<Tag, AlignmentInfo> getNonRefTagAlignmentsForRefTags(List<RefTagData> refTags, int minscore) {
+        // TODO Auto-generated method stub
+        // Put this in a loop of the refTags
+//        nonReftagAlignmentsForRefTagPS.setInt(1, refTagsID - must get it);
+//        nonReftagAlignmentsForRefTagPS.setInt(2, minscore);
+        return null;
     }
     
     @Override
@@ -1817,7 +1881,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                 
                 tagTagCorrelationInsertPS.addBatch();
                 batchCount++;
-                if(batchCount>100000) {
+                if(batchCount>10000) {
                    // System.out.println("putTagAlignments next"+batchCount);
                     tagTagCorrelationInsertPS.executeBatch();
                     batchCount=0;
@@ -1836,12 +1900,20 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         }
     }
 
+    // This needs re-working.  A tag may show up as tag1 or tag2 in the tagCorrelations table.
+    // for a tagX/tagY correlation, the table will contain either an entry for tag1=x, tag2=Y, or
+    // and entry for tag1=y/tag2=x.  The info is the same - only 1 entry is present.
     @Override
     public Multimap<Tag, TagCorrelationInfo> getCorrelationsForTags(List<Tag> tags) {
         ImmutableMultimap.Builder<Tag,TagCorrelationInfo> tagCorBuilder = ImmutableMultimap.builder();
-        loadTagHash(); // get updated tag map
+        
+        //loadTagHash(); // get updated tag map
+        //loadRefTagHash();
  
         try {
+//            ResultSet rs = connection.createStatement().executeQuery("select count(*) from tagCorrelations");
+//            int size=rs.getInt(1);
+//            System.out.println("size of all tagCorrelations in tagCorrelations table=" + size);
             for (Tag tag: tags){
                 // For each tag on the list, get all its alignments
                 Integer tagID = tagTagIDMap.get(tag);
@@ -1854,18 +1926,22 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                 // The query specifies that tag1 is not a reference tag
                 tagCorrelationsForTagPS.setInt(1,tagID);
                 ResultSet rs = tagCorrelationsForTagPS.executeQuery();
+                int numCorrelations = 0;
                 while (rs.next()) {
+                    numCorrelations++;
+                    
                     int tag2id = rs.getInt("tag2id");
                     double t1t2_p = rs.getFloat("t1t2_pearson");
                     double t1t2_s = rs.getFloat("t1t2_spearman");
                     double pa_pearson = rs.getFloat("pres_abs_pearson");
                     double r2 = rs.getFloat("r2");
                     
-                    Tag tag2 = tagTagIDMap.inverse().get(rs.getInt("tag2id"));
+                    Tag tag2 = tagTagIDMap.inverse().get(tag2id);
                     TagCorrelationInfo tci = new TagCorrelationInfo(tag2, t1t2_p, t1t2_s, pa_pearson,r2);
  
                     tagCorBuilder.put(tag,tci);
-                }              
+                } 
+                //System.out.println("LCJ - RepGenSQLite:getCorrelationsForTag - num correlations found " + numCorrelations);
             }
         } catch (SQLException exc) {
             System.out.println("getAllTaxaMap: caught SQLException attempting to grab taxa Distribution ");

@@ -225,22 +225,48 @@ public interface RepGenData {
     /**
      * Map of all alignments for specified non-ref tags.
      * For this to make sense, all tags on the list must be
-     * reftagx  as the tagID is pulled from  the tagTagIDMap.
+     * non-ref tags  as the tagID is pulled from  the tagTagIDMap.
      * If the refChrom value of AlignmentInfo is non-null,
      * and the tag2pos field is > -1,
      * then the alignment is to a reference tag.
      * @return
      */
-    Multimap<Tag,AlignmentInfo> getAlignmentsForTags(List<Tag> tags);
+    Multimap<Tag,AlignmentInfo> getAlignmentsForTags(List<Tag> tags, int minscore);
+    
+    /**
+     * Map of all reftag alignments for specified non-ref tags.
+     * For this to make sense, all tags on the list must be
+     * non-reftags  as the tagID is pulled from  the tagTagIDMap.
+     * If the refChrom value of AlignmentInfo is non-null,
+     * and the tag2pos field is > -1,
+     * then the alignment is to a reference tag.
+     * @param tags  list of tags for which we want the ref tag alignment
+     * @param minscore  minimum score value for alignment to be included
+     * @return
+     */
+    Multimap<Tag,AlignmentInfo> getRefAlignmentsForTags(List<Tag> tags,int minscore);
+    
+    /**
+     * Map of all non-reftag alignments for specified ref tags.
+     * For this to make sense, all tags on the list must be
+     * reftags  as the tagID is pulled from  the refTagRefTagIDMap.
+     * 
+     * @param tags  list of ref tags for which we want the non-ref tag alignment
+     * @param minscore  minimum score value for alignment to be included
+     * @return
+     */
+    Multimap<Tag,AlignmentInfo> getNonRefTagAlignmentsForRefTags(List<RefTagData> refTags,int minscore);
     
     /**
      * Map of all non-ref tags and their alignments
      * If the refChrom value of AlignmentInfo is non-null,
      * and the tag2pos field is > -1,
      * then the alignment is to a reference tag.
+     * @param minscore  the minimum score required to pull the alignment
+     *                  minscore=0 means get them all
      * @return
      */
-    Multimap<Tag,AlignmentInfo> getAllNonRefTagAlignments();
+    Multimap<Tag,AlignmentInfo> getAllNonRefTagAlignments(int minscore);
     
     /**
      * Map of all alignments for reference tags
@@ -248,10 +274,11 @@ public interface RepGenData {
      * 
      * @return
      */
-    Multimap<RefTagData,AlignmentInfo> getAllRefTagAlignments();
+    Multimap<RefTagData,AlignmentInfo> getAllRefTagAlignments(int minscore);
 
     /**
-     * Map of all alignments for specified ref tags.
+     * Map of all alignments for specified ref tags having
+     * minimum specified score.  minscore = 0 means get all tags.
      * For this to make sense, all tags on the list must be
      * consistently reftag  as the tagID is pulled 
      * from  the reftagReftagIDMap.
@@ -261,7 +288,7 @@ public interface RepGenData {
      * on the "tag1" of the alignment field being a reftag.
      * @return
      */
-    Multimap<RefTagData, AlignmentInfo> getAlignmentsForRefTags(List<RefTagData> refTags);  
+    Multimap<RefTagData, AlignmentInfo> getAlignmentsForRefTags(List<RefTagData> refTags, int minscore);  
     
     /**
      * Grab correlations for specified tags

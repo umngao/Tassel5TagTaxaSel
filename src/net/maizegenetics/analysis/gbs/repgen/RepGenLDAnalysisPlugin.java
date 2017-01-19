@@ -8,10 +8,12 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import javax.swing.ImageIcon;
 
@@ -81,7 +83,12 @@ public class RepGenLDAnalysisPlugin extends AbstractPlugin {
             time = System.nanoTime();
             Multimap<Tag,TagCorrelationInfo> tagTagCorrelations = Multimaps.synchronizedMultimap(HashMultimap.<Tag,TagCorrelationInfo>create());
             System.out.println("\nStart processing tag correlations.  Number of tags in db: " + tagTaxaMap.keySet().size());
-            for (Tag tag1 : tagTaxaMap.keySet()) {
+            Set<Tag> tagSet = tagTaxaMap.keySet();
+            List<Tag> tagList = new ArrayList<Tag>(tagSet);
+            
+            for (int tidx = 0; tidx < tagList.size(); tidx++) {
+            //for (Tag tag1 : tagTaxaMap.keySet()) {
+                Tag tag1 = tagList.get(tidx);
                 tagcount++;
                 processedTags++;
                 // get dist for each taxa
@@ -106,77 +113,36 @@ public class RepGenLDAnalysisPlugin extends AbstractPlugin {
                     if (ddepths1[idx] > 0) depthsPrime1[idx] = 1;
                     else depthsPrime1[idx] = 0;
                 }
-                tagTaxaMap.keySet().parallelStream().forEach(tag2 -> {
-                    if (tag2.equals(tag1)) return;  // don't do analysis for tag against itself
-                    TaxaDistribution tag2TD = tagTaxaMap.get(tag2);
-                    if (tag2TD == null) {                       
-                        System.out.println("GetTagTaxaDist: got null tagTD for sequence " + tag2.sequence());
-                        return ;
-                    }
-                    
-                    // I need doubles below !!
-                    int[] depths2 = tag2TD.depths(); // gives us the depths for each taxon
-                    double[] ddepths2 = new double[depths2.length];
-                    // Apparently no shorter method of casting int to double 
-                    for (int idx = 0; idx < depths2.length; idx++) {
-                        ddepths2[idx] = (double)depths2[idx];
-                    }
-                    double[] depthsPrime2 = new double[depths2.length];
-                    for (int idx = 0; idx < depthsPrime1.length; idx++) {
-                        // boolean - presence/absence
-                        if (ddepths2[idx] > 0) depthsPrime2[idx] = 1;
-                        else depthsPrime2[idx] = 0;
-                    }
-                    // From analysis.association.GenomicSelectionPlugin.java:
-                    PearsonsCorrelation Pearsons = new PearsonsCorrelation();
-                    double p1 = Pearsons.correlation(ddepths1,ddepths2);
-                    
-                    SpearmansCorrelation Spearmans = new SpearmansCorrelation();
-                    double spearval = Spearmans.correlation(ddepths1, ddepths2);
-                    
-                    double p2 = Pearsons.correlation(depthsPrime1, depthsPrime2);
-                    
-                    // Count number of times both tags appeared in a taxa, number
-                    // of times neither tag appeared in a taxa, number of times
-                    // tag1 appeared but not tag2, and number of times tag2 appeared by not tag1
-                    int t1Nott2 = 0;
-                    int t2Nott1 = 0;
-                    int neither = 0;
-                    int both = 0;
-                    
-                    for (int didx = 0; didx < depthsPrime2.length; didx++) {
-                        if (depthsPrime1[didx] > 0 && depthsPrime2[didx] > 0) both++;
-                        if (depthsPrime1[didx] == 0 && depthsPrime2[didx] == 0) neither++;
-                        if (depthsPrime1[didx] > 0 && depthsPrime2[didx] == 0) t1Nott2++;
-                        if (depthsPrime1[didx] == 0 && depthsPrime2[didx] > 0) t2Nott1++;
-                    }
-                    // Calculate r-squared based on presence/absence of tags at each taxa.
-                    double r2 = LinkageDisequilibrium.calculateRSqr(neither, t1Nott2, t2Nott1, both, minTaxa());
-                    TagCorrelationInfo tci = new TagCorrelationInfo(tag2,p1,spearval,p2,r2);
-                    tagTagCorrelations.put(tag1, tci);
+                final int tIdxFinal = tidx; // IntStream forEach must have "final" variable, tidx is not final
+                IntStream.range(tidx+1,tagList.size()).parallel().forEach(item -> {
+                    calculateCorrelations(tagTagCorrelations, tagTaxaMap, 
+                            tagList.get(tIdxFinal), tagList.get(item), ddepths1, depthsPrime1);
                 });
                 
                 if (tagcount > 1000) {
                     // comment out when run for real!
-                    System.out.println("Finished processing " + processedTags + " tags" );
+                    System.out.println("FInished processing " + processedTags + " tags, this set took " + (System.nanoTime() - time)/1e9 + " seconds, now load to db ..." );
+                    time = System.nanoTime();
+                    repGenData.putTagTagCorrelationMatrix(tagTagCorrelations);
+                    System.out.println("Loading DB took " + (System.nanoTime() - time)/1e9 + " seconds.\n");
                     tagcount = 0;
+                    tagTagCorrelations.clear(); // start fresh with next 1000
+                    time = System.nanoTime();
                 }
             
             }
             if (tagcount > 0 ) {
-                System.out.println("Finished processing last tags");
+                System.out.println("Finished processing last tags, load to DB");
+                time = System.nanoTime();
+                repGenData.putTagTagCorrelationMatrix(tagTagCorrelations);
+                System.out.println("Loading DB took " + (System.nanoTime() - time)/1e9 + " seconds.\n");
+                tagcount = 0;
+                tagTagCorrelations.clear(); // start fresh with next 1000
             }
-            System.out.println("Total number of tags processed: " + processedTags + ", time to process: "+ (System.nanoTime() - time)/1e9 + " seconds.\n");
-
-            
+            System.out.println("Total number of tags processed: " + processedTags + ", time to process: "+ (System.nanoTime() - time)/1e9 + " seconds.\n");           
             System.out.println("Size of tagTagCorrelations: " + tagTagCorrelations.size() + ", num tags in db: " 
               + tagTaxaMap.keySet().size() + ", num Tags in tagTagCorrelations map: " + tagTagCorrelations.keySet().size());
             
-            // Load to database     
-            System.out.println("\nLoading correlation matrix to the database ...");
-            time = System.nanoTime();
-            repGenData.putTagTagCorrelationMatrix(tagTagCorrelations);
-            System.out.println("Loading DB took " + (System.nanoTime() - time)/1e9 + " seconds.\n");
             ((RepGenSQLite)repGenData).close();
             
         } catch (Exception exc) {
@@ -185,6 +151,56 @@ public class RepGenLDAnalysisPlugin extends AbstractPlugin {
         }
         System.out.println("Process took " + (System.nanoTime() - totalTime)/1e9 + " seconds.\n");
         return null;
+    }
+    
+    public void calculateCorrelations(Multimap<Tag,TagCorrelationInfo> tagTagCorrelations, Map <Tag, TaxaDistribution> tagTaxaMap, 
+            Tag tag1, Tag tag2, double[] ddepths1,double[] depthsPrime1) {
+        TaxaDistribution tag2TD = tagTaxaMap.get(tag2);
+        if (tag2TD == null) {                       
+            System.out.println("GetTagTaxaDist: got null tagTD for sequence " + tag2.sequence());
+            return ;
+        }
+        
+        // I need doubles below !!
+        int[] depths2 = tag2TD.depths(); // gives us the depths for each taxon
+        double[] ddepths2 = new double[depths2.length];
+        // Apparently no shorter method of casting int to double 
+        for (int idx = 0; idx < depths2.length; idx++) {
+            ddepths2[idx] = (double)depths2[idx];
+        }
+        double[] depthsPrime2 = new double[depths2.length];
+        for (int idx = 0; idx < depthsPrime1.length; idx++) {
+            // boolean - presence/absence
+            if (ddepths2[idx] > 0) depthsPrime2[idx] = 1;
+            else depthsPrime2[idx] = 0;
+        }
+        // From analysis.association.GenomicSelectionPlugin.java:
+        PearsonsCorrelation Pearsons = new PearsonsCorrelation();
+        double p1 = Pearsons.correlation(ddepths1,ddepths2);
+        
+        SpearmansCorrelation Spearmans = new SpearmansCorrelation();
+        double spearval = Spearmans.correlation(ddepths1, ddepths2);
+        
+        double p2 = Pearsons.correlation(depthsPrime1, depthsPrime2);
+        
+        // Count number of times both tags appeared in a taxa, number
+        // of times neither tag appeared in a taxa, number of times
+        // tag1 appeared but not tag2, and number of times tag2 appeared by not tag1
+        int t1Nott2 = 0;
+        int t2Nott1 = 0;
+        int neither = 0;
+        int both = 0;
+        
+        for (int didx = 0; didx < depthsPrime2.length; didx++) {
+            if (depthsPrime1[didx] > 0 && depthsPrime2[didx] > 0) both++;
+            if (depthsPrime1[didx] == 0 && depthsPrime2[didx] == 0) neither++;
+            if (depthsPrime1[didx] > 0 && depthsPrime2[didx] == 0) t1Nott2++;
+            if (depthsPrime1[didx] == 0 && depthsPrime2[didx] > 0) t2Nott1++;
+        }
+        // Calculate r-squared based on presence/absence of tags at each taxa.
+        double r2 = LinkageDisequilibrium.calculateRSqr(neither, t1Nott2, t2Nott1, both, minTaxa());
+        TagCorrelationInfo tci = new TagCorrelationInfo(tag2,p1,spearval,p2,r2);
+        tagTagCorrelations.put(tag1, tci);       
     }
     
     @Override

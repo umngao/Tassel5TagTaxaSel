@@ -66,6 +66,8 @@ CREATE TABLE tagAlignments (
     ref_align_start_pos  INTEGER,
     ref_align_strand INTEGER
 );
+CREATE INDEX tagAlignments_idx1 on tagAlignments(tag1id,score);
+
 
 -- Table: tagCorrelations
 -- t1t2_pearson is the pearson correlation of tag1 depths vector by tag2 depths vector
@@ -81,6 +83,8 @@ CREATE TABLE tagCorrelations (
     pres_abs_pearson real,
     r2  real
 );
+CREATE INDEX tagCorrelationsions_idx1 on tagCorrelations(tag1id,tag2id);
+
 
 -- Table: mappingApproach
 CREATE TABLE mappingApproach (
