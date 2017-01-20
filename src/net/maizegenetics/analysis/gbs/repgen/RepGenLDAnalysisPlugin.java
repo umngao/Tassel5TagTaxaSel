@@ -36,6 +36,18 @@ import net.maizegenetics.plugindef.GeneratePluginCode;
 import net.maizegenetics.plugindef.PluginParameter;
 
 /**
+ * This class takes a rAmpSeq (formerly RepGen) database and for
+ * each tag in the tag table, performs the following tag-tag
+ * correlations based on the taxa distribution for each tag
+ *   (1) tag-tag Pearson's correlation
+ *   (2) tag-tag Spearman's correlation
+ *   (3) tag-tag presence/absence correlations
+ *   (4) r-squared
+ *   
+ *   The vectors presented to the analysis methods represent
+ *   a list of taxa and the number of times the tag was seen
+ *   in that taxa.  The presence/absence vectors have a 1 or 0
+ *   as values in each slot.
  * @author lcj34
  *
  */
@@ -139,9 +151,7 @@ public class RepGenLDAnalysisPlugin extends AbstractPlugin {
                 tagcount = 0;
                 tagTagCorrelations.clear(); // start fresh with next 1000
             }
-            System.out.println("Total number of tags processed: " + processedTags + ", time to process: "+ (System.nanoTime() - time)/1e9 + " seconds.\n");           
-            System.out.println("Size of tagTagCorrelations: " + tagTagCorrelations.size() + ", num tags in db: " 
-              + tagTaxaMap.keySet().size() + ", num Tags in tagTagCorrelations map: " + tagTagCorrelations.keySet().size());
+            System.out.println("Total number of tags processed: " + processedTags );           
             
             ((RepGenSQLite)repGenData).close();
             

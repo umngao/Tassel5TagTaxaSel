@@ -101,7 +101,8 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     PreparedStatement nonReftagAlignmentsForRefTagPS;
     PreparedStatement refTagAlignsForNonRefTagPS;
     PreparedStatement tagTagCorrelationInsertPS;
-    PreparedStatement tagCorrelationsForTagPS;
+    PreparedStatement tagCorrelationsForTag1PS;
+    PreparedStatement tagCorrelationsForTag2PS;
 
     public RepGenSQLite(String filename) {
         try{
@@ -196,9 +197,12 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             refTagAlignsForNonRefTagPS = connection.prepareStatement(
                     "select tag2id, score, ref_align_start_pos, ref_align_strand " +
                     "from tagAlignments where tag1_isref = 0 and tag2_isref = 1 and tag1id=? and score >= ?");
-            tagCorrelationsForTagPS = connection.prepareStatement(
+            tagCorrelationsForTag1PS = connection.prepareStatement(
                     "select tag2id, t1t2_pearson, t1t2_spearman, pres_abs_pearson, r2 " +
                     "from tagCorrelations where tag1id=?");
+            tagCorrelationsForTag2PS = connection.prepareStatement(
+                    "select tag1id, t1t2_pearson, t1t2_spearman, pres_abs_pearson, r2 " +
+                    "from tagCorrelations where tag2id=?");
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -1900,9 +1904,9 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         }
     }
 
-    // This needs re-working.  A tag may show up as tag1 or tag2 in the tagCorrelations table.
+    // A tag may show up as tag1 or tag2 in the tagCorrelations table.
     // for a tagX/tagY correlation, the table will contain either an entry for tag1=x, tag2=Y, or
-    // and entry for tag1=y/tag2=x.  The info is the same - only 1 entry is present.
+    // an entry for tag1=y/tag2=x.  The info is the same - only 1 entry is present.
     @Override
     public Multimap<Tag, TagCorrelationInfo> getCorrelationsForTags(List<Tag> tags) {
         ImmutableMultimap.Builder<Tag,TagCorrelationInfo> tagCorBuilder = ImmutableMultimap.builder();
@@ -1924,12 +1928,11 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                     continue;
                 }
                 // The query specifies that tag1 is not a reference tag
-                tagCorrelationsForTagPS.setInt(1,tagID);
-                ResultSet rs = tagCorrelationsForTagPS.executeQuery();
+                tagCorrelationsForTag1PS.setInt(1,tagID);
+                ResultSet rs = tagCorrelationsForTag1PS.executeQuery();
                 int numCorrelations = 0;
                 while (rs.next()) {
-                    numCorrelations++;
-                    
+                    numCorrelations++;                  
                     int tag2id = rs.getInt("tag2id");
                     double t1t2_p = rs.getFloat("t1t2_pearson");
                     double t1t2_s = rs.getFloat("t1t2_spearman");
@@ -1941,7 +1944,27 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
  
                     tagCorBuilder.put(tag,tci);
                 } 
-                //System.out.println("LCJ - RepGenSQLite:getCorrelationsForTag - num correlations found " + numCorrelations);
+                //System.out.println("LCJ - RepGenSQLite:getCorrelationsForTag - num correlations found for tag as tag1" + numCorrelations);
+                // grab the correlations when tag2 matches the tagID
+                tagCorrelationsForTag2PS.setInt(1,tagID);
+                rs = tagCorrelationsForTag2PS.executeQuery();
+                int numCorrelations2 = 0;
+                while (rs.next()) {
+                    numCorrelations2++;
+                    
+                    int tag1id = rs.getInt("tag1id");
+                    double t1t2_p = rs.getFloat("t1t2_pearson");
+                    double t1t2_s = rs.getFloat("t1t2_spearman");
+                    double pa_pearson = rs.getFloat("pres_abs_pearson");
+                    double r2 = rs.getFloat("r2");
+                    
+                    Tag tag2 = tagTagIDMap.inverse().get(tag1id);
+                    TagCorrelationInfo tci = new TagCorrelationInfo(tag2, t1t2_p, t1t2_s, pa_pearson,r2);
+ 
+                    tagCorBuilder.put(tag,tci);
+                } 
+//                System.out.println("LCJ - RepGenSQLite:getCorrelationsForTag - num correlations found for tag as tag1 " + numCorrelations
+//                        + ", num correlations found for tag as tag2 " + numCorrelations2);
             }
         } catch (SQLException exc) {
             System.out.println("getAllTaxaMap: caught SQLException attempting to grab taxa Distribution ");
