@@ -114,9 +114,9 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             .description("Length of kmer from fastq reads stored as the tag sequence in the DB.").build();
     private PluginParameter<Integer> refKmerLen = new PluginParameter.Builder<Integer>("refKmerLen", 300, Integer.class).guiName("Reference Kmer Length")
             .description("Length of kmers created from reference genome to store in the DB. \nThis should be at as long or longer than the kmerLen parameter used for storing input sequence tags.").build();
-    private PluginParameter<Integer> match_reward = new PluginParameter.Builder<Integer>("match_reward", 4, Integer.class).guiName("Match Reward Amount")
+    private PluginParameter<Integer> match_reward = new PluginParameter.Builder<Integer>("match_reward", 2, Integer.class).guiName("Match Reward Amount")
             .description("Parameter sent to Smith Waterman aligner for use in calculating reward when base pairs match.").build();
-    private PluginParameter<Integer> mismatch_penalty = new PluginParameter.Builder<Integer>("mismatch_penalty", -2, Integer.class).guiName("Mismatch Penalty Amount")
+    private PluginParameter<Integer> mismatch_penalty = new PluginParameter.Builder<Integer>("mismatch_penalty", -1, Integer.class).guiName("Mismatch Penalty Amount")
             .description("Parameter sent to Smith Waterman aligner for use in calculating penalty when base pairs are mis-matched.").build();
     private PluginParameter<Integer> gap_penalty = new PluginParameter.Builder<Integer>("gap_penalty", -1, Integer.class).guiName("Gap Penalty Amount")
             .description("Parameter sent to Smith Waterman aligner for use in calculating penalty when when a gap is identified.").build();
@@ -203,9 +203,6 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             // matching those in the kmerTagMap.  Store hit positions in per-chromosome
             // bitmaps to be used for creating ref tags for aligning.
             
-            // LCJ _ remove this map and the writing of it !!
-            List<Integer> chrom9hits = new ArrayList<Integer>();
-            // LCJ - end remove - look for writing it below
             chromsInRef.parallelStream().forEach(chrom -> { 
                   // Turn this on/off for debug purposes
                   //if (chrom.getChromosomeNumber() != 9) return; // just for initial testing !!! - remove
@@ -236,18 +233,10 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
                       if (kmerTagMap.containsKey(chromKmerString)){
                           kmersForChrom++;                         
                           chromBits.fastSet(chromIdx);  // set position in the bitmap
-                          // LCJ - debug - comment out before committing!!"
-//                          if (chrom.getChromosomeNumber() == 9) {
-//                              chrom9hits.add(chromIdx);
-//                          } 
-                          // LCJ - end comment out
                       }                                                 
                       chromIdx++; // after processing, slide up by 1  
                   }
-                  // LCJ -  below is debug !!!!  Comment out before committing !!
-                  //System.out.println("LCJ - calling writeChrom9Bits");
-                  //writeChrom9Bits(chrom9hits);
-                  // LCJ - end comment out !!
+
                   chromBitMaps.put(chrom.getName(), chromBits); 
                   System.out.println("Total tag seeds matching to kmers in chrom " + chrom.getName() + ": " 
                       + kmersForChrom + ", total fastBits set via cardinality: " + chromBits.cardinality());             
@@ -312,7 +301,8 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             calculateTagTagAlignment( tagList, tagAlignInfoMap);
             System.out.println("Number of tag-tag alignments: " + tagAlignInfoMap.size() + ", store to db.");
             // neither tag is reference, null and -1 for tag1 chrom/pos
-            repGenData.putTagAlignments(tagAlignInfoMap, false,false, null,-1,refGenome());
+            //repGenData.putTagTagAlignments(tagAlignInfoMap, false,false, null,-1,refGenome());
+            repGenData.putTagTagAlignments(tagAlignInfoMap);
  
             System.out.println("Calling calculateTagRefTagALignment for tags WITH ref");
             Set<RefTagData> refTags = repGenData.getRefTags();
@@ -325,7 +315,8 @@ public class RepGenAlignerPlugin extends AbstractPlugin {
             // tag1=nonref, tag2=ref, null and -1 for tag1 .  Alignment will be
             // done twice:  once for tag/refTag-fwd, once for tag/refTag-reverse
             System.out.println("Number of tag-refTag alignments, includes aligning to ref fwd and reverse strands: " + tagAlignInfoMap.size() + ", store to db.");
-            repGenData.putTagAlignments(tagAlignInfoMap,false,true,null,-1,refGenome());
+            //repGenData.putTagAlignments(tagAlignInfoMap,false,true,null,-1,refGenome());
+            repGenData.putTagRefTagAlignments(tagAlignInfoMap,refGenome());
             
             System.out.println("Calling calculateRefRefAlignment");            
             calculateRefRefAlignment(refTagList,refTagPositionMap,refTagAlignInfoMap);

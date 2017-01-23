@@ -66,13 +66,26 @@ public interface RepGenDataWriter extends RepGenData {
      * Stores the Smith Waterman score from2 tag alignments. 
      * tag2 chrom/pos comes from the AlignmentInfo object.  tag1 chrom/pos are separate parameters
      * @param tagAlignInfoMap Map of specific tag to tag2 alignment data
-     * @param tag1_isref  boolean indicating if 1st tag is a reference
-     * @param tag2_isref  boolean indicating if 2nd tag is a reference
-     * @param tag1chrom   String chromosome for tag1.  Will be null if tag isn't reference
-     * @param tag1pos     int starting position on ref for tag 2.  Will be null if tag isn't a reference tag.
+     * 
+     */
+    void putTagTagAlignments(Multimap<Tag,AlignmentInfo> tagAlignInfoMap);
+    
+    /**
+     * Stores the Smith Waterman score from2 tag alignments. 
+     * tag2 chrom/pos comes from the AlignmentInfo object.  tag1 chrom/pos are separate parameters
+     * @param tagAlignInfoMap Map of specific tag to tag2 alignment data
      * @param refGeome    String used to determine refernce genome if one of the tags is a reference
      */
-    void putTagAlignments(Multimap<Tag,AlignmentInfo> tagAlignInfoMap, boolean tag1_isref, boolean tag2_isref,String tag1chrom, int tag1pos,String refGenome);
+    void putTagRefTagAlignments(Multimap<Tag,AlignmentInfo> tagAlignInfoMap, String refGenome);
+    
+    /**
+     * Adds entries to the tagAlignments table for ref-ref alignments
+     * @param tagAlignInfoMap holds alignment info for each reftag-reftag pair
+     * @param refGenome  name of the reference genome
+     * @throws SQLException
+     */
+    void putRefRefAlignments(Multimap<RefTagData, AlignmentInfo> tagAlignInfoMap, String refGenome);
+    
     /*
     Set the specified Tag and Position combination to best, and all others were set to false.
      */
@@ -140,17 +153,11 @@ public interface RepGenDataWriter extends RepGenData {
     /**
      * Adds entries to the allelepair table
      * @param name
-     * @throws SQLException
+     * @throws SQLExceptionƒ
      */
     void putAllelePairs(Multimap<Tag,Tuple<Tag,Integer>> tagTagAlignMap);
 
-    /**
-     * Adds entries to the tagAlignments table for ref-ref alignments
-     * @param tagAlignInfoMap holds alignment info for each reftag-reftag pair
-     * @param refGenome  name of the reference genome
-     * @throws SQLException
-     */
-    void putRefRefAlignments(Multimap<RefTagData, AlignmentInfo> tagAlignInfoMap, String refGenome);
+
     
     /**
      * Adds entries to the tagCorrelations table for tag-tag correlation data 

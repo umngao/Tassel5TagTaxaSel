@@ -95,9 +95,11 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     PreparedStatement snpQualityInsertPS;
     
     PreparedStatement allelePairInsertPS;
-    PreparedStatement tagAlignmentInsertPS;
+    PreparedStatement tagtagAlignmentInsertPS;
+    PreparedStatement tagReftagAlignmentInsertPS;
+    PreparedStatement refRefAlignmentInsertPS;
     PreparedStatement tagAlignForNonRefTagPS;
-    PreparedStatement tagAlignForRefTagPS;
+    PreparedStatement refAlignForRefTagPS;
     PreparedStatement nonReftagAlignmentsForRefTagPS;
     PreparedStatement refTagAlignsForNonRefTagPS;
     PreparedStatement tagTagCorrelationInsertPS;
@@ -174,29 +176,36 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             //                        "INSERT into snpQuality (snpid, taxasubset)" +
             //                                " values(?,?)");
             
-            tagAlignmentInsertPS=connection.prepareStatement(
-                    "INSERT into tagAlignments (tag1id, tag2id, tag1_isref, tag2_isref, score, ref_align_start_pos, ref_align_strand )" +
-                    " values(?,?,?,?,?,?,?)");
+            tagtagAlignmentInsertPS=connection.prepareStatement(
+                    "INSERT into tag_tag_Alignments (tag1id, tag2id, score )" +
+                    " values(?,?,?)");
+            tagReftagAlignmentInsertPS = connection.prepareStatement(
+                    "INSERT into tag_reftag_Alignments(tag1id, refTagID, score,ref_align_start_pos,ref_align_strand )" +
+                    " values(?,?,?,?,?)");
+            refRefAlignmentInsertPS = connection.prepareStatement(
+                    "INSERT into reftag_reftag_Alignments(tag1id, tag2id, score )" +
+                    " values(?,?,?)");
             tagTagCorrelationInsertPS=connection.prepareStatement(
                     "INSERT into tagCorrelations (tag1id, tag2id, t1t2_pearson, t1t2_spearman, pres_abs_pearson, r2 )" +
                     " values(?,?,?,?,?,?)");
             // because there can be a tagID X in both tag and refTag table, you must
             // specify that this query only wants the values where tag1 is NOT a ref
             // (IE tag1ID comes from the tagTagIDMap)
+            // THis gets both the non-ref and ref tag alignments for a particular non-ref tag.
             // NOTE: SQLite has no real boolean field.  The values are stored as 0 and 1
             tagAlignForNonRefTagPS= connection.prepareStatement(
-                    "select tag2id, tag2_isref, score, ref_align_start_pos, ref_align_strand " +
-                    "from tagAlignments where tag1_isref = 0 and tag1id=? and score >= ?");
+                    "select tag2id,  score " +
+                    "from tag_tag_Alignments where tag1id=? and score >= ?");
             // For this query, tag1_isref is true:  the tag1id is a tag from the refTagRefTagIDMap
-            tagAlignForRefTagPS = connection.prepareStatement(
-                    "select tag2id, tag2_isref, score, ref_align_start_pos, ref_align_strand " +
-                    "from tagAlignments where tag1_isref = 1 and tag1id=? and score >= ?");
+            refAlignForRefTagPS = connection.prepareStatement(
+                    "select tag2id, score " +
+                    "from reftag_reftag_Alignments where tag1id=? and score >= ?");
             nonReftagAlignmentsForRefTagPS = connection.prepareStatement(
                     "select tag1id, score, ref_align_start_pos, ref_align_strand " +
-                    "from tagAlignments where tag1_isref = 0 and tag2_isref = 1 and tag2id=? and score >= ?");
+                    "from tag_refTag_Alignments where refTagID=? and score >= ?");
             refTagAlignsForNonRefTagPS = connection.prepareStatement(
-                    "select tag2id, score, ref_align_start_pos, ref_align_strand " +
-                    "from tagAlignments where tag1_isref = 0 and tag2_isref = 1 and tag1id=? and score >= ?");
+                    "select refTagID, score, ref_align_start_pos, ref_align_strand " +
+                    "from tag_reftag_Alignments where tag1id=? and score >= ?");
             tagCorrelationsForTag1PS = connection.prepareStatement(
                     "select tag2id, t1t2_pearson, t1t2_spearman, pres_abs_pearson, r2 " +
                     "from tagCorrelations where tag1id=?");
@@ -607,55 +616,74 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     //This method is called from RepGenAlignerPlugin to add  tags
     // to the  tagAlignments table.
     @Override
-    public void putTagAlignments(Multimap<Tag,AlignmentInfo> tagAlignInfoMap, 
-            boolean tag1_isref, boolean tag2_isref, String tag1chrom, int tag1pos,String refGenome) {
+    public void putTagTagAlignments(Multimap<Tag,AlignmentInfo> tagAlignInfoMap) {
         int batchCount=0;
         try {
             connection.setAutoCommit(false);
-            int refGenomeID =  referenceGenomeToIDMap.get(refGenome);
+            
             for (Map.Entry<Tag, AlignmentInfo> entry : tagAlignInfoMap.entries()) {
                 // Put tag alignments into the tagAlignments table
                 AlignmentInfo ai=entry.getValue();
                 int ind=1;
  
-                if (tag1_isref) {
-                    RefTagData rtd = new RefTagData(entry.getKey(),tag1chrom,tag1pos,refGenome);
-                    tagAlignmentInsertPS.setInt(ind++, reftagReftagIDMap.get(rtd));
-                    
-                } else {
-                    tagAlignmentInsertPS.setInt(ind++, tagTagIDMap.get(entry.getKey()));
-                }
-                if (tag2_isref) {
-                    RefTagData rtd = new RefTagData(ai.tag2(),ai.tag2chrom(),ai.tag2pos(),refGenome);
-                    tagAlignmentInsertPS.setInt(ind++, reftagReftagIDMap.get(rtd));
-                } else {
-                    tagAlignmentInsertPS.setInt(ind++, tagTagIDMap.get(ai.tag2()));
-                }
-                tagAlignmentInsertPS.setBoolean(ind++, tag1_isref);
-                tagAlignmentInsertPS.setBoolean(ind++, tag2_isref); 
-                tagAlignmentInsertPS.setInt(ind++, ai.score());  // alignment score
-                
-                // The last 2 values are mostly relevant for tag to refTag alignments
-                // the tag was aligned against both the reference and the reverse-complement of the reference tag.
-                // both are stored.  WHen retrieving data and the ref_strand is 0, user should
-                // reverse-complement the refTag sequence to see the alignment.
-                tagAlignmentInsertPS.setInt(ind++,ai.alignmentPos()); // will be -1 for tag-tag and refTag-refTag
-                tagAlignmentInsertPS.setInt(ind++, ai.ref_strand()); // will be -1 for tag-tag, mostly relevant for tag-refTag
+                tagtagAlignmentInsertPS.setInt(ind++, tagTagIDMap.get(entry.getKey()));
+                tagtagAlignmentInsertPS.setInt(ind++, tagTagIDMap.get(ai.tag2()));
+                tagtagAlignmentInsertPS.setInt(ind++, ai.score());  // alignment score
 
-                tagAlignmentInsertPS.addBatch();
+                tagtagAlignmentInsertPS.addBatch();
                 batchCount++;
                 if(batchCount>100000) {
                    // System.out.println("putTagAlignments next"+batchCount);
-                    tagAlignmentInsertPS.executeBatch();
+                    tagtagAlignmentInsertPS.executeBatch();
                     batchCount=0;
                 }
             }
-            tagAlignmentInsertPS.executeBatch();
+            tagtagAlignmentInsertPS.executeBatch();
             connection.setAutoCommit(true);
             // print some metrics for debugging
-            ResultSet rs = connection.createStatement().executeQuery("select count (*) as numAlignments from tagAlignments");
+            ResultSet rs = connection.createStatement().executeQuery("select count (*) as numAlignments from tag_tag_Alignments");
             if (rs.next()) {
-                System.out.println("Total alignments in tagAlignments table: " + rs.getInt("numAlignments"));
+                System.out.println("Total alignments in tag_tag_Alignments table: " + rs.getInt("numAlignments"));
+            }
+ 
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+    @Override
+    public void putTagRefTagAlignments(Multimap<Tag,AlignmentInfo> tagAlignInfoMap, String refGenome) {
+        int batchCount=0;
+        try {
+            connection.setAutoCommit(false);
+            for (Map.Entry<Tag, AlignmentInfo> entry : tagAlignInfoMap.entries()) {
+                // Put tag alignments into the tagAlignments table
+                AlignmentInfo ai=entry.getValue();
+                int ind=1;
+ 
+                tagReftagAlignmentInsertPS.setInt(ind++, tagTagIDMap.get(entry.getKey()));
+                RefTagData rtd = new RefTagData(ai.tag2(),ai.tag2chrom(),ai.tag2pos(),refGenome);
+                tagReftagAlignmentInsertPS.setInt(ind++, reftagReftagIDMap.get(rtd));
+                tagReftagAlignmentInsertPS.setInt(ind++, ai.score());  // alignment score
+                
+                // WHen retrieving data and the ref_strand is 0, user should
+                // reverse-complement the refTag sequence to see the alignment.
+                tagReftagAlignmentInsertPS.setInt(ind++,ai.alignmentPos()); 
+                tagReftagAlignmentInsertPS.setInt(ind++, ai.ref_strand()); 
+
+                tagReftagAlignmentInsertPS.addBatch();
+                batchCount++;
+                if(batchCount>100000) {
+                   // System.out.println("putTagAlignments next"+batchCount);
+                    tagReftagAlignmentInsertPS.executeBatch();
+                    batchCount=0;
+                }
+            }
+            tagReftagAlignmentInsertPS.executeBatch();
+            connection.setAutoCommit(true);
+            // print some metrics for debugging
+            ResultSet rs = connection.createStatement().executeQuery("select count (*) as numAlignments from tag_reftag_Alignments");
+            if (rs.next()) {
+                System.out.println("Total alignments in tag_RefTag_Alignments table: " + rs.getInt("numAlignments"));
             }
  
         } catch (SQLException e) {
@@ -663,7 +691,6 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
         }
 
     }
-    
     //This method is called from RepGenAlignerPlugin to add reftag-reftag alignments
     @Override
     public void putRefRefAlignments(Multimap<RefTagData,AlignmentInfo> tagAlignInfoMap, String refGenome) {
@@ -674,31 +701,25 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                 // Put tag alignments into the tagAlignments table
                 AlignmentInfo ai=entry.getValue();
                 int ind=1;
-                tagAlignmentInsertPS.setInt(ind++, reftagReftagIDMap.get(entry.getKey()));
+                refRefAlignmentInsertPS.setInt(ind++, reftagReftagIDMap.get(entry.getKey()));
                 RefTagData rtd = new RefTagData(ai.tag2(),ai.tag2chrom(),ai.tag2pos(),refGenome);
-                tagAlignmentInsertPS.setInt(ind++, reftagReftagIDMap.get(rtd));
+                refRefAlignmentInsertPS.setInt(ind++, reftagReftagIDMap.get(rtd));
+                refRefAlignmentInsertPS.setInt(ind++, ai.score());  // alignment score
 
-                tagAlignmentInsertPS.setBoolean(ind++, true); // both are reference tags
-                tagAlignmentInsertPS.setBoolean(ind++, true); 
-                tagAlignmentInsertPS.setInt(ind++, ai.score());  // alignment score
-                // The last 2 values are mostly relevant for tag to refTag alignments
-                tagAlignmentInsertPS.setInt(ind++,ai.alignmentPos()); // will be -1 for tag-tag and refTag-refTag
-                tagAlignmentInsertPS.setInt(ind++,ai.ref_strand());
-
-                tagAlignmentInsertPS.addBatch();
+                refRefAlignmentInsertPS.addBatch();
                 batchCount++;
                 if(batchCount>10000) {
                    // System.out.println("putTagAlignments next"+batchCount);
-                    tagAlignmentInsertPS.executeBatch();
+                    refRefAlignmentInsertPS.executeBatch();
                     batchCount=0;
                 }
             }
-            tagAlignmentInsertPS.executeBatch();
+            refRefAlignmentInsertPS.executeBatch();
             connection.setAutoCommit(true);
             // print some metrics for debugging
-            ResultSet rs = connection.createStatement().executeQuery("select count (*) as numAlignments from tagAlignments");
+            ResultSet rs = connection.createStatement().executeQuery("select count (*) as numAlignments from reftag_reftag_Alignments");
             if (rs.next()) {
-                System.out.println("Total number of alignments in tagAlignments table: " + rs.getInt("numAlignments"));
+                System.out.println("Total number of alignments in reftag_reftag_alignments table: " + rs.getInt("numAlignments"));
             }
  
         } catch (SQLException e) {
@@ -1700,8 +1721,8 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
     }
 
     @Override
-    public Multimap<Tag, AlignmentInfo> getAlignmentsForTags(List<Tag> tags, int minscore) {
-        // This method gets all alignments (ref-tag and non-ref Tag) for a list of non-ref tags
+    public Multimap<Tag, AlignmentInfo> getTagAlignmentsForTags(List<Tag> tags, int minscore) {
+        // This method gets all tag-tag alignments for a list of tags (all data is for non-reference tags)
         ImmutableMultimap.Builder<Tag,AlignmentInfo> tagAIBuilder = ImmutableMultimap.builder();
         loadTagHash(); // get updated tag map
         loadRefTagHash();
@@ -1721,26 +1742,14 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                 tagAlignForNonRefTagPS.setInt(2, minscore);
                 ResultSet rs = tagAlignForNonRefTagPS.executeQuery();
                 while (rs.next()) {
-                    boolean tag2ref = rs.getBoolean("tag2_isref");
-                    int alignPos = rs.getInt("ref_align_start_pos");
-                    int ref_strand = rs.getInt("ref_align_strand");
                     int score = rs.getInt("score");
-                    
-                    AlignmentInfo ai = null;
-                    if (tag2ref) {
-                        // tag2id identifies the RefTagData object, that object contains the referenceGenome
-                        // name, which is not stored explicitly in the tagAlignments table.
-                        RefTagData tag2data = reftagReftagIDMap.inverse().get(rs.getInt("tag2id"));
-                        ai = new AlignmentInfo(tag2data.tag(),tag2data.chromosome(),tag2data.position(),alignPos,ref_strand,tag2data.refGenome(),score);
-                    } else {
-                        Tag tag2 = tagTagIDMap.inverse().get(rs.getInt("tag2id"));
-                        ai = new AlignmentInfo(tag2,null,-1,alignPos, ref_strand, null,score);
-                    }
+                    Tag tag2 = tagTagIDMap.inverse().get(rs.getInt("tag2id"));
+                    AlignmentInfo ai = new AlignmentInfo(tag2,null,-1,-1, -1, null,score);
                     tagAIBuilder.put(tag,ai);
                 }              
             }
         } catch (SQLException exc) {
-            System.out.println("getAllTaxaMap: caught SQLException attempting to grab taxa Distribution ");
+            System.out.println("getTagAlignmentsForTag: caught SQLException attempting to grab alignment data ");
             exc.printStackTrace();
         }
         return tagAIBuilder.build();       
@@ -1748,17 +1757,17 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
 
     @Override
     public Multimap<Tag, AlignmentInfo> getAllNonRefTagAlignments(int minscore) {
+        // This method returns only the tag-tag alignments for all tags
         ImmutableMultimap.Builder<Tag,AlignmentInfo> tagAIBuilder = ImmutableMultimap.builder();
         loadTagHash(); // get updated tag map
         Set<Tag> tagsToAlign = getTags();
         List<Tag> tagList = new ArrayList<Tag>(tagsToAlign);
-        return getAlignmentsForTags(tagList,minscore);   // return tag-tag alignments    
+        return getTagAlignmentsForTags(tagList,minscore);   // return tag-tag alignments    
     }
     
     @Override
-    // Tag1 is a ref tag.  So this returns just reftag-reftag alignments
-    // Need another query to get all tag alignmnents to refTags.
-    public Multimap<RefTagData, AlignmentInfo> getAlignmentsForRefTags(List<RefTagData> refTags, int minscore) {
+    // This returns just reftag-reftag alignments
+    public Multimap<RefTagData, AlignmentInfo> getRefAlignmentsForRefTags(List<RefTagData> refTags, int minscore) {
         ImmutableMultimap.Builder<RefTagData,AlignmentInfo> tagAIBuilder = ImmutableMultimap.builder();
         loadRefTagHash();
         try {
@@ -1771,26 +1780,14 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                     continue;
                 }
                 // The query specifies that tag1ID IS a ref tag
-                tagAlignForRefTagPS.setInt(1,tagID);
-                tagAlignForRefTagPS.setInt(2, minscore);
-                ResultSet rs = tagAlignForRefTagPS.executeQuery();
+                refAlignForRefTagPS.setInt(1,tagID);
+                refAlignForRefTagPS.setInt(2, minscore);
+                ResultSet rs = refAlignForRefTagPS.executeQuery();
                 while (rs.next()) {
-                    boolean tag2ref = rs.getBoolean("tag2_isref");
-                    int alignPos = rs.getInt("ref_align_start_pos");
-                    int ref_strand = rs.getInt("ref_align_strand");
                     int score = rs.getInt("score");
                     
-                    AlignmentInfo ai = null;
-                    // tag2 should always be a reference when tag1 is a ref.
-                    // While non-ref tags were aligned against all non-ref and ref tags,
-                    // the ref tags (as tag1) were only aligned against other ref tags.
-                    if (tag2ref) {
-                        RefTagData tag2data = reftagReftagIDMap.inverse().get(rs.getInt("tag2id"));
-                        ai = new AlignmentInfo(tag2data.tag(),tag2data.chromosome(),tag2data.position(),alignPos,ref_strand,tag2data.refGenome(),score);
-                    } else {
-                        System.out.println("ERROR - getAllRefTagAlignments: found non-ref tag alignment as tag2 when tag1 was refTag");
-                        return null; // returning null to indicate something unexpected happened.
-                    }
+                    RefTagData tag2data = reftagReftagIDMap.inverse().get(rs.getInt("tag2id"));
+                    AlignmentInfo ai = new AlignmentInfo(tag2data.tag(),tag2data.chromosome(),tag2data.position(),-1,1,tag2data.refGenome(),score);
                     tagAIBuilder.put(tag,ai);
                 }              
             }
@@ -1798,29 +1795,27 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
             System.out.println("getAlignmentsForRefTags: caught SQLException attempting to grab taxa Distribution ");
             exc.printStackTrace();
         }
-        return tagAIBuilder.build();       
-        
+        return tagAIBuilder.build();             
     }
 
     @Override
     public Multimap<RefTagData, AlignmentInfo> getAllRefTagAlignments(int minscore) {
         // for each tag on the refTag list, grab all it's alignments.
-        // This gets all alignments where refTag is tag1, so is really just getting
-        // refTag/refTag alignments
+        // This is just getting reftag/reftag alignments
         loadRefTagHash(); // get updated list of refTags
  
         Set<RefTagData> refTags = getRefTags();
         List<RefTagData> refTagList = new ArrayList<RefTagData>(refTags);
-        return getAlignmentsForRefTags(refTagList,minscore);           
+        return getRefAlignmentsForRefTags(refTagList,minscore);           
     }
     
     @Override
     public Multimap<Tag, AlignmentInfo> getRefAlignmentsForTags(List<Tag> tags, int minscore) {
-        // This method gets all ref-tag slignments for each non-ref tag on the list
+        // This method gets all ref-tag alignments for each non-ref tag on the list
         ImmutableMultimap.Builder<Tag,AlignmentInfo> tagAIBuilder = ImmutableMultimap.builder();
         // DO we need to reload the hashes?  WIll new tags be added after we've loaded the db?
-        loadTagHash(); // get updated tag map
-        loadRefTagHash();
+//        loadTagHash(); // get updated tag map
+//        loadRefTagHash();
  
         try {
             for (Tag tag: tags){
@@ -1832,8 +1827,7 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                     System.out.println("getAlignmentsForTag: no tagID in alignments table for tag: " + tag.sequence());
                     continue;
                 }
-                // The query specifies that tag1 is not a reference tag
-                
+ 
                 refTagAlignsForNonRefTagPS.setInt(1,tagID);
                 refTagAlignsForNonRefTagPS.setInt(2, minscore);
                 ResultSet rs = refTagAlignsForNonRefTagPS.executeQuery();
@@ -1841,28 +1835,47 @@ public class RepGenSQLite implements RepGenDataWriter, AutoCloseable {
                     int alignPos = rs.getInt("ref_align_start_pos");
                     int ref_strand = rs.getInt("ref_align_strand");
                     int score = rs.getInt("score");
-                    // tag2id identifies the RefTagData object, that object contains the referenceGenome
+                    // refTagID identifies the RefTagData object, that object contains the referenceGenome
                     // name, which is not stored explicitly in the tagAlignments table.
-                    RefTagData tag2data = reftagReftagIDMap.inverse().get(rs.getInt("tag2id"));
-                    AlignmentInfo ai = new AlignmentInfo(tag2data.tag(),tag2data.chromosome(),
-                            tag2data.position(),alignPos,ref_strand,tag2data.refGenome(),score);                   
+                    RefTagData rtd = reftagReftagIDMap.inverse().get(rs.getInt("refTagID"));
+                    AlignmentInfo ai = new AlignmentInfo(rtd.tag(),rtd.chromosome(),
+                            rtd.position(),alignPos,ref_strand,rtd.refGenome(),score);                   
                     tagAIBuilder.put(tag,ai);
                 }              
             }
         } catch (SQLException exc) {
-            System.out.println("getRefAlignmentsForTags: caught SQLException attempting to reftag alignments ");
+            System.out.println("getRefAlignmentsForTags: caught SQLException attempting to get reftag alignments ");
             exc.printStackTrace();
         }
         return tagAIBuilder.build();      
     }
     
     @Override
-    public Multimap<Tag, AlignmentInfo> getNonRefTagAlignmentsForRefTags(List<RefTagData> refTags, int minscore) {
-        // TODO Auto-generated method stub
-        // Put this in a loop of the refTags
-//        nonReftagAlignmentsForRefTagPS.setInt(1, refTagsID - must get it);
-//        nonReftagAlignmentsForRefTagPS.setInt(2, minscore);
-        return null;
+    public Multimap<Tag, AlignmentInfo> getTagAlignmentsForRefTag(RefTagData refTag, int minscore) {
+        ImmutableMultimap.Builder<Tag,AlignmentInfo> tagAIBuilder = ImmutableMultimap.builder();
+        // This method takes a refTag and finds all the tag (ie non-ref tags) aligned against it
+        // that have the specified minimum score
+        int refTagID = reftagReftagIDMap.get(refTag);
+        try {
+            connection.setAutoCommit(false);
+            nonReftagAlignmentsForRefTagPS.setInt(1, refTagID );
+            nonReftagAlignmentsForRefTagPS.setInt(2, minscore);
+            
+            ResultSet rs = nonReftagAlignmentsForRefTagPS.executeQuery();
+            while (rs.next()) {
+                int alignPos = rs.getInt("ref_align_start_pos");
+                int ref_strand = rs.getInt("ref_align_strand");
+                int score = rs.getInt("score");
+                Tag tag1 = tagTagIDMap.inverse().get(rs.getInt("tag1id"));
+
+                AlignmentInfo ai = new AlignmentInfo(refTag.tag(),refTag.chromosome(),
+                        refTag.position(),alignPos,ref_strand,refTag.refGenome(),score);                   
+                tagAIBuilder.put(tag1,ai);
+            }              
+        } catch (Exception exc) {
+            exc.printStackTrace();
+        }
+        return tagAIBuilder.build();
     }
     
     @Override

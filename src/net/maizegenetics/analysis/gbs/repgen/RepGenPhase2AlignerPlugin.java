@@ -126,19 +126,22 @@ public class RepGenPhase2AlignerPlugin extends AbstractPlugin {
             .description("Length of kmer from fastq reads stored as the tag sequence in the DB.").build();
     private PluginParameter<Integer> refKmerLen = new PluginParameter.Builder<Integer>("refKmerLen", 300, Integer.class).guiName("Reference Kmer Length")
             .description("Length of kmers created from reference genome to store in the DB. \nThis should be at as long or longer than the kmerLen parameter used for storing input sequence tags.").build();
-    private PluginParameter<Integer> match_reward = new PluginParameter.Builder<Integer>("match_reward", 4, Integer.class).guiName("Match Reward Amount")
+    private PluginParameter<Integer> match_reward = new PluginParameter.Builder<Integer>("match_reward", 2, Integer.class).guiName("Match Reward Amount")
             .description("Parameter sent to Smith Waterman aligner for use in calculating reward when base pairs match.").build();
-    private PluginParameter<Integer> mismatch_penalty = new PluginParameter.Builder<Integer>("mismatch_penalty", -2, Integer.class).guiName("Mismatch Penalty Amount")
+    private PluginParameter<Integer> mismatch_penalty = new PluginParameter.Builder<Integer>("mismatch_penalty", -1, Integer.class).guiName("Mismatch Penalty Amount")
             .description("Parameter sent to Smith Waterman aligner for use in calculating penalty when base pairs are mis-matched.").build();
     private PluginParameter<Integer> gap_penalty = new PluginParameter.Builder<Integer>("gap_penalty", -1, Integer.class).guiName("Gap Penalty Amount")
             .description("Parameter sent to Smith Waterman aligner for use in calculating penalty when when a gap is identified.").build();
     private PluginParameter<String> primers = new PluginParameter.Builder<String>("primers", null, String.class).guiName("Primers").required(true).inFile()
             .description("Tab delimited file that contains a list of forward,reverse primer pairs.  \nThe values in each column are the forward primer sequence and the reverse primer sequence.").build();
+ 
     
     static GenomeSequence myRefSequence = null;
     // length of ref tag sequence from which to search for primer strings
     // This is half the length
-    static int refAlignLen = 600; // could be a plugin parameter - hard code for testing
+    //static int refAlignLen = 600; // could be a plugin parameter - hard code for testing
+    static int refAlignLen = 1000;
+    static int bestScoreBad = 0;
 
     public enum BestScore {
         none(0), forward(1),reverse(2), forwardRC(3), reverseRC(4);
@@ -243,6 +246,8 @@ public class RepGenPhase2AlignerPlugin extends AbstractPlugin {
                   int chromLength = myRefSequence.chromosomeSize(chrom);
                   System.out.println("\nChecking reference chrom " + chrom.getName() + ", size: " + chromLength + " for tag kmer matches.");
                   
+                  int refTagsCreated = 0;
+                  int noRefTagCreated = 0;
                   for (int chromIdx = 0; chromIdx < chromLength;) {                                       
                       // chromosomeSequence:  start and end are inclusive and 1-based, adjust for this in call below
                       // grab seq from ref the length of the kmer seed - check if refSeq matches one of the kmer seeds
@@ -265,6 +270,11 @@ public class RepGenPhase2AlignerPlugin extends AbstractPlugin {
                           // grab ref bytes to use when looking for primers
                           // This is a longer string than above - it is 300 above and 300 below
                           // where we found a kmer seed match (300 assuming the refAlignLen was 600)
+                          //
+                          // Update from Dan:  expect there to be 200 or less bps' between the
+                          // primer ends.  Here we tested with 300 up and 300 below.  That should
+                          // have covered it.  Let's try 1000 to see if we got better
+                          // then the 600 we originally hard coded
                           int refHalfLen = refAlignLen/2;
                           int first= (chromIdx < (refHalfLen)) ? 0 : chromIdx;
                           int last = Math.min(chromLength, chromIdx + refHalfLen);
@@ -283,35 +293,41 @@ public class RepGenPhase2AlignerPlugin extends AbstractPlugin {
                           // the process of looking for seed kmer matches.  If we didn't find start/end primers
                           // in the 600bp window surrounding this match, will we find them by moving up just 1?
                           // Should the default when refTag can't be created be to increment by something greater than 1?
-                          if (nextChromIdx > 0) chromIdx += nextChromIdx;
-                          else chromIdx++;                         
+                          if (nextChromIdx > 0) {
+                              chromIdx += nextChromIdx;
+                              refTagsCreated++;
+                          }
+                          else {
+                              chromIdx++;
+                              noRefTagCreated++;
+                          }
                       } else {
                           chromIdx++; // look for hit in next position
                       }                       
                   }
                   
                   System.out.println("Total tag seeds matching to kmers in chrom " + chrom.getName() + ": " 
-                      + kmersForChrom);  
+                      + kmersForChrom + ",total refTagsCreated " + refTagsCreated + ", no ref tag created " + noRefTagCreated);  
               });
                    
-//            // LCJ - below is debug!  Writes to my cbsu dir
-//            String refTagOutFile = "/home/lcj34/repGen_outputFiles/allChroms_refTagsFromPrimers.txt";
+            // LCJ - below is debug!  Writes to my cbsu dir
+            String refTagOutFile = "/home/lcj34/repGen_outputFiles/allChroms_refTagsFromPrimers.txt";
 //            // LCJ - this one writes to laptop
 //            //String refTagOutFile = "/Users/lcj34/notes_files/repgen/junit_phase2Aligner/chrom" + chrom.getName() + "_refTagsFromPrimers.txt";
-//            BufferedWriter refwr = Utils.getBufferedWriter(refTagOutFile);                  
-//            try {
-//                for (Map.Entry<Tag, Position> entry : refTagPositionMap.entries()) {
-//                    int position = entry.getValue().getPosition();
-//                    String chromname = entry.getValue().getChromosome().getName();
-//                    Tag refTag = entry.getKey();
-//                    String refData = chromname + "\t" + position + "\t" + refTag.sequence() + "\n";
-//                    refwr.write(refData);
-//                }
-//                refwr.close();
-//            } catch (IOException e1) {
-//                // TODO Auto-generated catch block
-//                e1.printStackTrace();
-//            }
+            BufferedWriter refwr = Utils.getBufferedWriter(refTagOutFile);                  
+            try {
+                for (Map.Entry<Tag, Position> entry : refTagPositionMap.entries()) {
+                    int position = entry.getValue().getPosition();
+                    String chromname = entry.getValue().getChromosome().getName();
+                    Tag refTag = entry.getKey();
+                    String refData = chromname + "\t" + position + "\t" + refTag.sequence() + "\n";
+                    refwr.write(refData);
+                }
+                refwr.close();
+            } catch (IOException e1) {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+            }
             // LCJ - end debug
             
             System.out.println("Finished with refs from primers, total time:" + (System.nanoTime() - time)/1e9 + " seconds.\n");
@@ -326,40 +342,40 @@ public class RepGenPhase2AlignerPlugin extends AbstractPlugin {
             // Add ref tag and tags separately. Add to tagAlignment map,
             repGenData.putRefTagMapping(refTagPositionMap, refGenome());
             
-            // Get tags stored from RepGenLoadSeqToDB        
-            Set<Tag> tagsToAlign = repGenData.getTags();
-            List<Tag> tagList = new ArrayList<Tag>(tagsToAlign);
-            
-            // Create synchronized map for use in parallel streams 
-            Multimap<Tag,AlignmentInfo> tagAlignInfoMap = Multimaps.synchronizedMultimap(HashMultimap.<Tag,AlignmentInfo>create());
-            Multimap<RefTagData,AlignmentInfo> refTagAlignInfoMap = Multimaps.synchronizedMultimap(HashMultimap.<RefTagData,AlignmentInfo>create());
-            
-            // First align the tags against each other
-            // Output of this is stored in db table tagAlignments
-            System.out.println("Calling calculateTagTagAlignment for tags without refs");
-            
-            calculateTagTagAlignment( tagList, tagAlignInfoMap);
-            System.out.println("Number of tag-tag alignments: " + tagAlignInfoMap.size() + ", store to db.");
-            // neither tag is reference, null and -1 for tag1 chrom/pos
-            repGenData.putTagAlignments(tagAlignInfoMap, false,false, null,-1,refGenome());
- 
-            System.out.println("Calling calculateTagRefTagALignment for tags WITH ref");
-            Set<RefTagData> refTags = repGenData.getRefTags();
-            List<RefTagData> refTagList = new ArrayList<RefTagData>(refTags);
-            
-            tagAlignInfoMap.clear(); // remove old data
-            calculateTagRefTagAlignment(tagList,refTagList,tagAlignInfoMap,refGenome());
-            
-            // Add the tag-refTag info to the tagAlignments table.           
-            // tag1=nonref, tag2=ref, null and -1 for tag1 .  Alignment will be
-            // done twice:  once for tag/refTag-fwd, once for tag/refTag-reverse
-            System.out.println("Number of tag-refTag alignments, includes aligning to ref fwd and reverse strands: " + tagAlignInfoMap.size() + ", store to db.");
-            repGenData.putTagAlignments(tagAlignInfoMap,false,true,null,-1,refGenome());
-            
-            System.out.println("Calling calculateRefRefAlignment");            
-            calculateRefRefAlignment(refTagList,refTagPositionMap,refTagAlignInfoMap);
-            System.out.println("Number of reftag-reftag alignments: " + refTagAlignInfoMap.size() + ", store to db.");
-            repGenData.putRefRefAlignments(refTagAlignInfoMap, refGenome()); // CREATE putRefRefAlignments -  different parameters
+//            // Get tags stored from RepGenLoadSeqToDB        
+//            Set<Tag> tagsToAlign = repGenData.getTags();
+//            List<Tag> tagList = new ArrayList<Tag>(tagsToAlign);
+//            
+//            // Create synchronized map for use in parallel streams 
+//            Multimap<Tag,AlignmentInfo> tagAlignInfoMap = Multimaps.synchronizedMultimap(HashMultimap.<Tag,AlignmentInfo>create());
+//            Multimap<RefTagData,AlignmentInfo> refTagAlignInfoMap = Multimaps.synchronizedMultimap(HashMultimap.<RefTagData,AlignmentInfo>create());
+//            
+//            // First align the tags against each other
+//            // Output of this is stored in db table tagAlignments
+//            System.out.println("Calling calculateTagTagAlignment for tags without refs");
+//            
+//            calculateTagTagAlignment( tagList, tagAlignInfoMap);
+//            System.out.println("Number of tag-tag alignments: " + tagAlignInfoMap.size() + ", store to db.");
+//            // neither tag is reference, null and -1 for tag1 chrom/pos
+//            repGenData.putTagAlignments(tagAlignInfoMap, false,false, null,-1,refGenome());
+// 
+//            System.out.println("Calling calculateTagRefTagALignment for tags WITH ref");
+//            Set<RefTagData> refTags = repGenData.getRefTags();
+//            List<RefTagData> refTagList = new ArrayList<RefTagData>(refTags);
+//            
+//            tagAlignInfoMap.clear(); // remove old data
+//            calculateTagRefTagAlignment(tagList,refTagList,tagAlignInfoMap,refGenome());
+//            
+//            // Add the tag-refTag info to the tagAlignments table.           
+//            // tag1=nonref, tag2=ref, null and -1 for tag1 .  Alignment will be
+//            // done twice:  once for tag/refTag-fwd, once for tag/refTag-reverse
+//            System.out.println("Number of tag-refTag alignments, includes aligning to ref fwd and reverse strands: " + tagAlignInfoMap.size() + ", store to db.");
+//            repGenData.putTagAlignments(tagAlignInfoMap,false,true,null,-1,refGenome());
+//            
+//            System.out.println("Calling calculateRefRefAlignment");            
+//            calculateRefRefAlignment(refTagList,refTagPositionMap,refTagAlignInfoMap);
+//            System.out.println("Number of reftag-reftag alignments: " + refTagAlignInfoMap.size() + ", store to db.");
+//            repGenData.putRefRefAlignments(refTagAlignInfoMap, refGenome()); // CREATE putRefRefAlignments -  different parameters
             ((RepGenSQLite)repGenData).close();
 
             myLogger.info("Finished RepGenPhase2AlignerPlugin\n");
@@ -510,7 +526,7 @@ public class RepGenPhase2AlignerPlugin extends AbstractPlugin {
                 continue; // check next primer pair
             }
             // At this point, whatever is recorded as bestPrimer can be used
-            // if bestScore is > 0.  If we didn't have a pair, bestScore would be -1A
+            // if bestScore is > 0.  If we didn't have a pair, bestScore would be -1
             
             // Create a reference.  Remember - once we have the reference on the
             // refTag list, we set the refIndex to beyond the end primer and we
@@ -591,20 +607,18 @@ public class RepGenPhase2AlignerPlugin extends AbstractPlugin {
             // the offset from within the string where the primer was found.  Create the
             // reference tag from there.
             int refStartIdx = refOffset + refBegin;
-            int refEndIdx = refStartIdx + refKmerLen();
+            int refEndIdx = Math.min(refStartIdx + refKmerLen(), myRefSequence.chromosomeSize(chrom));
             byte[] refTagBytes = myRefSequence.chromosomeSequence(chrom,refStartIdx, refEndIdx);
            // System.out.println("LCJ - after finding best primer for chrom " + chrom.getName() + " calling myRefSequence to get refString with refBegin value " + refBegin);
 
             // Convert to allele string
             String refTagString = NucleotideAlignmentConstants.nucleotideBytetoString(refTagBytes);
-            if (refTagString.contains("N") || refTagString.contains("null")) {
-                System.out.println("Creating ref tags... refString contains N or null, dropping it: " + refTagString);                
-            }
+            
             // RefString could be null for some other reason - e.g. start/end pos is bad
-            if (refString == null || refString.length() == 0) {
-                System.out.println(" storeRefTagPositions - refString is NULL");
+            if (refTagString == null || refTagString.length() == 0 || refTagString.contains("N") || refTagString.contains("null")) {
+                System.out.println(" storeRefTagPositions - refString is NULL or contains N or null or is length 0");
             } else {
-                Tag refTag = TagBuilder.instance(refString).reference().build();
+                Tag refTag = TagBuilder.instance(refTagString).reference().build();
                 if (refTag != null ) {
                     Position refPos=new GeneralPosition
                             .Builder(chrom,refStartIdx)

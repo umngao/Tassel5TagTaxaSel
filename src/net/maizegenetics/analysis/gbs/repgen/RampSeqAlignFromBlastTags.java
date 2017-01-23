@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import javax.swing.ImageIcon;
 
@@ -49,6 +50,34 @@ import net.maizegenetics.util.Tuple;
 import net.maizegenetics.util.Utils;
 
 /**
+ * This class takes a rAmpSeq database populated with tags,a reference Genome, a filtered
+ * BLAST file output and primers, then:
+ *   (1) creates  reference tags using the blast alignment output
+ *   (2) runs tag/tag alignment for each tag in the DB,
+ *   (3) runs tag/refTag alignment for each tag against each ref tag
+ *   (4) runs refTag/refTag alignment for each refTag in the DB>
+ *   (5) all alignments are stored in the db tagAlignments table.
+ * 
+ * Alignments are performed and stored in groups to prevent overwhelming
+ * the DB with massive load commands.
+ * 
+ * Blast was run on CBSU using these parameters:
+ * Make the reference files:
+ *    makeblastdb -dbtype nucl -in <agpv4 referencene genome fasta> -parse_seqids -out maizeAGPV4.db
+ *    
+ * Run blast using maizeAGPV4.db from command above:
+ *   blastn -num_threads 24 -db maizeAGPV4.db -query anp68R1Tags.fasta -evalue 1e-60 -max_target_seqs 5 -max_hsps 1 -outfmt 6 -out anp68TagsR1Result/blastANP68_R1.txt
+ *   
+ * The blast output file was filtered using the 3 commands below.  The first filters
+ * identity down to 98 %,  the second gets alignment lengths that were at least 148,
+ * the 3rd filters it down to just the chrom, start, end positions:
+ * 
+ * awk '$3 >= 98.000 {print $0}' blastANP68_R1.txt > blastANP68_R1_98per.txt
+ * awk '$4 >= 148 {print $0}' blastANP68_R1_98per.txt > blastANP68_R1_98per_148align.txt
+ * awk {'printf ("%s\t%s\t%s\n", $2, $9, $10)'} blastANP68_R1_98per_148align.txt > blastANP68_R1_98per_148align_3cols.txt
+ * 
+ * It is the last file from awk, blastANP68_R1_98per_148align_3cols.txt, that is given as a parameter here.
+ * 
  * @author lcj34
  *
  */
@@ -112,16 +141,7 @@ public class RampSeqAlignFromBlastTags extends AbstractPlugin {
  
         try {           
             System.out.println("RampSeqAlignFromBlastTags:processData begin"); 
-            RepGenDataWriter repGenData=new RepGenSQLite(dBFile());
-            Map<Tag, Integer> tagsWithDepth = repGenData.getTagsWithDepth(minTagCount());
-            if (tagsWithDepth.isEmpty()) {
-                System.out.println("\nNo tags found with minimum depth " + minTagCount() + ". Halting Run.\n");
-                ((RepGenSQLite)repGenData).close();
-                return null;
-            }
-            
-            System.out.println("Size of tagsWithDepth: " + tagsWithDepth.size());
-            
+            RepGenDataWriter repGenData=new RepGenSQLite(dBFile());   
             time = System.nanoTime();
             
            //  Create synchronized map for use in parallel streams 
@@ -138,14 +158,14 @@ public class RampSeqAlignFromBlastTags extends AbstractPlugin {
             repGenData.addMappingApproach("SmithWaterman");
             repGenData.addReferenceGenome(refGenome());
             
-            // Add ref tag and tags separately. Add to tagAlignment map,
+            // This adds to refTag table and creates/adds entries to physicalMapPosition table
             repGenData.putRefTagMapping(refTagPositionMap, refGenome());
             
             // Get tags stored from RepGenLoadSeqToDB        
             Set<Tag> tagsToAlign = repGenData.getTags();
             List<Tag> tagList = new ArrayList<Tag>(tagsToAlign);
             
-            // Create synchronized map for use in parallel streams 
+            // Create synchronized map for use in parallel streams int the calculate alignment methods
             Multimap<Tag,AlignmentInfo> tagAlignInfoMap = Multimaps.synchronizedMultimap(HashMultimap.<Tag,AlignmentInfo>create());
             Multimap<RefTagData,AlignmentInfo> refTagAlignInfoMap = Multimaps.synchronizedMultimap(HashMultimap.<RefTagData,AlignmentInfo>create());
             
@@ -153,28 +173,28 @@ public class RampSeqAlignFromBlastTags extends AbstractPlugin {
             // Output of this is stored in db table tagAlignments
             System.out.println("Calling calculateTagTagAlignment for tags without refs");
             
-            calculateTagTagAlignment( tagList, tagAlignInfoMap);
-            System.out.println("Number of tag-tag alignments: " + tagAlignInfoMap.size() + ", store to db.");
+            calculateTagTagAlignment( tagList, tagAlignInfoMap,repGenData);
+            
             // neither tag is reference, null and -1 for tag1 chrom/pos
-            repGenData.putTagAlignments(tagAlignInfoMap, false,false, null,-1,refGenome());
+            //repGenData.putTagAlignments(tagAlignInfoMap, false,false, null,-1,refGenome());
  
             System.out.println("Calling calculateTagRefTagALignment for tags WITH ref");
             Set<RefTagData> refTags = repGenData.getRefTags();
             List<RefTagData> refTagList = new ArrayList<RefTagData>(refTags);
             
             tagAlignInfoMap.clear(); // remove old data
-            calculateTagRefTagAlignment(tagList,refTagList,tagAlignInfoMap,refGenome());
+            calculateTagRefTagAlignment(tagList,refTagList,tagAlignInfoMap,refGenome(), repGenData);
             
             // Add the tag-refTag info to the tagAlignments table.           
             // tag1=nonref, tag2=ref, null and -1 for tag1 .  Alignment will be
-            // done twice:  once for tag/refTag-fwd, once for tag/refTag-reverse
+            // done twice:  once for tag/refTag-fwd, once for tag/refTag-reverse complement
             System.out.println("Number of tag-refTag alignments, includes aligning to ref fwd and reverse strands: " + tagAlignInfoMap.size() + ", store to db.");
-            repGenData.putTagAlignments(tagAlignInfoMap,false,true,null,-1,refGenome());
+            //repGenData.putTagAlignments(tagAlignInfoMap,false,true,null,-1,refGenome());
             
             System.out.println("Calling calculateRefRefAlignment");            
-            calculateRefRefAlignment(refTagList,refTagPositionMap,refTagAlignInfoMap);
-            System.out.println("Number of reftag-reftag alignments: " + refTagAlignInfoMap.size() + ", store to db.");
-            repGenData.putRefRefAlignments(refTagAlignInfoMap, refGenome()); // CREATE putRefRefAlignments -  different parameters
+            calculateRefRefAlignment(refTagList,refTagPositionMap,refTagAlignInfoMap, repGenData);
+            
+            //repGenData.putRefRefAlignments(refTagAlignInfoMap, refGenome()); // CREATE putRefRefAlignments -  different parameters
             ((RepGenSQLite)repGenData).close();
 
             myLogger.info("Finished RepGenPhase2AlignerPlugin\n");
@@ -376,7 +396,7 @@ public class RampSeqAlignFromBlastTags extends AbstractPlugin {
             }           
         } 
 
-        System.out.println("NUmber of tags processed: " + count );
+        System.out.println("Number of tags processed: " + count );
         System.out.println("Finsished creating tags, refTagPositionMap size: " 
                 + refTagPositionMap.size() + ", number refTags with length greater than 150: " + 
                 refLen150more + ", equal 150: " + refLen150 + ", less than 150: " + refLen150less);
@@ -435,12 +455,20 @@ public class RampSeqAlignFromBlastTags extends AbstractPlugin {
     
     // this calculates tag against tag alignment from the tags in the DB
     // tag table (not the refTag table)
-    private void calculateTagTagAlignment(List<Tag> tags, Multimap<Tag,AlignmentInfo> tagAlignInfoMap){
+    private void calculateTagTagAlignment(List<Tag> tags, Multimap<Tag,AlignmentInfo> tagAlignInfoMap, RepGenDataWriter repGenData){
+        long time = System.nanoTime();
         long totalTime = System.nanoTime();
         // For each tag on the tags list, run SW against it and store in tagTagAlignMap 
-        tags.parallelStream().forEach(tag1 -> {
-            for (Tag tag2: tags) {
-                if (tag1.equals(tag2)) continue; // don't aligne against yourself
+        int totalProcessedTags = 0;
+        int tagCount = 0;
+        for (int tidx=0; tidx < tags.size(); tidx++) {
+            Tag tag1 = tags.get(tidx);
+        
+            totalProcessedTags++;
+            tagCount++;
+            IntStream.range(tidx+1, tags.size()).parallel().forEach(item -> {
+                //tagTagSW(tag1, tags.get(item), tagAlignInfoMap);
+                Tag tag2 = tags.get(item);
                 String seq1 = tag1.sequence();
                 String seq2 = tag2.sequence();
                 Reader reader1 = new StringReader(seq1);
@@ -452,7 +480,7 @@ public class RampSeqAlignFromBlastTags extends AbstractPlugin {
                 scoring = new BasicScoringScheme(match_reward(),mismatch_penalty(),gap_penalty());
                 algorithm.setScoringScheme(scoring);
                 int score = 0;
- 
+
                 try {
                     algorithm.loadSequences(reader1, reader2);
                     // for tag-tag alignment, we are only computing the score
@@ -467,18 +495,47 @@ public class RampSeqAlignFromBlastTags extends AbstractPlugin {
                 // for tag/tag, we have no chrom or position or strand or alignment position.  Store "null" and -1
                 AlignmentInfo tagAI = new AlignmentInfo(tag2, null, -1, -1, -1, refGenome(),score);
                 tagAlignInfoMap.put(tag1,tagAI);
+
+            });
+
+            if (tagCount > 999) {
+                System.out.println("FInished aligning " + totalProcessedTags + " tags, this set took " + (System.nanoTime() - time)/1e9 + " seconds, now load to db ..." );
+                time = System.nanoTime();
+                repGenData.putTagTagAlignments(tagAlignInfoMap);
+                System.out.println("Loading DB took " + (System.nanoTime() - time)/1e9 + " seconds.\n");
+                tagCount = 0;
+                tagAlignInfoMap.clear();
+                time = System.nanoTime();
             }
-        });
+        }
+        if (tagCount > 0 ) {
+            System.out.println("Finished processing last alignments, load to DB");
+            time = System.nanoTime();
+            repGenData.putTagTagAlignments(tagAlignInfoMap);
+            System.out.println("Loading DB took " + (System.nanoTime() - time)/1e9 + " seconds.\n");
+            tagCount = 0;
+            tagAlignInfoMap.clear(); // start fresh with next 1000
+        }
+
         System.out.println("Number of tags: " + tags.size() + ", TotalTime for calculateTagTagAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
     }
-    
+
     // This calculates alignment of each tag against each reference tag.
+    // For tag to refTag, we DO want every tag on tag list against every
+    // tag on refTag list.
     private void calculateTagRefTagAlignment(List<Tag> tags, List<RefTagData> refTagDataList,
-            Multimap<Tag,AlignmentInfo> tagAlignInfoMap, String refGenome){
+            Multimap<Tag,AlignmentInfo> tagAlignInfoMap, String refGenome, RepGenDataWriter repGenData){
         long totalTime = System.nanoTime();
-        // For each tag on the tags list, run SW against it and store in tagAlignInfoMap  
-        tags.parallelStream().forEach(tag1 -> {          
-            for (RefTagData rtd : refTagDataList) {
+        long time = System.nanoTime();
+        // For each tag on the tags list, run SW against it and all refTags and store in tagAlignInfoMap 
+        int totalProcessedTags = 0;
+        int tagCount = 0;
+        for (int tidx = 0; tidx < tags.size(); tidx++) {
+            totalProcessedTags++;
+            tagCount++;
+            Tag tag1 = tags.get(tidx);
+
+            refTagDataList.parallelStream().forEach (rtd -> {
                 // Create alignment against both refTag and reverse complement of refTag
                 Tag tag2 = rtd.tag();
                 
@@ -551,19 +608,48 @@ public class RampSeqAlignFromBlastTags extends AbstractPlugin {
                 } catch (IncompatibleScoringSchemeException e) {
                     e.printStackTrace();
                 }                                        
-            } 
-        });
+            }); 
+            if (tagCount > 999) {
+                System.out.println("FInished aligning " + totalProcessedTags + " tags, this set took " + (System.nanoTime() - time)/1e9 + " seconds, now load to db ..." );
+                time = System.nanoTime();
+                // tag1 not ref tag (false), tag2 is ref tag (true)
+                repGenData.putTagRefTagAlignments(tagAlignInfoMap,refGenome());               
+                System.out.println("Loading DB took " + (System.nanoTime() - time)/1e9 + " seconds.\n");
+                tagCount = 0;
+                tagAlignInfoMap.clear();
+                time = System.nanoTime();
+            }
+        }
+        if (tagCount > 0) {
+            System.out.println("FInished last alignments " + totalProcessedTags + " tags, this set took " + (System.nanoTime() - time)/1e9 + " seconds, now load to db ..." );
+            time = System.nanoTime();
+            // tag1 not ref tag (false), tag2 is ref tag (true)
+            repGenData.putTagRefTagAlignments(tagAlignInfoMap,refGenome());               
+            System.out.println("Loading DB took " + (System.nanoTime() - time)/1e9 + " seconds.\n");
+            tagCount = 0;
+            tagAlignInfoMap.clear();
+            time = System.nanoTime();
+        }
         System.out.println("Num tags: " + tags.size() + ", Num refTags: " + refTagDataList.size() + ", TotalTime for calculateTagRefTagAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
     }
     
     // This calculates alignment of  reference tags against each other.
+    // Only need to caluclate refTag to other refTags on list below it - not
+    // against a ref tag that has already calculated the alignment against the current.
     private void calculateRefRefAlignment(List<RefTagData> refTags, Multimap<Tag,Position> refTagPosMap,
-            Multimap<RefTagData,AlignmentInfo> refTagAlignInfoMap){
+            Multimap<RefTagData,AlignmentInfo> refTagAlignInfoMap, RepGenDataWriter repGenData){
         long totalTime = System.nanoTime();
+        long time = System.nanoTime();
+        int tagCount = 0;
+        int totalProcessedTags = 0;
         // For each tag on the reftags list, run SW against all other tags in the list
-       refTags.parallelStream().forEach(tag1 -> {
-            for (RefTagData tag2: refTags) {
-                if (tag1.equals(tag2)) continue; // don't align against yourself
+        for (int tidx = 0; tidx < refTags.size(); tidx++) {
+            tagCount++;
+            totalProcessedTags++;
+            RefTagData tag1 = refTags.get(tidx);
+            final int tIdxFinal = tidx;
+            IntStream.range(tidx+1, refTags.size()).parallel().forEach(item -> {
+                RefTagData tag2 = refTags.get(tIdxFinal+1);
                 String seq1 = tag1.tag().sequence();
                 String seq2 = tag2.tag().sequence();
                 Reader reader1 = new StringReader(seq1);
@@ -592,8 +678,30 @@ public class RampSeqAlignFromBlastTags extends AbstractPlugin {
                 // for ref-ref alignment.
                 AlignmentInfo tagAI = new AlignmentInfo(tag2.tag(),tag2.chromosome(),tag2.position(),-1, 1,refGenome(),score);
                 refTagAlignInfoMap.put(tag1,tagAI);
+            });
+            if (tagCount > 999) {
+                System.out.println("FInished aligning " + totalProcessedTags + " tags, this set took " + (System.nanoTime() - time)/1e9 + " seconds, now load to db ..." );
+                time = System.nanoTime();
+                // tag1 not ref tag (false), tag2 is ref tag (true)
+                repGenData.putRefRefAlignments(refTagAlignInfoMap, refGenome());
+                               
+                System.out.println("Loading DB took " + (System.nanoTime() - time)/1e9 + " seconds.\n");
+                tagCount = 0;
+                refTagAlignInfoMap.clear();
+                time = System.nanoTime();
             }
-        }); 
+        }
+        if (tagCount > 0) {
+            System.out.println("FInished last refRef alignments " + totalProcessedTags + " tags, this set took " + (System.nanoTime() - time)/1e9 + " seconds, now load to db ..." );
+            time = System.nanoTime();
+            // tag1 not ref tag (false), tag2 is ref tag (true)
+            repGenData.putRefRefAlignments(refTagAlignInfoMap, refGenome());
+                           
+            System.out.println("Loading DB took " + (System.nanoTime() - time)/1e9 + " seconds.\n");
+            tagCount = 0;
+            refTagAlignInfoMap.clear();
+            time = System.nanoTime();
+        }
         System.out.println("Number of refTags: " + refTags.size() + ", TotalTime for calculateREfRefAlignment was " + (System.nanoTime() - totalTime) / 1e9 + " seconds");
     }
     
@@ -820,9 +928,9 @@ public class RampSeqAlignFromBlastTags extends AbstractPlugin {
     /**
      * Set Blast File. Tab delimited Blast file output with
      * NO header line, that contains only the data from columns
-     * for chrom, start postion, end position. 
+     * for chrom, start position, end position. 
      * This data should be filtered to contain only entries
-     * whose identiy value was 98% or greater.
+     * whose identify value was 98% or greater.
      *
      * @param value Blast File
      *
