@@ -51,23 +51,38 @@ CREATE TABLE physicalMapPosition (
 CREATE UNIQUE INDEX physpos_idx ON physicalMapPosition(chromosome,physical_position,strand);
 CREATE INDEX phychrpos_idx ON physicalMapPosition(chromosome);
 
+-- Table: tagTagAlignments
+CREATE TABLE tag_tag_Alignments (
+    tagAlignId INTEGER   PRIMARY KEY,
+    tag1id	INTEGER,
+    tag2id  INTEGER,
+    score INTEGER
+);
+CREATE INDEX tag_tag_Alignments_idx1 on tag_tag_Alignments(tag1id,tag2id);
+
 -- Table: tagAlignments
 -- The ref_align_pos value is where tag1 aligned to tag2 when tag1=non-ref and tag2=ref
 -- With non-ref/ref tag comparisons, tag1 is always the non-ref and tag2 is the ref
 -- ref_align_position is oftn NOT the start of tag2 as tag2 may have differing
 -- length from tag1
-CREATE TABLE tagAlignments (
+CREATE TABLE tag_reftag_Alignments (
     tagAlignId INTEGER   PRIMARY KEY,
-    tag1id	INTEGER,
-    tag2id  INTEGER,
-    tag1_isref  BOOLEAN,
-    tag2_isref  BOOLEAN,
+    tag1id      INTEGER,
+    refTagID  INTEGER,
     score INTEGER,
     ref_align_start_pos  INTEGER,
     ref_align_strand INTEGER
 );
-CREATE INDEX tagAlignments_idx1 on tagAlignments(tag1id,score);
+CREATE INDEX tag_reftag_Alignments_idx1 on tag_reftag_Alignments(tag1id,score);
 
+-- Table: refTagrefTagAlignments
+CREATE TABLE refTag_refTag_Alignments (
+    tagAlignId INTEGER   PRIMARY KEY,
+    tag1id	INTEGER,
+    tag2id  INTEGER,
+    score INTEGER
+);
+CREATE INDEX reftag_reftag_Alignments_idx1 on refTag_refTag_Alignments(tag1id,tag2id);
 
 -- Table: tagCorrelations
 -- t1t2_pearson is the pearson correlation of tag1 depths vector by tag2 depths vector
