@@ -227,7 +227,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
                     //make sure don't lose rare ones, need to set maxTagNumber large enough
                     System.out.println("BEFORE removeTagsWihtoutReplication, tagCntMap.size= " + tagCntMap.keySet().size()
                       + ", tagCntQSMap.size= " + tagCntQSMap.keySet().size());
-                    removeTagsWithoutReplication(tagCntMap,tagCntQSMap,minTaxa());
+                    removeTagsWithoutReplication(tagCntMap,tagCntQSMap,2,4);  //TODO lows values that keep the map under control
                     if (tagCntMap.size() == 0) {
                         System.out.println("WARNING:  After removing tags without replication, there are NO  tags left in the database");
                     } else {
@@ -247,9 +247,11 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
                 System.out.println("\n");
             }
             System.out.println("\nAll the batch are processed");
-            tagCntMap.removeTagByCount(myMinKmerCount.value());
-            tagCntQSMap.removeTagByCount(myMinKmerCount.value()); // should remove the same tags as in call above
-            System.out.println("By removing kmers with minCount of " + myMinKmerCount.value() + "Kmer number is reduced to " + tagCntMap.size()+"\n");
+            removeTagsWithoutReplication(tagCntMap,tagCntQSMap,minTaxa(),minKmerCount());
+//            tagCntMap.removeTagByCount(myMinKmerCount.value());
+//            tagCntQSMap.removeTagByCount(myMinKmerCount.value()); // should remove the same tags as in call above
+           // System.out.println("By removing kmers with minCount of " + myMinKmerCount.value() + "Kmer number is reduced to " + tagCntMap.size()+"\n");
+            System.out.printf("Filter by kmerCnt:%d taxaCount:%d results in MapSize:%d\n",minKmerCount(), minTaxa(), tagCntMap.size());
 
             // Now create map of count/qualityString
             // THis must have the same number of keys as does tagCntMap.
@@ -293,10 +295,11 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
 
             while ((seqAndQual=GBSUtils.readFastQBlock(br,allReads)) != null) {
                 allReads++;
+                int tagEnd = seqAndQual[0].length() < preferredTagLength ? seqAndQual[0].length() : preferredTagLength;
                 // Check for and toss low quality reads
                 if(minQual>0) {
                     //todo move getFirstLowQualityPos into this class?
-                    if(BaseEncoder.getFirstLowQualityPos(seqAndQual[1],minQual, qualityScoreBase)<(preferredTagLength)){
+                    if(BaseEncoder.getFirstLowQualityPos(seqAndQual[1],minQual, qualityScoreBase)<(tagEnd)){
                     	lowQualityReads++;
                     	continue;
                     }
@@ -318,7 +321,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
                 	continue; // for combined reads, just continue, don't error out.
                 }
                 //Tag tag = TagBuilder.instance(seqAndQual[0].substring(0,preferredTagLength)).build();
-                int tagEnd = seqAndQual[0].length() < preferredTagLength ? seqAndQual[0].length() : preferredTagLength;
+
                 Tag tag = TagBuilder.instance(seqAndQual[0].substring(0,tagEnd)).build();
                 
 
@@ -374,19 +377,19 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
      * 
      * In addition, it removes the corresponding entry from the tag-qualityscore map.  They must remain in synch
      */
-    private static void removeTagsWithoutReplication (TagDistributionMap masterTagTaxaMap, TagCountQualityScoreMap tagCntQSMap,int minTaxa) {
+    private static void removeTagsWithoutReplication (TagDistributionMap masterTagTaxaMap, TagCountQualityScoreMap tagCntQSMap,int minTaxa, int minDepth) {
         int currentSize = masterTagTaxaMap.size();
        // int minTaxa=2;
         System.out.println("Starting removeTagsWithoutReplication. Current tag number: " + currentSize);
         LongAdder tagsRemoved=new LongAdder();
         masterTagTaxaMap.entrySet().parallelStream().forEach(t -> {
             TaxaDistribution td = t.getValue();
-            if(td.totalDepth()<2*minTaxa) {
+            if(td.totalDepth()<minDepth) {  //depth
                 masterTagTaxaMap.remove(t.getKey());
                 tagCntQSMap.remove(t.getKey());
                 tagsRemoved.increment();
             }
-            else if(IntStream.of(td.depths()).filter(depth -> depth>1).count()<minTaxa) {
+            else if(IntStream.of(td.depths()).filter(depth -> depth>1).count()<minTaxa) {  //taxa test
                 masterTagTaxaMap.remove(t.getKey());
                 tagCntQSMap.remove(t.getKey());
                 tagsRemoved.increment();
