@@ -120,7 +120,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
     @Override
     public DataSet processData(DataSet input) {
         int batchSize = myBatchSize.value();
-        float loadFactor = 0.95f;
+        float loadFactor = 0.95f; //TODO: Seems high to Ed
         tagCntMap = new TagDistributionMap (myMaxKmerNumber.value(),loadFactor, 128, this.minKmerCount());
         tagCntQSMap = new TagCountQualityScoreMap(myMaxKmerNumber.value(),loadFactor, 128, this.minKmerCount()); // must add Collections.synchonizedList<String> as the list! 
         try {
