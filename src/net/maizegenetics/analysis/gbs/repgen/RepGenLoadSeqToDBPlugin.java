@@ -280,7 +280,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
 
     private void processFastQ(Path fastqFile, int taxaIndex, TaxaList masterTaxaList,
                               TagDistributionMap masterTagTaxaMap, int preferredTagLength, int minQual) throws StringIndexOutOfBoundsException{
-        int allReads=0, goodBarcodedReads = 0, lowQualityReads = 0;
+        int allReads=0, goodBarcodedReads = 0, lowQualityReads = 0, tooShortReads = 0;
         int maxTaxaNumber=masterTaxaList.size();
         int checkSize = 10000000;
         myLogger.info("processing file " + fastqFile.toString());
@@ -302,16 +302,25 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
                     }
                 }
 
-                if (seqAndQual[0].length() < preferredTagLength) {
-                	String errMsg = "\n\nERROR processing " + fastqFile.toString() + "\n" +
-                			"Reading entry number " + allReads + " fails the length test.\n" +
-                			"Sequence length " + seqAndQual[0].length() +
-                			" is less then maxKmerLength " + preferredTagLength + ".\n" +
-                			"Re-run your files with either a shorter mxKmerL value or a higher minimum quality score.\n";
-                	throw new StringIndexOutOfBoundsException(errMsg);
+                // preferredTagLength is actually maximum tag length.  We need to check if 
+                // tag is less than minimumKmerLength, toss that.  And truncate if is greater
+                // than kmerLength.
+                if (seqAndQual[0].length() < minimumKmerLength()) {
+                //if (seqAndQual[0].length() < preferredTagLength) {
+                    //System.out.println("Tossing kmer, length too short: " + seqAndQual[0].length());
+//                	String errMsg = "\n\nERROR processing " + fastqFile.toString() + "\n" +
+//                			"Reading entry number " + allReads + " fails the length test.\n" +
+//                			"Sequence length " + seqAndQual[0].length() +
+//                			" is less then maxKmerLength " + minimumKmerLength() + ".\n" +
+//                			"Re-run your files with either a shorter mxKmerL value or a higher minimum quality score.\n";
+                	//throw new StringIndexOutOfBoundsException(errMsg);
+                    tooShortReads++;
+                	continue; // for combined reads, just continue, don't error out.
                 }
+                //Tag tag = TagBuilder.instance(seqAndQual[0].substring(0,preferredTagLength)).build();
+                int tagEnd = seqAndQual[0].length() < preferredTagLength ? seqAndQual[0].length() : preferredTagLength;
+                Tag tag = TagBuilder.instance(seqAndQual[0].substring(0,tagEnd)).build();
                 
-                Tag tag = TagBuilder.instance(seqAndQual[0].substring(0,preferredTagLength)).build();
 
                 if(tag==null) continue;   //null occurs when any base was not A, C, G, T
                 goodBarcodedReads++;
@@ -323,7 +332,8 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
                     taxaDistribution.increment(taxaIndex);
                 }
                 // add to qualityScoreMap
-                String tagQS = seqAndQual[1].substring(0,preferredTagLength);
+               // String tagQS = seqAndQual[1].substring(0,preferredTagLength);
+                String tagQS = seqAndQual[1].substring(0,tagEnd);
                 List<String> tagScores = tagCntQSMap.get(tag);
                 if (tagScores==null) {
                     // create new synchronizedList
@@ -342,6 +352,7 @@ public class RepGenLoadSeqToDBPlugin extends AbstractPlugin {
                     "Total number of reads in lane=" + allReads +"\n"+
                     "Total number of good barcoded reads=" + goodBarcodedReads+"\n"+
                     "Total number of low quality reads=" + lowQualityReads+"\n"+
+                    "Total number of too short reads=" + tooShortReads + "\n"+
                     "Timing process (sorting, collapsing, and writing TagCount to file)."+"\n"+
                     "Process took " + (System.nanoTime() - time)/1e6 + " milliseconds.");
             System.out.println("tagCntMap size: "+masterTagTaxaMap.size());
