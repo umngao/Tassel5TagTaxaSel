@@ -221,7 +221,8 @@ public class PhenotypeLM {
 
 		//add covariates to model
 		for (PhenotypeAttribute attr:myCovariateAttributes) {
-			double[] values = AssociationUtils.getNonMissingDoubles((double[]) attr.allValues(), missingObs);
+			NumericAttribute numericAttr = (NumericAttribute) attr;
+			double[] values = AssociationUtils.getNonMissingDoubles(numericAttr.floatValues(), missingObs);
 			CovariateModelEffect cme = new CovariateModelEffect(values, attr.name());
 			modelEffects.add(cme);
 		}
