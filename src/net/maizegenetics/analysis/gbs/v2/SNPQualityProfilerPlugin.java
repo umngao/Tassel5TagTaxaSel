@@ -95,13 +95,16 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
         
         // Stream<ImmutableMultimap<Allele,TaxaDistribution>> streamOfAlleles = tagDataWriter.getAllAllelesTaxaDistForSNP();
         Stream<Map.Entry<Allele, TaxaDistribution>> streamOfAlleles = tagDataWriter.getAllAllelesTaxaDistForSNPEntries();
-        
+
         LongAdder adder=new LongAdder();
         
         //These multimaps only have one single entry in them.
         //Iterator<ImmutableMultimap<Allele,TaxaDistribution>> streamIterator = streamOfAlleles.iterator();
         Iterator<Map.Entry<Allele,TaxaDistribution>> streamIterator = streamOfAlleles.iterator();
-        
+        if (!streamIterator.hasNext() ) {
+            System.out.println("\nERROR: No SNP entries found in the SNP Position table.  \nPlease run DiscoverySNPCallerPluginV2 to call SNPs before running this plugin.\n");
+            return null;
+        }
         //Set up aggregate objects
         ImmutableMultimap.Builder<Allele, TaxaDistribution> aggMapBuilder = ImmutableMultimap.builder();
         
@@ -125,6 +128,7 @@ public class SNPQualityProfilerPlugin extends AbstractPlugin {
                 fileWriter.write("\n");               
             }catch(IOException e) {
                 System.out.println(e);
+                return null;
             } 
         }
         
