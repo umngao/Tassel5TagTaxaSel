@@ -216,9 +216,8 @@ public final class Utils {
         }
 
         Set<String> classes = new LinkedHashSet<>();
-        ZipFile zFile = null;
-        try {
-            zFile = new ZipFile(tasselPath);
+        try (ZipFile zFile = new ZipFile(tasselPath);) {
+
             Enumeration<? extends ZipEntry> entries = zFile.entries();
             while (entries.hasMoreElements()) {
                 ZipEntry entry = entries.nextElement();
@@ -232,12 +231,6 @@ public final class Utils {
             }
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            try {
-                zFile.close();
-            } catch (Exception e) {
-                // do nothing
-            }
         }
         return classes;
     }

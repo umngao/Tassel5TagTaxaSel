@@ -189,11 +189,11 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
      * @return description
      */
     public String pluginDescription();
-    
+
     /**
      * Returns URL to User Manual.
-     * 
-     * @return URL 
+     *
+     * @return URL
      */
     public String pluginUserManualURL();
 
@@ -203,7 +203,7 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
      * @return Usage Statement
      */
     public String getUsage();
-    
+
     public boolean wasCancelled();
 
     static final Logger myLogger = Logger.getLogger(Plugin.class);
@@ -254,12 +254,10 @@ public interface Plugin extends PluginListener, ProgressListener, Runnable {
     public static boolean isPlugin(String className) {
         try {
             Class currentMatch = Class.forName(className);
-            if (!currentMatch.isInterface() && Plugin.class.isAssignableFrom(currentMatch)) {
-                return true;
-            } else {
-                return false;
-            }
+            return !currentMatch.isInterface() && Plugin.class.isAssignableFrom(currentMatch);
         } catch (Exception ex) {
+            return false;
+        } catch (Error err) {
             return false;
         }
     }
