@@ -5,6 +5,7 @@
  */
 package net.maizegenetics.analysis.distance;
 
+import com.google.common.collect.Range;
 import java.awt.Frame;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -56,8 +57,14 @@ public class VCAPScanPlugin extends AbstractPlugin {
             .description("")
             .build();
 
+    private PluginParameter<Integer> myBlockingWindowSize = new PluginParameter.Builder<>("blockingWindowSize", 0, Integer.class)
+            .description("Blocking window size")
+            .range(Range.atLeast(0))
+            .build();
+
     private PluginParameter<Integer> myNumSitesPerBlock = new PluginParameter.Builder<>("numSitesPerBlock", 10000, Integer.class)
             .description("For Site_Blocks method, this sets number of sites per block. Blocks do not span chromosomes.")
+            .range(Range.atLeast(1))
             .build();
 
     private PluginParameter<String> myDirOfFiles = new PluginParameter.Builder<>("dirOfFiles", null, String.class)
@@ -141,17 +148,17 @@ public class VCAPScanPlugin extends AbstractPlugin {
                 DataSet rest = subtractPlugin.performFunction(part);
 
                 ExportPlugin exportPlugin = new ExportPlugin(null, false);
-                exportPlugin.setAlignmentFileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
+                exportPlugin.fileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
                 String startPosStr = String.format("%012d", genotypeChr.chromosomalPosition(0));
                 String endPosStr = String.format("%012d", genotypeChr.chromosomalPosition(numSites - 1));
                 String saveFilename = outputDir() + "Kinship_" + chrStr + "_" + startPosStr + "_" + endPosStr;
                 matrixFiles.add(saveFilename);
-                exportPlugin.setSaveFile(saveFilename);
+                exportPlugin.saveFile(saveFilename);
                 threadPool.submit(new ThreadedPluginListener(exportPlugin, new PluginEvent(new DataSet(part.getData(0), part.getCreator()))));
 
                 ExportPlugin exportPlugin1 = new ExportPlugin(null, false);
-                exportPlugin1.setAlignmentFileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
-                exportPlugin1.setSaveFile(saveFilename + "Rest");
+                exportPlugin1.fileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
+                exportPlugin1.saveFile(saveFilename + "Rest");
                 threadPool.submit(new ThreadedPluginListener(exportPlugin1, new PluginEvent(new DataSet(rest.getData(0), rest.getCreator()))));
 
             }
@@ -189,17 +196,23 @@ public class VCAPScanPlugin extends AbstractPlugin {
                 GenotypeTable genotypeChr = (GenotypeTable) genotypeDataSet.getData(0).getData();
                 int numSites = genotypeChr.numberOfSites();
 
+                int winBufferSize = blockingWindowSize() - numSitesPerBlock / 2;
+
                 for (int startSite = 0; startSite < numSites; startSite += numSitesPerBlock) {
 
                     int endSite = Math.min(startSite + numSitesPerBlock - 1, numSites - 1);
 
+                    int startSiteBlocking = Math.max(startSite - winBufferSize, 0);
+                    int endSiteBlocking = Math.min(endSite + winBufferSize, numSites - 1);
+
                     String startPosStr = String.format("%012d", genotypeChr.chromosomalPosition(startSite));
                     String endPosStr = String.format("%012d", genotypeChr.chromosomalPosition(endSite));
                     String saveFilename = outputDir() + "Kinship_" + chrStr + "_" + startPosStr + "_" + endPosStr;
-                    if (new File(saveFilename).isFile()) {
+                    matrixFiles.add(saveFilename);
+                    if (new File(saveFilename + "Rest.grm.bin").isFile() && new File(saveFilename + ".grm.bin").isFile()) {
+                        System.out.println(saveFilename + " already exists");
                         continue;
                     }
-                    matrixFiles.add(saveFilename);
 
                     FilterSiteBuilderPlugin filter = new FilterSiteBuilderPlugin(null, false)
                             .startSite(startSite)
@@ -208,16 +221,27 @@ public class VCAPScanPlugin extends AbstractPlugin {
 
                     DataSet part = kinshipPlugin.performFunction(filteredGenotype);
 
-                    DataSet rest = subtractPlugin.performFunction(part);
+                    DataSet blocking;
+                    if (startSite != startSiteBlocking || endSite != endSiteBlocking) {
+                        FilterSiteBuilderPlugin filterBlocking = new FilterSiteBuilderPlugin(null, false)
+                                .startSite(startSiteBlocking)
+                                .endSite(endSiteBlocking);
+                        DataSet filteredBlocking = filterBlocking.performFunction(genotypeDataSet);
+
+                        blocking = kinshipPlugin.performFunction(filteredBlocking);
+                    } else {
+                        blocking = part;
+                    }
+                    DataSet rest = subtractPlugin.performFunction(blocking);
 
                     ExportPlugin exportPlugin = new ExportPlugin(null, false);
-                    exportPlugin.setAlignmentFileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
-                    exportPlugin.setSaveFile(saveFilename);
+                    exportPlugin.fileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
+                    exportPlugin.saveFile(saveFilename);
                     threadPool.submit(new ThreadedPluginListener(exportPlugin, new PluginEvent(new DataSet(part.getData(0), part.getCreator()))));
 
                     ExportPlugin exportPlugin1 = new ExportPlugin(null, false);
-                    exportPlugin1.setAlignmentFileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
-                    exportPlugin1.setSaveFile(saveFilename + "Rest");
+                    exportPlugin1.fileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
+                    exportPlugin1.saveFile(saveFilename + "Rest");
                     threadPool.submit(new ThreadedPluginListener(exportPlugin1, new PluginEvent(new DataSet(rest.getData(0), rest.getCreator()))));
 
                 }
@@ -270,17 +294,17 @@ public class VCAPScanPlugin extends AbstractPlugin {
                 GenotypeTable genotypeChr = (GenotypeTable) genotypeDataSet.getData(0).getData();
                 int numSites = genotypeChr.numberOfSites();
                 ExportPlugin exportPlugin = new ExportPlugin(null, false);
-                exportPlugin.setAlignmentFileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
+                exportPlugin.fileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
                 String startPosStr = String.format("%012d", genotypeChr.chromosomalPosition(0));
                 String endPosStr = String.format("%012d", genotypeChr.chromosomalPosition(numSites - 1));
                 String saveFilename = outputDir() + "Kinship_0_" + startPosStr + "_" + endPosStr + "_" + Utils.getFilename(file);
                 matrixFiles.add(saveFilename);
-                exportPlugin.setSaveFile(saveFilename);
+                exportPlugin.saveFile(saveFilename);
                 threadPool.submit(new ThreadedPluginListener(exportPlugin, new PluginEvent(new DataSet(part.getData(0), part.getCreator()))));
 
                 ExportPlugin exportPlugin1 = new ExportPlugin(null, false);
-                exportPlugin1.setAlignmentFileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
-                exportPlugin1.setSaveFile(saveFilename + "Rest");
+                exportPlugin1.fileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
+                exportPlugin1.saveFile(saveFilename + "Rest");
                 threadPool.submit(new ThreadedPluginListener(exportPlugin1, new PluginEvent(new DataSet(rest.getData(0), rest.getCreator()))));
 
             }
@@ -306,15 +330,19 @@ public class VCAPScanPlugin extends AbstractPlugin {
 
     private String createWholeMatrixIfNeeded(DataSet input) {
         if ((wholeMatrix() == null) || (wholeMatrix().isEmpty())) {
+            String saveFilename = outputDir() + "kinship_whole.txt";
+            if (!isFileEmpty(saveFilename)) {
+                return saveFilename;
+            }
+
             KinshipPlugin kinshipPlugin = new KinshipPlugin(null, false)
                     .kinshipMethod(KinshipPlugin.KINSHIP_METHOD.Centered_IBS);
             kinshipPlugin.addListener(DefaultPluginListener.getInstance());
             DataSet whole = kinshipPlugin.performFunction(input);
 
             ExportPlugin exportPlugin = new ExportPlugin(null, false);
-            exportPlugin.setAlignmentFileType(FileLoadPlugin.TasselFileType.SqrMatrix);
-            String saveFilename = outputDir() + "kinship_whole.txt";
-            exportPlugin.setSaveFile(saveFilename);
+            exportPlugin.fileType(FileLoadPlugin.TasselFileType.SqrMatrix);
+            exportPlugin.saveFile(saveFilename);
             exportPlugin.performFunction(whole);
             return saveFilename;
         } else {
@@ -325,9 +353,19 @@ public class VCAPScanPlugin extends AbstractPlugin {
     private void runLDAK(List<String> matrixFiles) {
 
         // ldak.4.9.fast --reml results_chr1 --mgrm kinship_list.txt --pheno NAM_ap_dta_multiblup.txt --kinship-details NO
+        int numProcesses = 0;
+        Process[] runningProcesses = new Process[3];
+        BufferedReader[] readers = new BufferedReader[3];
+        String[] commands = new String[3];
         for (String filename : matrixFiles) {
 
-            try (BufferedWriter writer = Utils.getBufferedWriter("kinship_list.txt")) {
+            String resultFilename = outputDir() + "Results" + Utils.getFilename(filename);
+            if (!isFileEmpty(resultFilename + ".reml")) {
+                continue;
+            }
+
+            String listFilename = "kinship_list" + numProcesses + ".txt";
+            try (BufferedWriter writer = Utils.getBufferedWriter(listFilename)) {
                 writer.write(filename);
                 writer.write("\n");
                 writer.write(filename + "Rest");
@@ -336,27 +374,52 @@ public class VCAPScanPlugin extends AbstractPlugin {
                 myLogger.debug(e.getMessage(), e);
             }
 
-            String command = ldakCommand()
-                    + " --reml " + outputDir() + "Results" + Utils.getFilename(filename)
-                    + " --mgrm " + "kinship_list.txt"
+            commands[numProcesses] = ldakCommand()
+                    + " --reml " + resultFilename
+                    + " --mgrm " + listFilename
                     + " --pheno " + phenotypeFile()
                     + " --kinship-details NO";
 
-            myLogger.info("command: " + command);
-
             try {
-                Process process = Runtime.getRuntime().exec(command);
-                BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(process.getInputStream()));
-                String line = null;
-                while ((line = reader.readLine()) != null) {
-                    System.out.println(line);
-                }
-                process.waitFor();
+                runningProcesses[numProcesses] = Runtime.getRuntime().exec(commands[numProcesses]);
+                readers[numProcesses] = new BufferedReader(
+                        new InputStreamReader(runningProcesses[numProcesses].getInputStream()));
             } catch (Exception e) {
-                myLogger.debug(e.getMessage(), e);
+                myLogger.error(e.getMessage(), e);
             }
 
+            numProcesses++;
+            if (numProcesses == 3) {
+                for (int i = 0; i < numProcesses; i++) {
+                    try {
+                        runningProcesses[i].waitFor();
+                        myLogger.info("command: " + commands[i]);
+                        String line = null;
+                        while ((line = readers[i].readLine()) != null) {
+                            System.out.println(line);
+                        }
+                        readers[i].close();
+                    } catch (Exception e) {
+                        myLogger.error(e.getMessage(), e);
+                    }
+                }
+                numProcesses = 0;
+            }
+
+        }
+
+        for (int i = 0; i < numProcesses; i++) {
+            try {
+                runningProcesses[i].waitFor();
+                myLogger.info("command: " + commands[i]);
+                String line = null;
+                while ((line = readers[i].readLine()) != null) {
+                    System.out.println(line);
+                }
+                readers[i].close();
+            } catch (Exception e) {
+                myLogger.error(e.getMessage(), e);
+            }
         }
 
     }
@@ -421,6 +484,18 @@ public class VCAPScanPlugin extends AbstractPlugin {
             ex.printStackTrace();
         }
 
+    }
+
+    private boolean isFileEmpty(String filename) {
+        if (new File(filename).isFile()) {
+            try (BufferedReader reader = Utils.getBufferedReader(filename)) {
+                return reader.readLine() == null;
+            } catch (Exception e) {
+                return true;
+            }
+        } else {
+            return true;
+        }
     }
 
     private class ChrPos implements Comparable<ChrPos> {
@@ -490,6 +565,27 @@ public class VCAPScanPlugin extends AbstractPlugin {
      */
     public VCAPScanPlugin method(SCAN_METHOD value) {
         myMethod = new PluginParameter<>(myMethod, value);
+        return this;
+    }
+
+    /**
+     * Blocking window size
+     *
+     * @return Blocking Window Size
+     */
+    public Integer blockingWindowSize() {
+        return myBlockingWindowSize.value();
+    }
+
+    /**
+     * Set Blocking Window Size. Blocking window size
+     *
+     * @param value Blocking Window Size
+     *
+     * @return this plugin
+     */
+    public VCAPScanPlugin blockingWindowSize(Integer value) {
+        myBlockingWindowSize = new PluginParameter<>(myBlockingWindowSize, value);
         return this;
     }
 
