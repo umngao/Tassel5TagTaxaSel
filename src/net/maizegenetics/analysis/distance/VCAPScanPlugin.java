@@ -67,6 +67,11 @@ public class VCAPScanPlugin extends AbstractPlugin {
             .range(Range.atLeast(1))
             .build();
 
+    private PluginParameter<Integer> myStepSize = new PluginParameter.Builder<>("stepSize", 0, Integer.class)
+            .description("Step Size. If step size set to default 0, the step size will equal number sites per block.")
+            .range(Range.atLeast(0))
+            .build();
+
     private PluginParameter<String> myDirOfFiles = new PluginParameter.Builder<>("dirOfFiles", null, String.class)
             .description("Directory contains files for sub-matrices. Can be text (.txt) containing chromosome / positions, Bed (.bed), or Position List (.json or .json.gz)")
             .inDir()
@@ -196,9 +201,13 @@ public class VCAPScanPlugin extends AbstractPlugin {
                 GenotypeTable genotypeChr = (GenotypeTable) genotypeDataSet.getData(0).getData();
                 int numSites = genotypeChr.numberOfSites();
 
-                int winBufferSize = blockingWindowSize() - numSitesPerBlock / 2;
+                int winBufferSize = (blockingWindowSize() - numSitesPerBlock) / 2;
+                int stepSize = stepSize();
+                if (stepSize < 1) {
+                    stepSize = numSitesPerBlock;
+                }
 
-                for (int startSite = 0; startSite < numSites; startSite += numSitesPerBlock) {
+                for (int startSite = 0; startSite < numSites; startSite += stepSize) {
 
                     int endSite = Math.min(startSite + numSitesPerBlock - 1, numSites - 1);
 
@@ -210,7 +219,7 @@ public class VCAPScanPlugin extends AbstractPlugin {
                     String saveFilename = outputDir() + "Kinship_" + chrStr + "_" + startPosStr + "_" + endPosStr;
                     matrixFiles.add(saveFilename);
                     if (new File(saveFilename + "Rest.grm.bin").isFile() && new File(saveFilename + ".grm.bin").isFile()) {
-                        System.out.println(saveFilename + " already exists");
+                        myLogger.info(saveFilename + " already exists");
                         continue;
                     }
 
@@ -607,6 +616,27 @@ public class VCAPScanPlugin extends AbstractPlugin {
      */
     public VCAPScanPlugin numSitesPerBlock(Integer value) {
         myNumSitesPerBlock = new PluginParameter<>(myNumSitesPerBlock, value);
+        return this;
+    }
+
+    /**
+     * Step Size
+     *
+     * @return Step Size
+     */
+    public Integer stepSize() {
+        return myStepSize.value();
+    }
+
+    /**
+     * Set Step Size. Step Size
+     *
+     * @param value Step Size
+     *
+     * @return this plugin
+     */
+    public VCAPScanPlugin stepSize(Integer value) {
+        myStepSize = new PluginParameter<>(myStepSize, value);
         return this;
     }
 
