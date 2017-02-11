@@ -167,6 +167,11 @@ public class CoreGenotypeTable implements GenotypeTable {
     }
 
     @Override
+    public byte alternateAllele(int site) {
+        return myPositionList.allele(WHICH_ALLELE.Alternate, site);
+    }
+
+    @Override
     public byte[] referenceAlleles(int startSite, int endSite) {
         return myPositionList.alleles(WHICH_ALLELE.Reference, startSite, endSite);
     }

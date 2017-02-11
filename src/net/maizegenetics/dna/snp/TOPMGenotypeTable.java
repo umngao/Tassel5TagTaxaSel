@@ -701,6 +701,11 @@ public class TOPMGenotypeTable implements GenotypeTable {
     }
 
     @Override
+    public byte alternateAllele(int site) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
     public byte[] referenceAlleles(int startSite, int endSite) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
@@ -754,7 +759,7 @@ public class TOPMGenotypeTable implements GenotypeTable {
     public Stream<Byte> streamGenotype(int taxon) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
-    
+
     @Override
     public boolean hasSiteTranslations() {
         return false;

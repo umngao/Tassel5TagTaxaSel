@@ -350,6 +350,12 @@ public class CombineGenotypeTable implements GenotypeTable {
         int translate = translateSite(site);
         return myGenotypeTables[translate].referenceAllele(site - mySiteOffsets[translate]);
     }
+    
+    @Override
+    public byte alternateAllele(int site) {
+        int translate = translateSite(site);
+        return myGenotypeTables[translate].alternateAllele(site - mySiteOffsets[translate]);
+    }
 
     @Override
     public GenotypeTable[] compositeAlignments() {

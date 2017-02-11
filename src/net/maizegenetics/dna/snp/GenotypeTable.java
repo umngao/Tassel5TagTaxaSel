@@ -299,14 +299,22 @@ public interface GenotypeTable {
     public String[] genotypeAsStringArray(int taxon, int site);
 
     /**
-     * Return (haploid) reference allele values at given site.
+     * Return (haploid) reference allele value at given site.
      *
      * @param site site
      *
-     * @return first four bits are the first allele value and the second four
-     * bits are the second allele value.
+     * @return first four bits are the encoded reference value.
      */
     public byte referenceAllele(int site);
+
+    /**
+     * Return (haploid) alternate allele value at given site.
+     *
+     * @param site site
+     *
+     * @return first four bits are the encoded alternate value.
+     */
+    public byte alternateAllele(int site);
 
     /**
      * Returns (haploid) reference alleles in specified range. End site not
@@ -942,8 +950,8 @@ public interface GenotypeTable {
     public Stream<Byte> streamGenotype();
 
     public Stream<Byte> streamGenotype(int taxon);
-    
+
     public boolean hasSiteTranslations();
-    
+
     public int[] siteTranslations();
 }

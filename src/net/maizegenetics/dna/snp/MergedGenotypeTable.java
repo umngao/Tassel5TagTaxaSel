@@ -25,67 +25,65 @@ public class MergedGenotypeTable implements GenotypeTable {
 
     private final GenotypeTable[] myGenotypeTables;
     private final GenotypeCallTable myGenotype;
-    private final GenotypeCallTable[] myGenotypes ;
+    private final GenotypeCallTable[] myGenotypes;
     private final Map<Chromosome, GenotypeTable> myChromosomes = new HashMap<>();
     private Chromosome[] myChromosomesList;
     private final TaxaList myTaxaList;
     private String[][] myAlleleStates;
     private PositionList myPositions = null;
     private boolean mergedMode = false;
-    
-    public MergedGenotypeTable(GenotypeTable[] genoTables, TaxaList taxaList,PositionList positionList) {
+
+    public MergedGenotypeTable(GenotypeTable[] genoTables, TaxaList taxaList, PositionList positionList) {
         myGenotypeTables = genoTables;
         myTaxaList = taxaList;
         myPositions = positionList;
         myGenotypes = new GenotypeCallTable[myGenotypeTables.length];
-        for(int i = 0; i<myGenotypeTables.length;i++) {
+        for (int i = 0; i < myGenotypeTables.length; i++) {
             myGenotypes[i] = myGenotypeTables[i].genotypeMatrix();
         }
         //Create Taxon Mapping
-        
+
         int[][] taxonMap = new int[taxaList.size()][genoTables.length];
-        for(int i = 0; i < myTaxaList.numberOfTaxa(); i++) {
+        for (int i = 0; i < myTaxaList.numberOfTaxa(); i++) {
             int[] taxaIndexPerTable = new int[myGenotypeTables.length];
-            for(int j = 0; j < taxaIndexPerTable.length; j++) {
-                if(myGenotypeTables[j].taxa().indexOf(myTaxaList.get(i)) ==-1) {
+            for (int j = 0; j < taxaIndexPerTable.length; j++) {
+                if (myGenotypeTables[j].taxa().indexOf(myTaxaList.get(i)) == -1) {
                     taxaIndexPerTable[j] = -1;
-                }
-                else {
+                } else {
                     taxaIndexPerTable[j] = myGenotypeTables[j].taxa().indexOf(myTaxaList.get(i));
                 }
             }
             taxonMap[i] = taxaIndexPerTable;
         }
-        
+
         //Create Position Mapping
         int[][] positionMap = new int[myPositions.size()][myGenotypeTables.length];
-        for(int i = 0; i < positionMap.length; i++) {
+        for (int i = 0; i < positionMap.length; i++) {
             int[] posIndexPerTable = new int[positionMap[i].length];
-            for(int j = 0; j < posIndexPerTable.length; j++) {
-                if(myGenotypeTables[j].positions().indexOf(myPositions.get(i)) == -1){
+            for (int j = 0; j < posIndexPerTable.length; j++) {
+                if (myGenotypeTables[j].positions().indexOf(myPositions.get(i)) == -1) {
                     posIndexPerTable[j] = -1;
-                }
-                else {
+                } else {
                     posIndexPerTable[j] = myGenotypeTables[j].positions().indexOf(myPositions.get(i));
                 }
             }
             positionMap[i] = posIndexPerTable;
         }
-        
-        myGenotype = MergedGenotypeCallTable.getInstance(myGenotypes,taxonMap,positionMap);
-        
+
+        myGenotype = MergedGenotypeCallTable.getInstance(myGenotypes, taxonMap, positionMap);
+
     }
-    
+
     public static GenotypeTable getInstance(GenotypeTable[] genoTables, BiFunction taxaMergeRule, BiFunction positionMergeRule) {
-        TaxaList txl = (TaxaList)taxaMergeRule.apply(genoTables[0].taxa(),genoTables[1].taxa());
-        PositionList posList = (PositionList)positionMergeRule.apply(genoTables[0].positions(), genoTables[1].positions());
-        return new MergedGenotypeTable(genoTables,txl,posList);
+        TaxaList txl = (TaxaList) taxaMergeRule.apply(genoTables[0].taxa(), genoTables[1].taxa());
+        PositionList posList = (PositionList) positionMergeRule.apply(genoTables[0].positions(), genoTables[1].positions());
+        return new MergedGenotypeTable(genoTables, txl, posList);
     }
-    
+
     @Override
     public boolean hasGenotype() {
-        for(int i = 0; i<myGenotypeTables.length;i++) {
-            if(myGenotypeTables[i].hasGenotype()) {
+        for (int i = 0; i < myGenotypeTables.length; i++) {
+            if (myGenotypeTables[i].hasGenotype()) {
                 return true;
             }
         }
@@ -125,7 +123,7 @@ public class MergedGenotypeTable implements GenotypeTable {
     @Override
     public byte[] genotypeAllTaxa(int site) {
         byte[] genotypes = new byte[myTaxaList.numberOfTaxa()];
-        for(int i = 0; i<genotypes.length; i++) {
+        for (int i = 0; i < genotypes.length; i++) {
             genotypes[i] = myGenotype.genotype(i, site);
         }
         return genotypes;
@@ -159,13 +157,13 @@ public class MergedGenotypeTable implements GenotypeTable {
     @Override
     public String genotypeAsString(int taxon, int site) {
         return myGenotype.genotypeAsString(taxon, site);
-        
+
     }
 
     @Override
     public String genotypeAsStringRange(int taxon, int startSite, int endSite) {
         return myGenotype.genotypeAsStringRange(taxon, startSite, endSite);
-        
+
     }
 
     @Override
@@ -180,9 +178,14 @@ public class MergedGenotypeTable implements GenotypeTable {
 
     @Override
     public byte referenceAllele(int site) {
-        // TODO Auto-generated method stub
-        //Need to combine calls and figure out which one is reference
-        return 0;
+        // Need to combine calls and figure out which one is reference
+        return GenotypeTable.UNKNOWN_ALLELE;
+    }
+
+    @Override
+    public byte alternateAllele(int site) {
+        // Need to combine calls and figure out which one is reference
+        return GenotypeTable.UNKNOWN_ALLELE;
     }
 
     @Override
@@ -229,7 +232,7 @@ public class MergedGenotypeTable implements GenotypeTable {
     @Override
     public int numberOfSites() {
         return myPositions.size();
-        
+
     }
 
     @Override
@@ -252,7 +255,7 @@ public class MergedGenotypeTable implements GenotypeTable {
     @Override
     public PositionList positions() {
         return myPositions;
-        
+
     }
 
     @Override
@@ -624,7 +627,7 @@ public class MergedGenotypeTable implements GenotypeTable {
         // TODO Auto-generated method stub
         return null;
     }
-    
+
     @Override
     public boolean hasSiteTranslations() {
         return false;
