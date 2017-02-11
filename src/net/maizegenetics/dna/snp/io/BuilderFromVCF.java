@@ -569,6 +569,9 @@ class ProcessVCFBlock implements Callable<ProcessVCFBlock> {
                 }
                 /***ZRM 8_27 New code end ***/
                 apb.allele(WHICH_ALLELE.Reference, alleles[0]);
+                if (alleles.length > 1) {
+                    apb.allele(WHICH_ALLELE.Alternate, alleles[1]);
+                }
                 for(String annoS: Splitter.on(";").split(input.substring(tabPos[hp.INFO_INDEX-1]+1, tabPos[hp.INFO_INDEX]))) {
                     apb.addAnno(annoS);
                 }
