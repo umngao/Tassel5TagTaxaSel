@@ -279,7 +279,7 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
 
     private SimpleTableReport getSiteSummary(GenotypeTable alignment) {
 
-        String[] firstColumnNames = new String[]{"Site Number", "Site Name", "Chromosome", "Physical Position", "Number of Taxa", "Ref/Alt", "Major Allele", "Major Allele Gametes", "Major Allele Proportion", "Major Allele Frequency",
+        String[] firstColumnNames = new String[]{"Site Number", "Site Name", "Chromosome", "Physical Position", "Number of Taxa", "Ref", "Alt", "Major Allele", "Major Allele Gametes", "Major Allele Proportion", "Major Allele Frequency",
             "Minor Allele", "Minor Allele Gametes", "Minor Allele Proportion", "Minor Allele Frequency"};
         String[] lastColumnNames = new String[]{"Gametes Missing", "Proportion Missing", "Number Heterozygous", "Proportion Heterozygous",
             "Inbreeding Coefficient", "Inbreeding Coefficient Scaled by Missing"};
@@ -314,7 +314,8 @@ public class GenotypeSummaryPlugin extends AbstractPlugin {
             data[i][count++] = alignment.chromosomeName(i);
             data[i][count++] = alignment.chromosomalPosition(i);
             data[i][count++] = numTaxa;
-            data[i][count++] = alignment.genotypeAsString(i, alignment.referenceAllele(i)) + ":" + alignment.genotypeAsString(i, alignment.alternateAllele(i));
+            data[i][count++] = alignment.genotypeAsString(i, alignment.referenceAllele(i));
+            data[i][count++] = alignment.genotypeAsString(i, alignment.alternateAllele(i));
 
             int[][] alleles = alignment.allelesSortedByFrequency(i);
             int numAlleles = alleles[0].length;
