@@ -23,8 +23,10 @@ import net.maizegenetics.analysis.data.ExportPlugin;
 import net.maizegenetics.analysis.data.FileLoadPlugin;
 import net.maizegenetics.analysis.filter.FilterSiteBuilderPlugin;
 import net.maizegenetics.dna.map.Chromosome;
+import net.maizegenetics.dna.snp.FilterSite;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.io.JSONUtils;
+import net.maizegenetics.dna.snp.io.ReadBedfile;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -58,7 +60,7 @@ public class VCAPScanPlugin extends AbstractPlugin {
             .build();
 
     private PluginParameter<Integer> myBlockingWindowSize = new PluginParameter.Builder<>("blockingWindowSize", 0, Integer.class)
-            .description("Blocking window size")
+            .description("Blocking window size. Number of sites (Site_Blocks) or physical positions (Bed_File) on each side of regions.")
             .range(Range.atLeast(0))
             .build();
 
@@ -79,6 +81,11 @@ public class VCAPScanPlugin extends AbstractPlugin {
 
     private PluginParameter<String> myBedFile = new PluginParameter.Builder<>("bedFile", null, String.class)
             .description("For Bed_File method, this specifies bed file to use.  Each line / range in the bed file will be a block in the scan.")
+            .inFile()
+            .build();
+
+    private PluginParameter<String> myBlockingBedFile = new PluginParameter.Builder<>("blockingBedFile", null, String.class)
+            .description("For Bed_File method, this specifies optional bed file to define blocking window for each block in the main bed file.")
             .inFile()
             .build();
 
@@ -201,7 +208,7 @@ public class VCAPScanPlugin extends AbstractPlugin {
                 GenotypeTable genotypeChr = (GenotypeTable) genotypeDataSet.getData(0).getData();
                 int numSites = genotypeChr.numberOfSites();
 
-                int winBufferSize = (blockingWindowSize() - numSitesPerBlock) / 2;
+                int winBufferSize = blockingWindowSize();
                 int stepSize = stepSize();
                 if (stepSize < 1) {
                     stepSize = numSitesPerBlock;
@@ -327,7 +334,150 @@ public class VCAPScanPlugin extends AbstractPlugin {
             }
 
         } else if (method() == SCAN_METHOD.Bed_File) {
-            throw new UnsupportedOperationException();
+
+            if (bedFile() == null || bedFile().isEmpty()) {
+                throw new IllegalArgumentException("VCAPScanPlugin: processData: bed file must be specified for method Bed_File.");
+            } else if (!new File(bedFile()).isFile()) {
+                throw new IllegalArgumentException("VCAPScanPlugin: processData: bed file doesn't exist: " + bedFile());
+            }
+
+            ForkJoinPool threadPool = new ForkJoinPool();
+
+            KinshipPlugin kinshipPlugin = new KinshipPlugin(null, false)
+                    .kinshipMethod(KinshipPlugin.KINSHIP_METHOD.Centered_IBS);
+            kinshipPlugin.addListener(DefaultPluginListener.getInstance());
+
+            SubtractDistanceMatrixPlugin subtractPlugin = new SubtractDistanceMatrixPlugin(null, false)
+                    .wholeMatrix(createWholeMatrixIfNeeded(input));
+
+            List<ReadBedfile.BedFileRange> ranges = ReadBedfile.getRanges(bedFile());
+            int numRanges = ranges.size();
+
+            List<ReadBedfile.BedFileRange> blockingRanges = null;
+            if (blockingBedFile() == null || blockingBedFile().isEmpty()) {
+                myLogger.info("processData: no blocking windows used with bed file: " + bedFile());
+            } else if (!new File(blockingBedFile()).isFile()) {
+                throw new IllegalArgumentException("VCAPScanPlugin: processData: blocking bed file doesn't exist: " + blockingBedFile());
+            } else {
+                blockingRanges = ReadBedfile.getRanges(blockingBedFile());
+                if (ranges.size() != blockingRanges.size()) {
+                    throw new IllegalArgumentException("VCAPScanPlugin: processData: must be same number of ranges in bed file and blocking bed file.");
+                }
+                for (int i = 0; i < numRanges; i++) {
+                    ReadBedfile.BedFileRange range = ranges.get(i);
+                    ReadBedfile.BedFileRange blockingRange = blockingRanges.get(i);
+                    if (!blockingRange.chr().equals(range.chr())) {
+                        throw new IllegalArgumentException("VCAPScanPlugin: processData: block range chr: " + blockingRange.chr() + " should equal range chr: " + range.chr());
+                    }
+                    if (blockingRange.start() > range.start()) {
+                        throw new IllegalArgumentException("VCAPScanPlugin: processData: blocking range start: " + blockingRange.start() + " should be less than or equal to range start: " + range.start());
+                    }
+                    if (blockingRange.end() < range.end()) {
+                        throw new IllegalArgumentException("VCAPScanPlugin: processData: blocking range end: " + blockingRange.end() + " should be greater than or equal to range end: " + range.end());
+                    }
+                }
+            }
+
+            for (int i = 0; i < numRanges; i++) {
+
+                ReadBedfile.BedFileRange range = ranges.get(i);
+
+                int startSite = genotype.siteOfPhysicalPosition(range.start(), new Chromosome(range.chr()));
+                if (startSite < 0) {
+                    startSite = -startSite - 1;
+                }
+
+                int endSite = genotype.siteOfPhysicalPosition(range.end(), new Chromosome(range.chr()));
+                if (endSite < 0) { // end position doesn't exist, so already excluded
+                    endSite = -endSite - 2;
+                } else { // end position is exclusive
+                    endSite--;
+                }
+
+                if (endSite <= startSite) {
+                    myLogger.warn("No sites in region chr: " + range.chr() + " start: " + range.start() + " end: " + range.end());
+                    continue;
+                }
+
+                int startSiteBlocking = startSite;
+                int endSiteBlocking = endSite;
+                if (blockingRanges != null) {
+                    ReadBedfile.BedFileRange blockingRange = blockingRanges.get(i);
+                    startSiteBlocking = genotype.siteOfPhysicalPosition(blockingRange.start(), new Chromosome(blockingRange.chr()));
+                    if (startSiteBlocking < 0) {
+                        startSiteBlocking = -startSiteBlocking - 1;
+                    }
+
+                    endSiteBlocking = genotype.siteOfPhysicalPosition(blockingRange.end(), new Chromosome(blockingRange.chr()));
+                    if (endSiteBlocking < 0) { // end position doesn't exist, so already excluded
+                        endSiteBlocking = -endSiteBlocking - 2;
+                    } else { // end position is exclusive
+                        endSiteBlocking--;
+                    }
+                } else if (blockingWindowSize() != 0) {
+                    startSiteBlocking = genotype.siteOfPhysicalPosition(Math.max(0, range.start() - blockingWindowSize()), new Chromosome(range.chr()));
+                    if (startSiteBlocking < 0) {
+                        startSiteBlocking = -startSiteBlocking - 1;
+                    }
+
+                    endSiteBlocking = genotype.siteOfPhysicalPosition(range.end() + blockingWindowSize(), new Chromosome(range.chr()));
+                    if (endSiteBlocking < 0) { // end position doesn't exist, so already excluded
+                        endSiteBlocking = -endSiteBlocking - 2;
+                    } else { // end position is exclusive
+                        endSiteBlocking--;
+                    }
+                }
+
+                String startPosStr = String.format("%012d", genotype.chromosomalPosition(startSite));
+                String endPosStr = String.format("%012d", genotype.chromosomalPosition(endSite));
+                String saveFilename = outputDir() + "Kinship_" + range.chr() + "_" + startPosStr + "_" + endPosStr;
+                matrixFiles.add(saveFilename);
+                if (new File(saveFilename + "Rest.grm.bin").isFile() && new File(saveFilename + ".grm.bin").isFile()) {
+                    myLogger.info(saveFilename + " already exists");
+                    continue;
+                }
+
+                FilterSiteBuilderPlugin filter = new FilterSiteBuilderPlugin(null, false)
+                        .siteFilter(FilterSite.SITE_RANGE_FILTER_TYPES.SITES)
+                        .startSite(startSite)
+                        .endSite(endSite);
+                DataSet filteredGenotype = filter.performFunction(input);
+
+                DataSet part = kinshipPlugin.performFunction(filteredGenotype);
+
+                DataSet blocking;
+                if (startSite != startSiteBlocking || endSite != endSiteBlocking) {
+                    FilterSiteBuilderPlugin filterBlocking = new FilterSiteBuilderPlugin(null, false)
+                            .startSite(startSiteBlocking)
+                            .endSite(endSiteBlocking);
+                    DataSet filteredBlocking = filterBlocking.performFunction(input);
+
+                    blocking = kinshipPlugin.performFunction(filteredBlocking);
+                } else {
+                    blocking = part;
+                }
+                DataSet rest = subtractPlugin.performFunction(blocking);
+
+                ExportPlugin exportPlugin = new ExportPlugin(null, false);
+                exportPlugin.fileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
+                exportPlugin.saveFile(saveFilename);
+                threadPool.submit(new ThreadedPluginListener(exportPlugin, new PluginEvent(new DataSet(part.getData(0), part.getCreator()))));
+
+                ExportPlugin exportPlugin1 = new ExportPlugin(null, false);
+                exportPlugin1.fileType(FileLoadPlugin.TasselFileType.SqrMatrixBin);
+                exportPlugin1.saveFile(saveFilename + "Rest");
+                threadPool.submit(new ThreadedPluginListener(exportPlugin1, new PluginEvent(new DataSet(rest.getData(0), rest.getCreator()))));
+
+            }
+
+            threadPool.shutdown();
+            try {
+                threadPool.awaitTermination(20, TimeUnit.MINUTES);
+            } catch (Exception e) {
+                myLogger.debug(e.getMessage(), e);
+                throw new IllegalStateException("VCAPScanPlugin: processData: problem: " + e.getMessage());
+            }
+
         }
 
         runLDAK(matrixFiles);
@@ -341,6 +491,7 @@ public class VCAPScanPlugin extends AbstractPlugin {
         if ((wholeMatrix() == null) || (wholeMatrix().isEmpty())) {
             String saveFilename = outputDir() + "kinship_whole.txt";
             if (!isFileEmpty(saveFilename)) {
+                myLogger.info("Whole Kinship already exists: " + saveFilename);
                 return saveFilename;
             }
 
@@ -682,6 +833,29 @@ public class VCAPScanPlugin extends AbstractPlugin {
      */
     public VCAPScanPlugin bedFile(String value) {
         myBedFile = new PluginParameter<>(myBedFile, value);
+        return this;
+    }
+
+    /**
+     * For Bed_File method, this specifies optional bed file to define blocking
+     * window for each block in the main bed file.
+     *
+     * @return Blocking Bed File
+     */
+    public String blockingBedFile() {
+        return myBlockingBedFile.value();
+    }
+
+    /**
+     * Set Blocking Bed File. For Bed_File method, this specifies optional bed
+     * file to define blocking window for each block in the main bed file.
+     *
+     * @param value Blocking Bed File
+     *
+     * @return this plugin
+     */
+    public VCAPScanPlugin blockingBedFile(String value) {
+        myBlockingBedFile = new PluginParameter<>(myBlockingBedFile, value);
         return this;
     }
 
