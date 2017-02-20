@@ -106,7 +106,7 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
     private HashMap<Integer,LittleEndianDataOutputStream> longWriters= null;
     ///PUT CHARACTER BACK (figure out what monetDB wants)
     private HashMap<Integer,String> charHM= null; //Strings written as Strings, because that's what MonetDB likes
-    private HashMap<Integer,DataOutputStream> charWriters= null;
+    private HashMap<Integer,LittleEndianDataOutputStream> charWriters= null;
     private HashMap<Integer,String> intHM= null;
     private HashMap<Integer,LittleEndianDataOutputStream> intWriters= null;
     private HashMap<Integer,String> byteHM= null;
@@ -316,7 +316,8 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
             //writerFam.writeChars(fam.getBytes()); 
             if (charHM!=null) {
                 for (Integer i:charWriters.keySet()) {
-                  charWriters.get(i).writeBytes("\n");
+                    String nullString = "NULL\n";
+                  charWriters.get(i).writeChars(nullString.getBytes()); // LCJ - added NULL - see if it worksZZ
                 }
             }
           
@@ -394,7 +395,7 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
             if (charHM!=null) {
                 for (Integer i:charWriters.keySet()) {
                   String charData = next[i.intValue()] + "\n";
-                  charWriters.get(i).writeChars(charData);
+                  charWriters.get(i).writeChars(charData.getBytes());
                 }
             }
             if (intHM!=null) {for (Integer i:intWriters.keySet()) {
@@ -796,7 +797,7 @@ public class ColumnsToBinaryFullGenomeTablePlugin extends AbstractPlugin {
                     first= false;
                     outCopy.writeBytes("'"+copyFile+"'");
                     outCreate.writeBytes(createFile); 
-                    charWriters.put(i,new DataOutputStream(new BufferedOutputStream(new FileOutputStream(outFile))));
+                    charWriters.put(i,new LittleEndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(outFile))));
                 }
             }
         outCopy.writeBytes(");"); outCopy.close();
