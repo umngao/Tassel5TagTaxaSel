@@ -31,6 +31,18 @@ public class BarcodeTrie{
             barcodeInformation.put(bcode, barcode);
         }
     }
+    
+    /** Adds a Barcode to the trie
+     * @param barcode
+     */
+    public void addBarcodeNoOverhang(Barcode barcode){
+        // Store only barcode, NOT initial cut site
+        String barcodeAlone = barcode.getBarcodeString();
+        root.addWord(barcodeAlone.toUpperCase());
+        String bcode = barcodeAlone;
+        barcodeInformation.put(bcode, barcode);
+ 
+    }
 
     /**
      * Add a collection of barcodes to the trie.
@@ -41,6 +53,14 @@ public class BarcodeTrie{
             addBarcode(b);
     }
 
+    /**
+     * Add a collection of barcodes with OUT overhangs to the trie.
+     * @param barcodes
+     */
+    public void addAllBarcodesNoOverhang(Collection<Barcode> barcodes){
+        for (Barcode b: barcodes)
+            addBarcodeNoOverhang(b);
+    }
 
     /**
      * checks if the String is in the trie.
