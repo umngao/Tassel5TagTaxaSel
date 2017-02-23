@@ -18,6 +18,7 @@ public class TranslateIndexBuilder {
     private final TranslateIndex myBase;
     private final int myNumBaseIndices;
     private boolean myHasNegativeIndices = false;
+    private boolean myIsUnordered = false;
     private final List<Integer> myIndicesToKeep = new ArrayList<>();
 
     private TranslateIndexBuilder(int numBaseIndices) {
@@ -220,6 +221,11 @@ public class TranslateIndexBuilder {
         }
 
     }
+    
+    public TranslateIndexBuilder unordered() {
+        myIsUnordered = true;
+        return this;
+    }
 
     /**
      * Keep specified index.
@@ -296,7 +302,7 @@ public class TranslateIndexBuilder {
             }
         }
 
-        if (myHasNegativeIndices) {
+        if (myHasNegativeIndices || myIsUnordered) {
             return new TranslateIndexRedirectUnordered(indexRedirect);
         } else {
             Arrays.sort(indexRedirect);
