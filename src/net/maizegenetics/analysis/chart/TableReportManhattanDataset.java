@@ -208,7 +208,7 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
 
             currentPosition = Integer.valueOf((myTableReport.getValueAt(myStartIndex + i, myPositionColumnIndex)).toString());
 
-            myChromNames[i] = ((String) myTableReport.getValueAt(myStartIndex + i, myChromColumnIndex));
+            myChromNames[i] = myTableReport.getValueAt(myStartIndex + i, myChromColumnIndex).toString();
             if (!currentChrom.equals(myChromNames[i])) {
                 numberYAxes++;
                 currentChrom = myChromNames[i];

@@ -146,7 +146,11 @@ public class TableReportUtils {
                 }
                 for (int c = 0; c < myNumColumns; c++) {
                     try {
-                        myData[myLineNum][c] = Double.valueOf(tokens[c]);
+                        try {
+                            myData[myLineNum][c] = Integer.valueOf(tokens[c]);
+                        } catch (Exception ex) {
+                            myData[myLineNum][c] = Double.valueOf(tokens[c]);
+                        }
                     } catch (Exception e) {
                         myData[myLineNum][c] = tokens[c];
                     }
