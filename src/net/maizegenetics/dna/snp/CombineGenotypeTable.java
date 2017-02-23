@@ -122,16 +122,16 @@ public class CombineGenotypeTable implements GenotypeTable {
         for (int i = 0; i < genoTables.length; i++) {
             groups[i] = genoTables[i].taxa();
         }
-        TaxaList newTaxa = null;
+        TaxaList newTaxa;
         if (isUnion) {
-            newTaxa = TaxaListUtils.getAllTaxa(groups);
+            newTaxa = TaxaListUtils.getAllTaxa(groups, false);
         } else {
-            newTaxa = TaxaListUtils.getCommonTaxa(groups);
+            newTaxa = TaxaListUtils.getCommonTaxa(groups, false);
         }
 
         GenotypeTable[] newAlignmentNews = new GenotypeTable[genoTables.length];
         for (int i = 0; i < genoTables.length; i++) {
-            newAlignmentNews[i] = FilterGenotypeTable.getInstance(genoTables[i], newTaxa);
+            newAlignmentNews[i] = FilterGenotypeTable.getInstance(genoTables[i], newTaxa, true);
         }
 
         return new CombineGenotypeTable(newTaxa, newAlignmentNews);
@@ -350,7 +350,7 @@ public class CombineGenotypeTable implements GenotypeTable {
         int translate = translateSite(site);
         return myGenotypeTables[translate].referenceAllele(site - mySiteOffsets[translate]);
     }
-    
+
     @Override
     public byte alternateAllele(int site) {
         int translate = translateSite(site);

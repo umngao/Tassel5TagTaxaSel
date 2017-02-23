@@ -4,8 +4,8 @@
 package net.maizegenetics.taxa;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.TreeSet;
 
 /**
  *
@@ -18,7 +18,7 @@ public class TaxaListUtils {
     }
 
     /**
-     * Intersect joins the specified groups.
+     * Intersect joins the specified taxa.
      *
      * @param group1 an TaxaList
      * @param group2 another TaxaList
@@ -31,23 +31,38 @@ public class TaxaListUtils {
     }
 
     /**
-     * Intersect joins the specified groups.
+     * Intersect joins the specified taxa.
      *
      * @param groups groups to join.
-     * @return The taxa from the intersect join, sorted in ascending order
+     *
+     * @return The taxa from the intersect join sorted alphabetically
      */
     public static TaxaList getCommonTaxa(TaxaList[] groups) {
+        return getCommonTaxa(groups, true);
+    }
+
+    /**
+     * Intersect joins the specified taxa.
+     *
+     * @param groups groups to join.
+     * @param sorted whether to sort taxa alphabetically
+     *
+     * @return The taxa from the intersect join
+     */
+    public static TaxaList getCommonTaxa(TaxaList[] groups, boolean sorted) {
 
         if ((groups == null) || (groups.length == 0)) {
             return null;
+        } else if (groups.length == 1 && !sorted) {
+            return groups[0];
         }
 
-        TreeSet<Taxon> intersectIds = new TreeSet<Taxon>();
+        LinkedHashSet<Taxon> intersectIds = new LinkedHashSet<>();
         for (int x = 0; x < groups[0].numberOfTaxa(); x++) {
             intersectIds.add(groups[0].get(x));
         }
         for (int i = 1; i < groups.length; i++) {
-            List<Taxon> temp = new ArrayList<Taxon>();
+            List<Taxon> temp = new ArrayList<>();
             for (int j = 0; j < groups[i].numberOfTaxa(); j++) {
                 temp.add(groups[i].get(j));
             }
@@ -56,38 +71,45 @@ public class TaxaListUtils {
 
         TaxaListBuilder builder = new TaxaListBuilder();
         builder.addAll(intersectIds);
-        builder.sortTaxaAlphabetically();
+        if (sorted) {
+            builder.sortTaxaAlphabetically();
+        }
         return builder.build();
 
     }
 
     /**
-     * Union joins the specified groups.
+     * Union joins the specified taxa.
      *
      * @param group1 an TaxaList
      * @param group2 another TaxaList
      *
-     * @return	the taxa in the union of groups 1 and 2, sorted in ascending
+     * @return	the taxa in the union of taxa 1 and 2, sorted in ascending
      * order
      */
     public static TaxaList getAllTaxa(TaxaList group1, TaxaList group2) {
         return getAllTaxa(new TaxaList[]{group1, group2});
     }
 
-    /**
-     * Union joins the specified groups.
-     *
-     * @param groups groups to join.
-     *
-     * @return The taxa from the union join, sorted in ascending order
-     */
     public static TaxaList getAllTaxa(TaxaList[] groups) {
+        return getAllTaxa(groups, true);
+    }
+
+    /**
+     * Union joins the specified taxa.
+     *
+     * @param groups taxa to join.
+     * @param sorted whether to sort taxa alphabetically
+     *
+     * @return The taxa from the union join
+     */
+    public static TaxaList getAllTaxa(TaxaList[] groups, boolean sorted) {
 
         if ((groups == null) || (groups.length == 0)) {
             return null;
         }
 
-        TreeSet<Taxon> allIds = new TreeSet<Taxon>();
+        LinkedHashSet<Taxon> allIds = new LinkedHashSet<>();
         for (int i = 0; i < groups.length; i++) {
             int n = groups[i].numberOfTaxa();
             for (int j = 0; j < n; j++) {
@@ -97,7 +119,9 @@ public class TaxaListUtils {
 
         TaxaListBuilder builder = new TaxaListBuilder();
         builder.addAll(allIds);
-        builder.sortTaxaAlphabetically();
+        if (sorted) {
+            builder.sortTaxaAlphabetically();
+        }
         return builder.build();
 
     }

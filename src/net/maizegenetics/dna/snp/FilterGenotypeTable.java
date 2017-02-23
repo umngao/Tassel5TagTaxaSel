@@ -91,7 +91,7 @@ public class FilterGenotypeTable {
         GenotypeCallTable genotypeCallTable = base.genotypeMatrix();
         Translate genotypeTranslate = null;
         if (genotypeCallTable != null) {
-            Tuple<GenotypeCallTable, Translate> temp = GenotypeCallTableBuilder.getFilteredInstance(base.genotypeMatrix(), translate);
+            Tuple<GenotypeCallTable, Translate> temp = GenotypeCallTableBuilder.getFilteredInstance(genotypeCallTable, translate);
             genotypeCallTable = temp.x;
             genotypeTranslate = temp.y;
             if (genotypeCallTable.numberOfTaxa() != numTaxa || genotypeCallTable.numberOfSites() != numSites) {
@@ -214,15 +214,10 @@ public class FilterGenotypeTable {
      */
     public static GenotypeTable getInstance(GenotypeTable genotype, TaxaList subTaxaList, boolean retainUnknownTaxa) {
 
-        GenotypeTable baseGenotype = genotype;
         int numSites = genotype.numberOfSites();
         int numBaseTaxa = genotype.numberOfTaxa();
 
-        TranslateIndex translateSite;
-        TranslateIndex translateTaxa = null;
-        translateSite = TranslateIndexBuilder.noTranslation(numSites);
-
-        TranslateIndexBuilder builder = TranslateIndexBuilder.getInstance(numBaseTaxa, translateTaxa);
+        TranslateIndexBuilder builder = TranslateIndexBuilder.getInstance(numBaseTaxa, null).unordered();
 
         TaxaListBuilder taxaBuilder = new TaxaListBuilder();
         boolean noNeedToFilter = true;
@@ -252,9 +247,9 @@ public class FilterGenotypeTable {
             return genotype;
         }
 
-        Translate translate = TranslateBuilder.getInstance(builder.build(), translateSite);
+        Translate translate = TranslateBuilder.getInstance(builder.build(), TranslateIndexBuilder.noTranslation(numSites));
 
-        return getInstance(baseGenotype, taxaBuilder.build(), null, translate);
+        return getInstance(genotype, taxaBuilder.build(), null, translate);
 
     }
 
