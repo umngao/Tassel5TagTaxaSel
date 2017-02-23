@@ -192,7 +192,7 @@ public class CombineGenotypeTable implements GenotypeTable {
         byte[] result = new byte[endSite - startSite];
         int count = 0;
         int firstAlign = translateSite(startSite);
-        int secondAlign = translateSite(endSite);
+        int secondAlign = translateSite(endSite - 1);
         for (int i = firstAlign; i <= secondAlign; i++) {
             int firstSite = 0;
             if (i == firstAlign) {
