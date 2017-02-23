@@ -235,8 +235,8 @@ public final class PluginParameter<T> {
 
     public boolean acceptsValue(Object value) {
         try {
-            if (value == null) {
-                return myIsNullable;
+            if (value == null && myIsNullable) {
+                return true;
             }
             if (hasRange()) {
                 for (Range<Comparable<T>> current : myRanges) {
