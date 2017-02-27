@@ -431,6 +431,9 @@ public class VCAPScanPlugin extends AbstractPlugin {
                 String startPosStr = String.format("%012d", genotype.chromosomalPosition(startSite));
                 String endPosStr = String.format("%012d", genotype.chromosomalPosition(endSite));
                 String saveFilename = outputDir() + "Kinship_" + range.chr() + "_" + startPosStr + "_" + endPosStr;
+                if (range.name() != null) {
+                    saveFilename += "_" + range.name();
+                }
                 matrixFiles.add(saveFilename);
                 if (new File(saveFilename + "Rest.grm.bin").isFile() && new File(saveFilename + ".grm.bin").isFile()) {
                     myLogger.info(saveFilename + " already exists");

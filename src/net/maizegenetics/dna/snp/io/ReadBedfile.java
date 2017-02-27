@@ -34,7 +34,7 @@ public class ReadBedfile {
             while (line != null) {
                 String[] tokens = line.trim().split("\t");
                 if (tokens.length < 3) {
-                    throw new IllegalStateException("filterSitesByBedFile: Expecting at least 3 columns on line: " + lineNum);
+                    throw new IllegalStateException("getRanges: Expecting at least 3 columns on line: " + lineNum);
                 }
 
                 // tokens[0] is chromosome
@@ -46,7 +46,17 @@ public class ReadBedfile {
                 // plus one because bed files are 0-base
                 int endPos = Integer.parseInt(tokens[2]) + 1;
 
-                result.add(new BedFileRange(tokens[0], startPos, endPos));
+                // tokens[3] is name from bed file
+                String name = null;
+                if (tokens.length > 3) {
+                    if (tokens[3] == null || tokens[3].isEmpty()) {
+                        name = null;
+                    } else {
+                        name = tokens[3];
+                    }
+                }
+
+                result.add(new BedFileRange(tokens[0], startPos, endPos, name));
 
                 line = reader.readLine();
                 lineNum++;
@@ -66,8 +76,9 @@ public class ReadBedfile {
         private final int myChrInt;
         private final int myStartPos;
         private final int myEndPos;
+        private final String myName;
 
-        public BedFileRange(String chr, int startPos, int endPos) {
+        public BedFileRange(String chr, int startPos, int endPos, String name) {
             myChr = chr;
             int temp;
             try {
@@ -78,12 +89,13 @@ public class ReadBedfile {
             myChrInt = temp;
             myStartPos = startPos;
             myEndPos = endPos;
+            myName = name;
         }
 
         /**
          * Return chromosome
-         * 
-         * @return chromosome 
+         *
+         * @return chromosome
          */
         public String chr() {
             return myChr;
@@ -91,7 +103,7 @@ public class ReadBedfile {
 
         /**
          * Returns start position (inclusive)
-         * 
+         *
          * @return start position
          */
         public int start() {
@@ -100,11 +112,15 @@ public class ReadBedfile {
 
         /**
          * Returns end position (exclusive)
-         * 
+         *
          * @return end position
          */
         public int end() {
             return myEndPos;
+        }
+
+        public String name() {
+            return myName;
         }
 
         @Override
