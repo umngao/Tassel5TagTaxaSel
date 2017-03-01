@@ -280,7 +280,7 @@ public class ProductionSNPCallerPluginV2 extends AbstractPlugin {
             ExportUtils.writeToVCF(myGt, outputGenotypesFile(), depthToOutput()); 
         }
  
-        writeReadsPerSampleReports(tagsToIndex.size());
+        writeReadsPerSampleReports(positionList.size());
         return null;
     }
 
