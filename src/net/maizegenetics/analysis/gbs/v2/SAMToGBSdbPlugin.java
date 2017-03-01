@@ -94,10 +94,22 @@ public final class SAMToGBSdbPlugin extends AbstractPlugin {
                     continue;
                 }
                 Tuple<Tag,Optional<Position>> tagPositionTuple=parseRow(inputLine);
-                if (tagPositionTuple == null) continue;            
-                if(!knownTags.contains(tagPositionTuple.x)) tagsNotFoundInDB++;                
+                if (tagPositionTuple == null) continue; 
+                // Must use method "isKnownTag" to handle BWA-Mem issue
+                // from Jesse Poland (TAS-722)   
+                tagPresence tagP = isKnownTag(inputLine, tagPositionTuple.x, knownTags);
+                if (tagP == tagPresence.notPresent) {
+                    tagsNotFoundInDB++;
+                }           
                 if(tagPositionTuple.y.isPresent()) {
-                    tagPositions.put(tagPositionTuple.x,tagPositionTuple.y.get());            
+                    if (tagP == tagPresence.originalPresent) {                       
+                        String[] stringTokens=inputLine.split("\\s");
+                        String origSeq = stringTokens[0].split("=")[1]; //stringTokens[0] is tagSeg=<original sequence here>
+                        Tag oTag = TagBuilder.instance(origSeq).build();
+                        tagPositions.put(oTag, tagPositionTuple.y.get());
+                    } else {
+                        tagPositions.put(tagPositionTuple.x,tagPositionTuple.y.get());
+                    }                             
                 } else {
                     tagsNotMapped++;
                 }
