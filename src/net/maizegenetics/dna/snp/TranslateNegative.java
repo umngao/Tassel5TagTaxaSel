@@ -11,7 +11,7 @@ package net.maizegenetics.dna.snp;
  */
 public class TranslateNegative extends Translate {
 
-    public TranslateNegative(TranslateIndex translateTaxa, TranslateIndex translateSite) {
+    TranslateNegative(TranslateIndex translateTaxa, TranslateIndex translateSite) {
         super(translateTaxa, translateSite);
     }
 

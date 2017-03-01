@@ -31,14 +31,38 @@ public class TranslateBuilder {
             throw new IllegalArgumentException("TranslateBuilder: filter: must specify translateSite");
         }
 
-        return new Translate(translateTaxa, translateSite);
+        if (hasNegativeIndices(translateTaxa) || hasNegativeIndices(translateSite)) {
+            return new TranslateNegative(translateTaxa, translateSite);
+        } else {
+            return new Translate(translateTaxa, translateSite);
+        }
 
     }
-    
+
     public static Translate getInstance(Translate base, Translate translate) {
         TranslateIndex translateTaxa = TranslateIndexBuilder.merge(base.translateTaxa(), translate.translateTaxa());
         TranslateIndex translateSite = TranslateIndexBuilder.merge(base.translateSite(), translate.translateSite());
-        return new Translate(translateTaxa, translateSite);
+        if (hasNegativeIndices(translateTaxa) || hasNegativeIndices(translateSite)) {
+            return new TranslateNegative(translateTaxa, translateSite);
+        } else {
+            return new Translate(translateTaxa, translateSite);
+        }
+    }
+
+    private static boolean hasNegativeIndices(TranslateIndex translateIndex) {
+
+        if (!(translateIndex instanceof TranslateIndexRedirectUnordered)) {
+            return false;
+        }
+
+        for (int current : translateIndex.getTranslations()) {
+            if (current == -1) {
+                return true;
+            }
+        }
+
+        return false;
+
     }
 
 }
