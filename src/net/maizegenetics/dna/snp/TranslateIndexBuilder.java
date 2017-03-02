@@ -287,10 +287,6 @@ public class TranslateIndexBuilder {
 
         int numIndicesToKeep = myIndicesToKeep.size();
 
-        if (numIndicesToKeep == 0) {
-            throw new IllegalStateException("TranslateIndexBuilder: build: no indices to keep.");
-        }
-
         int[] indexRedirect = new int[numIndicesToKeep];
         if (myBase == null) {
             for (int i = 0; i < numIndicesToKeep; i++) {
