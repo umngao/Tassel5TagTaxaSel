@@ -133,6 +133,12 @@ public class CombineGenotypeTable implements GenotypeTable {
         for (int i = 0; i < genoTables.length; i++) {
             newAlignmentNews[i] = FilterGenotypeTable.getInstance(genoTables[i], newTaxa, true);
         }
+        
+        for (int i = 0; i < genoTables.length; i++) {
+            if (!areTaxaListsEqual(newTaxa, newAlignmentNews[i].taxa())) {
+                throw new IllegalArgumentException("CombineGenotypeTable: getInstance: TaxaLists do not match.");
+            }
+        }
 
         return new CombineGenotypeTable(newTaxa, newAlignmentNews);
 
