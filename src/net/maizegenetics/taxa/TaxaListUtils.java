@@ -58,13 +58,13 @@ public class TaxaListUtils {
         }
 
         LinkedHashSet<Taxon> intersectIds = new LinkedHashSet<>();
-        for (int x = 0; x < groups[0].numberOfTaxa(); x++) {
-            intersectIds.add(groups[0].get(x));
+        for (Taxon current : groups[0]) {
+            intersectIds.add(current);
         }
         for (int i = 1; i < groups.length; i++) {
             List<Taxon> temp = new ArrayList<>();
-            for (int j = 0; j < groups[i].numberOfTaxa(); j++) {
-                temp.add(groups[i].get(j));
+            for (Taxon current : groups[i]) {
+                temp.add(current);
             }
             intersectIds.retainAll(temp);
         }
@@ -84,8 +84,7 @@ public class TaxaListUtils {
      * @param group1 an TaxaList
      * @param group2 another TaxaList
      *
-     * @return	the taxa in the union of taxa 1 and 2, sorted in ascending
-     * order
+     * @return	the taxa in the union of taxa 1 and 2, sorted in ascending order
      */
     public static TaxaList getAllTaxa(TaxaList group1, TaxaList group2) {
         return getAllTaxa(new TaxaList[]{group1, group2});
@@ -98,22 +97,34 @@ public class TaxaListUtils {
     /**
      * Union joins the specified taxa.
      *
-     * @param groups taxa to join.
+     * @param lists taxa to join.
      * @param sorted whether to sort taxa alphabetically
      *
      * @return The taxa from the union join
      */
-    public static TaxaList getAllTaxa(TaxaList[] groups, boolean sorted) {
+    public static TaxaList getAllTaxa(TaxaList[] lists, boolean sorted) {
 
-        if ((groups == null) || (groups.length == 0)) {
+        if ((lists == null) || (lists.length == 0)) {
             return null;
+        } else if (lists.length == 1) {
+            return lists[0];
         }
 
-        LinkedHashSet<Taxon> allIds = new LinkedHashSet<>();
-        for (int i = 0; i < groups.length; i++) {
-            int n = groups[i].numberOfTaxa();
-            for (int j = 0; j < n; j++) {
-                allIds.add(groups[i].get(j));
+        List<Taxon> allIds = new ArrayList<>();
+
+        for (Taxon current : lists[0]) {
+            allIds.add(current);
+        }
+
+        for (int i = 1; i < lists.length; i++) {
+            int insertIndex = 0;
+            for (Taxon current : lists[i]) {
+                int index = allIds.indexOf(current);
+                if (index == -1) {
+                    allIds.add(insertIndex++, current);
+                } else {
+                    insertIndex = Math.max(index + 1, insertIndex);
+                }
             }
         }
 
