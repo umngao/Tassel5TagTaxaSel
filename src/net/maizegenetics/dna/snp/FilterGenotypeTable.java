@@ -167,6 +167,14 @@ public class FilterGenotypeTable {
         return getInstance(a, subTaxaList, true);
     }
 
+    public static GenotypeTable getInstanceSortTaxaAlphabetically(GenotypeTable genotypes) {
+        TaxaListBuilder builder = new TaxaListBuilder();
+        builder.addAll(genotypes.taxa());
+        TranslateIndex translateTaxa = TranslateIndexBuilder.unorderedTranslation(builder.sortAlphabetically(), null);
+        Translate translate = TranslateBuilder.getInstance(translateTaxa, TranslateIndexBuilder.noTranslation(genotypes.numberOfSites()));
+        return getInstance(genotypes, null, null, translate);
+    }
+
     public static Tuple<GenotypeTable, double[]> getInstanceTaxaOrderedByGeneticDistance(GenotypeTable genotypes, int taxon) {
         int numTaxa = genotypes.numberOfTaxa();
         double[] distances = IBSDistanceMatrixOneByAll.getInstance(genotypes, taxon);

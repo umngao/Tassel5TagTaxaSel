@@ -35,7 +35,7 @@ import java.util.*;
 public class TaxaListBuilder {
     //TODO need to move union and intersection utils to the builder
     private List<Taxon> myTaxaList;
-    private HashMap<Taxon,Integer> tempLookup;
+    private final HashMap<Taxon,Integer> tempLookup;
 
     public TaxaListBuilder() {
         myTaxaList = new ArrayList<>();
@@ -45,7 +45,6 @@ public class TaxaListBuilder {
     public TaxaListBuilder add(Taxon taxon) {
         if(tempLookup.containsKey(taxon)) {
             throw new IllegalStateException("Taxon ["+taxon.getName()+"] already exists in the list.  Duplicated taxa not allowed.");
-            //taxon=new Taxon(taxon.getName()+"DUP");
         }
         myTaxaList.add(taxon);
         tempLookup.put(taxon,myTaxaList.size()-1);
@@ -179,7 +178,7 @@ public class TaxaListBuilder {
         return this;
     }
 
-    private int[] sortAlphabetically() {
+    public int[] sortAlphabetically() {
 
         int numTaxa = myTaxaList.size();
 
