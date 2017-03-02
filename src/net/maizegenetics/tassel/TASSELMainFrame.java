@@ -405,37 +405,6 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         JMenu result = new JMenu("Data");
         result.setMnemonic(KeyEvent.VK_D);
 
-        FileLoadPlugin load = new FileLoadPlugin(this, true);
-        load.addListener(myDataTreePanel);
-        JMenuItem loadMenu = createMenuItem(new AbstractAction("Load", load.getIcon()) {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                load.performFunction(null);
-            }
-        }, -1);
-        loadMenu.setToolTipText("Please use File Menu. This is going away.");
-        Map attributes = loadMenu.getFont().getAttributes();
-        attributes.put(TextAttribute.STRIKETHROUGH, TextAttribute.STRIKETHROUGH_ON);
-        loadMenu.setFont(new Font(attributes));
-        result.add(loadMenu);
-
-        ExportPlugin export = new ExportPlugin(this, true);
-        JMenuItem exportMenu = createMenuItem(new AbstractAction("Export", export.getIcon()) {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                PluginEvent event = new PluginEvent(myDataTreePanel.getSelectedTasselDataSet());
-                ProgressPanel progressPanel = getProgressPanel();
-                progressPanel.addPlugin(export);
-                ThreadedPluginListener thread = new ThreadedPluginListener(export, event);
-                thread.start();
-            }
-        }, -1);
-        exportMenu.setToolTipText("Please use File Menu. This is going away.");
-        attributes = exportMenu.getFont().getAttributes();
-        attributes.put(TextAttribute.STRIKETHROUGH, TextAttribute.STRIKETHROUGH_ON);
-        exportMenu.setFont(new Font(attributes));
-        result.add(exportMenu);
-
         result.add(createMenuItem(new GetTaxaListPlugin(this, true)));
         result.add(createMenuItem(new GetPositionListPlugin(this, true)));
         result.add(createMenuItem(new SortGenotypeFilePlugin(this, true)));
