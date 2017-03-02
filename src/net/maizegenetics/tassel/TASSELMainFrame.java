@@ -92,6 +92,7 @@ import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
 import net.maizegenetics.analysis.data.MaskGenotypePlugin;
 import net.maizegenetics.analysis.data.SetLowDepthGenosToMissingPlugin;
 import net.maizegenetics.analysis.data.SortGenotypeFilePlugin;
+import net.maizegenetics.analysis.data.SortTaxaAlphabeticallyPlugin;
 import net.maizegenetics.analysis.distance.AMatrixPlugin;
 import net.maizegenetics.analysis.distance.AddDistanceMatrixPlugin;
 import net.maizegenetics.analysis.distance.DistanceMatrixPlugin;
@@ -407,6 +408,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
 
         result.add(createMenuItem(new GetTaxaListPlugin(this, true)));
         result.add(createMenuItem(new GetPositionListPlugin(this, true)));
+        result.add(createMenuItem(new SortTaxaAlphabeticallyPlugin(this, true)));
         result.add(createMenuItem(new SortGenotypeFilePlugin(this, true)));
         result.add(createMenuItem(new SynonymizerPlugin(this, true)));
         result.add(createMenuItem(new IntersectionAlignmentPlugin(this, true)));
