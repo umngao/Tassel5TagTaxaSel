@@ -168,11 +168,19 @@ public class FilterGenotypeTable {
     }
 
     public static GenotypeTable getInstanceSortTaxaAlphabetically(GenotypeTable genotypes) {
+
         TaxaListBuilder builder = new TaxaListBuilder();
         builder.addAll(genotypes.taxa());
-        TranslateIndex translateTaxa = TranslateIndexBuilder.unorderedTranslation(builder.sortAlphabetically(), null);
-        Translate translate = TranslateBuilder.getInstance(translateTaxa, TranslateIndexBuilder.noTranslation(genotypes.numberOfSites()));
-        return getInstance(genotypes, null, null, translate);
+        int[] redirect = builder.sortAlphabetically();
+        for (int t = 0; t < redirect.length; t++) {
+            if (redirect[t] != t) {
+                TranslateIndex translateTaxa = TranslateIndexBuilder.unorderedTranslation(redirect, null);
+                Translate translate = TranslateBuilder.getInstance(translateTaxa, TranslateIndexBuilder.noTranslation(genotypes.numberOfSites()));
+                return getInstance(genotypes, null, null, translate);
+            }
+        }
+        return genotypes;
+
     }
 
     public static Tuple<GenotypeTable, double[]> getInstanceTaxaOrderedByGeneticDistance(GenotypeTable genotypes, int taxon) {

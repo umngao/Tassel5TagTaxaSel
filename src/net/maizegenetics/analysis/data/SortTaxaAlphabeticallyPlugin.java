@@ -11,6 +11,7 @@ import java.util.List;
 import javax.swing.ImageIcon;
 import net.maizegenetics.dna.snp.FilterGenotypeTable;
 import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.gui.DialogUtils;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.plugindef.Datum;
@@ -36,7 +37,14 @@ public class SortTaxaAlphabeticallyPlugin extends AbstractPlugin {
         }
         GenotypeTable genotypes = (GenotypeTable) genotypeTables.get(0).getData();
         GenotypeTable result = FilterGenotypeTable.getInstanceSortTaxaAlphabetically(genotypes);
-        return new DataSet(new Datum(genotypeTables.get(0).getName() + "_Sorted_Taxa", result, null), this);
+
+        if (result == genotypes) {
+            DialogUtils.showWarning("Taxa already sorted alphabetically", getParentFrame());
+            return null;
+        } else {
+            return new DataSet(new Datum(genotypeTables.get(0).getName() + "_Sorted_Taxa", result, null), this);
+        }
+
     }
 
     @Override
