@@ -40,7 +40,7 @@ public class SortTaxaAlphabeticallyPlugin extends AbstractPlugin {
 
         if (result == genotypes) {
             DialogUtils.showWarning("Taxa already sorted alphabetically", getParentFrame());
-            return null;
+            return input;
         } else {
             return new DataSet(new Datum(genotypeTables.get(0).getName() + "_Sorted_Taxa", result, null), this);
         }
