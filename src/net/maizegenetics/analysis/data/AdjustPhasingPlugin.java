@@ -58,6 +58,10 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
             .required(true)
             .build();
 
+    private int myNumTaxa = 0;
+    private String[] myTaxaNames = null;
+    private int myNumSites = 0;
+
     public AdjustPhasingPlugin(Frame parentFrame, boolean isInteractive) {
         super(parentFrame, isInteractive);
     }
@@ -65,7 +69,7 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
     @Override
     public DataSet processData(DataSet input) {
 
-        int numSites = Utils.getNumberLinesNotHashOrBlank(inputVCFFile());
+        myNumSites = Utils.getNumberLinesNotHashOrBlank(inputVCFFile());
 
         try {
 
@@ -77,7 +81,7 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
             for (File current : temp.listFiles()) {
                 String name = current.getCanonicalPath();
                 if (name.endsWith("_haplotypes")) {
-                    ProcessHapcut process = new ProcessHapcut(name, numSites);
+                    ProcessHapcut process = new ProcessHapcut(name, myNumSites);
                     futures.add(pool.submit(process));
                 }
             }
@@ -104,16 +108,34 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
 
                 writer.write(line);
                 writer.write('\n');
+
+                // Taxa Names
                 String[] tokens = line.split("\t");
-                Switch[] switches = new Switch[tokens.length - NUM_VCF_HEADER_COLUMNS];
+                myNumTaxa = tokens.length - NUM_VCF_HEADER_COLUMNS;
+
+                myLogger.info("Number of Taxa: " + myNumTaxa);
+                myLogger.info("Number of Sites: " + myNumSites);
+
+                myTaxaNames = new String[myNumTaxa];
+                Switch[] switches = new Switch[myNumTaxa];
+                int numIntersectingTaxa = 0;
+                int numTaxaWithOutHapcut = 0;
                 for (int i = NUM_VCF_HEADER_COLUMNS; i < tokens.length; i++) {
+                    myTaxaNames[i - NUM_VCF_HEADER_COLUMNS] = tokens[i];
                     ProcessHapcut current = processedHapcutFiles.remove(tokens[i]);
                     if (current == null) {
                         switches[i - NUM_VCF_HEADER_COLUMNS] = FALSE_SWITCH;
+                        numTaxaWithOutHapcut++;
                     } else {
                         switches[i - NUM_VCF_HEADER_COLUMNS] = current.result();
+                        numIntersectingTaxa++;
                     }
                 }
+                int numHapcutNotInVCF = processedHapcutFiles.size();
+
+                myLogger.info("Number intersecting taxa between Hapcut files and VCF: " + numIntersectingTaxa);
+                myLogger.info("Number Taxa in VCF without Hapcut files: " + numTaxaWithOutHapcut);
+                myLogger.info("Number Hapcut files without taxa in VCF: " + numHapcutNotInVCF);
 
                 BlockingQueue<Future<ProcessLines>> queue = new LinkedBlockingQueue<>();
 
@@ -221,6 +243,7 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
     private class ProcessHapcut implements Callable<ProcessHapcut> {
 
         private final String myFilename;
+        private final String myLogfile;
         private final String myTaxaName;
         private final BitSet myResult;
         private final String[] myPositions;
@@ -229,6 +252,7 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
 
         public ProcessHapcut(String filename, int numSites) {
             myFilename = filename;
+            myLogfile = filename + ".log";
             myTaxaName = Utils.getFilename(filename).split("_")[0];
             myResult = new OpenBitSet(numSites);
             myPositions = new String[numSites];
@@ -237,78 +261,27 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
         @Override
         public ProcessHapcut call() throws Exception {
 
-            try (BufferedReader reader = Utils.getBufferedReader(myFilename)) {
-
-                String currentChr = null;
-                int highestChrIndex = -1;
-                Map<String, List<Integer>> phased = new HashMap<>();
+            try (BufferedReader reader = Utils.getBufferedReader(myFilename);
+                    BufferedWriter log = Utils.getBufferedWriter(myLogfile)) {
 
                 String line = reader.readLine();
                 if (line == null) {
                     myLogger.warn("Hapcut file: " + myFilename + " is empty.");
-                } else if (!line.startsWith("BLOCK")) {
-                    throw new IllegalStateException("AdjustPhasingPlugin: ProcessHapcut: Expected first line to begin with BLOCK in file: " + myFilename + "\n" + line);
                 }
-                String blockLine = line;
 
+                int blockNum = 0;
                 while (line != null) {
 
                     if (line.startsWith("BLOCK")) {
-
-                        currentChr = null;
-                        highestChrIndex = -1;
-                        phased.clear();
-                        blockLine = line;
-
-                    } else if (line.startsWith("********")) {
-                        processBlock(currentChr, highestChrIndex, phased, blockLine);
+                        blockNum++;
+                        processBlock(reader, line, blockNum, log);
                     } else {
-
-                        String[] tokens = line.split("\t");
-
-                        if (currentChr == null) {
-                            // tokens[3] is chromosome
-                            currentChr = tokens[3];
-                        } else if (!currentChr.equals(tokens[3])) {
-                            throw new IllegalStateException("AdjustPhasingPlugin: ProcessHapcut: Different chr: " + tokens[3] + " within block that started with chr: " + currentChr);
-                        }
-
-                        // tokens[0] site number plus 1
-                        int tempIndex = Integer.parseInt(tokens[0]) - 1;
-                        if (highestChrIndex >= tempIndex) {
-                            throw new IllegalStateException("AdjustPhasingPlugin: ProcessHapcut: index out of order: " + tempIndex);
-                        } else {
-                            highestChrIndex = tempIndex;
-                        }
-
-                        // tokens[4] is physical position
-                        myPositions[tempIndex] = tokens[4];
-
-                        // tokens[1] haploid A
-                        // tokens[2] haploid B
-                        // tokens[7] VCF genotype field
-                        String key;
-                        if (tokens[7].split(":")[0].equals(tokens[1] + "|" + tokens[2])) {
-                            key = "SAME";
-                        } else {
-                            key = "DIFFERENT";
-                        }
-                        List<Integer> value = phased.get(key);
-                        if (value == null) {
-                            List<Integer> tempList = new ArrayList<>();
-                            tempList.add(tempIndex);
-                            phased.put(key, tempList);
-                        } else {
-                            value.add(tempIndex);
-                        }
-
+                        throw new IllegalStateException("AdjustPhasingPlugin: expected BLOCK statement: " + line);
                     }
 
                     line = reader.readLine();
 
                 }
-
-                processBlock(currentChr, highestChrIndex, phased, blockLine);
 
             } catch (Exception e) {
                 myLogger.debug(e.getMessage(), e);
@@ -319,7 +292,59 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
 
         }
 
-        private void processBlock(String currentChr, int highestChrIndex, Map<String, List<Integer>> phased, String blockLine) {
+        private void processBlock(BufferedReader reader, String blockLine, int blockNum, BufferedWriter log) {
+
+            String currentChr = null;
+            int highestChrIndex = -1;
+            List<Integer>[] phased = new List[2];
+            phased[0] = new ArrayList<>();
+            phased[1] = new ArrayList<>();
+            Map<Integer, String> blockLines = new HashMap<>();
+
+            try {
+
+                String line = reader.readLine();
+                while (line != null && !line.startsWith("********")) {
+
+                    String[] tokens = line.split("\t");
+
+                    if (currentChr == null) {
+                        // tokens[3] is chromosome
+                        currentChr = tokens[3];
+                    } else if (!currentChr.equals(tokens[3])) {
+                        throw new IllegalStateException("AdjustPhasingPlugin: ProcessHapcut: Different chr: " + tokens[3] + " within block that started with chr: " + currentChr);
+                    }
+
+                    // tokens[0] site number plus 1
+                    int tempIndex = Integer.parseInt(tokens[0]) - 1;
+                    blockLines.put(tempIndex, line);
+                    if (highestChrIndex >= tempIndex) {
+                        throw new IllegalStateException("AdjustPhasingPlugin: ProcessHapcut: index out of order: " + tempIndex);
+                    } else {
+                        highestChrIndex = tempIndex;
+                    }
+
+                    // tokens[4] is physical position
+                    myPositions[tempIndex] = tokens[4];
+
+                    // tokens[1] haploid A
+                    // tokens[2] haploid B
+                    // tokens[7] VCF genotype field
+                    String[] fromVCF = tokens[7].split(":")[0].split("\\|");
+                    if (tokens[1].equals(fromVCF[0]) || tokens[2].equals(fromVCF[1])) {
+                        phased[0].add(tempIndex);
+                    } else {
+                        phased[1].add(tempIndex);
+                    }
+
+                    line = reader.readLine();
+
+                }
+
+            } catch (Exception e) {
+                myLogger.debug(e.getMessage(), e);
+                throw new IllegalStateException("AdjustPhasingPlugin: ProcessHapcut: problem reading file: " + myFilename + ": " + e.getMessage());
+            }
 
             int chrIndex = myChromosomes.indexOf(currentChr);
             if (chrIndex == -1) {
@@ -329,20 +354,23 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
                 myOffsets.add(chrIndex, highestChrIndex);
             }
 
-            int numStates = phased.size();
-            if (numStates > 2) {
-                throw new IllegalStateException("AdjustPhasingPlugin: ProcessHapcut: too many states in block: " + blockLine);
-            } else if (numStates == 2) {
+            if (!phased[0].isEmpty() || !phased[1].isEmpty()) {
                 List<Integer> smallest = null;
-                for (List<Integer> currentList : phased.values()) {
-                    if (smallest == null) {
-                        smallest = currentList;
-                    } else if (smallest.size() > currentList.size()) {
-                        smallest = currentList;
-                    }
+                if (phased[0].size() < phased[1].size()) {
+                    smallest = phased[0];
+                } else {
+                    smallest = phased[1];
                 }
                 for (Integer index : smallest) {
                     myResult.fastSet(index);
+                    try {
+                        log.write(String.valueOf(blockNum));
+                        log.write("\t");
+                        log.write(blockLines.get(index));
+                        log.write("\n");
+                    } catch (Exception e) {
+                        myLogger.debug(e.getMessage(), e);
+                    }
                 }
             }
 
@@ -405,24 +433,27 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
         private final int myStartSite;
         private final String[] myLines;
         private final Switch[] mySwitches;
-        private final int myNumTaxa;
         private final StringBuilder myBuilder = new StringBuilder();
         private final boolean myIsFinalProcessLines;
+        private final int[] myNumSwitchesTaxa;
+        private final int[] myNumSwitchesSites;
 
         public ProcessLines(int startSite, String[] lines, Switch[] switches) {
             myStartSite = startSite;
             myLines = lines;
             mySwitches = switches;
-            myNumTaxa = switches.length;
             myIsFinalProcessLines = false;
+            myNumSwitchesTaxa = new int[myNumTaxa];
+            myNumSwitchesSites = new int[myLines.length];
         }
 
         public ProcessLines() {
             myStartSite = 0;
             myLines = new String[0];
             mySwitches = null;
-            myNumTaxa = 0;
             myIsFinalProcessLines = true;
+            myNumSwitchesTaxa = new int[0];
+            myNumSwitchesSites = new int[0];
         }
 
         @Override
@@ -438,6 +469,8 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
                 int charIndex = 0;
                 for (int t = 0; t < myNumTaxa; t++) {
                     if (mySwitches[t].alleles(currentSite)) {
+                        myNumSwitchesTaxa[t]++;
+                        myNumSwitchesSites[currentSite - myStartSite]++;
                         while (true) {
                             if (temp[charIndex] == '\t') {
                                 numTabsFound++;
@@ -555,11 +588,18 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
         @Override
         public void run() {
 
+            int[] numSwitchesTaxa = new int[myNumTaxa];
+            int[] numSwitchesSites = new int[myNumSites];
+
             try {
                 Future<ProcessLines> future = myQueue.take();
                 ProcessLines processed = future.get();
                 while (!processed.myIsFinalProcessLines) {
                     myWriter.write(processed.myBuilder.toString());
+                    for (int t = 0; t < myNumTaxa; t++) {
+                        numSwitchesTaxa[t] += processed.myNumSwitchesTaxa[t];
+                    }
+                    System.arraycopy(processed.myNumSwitchesSites, 0, numSwitchesSites, processed.myStartSite, processed.myLines.length);
                     future = myQueue.take();
                     processed = future.get();
                 }
@@ -567,6 +607,11 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
                 myLogger.debug(e.getMessage(), e);
                 throw new IllegalStateException("AdjustPhasingPlugin: WriteLines: problem writing file: " + outputVCFFile());
             }
+
+            for (int t = 0; t < myNumTaxa; t++) {
+                System.out.println(t + ": " + myTaxaNames[t] + ": alleles switched: " + numSwitchesTaxa[t]);
+            }
+
         }
 
     }
