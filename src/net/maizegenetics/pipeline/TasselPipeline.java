@@ -79,7 +79,7 @@ public class TasselPipeline implements PluginListener {
 
     public static enum FLAGS {
 
-        t, s, k, q, h, h5, hdf5Schema, r, plink, fasta, geneticMap,
+        t, s, k, q, h, h5, hdf5Schema, r, plink, fasta,
         table, vcf, readSerialAlignment, importGuess, projection,
         convertTOPMtoHDF5, retainRareAlleles, union, intersect, separate,
         homozygous, synonymizer, mergeGenotypeTables, mergeAlignmentsSameSites,
@@ -88,7 +88,9 @@ public class TasselPipeline implements PluginListener {
         export, filterAlign, numericalGenoTransform, includeTaxa,
         includeTaxaInFile, excludeTaxa, excludeTaxaInFile, includeSiteNames,
         includeSiteNamesInFile, excludeSiteNames, excludeSiteNamesInFile,
-        subsetSites, subsetTaxa, newCoordinates;
+        subsetSites, subsetTaxa, newCoordinates,
+        archaeopteryx, filterTaxaNames, maxThreads, mhd, pca,
+        printGenoSummary, printMemoryUsage;
 
         @Override
         public String toString() {
@@ -235,6 +237,11 @@ public class TasselPipeline implements PluginListener {
     }
 
     public static void main(String args[]) {
+
+        String emDash = "\u2014";
+        for (int i = 0; i < args.length; i++) {
+            args[i] = args[i].replaceFirst(emDash, "-");
+        }
 
         TasselPrefs.setPersistPreferences(false);
         LoggingUtils.setupLogging();
@@ -491,6 +498,12 @@ public class TasselPipeline implements PluginListener {
                 } else if (current.equalsIgnoreCase("-importGuess")) {
                     String file = args[index++].trim();
                     loadFile(file, FileLoadPlugin.TasselFileType.Unknown);
+                } else if (current.equalsIgnoreCase("-sortPositions")) {
+                    FileLoadPlugin plugin = (FileLoadPlugin) findLastPluginFromCurrentPipe(new Class[]{FileLoadPlugin.class});
+                    if (plugin == null) {
+                        throw new IllegalArgumentException("TasselPipeline: parseArgs: No FileLoadPlugin step defined: " + current);
+                    }
+                    plugin.sortPositions(true);
                 } else if (current.equalsIgnoreCase("-projection")) {
                     String file = args[index++].trim();
                     ProjectionLoadPlugin plugin = new ProjectionLoadPlugin(myMainFrame, myIsInteractive);
