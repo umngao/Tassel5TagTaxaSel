@@ -86,9 +86,17 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
                 }
             }
 
+            String[] positionsFromHapcut = new String[myNumSites];
             Map<String, ProcessHapcut> processedHapcutFiles = new HashMap<>();
             for (Future<ProcessHapcut> future : futures) {
                 ProcessHapcut processed = future.get();
+                for (int s = 0; s < myNumSites; s++) {
+                    if (positionsFromHapcut[s] == null) {
+                        positionsFromHapcut[s] = processed.myPositions[s];
+                    } else if (processed.myPositions[s] != null && !positionsFromHapcut[s].equals(processed.myPositions[s])) {
+                        throw new IllegalStateException("AdjustPhasingPlugin: position at site: " + s + " in: " + processed.myFilename + ": " + processed.myPositions[s] + " doesn't match other Hapcut files: " + positionsFromHapcut[s]);
+                    }
+                }
                 processedHapcutFiles.put(processed.taxaName(), processed);
                 myLogger.info("finished processing: " + processed.filename() + " taxa: " + processed.taxaName());
             }
@@ -596,6 +604,10 @@ public class AdjustPhasingPlugin extends AbstractPlugin {
                 ProcessLines processed = future.get();
                 while (!processed.myIsFinalProcessLines) {
                     myWriter.write(processed.myBuilder.toString());
+
+                    int percent = Math.min(Math.abs((int) ((double) processed.myStartSite / (double) myNumSites * 100.0)), 100);
+                    progress(percent, this);
+
                     for (int t = 0; t < myNumTaxa; t++) {
                         numSwitchesTaxa[t] += processed.myNumSwitchesTaxa[t];
                     }
