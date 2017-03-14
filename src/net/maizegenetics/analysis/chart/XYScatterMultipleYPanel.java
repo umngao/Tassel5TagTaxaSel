@@ -5,8 +5,11 @@ package net.maizegenetics.analysis.chart;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Font;
 import java.awt.event.ActionEvent;
+import java.awt.font.TextAttribute;
 import java.text.NumberFormat;
+import java.util.Map;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -16,6 +19,7 @@ import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.chart.title.LegendTitle;
 
 /**
  *
@@ -65,6 +69,28 @@ public class XYScatterMultipleYPanel extends BasicChartPanel {
                 true,
                 true,
                 false);
+
+        int seriesCount = dataset.getSeriesCount();
+        if (seriesCount > 21) {
+            int fontSize = 5;
+            if (seriesCount < 30) {
+                fontSize = 11;
+            } else if (seriesCount < 50) {
+                fontSize = 10;
+            } else if (seriesCount < 70) {
+                fontSize = 9;
+            } else if (seriesCount < 90) {
+                fontSize = 8;
+            } else if (seriesCount < 110) {
+                fontSize = 7;
+            } else if (seriesCount < 130) {
+                fontSize = 6;
+            }
+            LegendTitle title = chart.getLegend();
+            Map attributes = title.getItemFont().getAttributes();
+            attributes.put(TextAttribute.SIZE, fontSize);
+            title.setItemFont(new Font(attributes));
+        }
 
         chart.setBackgroundPaint(new Color(238, 238, 238));
 
