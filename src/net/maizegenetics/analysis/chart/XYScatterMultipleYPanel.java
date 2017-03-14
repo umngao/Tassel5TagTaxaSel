@@ -62,34 +62,50 @@ public class XYScatterMultipleYPanel extends BasicChartPanel {
             yName = "-Log10(P-Value)";
             name = "P-Values by Chromosome for " + dataset.getTrait();
         }
-        chart = ChartFactory.createScatterPlot(name,
-                xName, yName,
-                dataset,
-                PlotOrientation.VERTICAL,
-                true,
-                true,
-                false);
 
         int seriesCount = dataset.getSeriesCount();
-        if (seriesCount > 21) {
-            int fontSize = 5;
-            if (seriesCount < 30) {
-                fontSize = 11;
-            } else if (seriesCount < 50) {
-                fontSize = 10;
-            } else if (seriesCount < 70) {
-                fontSize = 9;
-            } else if (seriesCount < 90) {
-                fontSize = 8;
-            } else if (seriesCount < 110) {
-                fontSize = 7;
-            } else if (seriesCount < 130) {
-                fontSize = 6;
+
+        if (seriesCount < 200) {
+
+            chart = ChartFactory.createScatterPlot(name,
+                    xName, yName,
+                    dataset,
+                    PlotOrientation.VERTICAL,
+                    true,
+                    true,
+                    false);
+
+            if (seriesCount > 21) {
+                int fontSize = 5;
+                if (seriesCount < 30) {
+                    fontSize = 11;
+                } else if (seriesCount < 50) {
+                    fontSize = 10;
+                } else if (seriesCount < 70) {
+                    fontSize = 9;
+                } else if (seriesCount < 90) {
+                    fontSize = 8;
+                } else if (seriesCount < 110) {
+                    fontSize = 7;
+                } else if (seriesCount < 130) {
+                    fontSize = 6;
+                }
+                LegendTitle title = chart.getLegend();
+                Map attributes = title.getItemFont().getAttributes();
+                attributes.put(TextAttribute.SIZE, fontSize);
+                title.setItemFont(new Font(attributes));
             }
-            LegendTitle title = chart.getLegend();
-            Map attributes = title.getItemFont().getAttributes();
-            attributes.put(TextAttribute.SIZE, fontSize);
-            title.setItemFont(new Font(attributes));
+
+        } else {
+
+            chart = ChartFactory.createScatterPlot(name,
+                    xName, yName,
+                    dataset,
+                    PlotOrientation.VERTICAL,
+                    false,
+                    true,
+                    false);
+
         }
 
         chart.setBackgroundPaint(new Color(238, 238, 238));
