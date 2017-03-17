@@ -15,6 +15,7 @@ import net.maizegenetics.phenotype.Phenotype.ATTRIBUTE_TYPE;
 import net.maizegenetics.plugindef.DataSet;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrix;
 import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory;
+import net.maizegenetics.matrixalgebra.Matrix.DoubleMatrixFactory.FactoryType;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
@@ -231,6 +232,7 @@ public class CompressedMLMusingDoubleMatrix {
         //cycle through the phenotypes
         for (PhenotypeAttribute attr : dataAttributeList) {
             //get phenotype data
+        	myLogger.debug("Running MLM for " + attr.name());
             double[] phenotypeData = doubleDataFromAttribute(attr);
 
             //get the taxa
@@ -525,13 +527,14 @@ public class CompressedMLMusingDoubleMatrix {
                     }
                     iterationsSofar++;
                     int progress = (int) ((double) iterationsSofar / (double) expectedIterations * 100);
+                    progress = Math.min(99, progress);
                     parentPlugin.updateProgress(progress);
                 }
             }
 
         }
 
-        parentPlugin.updateProgress(0);
+        parentPlugin.updateProgress(100);
 
         results.addAll(formatResults());
         
@@ -665,6 +668,7 @@ public class CompressedMLMusingDoubleMatrix {
      * @return	an array containing the Z matrix as its first element and the K matrix as its second element. If compression is specified, then both are the compressed versions.
      */
     public DoubleMatrix[] computeZKZ(DoubleMatrix data, DoubleMatrix X, DoubleMatrix Z, DistanceMatrix kin, String traitname) {
+    	myLogger.debug("Running compression for " + traitname);
     	DoubleMatrix[] zkMatrices = new DoubleMatrix[2]; 
     	CompressedDoubleMatrix.kinshipMethod kinmethod = CompressedDoubleMatrix.kinshipMethod.avg;
     	
@@ -709,9 +713,8 @@ public class CompressedMLMusingDoubleMatrix {
             parentPlugin.updateProgress((int) (exponent * 100 / maxexponent));
             //int g = (int) (nkin * Math.pow(base, exponent));
             int g = (int) (nkin);
-            while (g > 1 || (g == 1 && taxaReplicated)) {
+            while (g > 3) {
                 cm.setNumberOfGroups(g);
-
                 DoubleMatrix compressedZ = cm.getCompressedZ(Z);
                 DoubleMatrix compressedK = cm.getCompressedMatrix(kinmethod);
                 try {
@@ -739,36 +742,36 @@ public class CompressedMLMusingDoubleMatrix {
                 while (g == prev) {
                     exponent++;
                     int prog = (int) (exponent * 100 / maxexponent);
-                    prog = Math.min(prog, 100);
+                    prog = Math.min(prog, 99);
                     parentPlugin.updateProgress(prog);
                     g = (int) (nkin * Math.pow(base, exponent));
                 }
             }
 
             //for g = 1 use GLM to estimate beta and errvar
-            if (!taxaReplicated) {
-                SweepFast sweep = new SweepFast(X, data);
-                sweep.XTXSweepSetDmin();
-                n = X.numberOfColumns();
-                double ssres = sweep.getResidualSS();
-                double errordf = (double) (data.numberOfRows() - n);
-                double errvar = ssres / errordf;
-                double lnlk = (errordf * Math.log(2 * Math.PI * errvar) + errordf);
-
-                compressionReportBuilder.add(new Object[]{traitname, g,
-                            ((double) nkin) / ((double) g),
-                            lnlk,
-                            new Double(0.0),
-                            errvar});
-
-                if (Double.isNaN(bestlnlk) || emlm.getLnLikelihood() > bestlnlk) {
-                    bestlnlk = emlm.getLnLikelihood();
-                    bestCompression = g;
-                    resvar = emlm.getVarRes();
-                    genvar = 0;
-                }
-
-            }
+//            if (!taxaReplicated) {
+//                SweepFast sweep = new SweepFast(X, data);
+//                sweep.XTXSweepSetDmin();
+//                n = X.numberOfColumns();
+//                double ssres = sweep.getResidualSS();
+//                double errordf = (double) (data.numberOfRows() - n);
+//                double errvar = ssres / errordf;
+//                double lnlk = (errordf * Math.log(2 * Math.PI * errvar) + errordf);
+//
+//                compressionReportBuilder.add(new Object[]{traitname, g,
+//                            ((double) nkin) / ((double) g),
+//                            lnlk,
+//                            new Double(0.0),
+//                            errvar});
+//
+//                if (Double.isNaN(bestlnlk) || emlm.getLnLikelihood() > bestlnlk) {
+//                    bestlnlk = emlm.getLnLikelihood();
+//                    bestCompression = g;
+//                    resvar = emlm.getVarRes();
+//                    genvar = 0;
+//                }
+//
+//            }
 
             cm.setNumberOfGroups(bestCompression);
             zkMatrices[0] = cm.getCompressedZ(Z);
