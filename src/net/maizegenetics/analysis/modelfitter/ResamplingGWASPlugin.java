@@ -49,36 +49,36 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
 
     private PluginParameter<Double> enterLimit =
             new PluginParameter.Builder<>("enterLimit", 1e-8, Double.class)
-                    .description("A new term entering the model must have a p-value equal to or less than the enter limit. (Default = 1e-8)")
+                    .description("A new term entering the model must have a p-value equal to or less than the enter limit.")
                     .guiName("Enter Limit")
                     .build();
     private PluginParameter<Integer> maxModelTerms =
             new PluginParameter.Builder<>("maxterms", 100, Integer.class)
-                    .description("The maximum number of variants that will be fit. If the chromosome residuals are being fit, the maximum number of variants fit per chromosome. (Default = 100)")
+                    .description("The maximum number of variants that will be fit. If the chromosome residuals are being fit, the maximum number of variants fit per chromosome.")
                     .guiName("Max terms")
                     .build();
 
     private PluginParameter<Boolean> useResiduals =
             new PluginParameter.Builder<>("residuals", false, Boolean.class)
-                    .description("Should new terms be tested using residuals from the prior model? The analysis runs faster using this option. (Default = true)")
+                    .description("Should new terms be tested using residuals from the prior model? The analysis runs faster using this option.")
                     .guiName("Use residuals")
                     .build();
 
     private PluginParameter<Integer> numberOfIterations =
             new PluginParameter.Builder<>("nIterations", 100, Integer.class)
-                    .description("The number of times the data should be resampled. (Default = 100)")
+                    .description("The number of times the data should be resampled.")
                     .guiName("Number of Iterations")
                     .build();
 
     private PluginParameter<Double> resampleProportion =
             new PluginParameter.Builder<>("resampleProportion", 0.8, Double.class)
-                    .description("The size of the sample is resample proportion times the number of observations in the complete data. For bootstrap, set this value to 1 and with replacement to true. (Default = 0.8)")
+                    .description("The size of the sample is resample proportion times the number of observations in the complete data. For bootstrap, set this value to 1 and with replacement to true.")
                     .guiName("")
                     .build();
 
     private PluginParameter<Boolean> withReplacement =
             new PluginParameter.Builder<>("replacement", false, Boolean.class)
-                    .description("Should the sample be formed by sampling with replacement?  For bootstrap, set resample proportion to 1 and this value to true. (Default = false)")
+                    .description("Should the sample be formed by sampling with replacement?  For bootstrap, set resample proportion to 1 and this value to true.")
                     .guiName("With Replacement")
                     .build();
 
@@ -97,7 +97,7 @@ public class ResamplingGWASPlugin extends AbstractPlugin {
 
     private PluginParameter<Integer> maxThreads =
             new PluginParameter.Builder<>("maxThreads", -1, Integer.class)
-                    .description("The maximum number of threads to available to the plugin. If maxThreads = -1, then the value is set to the number of available processors - 2. (Default = -1)")
+                    .description("The maximum number of threads to available to the plugin. If maxThreads = -1, then the value is set to the number of available processors - 2.")
                     .guiName("Maximum Thread Number")
                     .build();
 
