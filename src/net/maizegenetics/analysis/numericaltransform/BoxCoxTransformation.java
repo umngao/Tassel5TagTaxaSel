@@ -143,7 +143,7 @@ public class BoxCoxTransformation {
                 double meanVal = meanObj.evaluate(transformedValues);
                 
                 //Skip this lambda if we have a negative sample standard deviation
-                if(sampleStandardDev<=0.0 || sampleStandardDev == Double.NaN  || meanVal == Double.NaN) {
+                if(sampleStandardDev<=0.0 || Double.isNaN(sampleStandardDev) || Double.isNaN(meanVal)) {
                     continue;
                 }
                 //Compute kst
