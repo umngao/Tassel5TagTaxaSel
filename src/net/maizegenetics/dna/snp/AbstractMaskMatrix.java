@@ -7,7 +7,6 @@ package net.maizegenetics.dna.snp;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ForkJoinPool;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.UnmodifiableBitSet;
@@ -24,7 +23,6 @@ public abstract class AbstractMaskMatrix implements MaskMatrix {
     protected final int myNumSites;
     private final Cache<Integer, BitSet> myCache;
     private final Cache<Integer, BitSet> mySmallCache;
-    //private final CopyOnWriteArraySet<Integer> myCurrentlyProcessingBlocks = new CopyOnWriteArraySet<>();
     private final ForkJoinPool myThreadPool = new ForkJoinPool();
 
     AbstractMaskMatrix(int numTaxa, int numSites) {
@@ -125,7 +123,6 @@ public abstract class AbstractMaskMatrix implements MaskMatrix {
                     myCache.put(site, siteMask(site));
                 }
             }
-            //myCurrentlyProcessingBlocks.remove(mySite);
         }
 
     }
