@@ -52,6 +52,17 @@ public class GVCFGenomeSequenceBuilder extends GenomeSequenceBuilder {
         return new HalfByteGenomeSequenceGVCF(chromPositionMap,gvcfPositionsAndAnnotations);
     }
 
+    public static GenomeSequence instance(GVCFGenomeSequence base, BitSet maskedBitSet, BitSet filteredBitSet) throws Exception{
+        return new HalfByteGenomeSequenceGVCF(base.getChrPosMap(), base.getGVCFPositions(), maskedBitSet, filteredBitSet);
+
+//        Map<Chromosome, byte[]> chromPositionMap = readReferenceGenomeChr(fastaFileName, charConversion);
+//        //need to create a Map<chr,Map<range,Map<AnnotationName,Value>>>
+//        Map<Chromosome, RangeMap<Integer,GeneralAnnotationStorage>> gvcfAnnotationsAndCalls = readGVCFFile(gvcfFileName);
+//        PositionList gvcfPositionsAndAnnotations = readGVCFFilePositionList(gvcfFileName);
+//        return new HalfByteGenomeSequenceGVCF(chromPositionMap,gvcfPositionsAndAnnotations);
+    }
+
+
     private static Map<Chromosome,RangeMap<Integer,GeneralAnnotationStorage>> readGVCFFile(String gvcfFileName) {
         HashMap<Chromosome, RangeMap<Integer,GeneralAnnotationStorage>> chromosomeRangeMapHashMap = new HashMap<>();
         //TODO multithread using similar code to BuilderFromVCF
@@ -147,6 +158,41 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
         this.chromPositionMap = chromPositionMap;
         this.gvcfAnnotationsAndCalls = gvcfAnnotationsAndCalls;
         chromPositionMap.entrySet().stream()
+                        .forEach(e -> chromLengthLookup.put(e.getKey(),e.getKey().getLength()));
+        LongAdder genomeIndex=new LongAdder();
+        chromosomes().stream().sorted()
+                        .forEach(chrom -> {
+                            int length=chromLengthLookup.get(chrom);
+                            wholeGenomeIndexMap.put(Range.closed(genomeIndex.longValue(),
+                                    genomeIndex.longValue()+length-1),chrom);
+                                genomeIndex.add(length);}
+                        );
+        genomeSize=genomeIndex.longValue();
+        maskBitSet = new OpenBitSet(gvcfAnnotationsAndCalls.size());
+        filterBitSet = new OpenBitSet(gvcfAnnotationsAndCalls.size());
+
+
+//        this.chromPositionMap = chromPositionMap;
+//        this.gvcfAnnotationsAndCalls = gvcfAnnotationsAndCalls;
+//        chromPositionMap.entrySet().stream()
+//                .forEach(e -> chromLengthLookup.put(e.getKey(),e.getKey().getLength()));
+//        LongAdder genomeIndex=new LongAdder();
+//        chromosomes().stream().sorted()
+//                .forEach(chrom -> {
+//                    int length=chromLengthLookup.get(chrom);
+//                    wholeGenomeIndexMap.put(Range.closed(genomeIndex.longValue(),
+//                            genomeIndex.longValue()+length-1),chrom);
+//                    genomeIndex.add(length);}
+//                );
+//        genomeSize=genomeIndex.longValue();
+//        this.maskBitSet = new OpenBitSet(gvcfAnnotationsAndCalls.size());
+//        this.filterBitSet = new OpenBitSet(gvcfAnnotationsAndCalls.size());
+    }
+
+    protected HalfByteGenomeSequenceGVCF(Map<Chromosome, byte[]>chromPositionMap, PositionList gvcfAnnotationsAndCalls,BitSet maskBitSet, BitSet filterBitSet) {
+        this.chromPositionMap = chromPositionMap;
+        this.gvcfAnnotationsAndCalls = gvcfAnnotationsAndCalls;
+        chromPositionMap.entrySet().stream()
                 .forEach(e -> chromLengthLookup.put(e.getKey(),e.getKey().getLength()));
         LongAdder genomeIndex=new LongAdder();
         chromosomes().stream().sorted()
@@ -157,8 +203,8 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
                     genomeIndex.add(length);}
                 );
         genomeSize=genomeIndex.longValue();
-        maskBitSet = new OpenBitSet(gvcfAnnotationsAndCalls.size());
-        filterBitSet = new OpenBitSet(gvcfAnnotationsAndCalls.size());
+        this.maskBitSet = maskBitSet;
+        this.filterBitSet = filterBitSet;
     }
     @Override
     public Set<Chromosome> chromosomes() {
@@ -191,7 +237,18 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
         int listOfChrPositionsCounter = 0;
         ArrayList<Byte> byteList = new ArrayList<>();
         for(int siteCounter = startSite; siteCounter <= lastSite && listOfChrPositionsCounter<listOfChrPositions.size(); siteCounter++) {
-            if(listOfChrPositions.get(listOfChrPositionsCounter).getPosition()==siteCounter) {
+
+            if(filterBitSet.fastGet(listOfChrPositionsCounter)) {
+                listOfChrPositionsCounter++;
+                continue;
+            }
+            if(maskBitSet.fastGet(listOfChrPositionsCounter)) {
+                //if true it means we have to mask all of these positions
+                //Check to see if we have an END anno
+
+
+            }
+            if(listOfChrPositions.get(listOfChrPositionsCounter).getPosition()==siteCounter ){//&& !filterBitSet.fastGet(listOfChrPositionsCounter)) {
                 //check to see if the current position is a reference block or not
                 SetMultimap<String,String> annos = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation().getAnnotationAsMap();
                 if(annos.containsKey("END")) {
@@ -199,12 +256,23 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
                     //Check the call and grab the corresponding allele values
                     String call = (String)annos.get("GT").toArray()[0];
                     boolean phased = true;
+                    boolean haploid = false;
                     if(call.contains("/")) {
                         phased = false;
                     }
+                    else if(call.contains("|")) {
+                        phased = true;
+                    }
+                    else {
+                        haploid = true;
+                    }
                     String[] callSplit = phased?call.split("|"):call.split("/");
                     int leftAllele = Integer.parseInt(callSplit[0]);
-                    int rightAllele = Integer.parseInt(callSplit[1]);
+                    int rightAllele = leftAllele;
+                    if(!haploid) {
+                        rightAllele = Integer.parseInt(callSplit[1]);
+                    }
+//                    int rightAllele = Integer.parseInt(callSplit[1]);
                     int endPoint = Integer.parseInt((String)annos.get("END").toArray()[0])-1;
                     //Get the known Variants
                     int startSiteShifted = siteCounter - 1;  //shift over to zero base
@@ -218,7 +286,13 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
                     String[] variants = listOfChrPositions.get(listOfChrPositionsCounter).getKnownVariants();
                     String leftAlleleString = variants[leftAllele];
                     //TODO check to see if we should assume only Ref or<NON_REF> call for blocks
-                    if(leftAllele == 0) {
+                    if(maskBitSet.fastGet(listOfChrPositionsCounter)) {
+                        //if true we have a masking
+                        for (int i = startSiteShifted; i <= endPoint; i++) {
+                            byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+                        }
+                    }
+                    else if(leftAllele == 0) {
                         //fill in with reference sequence
                         //pull the sequence from siteCounter till you get to endPoint
 
@@ -245,18 +319,42 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
 
                     String call = (String)annos.get("GT").toArray()[0];
                     boolean phased = true;
+                    boolean haploid = false;
                     if(call.contains("/")) {
                         phased = false;
                     }
+                    else if(call.contains("|")) {
+                        phased = true;
+                    }
+                    else {
+                        //haploid
+                        haploid = true;
+                    }
+//                    String[] callSplit = new String[2];
+//                    if(haploid) {
+//                        callSplit[0] = call;
+//                    }
                     String[] callSplit = phased?call.split("|"):call.split("/");
                     int leftAllele = Integer.parseInt(callSplit[0]);
-                    int rightAllele = Integer.parseInt(callSplit[1]);
+                    int rightAllele = leftAllele;
+                    if(!haploid) {
+                        rightAllele = Integer.parseInt(callSplit[1]);
+                    }
+//                    int rightAllele = Integer.parseInt(callSplit[1]);
                     //Get the known Variants
                     String[] variants = listOfChrPositions.get(listOfChrPositionsCounter).getKnownVariants();
                     //TODO handle hets correctly for indels and such
                     String leftAlleleString = variants[leftAllele];
-                    for(int i = 0; i < leftAlleleString.length(); i++) {
-                        byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte(leftAlleleString.charAt(i)));
+                    if(maskBitSet.fastGet(listOfChrPositionsCounter)) {
+                        //if true we have to mask it
+                        for (int i = 0; i < leftAlleleString.length(); i++) {
+                            byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+                        }
+                    }
+                    else {
+                        for (int i = 0; i < leftAlleleString.length(); i++) {
+                            byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte(leftAlleleString.charAt(i)));
+                        }
                     }
                 }
 
@@ -267,6 +365,8 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
                 //grab the reference as we dont have a gvcf for the requested site
                 //Should this be the breaking point of the sequence??
                 //TODO should we mark these with Ns?
+                //listOfChrPositionsCounter++;
+
             }
         }
         byte[] fullBytes = new byte[byteList.size()];
@@ -339,6 +439,9 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
         return mappedCoordinates;
     }
 
+    public Map<Chromosome, byte[]> getChrPosMap() {
+        return chromPositionMap;
+    }
     public HashMap<Chromosome,ArrayList<ArrayList<Integer>>> getConsecutiveRegions() {
         HashMap<Chromosome,ArrayList<ArrayList<Integer>>> consecRegions = new HashMap<>();
         Set<Chromosome> chromosomeSet = chromosomes();
@@ -357,7 +460,19 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
                 rangeMaps.get(currentPosition.getChromosome()).add(Range.closed(currentPosition.getPosition(),endPoint+1));
             }
             else {
-                rangeMaps.get(currentPosition.getChromosome()).add(Range.closed(currentPosition.getPosition(),currentPosition.getPosition()+1));
+                //check to make sure that the reference allele is more than one allele(A deletion)
+                String[] variants = currentPosition.getKnownVariants();
+                //TODO handle hets correctly for indels and such
+                String refAlleleString = variants[0];
+                if(refAlleleString.length()>1) {
+                    //we have a deletion or an insertion+deletion as such our END point will need to take into account the size of the deletion
+                    rangeMaps.get(currentPosition.getChromosome()).add(Range.closed(currentPosition.getPosition(),currentPosition.getPosition()+refAlleleString.length()));
+                }
+                else {
+                    //This will cause the index of the next line in the GVCF file to be non consecutive with the previous
+                    rangeMaps.get(currentPosition.getChromosome()).add(Range.closed(currentPosition.getPosition(), currentPosition.getPosition() + 1));
+
+                }
             }
 
         }
@@ -417,6 +532,9 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
     }
     public void flipFilterBit(int index) {
         filterBitSet.fastFlip(index);
+    }
+    public PositionList getGVCFPositions() {
+        return gvcfAnnotationsAndCalls;
     }
 }
 
