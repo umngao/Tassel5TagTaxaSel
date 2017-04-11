@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.prefs.Preferences;
 
 /**
- *
  * @author Terry Casstevens
  */
 public class TasselPrefs {
@@ -39,7 +38,7 @@ public class TasselPrefs {
     public static final String TASSEL_LOG_Y_DIM = "logyDimension";
     public static final int TASSEL_LOG_Y_DIM_DEFAULT = -1;
     public static final String TASSEL_MAX_THREADS = "maxThreads";
-    public static final int TASSEL_MAX_THREADS_DEFAULT = Runtime.getRuntime().availableProcessors() - 1;
+    public static final int TASSEL_MAX_THREADS_DEFAULT = Math.max(Runtime.getRuntime().availableProcessors() - 1, 1);
     //
     // ExportPlugin preferences
     //
