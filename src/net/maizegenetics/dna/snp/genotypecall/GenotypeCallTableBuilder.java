@@ -159,31 +159,6 @@ public class GenotypeCallTableBuilder {
         }
     }
 
-    public static GenotypeCallTableBuilder getHomozygousInstance(GenotypeCallTable genotype) {
-        if (genotype instanceof ByteGenotypeCallTable) {
-            SuperByteMatrix matrix = SuperByteMatrixBuilder.getInstanceCopy(((ByteGenotypeCallTable) genotype).myGenotype);
-            matrix.setHetsTo(GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
-            return new GenotypeCallTableBuilder(matrix).isPhased(genotype.isPhased()).alleleEncodings(genotype.alleleDefinitions());
-        } else {
-            int numTaxa = genotype.numberOfTaxa();
-            int numSites = genotype.numberOfSites();
-            GenotypeCallTableBuilder builder = GenotypeCallTableBuilder.getInstance(numTaxa, numSites).isPhased(genotype.isPhased()).alleleEncodings(genotype.alleleDefinitions());
-            for (int t = 0; t < numTaxa; t++) {
-
-                for (int s = 0; s < numSites; s++) {
-                    byte currGeno = genotype.genotype(t, s);
-                    if (GenotypeTableUtils.isHeterozygous(currGeno)) {
-                        builder.setBase(t, s, GenotypeTable.UNKNOWN_DIPLOID_ALLELE);
-                    } else {
-                        builder.setBase(t, s, currGeno);
-                    }
-                }
-
-            }
-            return builder;
-        }
-    }
-
     public GenotypeCallTableBuilder setBase(int taxon, int site, byte value) {
         myGenotype.set(taxon, site, value);
         return this;
