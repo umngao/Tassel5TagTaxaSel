@@ -24,4 +24,6 @@ public interface GVCFGenomeSequence extends GenomeSequence {
     public void flipMaskBit(int index);
     public void flipFilterBit(int index);
     public void writeFASTA(String fileName);
+    public HashMap<String,Integer> getPreviousRegionStats();
+    public void resetCounters();
 }
