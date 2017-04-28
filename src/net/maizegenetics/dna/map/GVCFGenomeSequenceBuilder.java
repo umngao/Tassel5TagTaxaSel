@@ -74,7 +74,8 @@ public class GVCFGenomeSequenceBuilder extends GenomeSequenceBuilder {
     private static PositionList readGVCFFilePositionList(String gvcfFileName) throws Exception{
         ArrayList<Position> positionArrayList = new ArrayList<>();
 
-        BufferedReader gvcfFileReader = new BufferedReader(new FileReader(gvcfFileName));
+//        BufferedReader gvcfFileReader = new BufferedReader(new FileReader(gvcfFileName));
+        BufferedReader gvcfFileReader = Utils.getBufferedReader(gvcfFileName,-1);
         //Loop through the headers
         String currentLine = "";
         while(!(currentLine = gvcfFileReader.readLine()).startsWith("#CHROM")) {
@@ -153,7 +154,8 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
     private BitSet maskBitSet;
     private BitSet filterBitSet;
 
-    private int regionTotalBPCount = 0;
+    private int regionTotalReferenceBPCount = 0;
+    private int regionTotalExportedBPCount = 0;
     private int regionHetCount = 0;
     private int regionAltCount = 0;
     private int regionDepthCount = 0;
@@ -253,6 +255,9 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
 //        }
         final int startSiteFinal = startSite;
         final int lastSiteFinal = lastSite;
+
+        //add one as we grab the last site as well.
+        regionTotalReferenceBPCount = lastSite - startSite+1;
 
 
         //zrm22 new for getting gvcf records.
@@ -418,7 +423,7 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
 
                         //check depth
                         String dpFullString = (String) annos.get("DP").toArray()[0];
-
+                       // String minDPString = (String) annos.get("MIN_DP").toArray()[0];
                         //TODO check to see if we should assume only Ref or<NON_REF> call for blocks
                         if (maskBitSet.fastGet(listOfChrPositionsCounter) || dpFullString.equals("0")) {
 
@@ -435,11 +440,16 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
                             //Zrm Apr17 fix for default rules
                             //check if homozygous or het based on GT calls
                             int depth = 0;
+                            int minDepth = 0;
                             if(!dpFullString.equals("")) {
                                 depth = Integer.parseInt(dpFullString);
                             }
+//                            if(!minDPString.equals("")) {
+//                                minDepth = Integer.parseInt(minDPString);
+//                            }
                             for (int i = startSiteShifted; i <= endPoint; i++) {
                                 regionDepthCount+=depth;
+                                regionMinDepthCount+=minDepth;
                                 byteList.add((byte) ((i % 2 == 0) ? ((packedBytes[i / 2] & 0xF0) >> 4) : (packedBytes[i / 2] & 0x0F)));
                             }
 
@@ -620,7 +630,7 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
                 }
             }
         }
-        regionTotalBPCount = byteList.size();
+        regionTotalExportedBPCount = byteList.size();
         byte[] fullBytes = new byte[byteList.size()];
         for(int i = 0; i < fullBytes.length; i++) {
             fullBytes[i] = byteList.get(i);
@@ -838,7 +848,8 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
 
     @Override
     public void resetCounters() {
-        regionTotalBPCount = 0;
+        regionTotalReferenceBPCount = 0;
+        regionTotalExportedBPCount = 0;
         regionHetCount = 0;
         regionAltCount = 0;
         regionDepthCount = 0;
@@ -853,7 +864,8 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
     @Override
     public HashMap<String,Integer> getPreviousRegionStats() {
         HashMap<String,Integer> stats = new HashMap<>();
-        stats.put("Size",regionTotalBPCount);
+        stats.put("RefSize",regionTotalReferenceBPCount);
+        stats.put("Size", regionTotalExportedBPCount);
         stats.put("HetCount",regionHetCount);
         stats.put("AltCount",regionAltCount);
         stats.put("Depth",regionDepthCount);
