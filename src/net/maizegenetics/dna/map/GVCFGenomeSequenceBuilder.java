@@ -7,7 +7,6 @@ import net.maizegenetics.util.*;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,8 +46,10 @@ public class GVCFGenomeSequenceBuilder extends GenomeSequenceBuilder {
     public static GenomeSequence instance(String fastaFileName, Function<Character, Character> charConversion, String gvcfFileName) throws Exception{
         Map<Chromosome, byte[]> chromPositionMap = readReferenceGenomeChr(fastaFileName, charConversion);
         //need to create a Map<chr,Map<range,Map<AnnotationName,Value>>>
-        Map<Chromosome, RangeMap<Integer,GeneralAnnotationStorage>> gvcfAnnotationsAndCalls = readGVCFFile(gvcfFileName);
+//        Map<Chromosome, RangeMap<Integer,GeneralAnnotationStorage>> gvcfAnnotationsAndCalls = readGVCFFile(gvcfFileName);
+        System.out.println("Generating Position List");
         PositionList gvcfPositionsAndAnnotations = readGVCFFilePositionList(gvcfFileName);
+        System.out.println("Done Creating Pos list:");
         return new HalfByteGenomeSequenceGVCF(chromPositionMap,gvcfPositionsAndAnnotations);
     }
 
@@ -236,23 +237,6 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
     // input is 1-based.
     //TODO add in functionality using GVCF annotations
     public byte[] chromosomeSequence(Chromosome chrom, int startSite, int lastSite) {
-        //We need to find the previous and the ending positions as they are now ranges
-//        int newStart = startSite;
-//        int newLast = lastSite;
-//        for(int i = 0; i < gvcfAnnotationsAndCalls.size()-1; i++) {
-//            SetMultimap<String,String> annos = gvcfAnnotationsAndCalls.get(i).getAnnotation().getAnnotationAsMap();
-//            if(annos.containsKey("END")) {
-//                int endPoint = Integer.parseInt((String)annos.get("END").toArray()[0]);
-//
-//                if (startSite >= gvcfAnnotationsAndCalls.get(i).getPosition() && startSite <= endPoint) {
-//                    newStart = gvcfAnnotationsAndCalls.get(i).getPosition();
-//                }
-//
-//                if (lastSite >= gvcfAnnotationsAndCalls.get(i).getPosition() && lastSite <= endPoint) {
-//                    newLast = gvcfAnnotationsAndCalls.get(i).getPosition();
-//                }
-//            }
-//        }
         final int startSiteFinal = startSite;
         final int lastSiteFinal = lastSite;
 
@@ -328,14 +312,17 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
         }
         else {
             for (int siteCounter = startSite; siteCounter <= lastSite && listOfChrPositionsCounter < listOfChrPositions.size(); siteCounter++) {
-
+                GeneralAnnotation ga = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation();
+                Set<String> annotationKeys = ga.getAnnotationKeys();
                 if(addingAtStart) {
                     if (listOfChrPositionsCounter != 0) {
                         if (filterBitSet.fastGet(listOfChrPositionsCounter-1)) {
                             //get the size of the position
-                            SetMultimap<String, String> annos = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation().getAnnotationAsMap();
-                            if (annos.containsKey("END")) {
-                                int lengthOfPosBlock = Integer.parseInt((String) annos.get("END").toArray()[0]) - listOfChrPositions.get(listOfChrPositionsCounter).getPosition();
+//                            SetMultimap<String, String> annos = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation().getAnnotationAsMap();
+//                            if (annos.containsKey("END")) {
+                            if (annotationKeys.contains("END")) {
+//                                int lengthOfPosBlock = Integer.parseInt((String) annos.get("END").toArray()[0]) - listOfChrPositions.get(listOfChrPositionsCounter).getPosition();
+                                int lengthOfPosBlock = Integer.parseInt((String) ga.getTextAnnotation("END")[0]) - listOfChrPositions.get(listOfChrPositionsCounter).getPosition();
                                 siteCounter+=lengthOfPosBlock;
                             }
                             else{
@@ -351,9 +338,11 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
                 }
                 else {
                     if (filterBitSet.fastGet(listOfChrPositionsCounter)) {
-                        SetMultimap<String, String> annos = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation().getAnnotationAsMap();
-                        if (annos.containsKey("END")) {
-                            int lengthOfPosBlock = Integer.parseInt((String) annos.get("END").toArray()[0]) - listOfChrPositions.get(listOfChrPositionsCounter).getPosition();
+//                        SetMultimap<String, String> annos = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation().getAnnotationAsMap();
+//                        if (annos.containsKey("END")) {
+                        if (annotationKeys.contains("END")) {
+//                            int lengthOfPosBlock = Integer.parseInt((String) annos.get("END").toArray()[0]) - listOfChrPositions.get(listOfChrPositionsCounter).getPosition();
+                            int lengthOfPosBlock = Integer.parseInt((String) ga.getTextAnnotation("END")[0]) - listOfChrPositions.get(listOfChrPositionsCounter).getPosition();
                             siteCounter+=lengthOfPosBlock;
                         }
                         else{
@@ -376,13 +365,15 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
                 if (listOfChrPositions.get(listOfChrPositionsCounter).getPosition() <= siteCounter) {
                     //&& !filterBitSet.fastGet(listOfChrPositionsCounter)) {
                     //check to see if the current position is a reference block or not
-                    SetMultimap<String, String> annos = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation().getAnnotationAsMap();
-                    if (annos.containsKey("END")) {
+//                    SetMultimap<String, String> annos = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation().getAnnotationAsMap();
+//                    if (annos.containsKey("END")) {
+                    if (annotationKeys.contains("END")) {
 
 
                         //this means we have a block
                         //Check the call and grab the corresponding allele values
-                        String call = (String) annos.get("GT").toArray()[0];
+//                        String call = (String) annos.get("GT").toArray()[0];
+                        String call = ga.getTextAnnotation("GT")[0];
                         boolean phased = true;
                         boolean haploid = false;
                         if (call.contains("/")) {
@@ -399,7 +390,8 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
                             rightAllele = Integer.parseInt(callSplit[1]);
                         }
 //                    int rightAllele = Integer.parseInt(callSplit[1]);
-                        int endPoint = Integer.parseInt((String) annos.get("END").toArray()[0]) - 1;
+//                        int endPoint = Integer.parseInt((String) annos.get("END").toArray()[0]) - 1;
+                        int endPoint = Integer.parseInt(ga.getTextAnnotation("END")[0]) - 1;
                         //check to see if our requested end point is smaller than the region
                         if(lastSite-1<endPoint) {
                             endPoint = lastSite-1;
@@ -422,7 +414,9 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
                         String leftAlleleString = variants[leftAllele];
 
                         //check depth
-                        String dpFullString = (String) annos.get("DP").toArray()[0];
+//                        String dpFullString = (String) annos.get("DP").toArray()[0];
+                        String dpFullString = ga.getTextAnnotation("DP")[0];
+
                        // String minDPString = (String) annos.get("MIN_DP").toArray()[0];
                         //TODO check to see if we should assume only Ref or<NON_REF> call for blocks
                         if (maskBitSet.fastGet(listOfChrPositionsCounter) || dpFullString.equals("0")) {
@@ -473,7 +467,8 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
                         //check the call and grab the correct allele
                         //siteCounter will increment correctly
 
-                        String call = (String) annos.get("GT").toArray()[0];
+//                        String call = (String) annos.get("GT").toArray()[0];
+                        String call = ga.getTextAnnotation("GT")[0];
                         boolean phased = true;
                         boolean haploid = false;
                         if (call.contains("/")) {
@@ -496,8 +491,10 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
                         }
 
                         //Get the AD field and split it on commas
-                        String adsFullString = (String) annos.get("AD").toArray()[0];
-                        String dpFullString = (String) annos.get("DP").toArray()[0];
+//                        String adsFullString = (String) annos.get("AD").toArray()[0];
+//                        String dpFullString = (String) annos.get("DP").toArray()[0];
+                        String adsFullString = ga.getTextAnnotation("AD")[0];
+                        String dpFullString = ga.getTextAnnotation("DP")[0];
 //                    System.out.println(adsFullString);
                         String[] adSplit = adsFullString.split(",");
                         //Get the known Variants
@@ -654,9 +651,6 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
     }
 
 
-
-
-
     @Override
     //TODO add in functionality to handle GVCF annotations
     public byte[] genomeSequence(long startSite, long lastSite) {
@@ -706,9 +700,20 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
     }
 
     private boolean checkPositionCoverage(Position pos, int site) {
-        SetMultimap<String,String> annos = pos.getAnnotation().getAnnotationAsMap();
-        if(annos.containsKey("END")) {
-            int endPoint = Integer.parseInt((String)annos.get("END").toArray()[0]);
+//        SetMultimap<String,String> annos = pos.getAnnotation().getAnnotationAsMap();
+        GeneralAnnotation ga = pos.getAnnotation();
+//        if(annos.containsKey("END")) {
+//            int endPoint = Integer.parseInt((String)annos.get("END").toArray()[0]);
+//            if(pos.getPosition()<=site && site <= endPoint) {
+//                return true;
+//            }
+//            else {
+//                return false;
+//            }
+//
+//        }
+        if(ga.getAnnotationKeys().contains("END")) {
+            int endPoint = Integer.parseInt(ga.getTextAnnotation("END")[0]);
             if(pos.getPosition()<=site && site <= endPoint) {
                 return true;
             }
@@ -1003,5 +1008,1615 @@ class GVCFPositionRecord {
             if(sa[i].equals(match)) return i;
         }
         return -1;
+    }
+}
+
+class HalfByteGenomeSequenceGVCFV2 implements GVCFGenomeSequence{
+    private Map<Chromosome, byte[]> chromPositionMap;
+    private Map<Chromosome, Integer> chromLengthLookup=new HashMap<>();
+    private RangeMap<Long,Chromosome> wholeGenomeIndexMap= TreeRangeMap.create();
+    private HashMap<Chromosome,HashMap<Integer,Integer>> chromosomeToPositionMap = new HashMap<Chromosome,HashMap<Integer,Integer>>();
+
+    private  PositionList gvcfAnnotationsAndCalls;
+    private final long genomeSize;
+    private BitSet maskBitSet;
+    private BitSet filterBitSet;
+
+    private int regionTotalReferenceBPCount = 0;
+    private int regionTotalExportedBPCount = 0;
+    private int regionHetCount = 0;
+    private int regionAltCount = 0;
+    private int regionDepthCount = 0;
+    private int regionGQCount = 0;
+    private int regionMinDepthCount = 0;
+    private int regionZeroCoverageCount = 0;
+    private int regionNumberHomoRef1Or2Count = 0;
+    private int regionNumberHomoRef3PlusCount = 0;
+    private int regionNumberHomoAlt1Or2Count = 0;
+    private int regionNumberHomoAlt3PlusCount = 0;
+
+
+    protected HalfByteGenomeSequenceGVCFV2(Map<Chromosome, byte[]>chromPositionMap, PositionList gvcfAnnotationsAndCalls) {
+        this.chromPositionMap = chromPositionMap;
+        this.gvcfAnnotationsAndCalls = gvcfAnnotationsAndCalls;
+        chromPositionMap.entrySet().stream()
+                .forEach(e -> chromLengthLookup.put(e.getKey(),e.getKey().getLength()));
+        LongAdder genomeIndex=new LongAdder();
+        chromosomes().stream().sorted()
+                .forEach(chrom -> {
+                    int length=chromLengthLookup.get(chrom);
+                    wholeGenomeIndexMap.put(Range.closed(genomeIndex.longValue(),
+                            genomeIndex.longValue()+length-1),chrom);
+//                    chromosomeToPositionMap.put(chrom,TreeRangeMap.create());
+                    chromosomeToPositionMap.put(chrom,new HashMap<Integer,Integer>());
+                    genomeIndex.add(length);}
+                );
+
+        System.out.println("Number of records:"+gvcfAnnotationsAndCalls.size());
+        for(int i = 0; i < gvcfAnnotationsAndCalls.size(); i++) {
+            if(i%1000==0) {
+                System.out.println(i);
+            }
+            Position pos = gvcfAnnotationsAndCalls.get(i);
+            HashMap<Integer,Integer> currentChrMapping = chromosomeToPositionMap.get(pos.getChromosome());
+            GeneralAnnotation ga = pos.getAnnotation();
+            //SetMultimap<String, String> annos = pos.getAnnotation().getAnnotationAsMap();
+            if(ga.getAnnotationKeys().contains("END")) {
+                int endPosition = Integer.parseInt(ga.getTextAnnotation("END")[0]);
+                for(int j= pos.getPosition(); j < endPosition; j++) {
+                    currentChrMapping.put(j, i);
+                }
+            }
+//            if (annos.containsKey("END")) {
+//                for(int j= pos.getPosition(); j < Integer.parseInt((String) annos.get("END").toArray()[0]); j++) {
+//                   currentChrMapping.put(j, i);
+//                }
+////                currentChrMapping.put(Range.closed(pos.getPosition(),Integer.parseInt((String) annos.get("END").toArray()[0])),pos);
+//            }
+            else {
+                currentChrMapping.put(pos.getPosition(),i);
+//                currentChrMapping.put(Range.closed(pos.getPosition(),pos.getPosition()),pos);
+            }
+
+        }
+        genomeSize=genomeIndex.longValue();
+        maskBitSet = new OpenBitSet(gvcfAnnotationsAndCalls.size());
+        filterBitSet = new OpenBitSet(gvcfAnnotationsAndCalls.size());
+
+
+//        this.chromPositionMap = chromPositionMap;
+//        this.gvcfAnnotationsAndCalls = gvcfAnnotationsAndCalls;
+//        chromPositionMap.entrySet().stream()
+//                .forEach(e -> chromLengthLookup.put(e.getKey(),e.getKey().getLength()));
+//        LongAdder genomeIndex=new LongAdder();
+//        chromosomes().stream().sorted()
+//                .forEach(chrom -> {
+//                    int length=chromLengthLookup.get(chrom);
+//                    wholeGenomeIndexMap.put(Range.closed(genomeIndex.longValue(),
+//                            genomeIndex.longValue()+length-1),chrom);
+//                    genomeIndex.add(length);}
+//                );
+//        genomeSize=genomeIndex.longValue();
+//        this.maskBitSet = new OpenBitSet(gvcfAnnotationsAndCalls.size());
+//        this.filterBitSet = new OpenBitSet(gvcfAnnotationsAndCalls.size());
+    }
+
+    protected HalfByteGenomeSequenceGVCFV2(Map<Chromosome, byte[]>chromPositionMap, PositionList gvcfAnnotationsAndCalls,BitSet maskBitSet, BitSet filterBitSet) {
+        this.chromPositionMap = chromPositionMap;
+        this.gvcfAnnotationsAndCalls = gvcfAnnotationsAndCalls;
+        chromPositionMap.entrySet().stream()
+                .forEach(e -> chromLengthLookup.put(e.getKey(),e.getKey().getLength()));
+        LongAdder genomeIndex=new LongAdder();
+        chromosomes().stream().sorted()
+                .forEach(chrom -> {
+                    int length=chromLengthLookup.get(chrom);
+                    wholeGenomeIndexMap.put(Range.closed(genomeIndex.longValue(),
+                            genomeIndex.longValue()+length-1),chrom);
+                    chromosomeToPositionMap.put(chrom,new HashMap<Integer,Integer>());
+//                    chromosomeToPositionMap.put(chrom,TreeRangeMap.create());
+                    genomeIndex.add(length);}
+                );
+
+//        for(Position pos  : gvcfAnnotationsAndCalls) {
+//            RangeMap<Integer,Position> currentChrMapping = chromosomeToPositionMap.get(pos.getChromosome());
+//            SetMultimap<String, String> annos = pos.getAnnotation().getAnnotationAsMap();
+//            if (annos.containsKey("END")) {
+//                currentChrMapping.put(Range.closed(pos.getPosition(),Integer.parseInt((String) annos.get("END").toArray()[0])),pos);
+//            }
+//            else {
+//                currentChrMapping.put(Range.closed(pos.getPosition(),pos.getPosition()),pos);
+//            }
+//
+//        }
+
+        for(int i = 0; i < gvcfAnnotationsAndCalls.size(); i++) {
+            Position pos = gvcfAnnotationsAndCalls.get(i);
+            HashMap<Integer,Integer> currentChrMapping = chromosomeToPositionMap.get(pos.getChromosome());
+            GeneralAnnotation ga = pos.getAnnotation();
+            //SetMultimap<String, String> annos = pos.getAnnotation().getAnnotationAsMap();
+            if(ga.getAnnotationKeys().contains("END")) {
+                int endPosition = Integer.parseInt(ga.getTextAnnotation("END")[0]);
+                for(int j= pos.getPosition(); j < endPosition; j++) {
+                    currentChrMapping.put(j, i);
+                }
+            }
+//            if (annos.containsKey("END")) {
+//                for(int j= pos.getPosition(); j < Integer.parseInt((String) annos.get("END").toArray()[0]); j++) {
+//                    currentChrMapping.put(j, i);
+//                }
+////                currentChrMapping.put(Range.closed(pos.getPosition(),Integer.parseInt((String) annos.get("END").toArray()[0])),pos);
+//            }
+            else {
+
+                currentChrMapping.put(pos.getPosition(),i);
+//                currentChrMapping.put(Range.closed(pos.getPosition(),pos.getPosition()),pos);
+            }
+
+        }
+        genomeSize=genomeIndex.longValue();
+        this.maskBitSet = maskBitSet;
+        this.filterBitSet = filterBitSet;
+    }
+
+    @Override
+    public Set<Chromosome> chromosomes() {
+        return chromPositionMap.keySet();
+    }
+
+    @Override
+    public byte[] chromosomeSequence(Chromosome chrom) {
+        return chromosomeSequence(chrom,1,chromLengthLookup.get(chrom));
+    }
+
+    @Override
+    // Code assumes 1-based coordinates have been passed.  It will catch and return
+    // null if the startSite is 0.  Otherwise, the user is on their own to ensure
+    // input is 1-based.
+    //TODO add in functionality using GVCF annotations
+    public byte[] chromosomeSequence(Chromosome chrom, int startSite, int lastSite) {
+        final int startSiteFinal = startSite;
+        final int lastSiteFinal = lastSite;
+
+        //add one as we grab the last site as well.
+        regionTotalReferenceBPCount = lastSite - startSite+1;
+
+
+        //zrm22 new for getting gvcf records.
+        //Basically the loop now changes to loop through the positionList to check if the allele should be the ref or not
+        gvcfAnnotationsAndCalls.chromosomeSiteCount(chrom);
+
+
+
+
+//        ArrayList<Position> listOfChrPositions = (ArrayList<Position>)gvcfAnnotationsAndCalls.parallelStream()
+//                .filter(position->position.getChromosome().equals(chrom))
+//                //.filter(position -> (position.getPosition()>=startSiteFinal||checkPositionCoverage(position,startSiteFinal)) && (position.getPosition()<=lastSiteFinal||checkPositionCoverage(position,lastSiteFinal)))
+//                .filter(position -> (position.getPosition()>=startSiteFinal) && (position.getPosition()<=lastSiteFinal))
+//                .collect(Collectors.toList());
+
+
+//        ArrayList<Position> listOfPositionsFilteredByChr = (ArrayList<Position>)gvcfAnnotationsAndCalls.parallelStream()
+//                                                                        .filter(position->position.getChromosome().equals(chrom))
+//                                                                          .collect(Collectors.toList());
+
+        boolean addingAtStart = false;
+        ArrayList<Position> listOfChrPositions = new ArrayList<>();
+        HashMap<Integer, Integer> currentChromMap = chromosomeToPositionMap.get(chrom);
+        for (int i = startSite; i <= lastSite; i++) {
+            System.out.println(currentChromMap);
+            System.out.println(i);
+            Position currentPos = gvcfAnnotationsAndCalls.get(currentChromMap.get(i));
+            if (currentPos == null) {
+
+            } else {
+
+                listOfChrPositions.add(currentPos);
+                SetMultimap<String, String> annos = currentPos.getAnnotation().getAnnotationAsMap();
+                if (annos.containsKey("END")) {
+                    i = Integer.parseInt((String) annos.get("END").toArray()[0]);
+                }
+                else {
+                    i+=currentPos.getKnownVariants()[0].length()-1;
+                }
+            }
+        }
+
+        //sort things to make sure we can iterate properly
+       // Collections.sort(listOfChrPositions);
+
+
+        int actualStartPos = 0;
+        int startIndex = 0;
+        int actualEndPos = 0;
+        int endIndex = 0;
+
+//        System.out.println(listOfChrPositions.get(0).getPosition());
+
+//        if(listOfChrPositions.size()>0) {
+//            for (int i = 1; i < gvcfAnnotationsAndCalls.size(); i++) {
+//                if (gvcfAnnotationsAndCalls.get(i).getPosition() == listOfChrPositions.get(0).getPosition()) {
+//                    if (checkPositionCoverage(gvcfAnnotationsAndCalls.get(i - 1), startSiteFinal)) {
+//                        startIndex = i-1;
+//                        listOfChrPositions.add(0,gvcfAnnotationsAndCalls.get(startIndex));
+//                        addingAtStart = true;
+//                    }
+//                    break;
+//                }
+//            }
+//
+////
+////            for(int i = gvcfAnnotationsAndCalls.size()-2; i>=0; i--) {
+////                if(gvcfAnnotationsAndCalls.get(i).getPosition()==listOfChrPositions.get(listOfChrPositions.size()-1).getPosition()) {
+////                    if(checkPositionCoverage(gvcfAnnotationsAndCalls.get(i+1),lastSiteFinal)) {
+////                        endIndex = i+1;
+////                        listOfChrPositions.add(gvcfAnnotationsAndCalls.get(endIndex));
+////                    }
+////                    break;
+////                }
+////            }
+//
+//        }
+
+//        System.out.println(listOfChrPositions.get(0).getPosition());
+
+
+
+
+
+        //loop through from startSite till the first position in the GVCF export these alleles directly from the ref
+        int listOfChrPositionsCounter = 0;
+        ArrayList<Byte> byteList = new ArrayList<>();
+
+        if(listOfChrPositions.size()==0) {
+            //Export a single N for a missing sequence
+            byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+
+        }
+        else {
+            for (int siteCounter = startSite; siteCounter <= lastSite && listOfChrPositionsCounter < listOfChrPositions.size(); siteCounter++) {
+
+                if(addingAtStart) {
+                    if (listOfChrPositionsCounter != 0) {
+                        if (filterBitSet.fastGet(listOfChrPositionsCounter-1)) {
+                            //get the size of the position
+                            SetMultimap<String, String> annos = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation().getAnnotationAsMap();
+                            if (annos.containsKey("END")) {
+                                int lengthOfPosBlock = Integer.parseInt((String) annos.get("END").toArray()[0]) - listOfChrPositions.get(listOfChrPositionsCounter).getPosition();
+                                siteCounter+=lengthOfPosBlock;
+                            }
+                            else{
+                                //check insertion or deletion
+                                String[] variants = listOfChrPositions.get(listOfChrPositionsCounter).getKnownVariants();
+                                siteCounter+=variants[0].length()-1;
+                            }
+//                            System.out.println(listOfChrPositionsCounter);
+                            listOfChrPositionsCounter++;
+                            continue;
+                        }
+                    }
+                }
+                else {
+                    if (filterBitSet.fastGet(listOfChrPositionsCounter)) {
+                        SetMultimap<String, String> annos = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation().getAnnotationAsMap();
+                        if (annos.containsKey("END")) {
+                            int lengthOfPosBlock = Integer.parseInt((String) annos.get("END").toArray()[0]) - listOfChrPositions.get(listOfChrPositionsCounter).getPosition();
+                            siteCounter+=lengthOfPosBlock;
+                        }
+                        else{
+                            //check insertion or deletion
+                            String[] variants = listOfChrPositions.get(listOfChrPositionsCounter).getKnownVariants();
+                            siteCounter+=variants[0].length()-1;
+                        }
+//                        System.out.println(listOfChrPositionsCounter);
+                        listOfChrPositionsCounter++;
+                        continue;
+                    }
+                }
+
+
+
+                if (maskBitSet.fastGet(listOfChrPositionsCounter)) {
+                    //if true it means we have to mask all of these positions
+                    //Check to see if we have an END anno
+                }
+                if (listOfChrPositions.get(listOfChrPositionsCounter).getPosition() <= siteCounter) {
+                    //&& !filterBitSet.fastGet(listOfChrPositionsCounter)) {
+                    //check to see if the current position is a reference block or not
+                    SetMultimap<String, String> annos = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation().getAnnotationAsMap();
+                    if (annos.containsKey("END")) {
+
+
+                        //this means we have a block
+                        //Check the call and grab the corresponding allele values
+                        String call = (String) annos.get("GT").toArray()[0];
+                        boolean phased = true;
+                        boolean haploid = false;
+                        if (call.contains("/")) {
+                            phased = false;
+                        } else if (call.contains("|")) {
+                            phased = true;
+                        } else {
+                            haploid = true;
+                        }
+                        String[] callSplit = phased ? call.split("|") : call.split("/");
+                        int leftAllele = Integer.parseInt(callSplit[0]);
+                        int rightAllele = leftAllele;
+                        if (!haploid) {
+                            rightAllele = Integer.parseInt(callSplit[1]);
+                        }
+//                    int rightAllele = Integer.parseInt(callSplit[1]);
+                        int endPoint = Integer.parseInt((String) annos.get("END").toArray()[0]) - 1;
+                        //check to see if our requested end point is smaller than the region
+                        if(lastSite-1<endPoint) {
+                            endPoint = lastSite-1;
+                        }
+                        //Get the known Variants
+                        int startSiteShifted = siteCounter - 1;  //shift over to zero base
+
+
+
+                        if (startSite < 0)
+                            throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: starting parameter is less than 1 for 1-based method");
+                        ; // method needs 1-based coordinates.
+                        byte[] packedBytes = chromPositionMap.get(chrom);
+                        if (packedBytes == null)
+                            throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: chromosome not found"); // chromosome not found
+                        if (startSiteShifted > packedBytes.length * 2 || endPoint > packedBytes.length * 2) {
+                            throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: requested sequence is out of range"); // requested sequence is out of range
+                        }
+                        String[] variants = listOfChrPositions.get(listOfChrPositionsCounter).getKnownVariants();
+                        String leftAlleleString = variants[leftAllele];
+
+                        //check depth
+                        String dpFullString = (String) annos.get("DP").toArray()[0];
+                        // String minDPString = (String) annos.get("MIN_DP").toArray()[0];
+                        //TODO check to see if we should assume only Ref or<NON_REF> call for blocks
+                        if (maskBitSet.fastGet(listOfChrPositionsCounter) || dpFullString.equals("0")) {
+
+                            //if true we have a masking
+                            for (int i = startSiteShifted; i <= endPoint; i++) {
+                                regionDepthCount+=0;
+                                regionZeroCoverageCount++;
+
+                                byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+                            }
+                        } else if (leftAllele == 0) {
+                            //fill in with reference sequence
+                            //pull the sequence from siteCounter till you get to endPoint
+                            //Zrm Apr17 fix for default rules
+                            //check if homozygous or het based on GT calls
+                            int depth = 0;
+                            int minDepth = 0;
+                            if(!dpFullString.equals("")) {
+                                depth = Integer.parseInt(dpFullString);
+                            }
+//                            if(!minDPString.equals("")) {
+//                                minDepth = Integer.parseInt(minDPString);
+//                            }
+                            for (int i = startSiteShifted; i <= endPoint; i++) {
+                                regionDepthCount+=depth;
+                                regionMinDepthCount+=minDepth;
+                                byteList.add((byte) ((i % 2 == 0) ? ((packedBytes[i / 2] & 0xF0) >> 4) : (packedBytes[i / 2] & 0x0F)));
+                            }
+
+                        } else {
+                            int depth = 0;
+                            if(!dpFullString.equals("")) {
+                                depth = Integer.parseInt(dpFullString);
+                            }
+                            for (int i = startSiteShifted; i <= endPoint; i++) {
+                                regionDepthCount+=depth;
+                                regionZeroCoverageCount++;
+                                byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+                            }
+                        }
+
+
+                        //shift up the siteCounter to match the end
+                        siteCounter = endPoint + 1;
+                    } else {
+                        //it is likely a snp
+                        //check the call and grab the correct allele
+                        //siteCounter will increment correctly
+
+                        String call = (String) annos.get("GT").toArray()[0];
+                        boolean phased = true;
+                        boolean haploid = false;
+                        if (call.contains("/")) {
+                            phased = false;
+                        } else if (call.contains("|")) {
+                            phased = true;
+                        } else {
+                            //haploid
+                            haploid = true;
+                        }
+//                    String[] callSplit = new String[2];
+//                    if(haploid) {
+//                        callSplit[0] = call;
+//                    }
+                        String[] callSplit = phased ? call.split("|") : call.split("/");
+                        int leftAllele = Integer.parseInt(callSplit[0]);
+                        int rightAllele = leftAllele;
+                        if (!haploid) {
+                            rightAllele = Integer.parseInt(callSplit[1]);
+                        }
+
+                        //Get the AD field and split it on commas
+                        String adsFullString = (String) annos.get("AD").toArray()[0];
+                        String dpFullString = (String) annos.get("DP").toArray()[0];
+//                    System.out.println(adsFullString);
+                        String[] adSplit = adsFullString.split(",");
+                        //Get the known Variants
+                        String[] variants = listOfChrPositions.get(listOfChrPositionsCounter).getKnownVariants();
+                        boolean isHet = calcHet(adSplit);
+                        if (isHet) {
+//                            System.out.println("Het");
+
+                            //TODO handle hets correctly for indels and such
+                            String leftAlleleString = variants[0];
+                            siteCounter+=leftAlleleString.length()-1;
+                            for(int i = 0; i < leftAlleleString.length();i++) {
+                                regionHetCount++;
+                            }
+//                            if (maskBitSet.fastGet(listOfChrPositionsCounter)) {
+//                                //if true we have to mask it
+//                                for (int i = 0; i < leftAlleleString.length(); i++) {
+//                                    byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+//                                }
+//                            } else {
+//                                for (int i = 0; i < leftAlleleString.length(); i++) {
+//                                    byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte(leftAlleleString.charAt(i)));
+//                                }
+//                            }
+                        }
+                        //ZRM April17 do calls based on depth only
+                        else if (adSplit[0].equals("1") || adSplit[1].equals("2")) {
+                            if (adSplit[1].equals("0")) {
+                                //export the ref
+                                String leftAlleleString = variants[0];
+
+                                int depth = 0;
+                                if(!dpFullString.equals("")) {
+                                    depth = Integer.parseInt(dpFullString);
+                                }
+
+                                if (maskBitSet.fastGet(listOfChrPositionsCounter)) {
+                                    //if true we have to mask it
+                                    for (int i = 0; i < leftAlleleString.length() && siteCounter+i < lastSite-1; i++) {
+                                        regionDepthCount+=depth;
+                                        regionNumberHomoRef1Or2Count++;
+                                        byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+                                    }
+                                } else {
+                                    for (int i = 0; i < leftAlleleString.length() && siteCounter+i < lastSite-1; i++) {
+                                        regionDepthCount+=depth;
+                                        regionNumberHomoRef1Or2Count++;
+                                        byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte(leftAlleleString.charAt(i)));
+                                    }
+                                }
+                            }
+
+                        } else if (adSplit[1].equals("1") || adSplit[1].equals("2")) {
+                            //call Ns
+                            //export the ref
+                            String leftAlleleString = variants[1];
+                            int depth = 0;
+                            if(!dpFullString.equals("")) {
+                                depth = Integer.parseInt(dpFullString);
+                            }
+                            for (int i = 0; i < leftAlleleString.length(); i++) {
+                                regionDepthCount+=depth;
+                                regionNumberHomoAlt1Or2Count++;
+                                byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+                            }
+                        } else if (Integer.parseInt(adSplit[1]) >= 3) {
+                            int depth = 0;
+                            if(!dpFullString.equals("")) {
+                                depth = Integer.parseInt(dpFullString);
+                            }
+                            String leftAlleleString = variants[1];
+                            if (maskBitSet.fastGet(listOfChrPositionsCounter)) {
+                                //if true we have to mask it
+                                for (int i = 0; i < leftAlleleString.length(); i++) {
+                                    regionAltCount++;
+                                    regionNumberHomoAlt3PlusCount++;
+                                    regionDepthCount+=depth;
+                                    byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+                                }
+                            } else {
+                                for (int i = 0; i < leftAlleleString.length(); i++) {
+                                    regionAltCount++;
+                                    regionNumberHomoAlt3PlusCount++;
+                                    regionDepthCount+=depth;
+                                    byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte(leftAlleleString.charAt(i)));
+                                }
+                                siteCounter+=variants[0].length()-1;
+                            }
+                        }
+
+
+//                    String leftAlleleString = variants[leftAllele];
+//                    if(maskBitSet.fastGet(listOfChrPositionsCounter)) {
+//                        //if true we have to mask it
+//                        for (int i = 0; i < leftAlleleString.length(); i++) {
+//                            byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+//                        }
+//                    }
+
+
+//                    int rightAllele = Integer.parseInt(callSplit[1]);
+                        //TODO handle hets correctly for indels and such
+//                    String leftAlleleString = variants[leftAllele];
+//                    if(maskBitSet.fastGet(listOfChrPositionsCounter)) {
+//                        //if true we have to mask it
+//                        for (int i = 0; i < leftAlleleString.length(); i++) {
+//                            byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+//                        }
+//                    }
+//                    else {
+//                        for (int i = 0; i < leftAlleleString.length(); i++) {
+//                            byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte(leftAlleleString.charAt(i)));
+//                        }
+//                    }
+                    }
+
+
+                    listOfChrPositionsCounter++;
+                } else {
+                    //grab the reference as we dont have a gvcf for the requested site
+                    //Should this be the breaking point of the sequence??
+                    //TODO should we mark these with Ns?
+                    //listOfChrPositionsCounter++;
+
+                    //With 0 coverage we want to export an N
+                    byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+                    regionDepthCount+=0;
+                    regionZeroCoverageCount++;
+
+                }
+            }
+        }
+        regionTotalExportedBPCount = byteList.size();
+        byte[] fullBytes = new byte[byteList.size()];
+        for(int i = 0; i < fullBytes.length; i++) {
+            fullBytes[i] = byteList.get(i);
+        }
+
+
+
+//        startSite--;  //shift over to zero base
+//        lastSite--;   //shift over to zero base
+//        if (startSite < 0) throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: starting parameter is less than 1 for 1-based method");; // method needs 1-based coordinates.
+//        byte[] packedBytes = chromPositionMap.get(chrom);
+//        if (packedBytes == null) throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: chromosome not found"); // chromosome not found
+//        if (startSite > packedBytes.length*2 || lastSite > packedBytes.length*2 ) {
+//            throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: requested sequence is out of range"); // requested sequence is out of range
+//        }
+//        byte[] fullBytes = new byte[lastSite - startSite + 1];
+//        for (int i = startSite; i <= lastSite; i++) {
+//            fullBytes[i - startSite] = (byte) ((i % 2 == 0) ? ((packedBytes[i / 2] & 0xF0) >> 4) : (packedBytes[i / 2] & 0x0F));
+//        }
+        return fullBytes;
+    }
+
+
+    @Override
+    //TODO add in functionality to handle GVCF annotations
+    public byte[] genomeSequence(long startSite, long lastSite) {
+        if(lastSite-startSite>Integer.MAX_VALUE) throw
+                new IllegalArgumentException("Less than "+Integer.MAX_VALUE+" sites must be requested at a time");
+        byte[] fullBytes=new byte[(int)(lastSite-startSite+1)];
+        long currentSiteToGet=startSite;
+        while(currentSiteToGet<lastSite) {
+            Map.Entry<Range<Long>,Chromosome> rangeChromEntry=wholeGenomeIndexMap.getEntry(currentSiteToGet);
+            int chrStart=(int)(currentSiteToGet-rangeChromEntry.getKey().lowerEndpoint());
+            int chrLast=(int)Math.min(rangeChromEntry.getKey().upperEndpoint()-rangeChromEntry.getKey().lowerEndpoint(),lastSite-rangeChromEntry.getKey().lowerEndpoint());
+            byte[] chromoSeq=chromosomeSequence(rangeChromEntry.getValue(), chrStart+1,chrLast+1);  //+1 for 0 based genome, 1 based chromosomes
+            System.arraycopy(chromoSeq,0,fullBytes,(int)(currentSiteToGet-startSite),chromoSeq.length);
+            currentSiteToGet+=chromoSeq.length;
+        }
+        return fullBytes;
+    }
+
+    @Override
+    public int chromosomeSize(Chromosome chromosome) {
+        return chromLengthLookup.get(chromosome);
+    }
+
+    @Override
+    public long genomeSize() {
+        return genomeSize;
+    }
+
+    @Override
+    public int numberOfChromosomes() {
+        return chromPositionMap.size();
+    }
+
+    @Override
+    //TODO see if we need to fix this for GVCF annotations
+    public Map<Long, Tuple<Chromosome, Integer>> fullRefCoordinateToChromCoordinate(ArrayList<Long> coordinates) {
+        // Returns 0-based value from Chromosome array (values are stored as 0-based)
+        Map<Long, Tuple<Chromosome, Integer>> mappedCoordinates = new ConcurrentHashMap<Long, Tuple<Chromosome, Integer>>();
+        coordinates.stream().parallel().forEach(coordinate -> {
+            Map.Entry<Range<Long>,Chromosome> rangeChromEntry=wholeGenomeIndexMap.getEntry(coordinate);
+            Chromosome curChrom = rangeChromEntry.getValue();
+            long chromCoordinate = coordinate - rangeChromEntry.getKey().lowerEndpoint();
+            Tuple<Chromosome, Integer> chromWithCoordinate = new Tuple<>(curChrom, (int)chromCoordinate);
+            mappedCoordinates.put(coordinate, chromWithCoordinate);
+        });
+        return mappedCoordinates;
+    }
+
+    private boolean checkPositionCoverage(Position pos, int site) {
+        SetMultimap<String,String> annos = pos.getAnnotation().getAnnotationAsMap();
+        if(annos.containsKey("END")) {
+            int endPoint = Integer.parseInt((String)annos.get("END").toArray()[0]);
+            if(pos.getPosition()<=site && site <= endPoint) {
+                return true;
+            }
+            else {
+                return false;
+            }
+
+        }
+        else if(pos.getPosition()==site) {
+            return true;
+        }
+        else {
+            String[] alleles = pos.getKnownVariants();
+            //check to see if we have a deletion and the reference covers the whole
+            if(alleles[0].length()+pos.getPosition()>=site) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+    }
+
+    public Map<Chromosome, byte[]> getChrPosMap() {
+        return chromPositionMap;
+    }
+    public HashMap<Chromosome,ArrayList<ArrayList<Integer>>> getConsecutiveRegions() {
+        HashMap<Chromosome,ArrayList<ArrayList<Integer>>> consecRegions = new HashMap<>();
+        Set<Chromosome> chromosomeSet = chromosomes();
+        //Loop through each chromosome add to a Map<RangeMap>
+        HashMap<Chromosome,RangeSet<Integer>> rangeMaps = new HashMap<>();
+        for(Chromosome chr : chromosomeSet) {
+            rangeMaps.put(chr,TreeRangeSet.create());
+            consecRegions.put(chr,new ArrayList<>());
+        }
+
+        for(int i = 0 ; i < gvcfAnnotationsAndCalls.size(); i++) {
+            if(filterBitSet.fastGet(i)) {
+                //if we have a position to filter out, we should probably break the fasta sequence
+                //to do this, just do not add in the range... RangeMap will handle it for you
+                continue;
+            }
+
+            Position currentPosition = gvcfAnnotationsAndCalls.get(i);
+            SetMultimap<String,String> annos = currentPosition.getAnnotation().getAnnotationAsMap();
+            if(annos.containsKey("END")) {
+                int endPoint = Integer.parseInt((String)annos.get("END").toArray()[0]);
+                rangeMaps.get(currentPosition.getChromosome()).add(Range.closed(currentPosition.getPosition(),endPoint+1));
+            }
+            else {
+                //check to make sure that the reference allele is more than one allele(A deletion)
+                String[] variants = currentPosition.getKnownVariants();
+                //TODO handle hets correctly for indels and such
+                String refAlleleString = variants[0];
+                if(refAlleleString.length()>1) {
+                    //we have a deletion or an insertion+deletion as such our END point will need to take into account the size of the deletion
+                    rangeMaps.get(currentPosition.getChromosome()).add(Range.closed(currentPosition.getPosition(),currentPosition.getPosition()+refAlleleString.length()));
+                }
+                else {
+                    //This will cause the index of the next line in the GVCF file to be non consecutive with the previous
+                    rangeMaps.get(currentPosition.getChromosome()).add(Range.closed(currentPosition.getPosition(), currentPosition.getPosition() + 1));
+
+                }
+            }
+
+        }
+
+        for(Chromosome chr : chromosomeSet) {
+            Set<Range<Integer>> rangeSet = rangeMaps.get(chr).asRanges();
+            for(Range<Integer> currentRange : rangeSet) {
+                ArrayList<Integer> currentList = new ArrayList<Integer>();
+                currentList.add(currentRange.lowerEndpoint());
+                //We need to subtract 1 point so it will be [inclusive,inclusive] instead of [inclusive,exclusive)
+                currentList.add(currentRange.upperEndpoint()-1);
+                consecRegions.get(chr).add(currentList);
+            }
+        }
+
+        return consecRegions;
+    }
+    //TODO move this to a different class
+    public void writeFASTA(String fileName){
+        try {
+            BufferedWriter writer = new BufferedWriter(new FileWriter(fileName));
+            HashMap<Chromosome,ArrayList<ArrayList<Integer>>> consecutiveRegions = getConsecutiveRegions();
+            Set<Chromosome> chromosomes = chromosomes();
+            for(Chromosome chr : chromosomes) {
+                for(ArrayList<Integer> bounds : consecutiveRegions.get(chr)) {
+                    writer.write(">Chr_"+chr.getChromosomeNumber()+"_StartSite_"+bounds.get(0)+"_EndSite_"+bounds.get(1));
+                    writer.newLine();
+                    writer.write(""+NucleotideAlignmentConstants.nucleotideBytetoString(chromosomeSequence(chr,bounds.get(0),bounds.get(1))));
+                    writer.newLine();
+                }
+            }
+
+            writer.close();
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+
+    }
+
+    public BitSet getMaskBitSet() {
+        return maskBitSet;
+    }
+    public void setMaskBitSet(BitSet newMaskBitSet) {
+        maskBitSet = newMaskBitSet;
+    }
+
+    public BitSet getFilterBitSet() {
+        return filterBitSet;
+    }
+    public void setFilterBitSet(BitSet newFilterBitSet) {
+        filterBitSet = newFilterBitSet;
+    }
+
+    public void flipMaskBit(int index) {
+        maskBitSet.fastFlip(index);
+    }
+    public void flipFilterBit(int index) {
+        filterBitSet.fastFlip(index);
+    }
+    public PositionList getGVCFPositions() {
+        return gvcfAnnotationsAndCalls;
+    }
+
+    private boolean calcHet(String[] adSplit) {
+        boolean isHet = false;
+        int refDepth = Integer.parseInt(adSplit[0]);
+        int altDepth = Integer.parseInt(adSplit[1]);
+        if(refDepth>0 && altDepth>0) {
+            isHet = true;
+        }
+        return isHet;
+    }
+
+    @Override
+    public void resetCounters() {
+        regionTotalReferenceBPCount = 0;
+        regionTotalExportedBPCount = 0;
+        regionHetCount = 0;
+        regionAltCount = 0;
+        regionDepthCount = 0;
+        regionGQCount = 0;
+        regionMinDepthCount = 0;
+        regionZeroCoverageCount = 0;
+        regionNumberHomoRef1Or2Count = 0;
+        regionNumberHomoAlt1Or2Count = 0;
+        regionNumberHomoAlt3PlusCount = 0;
+    }
+
+    @Override
+    public HashMap<String,Integer> getPreviousRegionStats() {
+        HashMap<String,Integer> stats = new HashMap<>();
+        stats.put("RefSize",regionTotalReferenceBPCount);
+        stats.put("Size", regionTotalExportedBPCount);
+        stats.put("HetCount",regionHetCount);
+        stats.put("AltCount",regionAltCount);
+        stats.put("Depth",regionDepthCount);
+        stats.put("GQ",regionGQCount);
+        stats.put("Min_Depth",regionMinDepthCount);
+        stats.put("ZeroCoverageCount",regionZeroCoverageCount);
+        stats.put("HomoRefCount",regionNumberHomoRef1Or2Count);
+        stats.put("HomoAltLowDepthCount",regionNumberHomoAlt1Or2Count);
+        stats.put("HomoAltHighDepthCount",regionNumberHomoAlt3PlusCount);
+
+        return stats;
+    }
+}
+
+
+//Try to use an index to quickly grab only the useful positions from the position list
+class HalfByteGenomeSequenceGVCFV3 implements GVCFGenomeSequence{
+    private Map<Chromosome, byte[]> chromPositionMap;
+    private Map<Chromosome, Integer> chromLengthLookup=new HashMap<>();
+    private RangeMap<Long,Chromosome> wholeGenomeIndexMap= TreeRangeMap.create();
+    private  PositionList gvcfAnnotationsAndCalls;
+    private final long genomeSize;
+    private BitSet maskBitSet;
+    private BitSet filterBitSet;
+
+    private int regionTotalReferenceBPCount = 0;
+    private int regionTotalExportedBPCount = 0;
+    private int regionHetCount = 0;
+    private int regionAltCount = 0;
+    private int regionDepthCount = 0;
+    private int regionGQCount = 0;
+    private int regionMinDepthCount = 0;
+    private int regionZeroCoverageCount = 0;
+    private int regionNumberHomoRef1Or2Count = 0;
+    private int regionNumberHomoRef3PlusCount = 0;
+    private int regionNumberHomoAlt1Or2Count = 0;
+    private int regionNumberHomoAlt3PlusCount = 0;
+
+    HashMap<Chromosome,int[]> positionIndex = new HashMap<>();
+    int indexScaleFactor = 10000;
+    protected HalfByteGenomeSequenceGVCFV3(Map<Chromosome, byte[]>chromPositionMap, PositionList gvcfAnnotationsAndCalls) {
+        this.chromPositionMap = chromPositionMap;
+        this.gvcfAnnotationsAndCalls = gvcfAnnotationsAndCalls;
+        chromPositionMap.entrySet().stream()
+                .forEach(e -> chromLengthLookup.put(e.getKey(),e.getKey().getLength()));
+        LongAdder genomeIndex=new LongAdder();
+        chromosomes().stream().sorted()
+                .forEach(chrom -> {
+                    int length=chromLengthLookup.get(chrom);
+                    wholeGenomeIndexMap.put(Range.closed(genomeIndex.longValue(),
+                            genomeIndex.longValue()+length-1),chrom);
+                    genomeIndex.add(length);
+                    int[] currentIndexArray = new int[length/indexScaleFactor+1];
+                    Arrays.fill(currentIndexArray,-1);
+                    positionIndex.put(chrom,currentIndexArray);
+                    }
+                );
+        genomeSize=genomeIndex.longValue();
+        maskBitSet = new OpenBitSet(gvcfAnnotationsAndCalls.size());
+        filterBitSet = new OpenBitSet(gvcfAnnotationsAndCalls.size());
+
+        for(int i = 0; i < gvcfAnnotationsAndCalls.size(); i++) {
+            int currentBin = gvcfAnnotationsAndCalls.get(i).getPosition()/indexScaleFactor;
+            //new record.  add it to the index
+            if(positionIndex.get(gvcfAnnotationsAndCalls.get(i).getChromosome())[currentBin] == -1) {
+                positionIndex.get(gvcfAnnotationsAndCalls.get(i).getChromosome())[currentBin] = i;
+            }
+        }
+
+//        this.chromPositionMap = chromPositionMap;
+//        this.gvcfAnnotationsAndCalls = gvcfAnnotationsAndCalls;
+//        chromPositionMap.entrySet().stream()
+//                .forEach(e -> chromLengthLookup.put(e.getKey(),e.getKey().getLength()));
+//        LongAdder genomeIndex=new LongAdder();
+//        chromosomes().stream().sorted()
+//                .forEach(chrom -> {
+//                    int length=chromLengthLookup.get(chrom);
+//                    wholeGenomeIndexMap.put(Range.closed(genomeIndex.longValue(),
+//                            genomeIndex.longValue()+length-1),chrom);
+//                    genomeIndex.add(length);}
+//                );
+//        genomeSize=genomeIndex.longValue();
+//        this.maskBitSet = new OpenBitSet(gvcfAnnotationsAndCalls.size());
+//        this.filterBitSet = new OpenBitSet(gvcfAnnotationsAndCalls.size());
+    }
+
+    protected HalfByteGenomeSequenceGVCFV3(Map<Chromosome, byte[]>chromPositionMap, PositionList gvcfAnnotationsAndCalls,BitSet maskBitSet, BitSet filterBitSet) {
+        this.chromPositionMap = chromPositionMap;
+        this.gvcfAnnotationsAndCalls = gvcfAnnotationsAndCalls;
+        chromPositionMap.entrySet().stream()
+                .forEach(e -> chromLengthLookup.put(e.getKey(),e.getKey().getLength()));
+        LongAdder genomeIndex=new LongAdder();
+        chromosomes().stream().sorted()
+                .forEach(chrom -> {
+                    int length=chromLengthLookup.get(chrom);
+                    wholeGenomeIndexMap.put(Range.closed(genomeIndex.longValue(),
+                            genomeIndex.longValue()+length-1),chrom);
+                    genomeIndex.add(length);
+                    int[] currentIndexArray = new int[length/indexScaleFactor+1];
+                    Arrays.fill(currentIndexArray,-1);
+                    positionIndex.put(chrom,currentIndexArray);
+                    }
+                );
+        genomeSize=genomeIndex.longValue();
+        this.maskBitSet = maskBitSet;
+        this.filterBitSet = filterBitSet;
+
+        for(int i = 0; i < gvcfAnnotationsAndCalls.size(); i++) {
+            int currentBin = gvcfAnnotationsAndCalls.get(i).getPosition()/indexScaleFactor;
+            //new record.  add it to the index
+            if(positionIndex.get(gvcfAnnotationsAndCalls.get(i).getChromosome())[currentBin] == -1) {
+                positionIndex.get(gvcfAnnotationsAndCalls.get(i).getChromosome())[currentBin] = i;
+            }
+        }
+    }
+    @Override
+    public Set<Chromosome> chromosomes() {
+        return chromPositionMap.keySet();
+    }
+
+    @Override
+    public byte[] chromosomeSequence(Chromosome chrom) {
+        return chromosomeSequence(chrom,1,chromLengthLookup.get(chrom));
+    }
+
+    @Override
+    // Code assumes 1-based coordinates have been passed.  It will catch and return
+    // null if the startSite is 0.  Otherwise, the user is on their own to ensure
+    // input is 1-based.
+    //TODO add in functionality using GVCF annotations
+    public byte[] chromosomeSequence(Chromosome chrom, int startSite, int lastSite) {
+        final int startSiteFinal = startSite;
+        final int lastSiteFinal = lastSite;
+
+        //add one as we grab the last site as well.
+        regionTotalReferenceBPCount = lastSite - startSite+1;
+
+
+        //zrm22 new for getting gvcf records.
+        //Basically the loop now changes to loop through the positionList to check if the allele should be the ref or not
+        gvcfAnnotationsAndCalls.chromosomeSiteCount(chrom);
+
+        //use the index to get the currentList of positions
+        int[] currentIndex = positionIndex.get(chrom);
+        int startPositionListIndex = currentIndex[startSite/indexScaleFactor];
+        int endPositionListIndex = currentIndex[lastSite/indexScaleFactor+1];
+
+//        System.out.println(startSite/indexScaleFactor+","+startPositionListIndex);
+//        System.out.println(lastSite/indexScaleFactor+","+endPositionListIndex);
+        int startPositionListCounter = 1;
+        while(startPositionListIndex==-1) {
+            startPositionListIndex = currentIndex[startSite/indexScaleFactor-startPositionListCounter];
+            startPositionListCounter++;
+        }
+        ArrayList<Position> listOfChrPositions = new ArrayList<>();
+        if(endPositionListIndex==-1) {
+            for(int i = startPositionListIndex; i < startPositionListIndex+indexScaleFactor && i < gvcfAnnotationsAndCalls.size(); i++) {
+
+                if(gvcfAnnotationsAndCalls.get(i).getPosition()>=startSiteFinal && gvcfAnnotationsAndCalls.get(i).getPosition()<=lastSiteFinal) {
+                    listOfChrPositions.add(gvcfAnnotationsAndCalls.get(i));
+                }
+
+            }
+        }
+        else {
+            for (int i = startPositionListIndex; i <= endPositionListIndex; i++) {
+
+                if (gvcfAnnotationsAndCalls.get(i).getPosition() >= startSiteFinal && gvcfAnnotationsAndCalls.get(i).getPosition() <= lastSiteFinal) {
+                    listOfChrPositions.add(gvcfAnnotationsAndCalls.get(i));
+                }
+
+            }
+        }
+
+//        ArrayList<Position> listOfChrPositions = (ArrayList<Position>)gvcfAnnotationsAndCalls.parallelStream()
+//                .filter(position->position.getChromosome().equals(chrom))
+//                //.filter(position -> (position.getPosition()>=startSiteFinal||checkPositionCoverage(position,startSiteFinal)) && (position.getPosition()<=lastSiteFinal||checkPositionCoverage(position,lastSiteFinal)))
+//                .filter(position -> (position.getPosition()>=startSiteFinal) && (position.getPosition()<=lastSiteFinal))
+//                .collect(Collectors.toList());
+
+
+//        ArrayList<Position> listOfPositionsFilteredByChr = (ArrayList<Position>)gvcfAnnotationsAndCalls.parallelStream()
+//                                                                        .filter(position->position.getChromosome().equals(chrom))
+//                                                                          .collect(Collectors.toList());
+
+
+        //sort things to make sure we can iterate properly
+        Collections.sort(listOfChrPositions);
+
+
+        int actualStartPos = 0;
+        int startIndex = 0;
+        int actualEndPos = 0;
+        int endIndex = 0;
+
+//        System.out.println(listOfChrPositions.get(0).getPosition());
+        boolean addingAtStart = false;
+        if(listOfChrPositions.size()>0) {
+            for (int i = 1; i < gvcfAnnotationsAndCalls.size(); i++) {
+                if (gvcfAnnotationsAndCalls.get(i).getPosition() == listOfChrPositions.get(0).getPosition()) {
+                    if (checkPositionCoverage(gvcfAnnotationsAndCalls.get(i - 1), startSiteFinal)) {
+                        startIndex = i-1;
+                        listOfChrPositions.add(0,gvcfAnnotationsAndCalls.get(startIndex));
+                        addingAtStart = true;
+                    }
+                    break;
+                }
+            }
+
+//
+//            for(int i = gvcfAnnotationsAndCalls.size()-2; i>=0; i--) {
+//                if(gvcfAnnotationsAndCalls.get(i).getPosition()==listOfChrPositions.get(listOfChrPositions.size()-1).getPosition()) {
+//                    if(checkPositionCoverage(gvcfAnnotationsAndCalls.get(i+1),lastSiteFinal)) {
+//                        endIndex = i+1;
+//                        listOfChrPositions.add(gvcfAnnotationsAndCalls.get(endIndex));
+//                    }
+//                    break;
+//                }
+//            }
+
+        }
+
+//        System.out.println(listOfChrPositions.get(0).getPosition());
+
+
+
+
+
+        //loop through from startSite till the first position in the GVCF export these alleles directly from the ref
+        int listOfChrPositionsCounter = 0;
+        ArrayList<Byte> byteList = new ArrayList<>();
+
+        if(listOfChrPositions.size()==0) {
+            //Export a single N for a missing sequence
+            byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+
+        }
+        else {
+            for (int siteCounter = startSite; siteCounter <= lastSite && listOfChrPositionsCounter < listOfChrPositions.size(); siteCounter++) {
+                GeneralAnnotation ga = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation();
+                Set<String> annotationKeys = ga.getAnnotationKeys();
+                if(addingAtStart) {
+                    if (listOfChrPositionsCounter != 0) {
+                        if (filterBitSet.fastGet(listOfChrPositionsCounter-1)) {
+                            //get the size of the position
+//                            SetMultimap<String, String> annos = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation().getAnnotationAsMap();
+//                            if (annos.containsKey("END")) {
+                            if (annotationKeys.contains("END")) {
+//                                int lengthOfPosBlock = Integer.parseInt((String) annos.get("END").toArray()[0]) - listOfChrPositions.get(listOfChrPositionsCounter).getPosition();
+                                int lengthOfPosBlock = Integer.parseInt((String) ga.getTextAnnotation("END")[0]) - listOfChrPositions.get(listOfChrPositionsCounter).getPosition();
+                                siteCounter+=lengthOfPosBlock;
+                            }
+                            else{
+                                //check insertion or deletion
+                                String[] variants = listOfChrPositions.get(listOfChrPositionsCounter).getKnownVariants();
+                                siteCounter+=variants[0].length()-1;
+                            }
+//                            System.out.println(listOfChrPositionsCounter);
+                            listOfChrPositionsCounter++;
+                            continue;
+                        }
+                    }
+                }
+                else {
+                    if (filterBitSet.fastGet(listOfChrPositionsCounter)) {
+//                        SetMultimap<String, String> annos = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation().getAnnotationAsMap();
+//                        if (annos.containsKey("END")) {
+                        if (annotationKeys.contains("END")) {
+//                            int lengthOfPosBlock = Integer.parseInt((String) annos.get("END").toArray()[0]) - listOfChrPositions.get(listOfChrPositionsCounter).getPosition();
+                            int lengthOfPosBlock = Integer.parseInt((String) ga.getTextAnnotation("END")[0]) - listOfChrPositions.get(listOfChrPositionsCounter).getPosition();
+                            siteCounter+=lengthOfPosBlock;
+                        }
+                        else{
+                            //check insertion or deletion
+                            String[] variants = listOfChrPositions.get(listOfChrPositionsCounter).getKnownVariants();
+                            siteCounter+=variants[0].length()-1;
+                        }
+//                        System.out.println(listOfChrPositionsCounter);
+                        listOfChrPositionsCounter++;
+                        continue;
+                    }
+                }
+
+
+
+                if (maskBitSet.fastGet(listOfChrPositionsCounter)) {
+                    //if true it means we have to mask all of these positions
+                    //Check to see if we have an END anno
+                }
+                if (listOfChrPositions.get(listOfChrPositionsCounter).getPosition() <= siteCounter) {
+                    //&& !filterBitSet.fastGet(listOfChrPositionsCounter)) {
+                    //check to see if the current position is a reference block or not
+//                    SetMultimap<String, String> annos = listOfChrPositions.get(listOfChrPositionsCounter).getAnnotation().getAnnotationAsMap();
+//                    if (annos.containsKey("END")) {
+                    if (annotationKeys.contains("END")) {
+
+
+                        //this means we have a block
+                        //Check the call and grab the corresponding allele values
+//                        String call = (String) annos.get("GT").toArray()[0];
+                        String call = ga.getTextAnnotation("GT")[0];
+                        boolean phased = true;
+                        boolean haploid = false;
+                        if (call.contains("/")) {
+                            phased = false;
+                        } else if (call.contains("|")) {
+                            phased = true;
+                        } else {
+                            haploid = true;
+                        }
+                        String[] callSplit = phased ? call.split("|") : call.split("/");
+                        int leftAllele = Integer.parseInt(callSplit[0]);
+                        int rightAllele = leftAllele;
+                        if (!haploid) {
+                            rightAllele = Integer.parseInt(callSplit[1]);
+                        }
+//                    int rightAllele = Integer.parseInt(callSplit[1]);
+//                        int endPoint = Integer.parseInt((String) annos.get("END").toArray()[0]) - 1;
+                        int endPoint = Integer.parseInt(ga.getTextAnnotation("END")[0]) - 1;
+                        //check to see if our requested end point is smaller than the region
+                        if(lastSite-1<endPoint) {
+                            endPoint = lastSite-1;
+                        }
+                        //Get the known Variants
+                        int startSiteShifted = siteCounter - 1;  //shift over to zero base
+
+
+
+                        if (startSite < 0)
+                            throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: starting parameter is less than 1 for 1-based method");
+                        ; // method needs 1-based coordinates.
+                        byte[] packedBytes = chromPositionMap.get(chrom);
+                        if (packedBytes == null)
+                            throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: chromosome not found"); // chromosome not found
+                        if (startSiteShifted > packedBytes.length * 2 || endPoint > packedBytes.length * 2) {
+                            throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: requested sequence is out of range"); // requested sequence is out of range
+                        }
+                        String[] variants = listOfChrPositions.get(listOfChrPositionsCounter).getKnownVariants();
+                        String leftAlleleString = variants[leftAllele];
+
+                        //check depth
+//                        String dpFullString = (String) annos.get("DP").toArray()[0];
+                        String dpFullString = ga.getTextAnnotation("DP")[0];
+
+                        // String minDPString = (String) annos.get("MIN_DP").toArray()[0];
+                        //TODO check to see if we should assume only Ref or<NON_REF> call for blocks
+                        if (maskBitSet.fastGet(listOfChrPositionsCounter) || dpFullString.equals("0")) {
+
+                            //if true we have a masking
+                            for (int i = startSiteShifted; i <= endPoint; i++) {
+                                regionDepthCount+=0;
+                                regionZeroCoverageCount++;
+
+                                byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+                            }
+                        } else if (leftAllele == 0) {
+                            //fill in with reference sequence
+                            //pull the sequence from siteCounter till you get to endPoint
+                            //Zrm Apr17 fix for default rules
+                            //check if homozygous or het based on GT calls
+                            int depth = 0;
+                            int minDepth = 0;
+                            if(!dpFullString.equals("")) {
+                                depth = Integer.parseInt(dpFullString);
+                            }
+//                            if(!minDPString.equals("")) {
+//                                minDepth = Integer.parseInt(minDPString);
+//                            }
+                            for (int i = startSiteShifted; i <= endPoint; i++) {
+                                regionDepthCount+=depth;
+                                regionMinDepthCount+=minDepth;
+                                byteList.add((byte) ((i % 2 == 0) ? ((packedBytes[i / 2] & 0xF0) >> 4) : (packedBytes[i / 2] & 0x0F)));
+                            }
+
+                        } else {
+                            int depth = 0;
+                            if(!dpFullString.equals("")) {
+                                depth = Integer.parseInt(dpFullString);
+                            }
+                            for (int i = startSiteShifted; i <= endPoint; i++) {
+                                regionDepthCount+=depth;
+                                regionZeroCoverageCount++;
+                                byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+                            }
+                        }
+
+
+                        //shift up the siteCounter to match the end
+                        siteCounter = endPoint + 1;
+                    } else {
+                        //it is likely a snp
+                        //check the call and grab the correct allele
+                        //siteCounter will increment correctly
+
+//                        String call = (String) annos.get("GT").toArray()[0];
+                        String call = ga.getTextAnnotation("GT")[0];
+                        boolean phased = true;
+                        boolean haploid = false;
+                        if (call.contains("/")) {
+                            phased = false;
+                        } else if (call.contains("|")) {
+                            phased = true;
+                        } else {
+                            //haploid
+                            haploid = true;
+                        }
+//                    String[] callSplit = new String[2];
+//                    if(haploid) {
+//                        callSplit[0] = call;
+//                    }
+                        String[] callSplit = phased ? call.split("|") : call.split("/");
+                        int leftAllele = Integer.parseInt(callSplit[0]);
+                        int rightAllele = leftAllele;
+                        if (!haploid) {
+                            rightAllele = Integer.parseInt(callSplit[1]);
+                        }
+
+                        //Get the AD field and split it on commas
+//                        String adsFullString = (String) annos.get("AD").toArray()[0];
+//                        String dpFullString = (String) annos.get("DP").toArray()[0];
+                        String adsFullString = ga.getTextAnnotation("AD")[0];
+                        String dpFullString = ga.getTextAnnotation("DP")[0];
+//                    System.out.println(adsFullString);
+                        String[] adSplit = adsFullString.split(",");
+                        //Get the known Variants
+                        String[] variants = listOfChrPositions.get(listOfChrPositionsCounter).getKnownVariants();
+                        boolean isHet = calcHet(adSplit);
+                        if (isHet) {
+//                            System.out.println("Het");
+
+                            //TODO handle hets correctly for indels and such
+                            String leftAlleleString = variants[0];
+                            siteCounter+=leftAlleleString.length()-1;
+                            for(int i = 0; i < leftAlleleString.length();i++) {
+                                regionHetCount++;
+                            }
+//                            if (maskBitSet.fastGet(listOfChrPositionsCounter)) {
+//                                //if true we have to mask it
+//                                for (int i = 0; i < leftAlleleString.length(); i++) {
+//                                    byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+//                                }
+//                            } else {
+//                                for (int i = 0; i < leftAlleleString.length(); i++) {
+//                                    byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte(leftAlleleString.charAt(i)));
+//                                }
+//                            }
+                        }
+                        //ZRM April17 do calls based on depth only
+                        else if (adSplit[0].equals("1") || adSplit[1].equals("2")) {
+                            if (adSplit[1].equals("0")) {
+                                //export the ref
+                                String leftAlleleString = variants[0];
+
+                                int depth = 0;
+                                if(!dpFullString.equals("")) {
+                                    depth = Integer.parseInt(dpFullString);
+                                }
+
+                                if (maskBitSet.fastGet(listOfChrPositionsCounter)) {
+                                    //if true we have to mask it
+                                    for (int i = 0; i < leftAlleleString.length() && siteCounter+i < lastSite-1; i++) {
+                                        regionDepthCount+=depth;
+                                        regionNumberHomoRef1Or2Count++;
+                                        byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+                                    }
+                                } else {
+                                    for (int i = 0; i < leftAlleleString.length() && siteCounter+i < lastSite-1; i++) {
+                                        regionDepthCount+=depth;
+                                        regionNumberHomoRef1Or2Count++;
+                                        byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte(leftAlleleString.charAt(i)));
+                                    }
+                                }
+                            }
+
+                        } else if (adSplit[1].equals("1") || adSplit[1].equals("2")) {
+                            //call Ns
+                            //export the ref
+                            String leftAlleleString = variants[1];
+                            int depth = 0;
+                            if(!dpFullString.equals("")) {
+                                depth = Integer.parseInt(dpFullString);
+                            }
+                            for (int i = 0; i < leftAlleleString.length(); i++) {
+                                regionDepthCount+=depth;
+                                regionNumberHomoAlt1Or2Count++;
+                                byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+                            }
+                        } else if (Integer.parseInt(adSplit[1]) >= 3) {
+                            int depth = 0;
+                            if(!dpFullString.equals("")) {
+                                depth = Integer.parseInt(dpFullString);
+                            }
+                            String leftAlleleString = variants[1];
+                            if (maskBitSet.fastGet(listOfChrPositionsCounter)) {
+                                //if true we have to mask it
+                                for (int i = 0; i < leftAlleleString.length(); i++) {
+                                    regionAltCount++;
+                                    regionNumberHomoAlt3PlusCount++;
+                                    regionDepthCount+=depth;
+                                    byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+                                }
+                            } else {
+                                for (int i = 0; i < leftAlleleString.length(); i++) {
+                                    regionAltCount++;
+                                    regionNumberHomoAlt3PlusCount++;
+                                    regionDepthCount+=depth;
+                                    byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte(leftAlleleString.charAt(i)));
+                                }
+                                siteCounter+=variants[0].length()-1;
+                            }
+                        }
+
+
+//                    String leftAlleleString = variants[leftAllele];
+//                    if(maskBitSet.fastGet(listOfChrPositionsCounter)) {
+//                        //if true we have to mask it
+//                        for (int i = 0; i < leftAlleleString.length(); i++) {
+//                            byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+//                        }
+//                    }
+
+
+//                    int rightAllele = Integer.parseInt(callSplit[1]);
+                        //TODO handle hets correctly for indels and such
+//                    String leftAlleleString = variants[leftAllele];
+//                    if(maskBitSet.fastGet(listOfChrPositionsCounter)) {
+//                        //if true we have to mask it
+//                        for (int i = 0; i < leftAlleleString.length(); i++) {
+//                            byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+//                        }
+//                    }
+//                    else {
+//                        for (int i = 0; i < leftAlleleString.length(); i++) {
+//                            byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte(leftAlleleString.charAt(i)));
+//                        }
+//                    }
+                    }
+
+
+                    listOfChrPositionsCounter++;
+                } else {
+                    //grab the reference as we dont have a gvcf for the requested site
+                    //Should this be the breaking point of the sequence??
+                    //TODO should we mark these with Ns?
+                    //listOfChrPositionsCounter++;
+
+                    //With 0 coverage we want to export an N
+                    byteList.add(NucleotideAlignmentConstants.getNucleotideAlleleByte("N"));
+                    regionDepthCount+=0;
+                    regionZeroCoverageCount++;
+
+                }
+            }
+        }
+        regionTotalExportedBPCount = byteList.size();
+        byte[] fullBytes = new byte[byteList.size()];
+        for(int i = 0; i < fullBytes.length; i++) {
+            fullBytes[i] = byteList.get(i);
+        }
+
+
+
+//        startSite--;  //shift over to zero base
+//        lastSite--;   //shift over to zero base
+//        if (startSite < 0) throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: starting parameter is less than 1 for 1-based method");; // method needs 1-based coordinates.
+//        byte[] packedBytes = chromPositionMap.get(chrom);
+//        if (packedBytes == null) throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: chromosome not found"); // chromosome not found
+//        if (startSite > packedBytes.length*2 || lastSite > packedBytes.length*2 ) {
+//            throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: requested sequence is out of range"); // requested sequence is out of range
+//        }
+//        byte[] fullBytes = new byte[lastSite - startSite + 1];
+//        for (int i = startSite; i <= lastSite; i++) {
+//            fullBytes[i - startSite] = (byte) ((i % 2 == 0) ? ((packedBytes[i / 2] & 0xF0) >> 4) : (packedBytes[i / 2] & 0x0F));
+//        }
+        return fullBytes;
+    }
+
+
+    @Override
+    //TODO add in functionality to handle GVCF annotations
+    public byte[] genomeSequence(long startSite, long lastSite) {
+        if(lastSite-startSite>Integer.MAX_VALUE) throw
+                new IllegalArgumentException("Less than "+Integer.MAX_VALUE+" sites must be requested at a time");
+        byte[] fullBytes=new byte[(int)(lastSite-startSite+1)];
+        long currentSiteToGet=startSite;
+        while(currentSiteToGet<lastSite) {
+            Map.Entry<Range<Long>,Chromosome> rangeChromEntry=wholeGenomeIndexMap.getEntry(currentSiteToGet);
+            int chrStart=(int)(currentSiteToGet-rangeChromEntry.getKey().lowerEndpoint());
+            int chrLast=(int)Math.min(rangeChromEntry.getKey().upperEndpoint()-rangeChromEntry.getKey().lowerEndpoint(),lastSite-rangeChromEntry.getKey().lowerEndpoint());
+            byte[] chromoSeq=chromosomeSequence(rangeChromEntry.getValue(), chrStart+1,chrLast+1);  //+1 for 0 based genome, 1 based chromosomes
+            System.arraycopy(chromoSeq,0,fullBytes,(int)(currentSiteToGet-startSite),chromoSeq.length);
+            currentSiteToGet+=chromoSeq.length;
+        }
+        return fullBytes;
+    }
+
+    @Override
+    public int chromosomeSize(Chromosome chromosome) {
+        return chromLengthLookup.get(chromosome);
+    }
+
+    @Override
+    public long genomeSize() {
+        return genomeSize;
+    }
+
+    @Override
+    public int numberOfChromosomes() {
+        return chromPositionMap.size();
+    }
+
+    @Override
+    //TODO see if we need to fix this for GVCF annotations
+    public Map<Long, Tuple<Chromosome, Integer>> fullRefCoordinateToChromCoordinate(ArrayList<Long> coordinates) {
+        // Returns 0-based value from Chromosome array (values are stored as 0-based)
+        Map<Long, Tuple<Chromosome, Integer>> mappedCoordinates = new ConcurrentHashMap<Long, Tuple<Chromosome, Integer>>();
+        coordinates.stream().parallel().forEach(coordinate -> {
+            Map.Entry<Range<Long>,Chromosome> rangeChromEntry=wholeGenomeIndexMap.getEntry(coordinate);
+            Chromosome curChrom = rangeChromEntry.getValue();
+            long chromCoordinate = coordinate - rangeChromEntry.getKey().lowerEndpoint();
+            Tuple<Chromosome, Integer> chromWithCoordinate = new Tuple<>(curChrom, (int)chromCoordinate);
+            mappedCoordinates.put(coordinate, chromWithCoordinate);
+        });
+        return mappedCoordinates;
+    }
+
+    private boolean checkPositionCoverage(Position pos, int site) {
+//        SetMultimap<String,String> annos = pos.getAnnotation().getAnnotationAsMap();
+        GeneralAnnotation ga = pos.getAnnotation();
+//        if(annos.containsKey("END")) {
+//            int endPoint = Integer.parseInt((String)annos.get("END").toArray()[0]);
+//            if(pos.getPosition()<=site && site <= endPoint) {
+//                return true;
+//            }
+//            else {
+//                return false;
+//            }
+//
+//        }
+        if(ga.getAnnotationKeys().contains("END")) {
+            int endPoint = Integer.parseInt(ga.getTextAnnotation("END")[0]);
+            if(pos.getPosition()<=site && site <= endPoint) {
+                return true;
+            }
+            else {
+                return false;
+            }
+
+        }
+        else if(pos.getPosition()==site) {
+            return true;
+        }
+        else {
+            String[] alleles = pos.getKnownVariants();
+            //check to see if we have a deletion and the reference covers the whole
+            if(alleles[0].length()+pos.getPosition()>=site) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+    }
+
+    public Map<Chromosome, byte[]> getChrPosMap() {
+        return chromPositionMap;
+    }
+    public HashMap<Chromosome,ArrayList<ArrayList<Integer>>> getConsecutiveRegions() {
+        HashMap<Chromosome,ArrayList<ArrayList<Integer>>> consecRegions = new HashMap<>();
+        Set<Chromosome> chromosomeSet = chromosomes();
+        //Loop through each chromosome add to a Map<RangeMap>
+        HashMap<Chromosome,RangeSet<Integer>> rangeMaps = new HashMap<>();
+        for(Chromosome chr : chromosomeSet) {
+            rangeMaps.put(chr,TreeRangeSet.create());
+            consecRegions.put(chr,new ArrayList<>());
+        }
+
+        for(int i = 0 ; i < gvcfAnnotationsAndCalls.size(); i++) {
+            if(filterBitSet.fastGet(i)) {
+                //if we have a position to filter out, we should probably break the fasta sequence
+                //to do this, just do not add in the range... RangeMap will handle it for you
+                continue;
+            }
+
+            Position currentPosition = gvcfAnnotationsAndCalls.get(i);
+            SetMultimap<String,String> annos = currentPosition.getAnnotation().getAnnotationAsMap();
+            if(annos.containsKey("END")) {
+                int endPoint = Integer.parseInt((String)annos.get("END").toArray()[0]);
+                rangeMaps.get(currentPosition.getChromosome()).add(Range.closed(currentPosition.getPosition(),endPoint+1));
+            }
+            else {
+                //check to make sure that the reference allele is more than one allele(A deletion)
+                String[] variants = currentPosition.getKnownVariants();
+                //TODO handle hets correctly for indels and such
+                String refAlleleString = variants[0];
+                if(refAlleleString.length()>1) {
+                    //we have a deletion or an insertion+deletion as such our END point will need to take into account the size of the deletion
+                    rangeMaps.get(currentPosition.getChromosome()).add(Range.closed(currentPosition.getPosition(),currentPosition.getPosition()+refAlleleString.length()));
+                }
+                else {
+                    //This will cause the index of the next line in the GVCF file to be non consecutive with the previous
+                    rangeMaps.get(currentPosition.getChromosome()).add(Range.closed(currentPosition.getPosition(), currentPosition.getPosition() + 1));
+
+                }
+            }
+
+        }
+
+        for(Chromosome chr : chromosomeSet) {
+            Set<Range<Integer>> rangeSet = rangeMaps.get(chr).asRanges();
+            for(Range<Integer> currentRange : rangeSet) {
+                ArrayList<Integer> currentList = new ArrayList<Integer>();
+                currentList.add(currentRange.lowerEndpoint());
+                //We need to subtract 1 point so it will be [inclusive,inclusive] instead of [inclusive,exclusive)
+                currentList.add(currentRange.upperEndpoint()-1);
+                consecRegions.get(chr).add(currentList);
+            }
+        }
+
+        return consecRegions;
+    }
+    //TODO move this to a different class
+    public void writeFASTA(String fileName){
+        try {
+            BufferedWriter writer = new BufferedWriter(new FileWriter(fileName));
+            HashMap<Chromosome,ArrayList<ArrayList<Integer>>> consecutiveRegions = getConsecutiveRegions();
+            Set<Chromosome> chromosomes = chromosomes();
+            for(Chromosome chr : chromosomes) {
+                for(ArrayList<Integer> bounds : consecutiveRegions.get(chr)) {
+                    writer.write(">Chr_"+chr.getChromosomeNumber()+"_StartSite_"+bounds.get(0)+"_EndSite_"+bounds.get(1));
+                    writer.newLine();
+                    writer.write(""+NucleotideAlignmentConstants.nucleotideBytetoString(chromosomeSequence(chr,bounds.get(0),bounds.get(1))));
+                    writer.newLine();
+                }
+            }
+
+            writer.close();
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+
+    }
+
+    public BitSet getMaskBitSet() {
+        return maskBitSet;
+    }
+    public void setMaskBitSet(BitSet newMaskBitSet) {
+        maskBitSet = newMaskBitSet;
+    }
+
+    public BitSet getFilterBitSet() {
+        return filterBitSet;
+    }
+    public void setFilterBitSet(BitSet newFilterBitSet) {
+        filterBitSet = newFilterBitSet;
+    }
+
+    public void flipMaskBit(int index) {
+        maskBitSet.fastFlip(index);
+    }
+    public void flipFilterBit(int index) {
+        filterBitSet.fastFlip(index);
+    }
+    public PositionList getGVCFPositions() {
+        return gvcfAnnotationsAndCalls;
+    }
+
+    private boolean calcHet(String[] adSplit) {
+        boolean isHet = false;
+        int refDepth = Integer.parseInt(adSplit[0]);
+        int altDepth = Integer.parseInt(adSplit[1]);
+        if(refDepth>0 && altDepth>0) {
+            isHet = true;
+        }
+        return isHet;
+    }
+
+    @Override
+    public void resetCounters() {
+        regionTotalReferenceBPCount = 0;
+        regionTotalExportedBPCount = 0;
+        regionHetCount = 0;
+        regionAltCount = 0;
+        regionDepthCount = 0;
+        regionGQCount = 0;
+        regionMinDepthCount = 0;
+        regionZeroCoverageCount = 0;
+        regionNumberHomoRef1Or2Count = 0;
+        regionNumberHomoAlt1Or2Count = 0;
+        regionNumberHomoAlt3PlusCount = 0;
+    }
+
+    @Override
+    public HashMap<String,Integer> getPreviousRegionStats() {
+        HashMap<String,Integer> stats = new HashMap<>();
+        stats.put("RefSize",regionTotalReferenceBPCount);
+        stats.put("Size", regionTotalExportedBPCount);
+        stats.put("HetCount",regionHetCount);
+        stats.put("AltCount",regionAltCount);
+        stats.put("Depth",regionDepthCount);
+        stats.put("GQ",regionGQCount);
+        stats.put("Min_Depth",regionMinDepthCount);
+        stats.put("ZeroCoverageCount",regionZeroCoverageCount);
+        stats.put("HomoRefCount",regionNumberHomoRef1Or2Count);
+        stats.put("HomoAltLowDepthCount",regionNumberHomoAlt1Or2Count);
+        stats.put("HomoAltHighDepthCount",regionNumberHomoAlt3PlusCount);
+
+        return stats;
     }
 }
