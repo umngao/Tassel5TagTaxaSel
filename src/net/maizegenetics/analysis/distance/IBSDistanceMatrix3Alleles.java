@@ -12,6 +12,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.genotypecall.AlleleFreqCache;
+import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.taxa.distance.DistanceMatrix;
 import net.maizegenetics.taxa.distance.DistanceMatrixBuilder;
 import net.maizegenetics.util.GeneralAnnotationStorage;
@@ -218,7 +219,7 @@ public class IBSDistanceMatrix3Alleles {
         PRECALCULATED_ENCODINGS[0] = 0x0; // Unknown
     }
 
-    private static final int NUM_CORES_TO_USE = Runtime.getRuntime().availableProcessors() - 1;
+    private static final int NUM_CORES_TO_USE = TasselPrefs.getMaxThreads();
 
     //
     // Used to report progress.  This is not thread-safe but
