@@ -3,23 +3,22 @@
  */
 package net.maizegenetics.analysis.distance;
 
+import net.maizegenetics.dna.snp.GenotypeTable;
+import net.maizegenetics.plugindef.AbstractPlugin;
+import net.maizegenetics.plugindef.DataSet;
+import net.maizegenetics.plugindef.Datum;
+import net.maizegenetics.taxa.distance.DistanceMatrix;
+import net.maizegenetics.util.ProgressListener;
+import org.apache.log4j.Logger;
+
+import javax.swing.*;
 import java.awt.*;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import javax.swing.*;
-import net.maizegenetics.dna.snp.GenotypeTable;
-import net.maizegenetics.taxa.distance.DistanceMatrix;
-import net.maizegenetics.plugindef.AbstractPlugin;
-import net.maizegenetics.plugindef.DataSet;
-import net.maizegenetics.plugindef.Datum;
-import net.maizegenetics.plugindef.PluginEvent;
-import net.maizegenetics.util.ProgressListener;
-import org.apache.log4j.Logger;
 
 /**
- *
  * @author Terry Casstevens
  */
 public class DistanceMatrixPlugin extends AbstractPlugin {
@@ -31,44 +30,25 @@ public class DistanceMatrixPlugin extends AbstractPlugin {
     }
 
     @Override
-    public DataSet performFunction(DataSet input) {
+    public DataSet processData(DataSet input) {
 
-        try {
-
-            List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
-            if (alignInList.size() < 1) {
-                String message = "Invalid selection.  Please select sequence alignment.";
-                if (isInteractive()) {
-                    JOptionPane.showMessageDialog(getParentFrame(), message);
-                } else {
-                    myLogger.error(message);
-                }
-                return null;
-            }
-
-            List<DataSet> result = new ArrayList<>();
-            Iterator<Datum> itr = alignInList.iterator();
-            while (itr.hasNext()) {
-                Datum current = itr.next();
-                DataSet tds = processDatum(current);
-                result.add(tds);
-                if (tds != null) {
-                    fireDataSetReturned(new PluginEvent(tds, DistanceMatrixPlugin.class));
-                }
-            }
-
-            return DataSet.getDataSet(result, this);
-
-        } finally {
-            fireProgress(100);
+        List<Datum> alignInList = input.getDataOfType(GenotypeTable.class);
+        if (alignInList.size() < 1) {
+            throw new IllegalArgumentException("DistanceMatrixPlugin: performFunction: Please select a genotype table.");
         }
 
-    }
+        List<DataSet> result = new ArrayList<>();
+        Iterator<Datum> itr = alignInList.iterator();
+        while (itr.hasNext()) {
+            Datum current = itr.next();
+            GenotypeTable aa = (GenotypeTable) current.getData();
+            DistanceMatrix adm = getDistanceMatrix(aa, this);
+            DataSet tds = new DataSet(new Datum("Matrix:" + current.getName(), adm, "Distance Matrix"), this);
+            result.add(tds);
+        }
 
-    public DataSet processDatum(Datum input) {
-        GenotypeTable aa = (GenotypeTable) input.getData();
-        DistanceMatrix adm = getDistanceMatrix(aa, this);
-        return new DataSet(new Datum("Matrix:" + input.getName(), adm, "Distance Matrix"), this);
+        return DataSet.getDataSet(result, this);
+
     }
 
     public static DistanceMatrix getDistanceMatrix(GenotypeTable alignment) {
