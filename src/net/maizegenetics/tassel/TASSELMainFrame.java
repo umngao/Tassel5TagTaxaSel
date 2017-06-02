@@ -466,6 +466,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new RemoveNaNFromDistanceMatrixPlugin(this, true)));
         result.add(createMenuItem(new SubtractDistanceMatrixPlugin(this, true)));
         result.add(createMenuItem(new AddDistanceMatrixPlugin(this, true)));
+        result.add(createMenuItem(new IdentityRecognitionPlugin(this, true)));
         return result;
 
     }
