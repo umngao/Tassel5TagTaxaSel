@@ -12,6 +12,10 @@ import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.BitUtil;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * Utility functions for distance matrices
  *
@@ -29,10 +33,9 @@ public class DistanceMatrixUtils {
      *
      * @param base filename base
      *
-     * @return array of file names. Index 0 is the id filename (.grm.id); Index
-     * 1 is the binary matrix (.grm.bin); Index 2 is the binary counts
-     * (.grm.N.bin); Index 3 is the raw (text) matrix (.grm.raw); Index 4 is the
-     * text matrix (.txt)
+     * @return array of file names. Index 0 is the id filename (.grm.id); Index 1 is the binary matrix (.grm.bin); Index
+     * 2 is the binary counts (.grm.N.bin); Index 3 is the raw (text) matrix (.grm.raw); Index 4 is the text matrix
+     * (.txt)
      */
     public static String[] getGRMFilenames(String base) {
 
@@ -75,8 +78,7 @@ public class DistanceMatrixUtils {
      *
      * @param base filename base
      *
-     * @return array of file names. Index 0 is the id filename (.don); Index 1
-     * is the dissimilarity matrix (.dis)
+     * @return array of file names. Index 0 is the id filename (.don); Index 1 is the dissimilarity matrix (.dis)
      */
     public static String[] getDARwinFilenames(String base) {
 
@@ -186,10 +188,10 @@ public class DistanceMatrixUtils {
     }
 
     /**
-     * @param parent	the DistanceMatrix from which to extract a subset
-     * @param taxaToKeep	an index of the taxa to keep
-     * @return A DistanceMatrix with all the taxa that are in both parent and
-     * taxaToKeep in the same order as taxaToKeep
+     * @param parent the DistanceMatrix from which to extract a subset
+     * @param taxaToKeep an index of the taxa to keep
+     *
+     * @return A DistanceMatrix with all the taxa that are in both parent and taxaToKeep in the same order as taxaToKeep
      */
     public static DistanceMatrix keepTaxa(DistanceMatrix parent, int[] taxaToKeep) {
         int ntaxa = taxaToKeep.length;
@@ -210,10 +212,11 @@ public class DistanceMatrixUtils {
     }
 
     /**
-     * @param parent	the DistanceMatrix from which to extract a subset
-     * @param taxaToKeep	a TaxaList of taxa to be kept
-     * @return	a DistanceMatrix that contains only the taxa that are in both
-     * taxaToKeep and parent. The taxa will be in the same order as taxaToKeep.
+     * @param parent the DistanceMatrix from which to extract a subset
+     * @param taxaToKeep a TaxaList of taxa to be kept
+     *
+     * @return a DistanceMatrix that contains only the taxa that are in both taxaToKeep and parent. The taxa will be in
+     * the same order as taxaToKeep.
      */
     public static DistanceMatrix keepTaxa(DistanceMatrix parent, TaxaList taxaToKeep) {
         int[] keepIndex = taxaToKeep.stream()
@@ -221,6 +224,110 @@ public class DistanceMatrixUtils {
                 .filter(i -> i > -1)
                 .toArray();
         return keepTaxa(parent, keepIndex);
+    }
+
+    public static DistanceMatrix clusterBySmallestDistance(DistanceMatrix orig) {
+
+        TaxaList taxa = orig.getTaxaList();
+        int numTaxa = taxa.numberOfTaxa();
+
+        TaxaPairLowestDistance[] lowValues = new TaxaPairLowestDistance[numTaxa];
+        for (int t = 0; t < numTaxa; t++) {
+            lowValues[t] = new TaxaPairLowestDistance(t);
+        }
+
+        for (int x = 0; x < numTaxa; x++) {
+            for (int y = x + 1; y < numTaxa; y++) {
+
+                float value = orig.getDistance(x, y);
+
+                if (!Float.isNaN(value)) {
+
+                    if (lowValues[x].myLowValue > value) {
+                        lowValues[x].myLowValue = value;
+                        lowValues[x].myTaxon2 = y;
+                    }
+
+                    if (lowValues[y].myLowValue > value) {
+                        lowValues[y].myLowValue = value;
+                        lowValues[y].myTaxon2 = x;
+                    }
+
+                }
+
+            }
+        }
+
+        Arrays.sort(lowValues);
+
+        List<List<Integer>> clusters = new ArrayList<>();
+        List<Integer>[] whichCluster = new ArrayList[numTaxa];
+        List<Integer> unknownList = new ArrayList<>();
+        for (int t = 0; t < numTaxa; t++) {
+
+            int taxon1 = lowValues[t].myTaxon1;
+            int taxon2 = lowValues[t].myTaxon2;
+
+            if (taxon2 == -1) {
+                unknownList.add(taxon1);
+            } else if (whichCluster[taxon1] == null && whichCluster[taxon2] == null) {
+                List<Integer> temp = new ArrayList<>();
+                temp.add(taxon1);
+                temp.add(taxon2);
+                clusters.add(temp);
+                whichCluster[taxon1] = temp;
+                whichCluster[taxon2] = temp;
+            } else if (whichCluster[taxon1] == null) {
+                whichCluster[taxon1] = whichCluster[taxon2];
+                whichCluster[taxon1].add(taxon1);
+            } else if (whichCluster[taxon2] == null) {
+                whichCluster[taxon2] = whichCluster[taxon1];
+                whichCluster[taxon2].add(taxon2);
+            }
+
+        }
+
+        clusters.add(unknownList);
+
+        DistanceMatrixBuilder builder = DistanceMatrixBuilder.getInstance(numTaxa);
+        int count = 0;
+        for (List<Integer> current : clusters) {
+            int currentNumTaxa = current.size();
+            for (int taxon = 0; taxon < currentNumTaxa; taxon++) {
+                builder.addTaxon(taxa.get(current.get(taxon)));
+                for (int x = taxon; x < currentNumTaxa; x++) {
+                    builder.set(x + count, taxon + count, orig.getDistance(current.get(taxon), current.get(x)));
+                }
+            }
+            count += currentNumTaxa;
+        }
+
+        return builder.build();
+
+    }
+
+    private static class TaxaPairLowestDistance implements Comparable<TaxaPairLowestDistance> {
+
+        private final int myTaxon1;
+        private int myTaxon2;
+        private float myLowValue = Float.POSITIVE_INFINITY;
+
+        public TaxaPairLowestDistance(int taxon1) {
+            myTaxon1 = taxon1;
+            myTaxon2 = -1;
+            myLowValue = Float.POSITIVE_INFINITY;
+        }
+
+        @Override
+        public int compareTo(TaxaPairLowestDistance o) {
+            if (myLowValue < o.myLowValue) {
+                return -1;
+            } else if (myLowValue > o.myLowValue) {
+                return 1;
+            } else {
+                return 0;
+            }
+        }
     }
 
     /**
@@ -231,6 +338,7 @@ public class DistanceMatrixUtils {
      * @param iMinor
      * @param jMajor
      * @param jMinor
+     *
      * @return
      */
     public static double getIBSDistance(long[] iMajor, long[] iMinor, long[] jMajor, long[] jMinor) {
