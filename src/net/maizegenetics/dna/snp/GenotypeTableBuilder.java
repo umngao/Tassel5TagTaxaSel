@@ -7,9 +7,6 @@ import ch.systemsx.cisd.hdf5.HDF5Factory;
 import ch.systemsx.cisd.hdf5.IHDF5Reader;
 import ch.systemsx.cisd.hdf5.IHDF5Writer;
 import ch.systemsx.cisd.hdf5.IHDF5WriterConfigurator;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import net.maizegenetics.dna.map.Position;
 import net.maizegenetics.dna.map.PositionList;
 import net.maizegenetics.dna.map.PositionListBuilder;
@@ -17,15 +14,7 @@ import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTableBuilder;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeMergeRule;
 import net.maizegenetics.dna.snp.genotypecall.MaskGenotypeCallTable;
-import net.maizegenetics.dna.snp.score.AlleleDepth;
-import net.maizegenetics.dna.snp.score.AlleleDepthBuilder;
-import net.maizegenetics.dna.snp.score.AlleleDepthUtil;
-import net.maizegenetics.dna.snp.score.AlleleProbability;
-import net.maizegenetics.dna.snp.score.AlleleProbabilityBuilder;
-import net.maizegenetics.dna.snp.score.Dosage;
-import net.maizegenetics.dna.snp.score.DosageBuilder;
-import net.maizegenetics.dna.snp.score.ReferenceProbability;
-import net.maizegenetics.dna.snp.score.ReferenceProbabilityBuilder;
+import net.maizegenetics.dna.snp.score.*;
 import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.TaxaListBuilder;
 import net.maizegenetics.taxa.Taxon;
@@ -33,6 +22,10 @@ import net.maizegenetics.util.GeneralAnnotation;
 import net.maizegenetics.util.GeneralAnnotationStorage;
 import net.maizegenetics.util.HDF5Utils;
 import net.maizegenetics.util.Tassel5HDF5Constants;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 
 /**
  * Builder for GenotypeTables. New genotypeTables are built from a minimum of
@@ -50,7 +43,7 @@ import net.maizegenetics.util.Tassel5HDF5Constants;
  * </p>
  * For taxa building:
  * <pre>
- *{@code
+ * {@code
  *    GenotypeTableBuilder gtb=GenotypeTableBuilder.getTaxaIncremental(gbs.positions(),outFile);
  *    for (int i=0; i<hm2.numberOfTaxa(); i++) {
  *        Taxon taxon=hm2.taxa().get(i);
@@ -58,7 +51,7 @@ import net.maizegenetics.util.Tassel5HDF5Constants;
  *        gtb.addTaxon(taxon,geno);
  *        }
  *    GenotypeTable gt=gtb.build();
- *}
+ * }
  * </pre>
  * <p>
  * </p>
@@ -78,7 +71,6 @@ import net.maizegenetics.util.Tassel5HDF5Constants;
  * existingGenotypeTable2.depth().depthAllSitesByte(i));
  * }
  * }</pre>
- *
  *
  * @author Terry Casstevens
  * @author Ed Buckler
@@ -214,6 +206,7 @@ public class GenotypeTableBuilder {
      * be added once, i.e. merging is not possible
      *
      * @param positionList The positions used for the builder
+     *
      * @return
      */
     public static GenotypeTableBuilder getTaxaIncremental(PositionList positionList) {
@@ -226,6 +219,7 @@ public class GenotypeTableBuilder {
      *
      * @param positionList The positions used for the builder
      * @param mergeRule rules for merging identically named taxa
+     *
      * @return
      */
     public static GenotypeTableBuilder getTaxaIncremental(PositionList positionList, GenotypeMergeRule mergeRule) {
@@ -240,6 +234,7 @@ public class GenotypeTableBuilder {
      *
      * @param genotypeTable input genotype table
      * @param mergeRule rules for merging identically named taxa
+     *
      * @return
      */
     public static GenotypeTableBuilder getTaxaIncremental(GenotypeTable genotypeTable, GenotypeMergeRule mergeRule) {
@@ -261,6 +256,7 @@ public class GenotypeTableBuilder {
      *
      * @param positionList the defined list of positions
      * @param newHDF5File hdf5 file to be created
+     *
      * @return the builder to add taxa to
      */
     public static GenotypeTableBuilder getTaxaIncremental(PositionList positionList, String newHDF5File) {
@@ -273,6 +269,7 @@ public class GenotypeTableBuilder {
      *
      * @param existingHDF5File
      * @param mergeRule
+     *
      * @return builder to merge taxa with
      */
     public static GenotypeTableBuilder mergeTaxaIncremental(String existingHDF5File, GenotypeMergeRule mergeRule) {
@@ -286,6 +283,7 @@ public class GenotypeTableBuilder {
      * @param newHDF5File
      * @param positionList
      * @param mergeRule
+     *
      * @return
      */
     public static GenotypeTableBuilder getTaxaIncrementalWithMerging(String newHDF5File, PositionList positionList, GenotypeMergeRule mergeRule) {
@@ -296,6 +294,7 @@ public class GenotypeTableBuilder {
      * Build an alignment site by site in memory
      *
      * @param taxaList
+     *
      * @return builder to add sites to
      */
     public static GenotypeTableBuilder getSiteIncremental(TaxaList taxaList) {
@@ -401,6 +400,7 @@ public class GenotypeTableBuilder {
      * @param positionList
      * @param taxaList
      * @param hdf5File name of the file
+     *
      * @return alignment backed by new HDF5 file
      */
     public static GenotypeTable getInstance(GenotypeCallTable genotype, PositionList positionList, TaxaList taxaList, String hdf5File) {
@@ -422,6 +422,7 @@ public class GenotypeTableBuilder {
      *
      * @param a existing alignment
      * @param hdf5File name of the file
+     *
      * @return alignment backed by new HDF5 file
      */
     public static GenotypeTable getInstance(GenotypeTable a, String hdf5File) {
@@ -469,6 +470,10 @@ public class GenotypeTableBuilder {
 
     public static GenotypeTable getHomozygousInstance(GenotypeTable genotype) {
         return getInstance(genotype, MaskMatrixBuilder.getInstanceRemoveHeterozygous(genotype.genotypeMatrix()));
+    }
+
+    public static GenotypeTable getInstanceMaskIndels(GenotypeTable genotype) {
+        return getInstance(genotype, MaskMatrixBuilder.getInstanceRemoveIndels(genotype.genotypeMatrix()));
     }
 
     /**
@@ -522,8 +527,7 @@ public class GenotypeTableBuilder {
      *
      * @param startSite start site for positioning blocks correction
      * @param blkPositionList
-     * @param blockGenotypes array of genotypes[taxonIndex][siteIndex] true
-     * site=startSite+siteIndex
+     * @param blockGenotypes array of genotypes[taxonIndex][siteIndex] true site=startSite+siteIndex
      * @param blockDepths
      */
     public synchronized void addSiteBlock(int startSite, PositionList blkPositionList, byte[][] blockGenotypes, byte[][][] blockDepths) {
