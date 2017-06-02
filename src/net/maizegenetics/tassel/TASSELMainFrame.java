@@ -19,6 +19,7 @@
 //Company:    NCSU
 package net.maizegenetics.tassel;
 
+import net.maizegenetics.analysis.data.*;
 import net.maizegenetics.analysis.imputation.*;
 import net.maizegenetics.analysis.popgen.SequenceDiversityPlugin;
 import net.maizegenetics.analysis.distance.KinshipPlugin;
@@ -33,16 +34,6 @@ import net.maizegenetics.analysis.association.MLMPlugin;
 import net.maizegenetics.analysis.association.WeightedMLMPlugin;
 import net.maizegenetics.analysis.popgen.LinkageDiseqDisplayPlugin;
 import net.maizegenetics.analysis.popgen.LinkageDisequilibriumPlugin;
-import net.maizegenetics.analysis.data.MergeGenotypeTablesPlugin;
-import net.maizegenetics.analysis.data.PrincipalComponentsPlugin;
-import net.maizegenetics.analysis.data.UnionAlignmentPlugin;
-import net.maizegenetics.analysis.data.FileLoadPlugin;
-import net.maizegenetics.analysis.data.IntersectionAlignmentPlugin;
-import net.maizegenetics.analysis.data.GenotypeSummaryPlugin;
-import net.maizegenetics.analysis.data.ExportPlugin;
-import net.maizegenetics.analysis.data.SeparatePlugin;
-import net.maizegenetics.analysis.data.SynonymizerPlugin;
-import net.maizegenetics.analysis.data.ThinSitesByPositionPlugin;
 import net.maizegenetics.analysis.filter.FilterTaxaAlignmentPlugin;
 import net.maizegenetics.analysis.filter.FilterTaxaPropertiesPlugin;
 import net.maizegenetics.analysis.filter.FilterSiteNamePlugin;
@@ -82,17 +73,7 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import net.maizegenetics.analysis.data.CreateHybridGenotypesPlugin;
-import net.maizegenetics.analysis.data.FindInversionsPlugin;
 
-import net.maizegenetics.analysis.data.GenosToABHPlugin;
-import net.maizegenetics.analysis.data.GetPositionListPlugin;
-import net.maizegenetics.analysis.data.GetTaxaListPlugin;
-import net.maizegenetics.analysis.data.HetsToUnknownPlugin;
-import net.maizegenetics.analysis.data.MaskGenotypePlugin;
-import net.maizegenetics.analysis.data.SetLowDepthGenosToMissingPlugin;
-import net.maizegenetics.analysis.data.SortGenotypeFilePlugin;
-import net.maizegenetics.analysis.data.SortTaxaAlphabeticallyPlugin;
 import net.maizegenetics.analysis.distance.AMatrixPlugin;
 import net.maizegenetics.analysis.distance.AddDistanceMatrixPlugin;
 import net.maizegenetics.analysis.distance.DistanceMatrixPlugin;
@@ -128,7 +109,6 @@ import net.maizegenetics.gui.DialogUtils;
 
 /**
  * TASSELMainFrame
- *
  */
 public class TASSELMainFrame extends JFrame implements ActionListener {
 
@@ -416,6 +396,7 @@ public class TASSELMainFrame extends JFrame implements ActionListener {
         result.add(createMenuItem(new MergeGenotypeTablesPlugin(this, true)));
         result.add(createMenuItem(new SeparatePlugin(this, true)));
         result.add(createMenuItem(new HetsToUnknownPlugin(this, true)));
+        result.add(createMenuItem(new IndelsToUnknownPlugin(this, true)));
         result.add(createMenuItem(new SetLowDepthGenosToMissingPlugin(this, true)));
         result.add(createMenuItem(new TransformDataPlugin(this, true)));
         result.add(createMenuItem(new NumericalGenotypePlugin(this, true)));

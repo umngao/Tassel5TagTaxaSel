@@ -5,16 +5,16 @@
  */
 package net.maizegenetics.dna.snp;
 
-import java.util.Random;
-import java.util.function.BiPredicate;
-import java.util.function.Predicate;
 import net.maizegenetics.dna.snp.genotypecall.GenotypeCallTable;
 import net.maizegenetics.dna.snp.genotypecall.Stats;
 import net.maizegenetics.util.BitSet;
 import net.maizegenetics.util.OpenBitSet;
 
+import java.util.Random;
+import java.util.function.BiPredicate;
+import java.util.function.Predicate;
+
 /**
- *
  * @author Terry Casstevens
  */
 public class MaskMatrixBuilder {
@@ -89,9 +89,13 @@ public class MaskMatrixBuilder {
     public static MaskMatrix getInstanceRemoveHeterozygous(GenotypeCallTable genotype) {
         return getInstance(genotype, (Byte t) -> (t & 0xF) != (t >>> 4));
     }
-    
+
     public static MaskMatrix getInstanceRemoveHomozygous(GenotypeCallTable genotype) {
         return getInstance(genotype, (Byte t) -> (t & 0xF) == (t >>> 4));
+    }
+
+    public static MaskMatrix getInstanceRemoveIndels(GenotypeCallTable genotype) {
+        return getInstance(genotype, (Byte t) -> (t == NucleotideAlignmentConstants.GAP_DIPLOID_ALLELE || t == NucleotideAlignmentConstants.INSERT_DIPLOID_ALLELE));
     }
 
     public static MaskMatrix getInstance(GenotypeCallTable genotype, Predicate<Byte> predicate) {
