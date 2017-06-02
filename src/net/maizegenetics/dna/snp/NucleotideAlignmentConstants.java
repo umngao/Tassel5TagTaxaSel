@@ -23,6 +23,7 @@ public final class NucleotideAlignmentConstants {
     public static final byte UNDEFINED_ALLELE = (byte) 0x6;
 
     // Diploid Byte Values for Nucleotide Alleles
+    public static final byte INSERT_DIPLOID_ALLELE = (byte) 0x44;
     public static final byte GAP_DIPLOID_ALLELE = (byte) 0x55;
     public static final byte UNDEFINED_DIPLOID_ALLELE = (byte) 0x66;
 
