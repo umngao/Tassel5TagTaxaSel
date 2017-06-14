@@ -1,22 +1,17 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package net.maizegenetics.util;
-
-import com.google.common.collect.Ordering;
-
-import java.util.Objects;
 
 /**
  * Based on response in http://stackoverflow.com/questions/2670982/using-pairs-or-2-tuples-in-java
+ *
  * @author Eli Rodgers-Melnick
  */
 public class Tuple<X, Y> implements Comparable<Tuple<X, Y>> {
     public final X x;
     public final Y y;
+
     /**
      * Instantiates a tuple object, which just holds 2 values
+     *
      * @param x The first object
      * @param y The second object
      */
@@ -35,38 +30,41 @@ public class Tuple<X, Y> implements Comparable<Tuple<X, Y>> {
 
     @Override
     public int hashCode() {
-        return (x.hashCode()^y.hashCode());
+        return (x.hashCode() ^ y.hashCode());
     }
+
     @Override
     public String toString() {
-        return "("+x.toString()+","+y.toString()+")";
+        return "(" + x.toString() + "," + y.toString() + ")";
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (obj == null) {
+        if (obj == null || !(obj instanceof Tuple)) {
             return false;
         }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        final Tuple<X, Y> other = (Tuple<X, Y>) obj;
-        if (!Objects.equals(this.x, other.x)) {
-            return false;
-        }
-        if (!Objects.equals(this.y, other.y)) {
-            return false;
-        }
-        return true;
+
+        return compareTo((Tuple) obj) == 0;
     }
 
+    /**
+     * Using this method (i.e. sorting Tuples)
+     * seems to imply both x and y are Comparable.
+     * If that's not the case, results are unpredictable.
+     */
     @Override
     public int compareTo(Tuple<X, Y> o) {
-        if(x instanceof Double) return Double.compare((Double)x, (Double)o.x);
-
-        if(x instanceof Comparable) {
-            return ((Comparable) x).compareTo(o.x);
+        if (this == o) {
+            return 0;
         }
-        return 0;
+        if (x instanceof Comparable) {
+            int i = ((Comparable) x).compareTo(o.x);
+            if (i != 0) return i;
+        }
+        if (y instanceof Comparable) {
+            return ((Comparable) y).compareTo(o.y);
+        }
+        throw new IllegalStateException("Tuple: compareTo: neither x or y is Comparable types");
     }
+
 }
