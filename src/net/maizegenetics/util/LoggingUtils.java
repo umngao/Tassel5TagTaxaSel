@@ -124,6 +124,12 @@ public class LoggingUtils {
     public static void setupStdOutLogging() {
         System.setOut(myOriginalOutputStream);
         System.setErr(myOriginalErrStream);
+        java.util.Properties props = new java.util.Properties();
+        props.setProperty("log4j.logger.net.maizegenetics", "ERROR, stdout");
+        props.setProperty("log4j.appender.stdout", "org.apache.log4j.ConsoleAppender");
+        props.setProperty("log4j.appender.stdout.Threshold", "error");
+        props.setProperty("log4j.appender.stdout.layout", "org.apache.log4j.TTCCLayout");
+        PropertyConfigurator.configure(props);
     }
 
     public static void closeLogfile() {
