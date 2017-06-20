@@ -3,16 +3,15 @@
  */
 package net.maizegenetics.util;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.PrintStream;
 import net.maizegenetics.prefs.TasselPrefs;
-
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintStream;
+
 /**
- *
  * @author Terry Casstevens
  */
 public class LoggingUtils {
@@ -120,6 +119,11 @@ public class LoggingUtils {
         System.setOut(myPrintStream);
         System.setErr(myPrintStream);
         sendDebugLog4jToStdout();
+    }
+
+    public static void setupStdOutLogging() {
+        System.setOut(myOriginalOutputStream);
+        System.setErr(myOriginalErrStream);
     }
 
     public static void closeLogfile() {
