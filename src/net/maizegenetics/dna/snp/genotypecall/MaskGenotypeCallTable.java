@@ -9,7 +9,6 @@ import net.maizegenetics.dna.snp.GenotypeTable;
 import net.maizegenetics.dna.snp.MaskMatrix;
 
 /**
- *
  * @author Terry Casstevens
  */
 public class MaskGenotypeCallTable extends AbstractGenotypeCallTable {
@@ -39,7 +38,11 @@ public class MaskGenotypeCallTable extends AbstractGenotypeCallTable {
 
     @Override
     public String genotypeAsStringRange(int taxon, int startSite, int endSite) {
-        return myBase.genotypeAsStringRange(taxon, startSite, endSite);
+        StringBuilder builder = new StringBuilder();
+        for (int i = startSite; i < endSite; i++) {
+            builder.append(genotypeAsString(taxon, i));
+        }
+        return builder.toString();
     }
 
     @Override
