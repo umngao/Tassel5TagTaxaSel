@@ -320,7 +320,11 @@ public final class NucleotideAlignmentConstants {
      * @return nucleotide diploid allele byte value
      */
     public static Optional<Byte> parseNucleotideDiploidByte(String value) {
+        try {
             return Optional.ofNullable(NUCLEOTIDE_DIPLOID_ARRAY[getNucleotideDiploidArrayIndex(value)]);
+        } catch (IllegalStateException e) {
+            return Optional.empty();
+        }
     }
 
     /**
