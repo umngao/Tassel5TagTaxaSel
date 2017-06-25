@@ -6,6 +6,7 @@ package net.maizegenetics.dna.snp;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  *
@@ -310,6 +311,19 @@ public final class NucleotideAlignmentConstants {
     }
 
     /**
+     * Returns Optional diploid byte value for given nucleotide value. First four bits
+     * contain first allele value. And second four bits contain second allele
+     * value. Optional empty if not present in the Hash.
+     *
+     * @param value diploid allele value
+     *
+     * @return nucleotide diploid allele byte value
+     */
+    public static Optional<Byte> parseNucleotideDiploidByte(String value) {
+            return Optional.ofNullable(NUCLEOTIDE_DIPLOID_ARRAY[getNucleotideDiploidArrayIndex(value)]);
+    }
+
+    /**
      * Returns char allele for allele byte encoding. THis is called from junit
      * tests in ReferenceGenomeSequenceTest.java
      *
@@ -541,4 +555,24 @@ public final class NucleotideAlignmentConstants {
         return result.toString();
     }
 
+    /**
+     * Return whether a simple homozgyous DNA state (i.e. no indels or N).
+     * @param diploidAllele diploid
+     * @return
+     */
+    public static boolean isHomozygousACGT(Byte diploidAllele) {
+        if (!GenotypeTableUtils.isHomozygous(diploidAllele)) return false;
+        if((diploidAllele & 0xf) < INSERT_ALLELE) return true;
+        return false;
+    }
+
+    /**
+     * Return whether a simple DNA state (i.e. no indels or N).  Heterozygous resolves to true also.
+     * @param diploidAllele diploid
+     * @return
+     */
+    public static boolean isACGT(Byte diploidAllele) {
+        if ((((diploidAllele >>> 4) & 0xf) < INSERT_ALLELE) && ((diploidAllele & 0xf) < INSERT_ALLELE)) return true;
+        return false;
+    }
 }
