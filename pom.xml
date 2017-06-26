@@ -41,7 +41,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.19.1</version>
                 <configuration>
-                    <argLine>-Xmx8g</argLine>
+                    <argLine>-Xmx10g</argLine>
                     <testFailureIgnore>true</testFailureIgnore>
                     <workingDirectory>${project.basedir}/../tassel-5-test/</workingDirectory>
                     <excludes>
@@ -188,7 +188,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>19.0</version>
+            <version>22.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
