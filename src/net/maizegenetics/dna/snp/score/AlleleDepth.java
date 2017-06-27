@@ -3,24 +3,19 @@
  */
 package net.maizegenetics.dna.snp.score;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 import net.maizegenetics.dna.snp.byte2d.Byte2D;
 
+import java.util.*;
+
 /**
- *
  * @author Terry Casstevens
  */
 public class AlleleDepth implements SiteScore {
 
     public static final SiteScore.SITE_SCORE_TYPE[] ALLELE_DEPTH_TYPES = new SiteScore.SITE_SCORE_TYPE[]{
-        SiteScore.SITE_SCORE_TYPE.DepthA, SiteScore.SITE_SCORE_TYPE.DepthC,
-        SiteScore.SITE_SCORE_TYPE.DepthG, SiteScore.SITE_SCORE_TYPE.DepthT,
-        SiteScore.SITE_SCORE_TYPE.DepthInsertion, SiteScore.SITE_SCORE_TYPE.DepthGap};
+            SiteScore.SITE_SCORE_TYPE.DepthA, SiteScore.SITE_SCORE_TYPE.DepthC,
+            SiteScore.SITE_SCORE_TYPE.DepthG, SiteScore.SITE_SCORE_TYPE.DepthT,
+            SiteScore.SITE_SCORE_TYPE.DepthInsertion, SiteScore.SITE_SCORE_TYPE.DepthGap};
 
     public static final int NUM_ALLELE_DEPTH_TYPES = ALLELE_DEPTH_TYPES.length;
 
@@ -43,7 +38,7 @@ public class AlleleDepth implements SiteScore {
         }
     }
 
-    public AlleleDepth(int numTaxa, int numSites) {
+    AlleleDepth(int numTaxa, int numSites) {
         myNumTaxa = numTaxa;
         myNumSites = numSites;
         myValues = null;
@@ -66,12 +61,12 @@ public class AlleleDepth implements SiteScore {
 
     /**
      * Same as value() but translates allele into scoreType
-     * 
+     *
      * @param taxon taxon
      * @param site site
      * @param allele allele code (see NucleotideAlignmentConstants)
-     * 
-     * @return depth 
+     *
+     * @return depth
      */
     public int depthForAllele(int taxon, int site, int allele) {
         return value(taxon, site, ALLELE_DEPTH_TYPES[allele]);
