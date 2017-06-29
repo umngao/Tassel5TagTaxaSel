@@ -201,6 +201,8 @@ class HalfByteGenomeSequence implements GenomeSequence{
         byte[] packedBytes = chromPositionMap.get(chrom);
         if (packedBytes == null) throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: chromosome not found"); // chromosome not found
         if (startSite > packedBytes.length*2 || lastSite > packedBytes.length*2 ) {
+            System.out.println("GenomeSequenceBuilder, chrom: " + chrom.getName() + ", startSite: " 
+              + startSite + ", lastSite: " + lastSite + ", chromSize: " + chromosomeSize(chrom)); 
             throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: requested sequence is out of range"); // requested sequence is out of range
         }
         byte[] fullBytes = new byte[lastSite - startSite + 1];
@@ -210,6 +212,62 @@ class HalfByteGenomeSequence implements GenomeSequence{
         return fullBytes;
     }
 
+    @Override
+    public byte genotype(Chromosome chrom, int position) {
+        position--; // shift to 0-based
+        byte[] packedBytes = chromPositionMap.get(chrom);
+        if (packedBytes == null) throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: chromosome not found"); 
+        if (position > packedBytes.length*2 ) {
+            System.out.println("GenomeSequenceBuilder, chrom: " + chrom.getName() + ", position: " 
+              + position + ", chromSize: " + chromosomeSize(chrom)); 
+            throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: requested position is out of range");            
+        }
+        byte alleleAtPosition = (byte) ((position % 2 == 0) ? ((packedBytes[position / 2] & 0xF0) >> 4) : (packedBytes[position / 2] & 0x0F));
+        return alleleAtPosition;
+    }
+    
+    @Override
+    public byte genotype(Chromosome chrom, Position positionObject) {
+        int position = positionObject.getPosition();
+        position--; // shift to 0-based
+        byte[] packedBytes = chromPositionMap.get(chrom);
+        if (packedBytes == null) throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: chromosome not found"); 
+        if (position > packedBytes.length*2 ) {
+            System.out.println("GenomeSequenceBuilder, chrom: " + chrom.getName() + ", position: " 
+              + position + ", chromSize: " + chromosomeSize(chrom)); 
+            throw new IllegalArgumentException("GenomeSequenceBuilder.chromosomeSequence: requested position is out of range");            
+        }
+        byte valueAtPosition = (byte) ((position % 2 == 0) ? ((packedBytes[position / 2] & 0xF0) >> 4) : (packedBytes[position / 2] & 0x0F));
+        return valueAtPosition;
+    }
+    
+    @Override
+    public String genotypeAsString(Chromosome chrom, int position) {
+        // get the bytes, convert to string, return the string
+        byte valueAtPosition = genotype(chrom,position);
+        return NucleotideAlignmentConstants.getHaplotypeNucleotide(valueAtPosition);
+    }
+    
+    @Override
+    public String genotypeAsString(Chromosome chrom, Position positionObject) {
+        // get the bytes, convert to string, return the string
+        // position is flipped to 0 based in call to genotype(chrom,position)
+        int position = positionObject.getPosition();
+        byte valueAtPosition = genotype(chrom,position);
+        return NucleotideAlignmentConstants.getHaplotypeNucleotide(valueAtPosition);
+    }
+    
+    @Override
+    public String genotypeAsString(Chromosome chrom, int startSite, int endSite) {
+        // This method takes physical positions.  chromosomeSequence flips the start/end to 0 based. 
+        byte[] chromBytes = chromosomeSequence( chrom,  startSite,  endSite);
+        StringBuilder builder = new StringBuilder();
+        for (int idx = 0; idx < chromBytes.length; idx++) {
+            builder.append(NucleotideAlignmentConstants.getHaplotypeNucleotide(chromBytes[idx]));
+        }
+        return builder.toString();
+    }
+    
     @Override
     public byte[] genomeSequence(long startSite, long lastSite) {
         if(lastSite-startSite>Integer.MAX_VALUE) throw

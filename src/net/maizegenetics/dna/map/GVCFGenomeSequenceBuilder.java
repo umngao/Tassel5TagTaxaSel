@@ -892,6 +892,36 @@ class HalfByteGenomeSequenceGVCF implements GVCFGenomeSequence{
 
         return stats;
     }
+
+    @Override
+    public byte genotype(Chromosome chrom, int position) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public byte genotype(Chromosome chrom, Position positionObject) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, int position) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, Position positionObject) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, int startSite, int endSite) {
+        // TODO Auto-generated method stub
+        return null;
+    }
 }
 
 class GVCFRecord {
@@ -1837,6 +1867,36 @@ class HalfByteGenomeSequenceGVCFV2 implements GVCFGenomeSequence{
 
         return stats;
     }
+
+    @Override
+    public byte genotype(Chromosome chrom, int position) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public byte genotype(Chromosome chrom, Position positionObject) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, int position) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, Position positionObject) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, int startSite, int endSite) {
+        // TODO Auto-generated method stub
+        return null;
+    }
 }
 
 
@@ -2641,6 +2701,36 @@ class HalfByteGenomeSequenceGVCFV3 implements GVCFGenomeSequence{
         stats.put("HomoAltHighDepthCount",regionNumberHomoAlt3PlusCount);
 
         return stats;
+    }
+
+    @Override
+    public byte genotype(Chromosome chrom, int position) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public byte genotype(Chromosome chrom, Position positionObject) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, int position) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, Position positionObject) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, int startSite, int endSite) {
+        // TODO Auto-generated method stub
+        return null;
     }
 }
 
@@ -3716,6 +3806,36 @@ class HalfByteGenomeSequenceGVCFV4 implements GVCFGenomeSequence{
 //        stats.put("HomoAltHighDepthCount",regionNumberHomoAlt3PlusCount);
 
         return stats;
+    }
+
+    @Override
+    public byte genotype(Chromosome chrom, int position) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public byte genotype(Chromosome chrom, Position positionObject) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, int position) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, Position positionObject) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, int startSite, int endSite) {
+        // TODO Auto-generated method stub
+        return null;
     }
 }
 
@@ -4941,6 +5061,36 @@ class HalfByteGenomeSequenceGVCFV5 implements GVCFGenomeSequence{
         }
         String[] callSplit = phased ? call.split("|") : call.split("/");
         return callSplit;
+    }
+
+    @Override
+    public byte genotype(Chromosome chrom, int position) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public byte genotype(Chromosome chrom, Position positionObject) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, int position) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, Position positionObject) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public String genotypeAsString(Chromosome chrom, int startSite, int endSite) {
+        // TODO Auto-generated method stub
+        return null;
     }
 
 

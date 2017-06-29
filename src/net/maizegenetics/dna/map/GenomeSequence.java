@@ -109,6 +109,49 @@ public interface GenomeSequence {
      */
     public int numberOfChromosomes();
 
+    /**
+     * Returns the allele value in a byte for the specified PHYSICAL position (1-based)
+     * @param chrom  Chromosome object we wish to query
+     * @param position Position on the chromosome whose value will be returned
+     * @return
+     */
+    byte genotype(Chromosome chrom, int position);
+
+    /**
+     * Returns the TASSEL encoding for the allele value in a byte for the specified PHYSICAL position
+     * @param chrom
+     * @param positionObject  Position object from which the physical will be obtained.
+     * @return
+     */
+    byte genotype(Chromosome chrom, Position positionObject);
+
+    
+    /**
+     * Returns the haplotype allele value in a String for the specified physical position on the specified chromosome
+     * @param chrom
+     * @param position
+     * @return
+     */
+    String genotypeAsString(Chromosome chrom, int position);
+
+    /**
+     * Returns the haplotype allele value in a String for the specified physical position on the specified chromosome
+     * @param chrom
+     * @param positionObject
+     * @return
+     */
+    String genotypeAsString(Chromosome chrom, Position positionObject);
+
+    /**
+     * Returns a string of haplotype allele values for the specified physical start and
+     * physical end positions on the specified chromosome.
+     * @param chrom
+     * @param startSite
+     * @param endSite
+     * @return
+     */
+    String genotypeAsString(Chromosome chrom, int startSite, int endSite);
+
 
 
 }
