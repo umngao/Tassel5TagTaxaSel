@@ -76,6 +76,7 @@ public class ParseGVCF {
                 temp.add(new GVCFLine(currentLineNum, current));
                 currentLineNum++;
             }
+            myProcessedLines = temp;
 
             return this;
 
@@ -111,11 +112,136 @@ public class ParseGVCF {
 
         private final String myLine;
         private final int myLineNum;
+        // DP value
+        private int myDepth = 0;
 
         public GVCFLine(int lineNum, String line) {
             myLineNum = lineNum;
             myLine = line;
-            // TODO parse line
+            parseLine();
+        }
+
+        public int lineNum() {
+            return myLineNum;
+        }
+
+        @Override
+        public String toString() {
+            return myLine;
+        }
+
+        public int depth() {
+            return myDepth;
+        }
+
+        private void parseLine() {
+
+            if (myLine == null || myLine.startsWith("#")) {
+                myLogger.error("line: " + myLine);
+                throw new IllegalStateException("ParseGVCF: line shouldn't be null or start with #");
+            }
+
+            // 0        1       2       3       4       5       6       7       8       9
+            // #CHROM  POS     ID      REF     ALT     QUAL    FILTER  INFO    FORMAT  W22
+            // 8       17639   .       C       <NON_REF>       .       .       END=17789       GT:DP:GQ:MIN_DP:PL      0:12:99:8:0,140
+            // 8       17790   .       T       A,<NON_REF>     175.00  .       DP=5;MLEAC=1,0;MLEAF=1.000,0.000;RAW_MQ=18000.00        GT:AD:DP:GQ:PL:SB       1:0,5,0:5:99:205,0,205:0,0,2,3
+            String[] tokens = myLine.split("\t");
+
+            String chr = tokens[0];
+            int start = Integer.parseInt(tokens[1]);
+            int end = start;
+
+            String id = tokens[2];
+            String ref = tokens[3];
+            String alt = tokens[4];
+            String qual = tokens[5];
+            String filter = tokens[6];
+
+            String[] info = tokens[7].split(";");
+            for (String current : info) {
+                String[] keyValue = current.split("=");
+                if (keyValue[0].equals("END")) {
+                    end = Integer.parseInt(keyValue[1]);
+                }
+            }
+
+            // TODO: making end exclusive
+            end++;
+
+            int length = end - start;
+
+            if (!alt.equals("<NON_REF>")) {
+                // TODO
+            }
+
+            String[] formats = tokens[8].split(":");
+            String[] values = tokens[9].split(":");
+
+            int numFormats = formats.length;
+            if (numFormats != values.length) {
+                throw new IllegalArgumentException("unequal formats");
+            }
+
+            boolean isHomo = true;
+            boolean isHomoBasedOnGenotype = false;
+            boolean isAlt = false;
+            boolean isDiploid = false;
+            for (int i = 0; i < numFormats; i++) {
+                if (formats[i].equals("DP")) {
+                    myDepth = Integer.parseInt(values[i]);
+                } else if (formats[i].equals("AD")) {
+                    String[] alleleDepths = values[i].split(",");
+                    // TODO - compare sum AD to DP
+                    if (alleleDepths.length > 1 && !alleleDepths[0].equals("0") && !alleleDepths[1].equals("0")) {
+                        isHomo = false;
+                    }
+                } else if (formats[i].equals("GT")) {
+                    String[] alleles = values[i].split("/");
+                    if (alleles.length == 1) {
+                        if (!values[i].equals("0")) {
+                            isAlt = true;
+                        }
+                    } else {
+                        isDiploid = true;
+                        if (alleles[0].equals(alleles[1])) {
+                            isHomoBasedOnGenotype = true;
+                        }
+                        if (!alleles[0].equals("0") || !alleles[1].equals("0")) {
+                            isAlt = true;
+                        }
+                    }
+                }
+            }
+
+            if (isDiploid && (isHomo != isHomoBasedOnGenotype)) {
+                myLogger.error("Line: " + myLine);
+                throw new IllegalStateException("ParseGVCF: Homozygous doesn't match based on DP and GT");
+            }
+
+            // TODO - Unnecessary
+            if (isDiploid) {
+                isHomo = isHomoBasedOnGenotype;
+            }
+
+            if (myDepth > 0) {
+                if (isHomo) {
+                    if (isAlt) {
+                        // numHomozygousAlt += length;
+                        if (myDepth == 1) {
+                            // numHomozygousAlt1 += length;
+                        } else if (myDepth == 2) {
+                            // numHomozygousAlt2 += length;
+                        } else {
+                            // numHomozygousAlt3 += length;
+                        }
+                    } else {
+                        // numHomozygous += length;
+                    }
+                } else {
+                    // numHeterozygous += length;
+                }
+            }
+
         }
 
     }
@@ -145,8 +271,10 @@ public class ParseGVCF {
                     temp.add(line);
                     line = reader.readLine();
                 }
-                myQueue.add(myPool.submit(new ProcessLines(lineNum, temp)));
-                lineNum += temp.size();
+                if (temp.size() != 0) {
+                    myQueue.add(myPool.submit(new ProcessLines(temp)));
+                    lineNum += temp.size();
+                }
 
                 int count = 0;
                 temp = new ArrayList<>();
