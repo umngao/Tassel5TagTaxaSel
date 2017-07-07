@@ -35,28 +35,87 @@ public class ParseGVCF {
 
         private final List<String> myLines;
         private final int myStartLine;
+        private final int myNumLines;
+        private final boolean myIsHeader;
+        private List<GVCFLine> myProcessedLines = null;
 
-        // first one containing header lines (starts with ##)
+        // first one containing header lines (starts with #)
         public ProcessLines(List<String> headerLines) {
             myLines = Collections.unmodifiableList(headerLines);
             myStartLine = 1;
+            myNumLines = headerLines.size();
+            myIsHeader = true;
         }
 
         // data lines following header lines
         public ProcessLines(int lineNum, List<String> lines) {
             myLines = Collections.unmodifiableList(lines);
             myStartLine = lineNum;
+            myNumLines = lines.size();
+            myIsHeader = false;
         }
 
         // indicates last element in queue
         public ProcessLines() {
             myLines = null;
             myStartLine = -1;
+            myNumLines = 0;
+            myIsHeader = false;
         }
 
         @Override
         public ProcessLines call() throws Exception {
-            return null;
+
+            if (isFinal() || isHeader()) {
+                return this;
+            }
+
+            List<GVCFLine> temp = new ArrayList<>();
+            int currentLineNum = myStartLine;
+            for (String current : myLines) {
+                temp.add(new GVCFLine(currentLineNum, current));
+                currentLineNum++;
+            }
+
+            return this;
+
+        }
+
+        public List<String> lines() {
+            return myLines;
+        }
+
+        public int startLine() {
+            return myStartLine;
+        }
+
+        public int numLines() {
+            return myNumLines;
+        }
+
+        public boolean isHeader() {
+            return myIsHeader;
+        }
+
+        public boolean isFinal() {
+            return myStartLine == -1;
+        }
+
+        public List<GVCFLine> processedLines() {
+            return myProcessedLines;
+        }
+
+    }
+
+    public static class GVCFLine {
+
+        private final String myLine;
+        private final int myLineNum;
+
+        public GVCFLine(int lineNum, String line) {
+            myLineNum = lineNum;
+            myLine = line;
+            // TODO parse line
         }
 
     }
