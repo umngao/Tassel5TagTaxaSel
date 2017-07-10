@@ -25,6 +25,7 @@ public class ParseGVCF {
     }
 
     public static BlockingQueue<Future<ProcessLines>> parse(String filename) {
+        myLogger.info("ParseGVCF: filename: " + filename);
         ExecutorService pool = Executors.newWorkStealingPool();
         BlockingQueue<Future<ProcessLines>> queue = new LinkedBlockingQueue<>();
         pool.submit(new ReadLines(filename, queue, pool));
@@ -112,8 +113,22 @@ public class ParseGVCF {
 
         private final String myLine;
         private final int myLineNum;
-        // DP value
+        // Chromosome
+        private String myChromosome = null;
+        // Starting physical position (inclusive)
+        private int myStartPosition = -1;
+        // Ending physical position (inclusive)
+        private int myEndPosition = -1;
+        // Sequence length
+        private int mySeqLength = 0;
+        // DP value - Total depth
         private int myDepth = 0;
+        // AD values - Allele depths
+        private List<Integer> myAlleleDepths = null;
+        // Is Homozygous
+        private boolean myIsHomozygous = true;
+        // Reference
+        private String myReference = null;
 
         public GVCFLine(int lineNum, String line) {
             myLineNum = lineNum;
@@ -121,6 +136,11 @@ public class ParseGVCF {
             parseLine();
         }
 
+        /**
+         * Line number in the .g.vcf file
+         *
+         * @return line number
+         */
         public int lineNum() {
             return myLineNum;
         }
@@ -130,15 +150,79 @@ public class ParseGVCF {
             return myLine;
         }
 
+        public String chromosome() {
+            return myChromosome;
+        }
+
+        /**
+         * Start physical position (inclusive)
+         *
+         * @return start physical position
+         */
+        public int startPosition() {
+            return myStartPosition;
+        }
+
+        /**
+         * End physical position (inclusive)
+         *
+         * @return end physical position
+         */
+        public int endPosition() {
+            return myEndPosition;
+        }
+
+        /**
+         * Length of sequence represented by this line
+         *
+         * @return sequence length
+         */
+        public int seqLength() {
+            return mySeqLength;
+        }
+
+        /**
+         * Total depth
+         *
+         * @return depth
+         */
         public int depth() {
             return myDepth;
+        }
+
+        public List<Integer> alleleDepths() {
+            return myAlleleDepths;
+        }
+
+        public boolean isHomozygous() {
+            return myIsHomozygous;
+        }
+
+        /**
+         * @return reference
+         *
+         * <a href="http://samtools.github.io/hts-specs/VCFv4.2.pdf">http://samtools.github.io/hts-specs/VCFv4.2.pdf</a>
+         *
+         * REF - reference base(s): Each base must be one of A,C,G,T,N (case insensitive). Multiple bases are permitted.
+         * The value in the POS field refers to the position of the first base in the String. For simple insertions and
+         * deletions in which either the REF or one of the ALT alleles would otherwise be null/empty, the REF and ALT
+         * Strings must include the base before the event (which must be reflected in the POS field), unless the event
+         * occurs at position 1 on the contig in which case it must include the base after the event; this padding base
+         * is not required (although it is permitted) for e.g. complex substitutions or other events where all alleles
+         * have at least one base represented in their Strings. If any of the ALT alleles is a symbolic allele (an
+         * angle-bracketed ID String “<ID>”) then the padding base is required and POS denotes the coordinate of the
+         * base preceding the polymorphism. Tools processing VCF files are not required to preserve case in the allele
+         * Strings. (String, Required).
+         */
+        public String reference() {
+            return myReference;
         }
 
         private void parseLine() {
 
             if (myLine == null || myLine.startsWith("#")) {
-                myLogger.error("line: " + myLine);
-                throw new IllegalStateException("ParseGVCF: line shouldn't be null or start with #");
+                myLogger.error(myLineNum + ": " + myLine);
+                throw new IllegalStateException("GVCFLine: line shouldn't be null or start with #");
             }
 
             // 0        1       2       3       4       5       6       7       8       9
@@ -147,12 +231,12 @@ public class ParseGVCF {
             // 8       17790   .       T       A,<NON_REF>     175.00  .       DP=5;MLEAC=1,0;MLEAF=1.000,0.000;RAW_MQ=18000.00        GT:AD:DP:GQ:PL:SB       1:0,5,0:5:99:205,0,205:0,0,2,3
             String[] tokens = myLine.split("\t");
 
-            String chr = tokens[0];
-            int start = Integer.parseInt(tokens[1]);
-            int end = start;
+            myChromosome = tokens[0];
+            myStartPosition = Integer.parseInt(tokens[1]);
+            myEndPosition = myStartPosition;
 
             String id = tokens[2];
-            String ref = tokens[3];
+            myReference = tokens[3];
             String alt = tokens[4];
             String qual = tokens[5];
             String filter = tokens[6];
@@ -161,39 +245,43 @@ public class ParseGVCF {
             for (String current : info) {
                 String[] keyValue = current.split("=");
                 if (keyValue[0].equals("END")) {
-                    end = Integer.parseInt(keyValue[1]);
+                    myEndPosition = Integer.parseInt(keyValue[1]);
+                    if (myEndPosition < myStartPosition) {
+                        myLogger.error(myLineNum + ": " + myLine);
+                        throw new IllegalStateException("GVCFLine: End position less than start position.");
+                    }
                 }
             }
 
-            // TODO: making end exclusive
-            end++;
-
-            int length = end - start;
-
-            if (!alt.equals("<NON_REF>")) {
-                // TODO
-            }
+            mySeqLength = myEndPosition - myStartPosition + 1;
 
             String[] formats = tokens[8].split(":");
             String[] values = tokens[9].split(":");
 
             int numFormats = formats.length;
             if (numFormats != values.length) {
-                throw new IllegalArgumentException("unequal formats");
+                myLogger.error(myLineNum + ": " + myLine);
+                throw new IllegalArgumentException("GVCFLine: number of formats not equal to number of values.");
             }
 
-            boolean isHomo = true;
             boolean isHomoBasedOnGenotype = false;
             boolean isAlt = false;
             boolean isDiploid = false;
+            int alleleDepthSum = 0;
             for (int i = 0; i < numFormats; i++) {
                 if (formats[i].equals("DP")) {
                     myDepth = Integer.parseInt(values[i]);
                 } else if (formats[i].equals("AD")) {
                     String[] alleleDepths = values[i].split(",");
-                    // TODO - compare sum AD to DP
+                    List<Integer> temp = new ArrayList<>();
+                    for (String alleleDepth : alleleDepths) {
+                        int depthValue = Integer.parseInt(alleleDepth);
+                        alleleDepthSum += depthValue;
+                        temp.add(depthValue);
+                    }
+                    myAlleleDepths = Collections.unmodifiableList(temp);
                     if (alleleDepths.length > 1 && !alleleDepths[0].equals("0") && !alleleDepths[1].equals("0")) {
-                        isHomo = false;
+                        myIsHomozygous = false;
                     }
                 } else if (formats[i].equals("GT")) {
                     String[] alleles = values[i].split("/");
@@ -213,18 +301,24 @@ public class ParseGVCF {
                 }
             }
 
-            if (isDiploid && (isHomo != isHomoBasedOnGenotype)) {
+            // Compare sum of AD values equals DP
+            if (alleleDepthSum != 0 && alleleDepthSum != myDepth) {
+                myLogger.error(myLineNum + ": " + myLine);
+                throw new IllegalStateException("GVCFLine: DP: " + myDepth + " not equal to AD sum: " + alleleDepthSum);
+            }
+
+            if (isDiploid && (myIsHomozygous != isHomoBasedOnGenotype)) {
                 myLogger.error("Line: " + myLine);
-                throw new IllegalStateException("ParseGVCF: Homozygous doesn't match based on DP and GT");
+                throw new IllegalStateException("GVCFLine: Homozygous doesn't match based on DP and GT");
             }
 
             // TODO - Unnecessary
             if (isDiploid) {
-                isHomo = isHomoBasedOnGenotype;
+                myIsHomozygous = isHomoBasedOnGenotype;
             }
 
             if (myDepth > 0) {
-                if (isHomo) {
+                if (myIsHomozygous) {
                     if (isAlt) {
                         // numHomozygousAlt += length;
                         if (myDepth == 1) {
