@@ -38,7 +38,6 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
     private final int myNumRows;
     private final int myStartIndex;
     private final int myEndIndex;
-    private boolean myNumericChromNames = true;
     private final List<Long> myActualPositions = new ArrayList<>();
 
     public TableReportManhattanDataset(TableReport theTable, int start, int end) {
@@ -153,19 +152,6 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
         throw new IllegalArgumentException("No positions in selected data");
     }
 
-    private void setNumericChromNames() {
-        for (int i = 0; i < myChromNames.length; i++) {
-            try {
-                if (numberYAxes < Integer.parseInt(myChromNames[i])) {
-                    numberYAxes = Integer.parseInt(myChromNames[i]);
-                }
-            } catch (Exception e) {
-                myNumericChromNames = false;
-                break;
-            }
-        }
-    }
-
     private void setMarkers(TableReport myTableReport) {
         for (int i = 0; i < myMarkers.length; i++) {
             myMarkers[i] = ((String) myTableReport.getValueAt(myStartIndex + i, myMarkerColumnIndex));
@@ -202,8 +188,9 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
         int previousPosition = 0;
         String currentChrom = "";
         List<Integer> offsets = new ArrayList<>();
-        // GLM positions formated as int
+        // GLM positions formatted as int
         boolean isNewChromosome = true;
+        List<String> chromosomeNames = new ArrayList<>();
         for (int i = 0; i < myNumRows; i++) {
 
             currentPosition = Integer.valueOf((myTableReport.getValueAt(myStartIndex + i, myPositionColumnIndex)).toString());
@@ -212,6 +199,7 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
             if (!currentChrom.equals(myChromNames[i])) {
                 numberYAxes++;
                 currentChrom = myChromNames[i];
+                chromosomeNames.add(currentChrom);
                 previousPosition = 0;
                 offsets.add(i);
                 isNewChromosome = true;
@@ -232,6 +220,9 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
         for (int i = 0; i < numberYAxes + 1; i++) {
             seriesOffsets[i] = offsets.get(i);
         }
+
+        seriesNames = new String[numberYAxes];
+        chromosomeNames.toArray(seriesNames);
 
     }
 
@@ -276,29 +267,7 @@ public class TableReportManhattanDataset extends DefaultTableXYDataset {
         setPValues(theTable);
         setLogPValues();
         setPositions(theTable);
-        setNumericChromNames();
         setMarkers(theTable);
         setTrait(theTable);
-        seriesNames = new String[numberYAxes];
-        seriesNames[0] = myChromNames[0];
-
-        String currentChrom = myChromNames[0];
-        int chromIndex = 1;
-
-        for (int i = 0; i < myNumRows; i++) {
-            if (!myNumericChromNames) {
-                if (!currentChrom.equals(myChromNames[i])) {
-                    chromIndex++;
-                    currentChrom = myChromNames[i];
-                    seriesNames[chromIndex - 1] = currentChrom;
-                }
-            } else {
-
-                for (int j = 0; j < numberYAxes; j++) {
-                    seriesNames[j] = Integer.toString(j + 1);
-                }
-
-            }
-        }
     }
 }
