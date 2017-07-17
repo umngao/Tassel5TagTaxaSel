@@ -16,6 +16,11 @@ public class CheckSum {
         return getChecksum(filename, "MD5");
     }
 
+    // Allow user to specify the protocol, e.g. MD5 or SHA-1
+    public static String getProtocolChecksum(String filename, String protocol) {
+        return getChecksum(filename, protocol);
+    }
+    
     public static String getChecksum(String filename, String protocol) {
 
         try {
