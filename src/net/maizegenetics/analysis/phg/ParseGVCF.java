@@ -4,6 +4,7 @@ package net.maizegenetics.analysis.phg;
  * @author Terry Casstevens Created June 28, 2017
  */
 
+import com.google.common.collect.ImmutableList;
 import net.maizegenetics.util.Utils;
 import org.apache.log4j.Logger;
 
@@ -127,8 +128,18 @@ public class ParseGVCF {
         private List<Integer> myAlleleDepths = null;
         // Is Homozygous
         private boolean myIsHomozygous = true;
-        // Reference
+        // Reference (REF)
         private String myReference = null;
+        // Alternates (ALT)
+        private List<String> myAlternates = null;
+        // GT values - genotype
+        private List<Integer> myGenotypeIndices = null;
+        // GT indices translated to allele string
+        private List<String> myGenotypes = null;
+        // Whether phased (/ : genotype unphased | : genotype phased)
+        private boolean myIsPhased = false;
+        // Ploidy
+        private int myPloidy = -1;
 
         public GVCFLine(int lineNum, String line) {
             myLineNum = lineNum;
@@ -210,12 +221,59 @@ public class ParseGVCF {
          * occurs at position 1 on the contig in which case it must include the base after the event; this padding base
          * is not required (although it is permitted) for e.g. complex substitutions or other events where all alleles
          * have at least one base represented in their Strings. If any of the ALT alleles is a symbolic allele (an
-         * angle-bracketed ID String “<ID>”) then the padding base is required and POS denotes the coordinate of the
-         * base preceding the polymorphism. Tools processing VCF files are not required to preserve case in the allele
+         * angle-bracketed ID String) then the padding base is required and POS denotes the coordinate of the base
+         * preceding the polymorphism. Tools processing VCF files are not required to preserve case in the allele
          * Strings. (String, Required).
          */
         public String reference() {
             return myReference;
+        }
+
+        /**
+         * @return alternate base(s)
+         *
+         * <a href="http://samtools.github.io/hts-specs/VCFv4.2.pdf">http://samtools.github.io/hts-specs/VCFv4.2.pdf</a>
+         *
+         * ALT - alternate base(s): Comma separated list of alternate non-reference alleles. These alleles do not have
+         * to be called in any of the samples. Options are base Strings made up of the bases A,C,G,T,N,*, (case
+         * insensitive) or an angle-bracketed ID String or a breakend replacement string as described in the section on
+         * breakends. The ‘*’ allele is reserved to indicate that the allele is missing due to a upstream deletion. If
+         * there are no alternative alleles, then the missing value should be used. Tools processing VCF files are not
+         * required to preserve case in the allele String, except for IDs, which are case sensitive. (String; no
+         * whitespace, commas, or angle-brackets are permitted in the ID String itself)
+         */
+        public List<String> alternates() {
+            return myAlternates;
+        }
+
+        /**
+         * @return genotype
+         *
+         * <a href="http://samtools.github.io/hts-specs/VCFv4.2.pdf">http://samtools.github.io/hts-specs/VCFv4.2.pdf</a>
+         *
+         * GT : genotype, encoded as allele values separated by either of / or |. The allele values are 0 for the
+         * reference allele (what is in the REF field), 1 for the first allele listed in ALT, 2 for the second allele
+         * list in ALT and so on. For diploid calls examples could be 0/1, 1 | 0, or 1/2, etc. For haploid calls, e.g.
+         * on Y, male nonpseudoautosomal X, or mitochondrion, only one allele value should be given; a triploid call
+         * might look like 0/0/1. If a call cannot be made for a sample at a given locus, ‘.’ should be specified for
+         * each missing allele in the GT field (for example ‘./.’ for a diploid genotype and ‘.’ for haploid genotype).
+         * The meanings of the separators are as follows (see the PS field below for more details on incorporating
+         * phasing information into the genotypes): / : genotype unphased | : genotype phased
+         */
+        public List<Integer> genotypeIndices() {
+            return myGenotypeIndices;
+        }
+
+        public List<String> genotypes() {
+            return myGenotypes;
+        }
+
+        public boolean phased() {
+            return myIsPhased;
+        }
+
+        public int ploidy() {
+            return myPloidy;
         }
 
         private void parseLine() {
@@ -238,6 +296,9 @@ public class ParseGVCF {
             String id = tokens[2];
             myReference = tokens[3];
             String alt = tokens[4];
+            ImmutableList.Builder<String> altBuilder = new ImmutableList.Builder<>();
+            altBuilder.add(alt.split(","));
+            myAlternates = altBuilder.build();
             String qual = tokens[5];
             String filter = tokens[6];
 
@@ -266,7 +327,6 @@ public class ParseGVCF {
 
             boolean isHomoBasedOnGenotype = false;
             boolean isAlt = false;
-            boolean isDiploid = false;
             int alleleDepthSum = 0;
             for (int i = 0; i < numFormats; i++) {
                 if (formats[i].equals("DP")) {
@@ -284,20 +344,65 @@ public class ParseGVCF {
                         myIsHomozygous = false;
                     }
                 } else if (formats[i].equals("GT")) {
-                    String[] alleles = values[i].split("/");
-                    if (alleles.length == 1) {
-                        if (!values[i].equals("0")) {
-                            isAlt = true;
+
+                    String[] alleles = null;
+                    if (values[i].contains("/")) {
+                        myIsPhased = false;
+                        if (values[i].contains("|")) {
+                            throw new IllegalStateException("ParseGVCF: genotypes (GT) can't have both / and |");
                         }
-                    } else {
-                        isDiploid = true;
+                        alleles = values[i].split("/");
                         if (alleles[0].equals(alleles[1])) {
                             isHomoBasedOnGenotype = true;
                         }
                         if (!alleles[0].equals("0") || !alleles[1].equals("0")) {
                             isAlt = true;
                         }
+                    } else if (values[i].contains("|")) {
+                        myIsPhased = true;
+                        alleles = values[i].split("|");
+                        if (alleles[0].equals(alleles[1])) {
+                            isHomoBasedOnGenotype = true;
+                        }
+                        if (!alleles[0].equals("0") || !alleles[1].equals("0")) {
+                            isAlt = true;
+                        }
+                    } else {
+                        myPloidy = 1;
+                        if (!values[i].equals("0")) {
+                            isAlt = true;
+                        }
+                        alleles = new String[]{values[i]};
                     }
+
+                    ImmutableList.Builder<Integer> genotypeIndices = new ImmutableList.Builder<>();
+                    ImmutableList.Builder<String> genotypes = new ImmutableList.Builder<>();
+
+                    for (String current : alleles) {
+                        int alleleIndex = -1;
+                        try {
+                            alleleIndex = Integer.valueOf(current);
+                        } catch (NumberFormatException ne) {
+                            myLogger.error(myLineNum + ": " + myLine);
+                            throw new IllegalStateException("ParseGVCF: GT index not a number.");
+                        }
+                        try {
+                            if (alleleIndex == 0) {
+                                genotypeIndices.add(0);
+                                genotypes.add(myReference);
+                            } else {
+                                genotypeIndices.add(alleleIndex);
+                                genotypes.add(myAlternates.get(alleleIndex - 1));
+                            }
+                        } catch (ArrayIndexOutOfBoundsException ae) {
+                            myLogger.error(myLineNum + ": " + myLine);
+                            throw new IllegalStateException("ParseGVCF: GT index not defined.");
+                        }
+                    }
+
+                    myGenotypeIndices = genotypeIndices.build();
+                    myGenotypes = genotypes.build();
+
                 }
             }
 
@@ -307,14 +412,9 @@ public class ParseGVCF {
                 throw new IllegalStateException("GVCFLine: DP: " + myDepth + " not equal to AD sum: " + alleleDepthSum);
             }
 
-            if (isDiploid && (myIsHomozygous != isHomoBasedOnGenotype)) {
+            if ((myPloidy >= 2) && (myIsHomozygous != isHomoBasedOnGenotype)) {
                 myLogger.error("Line: " + myLine);
                 throw new IllegalStateException("GVCFLine: Homozygous doesn't match based on DP and GT");
-            }
-
-            // TODO - Unnecessary
-            if (isDiploid) {
-                myIsHomozygous = isHomoBasedOnGenotype;
             }
 
             if (myDepth > 0) {
@@ -365,10 +465,8 @@ public class ParseGVCF {
                     temp.add(line);
                     line = reader.readLine();
                 }
-                if (temp.size() != 0) {
-                    myQueue.add(myPool.submit(new ProcessLines(temp)));
-                    lineNum += temp.size();
-                }
+                myQueue.add(myPool.submit(new ProcessLines(temp)));
+                lineNum += temp.size();
 
                 int count = 0;
                 temp = new ArrayList<>();
