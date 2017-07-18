@@ -71,11 +71,23 @@ public class BackwardForwardAlgorithm {
 				for (int i = 0; i < nStates; i++) sumTrans += aPrior[i] * myTransitions.getTransitionProbability(i, j);
 				aT[j] = sumTrans * myEmissions.getProbObsGivenState(j, myObservations[t], t);
 			}
+			
+			aT = multiplyArrayByConstantIfSmall(aT);
 			alpha.add(aT);
 			aPrior = aT;
 		}
 		
 		return this;
+	}
+	
+	private double[] multiplyArrayByConstantIfSmall(double[] dblArray) {
+		double minval = Arrays.stream(dblArray).min().getAsDouble();
+		if (minval < 1e-50) {
+			double maxval = Arrays.stream(dblArray).max().getAsDouble();
+			if (maxval < 1e-25) return Arrays.stream(dblArray).map(d -> d*1e25).toArray();
+		}
+		
+		return dblArray;
 	}
 	
 	public BackwardForwardAlgorithm calculateBeta() {
@@ -100,6 +112,7 @@ public class BackwardForwardAlgorithm {
 					
 				bT[i] = sumStates;
 			}
+			bT = multiplyArrayByConstantIfSmall(bT);
 			betaTemp.addFirst(bT);
 			bNext = bT;
 		}
@@ -137,6 +150,7 @@ public class BackwardForwardAlgorithm {
 	}
 	
 	public void writeGamma(String outputFile, String formatString) {
+		
 		Iterator<double[]> itAlpha = alpha.iterator();
 		Iterator<double[]> itBeta = beta.iterator();
 		int counter = 0;
@@ -193,4 +207,8 @@ public class BackwardForwardAlgorithm {
 		initialStateProbability = probs;
 		return this;
 	}
+	
+	public List<double[]> alpha() {return alpha;}
+	
+	public List<double[]> beta() {return beta;}
 }
