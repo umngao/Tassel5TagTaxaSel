@@ -45,7 +45,6 @@ import javax.swing.tree.*;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 
@@ -69,8 +68,6 @@ import net.maizegenetics.taxa.TaxaList;
 import net.maizegenetics.taxa.tree.SimpleTree;
 import net.maizegenetics.util.GeneralAnnotation;
 import net.maizegenetics.util.HDF5TableReport;
-
-import org.apache.batik.util.gui.MemoryMonitor;
 
 import org.apache.log4j.Logger;
 
@@ -197,12 +194,6 @@ public class DataTreePanel extends JPanel implements PluginListener {
                 if (userResponse == JOptionPane.YES_OPTION) {
                     deleteSelectedNodes();
                 }
-            }
-            if (KeyEvent.VK_F12 == e.getKeyCode()) {    // open a memory monitor to show usage
-                MemoryMonitor memMon = new MemoryMonitor();
-                memMon.pack();
-                memMon.setSize(new Dimension(250, 300));
-                memMon.setVisible(true);
             }
         }
     }

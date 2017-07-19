@@ -9,31 +9,23 @@ package net.maizegenetics.analysis.chart;
 import net.maizegenetics.plugindef.AbstractPlugin;
 import net.maizegenetics.prefs.TasselPrefs;
 import net.maizegenetics.util.BasicFileFilter;
-
-import org.apache.batik.dom.GenericDOMImplementation;
-import org.apache.batik.svggen.SVGGraphics2D;
-
-import org.w3c.dom.DOMImplementation;
-import org.w3c.dom.Document;
-
 import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.graphics2d.svg.SVGGraphics2D;
+import org.jfree.graphics2d.svg.SVGUtils;
 
 import javax.imageio.ImageIO;
-
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
-
 import java.awt.*;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
 
 /**
  * This plugin abstract plugin provides mechanisms for setting a savefile and for saving a variety of images.
  * This would be useful to plugin that create images and may want to automatically send them to a file.
+ *
  * @author Ed Buckler
  */
 public abstract class AbstractDisplayPlugin extends AbstractPlugin {
@@ -45,7 +37,8 @@ public abstract class AbstractDisplayPlugin extends AbstractPlugin {
     public enum Outformat {
 
         svg, jpg, gif, bmp, wbmp, png, printer
-    };
+    }
+
     private Outformat myOutformat = Outformat.svg;
 
     public AbstractDisplayPlugin(Frame parentFrame, boolean isInteractive) {
@@ -101,20 +94,19 @@ public abstract class AbstractDisplayPlugin extends AbstractPlugin {
                 comp.setSize(d_width, d_height);
             }
             if (myOutformat == Outformat.svg) {
-                DOMImplementation domImpl = GenericDOMImplementation.getDOMImplementation();
-                Document document = domImpl.createDocument(null, "svg", null);
-                SVGGraphics2D svgGenerator = new SVGGraphics2D(document);
-                if (comp instanceof ChartPanel) {//this is needed as JFreeChart draws in a different way
-                    ChartPanel cp = (ChartPanel) comp;
-                    (cp.getChart()).draw(svgGenerator, new Rectangle(d_width, d_height));
+                if (comp instanceof ChartPanel) {
+                    JFreeChart chart = ((ChartPanel) comp).getChart();
+                    Rectangle2D plotArea = ((ChartPanel) comp).getChartRenderingInfo().getPlotInfo().getDataArea();
+                    int width = (int) plotArea.getWidth();
+                    int height = (int) plotArea.getHeight();
+                    SVGGraphics2D g2 = new SVGGraphics2D(width, height);
+                    chart.draw(g2, new Rectangle(0, 0, width, height));
+                    SVGUtils.writeToSVG(saveFile, g2.getSVGElement());
                 } else {
-                    comp.paint(svgGenerator);
+                    SVGGraphics2D g2 = new SVGGraphics2D(d_width, d_height);
+                    comp.paint(g2);
+                    SVGUtils.writeToSVG(saveFile, g2.getSVGElement());
                 }
-                FileOutputStream fos = new FileOutputStream(saveFile);
-                Writer out = new OutputStreamWriter(fos, "UTF-8");
-                svgGenerator.stream(out, true); // true to use CSS style attribute
-                fos.flush();
-                fos.close();
             } else {
                 BufferedImage img = new BufferedImage(d_width, d_height, BufferedImage.TYPE_INT_RGB);
                 Graphics gbox = img.getGraphics();
@@ -122,7 +114,7 @@ public abstract class AbstractDisplayPlugin extends AbstractPlugin {
                 saveDataToFile(img, myOutformat, saveFile);
             }
         } catch (Exception ee) {
-            System.out.println("saveDataToFile(JPanel pnl, Outformat format, File saveFile):" + ee);
+            throw new IllegalStateException("AbstractDisplayPlugin: saveDataToFile: problem writing: " + saveFile.getName() + " as: " + myOutformat + "\n" + ee.getMessage());
         }
     }
 
@@ -239,7 +231,7 @@ public abstract class AbstractDisplayPlugin extends AbstractPlugin {
     public void setSaveFile(File theSaveFile) {
         mySaveFile = theSaveFile;
     }
-    
+
     public void setSaveFile(String theSaveFile) {
         mySaveFile = new File(theSaveFile);
     }
