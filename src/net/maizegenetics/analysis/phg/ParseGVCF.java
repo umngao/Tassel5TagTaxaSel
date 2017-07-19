@@ -291,7 +291,6 @@ public class ParseGVCF {
 
             myChromosome = tokens[0];
             myStartPosition = Integer.parseInt(tokens[1]);
-            myEndPosition = myStartPosition;
 
             String id = tokens[2];
             myReference = tokens[3];
@@ -302,10 +301,13 @@ public class ParseGVCF {
             String qual = tokens[5];
             String filter = tokens[6];
 
+            // Parsing INFO column
             String[] info = tokens[7].split(";");
+            boolean endSpecified = false;
             for (String current : info) {
                 String[] keyValue = current.split("=");
                 if (keyValue[0].equals("END")) {
+                    endSpecified = true;
                     myEndPosition = Integer.parseInt(keyValue[1]);
                     if (myEndPosition < myStartPosition) {
                         myLogger.error(myLineNum + ": " + myLine);
@@ -314,8 +316,14 @@ public class ParseGVCF {
                 }
             }
 
+            // If END not specified, set end position based on length of REF
+            if (!endSpecified) {
+                myEndPosition = myStartPosition + myReference.length() - 1;
+            }
+
             mySeqLength = myEndPosition - myStartPosition + 1;
 
+            // Parsing FORMAT
             String[] formats = tokens[8].split(":");
             String[] values = tokens[9].split(":");
 
