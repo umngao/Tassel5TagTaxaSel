@@ -5,7 +5,7 @@
 package net.maizegenetics.analysis.gbs;
 
 import cern.jet.random.Binomial;
-import edu.cornell.lassp.houle.RngPack.RandomJava;
+import cern.jet.random.engine.MersenneTwister;
 import net.maizegenetics.dna.tag.TagsByTaxaByte;
 import net.maizegenetics.dna.tag.TagsByTaxaByteHDF5TagGroups;
 import net.maizegenetics.dna.BaseEncoder;
@@ -477,7 +477,7 @@ public class TagAgainstAnchor {
         int chrStartIndex;
         int chrEndIndex;
         OpenBitSet[] obsTdist;
-        Binomial binomFunc=new Binomial(5, 0.5, new RandomJava());
+        Binomial binomFunc=new Binomial(5, 0.5, new MersenneTwister());
         double[][][] resultReport;
         double sigThreshold;
         int[] minSigPos, maxSigPos;

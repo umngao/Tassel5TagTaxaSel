@@ -5,11 +5,12 @@
 package net.maizegenetics.analysis.gbs;
 
 import cern.jet.random.Binomial;
-import edu.cornell.lassp.houle.RngPack.RandomJava;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+
+import cern.jet.random.engine.MersenneTwister;
 import net.maizegenetics.dna.map.TagGeneticMappingInfo;
 import net.maizegenetics.dna.map.TagMappingInfoV3;
 import net.maizegenetics.dna.map.TagMappingInfoV3.Aligner;
@@ -363,7 +364,7 @@ public class TagAgainstAnchorHypothesis {
         int chrStartIndex;
         int chrEndIndex;
         OpenBitSet obsTdist;
-        Binomial binomFunc=new Binomial(5, 0.5, new RandomJava());
+        Binomial binomFunc=new Binomial(5, 0.5, new MersenneTwister());
         double[][] resultReport;
         double sigThreshold;
         int minSigPos=Integer.MIN_VALUE, maxSigPos=Integer.MIN_VALUE;
