@@ -140,6 +140,8 @@ public class ParseGVCF {
         private boolean myIsPhased = false;
         // Ploidy
         private int myPloidy = -1;
+        // Whether this is a reference block
+        private boolean myIsReferenceBlock = false;
 
         public GVCFLine(int lineNum, String line) {
             myLineNum = lineNum;
@@ -274,6 +276,15 @@ public class ParseGVCF {
 
         public int ploidy() {
             return myPloidy;
+        }
+
+        /**
+         * Returns whether this line specifies a range of positions that match the reference.
+         *
+         * @return whether this is a reference block
+         */
+        public boolean isReferenceBlock() {
+            return myIsReferenceBlock;
         }
 
         private void parseLine() {
@@ -412,6 +423,16 @@ public class ParseGVCF {
                     myGenotypes = genotypes.build();
 
                 }
+            }
+
+            if (endSpecified) {
+                for (int current : myGenotypeIndices) {
+                    if (current != 0) {
+                        myLogger.error(myLineNum + ": " + myLine);
+                        throw new IllegalStateException("GVCFLine: END was specified, but GT is not 0");
+                    }
+                }
+                myIsReferenceBlock = true;
             }
 
             // Compare sum of AD values equals DP
