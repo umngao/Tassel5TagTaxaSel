@@ -24,7 +24,7 @@ import net.maizegenetics.taxa.Taxon;
 import net.maizegenetics.util.Utils;
 
 public class SubtractGenotypesPlugin extends AbstractPlugin {
-	private static final Logger myLogger = Logger.getLogger(CreateHybridGenotypesPlugin.class);
+	private static final Logger myLogger = Logger.getLogger(SubtractGenotypesPlugin.class);
 
     private PluginParameter<String> myHybridFile = new PluginParameter.Builder<>("hybridFile", null, String.class)
             .description("Three column tab-delimited file defining parent crosses. Columns are hybrid, firstParent, secondParent. "
@@ -41,7 +41,7 @@ public class SubtractGenotypesPlugin extends AbstractPlugin {
     protected void preProcessParameters(DataSet input) {
         List<Datum> data = input.getDataOfType(GenotypeTable.class);
         if (data.size() != 1) {
-            throw new IllegalArgumentException("CreateHybridGenotypesPlugin: preProcessParameters: must input 1 GenotypeTable.");
+            throw new IllegalArgumentException("SubtractGenotypesPlugin: preProcessParameters: must input 1 GenotypeTable.");
         }
     }
 
@@ -84,7 +84,7 @@ public class SubtractGenotypesPlugin extends AbstractPlugin {
 
         } catch (Exception e) {
             myLogger.debug(e.getMessage(), e);
-            throw new IllegalStateException("CreateHybridGenotypePlugin: processData: problem reading hybrid file: " + myHybridFile.value());
+            throw new IllegalStateException("SubtractGenotypesPlugin: processData: problem reading hybrid file: " + myHybridFile.value());
         }
 
     }
@@ -108,7 +108,7 @@ public class SubtractGenotypesPlugin extends AbstractPlugin {
 
     @Override
     public ImageIcon getIcon() {
-        URL imageURL = CreateHybridGenotypesPlugin.class.getResource("/net/maizegenetics/analysis/images/hybrid.gif");
+        URL imageURL = SubtractGenotypesPlugin.class.getResource("/net/maizegenetics/analysis/images/hybrid.gif");
         if (imageURL == null) {
             return null;
         } else {
