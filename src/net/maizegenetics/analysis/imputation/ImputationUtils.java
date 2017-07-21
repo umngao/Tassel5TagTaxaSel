@@ -30,6 +30,8 @@ public class ImputationUtils {
 		if (args.length == 3 && args[0].equals("-xo")) {
 			//args[1] is the parentcall file, args[2] is the output file
 			exportCrossoverPositions(args[1], args[2]);
+		} else if (args.length == 4 && args[0].equals("-xo2"))  {
+			exportCrossoverPositionsByParent(args[1], args[2], args[3]);
 		}
 	}
 	
@@ -1237,5 +1239,94 @@ public class ImputationUtils {
 		System.out.println("Finished exporting crossover positions.");
 	}
 
+	public static void exportCrossoverPositionsByParent(String parentcallFilename, String outputMomFilename, String outputDadFilename) {
+		
+		byte AA = NucleotideAlignmentConstants.getNucleotideDiploidByte("AA");
+		byte CC = NucleotideAlignmentConstants.getNucleotideDiploidByte("CC");
+		byte GG = NucleotideAlignmentConstants.getNucleotideDiploidByte("GG");
+		byte TT = NucleotideAlignmentConstants.getNucleotideDiploidByte("TT");
+		byte NN = GenotypeTable.UNKNOWN_DIPLOID_ALLELE;
+		System.out.println("Starting exportCrossoverPositions.");
+		File genoFile = new File(parentcallFilename);
+		FileLoadPlugin flp = new FileLoadPlugin(null, false);
+		flp.setTheFileType(TasselFileType.Unknown);
+		flp.setOpenFiles(new File[]{genoFile});
+		GenotypeTable myGeno =  (GenotypeTable) flp.performFunction(null).getData(0).getData();
+
+		int ntaxa = myGeno.numberOfTaxa();
+		int nsites = myGeno.numberOfSites();
+		
+		byte[] prevGeno = myGeno.genotypeAllTaxa(0);
+		Chromosome currChrom = myGeno.chromosome(0);
+		int[] startpos = new int[nsites];
+		
+		try {
+			PrintWriter pwMom = new PrintWriter(outputMomFilename);
+			PrintWriter pwDad = new PrintWriter(outputDadFilename);
+			pwMom.println("taxon\tchr\tstart\tend");
+			pwDad.println("taxon\tchr\tstart\tend");
+			for (int s = 1; s < nsites; s++) {
+				if (currChrom != myGeno.chromosome(s)) {
+					currChrom = myGeno.chromosome(s);
+					prevGeno = myGeno.genotypeAllTaxa(s);
+				} else {
+					byte[] siteGeno = myGeno.genotypeAllTaxa(s);
+					for (int t = 0; t < ntaxa; t++) {
+						if (prevGeno[t] == NN) {
+							prevGeno[t] = siteGeno[t];
+							startpos[t] = myGeno.chromosomalPosition(s);
+						}
+						else if (siteGeno[t] == NN) {
+							//do nothing
+						} else {
+							if (siteGeno[t] != prevGeno[t]) {
+								//record a crossover
+								if (siteGeno[t] == AA) {
+									if (prevGeno[t] == CC) pwDad.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+									else if (prevGeno[t] == GG) pwMom.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+									else if (prevGeno[t] == TT) {
+										pwDad.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+										pwMom.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+									}
+								} else if (siteGeno[t] == CC) {
+									if (prevGeno[t] == AA) pwDad.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+									else if (prevGeno[t] == TT) pwMom.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+									else if (prevGeno[t] == GG) {
+										pwDad.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+										pwMom.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+									}
+								} else if (siteGeno[t] == GG) {
+									if (prevGeno[t] == TT) pwDad.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+									else if (prevGeno[t] == AA) pwMom.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+									else if (prevGeno[t] == CC) {
+										pwDad.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+										pwMom.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+									}
+								} else if (siteGeno[t] == TT) {
+									if (prevGeno[t] == GG) pwDad.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+									else if (prevGeno[t] == CC) pwMom.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+									else if (prevGeno[t] == AA) {
+										pwDad.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+										pwMom.printf("%s\t%s\t%d\t%d%n", myGeno.taxaName(t), currChrom.getName(), startpos[t], myGeno.chromosomalPosition(s));
+									}
+								}
+								
+								prevGeno[t] = siteGeno[t];
+							}
+							startpos[t] = myGeno.chromosomalPosition(s);
+						}
+					}
+				}
+			}
+			pwMom.close();
+			pwDad.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+			System.exit(-1);
+		}
+		
+		System.out.println("Finished exporting crossover positions.");
+	}
+	
 }
 
