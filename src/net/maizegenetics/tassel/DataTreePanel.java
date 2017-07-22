@@ -530,10 +530,10 @@ public class DataTreePanel extends JPanel implements PluginListener {
     }
 
     private int getInsertLocation(DefaultMutableTreeNode node, String newNode) {
-        Enumeration<DefaultMutableTreeNode> children = node.children();
+        Enumeration<TreeNode> children = node.children();
         int result = 0;
         while (children.hasMoreElements()) {
-            DefaultMutableTreeNode currentNode = children.nextElement();
+            DefaultMutableTreeNode currentNode = (DefaultMutableTreeNode) children.nextElement();
             Datum current = (Datum) currentNode.getUserObject();
             if (current.getName().compareTo(newNode) > 0) {
                 break;
