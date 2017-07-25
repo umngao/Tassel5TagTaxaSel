@@ -5,11 +5,8 @@ package net.maizegenetics.analysis.gbs.v2;
 
 import java.awt.Frame;
 import java.io.BufferedWriter;
-import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Set;
 
 import javax.swing.ImageIcon;
@@ -67,24 +64,37 @@ public class GetTagTaxaDistFromDBPlugin extends AbstractPlugin {
                 strB.append(item.getName());
             });
             strB.append("\n");
-       
+            int mySelTags[] = {1,3,5,7};
             Set<Tag> myTags = tdw.getTags();
+            		
             int tagcount = 0;
             for (Tag myTag: myTags) {
-                tagcount++;
-                // get dist for each taxa
-                TaxaDistribution tagTD = tdw.getTaxaDistribution(myTag);
-                if (tagTD == null) {
-                    System.out.println("GetTagTaxaDist: got null tagTD at tagcount " + tagcount);
-                    return null;
-                }
-                int[] depths = tagTD.depths(); // gives us the depths for each taxon
-                strB.append(myTag.sequence());
-                for (int idx = 0; idx < depths.length; idx++) {
-                    strB.append("\t"); 
-                    strB.append(depths[idx]);  // add tag depth                     
-                }
-                strB.append("\n"); // end of line - start next tag
+                //System.out.println(myTag.toString());
+            	tagcount++;
+            	boolean eff = false;
+	            for (int j=0;j<mySelTags.length;j++){
+	            	if (tagcount == mySelTags[j]) {
+	            		eff = true;
+	            		break;
+	            	}
+	            }
+	            if (eff) {
+	                // get dist for each taxa
+	                TaxaDistribution tagTD = tdw.getTaxaDistribution(myTag);
+	                if (tagTD == null) {
+	                    System.out.println("GetTagTaxaDist: got null tagTD at tagcount " + tagcount);
+	                    return null;
+	                }
+	                int[] depths = tagTD.depths(); // gives us the depths for each taxon
+	                strB.append(myTag.sequence());
+	                for (int idx = 0; idx < depths.length; idx++) {
+	                    // if (idx == 1 || idx == 3 || idx == 100) {
+	                    strB.append("\t"); 
+	                    strB.append(depths[idx]);  // add tag depth                     
+	                    // }
+	                }
+	                strB.append("\n"); // end of line - start next tag
+	            }
             }
             try {  
                 fileWriter = new BufferedWriter(new FileWriter(outputFile()));
