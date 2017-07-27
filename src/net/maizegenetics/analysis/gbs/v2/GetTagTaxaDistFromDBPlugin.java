@@ -35,9 +35,11 @@ public class GetTagTaxaDistFromDBPlugin extends AbstractPlugin {
 
     private PluginParameter<String> myDBFile = new PluginParameter.Builder<String>("db", null, String.class).guiName("Input DB").required(true).inFile()
             .description("Input database file with tags").build();
+    private PluginParameter<String> myTagFile = new PluginParameter.Builder<String>("seltags", null, String.class).guiName("Seltags File").required(true).inFile()
+            .description("Input selected tags file with tags id in 2nd column").build();
     private PluginParameter<String> myOutputFile = new PluginParameter.Builder<String>("o", null, String.class).guiName("Output File").required(true).outFile()
             .description("Output txt file that can be imported to Excel").build();
-
+    
     public GetTagTaxaDistFromDBPlugin() {
         super(null, false);
     }
