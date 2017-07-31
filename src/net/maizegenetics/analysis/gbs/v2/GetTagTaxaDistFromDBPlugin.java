@@ -101,6 +101,7 @@ public class GetTagTaxaDistFromDBPlugin extends AbstractPlugin {
         	tagFileReader = new BufferedReader(new FileReader(new File(inputTagFile())));
         	// Read the header of the tagFile
         	tagFileReader.readLine();
+        	srcline = 0;
         	while ((tempString = tagFileReader.readLine()) != null) {
         		StringTokenizer token=new StringTokenizer(tempString,"\t");
         		String[] array=new String[token.countTokens()];
