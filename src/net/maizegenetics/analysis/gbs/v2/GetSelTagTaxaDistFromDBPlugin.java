@@ -65,7 +65,7 @@ public class GetSelTagTaxaDistFromDBPlugin extends AbstractPlugin {
         // Create a reader to read the TagFile
         BufferedReader tagFileReader = null;
         try {
-            BufferedWriter fileWriter = null;
+        	BufferedWriter fileWriter = new BufferedWriter(new FileWriter(outputFile()));
             StringBuilder strB = new StringBuilder();
             TaxaList taxaList = tdw.getTaxaList(); // Used for printing taxon column headers
             strB.append("Tag");
@@ -74,6 +74,8 @@ public class GetSelTagTaxaDistFromDBPlugin extends AbstractPlugin {
                 strB.append(item.getName());
             });
             strB.append("\n");
+            fileWriter.write(strB.toString());
+            strB.setLength(0);
             // Start to read the selected tagID from the tagFile
             tagFileReader = new BufferedReader(new FileReader(new File(inputTagFile())));
             String tempString = null;
@@ -105,7 +107,6 @@ public class GetSelTagTaxaDistFromDBPlugin extends AbstractPlugin {
         		if (Integer.parseInt(array[tagColumn])>=1)
         			srcline++;
         	}
-        	// System.out.println("Total tags: "+srcline);
         	tagFileReader.close();
         	// Initialize mySelTags
         	int mySelTags[] = new int[srcline];
@@ -132,7 +133,6 @@ public class GetSelTagTaxaDistFromDBPlugin extends AbstractPlugin {
             Set<Tag> myTags = tdw.getTags();            		
             int tagcount = 0;
             for (Tag myTag: myTags) {
-                //System.out.println(myTag.toString());
             	tagcount++;
             	boolean eff = false;
 	            for (int j=0;j<mySelTags.length;j++){
@@ -157,21 +157,16 @@ public class GetSelTagTaxaDistFromDBPlugin extends AbstractPlugin {
 	                    // }
 	                }
 	                strB.append("\n"); // end of line - start next tag
+	                fileWriter.write(strB.toString());
+	                strB.setLength(0);
 	            }
-            }
-            try {  
-                fileWriter = new BufferedWriter(new FileWriter(outputFile()));
-                fileWriter.write(strB.toString());
-            }
-            catch(IOException e) {
-                myLogger.error("Caught Exception writing to outputFile " + outputFile());
-                System.out.println(e);
             }
             fileWriter.close();
             ((TagDataSQLite)tdw).close();  
             myLogger.info("TagsTaxaDistToTabDelim: Finished writing TaxaDistribution \n");
         } catch (Exception exc) {
             myLogger.error("TagsTaxaDistToTabDelim: caught error " + exc);
+            myLogger.error("Caught Exception writing to outputFile " + outputFile());
             exc.printStackTrace();
         }
         return null;       
