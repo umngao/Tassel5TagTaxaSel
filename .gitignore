@@ -5,5 +5,4 @@ build
 .idea
 classes
 /bin/
-*.jar
 
