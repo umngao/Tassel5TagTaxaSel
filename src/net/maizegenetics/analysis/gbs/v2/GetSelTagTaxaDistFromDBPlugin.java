@@ -68,7 +68,7 @@ public class GetSelTagTaxaDistFromDBPlugin extends AbstractPlugin {
         	BufferedWriter fileWriter = new BufferedWriter(new FileWriter(outputFile()));
             StringBuilder strB = new StringBuilder();
             TaxaList taxaList = tdw.getTaxaList(); // Used for printing taxon column headers
-            strB.append("Tag");
+            strB.append("Tags");
             taxaList.stream().forEach(item -> { // column names are the taxon names
                 strB.append("\t");
                 strB.append(item.getName());
@@ -76,91 +76,98 @@ public class GetSelTagTaxaDistFromDBPlugin extends AbstractPlugin {
             strB.append("\n");
             fileWriter.write(strB.toString());
             strB.setLength(0);
-            // Start to read the selected tagID from the tagFile
+            // Start to read the selected tag sequence from the tagFile
             tagFileReader = new BufferedReader(new FileReader(new File(inputTagFile())));
             String tempString = null;
         	int srcline = 0;
         	int i = 0;
-        	// Read the header of the tagFile and get the "tagid" column
+        	// Read the header of the tagFile and get the "Tags" column
         	tempString = tagFileReader.readLine();
         	StringTokenizer tokenHeader = new StringTokenizer(tempString,"\t");
         	String[] header = new String[tokenHeader.countTokens()];
         	i=0;
         	int tagColumn = 0;
+        	boolean tagExist = false;
     		while(tokenHeader.hasMoreTokens()){
     			header[i]=tokenHeader.nextToken();
-    			if (header[i].equalsIgnoreCase("tagid")) {
+    			if (header[i].equalsIgnoreCase("Tags")) {
     				tagColumn = i;
+    				tagExist = true;
     				break;
     			}
     			i++;
     		}
-        	// Read each line to get the total tag number
-        	while ((tempString = tagFileReader.readLine()) != null) {
-        		StringTokenizer token=new StringTokenizer(tempString,"\t");
-        		String[] array=new String[token.countTokens()];
-        		i=0;
-        		while(token.hasMoreTokens()){
-        			array[i]=token.nextToken();
-        			i++;
-        		}
-        		if (Integer.parseInt(array[tagColumn])>=1)
-        			srcline++;
-        	}
-        	tagFileReader.close();
-        	// Initialize mySelTags
-        	int mySelTags[] = new int[srcline];
-        	// Get each Tag ID and generate mySelTags array
-        	tagFileReader = new BufferedReader(new FileReader(new File(inputTagFile())));
-        	// Read the header of the tagFile
-        	tagFileReader.readLine();
-        	srcline = 0;
-        	while ((tempString = tagFileReader.readLine()) != null) {
-        		StringTokenizer token=new StringTokenizer(tempString,"\t");
-        		String[] array=new String[token.countTokens()];
-        		i=0;
-        		while(token.hasMoreTokens()){
-        			array[i]=token.nextToken();
-        			i++;
-        		}
-        		if (Integer.parseInt(array[tagColumn])>=1) {
-        			mySelTags[srcline] = Integer.parseInt(array[tagColumn]);
-        			srcline++;
-        		}
-        	}
-        	tagFileReader.close();
-            // End of generate the mySelTags array
-            Set<Tag> myTags = tdw.getTags();            		
-            int tagcount = 0;
-            for (Tag myTag: myTags) {
-            	tagcount++;
-            	boolean eff = false;
-	            for (int j=0;j<mySelTags.length;j++){
-	            	if (tagcount == mySelTags[j]) {
-	            		eff = true;
-	            		break;
-	            	}
-	            }
-	            if (eff) {
-	                // get dist for each taxa
-	                TaxaDistribution tagTD = tdw.getTaxaDistribution(myTag);
-	                if (tagTD == null) {
-	                    System.out.println("GetTagTaxaDist: got null tagTD at tagcount " + tagcount);
-	                    return null;
-	                }
-	                int[] depths = tagTD.depths(); // gives us the depths for each taxa
-	                strB.append(myTag.sequence());
-	                for (int idx = 0; idx < depths.length; idx++) {
-	                    // if (idx == 1 || idx == 3 || idx == 100) {
-	                    strB.append("\t"); 
-	                    strB.append(depths[idx]);  // add tag depth                     
-	                    // }
-	                }
-	                strB.append("\n"); // end of line - start next tag
-	                fileWriter.write(strB.toString());
-	                strB.setLength(0);
-	            }
-            }
+    		if (!tagExist) {
+    			System.out.println("Column - Tags - not found! Program terminated.");
+    			tagFileReader.close();
+    		} else {
+		        // Read each line to get the total tag number
+	    		while ((tempString = tagFileReader.readLine()) != null) {
+	    			StringTokenizer token=new StringTokenizer(tempString,"\t");
+	    			String[] array=new String[token.countTokens()];
+	    			i=0;
+	    			while(token.hasMoreTokens()){
+	    				array[i]=token.nextToken();
+	    				i++;
+	    			}
+	    			if (array[tagColumn] != null)
+	    				srcline++;
+	    		}
+	    		tagFileReader.close();
+	    		// Initialize mySelTags
+	    		String mySelTags[] = new String[srcline];
+	    		// Get each tag's sequence and generate mySelTags array
+	    		tagFileReader = new BufferedReader(new FileReader(new File(inputTagFile())));
+	    		// Read the header of the tagFile
+	    		tagFileReader.readLine();
+	    		srcline = 0;
+	    		while ((tempString = tagFileReader.readLine()) != null) {
+	    			StringTokenizer token=new StringTokenizer(tempString,"\t");
+	    			String[] array=new String[token.countTokens()];
+	    			i=0;
+	    			while(token.hasMoreTokens()){
+	    				array[i]=token.nextToken();
+	    				i++;
+	    			}
+	    			if (array[tagColumn] != null) {
+	    				mySelTags[srcline] = array[tagColumn];
+	    				srcline++;
+	    			}
+	    		}
+	    		tagFileReader.close();
+	    		// End of generate the mySelTags array
+	    		String tempSeq = null;
+	    		Set<Tag> myTags = tdw.getTags();            		
+	    		int tagcount = 0;
+	    		for (Tag myTag: myTags) {
+	    			tagcount++;
+	    			boolean eff = false;
+	    			tempSeq = myTag.sequence();
+	    			for (int j=0;j<mySelTags.length;j++){
+	    				if (tempSeq.equalsIgnoreCase(mySelTags[j])) {
+	    					eff = true;
+	    					break;
+	    				}
+	    			}
+	    			if (eff) {
+	    				// get dist for each taxa
+	    				TaxaDistribution tagTD = tdw.getTaxaDistribution(myTag);
+	    				if (tagTD == null) {
+	    					System.out.println("GetTagTaxaDist: got null tagTD at tagcount " + tagcount);
+	    					return null;
+	    				}
+	    				int[] depths = tagTD.depths(); // gives us the depths for each taxa
+	    				strB.append(myTag.sequence());
+	    				for (int idx = 0; idx < depths.length; idx++) {
+	    					strB.append("\t"); 
+	    					strB.append(depths[idx]);  // add tag depth                     
+	    				}
+	    				strB.append("\n"); // end of line - start next tag
+	    				fileWriter.write(strB.toString());
+	    				strB.setLength(0);
+	    			}
+	    		}
+    		}
             fileWriter.close();
             ((TagDataSQLite)tdw).close();  
             myLogger.info("TagsTaxaDistToTabDelim: Finished writing TaxaDistribution \n");
