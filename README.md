@@ -21,6 +21,15 @@ where $sqlite_db points to the database file of your GBS pipeline
 
 By running this GetSelTagTaxaDistFromDBPlugin, users can save hours or days of compute time, and terabites of storage space for large breeding datasets.
 
+### Note: Important Updates: The functionality of this modified plugin is now incorporated into an official TASSEL BUILD v5.2.66 (Oct 29, 2020)
+Users need to change the pluginname back to its original:  GetTagTaxaDistFromDBPlugin, and change "-tg" flag to "-tagFile".
+
+
+
+### Credits and Acknowledgements
+Dr. Xu Wang (K-STATE) developed the original code. Lynn Johnson of Dr. Ed. Buckler Lab (Cornell) incorporated this functionality into an official TASSEL Build..
+We also thank Terry Casstevens and Peter Bradbury of Ed Buckler group for communications and virtual meetings to incorporate this functionality into new TASSEL.
+We also thank Drs. Narinder Singh and Jesse Poland (K-State) on suggestions of using this plugin to do introgression prediction.
 
 
 
